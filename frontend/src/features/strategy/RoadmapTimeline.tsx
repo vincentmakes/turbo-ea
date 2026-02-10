@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import { MaterialSymbol } from "../../components/MaterialSymbol";
 import { api } from "../../api/client";
-import { FACT_SHEET_TYPE_ICONS, FACT_SHEET_TYPE_LABELS } from "../../types/fact-sheet";
+import { FACT_SHEET_TYPE_ICONS } from "../../types/fact-sheet";
 
 interface RoadmapEvent {
   id: string;

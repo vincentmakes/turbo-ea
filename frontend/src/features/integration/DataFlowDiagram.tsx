@@ -34,11 +34,6 @@ interface FlowGraph {
   stats: Record<string, number>;
 }
 
-const ROLE_COLORS = {
-  provides: "#2e7d32",
-  consumes: "#1565c0",
-};
-
 export default function DataFlowDiagram() {
   const navigate = useNavigate();
   const [graph, setGraph] = useState<FlowGraph>({ nodes: [], edges: [], stats: {} });
@@ -67,7 +62,6 @@ export default function DataFlowDiagram() {
     )
   );
 
-  const appNodes = graph.nodes.filter((n) => n.type === "application");
   const ifaceNodes = graph.nodes.filter((n) => n.type === "interface");
 
   // Build connections: for each interface, find provider and consumers
