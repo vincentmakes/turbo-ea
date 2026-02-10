@@ -76,7 +76,7 @@ export default function AppLayout() {
             <MaterialSymbol icon="menu" />
           </IconButton>
           <Typography variant="h6" noWrap sx={{ fontWeight: 700, letterSpacing: "0.5px" }}>
-            EA Turbo
+            Turbo EA
           </Typography>
         </Toolbar>
       </AppBar>

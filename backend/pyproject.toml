@@ -1,7 +1,7 @@
 [project]
-name = "ea-turbo-backend"
+name = "turbo-ea-backend"
 version = "0.1.0"
-description = "EA Turbo - Enterprise Architecture Management API"
+description = "Turbo EA - Enterprise Architecture Management API"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

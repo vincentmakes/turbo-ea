@@ -31,14 +31,14 @@ async def init_db() -> None:
         result = await session.execute(select(User).limit(1))
         if result.scalar_one_or_none() is None:
             admin = User(
-                email="admin@eaturbo.local",
+                email="admin@turboea.local",
                 hashed_password=hash_password("admin123"),
                 full_name="Admin",
                 role=UserRole.ADMIN,
             )
             session.add(admin)
             await session.commit()
-            logger.info("Default admin user created (admin@eaturbo.local / admin123)")
+            logger.info("Default admin user created (admin@turboea.local / admin123)")
 
 
 async def _on_fact_sheet_changed(event: dict) -> None:

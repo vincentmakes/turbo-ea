@@ -2,11 +2,11 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "EA Turbo"
+    PROJECT_NAME: str = "Turbo EA"
     VERSION: str = "0.1.0"
     API_V1_PREFIX: str = "/api/v1"
 
-    DATABASE_URL: str = "postgresql+asyncpg://eaturbo:changeme@localhost:5432/eaturbo"
+    DATABASE_URL: str = "postgresql+asyncpg://turboea:changeme@localhost:5432/turboea"
 
     SECRET_KEY: str = "dev-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
