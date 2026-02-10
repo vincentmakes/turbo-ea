@@ -1,47 +1,84 @@
-import { Routes, Route } from "react-router-dom";
-import AppLayout from "./layouts/AppLayout";
-import Dashboard from "./features/dashboard/Dashboard";
-import FactSheetGrid from "./features/fact-sheets/FactSheetGrid";
-import FactSheetDetail from "./features/fact-sheets/FactSheetDetail";
-import CapabilityMap from "./features/capabilities/CapabilityMap";
-import TechRadar from "./features/technology/TechRadar";
-import RiskMatrix from "./features/technology/RiskMatrix";
-import ProviderDirectory from "./features/technology/ProviderDirectory";
-import DataFlowDiagram from "./features/integration/DataFlowDiagram";
-import CrudMatrix from "./features/integration/CrudMatrix";
-import InterfaceCircleMap from "./features/integration/InterfaceCircleMap";
-import InitiativeKanban from "./features/strategy/InitiativeKanban";
-import RoadmapTimeline from "./features/strategy/RoadmapTimeline";
-import TimeModel from "./features/strategy/TimeModel";
-import Traceability from "./features/strategy/Traceability";
-import LandscapeReport from "./features/reports/LandscapeReport";
-import MatrixReport from "./features/reports/MatrixReport";
-import Settings from "./features/settings/Settings";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import CssBaseline from "@mui/material/CssBaseline";
+import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { useAuth } from "@/hooks/useAuth";
+import AppLayout from "@/layouts/AppLayout";
+import LoginPage from "@/features/auth/LoginPage";
+import Dashboard from "@/features/dashboard/Dashboard";
+import InventoryPage from "@/features/inventory/InventoryPage";
+import FactSheetDetail from "@/features/fact-sheets/FactSheetDetail";
+import LandscapeReport from "@/features/reports/LandscapeReport";
+import PortfolioReport from "@/features/reports/PortfolioReport";
+import MatrixReport from "@/features/reports/MatrixReport";
+import RoadmapReport from "@/features/reports/RoadmapReport";
+import CostReport from "@/features/reports/CostReport";
+import DiagramsPage from "@/features/diagrams/DiagramsPage";
+import DiagramEditor from "@/features/diagrams/DiagramEditor";
+import TodosPage from "@/features/todos/TodosPage";
+import MetamodelAdmin from "@/features/admin/MetamodelAdmin";
+import TagsAdmin from "@/features/admin/TagsAdmin";
+import UsersAdmin from "@/features/admin/UsersAdmin";
+import CircularProgress from "@mui/material/CircularProgress";
+import Box from "@mui/material/Box";
 
-function App() {
+const theme = createTheme({
+  typography: {
+    fontFamily: "'Inter', sans-serif",
+  },
+  palette: {
+    primary: { main: "#1976d2" },
+  },
+  components: {
+    MuiCard: {
+      defaultProps: { variant: "outlined" },
+    },
+  },
+});
+
+export default function App() {
+  const { user, loading, login, register, logout } = useAuth();
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <LoginPage onLogin={login} onRegister={register} />
+      </ThemeProvider>
+    );
+  }
+
   return (
-    <Routes>
-      <Route path="/" element={<AppLayout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="fact-sheets" element={<FactSheetGrid />} />
-        <Route path="fact-sheets/:id" element={<FactSheetDetail />} />
-        <Route path="capability-map" element={<CapabilityMap />} />
-        <Route path="tech-radar" element={<TechRadar />} />
-        <Route path="risk-matrix" element={<RiskMatrix />} />
-        <Route path="providers" element={<ProviderDirectory />} />
-        <Route path="data-flow" element={<DataFlowDiagram />} />
-        <Route path="crud-matrix" element={<CrudMatrix />} />
-        <Route path="interface-map" element={<InterfaceCircleMap />} />
-        <Route path="initiative-board" element={<InitiativeKanban />} />
-        <Route path="roadmap" element={<RoadmapTimeline />} />
-        <Route path="time-model" element={<TimeModel />} />
-        <Route path="traceability" element={<Traceability />} />
-        <Route path="landscape-report" element={<LandscapeReport />} />
-        <Route path="matrix-report" element={<MatrixReport />} />
-        <Route path="settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <BrowserRouter>
+        <AppLayout user={user} onLogout={logout}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/fact-sheets/:id" element={<FactSheetDetail />} />
+            <Route path="/reports/landscape" element={<LandscapeReport />} />
+            <Route path="/reports/portfolio" element={<PortfolioReport />} />
+            <Route path="/reports/matrix" element={<MatrixReport />} />
+            <Route path="/reports/roadmap" element={<RoadmapReport />} />
+            <Route path="/reports/cost" element={<CostReport />} />
+            <Route path="/diagrams" element={<DiagramsPage />} />
+            <Route path="/diagrams/:id" element={<DiagramEditor />} />
+            <Route path="/todos" element={<TodosPage />} />
+            <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
+            <Route path="/admin/tags" element={<TagsAdmin />} />
+            <Route path="/admin/users" element={<UsersAdmin />} />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </AppLayout>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
-
-export default App;

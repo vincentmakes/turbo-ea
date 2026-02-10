@@ -1,64 +1,59 @@
-import base64
+from __future__ import annotations
+
 import hashlib
 import hmac
 import json
-from datetime import datetime, timedelta
+import time
+import uuid
+from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 import bcrypt
 
 from app.config import settings
 
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+def _b64encode(data: bytes) -> str:
+    return urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+def _b64decode(data: str) -> bytes:
+    padding = 4 - len(data) % 4
+    return urlsafe_b64decode(data + "=" * padding)
 
 
-def _b64url_encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+def create_access_token(user_id: uuid.UUID, role: str = "member") -> str:
+    header = _b64encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
+    now = int(time.time())
+    payload_dict = {
+        "sub": str(user_id),
+        "role": role,
+        "iat": now,
+        "exp": now + settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    }
+    payload = _b64encode(json.dumps(payload_dict).encode())
+    sig_input = f"{header}.{payload}".encode()
+    sig = _b64encode(hmac.new(settings.SECRET_KEY.encode(), sig_input, hashlib.sha256).digest())
+    return f"{header}.{payload}.{sig}"
 
 
-def _b64url_decode(s: str) -> bytes:
-    s += "=" * (4 - len(s) % 4)
-    return base64.urlsafe_b64decode(s)
-
-
-def create_access_token(subject: str) -> str:
-    header = _b64url_encode(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload_data = {"sub": subject, "exp": int(expire.timestamp())}
-    payload = _b64url_encode(json.dumps(payload_data).encode())
-    signing_input = f"{header}.{payload}"
-    signature = hmac.new(
-        settings.SECRET_KEY.encode(), signing_input.encode(), hashlib.sha256
-    ).digest()
-    return f"{signing_input}.{_b64url_encode(signature)}"
-
-
-def decode_access_token(token: str) -> str | None:
+def decode_access_token(token: str) -> dict | None:
     try:
-        parts = token.split(".")
-        if len(parts) != 3:
+        header, payload, sig = token.split(".")
+        sig_input = f"{header}.{payload}".encode()
+        expected = hmac.new(settings.SECRET_KEY.encode(), sig_input, hashlib.sha256).digest()
+        if not hmac.compare_digest(_b64decode(sig), expected):
             return None
-
-        signing_input = f"{parts[0]}.{parts[1]}"
-        expected_sig = hmac.new(
-            settings.SECRET_KEY.encode(), signing_input.encode(), hashlib.sha256
-        ).digest()
-        actual_sig = _b64url_decode(parts[2])
-
-        if not hmac.compare_digest(expected_sig, actual_sig):
+        data = json.loads(_b64decode(payload))
+        if data.get("exp", 0) < time.time():
             return None
-
-        payload_data = json.loads(_b64url_decode(parts[1]))
-
-        if "exp" in payload_data:
-            if datetime.utcnow().timestamp() > payload_data["exp"]:
-                return None
-
-        return payload_data.get("sub")
+        return data
     except Exception:
         return None
+
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(password.encode(), hashed.encode())

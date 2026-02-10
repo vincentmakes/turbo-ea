@@ -1,40 +1,58 @@
-import uuid
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sse_starlette.sse import EventSourceResponse
 
 from app.database import get_db
-from app.models.event import EventType
-from app.schemas.event import EventList
+from app.models.event import Event
 from app.services.event_bus import event_bus
-from app.services.event_service import get_events
 
-router = APIRouter()
+router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("/stream")
 async def event_stream(request: Request):
-    """SSE endpoint for real-time event streaming to clients."""
-    sub_id, queue = event_bus.subscribe()
-
     async def generate():
-        async for data in event_bus.stream(sub_id, queue):
+        async for data in event_bus.subscribe():
             if await request.is_disconnected():
                 break
             yield data
 
-    return EventSourceResponse(generate())
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
-@router.get("", response_model=EventList)
+@router.get("")
 async def list_events(
-    entity_type: str | None = None,
-    entity_id: uuid.UUID | None = None,
-    event_type: EventType | None = None,
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
+    fact_sheet_id: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
-    items, total = await get_events(db, entity_type, entity_id, event_type, limit, offset)
-    return EventList(items=items, total=total)
+    q = select(Event).order_by(Event.created_at.desc())
+    if fact_sheet_id:
+        import uuid as _uuid
+        q = q.where(Event.fact_sheet_id == _uuid.UUID(fact_sheet_id))
+    q = q.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(q)
+    return [
+        {
+            "id": str(e.id),
+            "fact_sheet_id": str(e.fact_sheet_id) if e.fact_sheet_id else None,
+            "event_type": e.event_type,
+            "data": e.data,
+            "user_id": str(e.user_id) if e.user_id else None,
+            "user_display_name": e.user.display_name if e.user else None,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in result.scalars().all()
+    ]
