@@ -41,6 +41,8 @@ import {
   BUSINESS_CRITICALITY_OPTIONS,
   SUITABILITY_OPTIONS,
   QUALITY_SEAL_OPTIONS,
+  IT_COMPONENT_CATEGORY_OPTIONS,
+  RESOURCE_CLASSIFICATION_OPTIONS,
 } from "../../types/fact-sheet";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -140,6 +142,31 @@ function SuitabilityCellRenderer(params: { value: string | undefined }) {
       }}
     >
       {params.value}
+    </span>
+  );
+}
+
+function ResourceClassRenderer(params: { value: string | undefined }) {
+  if (!params.value) return null;
+  const colors: Record<string, string> = {
+    standard: "#2e7d32",
+    non_standard: "#e65100",
+    phasing_out: "#b71c1c",
+  };
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "2px 10px",
+        borderRadius: 12,
+        fontSize: 12,
+        fontWeight: 500,
+        backgroundColor: `${colors[params.value] || "#9e9e9e"}18`,
+        color: colors[params.value] || "#9e9e9e",
+        textTransform: "capitalize",
+      }}
+    >
+      {params.value.replace("_", " ")}
     </span>
   );
 }
@@ -297,6 +324,37 @@ export default function FactSheetGrid() {
           return true;
         },
         hide: !!typeFilter && !appTypes.has(typeFilter),
+      },
+      {
+        headerName: "Category",
+        field: "attributes.category",
+        width: 140,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: IT_COMPONENT_CATEGORY_OPTIONS },
+        valueGetter: (params) => params.data?.attributes?.category,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.category = params.newValue;
+          return true;
+        },
+        hide: typeFilter !== "it_component",
+      },
+      {
+        headerName: "Resource Class.",
+        field: "attributes.resource_classification",
+        width: 155,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: RESOURCE_CLASSIFICATION_OPTIONS },
+        valueGetter: (params) => params.data?.attributes?.resource_classification,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.resource_classification = params.newValue;
+          return true;
+        },
+        cellRenderer: ResourceClassRenderer,
+        hide: typeFilter !== "it_component",
       },
       {
         headerName: "Lifecycle",
@@ -518,6 +576,16 @@ export default function FactSheetGrid() {
       options: SUITABILITY_OPTIONS,
     },
     { value: "quality_seal", label: "Quality Seal", options: QUALITY_SEAL_OPTIONS },
+    {
+      value: "attributes.category",
+      label: "IT Category",
+      options: IT_COMPONENT_CATEGORY_OPTIONS,
+    },
+    {
+      value: "attributes.resource_classification",
+      label: "Resource Classification",
+      options: RESOURCE_CLASSIFICATION_OPTIONS,
+    },
   ];
 
   const currentBulkOptions = bulkFieldOptions.find((f) => f.value === bulkField)?.options || [];

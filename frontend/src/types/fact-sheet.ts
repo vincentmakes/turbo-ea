@@ -94,3 +94,20 @@ export const SUITABILITY_OPTIONS = [
 ] as const;
 
 export const QUALITY_SEAL_OPTIONS = ["approved", "broken", "n_a"] as const;
+
+// IT Component specific
+export const IT_COMPONENT_CATEGORY_OPTIONS = [
+  "SaaS",
+  "IaaS",
+  "PaaS",
+  "Hardware",
+  "Service",
+  "DBMS",
+  "OS",
+] as const;
+
+export const RESOURCE_CLASSIFICATION_OPTIONS = [
+  "standard",
+  "non_standard",
+  "phasing_out",
+] as const;

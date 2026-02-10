@@ -30,6 +30,17 @@ TYPE_FIELDS: dict[FactSheetType, list[str]] = {
     ],
     FactSheetType.PROVIDER: [
         "description",
+        "attributes.website",
+    ],
+    FactSheetType.TECH_CATEGORY: [
+        "description",
+    ],
+    FactSheetType.DATA_OBJECT: [
+        "description",
+    ],
+    FactSheetType.PLATFORM: [
+        "description",
+        "lifecycle",
     ],
     FactSheetType.INTERFACE: [
         "description",

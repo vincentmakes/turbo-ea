@@ -17,7 +17,7 @@ import {
 import { MaterialSymbol } from "../../components/MaterialSymbol";
 import { api } from "../../api/client";
 import { useEventStream } from "../../hooks/useEventStream";
-import type { FactSheet, FactSheetType } from "../../types/fact-sheet";
+import type { FactSheetType } from "../../types/fact-sheet";
 
 interface TreeNode {
   id: string;
