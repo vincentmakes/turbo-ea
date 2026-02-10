@@ -111,3 +111,29 @@ export const RESOURCE_CLASSIFICATION_OPTIONS = [
   "non_standard",
   "phasing_out",
 ] as const;
+
+// Interface specific
+export const INTERFACE_FREQUENCY_OPTIONS = [
+  "real_time",
+  "daily",
+  "weekly",
+  "monthly",
+  "on_demand",
+] as const;
+
+export const INTERFACE_FORMAT_OPTIONS = [
+  "JSON",
+  "XML",
+  "CSV",
+  "binary",
+  "other",
+] as const;
+
+export const INTERFACE_PROTOCOL_OPTIONS = [
+  "REST",
+  "SOAP",
+  "GraphQL",
+  "gRPC",
+  "FTP",
+  "MQ",
+] as const;

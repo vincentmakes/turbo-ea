@@ -39,7 +39,10 @@ const navItems: NavItem[] = [
   { label: "Capability Map", icon: "map", path: "/capability-map" },
   { label: "Tech Radar", icon: "radar", path: "/tech-radar" },
   { label: "Risk Matrix", icon: "warning", path: "/risk-matrix" },
-  { label: "Providers", icon: "storefront", path: "/providers" },
+  { label: "Provider Costs", icon: "payments", path: "/providers" },
+  { label: "Data Flow", icon: "device_hub", path: "/data-flow" },
+  { label: "Interface Map", icon: "bubble_chart", path: "/interface-map" },
+  { label: "CRUD Matrix", icon: "grid_on", path: "/crud-matrix" },
   { label: "All Fact Sheets", icon: "list", path: "/fact-sheets" },
 ];
 

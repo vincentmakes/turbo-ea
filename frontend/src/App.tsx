@@ -7,6 +7,9 @@ import CapabilityMap from "./features/capabilities/CapabilityMap";
 import TechRadar from "./features/technology/TechRadar";
 import RiskMatrix from "./features/technology/RiskMatrix";
 import ProviderDirectory from "./features/technology/ProviderDirectory";
+import DataFlowDiagram from "./features/integration/DataFlowDiagram";
+import CrudMatrix from "./features/integration/CrudMatrix";
+import InterfaceCircleMap from "./features/integration/InterfaceCircleMap";
 
 function App() {
   return (
@@ -19,6 +22,9 @@ function App() {
         <Route path="tech-radar" element={<TechRadar />} />
         <Route path="risk-matrix" element={<RiskMatrix />} />
         <Route path="providers" element={<ProviderDirectory />} />
+        <Route path="data-flow" element={<DataFlowDiagram />} />
+        <Route path="crud-matrix" element={<CrudMatrix />} />
+        <Route path="interface-map" element={<InterfaceCircleMap />} />
       </Route>
     </Routes>
   );

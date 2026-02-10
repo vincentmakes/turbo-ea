@@ -43,6 +43,9 @@ import {
   QUALITY_SEAL_OPTIONS,
   IT_COMPONENT_CATEGORY_OPTIONS,
   RESOURCE_CLASSIFICATION_OPTIONS,
+  INTERFACE_FREQUENCY_OPTIONS,
+  INTERFACE_FORMAT_OPTIONS,
+  INTERFACE_PROTOCOL_OPTIONS,
 } from "../../types/fact-sheet";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -355,6 +358,51 @@ export default function FactSheetGrid() {
         },
         cellRenderer: ResourceClassRenderer,
         hide: typeFilter !== "it_component",
+      },
+      {
+        headerName: "Protocol",
+        field: "attributes.transport_protocol",
+        width: 120,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: INTERFACE_PROTOCOL_OPTIONS },
+        valueGetter: (params) => params.data?.attributes?.transport_protocol,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.transport_protocol = params.newValue;
+          return true;
+        },
+        hide: typeFilter !== "interface",
+      },
+      {
+        headerName: "Frequency",
+        field: "attributes.frequency",
+        width: 120,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: INTERFACE_FREQUENCY_OPTIONS },
+        valueGetter: (params) => params.data?.attributes?.frequency,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.frequency = params.newValue;
+          return true;
+        },
+        hide: typeFilter !== "interface",
+      },
+      {
+        headerName: "Format",
+        field: "attributes.data_format",
+        width: 110,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: INTERFACE_FORMAT_OPTIONS },
+        valueGetter: (params) => params.data?.attributes?.data_format,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.data_format = params.newValue;
+          return true;
+        },
+        hide: typeFilter !== "interface",
       },
       {
         headerName: "Lifecycle",
