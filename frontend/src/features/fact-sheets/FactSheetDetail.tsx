@@ -19,6 +19,8 @@ import {
   FACT_SHEET_TYPE_LABELS,
   FACT_SHEET_TYPE_ICONS,
 } from "../../types/fact-sheet";
+import RelationsTab from "./RelationsTab";
+import HistoryTab from "./HistoryTab";
 
 export default function FactSheetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -189,25 +191,9 @@ export default function FactSheetDetail() {
         </Grid>
       )}
 
-      {tab === 1 && (
-        <Card>
-          <CardContent>
-            <Typography color="text.secondary">
-              Relations will be displayed here in Phase 2.
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+      {tab === 1 && <RelationsTab factSheet={fs} />}
 
-      {tab === 2 && (
-        <Card>
-          <CardContent>
-            <Typography color="text.secondary">
-              Event history will be displayed here.
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+      {tab === 2 && <HistoryTab factSheetId={fs.id} />}
     </Box>
   );
 }

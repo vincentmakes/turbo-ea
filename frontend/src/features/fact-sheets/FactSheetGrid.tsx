@@ -206,6 +206,11 @@ export default function FactSheetGrid() {
     }, [gridApi])
   );
 
+  // Types that should show application-specific columns
+  const appTypes = new Set<string>(["application"]);
+  const hierarchyTypes = new Set<string>(["business_capability", "organization"]);
+  const lifecycleTypes = new Set<string>(["application", "it_component", "interface", "platform"]);
+
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
       {
@@ -223,7 +228,6 @@ export default function FactSheetGrid() {
         width: 180,
         cellRenderer: TypeCellRenderer,
         filter: true,
-        // Hide type column when filtered to single type
         hide: !!typeFilter,
       },
       {
@@ -234,6 +238,17 @@ export default function FactSheetGrid() {
         cellEditor: "agSelectCellEditor",
         cellEditorParams: { values: ["active", "archived"] },
         cellRenderer: StatusCellRenderer,
+      },
+      {
+        headerName: "Description",
+        field: "description",
+        width: 200,
+        editable: true,
+        cellStyle: { color: "#666" },
+        valueFormatter: (params) => {
+          const v = params.value as string | null;
+          return v && v.length > 60 ? v.slice(0, 60) + "..." : v || "";
+        },
       },
       {
         headerName: "Business Criticality",
@@ -249,6 +264,7 @@ export default function FactSheetGrid() {
           params.data.attributes.business_criticality = params.newValue;
           return true;
         },
+        hide: !!typeFilter && !appTypes.has(typeFilter),
       },
       {
         headerName: "Technical Suitability",
@@ -264,12 +280,37 @@ export default function FactSheetGrid() {
           params.data.attributes.technical_suitability = params.newValue;
           return true;
         },
+        hide: !!typeFilter && !appTypes.has(typeFilter),
+      },
+      {
+        headerName: "Functional Suitability",
+        field: "attributes.functional_suitability",
+        width: 170,
+        editable: true,
+        cellEditor: "agSelectCellEditor",
+        cellEditorParams: { values: SUITABILITY_OPTIONS },
+        cellRenderer: SuitabilityCellRenderer,
+        valueGetter: (params) => params.data?.attributes?.functional_suitability,
+        valueSetter: (params) => {
+          if (!params.data.attributes) params.data.attributes = {};
+          params.data.attributes.functional_suitability = params.newValue;
+          return true;
+        },
+        hide: !!typeFilter && !appTypes.has(typeFilter),
       },
       {
         headerName: "Lifecycle",
         field: "lifecycle",
         width: 140,
         cellRenderer: LifecycleCellRenderer,
+        hide: !!typeFilter && !lifecycleTypes.has(typeFilter),
+      },
+      {
+        headerName: "Parent",
+        field: "parent_id",
+        width: 140,
+        valueFormatter: (params) => params.value ? "Has parent" : "Root",
+        hide: !typeFilter || !hierarchyTypes.has(typeFilter),
       },
       {
         headerName: "Quality Seal",

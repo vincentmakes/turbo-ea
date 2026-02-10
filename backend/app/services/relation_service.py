@@ -4,8 +4,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.event import EventType
+from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation, RelationType
-from app.schemas.relation import RelationCreate, RelationUpdate
+from app.schemas.relation import FactSheetSummary, RelationCreate, RelationEnriched, RelationUpdate
 from app.services.event_bus import event_bus
 from app.services.event_service import persist_event
 
@@ -45,13 +46,34 @@ async def get_relation(db: AsyncSession, rel_id: uuid.UUID) -> Relation | None:
     return result.scalar_one_or_none()
 
 
+async def _enrich_relation(db: AsyncSession, rel: Relation) -> RelationEnriched:
+    """Add fact sheet summaries to a relation."""
+    enriched = RelationEnriched.model_validate(rel)
+
+    from_fs = await db.execute(select(FactSheet).where(FactSheet.id == rel.from_fact_sheet_id))
+    from_obj = from_fs.scalar_one_or_none()
+    if from_obj:
+        enriched.from_fact_sheet = FactSheetSummary(
+            id=from_obj.id, name=from_obj.name, type=from_obj.type.value
+        )
+
+    to_fs = await db.execute(select(FactSheet).where(FactSheet.id == rel.to_fact_sheet_id))
+    to_obj = to_fs.scalar_one_or_none()
+    if to_obj:
+        enriched.to_fact_sheet = FactSheetSummary(
+            id=to_obj.id, name=to_obj.name, type=to_obj.type.value
+        )
+
+    return enriched
+
+
 async def list_relations(
     db: AsyncSession,
     fact_sheet_id: uuid.UUID | None = None,
     rel_type: RelationType | None = None,
     limit: int = 100,
     offset: int = 0,
-) -> tuple[list[Relation], int]:
+) -> tuple[list[RelationEnriched], int]:
     query = select(Relation)
     count_query = select(func.count(Relation.id))
 
@@ -68,8 +90,9 @@ async def list_relations(
     total = (await db.execute(count_query)).scalar_one()
     query = query.order_by(Relation.created_at.desc()).offset(offset).limit(limit)
     result = await db.execute(query)
-    items = list(result.scalars().all())
+    raw_items = list(result.scalars().all())
 
+    items = [await _enrich_relation(db, r) for r in raw_items]
     return items, total
 
 

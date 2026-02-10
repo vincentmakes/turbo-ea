@@ -35,6 +35,21 @@ class RelationRead(RelationBase):
     updated_at: datetime
 
 
+class FactSheetSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    type: str
+
+
+class RelationEnriched(RelationRead):
+    """Relation with embedded fact sheet summaries for display."""
+
+    from_fact_sheet: FactSheetSummary | None = None
+    to_fact_sheet: FactSheetSummary | None = None
+
+
 class RelationList(BaseModel):
-    items: list[RelationRead]
+    items: list[RelationEnriched]
     total: int

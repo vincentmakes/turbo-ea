@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { label: "Providers", icon: "storefront", path: "/fact-sheets?type=provider" },
   { label: "Interfaces", icon: "swap_horiz", path: "/fact-sheets?type=interface" },
   { label: "Initiatives", icon: "rocket_launch", path: "/fact-sheets?type=initiative" },
+  { label: "Capability Map", icon: "map", path: "/capability-map" },
   { label: "All Fact Sheets", icon: "list", path: "/fact-sheets" },
 ];
 
