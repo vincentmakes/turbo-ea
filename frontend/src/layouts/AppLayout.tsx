@@ -43,6 +43,10 @@ const navItems: NavItem[] = [
   { label: "Data Flow", icon: "device_hub", path: "/data-flow" },
   { label: "Interface Map", icon: "bubble_chart", path: "/interface-map" },
   { label: "CRUD Matrix", icon: "grid_on", path: "/crud-matrix" },
+  { label: "Initiative Board", icon: "view_kanban", path: "/initiative-board" },
+  { label: "Roadmap", icon: "calendar_month", path: "/roadmap" },
+  { label: "TIME Model", icon: "dashboard", path: "/time-model" },
+  { label: "Traceability", icon: "account_tree", path: "/traceability" },
   { label: "All Fact Sheets", icon: "list", path: "/fact-sheets" },
 ];
 

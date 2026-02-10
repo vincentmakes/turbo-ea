@@ -10,6 +10,10 @@ import ProviderDirectory from "./features/technology/ProviderDirectory";
 import DataFlowDiagram from "./features/integration/DataFlowDiagram";
 import CrudMatrix from "./features/integration/CrudMatrix";
 import InterfaceCircleMap from "./features/integration/InterfaceCircleMap";
+import InitiativeKanban from "./features/strategy/InitiativeKanban";
+import RoadmapTimeline from "./features/strategy/RoadmapTimeline";
+import TimeModel from "./features/strategy/TimeModel";
+import Traceability from "./features/strategy/Traceability";
 
 function App() {
   return (
@@ -25,6 +29,10 @@ function App() {
         <Route path="data-flow" element={<DataFlowDiagram />} />
         <Route path="crud-matrix" element={<CrudMatrix />} />
         <Route path="interface-map" element={<InterfaceCircleMap />} />
+        <Route path="initiative-board" element={<InitiativeKanban />} />
+        <Route path="roadmap" element={<RoadmapTimeline />} />
+        <Route path="time-model" element={<TimeModel />} />
+        <Route path="traceability" element={<Traceability />} />
       </Route>
     </Routes>
   );
