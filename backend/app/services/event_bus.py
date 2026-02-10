@@ -1,88 +1,63 @@
+from __future__ import annotations
+
 import asyncio
 import json
-import logging
 import uuid
-from collections.abc import AsyncGenerator
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, AsyncGenerator
 
-from app.models.event import EventType
+from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+from app.models.event import Event
 
 
 class EventBus:
-    """In-process async event bus with SSE broadcast support."""
-
     def __init__(self) -> None:
-        self._subscribers: dict[str, asyncio.Queue] = {}
-        self._handlers: dict[EventType, list] = {}
-
-    def register_handler(self, event_type: EventType, handler) -> None:
-        if event_type not in self._handlers:
-            self._handlers[event_type] = []
-        self._handlers[event_type].append(handler)
+        self._subscribers: list[asyncio.Queue] = []
 
     async def publish(
         self,
-        event_type: EventType,
-        entity_type: str,
-        entity_id: uuid.UUID,
-        payload: dict,
-        changes: dict | None = None,
+        event_type: str,
+        data: dict[str, Any],
+        db: AsyncSession | None = None,
+        fact_sheet_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
-    ) -> dict:
-        event = {
-            "id": str(uuid.uuid4()),
-            "type": event_type.value,
-            "entity_type": entity_type,
-            "entity_id": str(entity_id),
-            "user_id": str(user_id) if user_id else None,
-            "payload": payload,
-            "changes": changes,
-            "created_at": datetime.utcnow().isoformat(),
+    ) -> None:
+        if db:
+            event = Event(
+                fact_sheet_id=fact_sheet_id,
+                user_id=user_id,
+                event_type=event_type,
+                data=data,
+            )
+            db.add(event)
+            await db.flush()
+
+        message = {
+            "event": event_type,
+            "data": data,
+            "fact_sheet_id": str(fact_sheet_id) if fact_sheet_id else None,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-
-        # Broadcast to SSE subscribers
-        dead_subscribers = []
-        for sub_id, queue in self._subscribers.items():
+        dead: list[asyncio.Queue] = []
+        for q in self._subscribers:
             try:
-                queue.put_nowait(event)
+                q.put_nowait(message)
             except asyncio.QueueFull:
-                dead_subscribers.append(sub_id)
-                logger.warning("Dropping events for slow subscriber %s", sub_id)
+                dead.append(q)
+        for q in dead:
+            self._subscribers.remove(q)
 
-        for sub_id in dead_subscribers:
-            self._subscribers.pop(sub_id, None)
-
-        # Dispatch to registered handlers
-        handlers = self._handlers.get(event_type, [])
-        for handler in handlers:
-            try:
-                await handler(event)
-            except Exception:
-                logger.exception("Event handler error for %s", event_type)
-
-        return event
-
-    def subscribe(self) -> tuple[str, asyncio.Queue]:
-        sub_id = str(uuid.uuid4())
-        queue: asyncio.Queue = asyncio.Queue(maxsize=256)
-        self._subscribers[sub_id] = queue
-        return sub_id, queue
-
-    def unsubscribe(self, sub_id: str) -> None:
-        self._subscribers.pop(sub_id, None)
-
-    async def stream(self, sub_id: str, queue: asyncio.Queue) -> AsyncGenerator[str, None]:
+    async def subscribe(self) -> AsyncGenerator[str, None]:
+        q: asyncio.Queue = asyncio.Queue(maxsize=256)
+        self._subscribers.append(q)
         try:
             while True:
-                event = await queue.get()
-                yield f"data: {json.dumps(event)}\n\n"
-        except asyncio.CancelledError:
-            pass
+                msg = await q.get()
+                yield f"data: {json.dumps(msg, default=str)}\n\n"
         finally:
-            self.unsubscribe(sub_id)
+            if q in self._subscribers:
+                self._subscribers.remove(q)
 
 
-# Global singleton
 event_bus = EventBus()

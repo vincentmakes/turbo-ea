@@ -1,51 +1,25 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
-interface EventData {
-  id: string;
-  type: string;
-  entity_type: string;
-  entity_id: string;
-  payload: Record<string, unknown>;
-  changes?: Record<string, unknown>;
-  created_at: string;
-}
+export function useEventStream(onEvent: (event: Record<string, unknown>) => void) {
+  const cbRef = useRef(onEvent);
+  cbRef.current = onEvent;
 
-type EventHandler = (event: EventData) => void;
-
-export function useEventStream(onEvent: EventHandler) {
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const handlerRef = useRef(onEvent);
-  handlerRef.current = onEvent;
-
-  const connect = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
     const es = new EventSource("/api/v1/events/stream");
-
-    es.onmessage = (event) => {
+    es.onmessage = (e) => {
       try {
-        const data: EventData = JSON.parse(event.data);
-        handlerRef.current(data);
+        const data = JSON.parse(e.data);
+        cbRef.current(data);
       } catch {
         // ignore parse errors
       }
     };
-
     es.onerror = () => {
-      es.close();
-      // Reconnect after 3 seconds
-      setTimeout(connect, 3000);
+      // Will auto-reconnect
     };
-
-    eventSourceRef.current = es;
+    return () => es.close();
   }, []);
-
-  useEffect(() => {
-    connect();
-    return () => {
-      eventSourceRef.current?.close();
-    };
-  }, [connect]);
 }

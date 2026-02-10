@@ -1,23 +1,27 @@
-from pydantic_settings import BaseSettings
+from __future__ import annotations
+
+import os
 
 
-class Settings(BaseSettings):
+class Settings:
     PROJECT_NAME: str = "Turbo EA"
-    VERSION: str = "0.1.0"
     API_V1_PREFIX: str = "/api/v1"
 
-    DATABASE_URL: str = "postgresql+asyncpg://turboea:changeme@localhost:5432/turboea"
+    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
+    POSTGRES_PORT: str = os.getenv("POSTGRES_PORT", "5432")
+    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "turboea")
+    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "turboea")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "turboea")
 
-    SECRET_KEY: str = "dev-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
-    BACKEND_CORS_ORIGINS: list[str] = [
-        "http://localhost:5173",
-        "http://localhost:8920",
-    ]
-
-    model_config = {"env_file": ".env", "case_sensitive": True}
+    @property
+    def database_url(self) -> str:
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
 
 
 settings = Settings()

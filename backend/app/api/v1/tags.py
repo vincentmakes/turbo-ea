@@ -1,92 +1,101 @@
+from __future__ import annotations
+
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.tag import FactSheetTag, Tag, TagGroup
-from app.schemas.tag import TagCreate, TagGroupCreate, TagGroupRead, TagRead
+from app.models.user import User
+from app.schemas.common import TagCreate, TagGroupCreate
 
-router = APIRouter()
-
-
-# --- Tag Groups ---
+router = APIRouter(tags=["tags"])
 
 
-@router.post("/groups", response_model=TagGroupRead, status_code=201)
-async def create_tag_group(data: TagGroupCreate, db: AsyncSession = Depends(get_db)):
-    group = TagGroup(name=data.name, description=data.description)
-    db.add(group)
-    await db.flush()
-    return group
-
-
-@router.get("/groups", response_model=list[TagGroupRead])
+@router.get("/tag-groups")
 async def list_tag_groups(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(TagGroup).order_by(TagGroup.name))
-    return list(result.scalars().all())
+    result = await db.execute(select(TagGroup))
+    groups = result.scalars().all()
+    return [
+        {
+            "id": str(g.id),
+            "name": g.name,
+            "description": g.description,
+            "mode": g.mode,
+            "mandatory": g.mandatory,
+            "tags": [
+                {"id": str(t.id), "name": t.name, "color": t.color, "tag_group_id": str(t.tag_group_id)}
+                for t in (g.tags or [])
+            ],
+        }
+        for g in groups
+    ]
 
 
-# --- Tags ---
-
-
-@router.post("", response_model=TagRead, status_code=201)
-async def create_tag(data: TagCreate, db: AsyncSession = Depends(get_db)):
-    tag = Tag(name=data.name, color=data.color, group_id=data.group_id)
-    db.add(tag)
-    await db.flush()
-    return tag
-
-
-@router.get("", response_model=list[TagRead])
-async def list_tags(group_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db)):
-    query = select(Tag)
-    if group_id:
-        query = query.where(Tag.group_id == group_id)
-    result = await db.execute(query.order_by(Tag.name))
-    return list(result.scalars().all())
-
-
-# --- Assign / Remove Tags from Fact Sheets ---
-
-
-@router.post("/{tag_id}/fact-sheets/{fs_id}", status_code=201)
-async def assign_tag(
-    tag_id: uuid.UUID,
-    fs_id: uuid.UUID,
+@router.post("/tag-groups", status_code=201)
+async def create_tag_group(
+    body: TagGroupCreate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    existing = await db.execute(
-        select(FactSheetTag).where(
-            FactSheetTag.fact_sheet_id == fs_id,
-            FactSheetTag.tag_id == tag_id,
-        )
-    )
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tag already assigned")
-
-    fst = FactSheetTag(fact_sheet_id=fs_id, tag_id=tag_id)
-    db.add(fst)
-    await db.flush()
-    return {"status": "assigned"}
+    group = TagGroup(name=body.name, description=body.description, mode=body.mode, mandatory=body.mandatory)
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
+    return {"id": str(group.id), "name": group.name}
 
 
-@router.delete("/{tag_id}/fact-sheets/{fs_id}", status_code=204)
-async def remove_tag(
-    tag_id: uuid.UUID,
-    fs_id: uuid.UUID,
+@router.post("/tag-groups/{group_id}/tags", status_code=201)
+async def create_tag(
+    group_id: str,
+    body: TagCreate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    tag = Tag(tag_group_id=uuid.UUID(group_id), name=body.name, color=body.color)
+    db.add(tag)
+    await db.commit()
+    await db.refresh(tag)
+    return {"id": str(tag.id), "name": tag.name, "color": tag.color}
+
+
+@router.post("/fact-sheets/{fs_id}/tags", status_code=201)
+async def assign_tags(
+    fs_id: str,
+    tag_ids: list[str],
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    for tid in tag_ids:
+        existing = await db.execute(
+            select(FactSheetTag).where(
+                FactSheetTag.fact_sheet_id == uuid.UUID(fs_id),
+                FactSheetTag.tag_id == uuid.UUID(tid),
+            )
+        )
+        if not existing.scalar_one_or_none():
+            db.add(FactSheetTag(fact_sheet_id=uuid.UUID(fs_id), tag_id=uuid.UUID(tid)))
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.delete("/fact-sheets/{fs_id}/tags/{tag_id}", status_code=204)
+async def remove_tag(
+    fs_id: str,
+    tag_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     result = await db.execute(
         select(FactSheetTag).where(
-            FactSheetTag.fact_sheet_id == fs_id,
-            FactSheetTag.tag_id == tag_id,
+            FactSheetTag.fact_sheet_id == uuid.UUID(fs_id),
+            FactSheetTag.tag_id == uuid.UUID(tag_id),
         )
     )
     fst = result.scalar_one_or_none()
-    if fst is None:
-        raise NotFoundError("Tag assignment not found")
-    await db.delete(fst)
-    await db.flush()
+    if fst:
+        await db.delete(fst)
+        await db.commit()

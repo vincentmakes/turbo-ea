@@ -1,72 +1,110 @@
+from __future__ import annotations
+
 import uuid
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.exceptions import NotFoundError
 from app.database import get_db
-from app.models.relation import RelationType
+from app.models.relation import Relation
 from app.models.user import User
-from app.schemas.relation import RelationCreate, RelationList, RelationRead, RelationUpdate
-from app.services import relation_service as svc
+from app.schemas.relation import RelationCreate, RelationResponse, RelationUpdate, FactSheetRef
+from app.services.event_bus import event_bus
 
-router = APIRouter()
-
-
-@router.post("", response_model=RelationRead, status_code=201)
-async def create_relation(
-    data: RelationCreate,
-    db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(get_current_user),
-):
-    rel = await svc.create_relation(db, data, user_id=user.id if user else None)
-    return rel
+router = APIRouter(prefix="/relations", tags=["relations"])
 
 
-@router.get("", response_model=RelationList)
+def _rel_to_response(r: Relation) -> RelationResponse:
+    source_ref = FactSheetRef(id=str(r.source.id), type=r.source.type, name=r.source.name) if r.source else None
+    target_ref = FactSheetRef(id=str(r.target.id), type=r.target.type, name=r.target.name) if r.target else None
+    return RelationResponse(
+        id=str(r.id),
+        type=r.type,
+        source_id=str(r.source_id),
+        target_id=str(r.target_id),
+        source=source_ref,
+        target=target_ref,
+        attributes=r.attributes,
+        description=r.description,
+        created_at=r.created_at,
+    )
+
+
+@router.get("", response_model=list[RelationResponse])
 async def list_relations(
-    fact_sheet_id: uuid.UUID | None = None,
-    type: RelationType | None = None,
-    limit: int = Query(100, ge=1, le=500),
-    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
+    fact_sheet_id: str | None = Query(None),
+    type: str | None = Query(None),
 ):
-    items, total = await svc.list_relations(db, fact_sheet_id, type, limit, offset)
-    return RelationList(items=items, total=total)
+    q = select(Relation)
+    if fact_sheet_id:
+        uid = uuid.UUID(fact_sheet_id)
+        q = q.where((Relation.source_id == uid) | (Relation.target_id == uid))
+    if type:
+        q = q.where(Relation.type == type)
+    result = await db.execute(q)
+    return [_rel_to_response(r) for r in result.scalars().all()]
 
 
-@router.get("/{rel_id}", response_model=RelationRead)
-async def get_relation(
-    rel_id: uuid.UUID,
+@router.post("", response_model=RelationResponse, status_code=201)
+async def create_relation(
+    body: RelationCreate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
-    rel = await svc.get_relation(db, rel_id)
-    if rel is None:
-        raise NotFoundError("Relation not found")
-    return rel
+    rel = Relation(
+        type=body.type,
+        source_id=uuid.UUID(body.source_id),
+        target_id=uuid.UUID(body.target_id),
+        attributes=body.attributes or {},
+        description=body.description,
+    )
+    db.add(rel)
+    await db.flush()
+    await event_bus.publish(
+        "relation.created",
+        {"id": str(rel.id), "type": rel.type, "source_id": body.source_id, "target_id": body.target_id},
+        db=db, fact_sheet_id=uuid.UUID(body.source_id), user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(rel)
+    return _rel_to_response(rel)
 
 
-@router.patch("/{rel_id}", response_model=RelationRead)
+@router.patch("/{rel_id}", response_model=RelationResponse)
 async def update_relation(
-    rel_id: uuid.UUID,
-    data: RelationUpdate,
+    rel_id: str,
+    body: RelationUpdate,
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    rel = await svc.get_relation(db, rel_id)
-    if rel is None:
-        raise NotFoundError("Relation not found")
-    return await svc.update_relation(db, rel, data, user_id=user.id if user else None)
+    result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
+    rel = result.scalar_one_or_none()
+    if not rel:
+        raise HTTPException(404, "Relation not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(rel, field, value)
+    await db.commit()
+    await db.refresh(rel)
+    return _rel_to_response(rel)
 
 
 @router.delete("/{rel_id}", status_code=204)
 async def delete_relation(
-    rel_id: uuid.UUID,
+    rel_id: str,
     db: AsyncSession = Depends(get_db),
-    user: User | None = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
-    rel = await svc.get_relation(db, rel_id)
-    if rel is None:
-        raise NotFoundError("Relation not found")
-    await svc.delete_relation(db, rel, user_id=user.id if user else None)
+    result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
+    rel = result.scalar_one_or_none()
+    if not rel:
+        raise HTTPException(404, "Relation not found")
+    await event_bus.publish(
+        "relation.deleted",
+        {"id": str(rel.id), "type": rel.type},
+        db=db, fact_sheet_id=rel.source_id, user_id=user.id,
+    )
+    await db.delete(rel)
+    await db.commit()
