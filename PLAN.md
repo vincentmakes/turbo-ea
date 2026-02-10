@@ -1,8 +1,8 @@
-# EA Turbo - Enterprise Architecture Management Platform
+# Turbo EA - Enterprise Architecture Management Platform
 
 ## Overview
 
-EA Turbo is a self-hosted Enterprise Architecture Management (EAM) platform inspired by SAP LeanIX, designed for deployment on Unraid. It provides application portfolio management, business capability mapping, technology risk management, and integration architecture visualization through an event-driven API architecture.
+Turbo EA is a self-hosted Enterprise Architecture Management (EAM) platform inspired by SAP LeanIX, designed for deployment on Unraid. It provides application portfolio management, business capability mapping, technology risk management, and integration architecture visualization through an event-driven API architecture.
 
 ---
 
@@ -331,7 +331,7 @@ All relations carry:
 - Unraid 6.12+ with Docker support enabled
 - Community Applications plugin installed
 - At least 2GB RAM allocated for Docker
-- Persistent storage path on array or cache (e.g., `/mnt/user/appdata/ea-turbo/`)
+- Persistent storage path on array or cache (e.g., `/mnt/user/appdata/turbo-ea/`)
 
 ### Option A: Docker Compose (Recommended)
 
@@ -340,13 +340,13 @@ All relations carry:
 
 2. **Create app directory:**
    ```bash
-   mkdir -p /mnt/user/appdata/ea-turbo
-   cd /mnt/user/appdata/ea-turbo
+   mkdir -p /mnt/user/appdata/turbo-ea
+   cd /mnt/user/appdata/turbo-ea
    ```
 
 3. **Clone or copy files:**
    ```bash
-   git clone https://github.com/vincentmakes/ea-turbo.git .
+   git clone https://github.com/vincentmakes/turbo-ea.git .
    ```
 
 4. **Create environment file:**
@@ -372,43 +372,43 @@ All relations carry:
 1. **PostgreSQL Container:**
    - Image: `postgres:16-alpine`
    - Port: `5432` (or custom)
-   - Env: `POSTGRES_DB=eaturbo`, `POSTGRES_USER=eaturbo`, `POSTGRES_PASSWORD=<secure>`
-   - Volume: `/mnt/user/appdata/ea-turbo/pgdata:/var/lib/postgresql/data`
-   - Network: Create custom bridge `ea-turbo-net`
+   - Env: `POSTGRES_DB=turboea`, `POSTGRES_USER=turboea`, `POSTGRES_PASSWORD=<secure>`
+   - Volume: `/mnt/user/appdata/turbo-ea/pgdata:/var/lib/postgresql/data`
+   - Network: Create custom bridge `turbo-ea-net`
 
 2. **Backend Container:**
-   - Image: `ghcr.io/vincentmakes/ea-turbo-backend:latest` (or build locally)
+   - Image: `ghcr.io/vincentmakes/turbo-ea-backend:latest` (or build locally)
    - Port: `8000`
-   - Env: `DATABASE_URL=postgresql://eaturbo:<pass>@ea-turbo-db:5432/eaturbo`
-   - Network: `ea-turbo-net`
+   - Env: `DATABASE_URL=postgresql://turboea:<pass>@turbo-ea-db:5432/turboea`
+   - Network: `turbo-ea-net`
 
 3. **Frontend + Nginx Container:**
-   - Image: `ghcr.io/vincentmakes/ea-turbo-frontend:latest` (or build locally)
+   - Image: `ghcr.io/vincentmakes/turbo-ea-frontend:latest` (or build locally)
    - Port: `8920`
-   - Network: `ea-turbo-net`
+   - Network: `turbo-ea-net`
 
 ### Data Persistence
 
 | Path on Unraid | Container Path | Purpose |
 |----------------|---------------|---------|
-| `/mnt/user/appdata/ea-turbo/pgdata` | `/var/lib/postgresql/data` | PostgreSQL data |
-| `/mnt/user/appdata/ea-turbo/uploads` | `/app/uploads` | File uploads |
-| `/mnt/user/appdata/ea-turbo/.env` | `/app/.env` | Environment config |
+| `/mnt/user/appdata/turbo-ea/pgdata` | `/var/lib/postgresql/data` | PostgreSQL data |
+| `/mnt/user/appdata/turbo-ea/uploads` | `/app/uploads` | File uploads |
+| `/mnt/user/appdata/turbo-ea/.env` | `/app/.env` | Environment config |
 
 ### Backup
 
 ```bash
 # Database backup
-docker exec ea-turbo-db pg_dump -U eaturbo eaturbo > /mnt/user/appdata/ea-turbo/backups/$(date +%Y%m%d).sql
+docker exec turbo-ea-db pg_dump -U turboea turboea > /mnt/user/appdata/turbo-ea/backups/$(date +%Y%m%d).sql
 
 # Restore
-docker exec -i ea-turbo-db psql -U eaturbo eaturbo < /mnt/user/appdata/ea-turbo/backups/YYYYMMDD.sql
+docker exec -i turbo-ea-db psql -U turboea turboea < /mnt/user/appdata/turbo-ea/backups/YYYYMMDD.sql
 ```
 
 ### Updating
 
 ```bash
-cd /mnt/user/appdata/ea-turbo
+cd /mnt/user/appdata/turbo-ea
 git pull
 docker compose build
 docker compose up -d
@@ -419,7 +419,7 @@ docker compose up -d
 ## Project Structure
 
 ```
-ea-turbo/
+turbo-ea/
 ├── backend/
 │   ├── Dockerfile
 │   ├── pyproject.toml
