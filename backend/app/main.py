@@ -13,8 +13,10 @@ from app.api.v1.router import api_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create all tables on startup
+    # Drop and recreate tables if RESET_DB is set (handles old schema migration)
     async with engine.begin() as conn:
+        if settings.RESET_DB:
+            await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     # Seed default metamodel
