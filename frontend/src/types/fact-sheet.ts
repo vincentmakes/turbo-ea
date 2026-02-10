@@ -68,3 +68,29 @@ export const FACT_SHEET_TYPE_ICONS: Record<FactSheetType, string> = {
   initiative: "rocket_launch",
   platform: "hub",
 };
+
+// --- Enum options used by AG Grid cell editors and bulk edit ---
+
+export const LIFECYCLE_PHASES = [
+  "plan",
+  "phase_in",
+  "active",
+  "phase_out",
+  "end_of_life",
+] as const;
+
+export const BUSINESS_CRITICALITY_OPTIONS = [
+  "administrative_service",
+  "business_operational",
+  "business_critical",
+  "mission_critical",
+] as const;
+
+export const SUITABILITY_OPTIONS = [
+  "unreasonable",
+  "insufficient",
+  "appropriate",
+  "perfect",
+] as const;
+
+export const QUALITY_SEAL_OPTIONS = ["approved", "broken", "n_a"] as const;

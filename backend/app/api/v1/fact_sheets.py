@@ -8,7 +8,13 @@ from app.core.exceptions import NotFoundError
 from app.database import get_db
 from app.models.fact_sheet import FactSheetStatus, FactSheetType
 from app.models.user import User
-from app.schemas.fact_sheet import FactSheetCreate, FactSheetList, FactSheetRead, FactSheetUpdate
+from app.schemas.fact_sheet import (
+    FactSheetBulkUpdate,
+    FactSheetCreate,
+    FactSheetList,
+    FactSheetRead,
+    FactSheetUpdate,
+)
 from app.services import fact_sheet_service as svc
 
 router = APIRouter()
@@ -36,6 +42,18 @@ async def list_fact_sheets(
 ):
     items, total = await svc.list_fact_sheets(db, type, status, parent_id, search, page, page_size)
     return FactSheetList(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.patch("/bulk", response_model=list[FactSheetRead])
+async def bulk_update_fact_sheets(
+    data: FactSheetBulkUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User | None = Depends(get_current_user),
+):
+    results = await svc.bulk_update_fact_sheets(
+        db, data.ids, data.update, user_id=user.id if user else None
+    )
+    return results
 
 
 @router.get("/{fs_id}", response_model=FactSheetRead)

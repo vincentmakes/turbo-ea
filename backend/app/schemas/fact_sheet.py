@@ -51,3 +51,8 @@ class FactSheetList(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FactSheetBulkUpdate(BaseModel):
+    ids: list[uuid.UUID]
+    update: FactSheetUpdate

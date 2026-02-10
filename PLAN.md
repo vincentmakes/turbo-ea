@@ -11,6 +11,7 @@ EA Turbo is a self-hosted Enterprise Architecture Management (EAM) platform insp
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18 + TypeScript + Vite |
+| **Data Grid** | AG Grid Community (inventory, inline edit, mass edit) |
 | **Backend** | Python 3.12 + FastAPI |
 | **Database** | PostgreSQL 16 |
 | **Event Bus** | Internal async event system (Redis Pub/Sub for scaling) |
@@ -176,6 +177,7 @@ All relations carry:
 - [ ] Core models: `events` table for event sourcing / audit
 - [ ] Core models: `tags`, `tag_groups` tables
 - [ ] CRUD API: `/api/v1/fact-sheets` (create, read, update, archive, list with filtering/pagination)
+- [ ] Bulk update API: `PATCH /api/v1/fact-sheets/bulk` (mass-edit multiple fact sheets in one request — used by AG Grid multi-row edit)
 - [ ] CRUD API: `/api/v1/relations` (create, read, update, delete)
 - [ ] CRUD API: `/api/v1/tags` (create, list, assign, remove)
 - [ ] Event bus: Internal async event dispatcher
@@ -188,7 +190,16 @@ All relations carry:
 - [ ] React + Vite + TypeScript scaffolding
 - [ ] Material Symbols Outlined integration
 - [ ] App shell: sidebar navigation, top bar, routing
-- [ ] Fact sheet list view (table with sorting, filtering, pagination)
+- [ ] **AG Grid inventory view** — the primary way to browse, fast-edit, and mass-edit fact sheets:
+  - Sortable, filterable, groupable columns (name, type, status, lifecycle phase, business criticality, etc.)
+  - **Inline cell editing** — click any cell to edit in-place, commits via PATCH on blur/enter
+  - **Mass edit** — multi-row select + bulk attribute update (status, lifecycle, tags, custom attributes)
+  - Column pinning, resizing, auto-size; persisted column state in localStorage
+  - Server-side pagination with infinite row model
+  - Row grouping by type, status, or any column
+  - Custom cell renderers for lifecycle chips, suitability badges, tag pills
+  - CSV / clipboard export from grid
+  - Real-time row refresh via SSE (new/changed rows flash-highlight)
 - [ ] Fact sheet detail view (read/edit form)
 - [ ] Fact sheet creation dialog
 - [ ] SSE client: Real-time update integration
@@ -218,7 +229,7 @@ All relations carry:
 **Frontend:**
 - [ ] Business Capability Map: Interactive hierarchical tree (L1 → L2 → L3)
 - [ ] Capability map color-coding by: application count, functional suitability, business criticality
-- [ ] Application Portfolio table: sortable, filterable grid
+- [ ] Application Portfolio grid (AG Grid with type-specific columns for business criticality, technical suitability, lifecycle)
 - [ ] Application detail page: tabs for Overview, Relations, Lifecycle, Tags, History
 - [ ] Lifecycle timeline visualization per fact sheet
 - [ ] Organization tree view
@@ -240,7 +251,7 @@ All relations carry:
 - [ ] Cost aggregation: per application, per capability, per provider
 
 **Frontend:**
-- [ ] IT Component catalog with filtering by category
+- [ ] IT Component catalog (AG Grid with category, vendor lifecycle, resource classification columns)
 - [ ] Provider directory with cost summaries
 - [ ] Tech Stack view: applications grouped by underlying technology
 - [ ] Obsolescence risk dashboard: color-coded lifecycle status

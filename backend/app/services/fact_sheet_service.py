@@ -127,6 +127,21 @@ async def update_fact_sheet(
     return fs
 
 
+async def bulk_update_fact_sheets(
+    db: AsyncSession,
+    ids: list[uuid.UUID],
+    data: "FactSheetUpdate",
+    user_id: uuid.UUID | None = None,
+) -> list[FactSheet]:
+    results = []
+    for fs_id in ids:
+        fs = await get_fact_sheet(db, fs_id)
+        if fs is not None:
+            updated = await update_fact_sheet(db, fs, data, user_id)
+            results.append(updated)
+    return results
+
+
 async def delete_fact_sheet(
     db: AsyncSession,
     fs: FactSheet,

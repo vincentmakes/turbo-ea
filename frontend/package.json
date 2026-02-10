@@ -10,6 +10,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "ag-grid-community": "^32.3.0",
+    "ag-grid-react": "^32.3.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
     "@mui/material": "^6.3.0",
