@@ -8,12 +8,11 @@ import {
   type IGetRowsParams,
   type GridApi,
   ModuleRegistry,
-  AllCommunityModule,
+  InfiniteRowModelModule,
 } from "ag-grid-community";
 import {
   Box,
   Button,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -48,7 +47,7 @@ import {
   INTERFACE_PROTOCOL_OPTIONS,
 } from "../../types/fact-sheet";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+ModuleRegistry.registerModules([InfiniteRowModelModule]);
 
 // --- Custom cell renderers ---
 

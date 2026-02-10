@@ -35,7 +35,7 @@ import {
 
 export default function FactSheetList() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const typeFilter = searchParams.get("type") as FactSheetType | null;
 
   const [factSheets, setFactSheets] = useState<FactSheet[]>([]);

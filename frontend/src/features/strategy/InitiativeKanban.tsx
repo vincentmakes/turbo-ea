@@ -190,9 +190,9 @@ export default function InitiativeKanban() {
                             variant="outlined"
                           />
                         )}
-                        {attrs.budget && (
+                        {attrs.budget != null && (
                           <Chip
-                            label={`$${Number(attrs.budget).toLocaleString()}`}
+                            label={`$${Number(attrs.budget as number).toLocaleString()}`}
                             size="small"
                             sx={{ height: 20, fontSize: "0.65rem" }}
                           />

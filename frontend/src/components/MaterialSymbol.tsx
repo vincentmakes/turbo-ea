@@ -3,6 +3,7 @@ interface MaterialSymbolProps {
   size?: number;
   filled?: boolean;
   className?: string;
+  color?: string;
 }
 
 export function MaterialSymbol({
@@ -10,6 +11,7 @@ export function MaterialSymbol({
   size = 24,
   filled = false,
   className = "",
+  color,
 }: MaterialSymbolProps) {
   return (
     <span
@@ -17,6 +19,7 @@ export function MaterialSymbol({
       style={{
         fontSize: size,
         fontVariationSettings: `'FILL' ${filled ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' ${size}`,
+        color,
       }}
     >
       {icon}

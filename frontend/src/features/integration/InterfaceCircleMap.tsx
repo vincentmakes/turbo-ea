@@ -13,7 +13,6 @@ import {
   TableRow,
   ToggleButton,
   ToggleButtonGroup,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import { MaterialSymbol } from "../../components/MaterialSymbol";
