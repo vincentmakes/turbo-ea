@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, events, fact_sheets, hierarchy, integration, relations, strategy, tags, technology
+from app.api.v1 import auth, events, fact_sheets, hierarchy, integration, relations, reports, strategy, tags, technology, webhooks
 
 api_router = APIRouter()
 
@@ -13,3 +13,5 @@ api_router.include_router(tags.router, prefix="/tags", tags=["tags"])
 api_router.include_router(technology.router, prefix="/technology", tags=["technology"])
 api_router.include_router(integration.router, prefix="/integration", tags=["integration"])
 api_router.include_router(strategy.router, prefix="/strategy", tags=["strategy"])
+api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])

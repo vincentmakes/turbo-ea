@@ -4,6 +4,7 @@ from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
 from app.models.tag import Tag, TagGroup
 from app.models.user import User
+from app.models.webhook import Webhook
 
 __all__ = [
     "Base",
@@ -13,4 +14,5 @@ __all__ = [
     "Tag",
     "TagGroup",
     "User",
+    "Webhook",
 ]

@@ -14,6 +14,9 @@ import InitiativeKanban from "./features/strategy/InitiativeKanban";
 import RoadmapTimeline from "./features/strategy/RoadmapTimeline";
 import TimeModel from "./features/strategy/TimeModel";
 import Traceability from "./features/strategy/Traceability";
+import LandscapeReport from "./features/reports/LandscapeReport";
+import MatrixReport from "./features/reports/MatrixReport";
+import Settings from "./features/settings/Settings";
 
 function App() {
   return (
@@ -33,6 +36,9 @@ function App() {
         <Route path="roadmap" element={<RoadmapTimeline />} />
         <Route path="time-model" element={<TimeModel />} />
         <Route path="traceability" element={<Traceability />} />
+        <Route path="landscape-report" element={<LandscapeReport />} />
+        <Route path="matrix-report" element={<MatrixReport />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
     </Routes>
   );

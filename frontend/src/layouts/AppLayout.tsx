@@ -47,6 +47,8 @@ const navItems: NavItem[] = [
   { label: "Roadmap", icon: "calendar_month", path: "/roadmap" },
   { label: "TIME Model", icon: "dashboard", path: "/time-model" },
   { label: "Traceability", icon: "account_tree", path: "/traceability" },
+  { label: "Landscape Report", icon: "landscape", path: "/landscape-report" },
+  { label: "Matrix Report", icon: "grid_on", path: "/matrix-report" },
   { label: "All Fact Sheets", icon: "list", path: "/fact-sheets" },
 ];
 
