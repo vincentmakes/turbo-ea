@@ -178,15 +178,6 @@ export default function InventoryPage() {
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
       {
-        checkboxSelection: true,
-        width: 50,
-        maxWidth: 50,
-        suppressHeaderMenuButton: true,
-        sortable: false,
-        filter: false,
-        resizable: false,
-      },
-      {
         field: "type",
         headerName: "Type",
         width: 140,
@@ -602,7 +593,7 @@ export default function InventoryPage() {
           rowData={filteredData}
           columnDefs={columnDefs}
           loading={loading}
-          rowSelection={{ mode: "multiRow", enableClickSelection: false }}
+          rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: false }}
           onSelectionChanged={handleSelectionChanged}
           onCellValueChanged={handleCellEdit}
           onRowClicked={(e) => {
