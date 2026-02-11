@@ -68,12 +68,6 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await seed_metamodel(db)
 
-    # Backfill capability levels for existing fact sheets
-    from app.api.v1.fact_sheets import sync_all_capability_levels
-
-    async with async_session() as db:
-        await sync_all_capability_levels(db)
-
     yield
 
 
