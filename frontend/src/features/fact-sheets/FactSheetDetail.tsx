@@ -31,6 +31,11 @@ import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Autocomplete from "@mui/material/Autocomplete";
 import type {
   FactSheet,
   Relation,
@@ -38,6 +43,9 @@ import type {
   Todo,
   EventEntry,
   FieldDef,
+  SubscriptionRef,
+  SubscriptionRoleDef,
+  User,
 } from "@/types";
 
 // ── Completion Ring ─────────────────────────────────────────────
@@ -567,108 +575,142 @@ function AttributeSection({
   );
 }
 
-// ── Section: Relations ──────────────────────────────────────────
+// ── Section: Relations (with CRUD) ──────────────────────────────
 function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { relationTypes, getType } = useMetamodel();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    api
-      .get<Relation[]>(`/relations?fact_sheet_id=${fsId}`)
-      .then(setRelations)
-      .catch(() => {});
+  // Add relation dialog state
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [addRelType, setAddRelType] = useState("");
+  const [targetSearch, setTargetSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [selectedTarget, setSelectedTarget] = useState<{ id: string; name: string; type: string } | null>(null);
+  const [addError, setAddError] = useState("");
+
+  const load = useCallback(() => {
+    api.get<Relation[]>(`/relations?fact_sheet_id=${fsId}`).then(setRelations).catch(() => {});
   }, [fsId]);
+
+  useEffect(load, [load]);
 
   const relevantRTs = relationTypes.filter(
     (rt) => rt.source_type_key === fsType || rt.target_type_key === fsType
   );
 
+  // When relation type changes, determine the target type for searching
+  const selectedRT = relationTypes.find((rt) => rt.key === addRelType);
+  const isSource = selectedRT ? selectedRT.source_type_key === fsType : true;
+  const targetTypeKey = selectedRT
+    ? (isSource ? selectedRT.target_type_key : selectedRT.source_type_key)
+    : "";
+
+  // Search for target fact sheets when user types
+  useEffect(() => {
+    if (!targetTypeKey || targetSearch.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      api
+        .get<{ items: { id: string; name: string; type: string }[] }>(
+          `/fact-sheets?type=${targetTypeKey}&search=${encodeURIComponent(targetSearch)}&page_size=20`
+        )
+        .then((res) => setSearchResults(res.items.filter((item) => item.id !== fsId)))
+        .catch(() => {});
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [targetTypeKey, targetSearch, fsId]);
+
+  const handleAddRelation = async () => {
+    if (!selectedRT || !selectedTarget) return;
+    setAddError("");
+    try {
+      await api.post("/relations", {
+        type: selectedRT.key,
+        source_id: isSource ? fsId : selectedTarget.id,
+        target_id: isSource ? selectedTarget.id : fsId,
+      });
+      load();
+      setAddDialogOpen(false);
+      setAddRelType("");
+      setSelectedTarget(null);
+      setTargetSearch("");
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to create relation");
+    }
+  };
+
+  const handleDeleteRelation = async (relId: string) => {
+    await api.delete(`/relations/${relId}`);
+    load();
+  };
+
   // Group relations by relation type
   const grouped = relevantRTs.map((rt) => {
-    const isSource = rt.source_type_key === fsType;
-    const verb = isSource ? rt.label : (rt.reverse_label || rt.label);
-    const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
+    const rtIsSource = rt.source_type_key === fsType;
+    const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
+    const otherTypeKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
     const otherType = getType(otherTypeKey);
-    return {
-      rt,
-      verb,
-      otherType,
-      rels: relations.filter((r) => r.type === rt.key),
-    };
+    return { rt, verb, otherType, isSource: rtIsSource, rels: relations.filter((r) => r.type === rt.key) };
   });
 
   return (
     <Accordion disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} color="#666" />
           <Typography fontWeight={600}>Relations</Typography>
-          <Chip
-            size="small"
-            label={relations.length}
-            sx={{ ml: 1, height: 20, fontSize: "0.7rem" }}
-          />
+          <Chip size="small" label={relations.length} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
         </Box>
+        <IconButton
+          size="small"
+          onClick={(e) => { e.stopPropagation(); setAddDialogOpen(true); }}
+          sx={{ mr: 1 }}
+        >
+          <MaterialSymbol icon="add" size={18} />
+        </IconButton>
       </AccordionSummary>
       <AccordionDetails>
         {grouped.length === 0 && (
-          <Typography color="text.secondary" variant="body2">
-            No relation types configured.
-          </Typography>
+          <Typography color="text.secondary" variant="body2">No relation types configured.</Typography>
         )}
         {grouped.map(({ rt, verb, otherType, rels }) => (
           <Box key={rt.key} sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-              <Typography variant="subtitle2" fontWeight={600}>
-                {verb}
-              </Typography>
+              <Typography variant="subtitle2" fontWeight={600}>{verb}</Typography>
               <MaterialSymbol icon="arrow_forward" size={14} color="#bbb" />
               {otherType && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Box
-                    sx={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      bgcolor: otherType.color, flexShrink: 0,
-                    }}
-                  />
-                  <Typography variant="subtitle2" color="text.secondary">
-                    {otherType.label}
-                  </Typography>
+                  <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
+                  <Typography variant="subtitle2" color="text.secondary">{otherType.label}</Typography>
                 </Box>
               )}
-              <Chip
-                size="small"
-                label={rt.cardinality}
-                variant="outlined"
-                sx={{ height: 18, fontSize: "0.65rem" }}
-              />
+              <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
             </Box>
             {rels.length === 0 ? (
-              <Typography variant="body2" color="text.disabled" sx={{ ml: 1 }}>
-                None linked
-              </Typography>
+              <Typography variant="body2" color="text.disabled" sx={{ ml: 1 }}>None linked</Typography>
             ) : (
               <List dense disablePadding>
                 {rels.map((r) => {
-                  const other =
-                    r.source_id === fsId ? r.target : r.source;
+                  const other = r.source_id === fsId ? r.target : r.source;
                   return (
                     <ListItem
                       key={r.id}
-                      component="div"
-                      onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
-                      sx={{
-                        cursor: "pointer",
-                        borderRadius: 1,
-                        "&:hover": { bgcolor: "action.hover" },
-                        py: 0.5,
-                      }}
+                      secondaryAction={
+                        <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
+                          <MaterialSymbol icon="close" size={16} color="#999" />
+                        </IconButton>
+                      }
                     >
-                      <ListItemText
-                        primary={other?.name || "Unknown"}
-                        secondary={other?.type}
-                      />
+                      <Box
+                        component="div"
+                        onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
+                        sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                      >
+                        <ListItemText primary={other?.name || "Unknown"} secondary={other?.type} />
+                      </Box>
                     </ListItem>
                   );
                 })}
@@ -677,6 +719,82 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
           </Box>
         ))}
       </AccordionDetails>
+
+      {/* ── Add Relation Dialog ── */}
+      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Relation</DialogTitle>
+        <DialogContent>
+          {addError && <Alert severity="error" sx={{ mb: 2 }}>{addError}</Alert>}
+          <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
+            <InputLabel>Relation Type</InputLabel>
+            <Select
+              value={addRelType}
+              label="Relation Type"
+              onChange={(e) => { setAddRelType(e.target.value); setSelectedTarget(null); setTargetSearch(""); }}
+            >
+              {relevantRTs.map((rt) => {
+                const rtIsSource = rt.source_type_key === fsType;
+                const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
+                const otherKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
+                const other = getType(otherKey);
+                return (
+                  <MenuItem key={rt.key} value={rt.key}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography variant="body2" fontWeight={500}>{verb}</Typography>
+                      <MaterialSymbol icon="arrow_forward" size={14} color="#bbb" />
+                      {other && (
+                        <>
+                          <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: other.color }} />
+                          <Typography variant="body2">{other.label}</Typography>
+                        </>
+                      )}
+                      <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
+                    </Box>
+                  </MenuItem>
+                );
+              })}
+            </Select>
+          </FormControl>
+          {addRelType && (
+            <Autocomplete
+              options={searchResults}
+              getOptionLabel={(opt) => opt.name}
+              value={selectedTarget}
+              onChange={(_, val) => setSelectedTarget(val)}
+              inputValue={targetSearch}
+              onInputChange={(_, val) => setTargetSearch(val)}
+              renderOption={(props, opt) => {
+                const tConf = getType(opt.type);
+                return (
+                  <li {...props} key={opt.id}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
+                      <Typography variant="body2">{opt.name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{opt.type}</Typography>
+                    </Box>
+                  </li>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label={`Search ${getType(targetTypeKey)?.label || targetTypeKey}`}
+                  placeholder="Type to search..."
+                />
+              )}
+              noOptionsText={targetSearch ? "No results" : "Type to search..."}
+              filterOptions={(x) => x}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleAddRelation} disabled={!selectedRT || !selectedTarget}>
+            Add
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Accordion>
   );
 }
@@ -825,45 +943,137 @@ function TodosTab({ fsId }: { fsId: string }) {
 }
 
 // ── Tab: Subscriptions ──────────────────────────────────────────
-function SubscriptionsTab({ fs }: { fs: FactSheet }) {
-  const subs = fs.subscriptions || [];
-  const roles = ["responsible", "accountable", "observer"] as const;
+function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => void }) {
+  const [subs, setSubs] = useState<SubscriptionRef[]>([]);
+  const [roles, setRoles] = useState<SubscriptionRoleDef[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addRole, setAddRole] = useState("");
+  const [addUserId, setAddUserId] = useState("");
+
+  const load = useCallback(() => {
+    api.get<SubscriptionRef[]>(`/fact-sheets/${fs.id}/subscriptions`).then(setSubs).catch(() => {});
+  }, [fs.id]);
+
+  useEffect(() => {
+    load();
+    api.get<SubscriptionRoleDef[]>("/subscription-roles").then(setRoles).catch(() => {});
+    api.get<User[]>("/users").then(setUsers).catch(() => {});
+  }, [load]);
+
+  // Filter roles: only show roles that are valid for this fact sheet type
+  const availableRoles = roles.filter(
+    (r) => !r.allowed_types || r.allowed_types.includes(fs.type)
+  );
+
+  const handleAdd = async () => {
+    if (!addRole || !addUserId) return;
+    try {
+      await api.post(`/fact-sheets/${fs.id}/subscriptions`, {
+        user_id: addUserId,
+        role: addRole,
+      });
+      load();
+      onRefresh();
+      setAddOpen(false);
+      setAddRole("");
+      setAddUserId("");
+    } catch {
+      /* silently ignore duplicates */
+    }
+  };
+
+  const handleDelete = async (subId: string) => {
+    await api.delete(`/subscriptions/${subId}`);
+    load();
+    onRefresh();
+  };
+
+  // Group by role
+  const grouped = availableRoles.map((role) => ({
+    role,
+    items: subs.filter((s) => s.role === role.key),
+  }));
 
   return (
     <Box>
-      {roles.map((role) => {
-        const items = subs.filter((s) => s.role === role);
-        return (
-          <Card key={role} sx={{ mb: 2 }}>
-            <CardContent>
-              <Typography
-                variant="subtitle2"
-                textTransform="capitalize"
-                gutterBottom
-              >
-                {role}
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<MaterialSymbol icon="person_add" size={16} />}
+          onClick={() => setAddOpen(true)}
+        >
+          Add Subscription
+        </Button>
+      </Box>
+      {grouped.map(({ role, items }) => (
+        <Card key={role.key} sx={{ mb: 2 }}>
+          <CardContent>
+            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+              {role.label}
+            </Typography>
+            {items.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No {role.label.toLowerCase()} assigned
               </Typography>
-              {items.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No {role} assigned
-                </Typography>
-              ) : (
-                <List dense>
-                  {items.map((s) => (
-                    <ListItem key={s.id}>
-                      <MaterialSymbol icon="person" size={20} />
-                      <ListItemText
-                        primary={s.user_display_name || s.user_email}
-                        sx={{ ml: 1 }}
-                      />
-                    </ListItem>
+            ) : (
+              <List dense disablePadding>
+                {items.map((s) => (
+                  <ListItem
+                    key={s.id}
+                    secondaryAction={
+                      <IconButton size="small" onClick={() => handleDelete(s.id)}>
+                        <MaterialSymbol icon="close" size={16} />
+                      </IconButton>
+                    }
+                  >
+                    <MaterialSymbol icon="person" size={20} />
+                    <ListItemText
+                      primary={s.user_display_name || s.user_email}
+                      sx={{ ml: 1 }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+      {/* Add subscription inline */}
+      {addOpen && (
+        <Card sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}>
+          <CardContent>
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              Add Subscription
+            </Typography>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Role</InputLabel>
+                <Select value={addRole} label="Role" onChange={(e) => setAddRole(e.target.value)}>
+                  {availableRoles.map((r) => (
+                    <MenuItem key={r.key} value={r.key}>{r.label}</MenuItem>
                   ))}
-                </List>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>User</InputLabel>
+                <Select value={addUserId} label="User" onChange={(e) => setAddUserId(e.target.value)}>
+                  {users.filter((u) => u.is_active).map((u) => (
+                    <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button size="small" variant="contained" onClick={handleAdd} disabled={!addRole || !addUserId}>
+                Add
+              </Button>
+              <Button size="small" onClick={() => { setAddOpen(false); setAddRole(""); setAddUserId(""); }}>
+                Cancel
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
     </Box>
   );
 }
@@ -1066,7 +1276,7 @@ export default function FactSheetDetail() {
         <CardContent>
           {tab === 0 && <CommentsTab fsId={fs.id} />}
           {tab === 1 && <TodosTab fsId={fs.id} />}
-          {tab === 2 && <SubscriptionsTab fs={fs} />}
+          {tab === 2 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
           {tab === 3 && <HistoryTab fsId={fs.id} />}
         </CardContent>
       </Card>

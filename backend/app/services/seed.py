@@ -82,6 +82,13 @@ USAGE_TYPE_OPTIONS = [
     {"key": "stakeholder", "label": "Stakeholder", "color": "#ff9800"},
 ]
 
+TIME_MODEL_OPTIONS = [
+    {"key": "tolerate", "label": "Tolerate", "color": "#ff9800"},
+    {"key": "invest", "label": "Invest", "color": "#4caf50"},
+    {"key": "migrate", "label": "Migrate", "color": "#2196f3"},
+    {"key": "eliminate", "label": "Eliminate", "color": "#d32f2f"},
+]
+
 
 # ── 13 Fact Sheet Types (from Meta_Model.xml) ─────────────────────────
 
@@ -284,6 +291,7 @@ TYPES = [
                     {"key": "businessCriticality", "label": "Business Criticality", "type": "single_select", "required": True, "options": BUSINESS_CRITICALITY_OPTIONS, "weight": 2},
                     {"key": "functionalSuitability", "label": "Functional Suitability", "type": "single_select", "options": FUNCTIONAL_SUITABILITY_OPTIONS, "weight": 2},
                     {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS, "weight": 2},
+                    {"key": "timeModel", "label": "TIME Model", "type": "single_select", "required": True, "options": TIME_MODEL_OPTIONS, "weight": 3},
                     {"key": "hostingType", "label": "Hosting Type", "type": "single_select", "options": HOSTING_TYPE_OPTIONS, "weight": 1},
                 ],
             },
