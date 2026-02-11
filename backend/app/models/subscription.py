@@ -19,7 +19,7 @@ class Subscription(Base, UUIDMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    role: Mapped[str] = mapped_column(String(20), nullable=False)  # responsible/accountable/observer
+    role: Mapped[str] = mapped_column(String(50), nullable=False)  # responsible/observer/technical_application_owner/business_application_owner
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     fact_sheet = relationship("FactSheet", back_populates="subscriptions")

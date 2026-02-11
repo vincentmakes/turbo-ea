@@ -4,6 +4,13 @@ export interface User {
   display_name: string;
   role: string;
   is_active: boolean;
+  created_at?: string;
+}
+
+export interface SubscriptionRoleDef {
+  key: string;
+  label: string;
+  allowed_types: string[] | null;
 }
 
 export interface FieldOption {
@@ -73,6 +80,7 @@ export interface SubscriptionRef {
   user_display_name?: string;
   user_email?: string;
   role: string;
+  role_label?: string;
 }
 
 export interface FactSheet {
