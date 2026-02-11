@@ -37,22 +37,36 @@ const SEAL_COLORS: Record<string, string> = {
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
+interface HierarchyInfo {
+  name: string;
+  parentId?: string;
+}
+
 /**
  * Walk the parent_id chain to build the full hierarchy path for a fact sheet.
  * Returns "Grandparent / Parent / Child" when ancestors are in the dataset,
  * or just the fact sheet name when it has no parent or the parent isn't loaded.
+ *
+ * Uses an immutable snapshot map (id → {name, parentId}) rather than the live
+ * data objects, because AG Grid can mutate `data[field]` under the hood which
+ * would cause ancestor names to accumulate across hierarchy levels.
  */
-function getHierarchyPath(fs: FactSheet, byId: Map<string, FactSheet>): string {
-  const segments: string[] = [fs.name];
-  const seen = new Set<string>([fs.id]);
-  let current = fs;
-  while (current.parent_id) {
-    if (seen.has(current.parent_id)) break; // cycle guard
-    const parent = byId.get(current.parent_id);
-    if (!parent) break;
-    seen.add(parent.id);
-    segments.unshift(parent.name);
-    current = parent;
+function getHierarchyPath(
+  fsId: string,
+  infoById: Map<string, HierarchyInfo>,
+): string {
+  const info = infoById.get(fsId);
+  if (!info) return "";
+  const segments: string[] = [info.name];
+  const seen = new Set<string>([fsId]);
+  let currentParentId = info.parentId;
+  while (currentParentId) {
+    if (seen.has(currentParentId)) break; // cycle guard
+    const parentInfo = infoById.get(currentParentId);
+    if (!parentInfo) break;
+    seen.add(currentParentId);
+    segments.unshift(parentInfo.name);
+    currentParentId = parentInfo.parentId;
   }
   return segments.join(" / ");
 }
@@ -194,10 +208,13 @@ export default function InventoryPage() {
     };
   }, [selectedType, relevantRelTypes, data]);
 
-  // Index all loaded fact sheets by id for hierarchy lookups
-  const dataById = useMemo(() => {
-    const m = new Map<string, FactSheet>();
-    for (const fs of data) m.set(fs.id, fs);
+  // Immutable snapshot of id→{name, parentId} for hierarchy path computation.
+  // Stored as plain strings so AG Grid field mutations can't corrupt ancestor names.
+  const hierarchyInfo = useMemo(() => {
+    const m = new Map<string, HierarchyInfo>();
+    for (const fs of data) {
+      m.set(fs.id, { name: fs.name, parentId: fs.parent_id || undefined });
+    }
     return m;
   }, [data]);
 
@@ -353,7 +370,7 @@ export default function InventoryPage() {
         valueGetter: (p: { data: FactSheet }) => {
           if (!p.data) return "";
           if (gridEditMode) return p.data.name; // edit the leaf name only
-          return getHierarchyPath(p.data, dataById);
+          return getHierarchyPath(p.data.id, hierarchyInfo);
         },
         valueSetter: (p) => {
           p.data.name = p.newValue;
@@ -571,7 +588,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, dataById]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyInfo]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
