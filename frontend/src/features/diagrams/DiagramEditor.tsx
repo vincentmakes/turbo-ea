@@ -9,6 +9,7 @@ import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import FactSheetSidebar from "./FactSheetSidebar";
+import FactSheetPickerDialog from "./FactSheetPickerDialog";
 import { buildFactSheetXml } from "./drawio-shapes";
 import type { FactSheet, FactSheetType } from "@/types";
 
@@ -49,10 +50,12 @@ interface DiagramData {
 
 /** Messages FROM DrawIO iframe -> host */
 interface DrawIOMessage {
-  event: "init" | "save" | "exit" | "export" | "configure";
+  event: "init" | "save" | "exit" | "export" | "configure" | "insertFactSheet";
   xml?: string;
   data?: string;
   modified?: boolean;
+  x?: number;
+  y?: number;
 }
 
 export default function DiagramEditor() {
@@ -64,10 +67,13 @@ export default function DiagramEditor() {
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
   // Track whether we're waiting for a thumbnail export after save
   const pendingSaveXmlRef = useRef<string | null>(null);
   // Stagger insertion positions so shapes don't overlap
   const insertCountRef = useRef(0);
+  // Graph-space coordinates from right-click context menu
+  const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
   // Load diagram from API
   useEffect(() => {
@@ -122,10 +128,19 @@ export default function DiagramEditor() {
   /** Insert a fact sheet shape into DrawIO via the merge action */
   const handleInsertFactSheet = useCallback(
     (fs: FactSheet, fsType: FactSheetType) => {
-      const col = Math.floor(insertCountRef.current / 8);
-      const row = insertCountRef.current % 8;
-      const x = 100 + col * 220;
-      const y = 60 + row * 80;
+      // Use right-click position if available, otherwise fall back to grid layout
+      let x: number;
+      let y: number;
+      if (contextInsertPosRef.current) {
+        x = contextInsertPosRef.current.x;
+        y = contextInsertPosRef.current.y;
+        contextInsertPosRef.current = null;
+      } else {
+        const col = Math.floor(insertCountRef.current / 8);
+        const row = insertCountRef.current % 8;
+        x = 100 + col * 220;
+        y = 60 + row * 80;
+      }
       insertCountRef.current += 1;
 
       const xml = buildFactSheetXml({
@@ -200,6 +215,15 @@ export default function DiagramEditor() {
           } else {
             navigate("/diagrams");
           }
+          break;
+
+        case "insertFactSheet":
+          // Custom event from our PreConfig.js plugin — open the picker dialog
+          contextInsertPosRef.current = {
+            x: msg.x ?? 100,
+            y: msg.y ?? 100,
+          };
+          setPickerOpen(true);
           break;
 
         default:
@@ -281,6 +305,16 @@ export default function DiagramEditor() {
           />
         </Box>
       </Box>
+
+      {/* Fact sheet picker dialog — opened from DrawIO right-click menu */}
+      <FactSheetPickerDialog
+        open={pickerOpen}
+        onClose={() => {
+          setPickerOpen(false);
+          contextInsertPosRef.current = null;
+        }}
+        onInsert={handleInsertFactSheet}
+      />
 
       <Snackbar
         open={!!snackMsg}

@@ -21,5 +21,13 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Only the webapp directory is needed — no Java, no Electron, no build tools.
 COPY --from=drawio /drawio/src/main/webapp /usr/share/nginx/drawio
 
+# Add custom DrawIO configuration files:
+#   PreConfig.js    — right-click "Insert Fact Sheet" context menu item
+#   grapheditor.css — custom style overrides (placeholder to suppress 404)
+#   high-contrast.css — accessibility overrides (placeholder to suppress 404)
+COPY drawio-config/PreConfig.js      /usr/share/nginx/drawio/js/PreConfig.js
+COPY drawio-config/grapheditor.css   /usr/share/nginx/drawio/styles/grapheditor.css
+COPY drawio-config/high-contrast.css /usr/share/nginx/drawio/styles/high-contrast.css
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

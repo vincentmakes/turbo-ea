@@ -61,6 +61,8 @@ export function buildFactSheetXml(opts: InsertFactSheetOpts): string {
 
   return [
     '<mxGraphModel><root>',
+    '<mxCell id="0"/>',
+    '<mxCell id="1" parent="0"/>',
     `<object label="${esc(name)}" factSheetId="${esc(factSheetId)}" factSheetType="${esc(factSheetType)}" id="${cellId}">`,
     `<mxCell style="${style}" vertex="1" parent="1">`,
     `<mxGeometry x="${x}" y="${y}" width="180" height="60" as="geometry"/>`,
