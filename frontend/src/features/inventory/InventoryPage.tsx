@@ -97,6 +97,11 @@ export default function InventoryPage() {
       await api.patch(`/fact-sheets/${fs.id}`, { [field]: event.newValue });
     } else if (field.startsWith("attr_")) {
       const key = field.replace("attr_", "");
+      // Block writes to readonly fields
+      const fieldDef = typeConfig?.fields_schema
+        .flatMap((s) => s.fields)
+        .find((f) => f.key === key);
+      if (fieldDef?.readonly) return;
       const attrs = { ...fs.attributes, [key]: event.newValue };
       await api.patch(`/fact-sheets/${fs.id}`, { attributes: attrs });
     }
