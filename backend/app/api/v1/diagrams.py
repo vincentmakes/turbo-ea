@@ -26,18 +26,29 @@ class DiagramUpdate(BaseModel):
     data: dict | None = None
 
 
+class DiagramOut(BaseModel):
+    id: str
+    name: str
+    type: str
+    data: dict | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 @router.get("")
 async def list_diagrams(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Diagram).order_by(Diagram.updated_at.desc()))
+    rows = result.scalars().all()
     return [
         {
             "id": str(d.id),
             "name": d.name,
             "type": d.type,
+            "thumbnail": (d.data or {}).get("thumbnail"),
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "updated_at": d.updated_at.isoformat() if d.updated_at else None,
         }
-        for d in result.scalars().all()
+        for d in rows
     ]
 
 
@@ -55,7 +66,11 @@ async def create_diagram(
 
 
 @router.get("/{diagram_id}")
-async def get_diagram(diagram_id: str, db: AsyncSession = Depends(get_db)):
+async def get_diagram(
+    diagram_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
     d = result.scalar_one_or_none()
     if not d:
