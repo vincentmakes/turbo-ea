@@ -38,6 +38,26 @@ const SEAL_COLORS: Record<string, string> = {
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
 /**
+ * Walk the parent_id chain to build the full hierarchy path for a fact sheet.
+ * Returns "Grandparent / Parent / Child" when ancestors are in the dataset,
+ * or just the fact sheet name when it has no parent or the parent isn't loaded.
+ */
+function getHierarchyPath(fs: FactSheet, byId: Map<string, FactSheet>): string {
+  const segments: string[] = [fs.name];
+  const seen = new Set<string>([fs.id]);
+  let current = fs;
+  while (current.parent_id) {
+    if (seen.has(current.parent_id)) break; // cycle guard
+    const parent = byId.get(current.parent_id);
+    if (!parent) break;
+    seen.add(parent.id);
+    segments.unshift(parent.name);
+    current = parent;
+  }
+  return segments.join(" / ");
+}
+
+/**
  * Build a lookup: for each relation type, map factSheetId → array of related names.
  * When the selected type is the source, we index by source_id and show target names.
  * When the selected type is the target, we index by target_id and show source names.
@@ -173,6 +193,13 @@ export default function InventoryPage() {
       cancelled = true;
     };
   }, [selectedType, relevantRelTypes, data]);
+
+  // Index all loaded fact sheets by id for hierarchy lookups
+  const dataById = useMemo(() => {
+    const m = new Map<string, FactSheet>();
+    for (const fs of data) m.set(fs.id, fs);
+    return m;
+  }, [data]);
 
   // Client-side filtering: type multi-select (>1 type) and attribute filters
   const filteredData = useMemo(() => {
@@ -323,6 +350,15 @@ export default function InventoryPage() {
         flex: 1,
         minWidth: 200,
         editable: gridEditMode,
+        valueGetter: (p: { data: FactSheet }) => {
+          if (!p.data) return "";
+          if (gridEditMode) return p.data.name; // edit the leaf name only
+          return getHierarchyPath(p.data, dataById);
+        },
+        valueSetter: (p) => {
+          p.data.name = p.newValue;
+          return true;
+        },
         cellStyle: gridEditMode
           ? { fontWeight: 500 }
           : { cursor: "pointer", fontWeight: 500 },
@@ -535,7 +571,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, dataById]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {

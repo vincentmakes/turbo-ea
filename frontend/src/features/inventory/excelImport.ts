@@ -21,6 +21,8 @@ export interface ParsedRow {
   id?: string;
   type: string;
   data: Record<string, unknown>;
+  /** Raw parent_id from the file (UUID of existing or of another row in the file) */
+  parentId?: string;
   /** Original fact sheet when updating an existing record */
   existing?: FactSheet;
 }
@@ -62,6 +64,45 @@ function fieldDefsForType(
   const t = allTypes.find((x) => x.key === type);
   if (!t) return [];
   return t.fields_schema.flatMap((s) => s.fields);
+}
+
+/**
+ * Topologically sort rows so that parents come before children.
+ * Rows whose parentId references another row's id are placed after that row.
+ * Rows with no parent dependency come first.
+ */
+function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
+  // Build a set of ids available in the creates list
+  const createIds = new Set<string>();
+  for (const r of rows) {
+    if (r.id) createIds.add(r.id);
+  }
+
+  // Index by id for quick lookup
+  const byId = new Map<string, ParsedRow>();
+  for (const r of rows) {
+    if (r.id) byId.set(r.id, r);
+  }
+
+  const sorted: ParsedRow[] = [];
+  const visited = new Set<string | number>();
+
+  function visit(row: ParsedRow) {
+    const key = row.id ?? row.rowIndex;
+    if (visited.has(key)) return;
+    visited.add(key);
+
+    // If this row's parent is also being created, visit parent first
+    if (row.parentId && createIds.has(row.parentId)) {
+      const parent = byId.get(row.parentId);
+      if (parent) visit(parent);
+    }
+
+    sorted.push(row);
+  }
+
+  for (const row of rows) visit(row);
+  return sorted;
 }
 
 // ---- Core: parse workbook ------------------------------------------------
@@ -115,8 +156,8 @@ export function validateImport(
 
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
-    "id", "type", "name", "description", "subtype", "external_id", "alias",
-    "quality_seal",
+    "id", "type", "name", "description", "subtype", "parent_id",
+    "external_id", "alias", "quality_seal",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
   // Build set of all known attribute columns across all types
@@ -129,8 +170,7 @@ export function validateImport(
     }
   }
   for (const h of headers) {
-    const hl = h.toLowerCase();
-    if (!knownCoreCols.has(hl) && !allAttrKeys.has(h) && !h.startsWith("attr_")) {
+    if (!knownCoreCols.has(h) && !knownCoreCols.has(h.toLowerCase()) && !allAttrKeys.has(h) && !h.startsWith("attr_")) {
       warnings.push({ column: h, message: `Column "${h}" is not recognised and will be ignored` });
     }
   }
@@ -143,6 +183,13 @@ export function validateImport(
 
   // Track seen IDs to detect duplicates within the file
   const seenIds = new Map<string, number>(); // id → first row number
+
+  // Collect all ids present in the file (for parent_id cross-referencing)
+  const fileIds = new Set<string>();
+  for (const raw of rows) {
+    const id = str(raw["id"] ?? raw["Id"] ?? raw["ID"]);
+    if (id && UUID_RE.test(id)) fileIds.add(id);
+  }
 
   const typeKeys = new Set(allTypes.filter((t) => !t.is_hidden).map((t) => t.key));
 
@@ -162,6 +209,7 @@ export function validateImport(
     const type = str(raw["type"] ?? raw["Type"]) || preSelectedType || "";
     const description = str(raw["description"] ?? raw["Description"]);
     const subtype = str(raw["subtype"] ?? raw["Subtype"]);
+    const parentId = str(raw["parent_id"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
     const qualitySeal = str(raw["quality_seal"]).toUpperCase();
@@ -223,6 +271,36 @@ export function validateImport(
           row: rowNum,
           column: "type",
           message: `Row ${rowNum}: type mismatch — file has "${type}", existing has "${matchedExisting.type}"`,
+        });
+        continue;
+      }
+    }
+
+    // Validate parent_id if provided
+    if (parentId) {
+      if (!UUID_RE.test(parentId)) {
+        errors.push({
+          row: rowNum,
+          column: "parent_id",
+          message: `Row ${rowNum}: invalid parent_id format "${parentId}"`,
+        });
+        continue;
+      }
+      // parent must exist in DB or be another row in the file
+      if (!existingById.has(parentId) && !fileIds.has(parentId)) {
+        errors.push({
+          row: rowNum,
+          column: "parent_id",
+          message: `Row ${rowNum}: parent_id "${parentId}" not found — must reference an existing fact sheet or another row in this file`,
+        });
+        continue;
+      }
+      // parent must not be self
+      if (parentId === id) {
+        errors.push({
+          row: rowNum,
+          column: "parent_id",
+          message: `Row ${rowNum}: parent_id cannot reference itself`,
         });
         continue;
       }
@@ -383,12 +461,13 @@ export function validateImport(
     };
     if (description) data.description = description;
     if (subtype) data.subtype = subtype;
+    if (parentId) data.parent_id = parentId;
     if (externalId) data.external_id = externalId;
     if (alias) data.alias = alias;
     if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;
     if (Object.keys(attributes).length > 0) data.attributes = attributes;
 
-    const parsed: ParsedRow = { rowIndex: rowNum, type, data };
+    const parsed: ParsedRow = { rowIndex: rowNum, type, data, parentId: parentId || undefined };
 
     if (id && matchedExisting) {
       parsed.id = id;
@@ -415,10 +494,28 @@ export async function executeImport(
   let failed = 0;
   const failedDetails: { row: number; message: string }[] = [];
 
+  // Map old id (from file) → new id (from server) for parent_id resolution
+  const idMapping = new Map<string, string>();
+
+  // Topologically sort creates so parents are created before children
+  const sortedCreates = topoSortCreates(report.creates);
+
   // Creates
-  for (const row of report.creates) {
+  for (const row of sortedCreates) {
     try {
-      await api.post("/fact-sheets", row.data);
+      const payload = { ...row.data };
+
+      // Resolve parent_id: if the parent was just created, use its new id
+      if (row.parentId && idMapping.has(row.parentId)) {
+        payload.parent_id = idMapping.get(row.parentId);
+      }
+
+      const result = await api.post<{ id: string }>("/fact-sheets", payload);
+
+      // Track the mapping from file id → server id
+      if (row.id && result.id) {
+        idMapping.set(row.id, result.id);
+      }
       created++;
     } catch (e) {
       failed++;
@@ -444,6 +541,8 @@ export async function executeImport(
         patch.description = d.description || null;
       if (d.subtype !== undefined && d.subtype !== (ex.subtype ?? ""))
         patch.subtype = d.subtype || null;
+      if (d.parent_id !== undefined && d.parent_id !== (ex.parent_id ?? ""))
+        patch.parent_id = d.parent_id || null;
       if (d.external_id !== undefined && d.external_id !== (ex.external_id ?? ""))
         patch.external_id = d.external_id || null;
       if (d.alias !== undefined && d.alias !== (ex.alias ?? ""))
