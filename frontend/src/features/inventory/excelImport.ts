@@ -129,8 +129,7 @@ export function validateImport(
     }
   }
   for (const h of headers) {
-    const hl = h.toLowerCase();
-    if (!knownCoreCols.has(hl) && !allAttrKeys.has(h) && !h.startsWith("attr_")) {
+    if (!knownCoreCols.has(h) && !knownCoreCols.has(h.toLowerCase()) && !allAttrKeys.has(h) && !h.startsWith("attr_")) {
       warnings.push({ column: h, message: `Column "${h}" is not recognised and will be ignored` });
     }
   }
