@@ -589,6 +589,11 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
   const [selectedTarget, setSelectedTarget] = useState<{ id: string; name: string; type: string } | null>(null);
   const [addError, setAddError] = useState("");
 
+  // Inline create state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createLoading, setCreateLoading] = useState(false);
+
   const load = useCallback(() => {
     api.get<Relation[]>(`/relations?fact_sheet_id=${fsId}`).then(setRelations).catch(() => {});
   }, [fsId]);
@@ -599,12 +604,12 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
     (rt) => rt.source_type_key === fsType || rt.target_type_key === fsType
   );
 
-  // When relation type changes, determine the target type for searching
   const selectedRT = relationTypes.find((rt) => rt.key === addRelType);
   const isSource = selectedRT ? selectedRT.source_type_key === fsType : true;
   const targetTypeKey = selectedRT
     ? (isSource ? selectedRT.target_type_key : selectedRT.source_type_key)
     : "";
+  const targetTypeConfig = getType(targetTypeKey);
 
   // Search for target fact sheets when user types
   useEffect(() => {
@@ -647,14 +652,35 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
     load();
   };
 
-  // Group relations by relation type
-  const grouped = relevantRTs.map((rt) => {
-    const rtIsSource = rt.source_type_key === fsType;
-    const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
-    const otherTypeKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
-    const otherType = getType(otherTypeKey);
-    return { rt, verb, otherType, isSource: rtIsSource, rels: relations.filter((r) => r.type === rt.key) };
-  });
+  // Create a new fact sheet and immediately select it as the relation target
+  const handleQuickCreate = async () => {
+    if (!createName.trim() || !targetTypeKey) return;
+    setCreateLoading(true);
+    try {
+      const created = await api.post<{ id: string; name: string; type: string }>("/fact-sheets", {
+        type: targetTypeKey,
+        name: createName.trim(),
+      });
+      setSelectedTarget({ id: created.id, name: created.name, type: created.type });
+      setCreateOpen(false);
+      setCreateName("");
+    } catch (e) {
+      setAddError(e instanceof Error ? e.message : "Failed to create fact sheet");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  // Group relations by relation type – only show types that have relations
+  const grouped = relevantRTs
+    .map((rt) => {
+      const rtIsSource = rt.source_type_key === fsType;
+      const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
+      const otherTypeKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
+      const otherType = getType(otherTypeKey);
+      return { rt, verb, otherType, isSource: rtIsSource, rels: relations.filter((r) => r.type === rt.key) };
+    })
+    .filter(({ rels }) => rels.length > 0);
 
   return (
     <Accordion disableGutters>
@@ -664,17 +690,20 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
           <Typography fontWeight={600}>Relations</Typography>
           <Chip size="small" label={relations.length} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
         </Box>
-        <IconButton
-          size="small"
-          onClick={(e) => { e.stopPropagation(); setAddDialogOpen(true); }}
-          sx={{ mr: 1 }}
-        >
-          <MaterialSymbol icon="add" size={18} />
-        </IconButton>
       </AccordionSummary>
       <AccordionDetails>
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="add_link" size={16} />}
+            onClick={() => setAddDialogOpen(true)}
+          >
+            Add Relation
+          </Button>
+        </Box>
         {grouped.length === 0 && (
-          <Typography color="text.secondary" variant="body2">No relation types configured.</Typography>
+          <Typography color="text.secondary" variant="body2">No relations yet.</Typography>
         )}
         {grouped.map(({ rt, verb, otherType, rels }) => (
           <Box key={rt.key} sx={{ mb: 2 }}>
@@ -689,48 +718,44 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
               )}
               <Chip size="small" label={rt.cardinality} variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />
             </Box>
-            {rels.length === 0 ? (
-              <Typography variant="body2" color="text.disabled" sx={{ ml: 1 }}>None linked</Typography>
-            ) : (
-              <List dense disablePadding>
-                {rels.map((r) => {
-                  const other = r.source_id === fsId ? r.target : r.source;
-                  return (
-                    <ListItem
-                      key={r.id}
-                      secondaryAction={
-                        <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
-                          <MaterialSymbol icon="close" size={16} color="#999" />
-                        </IconButton>
-                      }
+            <List dense disablePadding>
+              {rels.map((r) => {
+                const other = r.source_id === fsId ? r.target : r.source;
+                return (
+                  <ListItem
+                    key={r.id}
+                    secondaryAction={
+                      <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
+                        <MaterialSymbol icon="close" size={16} color="#999" />
+                      </IconButton>
+                    }
+                  >
+                    <Box
+                      component="div"
+                      onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
+                      sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
                     >
-                      <Box
-                        component="div"
-                        onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
-                        sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-                      >
-                        <ListItemText primary={other?.name || "Unknown"} secondary={other?.type} />
-                      </Box>
-                    </ListItem>
-                  );
-                })}
-              </List>
-            )}
+                      <ListItemText primary={other?.name || "Unknown"} secondary={other?.type} />
+                    </Box>
+                  </ListItem>
+                );
+              })}
+            </List>
           </Box>
         ))}
       </AccordionDetails>
 
       {/* ── Add Relation Dialog ── */}
-      <Dialog open={addDialogOpen} onClose={() => setAddDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addDialogOpen} onClose={() => { setAddDialogOpen(false); setCreateOpen(false); }} maxWidth="sm" fullWidth>
         <DialogTitle>Add Relation</DialogTitle>
         <DialogContent>
-          {addError && <Alert severity="error" sx={{ mb: 2 }}>{addError}</Alert>}
+          {addError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAddError("")}>{addError}</Alert>}
           <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
             <InputLabel>Relation Type</InputLabel>
             <Select
               value={addRelType}
               label="Relation Type"
-              onChange={(e) => { setAddRelType(e.target.value); setSelectedTarget(null); setTargetSearch(""); }}
+              onChange={(e) => { setAddRelType(e.target.value); setSelectedTarget(null); setTargetSearch(""); setCreateOpen(false); }}
             >
               {relevantRTs.map((rt) => {
                 const rtIsSource = rt.source_type_key === fsType;
@@ -755,41 +780,76 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
               })}
             </Select>
           </FormControl>
-          {addRelType && (
-            <Autocomplete
-              options={searchResults}
-              getOptionLabel={(opt) => opt.name}
-              value={selectedTarget}
-              onChange={(_, val) => setSelectedTarget(val)}
-              inputValue={targetSearch}
-              onInputChange={(_, val) => setTargetSearch(val)}
-              renderOption={(props, opt) => {
-                const tConf = getType(opt.type);
-                return (
-                  <li {...props} key={opt.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
-                      <Typography variant="body2">{opt.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{opt.type}</Typography>
-                    </Box>
-                  </li>
-                );
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label={`Search ${getType(targetTypeKey)?.label || targetTypeKey}`}
-                  placeholder="Type to search..."
-                />
-              )}
-              noOptionsText={targetSearch ? "No results" : "Type to search..."}
-              filterOptions={(x) => x}
-            />
+          {addRelType && !createOpen && (
+            <>
+              <Autocomplete
+                options={searchResults}
+                getOptionLabel={(opt) => opt.name}
+                value={selectedTarget}
+                onChange={(_, val) => setSelectedTarget(val)}
+                inputValue={targetSearch}
+                onInputChange={(_, val) => setTargetSearch(val)}
+                renderOption={(props, opt) => {
+                  const tConf = getType(opt.type);
+                  return (
+                    <li {...props} key={opt.id}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
+                        <Typography variant="body2">{opt.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">{opt.type}</Typography>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    label={`Search ${targetTypeConfig?.label || targetTypeKey}`}
+                    placeholder="Type to search..."
+                  />
+                )}
+                noOptionsText={targetSearch ? "No results found" : "Type to search..."}
+                filterOptions={(x) => x}
+              />
+              <Button
+                size="small"
+                sx={{ mt: 1 }}
+                startIcon={<MaterialSymbol icon="add" size={16} />}
+                onClick={() => { setCreateOpen(true); setCreateName(targetSearch); }}
+              >
+                Create new {targetTypeConfig?.label || targetTypeKey}
+              </Button>
+            </>
+          )}
+          {addRelType && createOpen && (
+            <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+                Create new {targetTypeConfig?.label || targetTypeKey}
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                label="Name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
+                autoFocus
+                sx={{ mb: 1 }}
+              />
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button size="small" variant="contained" onClick={handleQuickCreate} disabled={!createName.trim() || createLoading}>
+                  Create & Select
+                </Button>
+                <Button size="small" onClick={() => setCreateOpen(false)}>
+                  Back to search
+                </Button>
+              </Box>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => { setAddDialogOpen(false); setCreateOpen(false); }}>Cancel</Button>
           <Button variant="contained" onClick={handleAddRelation} disabled={!selectedRT || !selectedTarget}>
             Add
           </Button>

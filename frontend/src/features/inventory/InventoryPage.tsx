@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, CellValueChangedEvent } from "ag-grid-community";
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -15,11 +15,16 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheet, FactSheetListResponse } from "@/types";
+import type { FactSheet, FactSheetListResponse, FieldDef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -34,6 +39,7 @@ export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { types } = useMetamodel();
+  const gridRef = useRef<AgGridReact>(null);
   const [selectedType, setSelectedType] = useState(
     searchParams.get("type") || ""
   );
@@ -45,6 +51,14 @@ export default function InventoryPage() {
   const [createOpen, setCreateOpen] = useState(
     searchParams.get("create") === "true"
   );
+
+  // Mass edit state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [massEditOpen, setMassEditOpen] = useState(false);
+  const [massEditField, setMassEditField] = useState("");
+  const [massEditValue, setMassEditValue] = useState<unknown>("");
+  const [massEditError, setMassEditError] = useState("");
+  const [massEditLoading, setMassEditLoading] = useState(false);
 
   const typeConfig = types.find((t) => t.key === selectedType);
 
@@ -99,8 +113,82 @@ export default function InventoryPage() {
     loadData();
   };
 
+  const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {
+    const rows = event.api.getSelectedRows() as FactSheet[];
+    setSelectedIds(rows.map((r) => r.id));
+  }, []);
+
+  // Build list of mass-editable fields for current type
+  const massEditableFields = useMemo(() => {
+    const fields: { key: string; label: string; fieldDef?: FieldDef; isCore: boolean }[] = [
+      { key: "quality_seal", label: "Quality Seal", isCore: true },
+    ];
+    if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
+      fields.push({ key: "subtype", label: "Subtype", isCore: true });
+    }
+    if (typeConfig) {
+      for (const section of typeConfig.fields_schema) {
+        for (const field of section.fields) {
+          fields.push({ key: `attr_${field.key}`, label: field.label, fieldDef: field, isCore: false });
+        }
+      }
+    }
+    return fields;
+  }, [typeConfig]);
+
+  const currentMassField = massEditableFields.find((f) => f.key === massEditField);
+
+  const handleMassEdit = async () => {
+    if (selectedIds.length === 0 || !massEditField) return;
+    setMassEditLoading(true);
+    setMassEditError("");
+    try {
+      if (massEditField === "quality_seal") {
+        // Quality seal uses its own endpoint, apply individually
+        const action = massEditValue === "APPROVED" ? "approve" : massEditValue === "REJECTED" ? "reject" : "reset";
+        await Promise.all(
+          selectedIds.map((id) => api.post(`/fact-sheets/${id}/quality-seal?action=${action}`))
+        );
+      } else if (massEditField === "subtype") {
+        await api.patch("/fact-sheets/bulk", {
+          ids: selectedIds,
+          updates: { subtype: massEditValue || null },
+        });
+      } else if (massEditField.startsWith("attr_")) {
+        const attrKey = massEditField.replace("attr_", "");
+        // For attribute fields, we need to merge into each fact sheet's attributes
+        // Use individual patches since bulk doesn't support attribute merging
+        await Promise.all(
+          selectedIds.map((id) => {
+            const existing = data.find((d) => d.id === id);
+            const attrs = { ...(existing?.attributes || {}), [attrKey]: massEditValue || null };
+            return api.patch(`/fact-sheets/${id}`, { attributes: attrs });
+          })
+        );
+      }
+      setMassEditOpen(false);
+      setMassEditField("");
+      setMassEditValue("");
+      loadData();
+    } catch (e) {
+      setMassEditError(e instanceof Error ? e.message : "Mass edit failed");
+    } finally {
+      setMassEditLoading(false);
+    }
+  };
+
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols: ColDef[] = [
+      {
+        headerCheckboxSelection: true,
+        checkboxSelection: true,
+        width: 50,
+        maxWidth: 50,
+        suppressHeaderMenuButton: true,
+        sortable: false,
+        filter: false,
+        resizable: false,
+      },
       {
         field: "type",
         headerName: "Type",
@@ -283,6 +371,83 @@ export default function InventoryPage() {
     return cols;
   }, [types, typeConfig]);
 
+  // Render mass edit value input based on field type
+  const renderMassEditInput = () => {
+    if (!currentMassField) return null;
+
+    if (massEditField === "quality_seal") {
+      return (
+        <FormControl fullWidth size="small">
+          <InputLabel>Value</InputLabel>
+          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value="DRAFT">Draft</MenuItem>
+            <MenuItem value="APPROVED">Approved</MenuItem>
+            <MenuItem value="REJECTED">Rejected</MenuItem>
+          </Select>
+        </FormControl>
+      );
+    }
+
+    if (massEditField === "subtype" && typeConfig?.subtypes) {
+      return (
+        <FormControl fullWidth size="small">
+          <InputLabel>Value</InputLabel>
+          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value=""><em>None</em></MenuItem>
+            {typeConfig.subtypes.map((st) => (
+              <MenuItem key={st.key} value={st.key}>{st.label}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
+
+    const fd = currentMassField.fieldDef;
+    if (!fd) return null;
+
+    if (fd.type === "single_select" && fd.options) {
+      return (
+        <FormControl fullWidth size="small">
+          <InputLabel>Value</InputLabel>
+          <Select value={(massEditValue as string) || ""} label="Value" onChange={(e) => setMassEditValue(e.target.value)}>
+            <MenuItem value=""><em>Clear</em></MenuItem>
+            {fd.options.map((opt) => (
+              <MenuItem key={opt.key} value={opt.key}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {opt.color && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />}
+                  {opt.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
+
+    if (fd.type === "number") {
+      return (
+        <TextField
+          fullWidth
+          size="small"
+          label="Value"
+          type="number"
+          value={massEditValue ?? ""}
+          onChange={(e) => setMassEditValue(e.target.value ? Number(e.target.value) : "")}
+        />
+      );
+    }
+
+    return (
+      <TextField
+        fullWidth
+        size="small"
+        label="Value"
+        value={(massEditValue as string) ?? ""}
+        onChange={(e) => setMassEditValue(e.target.value)}
+      />
+    );
+  };
+
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
@@ -370,18 +535,61 @@ export default function InventoryPage() {
         </ToggleButtonGroup>
       </Box>
 
+      {/* Mass edit toolbar */}
+      {selectedIds.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 2,
+            mb: 1,
+            px: 2,
+            py: 1,
+            bgcolor: "primary.main",
+            color: "primary.contrastText",
+            borderRadius: 1,
+          }}
+        >
+          <MaterialSymbol icon="check_box" size={20} />
+          <Typography variant="body2" fontWeight={600}>
+            {selectedIds.length} selected
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            color="inherit"
+            sx={{ color: "primary.main", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+            startIcon={<MaterialSymbol icon="edit" size={16} />}
+            onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
+          >
+            Mass Edit
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            color="inherit"
+            sx={{ borderColor: "rgba(255,255,255,0.5)", textTransform: "none" }}
+            onClick={() => gridRef.current?.api?.deselectAll()}
+          >
+            Clear Selection
+          </Button>
+        </Box>
+      )}
+
       <Box
         className="ag-theme-quartz"
-        sx={{ height: "calc(100vh - 240px)", width: "100%" }}
+        sx={{ height: selectedIds.length > 0 ? "calc(100vh - 290px)" : "calc(100vh - 240px)", width: "100%" }}
       >
         <AgGridReact
+          ref={gridRef}
           rowData={filteredData}
           columnDefs={columnDefs}
           loading={loading}
           rowSelection={{ mode: "multiRow", enableClickSelection: false }}
+          onSelectionChanged={handleSelectionChanged}
           onCellValueChanged={handleCellEdit}
           onRowClicked={(e) => {
-            if (e.data) navigate(`/fact-sheets/${e.data.id}`);
+            if (e.data && !e.event?.defaultPrevented) navigate(`/fact-sheets/${e.data.id}`);
           }}
           getRowId={(p) => p.data.id}
           animateRows
@@ -394,6 +602,39 @@ export default function InventoryPage() {
           }}
         />
       </Box>
+
+      {/* Mass Edit Dialog */}
+      <Dialog open={massEditOpen} onClose={() => setMassEditOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          Mass Edit ({selectedIds.length} items)
+        </DialogTitle>
+        <DialogContent>
+          {massEditError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setMassEditError("")}>{massEditError}</Alert>}
+          <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
+            <InputLabel>Field</InputLabel>
+            <Select
+              value={massEditField}
+              label="Field"
+              onChange={(e) => { setMassEditField(e.target.value); setMassEditValue(""); }}
+            >
+              {massEditableFields.map((f) => (
+                <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {massEditField && renderMassEditInput()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMassEditOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleMassEdit}
+            disabled={!massEditField || massEditLoading}
+          >
+            {massEditLoading ? "Applying..." : `Apply to ${selectedIds.length} items`}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <CreateFactSheetDialog
         open={createOpen}
