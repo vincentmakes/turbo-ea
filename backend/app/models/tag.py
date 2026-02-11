@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, UUIDMixin
@@ -16,6 +16,8 @@ class TagGroup(Base, UUIDMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     mode: Mapped[str] = mapped_column(String(20), default="multi")  # single/multi
+    create_mode: Mapped[str] = mapped_column(String(20), default="open")  # open/restricted
+    restrict_to_types: Mapped[list | None] = mapped_column(JSONB)  # list of FS type keys, null=all
     mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

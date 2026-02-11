@@ -18,6 +18,12 @@ export interface FieldDef {
   type: "text" | "number" | "boolean" | "date" | "single_select";
   options?: FieldOption[];
   required?: boolean;
+  weight?: number;
+}
+
+export interface SubtypeDef {
+  key: string;
+  label: string;
 }
 
 export interface SectionDef {
@@ -33,6 +39,7 @@ export interface FactSheetType {
   color: string;
   category: string;
   has_hierarchy: boolean;
+  subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
   built_in: boolean;
 }
@@ -64,6 +71,7 @@ export interface SubscriptionRef {
 export interface FactSheet {
   id: string;
   type: string;
+  subtype?: string;
   name: string;
   description?: string;
   parent_id?: string;

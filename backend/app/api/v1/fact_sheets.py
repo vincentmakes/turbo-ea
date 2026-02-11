@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.fact_sheet import FactSheet
+from app.models.fact_sheet_type import FactSheetType
 from app.models.event import Event
 from app.models.user import User
 from app.schemas.fact_sheet import (
@@ -26,6 +27,44 @@ from app.schemas.fact_sheet import (
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/fact-sheets", tags=["fact-sheets"])
+
+
+async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
+    """Calculate completion score from fields_schema weights."""
+    result = await db.execute(
+        select(FactSheetType.fields_schema).where(FactSheetType.key == fs.type)
+    )
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return 0.0
+
+    total_weight = 0.0
+    filled_weight = 0.0
+    attrs = fs.attributes or {}
+
+    for section in schema:
+        for field in section.get("fields", []):
+            weight = field.get("weight", 1)
+            if weight <= 0:
+                continue
+            total_weight += weight
+            val = attrs.get(field["key"])
+            if val is not None and val != "" and val is not False:
+                filled_weight += weight
+
+    # Also count description (weight 1) and lifecycle having at least one date (weight 1)
+    total_weight += 1  # description
+    if fs.description and fs.description.strip():
+        filled_weight += 1
+
+    total_weight += 1  # lifecycle
+    lc = fs.lifecycle or {}
+    if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
+        filled_weight += 1
+
+    if total_weight == 0:
+        return 0.0
+    return round((filled_weight / total_weight) * 100, 1)
 
 
 def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
@@ -45,6 +84,7 @@ def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
     return FactSheetResponse(
         id=str(fs.id),
         type=fs.type,
+        subtype=fs.subtype,
         name=fs.name,
         description=fs.description,
         parent_id=str(fs.parent_id) if fs.parent_id else None,
@@ -118,6 +158,7 @@ async def create_fact_sheet(
 ):
     fs = FactSheet(
         type=body.type,
+        subtype=body.subtype,
         name=body.name,
         description=body.description,
         parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
@@ -125,11 +166,15 @@ async def create_fact_sheet(
         attributes=body.attributes or {},
         external_id=body.external_id,
         alias=body.alias,
+        quality_seal="DRAFT",
         created_by=user.id,
         updated_by=user.id,
     )
     db.add(fs)
     await db.flush()
+
+    # Compute completion score
+    fs.completion = await _calc_completion(db, fs)
 
     await event_bus.publish(
         "fact_sheet.created",
@@ -173,9 +218,14 @@ async def update_fact_sheet(
 
     if changes:
         fs.updated_by = user.id
-        # Break quality seal on edit (unless user is subscriber)
+        # Break quality seal on edit (attribute/lifecycle changes break it)
         if fs.quality_seal == "APPROVED":
-            fs.quality_seal = "BROKEN"
+            seal_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
+            if seal_breaking & changes.keys():
+                fs.quality_seal = "BROKEN"
+
+        # Recalculate completion
+        fs.completion = await _calc_completion(db, fs)
 
         await event_bus.publish(
             "fact_sheet.updated",
@@ -260,7 +310,7 @@ async def get_history(
 @router.post("/{fs_id}/quality-seal")
 async def update_quality_seal(
     fs_id: str,
-    action: str = Query(..., regex="^(approve|break)$"),
+    action: str = Query(..., pattern="^(approve|reject|reset)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -268,7 +318,8 @@ async def update_quality_seal(
     fs = result.scalar_one_or_none()
     if not fs:
         raise HTTPException(404, "Fact sheet not found")
-    fs.quality_seal = "APPROVED" if action == "approve" else "BROKEN"
+    seal_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
+    fs.quality_seal = seal_map[action]
     await event_bus.publish(
         f"fact_sheet.quality_seal.{action}",
         {"id": str(fs.id), "seal": fs.quality_seal},

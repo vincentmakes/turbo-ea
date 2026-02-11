@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 class FactSheetCreate(BaseModel):
     type: str
+    subtype: str | None = None
     name: str
     description: str | None = None
     parent_id: str | None = None
@@ -19,6 +20,7 @@ class FactSheetCreate(BaseModel):
 
 class FactSheetUpdate(BaseModel):
     name: str | None = None
+    subtype: str | None = None
     description: str | None = None
     parent_id: str | None = None
     lifecycle: dict | None = None
@@ -55,6 +57,7 @@ class SubscriptionRef(BaseModel):
 class FactSheetResponse(BaseModel):
     id: str
     type: str
+    subtype: str | None = None
     name: str
     description: str | None = None
     parent_id: str | None = None

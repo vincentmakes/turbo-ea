@@ -20,119 +20,319 @@ Turbo EA is a self-hosted Enterprise Architecture Management (EAM) platform — 
 
 ---
 
-## LeanIX Feature Mapping
+## LeanIX Metamodel v4 — Complete Specification
 
-### Metamodel (12 Fact Sheet Types)
+### 12 Fact Sheet Types
 
-**Business Architecture:**
-| Type | Key Fields | Hierarchy |
-|------|-----------|-----------|
-| Business Capability | name, description, lifecycle | Parent/Child (L1→L2→L3) |
-| Business Context | name, description, lifecycle | Parent/Child |
-| Organization | name, description | Parent/Child |
+#### Business Architecture Layer
 
-**Application Architecture:**
-| Type | Key Fields | Hierarchy |
-|------|-----------|-----------|
-| Application | businessCriticality, functionalFit, technicalFit, hostingType, alias, totalAnnualCost | Parent/Child |
-| Interface | frequency, dataDirection, technicalFit | Flat |
-| Data Object | dataSensitivity, isPersonalData | Parent/Child |
+**1. Business Capability** (`BusinessCapability`)
+- Icon: `account_tree` | Color: `#4caf50` | Hierarchy: Yes (L1→L2→L3+)
+- Subtypes: none
+- Fields: alias (text)
+- Purpose: Stable functional decomposition of what the business does
 
-**Technology Architecture:**
-| Type | Key Fields | Hierarchy |
-|------|-----------|-----------|
-| IT Component | technicalFit, totalAnnualCost | Parent/Child |
-| Tech Category | name, description | Parent/Child |
-| Provider | website, headquarters | Flat |
+**2. Business Context** (`BusinessContext`)
+- Icon: `domain` | Color: `#66bb6a` | Hierarchy: Yes
+- Subtypes: Process, Value Stream, Customer Journey, Product
+- Fields: alias (text)
+- Purpose: Activities an org performs — value streams, products, processes
 
-**Transformation Architecture:**
-| Type | Key Fields | Hierarchy |
-|------|-----------|-----------|
-| Platform | name, description, lifecycle | Flat |
-| Objective | category, kpiDescription | Flat |
-| Initiative | budget, status, startDate, endDate | Parent/Child |
+**3. Organization** (`Organization`)
+- Icon: `corporate_fare` | Color: `#43a047` | Hierarchy: Yes
+- Subtypes: Business Unit, Region, Legal Entity, Team, Customer
+- Fields: alias (text)
+- Purpose: Business units, regions, teams, legal entities
 
-### Common Fact Sheet Properties
-- Name, Description (all types)
-- Lifecycle: plan → phaseIn → active → phaseOut → endOfLife (each with date)
-- Tags (multi-select from tag groups)
-- Subscriptions: Responsible, Accountable, Observer (user assignments)
-- Quality Seal: Approved / Broken (governance workflow)
-- Completion Score: auto-calculated % based on filled fields + relations
-- External ID, Alias
-- Documents/Resources (links)
-- Comments (threaded)
-- To-Dos (assigned tasks)
-- Full audit history
+#### Application & Data Architecture Layer
 
-### Enum Values
+**4. Application** (`Application`) — CENTER OF THE METAMODEL
+- Icon: `apps` | Color: `#1976d2` | Hierarchy: Yes
+- Subtypes: Business Application, Microservice, Deployment
+- Fields:
+  - *Information section*: alias (text), businessCriticality (single_select: missionCritical/businessCritical/businessOperational/administrativeService), functionalSuitability (single_select: perfect/appropriate/insufficient/unreasonable — UI: "Functional Fit"), technicalSuitability (single_select: fullyAppropriate/adequate/unreasonable/inappropriate — UI: "Technical Fit"), hostingType (single_select: onPremise/cloudSaaS/cloudPaaS/cloudIaaS/hybrid)
+  - *Cost section*: totalAnnualCost (number), costCurrency (text)
+- Purpose: Software systems, microservices, deployments — connects to more types than any other
 
-**Business Criticality:** Mission Critical, Business Critical, Business Operational, Administrative
+**5. Interface** (`Interface`)
+- Icon: `sync_alt` | Color: `#1565c0` | Hierarchy: No
+- Subtypes: Logical Interface, API
+- Fields:
+  - *Interface Information section*: frequency (single_select: realtime/daily/weekly/monthly/onDemand/batch), dataDirection (single_select: unidirectional/bidirectional), technicalSuitability (single_select — same as Application)
+- Purpose: Data exchange connections between applications (Provider/Consumer pattern)
 
-**Functional Fit:** Perfect, Appropriate, Insufficient, Unreasonable
+**6. Data Object** (`DataObject`)
+- Icon: `database` | Color: `#0d47a1` | Hierarchy: Yes
+- Subtypes: none
+- Fields:
+  - *Data Object Information section*: dataSensitivity (single_select: public/internal/confidential/restricted), isPersonalData (boolean)
+- Purpose: Business data entities (customer, order, product data)
 
-**Technical Fit:** Fully Appropriate, Adequate, Unreasonable, Inappropriate
+#### Technology Architecture Layer
 
-**Hosting Type:** On-Premise, Cloud SaaS, Cloud PaaS, Cloud IaaS, Hybrid
+**7. IT Component** (`ITComponent`)
+- Icon: `memory` | Color: `#7b1fa2` | Hierarchy: Yes
+- Subtypes: Software, Hardware, SaaS, IaaS, PaaS, Service
+- Fields:
+  - *IT Component Information section*: alias (text), technicalSuitability (single_select — same as Application)
+  - *Cost section*: totalAnnualCost (number)
+- Purpose: Technology dependencies — software, hardware, cloud services
 
-**Resource Classification** (IT Component ↔ Tech Category relation): Approved, Conditional, Investigating, Retiring, Unapproved
+**8. Tech Category** (`TechCategory`)
+- Icon: `category` | Color: `#9c27b0` | Hierarchy: Yes
+- Subtypes: none
+- Fields: alias (text)
+- Purpose: Standardized groupings for IT Components (e.g., DBMS, OS, Cloud Platform)
 
-**Data Sensitivity:** Public, Internal, Confidential, Restricted
+**9. Provider** (`Provider`)
+- Icon: `store` | Color: `#6a1b9a` | Hierarchy: No
+- Subtypes: none
+- Fields:
+  - *Provider Information section*: website (text), headquarters (text)
+- Purpose: Vendors and suppliers of technology and services
 
-**Initiative Status:** Proposed, Approved, In Progress, Completed, Cancelled
+#### Transformation Architecture Layer
 
-### Standard Relations (20 types)
+**10. Platform** (`Platform`)
+- Icon: `hub` | Color: `#e65100` | Hierarchy: No
+- Subtypes: Digital, Technical
+- Fields: alias (text)
+- Purpose: Strategic groupings of applications and technologies
 
-| # | Source → Target | Relation Key | Relation Attributes |
-|---|----------------|-------------|-------------------|
-| 1 | Application → Business Capability | relAppToBC | — |
-| 2 | Application → Organization | relAppToOrg | usageType (user/owner) |
-| 3 | Application → IT Component | relAppToITC | totalAnnualCost |
-| 4 | Application → Interface | relAppToInterface | direction (provider/consumer) |
-| 5 | Application → Data Object | relAppToDataObj | crudFlags (C/R/U/D) |
-| 6 | Application → Provider | relAppToProvider | — |
-| 7 | Application → Platform | relAppToPlatform | — |
-| 8 | Application → Application | relAppToApp | description |
-| 9 | Interface → Data Object | relInterfaceToDataObj | — |
-| 10 | IT Component → Tech Category | relITCToTechCat | resourceClassification |
-| 11 | IT Component → Provider | relITCToProvider | — |
-| 12 | Objective → Business Capability | relObjToBC | — |
-| 13 | Objective → Initiative | relObjToInitiative | — |
-| 14 | Initiative → Application | relInitToApp | — |
-| 15 | Initiative → IT Component | relInitToITC | — |
-| 16 | Platform → Application | relPlatformToApp | — |
-| 17 | Platform → IT Component | relPlatformToITC | — |
-| 18 | Organization → Application | relOrgToApp | — |
-| 19 | Business Context → Business Capability | relBCxToBC | — |
-| 20 | Business Context → Application | relBCxToApp | — |
+**11. Objective** (`Objective`)
+- Icon: `flag` | Color: `#ef6c00` | Hierarchy: No
+- Subtypes: none
+- Fields:
+  - *Objective Information section*: category (single_select: strategic/tactical/operational), kpiDescription (text)
+- Purpose: Strategic goals driving initiatives and transformation
 
-Plus parent/child (hierarchy) relations within: Business Capability, Business Context, Organization, Application, Data Object, IT Component, Tech Category, Initiative.
+**12. Initiative** (`Initiative`)
+- Icon: `rocket_launch` | Color: `#f57c00` | Hierarchy: Yes
+- Subtypes: Idea, Program, Project, Epic
+- Fields:
+  - *Initiative Information section*: status (single_select: proposed/approved/inProgress/completed/cancelled), budget (number), startDate (date), endDate (date)
+- Purpose: Transformation efforts — ideas, projects, programs, epics
+
+### Common Properties (ALL fact sheet types)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| name | text (required) | Primary identifier |
+| alias | text | Alternative name |
+| description | text (multiline) | Rich description |
+| lifecycle | JSONB | Dates for: plan, phaseIn, active, phaseOut, endOfLife |
+| tags | relation | Multi-select from tag groups |
+| subscriptions | relation | Responsible, Accountable, Observer |
+| quality_seal | enum | DRAFT / APPROVED / BROKEN / REJECTED |
+| completion | float | Auto-calculated 0–100% based on filled fields |
+| external_id | text | Integration identifier |
+| documents | relation | Links/attachments |
+| comments | relation | Threaded discussion |
+| todos | relation | Action items |
+| history | events | Full audit trail |
+
+### Lifecycle Model (5 phases)
+
+| Phase | Meaning | Color |
+|-------|---------|-------|
+| Plan | Envisioned in TO-BE landscape | `#9e9e9e` |
+| Phase In | Implementation underway | `#2196f3` |
+| Active | In production | `#4caf50` |
+| Phase Out | Being retired/replaced | `#ff9800` |
+| End of Life | Decommissioned | `#f44336` |
+
+### Quality Seal States
+
+| State | Description | Trigger |
+|-------|-------------|---------|
+| DRAFT | New/work-in-progress | Default on creation |
+| APPROVED | Data verified by Responsible/Accountable | Manual approval |
+| BROKEN | Data changed or inactivity timeout | Auto on field/relation change by non-subscriber |
+| REJECTED | Removed from quality process | Manual rejection |
+
+What breaks the seal: Changes to attributes, relations, lifecycle.
+What does NOT break it: Changes to comments, subscriptions, todos.
+
+### Relation Types (25+ including self-referencing)
+
+#### Cross-Type Relations
+
+| # | Key | Source → Target | Relation Attributes |
+|---|-----|----------------|-------------------|
+| 1 | relAppToBC | Application → Business Capability | functionalSuitability, supportType (leading/effective) |
+| 2 | relAppToOrg | Application → Organization | usageType (user/owner) |
+| 3 | relAppToITC | Application → IT Component | technicalSuitability, costTotalAnnual |
+| 4 | relProviderAppToInterface | Application → Interface | (provider side) |
+| 5 | relConsumerAppToInterface | Application → Interface | (consumer side) |
+| 6 | relAppToDataObj | Application → Data Object | crudFlags (C/R/U/D) |
+| 7 | relAppToProvider | Application → Provider | — |
+| 8 | relAppToPlatform | Application → Platform | — |
+| 9 | relAppToBCx | Application → Business Context | — |
+| 10 | relAppToInitiative | Application → Initiative | — |
+| 11 | relInterfaceToDataObj | Interface → Data Object | — |
+| 12 | relInterfaceToITC | Interface → IT Component | (middleware) |
+| 13 | relITCToTechCat | IT Component → Tech Category | resourceClassification (standard/phaseIn/tolerated/phaseOut/declined) |
+| 14 | relITCToProvider | IT Component → Provider | — |
+| 15 | relObjToBC | Objective → Business Capability | — |
+| 16 | relObjToInitiative | Objective → Initiative | — |
+| 17 | relInitToApp | Initiative → Application | — |
+| 18 | relInitToITC | Initiative → IT Component | — |
+| 19 | relInitToBC | Initiative → Business Capability | — |
+| 20 | relPlatformToApp | Platform → Application | — |
+| 21 | relPlatformToITC | Platform → IT Component | — |
+| 22 | relPlatformToBC | Platform → Business Capability | — |
+| 23 | relOrgToApp | Organization → Application | — |
+| 24 | relBCxToBC | Business Context → Business Capability | — |
+| 25 | relBCxToApp | Business Context → Application | — |
+| 26 | relBCToOrg | Business Capability → Organization | — |
+
+#### Self-Referencing Relations (ALL types support these)
+
+| Key | Label | Description |
+|-----|-------|-------------|
+| relToSuccessor | Successor | Planned replacement |
+| relToPredecessor | Predecessor | What this replaced |
+| relToRequires | Requires | Same-type dependency |
+| relToRequiredBy | Required By | Inverse dependency |
+
+Parent/Child hierarchy is handled by `parent_id` on the fact sheet model.
+
+### Tag Groups
+
+| Property | Values | Description |
+|----------|--------|-------------|
+| mode | single / multi | Single-select or multi-select per fact sheet |
+| create_mode | open / restricted | Who can create new tags |
+| restrict_to_types | JSONB array | Limit to specific fact sheet types |
+| mandatory | boolean | Required for quality seal approval |
+
+### Subscription Model
+
+| Role | Description | Limit |
+|------|-------------|-------|
+| Responsible | Maintains/updates the fact sheet | Multiple per FS |
+| Accountable | Overall ownership (must be enabled) | One per FS |
+| Observer | Notified of changes | Multiple per FS |
+
+### Completion Score Calculation
+
+Score = (filled weighted fields / total weighted fields) × 100
+
+Each field in `fields_schema` has a `weight` (default 1). Weight 0 = excluded.
+Completion only counts fields and relations, NOT tags or subscriptions.
 
 ---
 
-## Navigation Structure (LeanIX-like)
+## Current Implementation Plan — Phase 2: Rich Fact Sheets
 
-```
-┌─────────────────────────────────────────────────────┐
-│  [Logo] Turbo EA          [Search] [+ Create] [User]│
-├──────────┬──────────────────────────────────────────┤
-│ Dashboard│                                          │
-│ Inventory│           Main Content Area              │
-│ Reports ▸│                                          │
-│  ├ Landscape                                        │
-│  ├ Portfolio                                        │
-│  ├ Matrix                                           │
-│  ├ Roadmap                                          │
-│  └ Cost                                             │
-│ Diagrams │                                          │
-│ Todos    │                                          │
-│──────────│                                          │
-│ Admin   ▸│                                          │
-│  ├ Metamodel                                        │
-│  ├ Tags                                             │
-│  └ Users                                            │
-└──────────┴──────────────────────────────────────────┘
-```
+### Backend Changes
+
+#### 1. Enrich FactSheetType model
+- Add `subtypes` JSONB column: `[{key, label}]`
+- Add `completion_weights` JSONB column (or embed weights in fields_schema)
+
+#### 2. Enrich TagGroup model
+- Add `create_mode` column: "open" / "restricted" (default: "open")
+- Add `restrict_to_types` JSONB column: list of fact sheet type keys (null = all)
+
+#### 3. Quality Seal states
+- Change default from "UNSET" to "DRAFT"
+- Support 4 states: DRAFT, APPROVED, BROKEN, REJECTED
+- Auto-break seal on attribute/relation/lifecycle changes (except by responsible/accountable)
+
+#### 4. Overhaul seed data
+Complete LeanIX-faithful field schemas for all 12 types with:
+- Multiple sections per type (Information, Cost, etc.)
+- Proper field keys matching LeanIX GraphQL names (functionalSuitability not functionalFit)
+- Required flags on key fields
+- Weight values for completion
+- Subtypes for Application, Interface, ITComponent, Organization, BusinessContext, Initiative, Platform
+
+Enriched relation types with proper attributes:
+- relAppToBC: functionalSuitability, supportType
+- relAppToITC: technicalSuitability, costTotalAnnual
+- relAppToOrg: usageType
+- relITCToTechCat: resourceClassification (5 values with colors)
+- relAppToDataObj: crudFlags
+- Provider/Consumer interface pattern
+- Self-referencing: successor, predecessor, requires, requiredBy
+
+#### 5. Completion score calculation
+- Backend computes score on fact sheet create/update
+- Reads fields_schema weights, checks which fields in `attributes` are filled
+- Returns completion as 0–100 integer
+
+#### 6. Fact sheet PATCH improvements
+- Break quality seal on attribute/relation change (check if user is subscriber)
+- Record field-level changes in events (old_value → new_value)
+- Validate against fields_schema types
+
+### Frontend Changes
+
+#### 1. FactSheetDetail — Complete Overhaul
+**Header area:**
+- Fact sheet type badge (colored chip with icon)
+- Name (large, editable inline)
+- Completion score ring (circular progress %)
+- Quality seal badge with approve/reject actions
+- Tags displayed as colored chips
+- Action menu: Edit, Delete, Clone, Subscribe
+
+**Body — Section-based layout (NOT tabs for content):**
+Replace current tab-based layout with scrollable sections like real LeanIX:
+
+1. **Information Section** (collapsible)
+   - Subsections from fields_schema, each with header
+   - Edit button per subsection → inline form
+   - Field types: text input, single_select dropdown (colored chips), number, boolean switch, date picker
+   - Required fields marked with asterisk
+
+2. **Lifecycle Section** (collapsible)
+   - 5-phase horizontal timeline visualization
+   - Date pickers for each phase
+   - Color-coded current phase indicator
+
+3. **Relations Sections** (one per relation type, collapsible)
+   - Grouped by relation type (e.g., "Business Capabilities", "IT Components")
+   - Each shows list of related fact sheets with relation attributes
+   - Add relation: search dialog with fact sheet type filter
+   - Relation attributes editable inline
+
+4. **Tags Section** (collapsible)
+   - Tag groups with assigned tags
+   - Add/remove tags
+
+5. **Subscriptions Section** (collapsible)
+   - Grouped by role (Responsible, Accountable, Observer)
+   - Add/remove subscribers
+
+6. **Documents Section** (collapsible)
+   - List of links/resources
+   - Add new link
+
+**Sidebar tabs (Comments, Todos, History):**
+- Right sidebar or bottom tabs for collaborative features
+
+#### 2. CreateFactSheetDialog — Enhanced
+- Type selector with icons
+- **Subtype selector** (shows subtypes for selected type)
+- **Parent selector** (for hierarchical types — search existing fact sheets)
+- Name (required)
+- Description
+- Mandatory fields from fields_schema (marked with asterisk)
+
+#### 3. InventoryPage — Enhanced Filters
+- Quality seal filter (Draft/Approved/Broken/Rejected chips)
+- Lifecycle phase filter
+- Tag filter (multi-select from tag groups)
+- Subscription filter (my fact sheets)
+- Completion range filter
+- Column for subtype
+
+#### 4. QualitySealBadge — Enhanced
+- Show all 4 states with distinct colors
+- DRAFT: gray, APPROVED: green, BROKEN: amber, REJECTED: red
+- Approve button only shown to subscribers
 
 ---
 
@@ -141,17 +341,17 @@ Plus parent/child (hierarchy) relations within: Business Capability, Business Co
 ### Core Tables
 
 ```sql
--- Configurable metamodel
 fact_sheet_types (
   id UUID PK,
-  key VARCHAR(100) UNIQUE,     -- e.g. "Application"
+  key VARCHAR(100) UNIQUE,
   label VARCHAR(200),
   description TEXT,
   icon VARCHAR(100),
   color VARCHAR(20),
   category VARCHAR(50),        -- business/application/technology/transformation
   has_hierarchy BOOLEAN,
-  fields_schema JSONB,         -- [{section, subsection, fields: [{key, label, type, options, required}]}]
+  subtypes JSONB,              -- [{key, label}] — NEW
+  fields_schema JSONB,         -- [{section, fields: [{key, label, type, options, required, weight}]}]
   built_in BOOLEAN DEFAULT true,
   sort_order INT,
   created_at, updated_at
@@ -161,348 +361,52 @@ relation_types (
   id UUID PK,
   key VARCHAR(100) UNIQUE,
   label VARCHAR(200),
-  source_type_key VARCHAR(100) FK,
-  target_type_key VARCHAR(100) FK,
-  attributes_schema JSONB,     -- [{key, label, type, options}]
+  source_type_key VARCHAR(100),
+  target_type_key VARCHAR(100),
+  attributes_schema JSONB,
   built_in BOOLEAN DEFAULT true,
   created_at, updated_at
 )
 
--- Fact sheets (single polymorphic table)
 fact_sheets (
   id UUID PK,
-  type VARCHAR(100) FK → fact_sheet_types.key,
+  type VARCHAR(100),
+  subtype VARCHAR(100),        -- NEW
   name VARCHAR(500) NOT NULL,
   description TEXT,
-  parent_id UUID FK → fact_sheets.id,  -- hierarchy
-  lifecycle JSONB,             -- {plan, phaseIn, active, phaseOut, endOfLife}
-  attributes JSONB,            -- type-specific fields
+  parent_id UUID FK,
+  lifecycle JSONB,
+  attributes JSONB,
   status VARCHAR(20) DEFAULT 'ACTIVE',
-  quality_seal VARCHAR(20) DEFAULT 'UNSET',  -- UNSET/APPROVED/BROKEN
+  quality_seal VARCHAR(20) DEFAULT 'DRAFT',  -- CHANGED from UNSET
   completion FLOAT DEFAULT 0,
   external_id VARCHAR(500),
   alias VARCHAR(500),
-  created_by UUID FK, updated_by UUID FK,
+  created_by UUID FK,
+  updated_by UUID FK,
   created_at, updated_at
 )
 
--- Relations between fact sheets
-relations (
-  id UUID PK,
-  type VARCHAR(100) FK → relation_types.key,
-  source_id UUID FK → fact_sheets.id,
-  target_id UUID FK → fact_sheets.id,
-  attributes JSONB,
-  description TEXT,
-  created_at, updated_at
-)
-
--- Subscriptions (data ownership)
-subscriptions (
-  id UUID PK,
-  fact_sheet_id UUID FK,
-  user_id UUID FK,
-  role VARCHAR(20),            -- responsible/accountable/observer
-  created_at
-)
-
--- Tag system
 tag_groups (
   id UUID PK,
   name VARCHAR(200),
   description TEXT,
-  mode VARCHAR(20),            -- single/multi
+  mode VARCHAR(20) DEFAULT 'multi',
+  create_mode VARCHAR(20) DEFAULT 'open',    -- NEW
+  restrict_to_types JSONB,                    -- NEW
   mandatory BOOLEAN DEFAULT false,
   created_at
 )
 
-tags (
-  id UUID PK,
-  tag_group_id UUID FK,
-  name VARCHAR(200),
-  color VARCHAR(20),
-  sort_order INT
-)
-
-fact_sheet_tags (
-  fact_sheet_id UUID FK,
-  tag_id UUID FK,
-  PRIMARY KEY (fact_sheet_id, tag_id)
-)
-
--- Comments
-comments (
-  id UUID PK,
-  fact_sheet_id UUID FK,
-  user_id UUID FK,
-  content TEXT,
-  parent_id UUID FK → comments.id,  -- threading
-  created_at, updated_at
-)
-
--- Todos
-todos (
-  id UUID PK,
-  fact_sheet_id UUID FK,
-  description TEXT,
-  status VARCHAR(20),          -- open/done
-  assigned_to UUID FK,
-  created_by UUID FK,
-  due_date DATE,
-  created_at, updated_at
-)
-
--- Audit events
-events (
-  id UUID PK,
-  fact_sheet_id UUID FK,
-  user_id UUID FK,
-  event_type VARCHAR(100),
-  data JSONB,
-  created_at
-)
-
--- Documents/Resources
-documents (
-  id UUID PK,
-  fact_sheet_id UUID FK,
-  name VARCHAR(500),
-  url TEXT,
-  type VARCHAR(50),            -- link/document
-  created_by UUID FK,
-  created_at
-)
-
--- Saved views / bookmarks
-bookmarks (
-  id UUID PK,
-  user_id UUID FK,
-  name VARCHAR(200),
-  fact_sheet_type VARCHAR(100),
-  filters JSONB,
-  columns JSONB,
-  sort JSONB,
-  is_default BOOLEAN DEFAULT false,
-  created_at, updated_at
-)
-
--- Diagrams
-diagrams (
-  id UUID PK,
-  name VARCHAR(500),
-  type VARCHAR(50),            -- free_draw/data_flow
-  data JSONB,                  -- diagram state (nodes, edges, positions)
-  created_by UUID FK,
-  created_at, updated_at
-)
-
--- Users
-users (
-  id UUID PK,
-  email VARCHAR(320) UNIQUE,
-  display_name VARCHAR(200),
-  password_hash VARCHAR(200),
-  role VARCHAR(20) DEFAULT 'member',  -- admin/member/viewer
-  is_active BOOLEAN DEFAULT true,
-  created_at, updated_at
-)
+-- All other tables unchanged from Phase 1
 ```
 
 ---
 
-## API Routes
+## API Routes (unchanged from Phase 1, plus)
 
-### Auth
-- `POST /api/v1/auth/register` — Register user
-- `POST /api/v1/auth/login` — Login → JWT
-- `GET /api/v1/auth/me` — Current user
-
-### Fact Sheets
-- `GET /api/v1/fact-sheets` — List (filtered, paginated, sorted)
-- `POST /api/v1/fact-sheets` — Create
-- `GET /api/v1/fact-sheets/{id}` — Detail (with relations, subscriptions, tags)
-- `PATCH /api/v1/fact-sheets/{id}` — Update
-- `DELETE /api/v1/fact-sheets/{id}` — Archive
-- `PATCH /api/v1/fact-sheets/bulk` — Bulk update
-- `GET /api/v1/fact-sheets/{id}/history` — Audit log
-- `POST /api/v1/fact-sheets/{id}/quality-seal` — Approve/break seal
-- `GET /api/v1/fact-sheets/export` — CSV export
-
-### Relations
-- `GET /api/v1/relations` — List (filtered by fact_sheet_id, type)
-- `POST /api/v1/relations` — Create
-- `PATCH /api/v1/relations/{id}` — Update
-- `DELETE /api/v1/relations/{id}` — Delete
-
-### Subscriptions
-- `GET /api/v1/fact-sheets/{id}/subscriptions`
-- `POST /api/v1/fact-sheets/{id}/subscriptions`
-- `DELETE /api/v1/subscriptions/{id}`
-
-### Comments
-- `GET /api/v1/fact-sheets/{id}/comments`
-- `POST /api/v1/fact-sheets/{id}/comments`
-- `PATCH /api/v1/comments/{id}`
-- `DELETE /api/v1/comments/{id}`
-
-### Todos
-- `GET /api/v1/todos` — All todos (with filters)
-- `GET /api/v1/fact-sheets/{id}/todos`
-- `POST /api/v1/fact-sheets/{id}/todos`
-- `PATCH /api/v1/todos/{id}`
-- `DELETE /api/v1/todos/{id}`
-
-### Tags
-- `GET /api/v1/tag-groups` — List tag groups with tags
-- `POST /api/v1/tag-groups` — Create group
-- `POST /api/v1/tag-groups/{id}/tags` — Create tag in group
-- `POST /api/v1/fact-sheets/{id}/tags` — Assign tags
-- `DELETE /api/v1/fact-sheets/{id}/tags/{tagId}` — Remove tag
-
-### Metamodel
-- `GET /api/v1/metamodel/types` — List fact sheet type configs
-- `POST /api/v1/metamodel/types` — Create custom type
-- `PATCH /api/v1/metamodel/types/{key}` — Update type config
-- `GET /api/v1/metamodel/relation-types` — List relation type configs
-- `POST /api/v1/metamodel/relation-types` — Create custom relation type
-
-### Reports
-- `GET /api/v1/reports/dashboard` — Dashboard KPIs
-- `GET /api/v1/reports/landscape` — Landscape data
-- `GET /api/v1/reports/portfolio` — Portfolio scatter data
-- `GET /api/v1/reports/matrix` — Matrix cross-reference
-- `GET /api/v1/reports/roadmap` — Timeline data
-- `GET /api/v1/reports/cost` — Cost aggregation
-
-### Diagrams
-- `GET /api/v1/diagrams`
-- `POST /api/v1/diagrams`
-- `GET /api/v1/diagrams/{id}`
-- `PATCH /api/v1/diagrams/{id}`
-- `DELETE /api/v1/diagrams/{id}`
-
-### Documents
-- `GET /api/v1/fact-sheets/{id}/documents`
-- `POST /api/v1/fact-sheets/{id}/documents`
-- `DELETE /api/v1/documents/{id}`
-
-### Bookmarks
-- `GET /api/v1/bookmarks`
-- `POST /api/v1/bookmarks`
-- `PATCH /api/v1/bookmarks/{id}`
-- `DELETE /api/v1/bookmarks/{id}`
-
-### Events
-- `GET /api/v1/events/stream` — SSE real-time
-- `GET /api/v1/events` — Query events
-
-### Users (admin)
-- `GET /api/v1/users`
-- `PATCH /api/v1/users/{id}`
-
----
-
-## Frontend Routes
-
-| Route | Page | Description |
-|-------|------|-------------|
-| `/` | Dashboard | KPI widgets, recent activity, quick links |
-| `/inventory` | Inventory | AG Grid with type filter, saved views |
-| `/fact-sheets/:id` | Fact Sheet Detail | Tabbed detail: Overview, Relations, Subscriptions, Comments, Todos, History |
-| `/reports/landscape` | Landscape Report | Grouped tiles with heat map coloring |
-| `/reports/portfolio` | Portfolio Report | Bubble chart (functionalFit vs technicalFit) |
-| `/reports/matrix` | Matrix Report | Cross-reference grid |
-| `/reports/roadmap` | Roadmap | Timeline of lifecycle transitions |
-| `/reports/cost` | Cost Report | Cost breakdowns by provider/app/capability |
-| `/diagrams` | Diagram List | List of saved diagrams |
-| `/diagrams/:id` | Diagram Editor | Free draw / data flow canvas |
-| `/todos` | Todo List | All todos across fact sheets |
-| `/admin/metamodel` | Metamodel Config | Configure fact sheet types, fields, relations |
-| `/admin/tags` | Tag Management | Tag groups and tags CRUD |
-| `/admin/users` | User Management | User roles and access |
-| `/login` | Login | Auth page |
-
----
-
-## Implementation Phases
-
-### Phase 1: Foundation — Database + Metamodel + Auth + App Shell
-**Backend:**
-- Clean FastAPI app structure (config, database, models, schemas, API, services)
-- All database models (fact_sheets, relations, subscriptions, comments, todos, tags, events, documents, bookmarks, diagrams, users, fact_sheet_types, relation_types)
-- Seed 12 default fact sheet types with full fields_schema
-- Seed 20+ default relation types
-- JWT auth (stdlib HMAC-SHA256 + bcrypt)
-- Event bus + SSE
-
-**Frontend:**
-- React + Vite + MUI app shell
-- Sidebar navigation (LeanIX-like)
-- Top bar with global search + quick create
-- Auth (login/register)
-- API client with JWT interceptor
-- SSE hook for real-time updates
-
-**Infrastructure:**
-- Docker Compose (backend + frontend/nginx)
-- External PostgreSQL support
-- .env.example
-
-### Phase 2: Fact Sheet CRUD + Detail Page + Inventory
-**Backend:**
-- Complete fact sheet CRUD API
-- Dynamic field validation from metamodel
-- Lifecycle management
-- Hierarchy (parent/child)
-- Completion score calculation
-- Quality seal workflow
-- Tag assignment
-- Subscription management
-- Comment CRUD
-- Todo CRUD
-- Document/resource links
-- History/audit events
-- Bulk update endpoint
-- CSV export
-- Bookmark/saved view CRUD
-
-**Frontend:**
-- **Inventory page**: AG Grid with dynamic columns from metamodel, type filter, lifecycle filter, tag filter, inline editing, multi-select bulk edit, saved views, CSV export
-- **Fact sheet detail page**: Tabbed layout with:
-  - Overview tab: Dynamic sections/subsections/fields from metamodel, lifecycle display, tags, documents
-  - Relations tab: Grouped by relation type, add/remove relations
-  - Subscriptions tab: Responsible/Accountable/Observer management
-  - Comments tab: Threaded discussion
-  - Todos tab: Task list
-  - History tab: Audit log timeline
-- **Create dialog**: Type selector + name + initial fields
-- Quality seal badge + approve/break workflow
-
-### Phase 3: Reports + Dashboard
-**Backend:**
-- Report data aggregation endpoints (landscape, portfolio, matrix, roadmap, cost, dashboard KPIs)
-
-**Frontend:**
-- **Dashboard**: KPI cards (total fact sheets by type, completion avg, lifecycle distribution, cost totals), recent activity feed, quick actions
-- **Landscape Report**: Fact sheets as colored tiles grouped by a parent type (e.g., Apps by Business Capability), color = lifecycle/fit/criticality
-- **Portfolio Report**: Bubble chart with configurable X/Y axes (functional fit vs technical fit, with size = cost, color = criticality)
-- **Matrix Report**: Two-axis grid (e.g., Apps × Business Capabilities, colored by relation presence)
-- **Roadmap**: Timeline visualization of lifecycle phases across fact sheets
-- **Cost Report**: Bar/pie charts of cost by provider, by app, by capability
-
-### Phase 4: Diagrams + Admin + Polish
-**Backend:**
-- Diagram CRUD
-- Metamodel admin endpoints (add/edit types, fields, relation types)
-- User management endpoints
-
-**Frontend:**
-- **Free Draw Diagram Editor**: Canvas with draggable fact sheet nodes, connectors, labels (using React Flow or similar)
-- **Data Flow Diagram**: Auto-layout of interfaces between applications
-- **Admin - Metamodel**: Configure fact sheet types, sections, fields, relation types
-- **Admin - Tags**: Tag group and tag CRUD
-- **Admin - Users**: User list, role assignment
-- **Todos page**: Cross-fact-sheet todo list with filters
+- `POST /api/v1/fact-sheets/{id}/quality-seal` body: `{action: "approve"|"reject"|"reset"}`
+- `GET /api/v1/fact-sheets/{id}` now returns computed completion, resolved relations with attributes
 
 ---
 
@@ -521,10 +425,6 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Access: `http://<unraid-ip>:8920`
+First run with old database: `RESET_DB=true docker compose up -d`
 
-### Updating
-```bash
-cd /mnt/user/appdata/turbo-ea
-git pull && docker compose up -d --build
-```
+Access: `http://<unraid-ip>:8920`

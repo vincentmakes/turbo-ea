@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import TextField from "@mui/material/TextField";
@@ -20,265 +21,658 @@ import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import LinearProgress from "@mui/material/LinearProgress";
+import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheet, Relation, Comment as CommentType, Todo, EventEntry } from "@/types";
+import type {
+  FactSheet,
+  Relation,
+  Comment as CommentType,
+  Todo,
+  EventEntry,
+  FieldDef,
+} from "@/types";
 
-// --- Overview Tab ---
-function OverviewTab({ fs, typeConfig, onUpdate }: {
+// ── Completion Ring ─────────────────────────────────────────────
+function CompletionRing({ value }: { value: number }) {
+  const size = 52;
+  const sw = 5;
+  const r = (size - sw) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (value / 100) * circ;
+  const color = value >= 80 ? "#4caf50" : value >= 50 ? "#ff9800" : "#f44336";
+  return (
+    <Tooltip title={`${Math.round(value)}% complete`}>
+      <Box
+        sx={{
+          position: "relative",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: size,
+          height: size,
+        }}
+      >
+        <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke="#e0e0e0"
+            strokeWidth={sw}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            stroke={color}
+            strokeWidth={sw}
+            strokeDasharray={circ}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+          />
+        </svg>
+        <Typography
+          variant="caption"
+          fontWeight={700}
+          sx={{ position: "absolute" }}
+        >
+          {Math.round(value)}%
+        </Typography>
+      </Box>
+    </Tooltip>
+  );
+}
+
+// ── Lifecycle Phase Labels ──────────────────────────────────────
+const PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
+const PHASE_LABELS: Record<string, string> = {
+  plan: "Plan",
+  phaseIn: "Phase In",
+  active: "Active",
+  phaseOut: "Phase Out",
+  endOfLife: "End of Life",
+};
+
+// ── Read-only field value renderer ──────────────────────────────
+function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
+  if (field.type === "single_select" && field.options) {
+    const opt = field.options.find((o) => o.key === value);
+    return opt ? (
+      <Chip
+        size="small"
+        label={opt.label}
+        sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+      />
+    ) : (
+      <Typography variant="body2" color="text.secondary">
+        —
+      </Typography>
+    );
+  }
+  if (field.type === "boolean") {
+    return (
+      <MaterialSymbol
+        icon={value ? "check_circle" : "cancel"}
+        size={18}
+        color={value ? "#4caf50" : "#bdbdbd"}
+      />
+    );
+  }
+  return (
+    <Typography variant="body2">
+      {value != null && value !== "" ? String(value) : "—"}
+    </Typography>
+  );
+}
+
+// ── Field editor (inline) ───────────────────────────────────────
+function FieldEditor({
+  field,
+  value,
+  onChange,
+}: {
+  field: FieldDef;
+  value: unknown;
+  onChange: (v: unknown) => void;
+}) {
+  switch (field.type) {
+    case "single_select":
+      return (
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>{field.label}</InputLabel>
+          <Select
+            value={(value as string) ?? ""}
+            label={field.label}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {field.options?.map((opt) => (
+              <MenuItem key={opt.key} value={opt.key}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {opt.color && (
+                    <Box
+                      sx={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        bgcolor: opt.color,
+                      }}
+                    />
+                  )}
+                  {opt.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    case "number":
+      return (
+        <TextField
+          size="small"
+          label={field.label}
+          type="number"
+          value={value ?? ""}
+          onChange={(e) =>
+            onChange(e.target.value ? Number(e.target.value) : undefined)
+          }
+          sx={{ minWidth: 200 }}
+        />
+      );
+    case "boolean":
+      return (
+        <FormControlLabel
+          control={
+            <Switch
+              checked={!!value}
+              onChange={(e) => onChange(e.target.checked)}
+            />
+          }
+          label={field.label}
+        />
+      );
+    case "date":
+      return (
+        <TextField
+          size="small"
+          label={field.label}
+          type="date"
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          InputLabelProps={{ shrink: true }}
+          sx={{ minWidth: 200 }}
+        />
+      );
+    default:
+      return (
+        <TextField
+          size="small"
+          label={field.label}
+          value={(value as string) ?? ""}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          sx={{ minWidth: 300 }}
+        />
+      );
+  }
+}
+
+// ── Section: Description ────────────────────────────────────────
+function DescriptionSection({
+  fs,
+  onSave,
+}: {
   fs: FactSheet;
-  typeConfig: ReturnType<ReturnType<typeof useMetamodel>["getType"]>;
-  onUpdate: (updates: Record<string, unknown>) => void;
+  onSave: (u: Record<string, unknown>) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(fs.name);
   const [description, setDescription] = useState(fs.description || "");
-  const [attributes, setAttributes] = useState(fs.attributes || {});
-  const [lifecycle, setLifecycle] = useState(fs.lifecycle || {});
 
   useEffect(() => {
     setName(fs.name);
     setDescription(fs.description || "");
-    setAttributes(fs.attributes || {});
-    setLifecycle(fs.lifecycle || {});
-  }, [fs]);
+  }, [fs.name, fs.description]);
 
-  const handleSave = () => {
-    onUpdate({ name, description, attributes, lifecycle });
+  const save = async () => {
+    await onSave({ name, description });
     setEditing(false);
   };
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+    <Accordion defaultExpanded disableGutters>
+      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+          <MaterialSymbol icon="description" size={20} color="#666" />
+          <Typography fontWeight={600}>Description</Typography>
+        </Box>
+        {!editing && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            <MaterialSymbol icon="edit" size={16} />
+          </IconButton>
+        )}
+      </AccordionSummary>
+      <AccordionDetails>
         {editing ? (
-          <Box sx={{ display: "flex", gap: 1 }}>
-            <Button onClick={() => setEditing(false)}>Cancel</Button>
-            <Button variant="contained" onClick={handleSave}>Save</Button>
+          <Box>
+            <TextField
+              fullWidth
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              fullWidth
+              label="Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              multiline
+              rows={4}
+              size="small"
+              sx={{ mb: 2 }}
+            />
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  setName(fs.name);
+                  setDescription(fs.description || "");
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button size="small" variant="contained" onClick={save}>
+                Save
+              </Button>
+            </Box>
           </Box>
         ) : (
-          <Button
-            startIcon={<MaterialSymbol icon="edit" size={18} />}
-            onClick={() => setEditing(true)}
-          >
-            Edit
-          </Button>
+          <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap">
+            {fs.description || "No description provided."}
+          </Typography>
         )}
-      </Box>
-
-      {/* Basic Info */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Basic Information
-          </Typography>
-          {editing ? (
-            <>
-              <TextField fullWidth label="Name" value={name} onChange={(e) => setName(e.target.value)} sx={{ mb: 2 }} />
-              <TextField fullWidth label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline rows={3} />
-            </>
-          ) : (
-            <>
-              <Typography variant="body1" sx={{ mb: 1 }}>{fs.description || "No description"}</Typography>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Lifecycle */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Lifecycle
-          </Typography>
-          <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-            {["plan", "phaseIn", "active", "phaseOut", "endOfLife"].map((phase) => (
-              <TextField
-                key={phase}
-                label={phase === "phaseIn" ? "Phase In" : phase === "phaseOut" ? "Phase Out" : phase === "endOfLife" ? "End of Life" : phase.charAt(0).toUpperCase() + phase.slice(1)}
-                type="date"
-                size="small"
-                value={(lifecycle as Record<string, string>)[phase] || ""}
-                onChange={(e) => setLifecycle({ ...lifecycle, [phase]: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                disabled={!editing}
-                sx={{ width: 160 }}
-              />
-            ))}
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* Type-specific fields */}
-      {typeConfig && typeConfig.fields_schema.map((section) => (
-        <Card key={section.section} sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              {section.section}
-            </Typography>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {section.fields.map((field) => {
-                const value = (attributes as Record<string, unknown>)[field.key];
-                if (field.type === "single_select" && field.options) {
-                  if (!editing) {
-                    const opt = field.options.find((o) => o.key === value);
-                    return (
-                      <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ width: 160 }}>
-                          {field.label}:
-                        </Typography>
-                        {opt ? (
-                          <Chip size="small" label={opt.label} sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}} />
-                        ) : (
-                          <Typography variant="body2">—</Typography>
-                        )}
-                      </Box>
-                    );
-                  }
-                  return (
-                    <FormControl key={field.key} size="small" sx={{ maxWidth: 300 }}>
-                      <InputLabel>{field.label}</InputLabel>
-                      <Select
-                        value={(value as string) || ""}
-                        label={field.label}
-                        onChange={(e) => setAttributes({ ...attributes, [field.key]: e.target.value })}
-                      >
-                        <MenuItem value=""><em>None</em></MenuItem>
-                        {field.options.map((opt) => (
-                          <MenuItem key={opt.key} value={opt.key}>{opt.label}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  );
-                }
-                if (field.type === "boolean") {
-                  return (
-                    <FormControlLabel
-                      key={field.key}
-                      control={
-                        <Switch
-                          checked={!!value}
-                          onChange={(e) => setAttributes({ ...attributes, [field.key]: e.target.checked })}
-                          disabled={!editing}
-                        />
-                      }
-                      label={field.label}
-                    />
-                  );
-                }
-                if (field.type === "number") {
-                  if (!editing) {
-                    return (
-                      <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ width: 160 }}>{field.label}:</Typography>
-                        <Typography variant="body2">{String(value ?? "—")}</Typography>
-                      </Box>
-                    );
-                  }
-                  return (
-                    <TextField
-                      key={field.key}
-                      label={field.label}
-                      type="number"
-                      size="small"
-                      value={value ?? ""}
-                      onChange={(e) => setAttributes({ ...attributes, [field.key]: e.target.value ? Number(e.target.value) : undefined })}
-                      sx={{ maxWidth: 300 }}
-                    />
-                  );
-                }
-                if (!editing) {
-                  return (
-                    <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Typography variant="body2" color="text.secondary" sx={{ width: 160 }}>{field.label}:</Typography>
-                      <Typography variant="body2">{(value as string) || "—"}</Typography>
-                    </Box>
-                  );
-                }
-                return (
-                  <TextField
-                    key={field.key}
-                    label={field.label}
-                    size="small"
-                    type={field.type === "date" ? "date" : "text"}
-                    value={(value as string) || ""}
-                    onChange={(e) => setAttributes({ ...attributes, [field.key]: e.target.value })}
-                    InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
-                    sx={{ maxWidth: 400 }}
-                  />
-                );
-              })}
-            </Box>
-          </CardContent>
-        </Card>
-      ))}
-    </Box>
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
-// --- Relations Tab ---
-function RelationsTab({ fsId }: { fsId: string }) {
-  const [relations, setRelations] = useState<Relation[]>([]);
-  const { relationTypes } = useMetamodel();
+// ── Section: Lifecycle ──────────────────────────────────────────
+function LifecycleSection({
+  fs,
+  onSave,
+}: {
+  fs: FactSheet;
+  onSave: (u: Record<string, unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [lifecycle, setLifecycle] = useState<Record<string, string>>(
+    fs.lifecycle || {}
+  );
 
   useEffect(() => {
-    api.get<Relation[]>(`/relations?fact_sheet_id=${fsId}`).then(setRelations);
-  }, [fsId]);
+    setLifecycle(fs.lifecycle || {});
+  }, [fs.lifecycle]);
 
-  const grouped = relations.reduce<Record<string, Relation[]>>((acc, r) => {
-    const rt = relationTypes.find((rt) => rt.key === r.type);
-    const label = rt?.label || r.type;
-    (acc[label] = acc[label] || []).push(r);
-    return acc;
-  }, {});
+  const save = async () => {
+    await onSave({ lifecycle });
+    setEditing(false);
+  };
 
   return (
-    <Box>
-      {Object.keys(grouped).length === 0 && (
-        <Typography color="text.secondary">No relations yet.</Typography>
-      )}
-      {Object.entries(grouped).map(([label, rels]) => (
-        <Card key={label} sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant="subtitle2" gutterBottom>{label}</Typography>
-            <List dense>
-              {rels.map((r) => {
-                const other = r.source_id === fsId ? r.target : r.source;
-                return (
-                  <ListItem key={r.id} component="a" href={`/fact-sheets/${other?.id}`}
-                    sx={{ textDecoration: "none", color: "inherit", "&:hover": { bgcolor: "#f5f5f5" } }}>
-                    <ListItemText
-                      primary={other?.name || "Unknown"}
-                      secondary={other?.type}
-                    />
-                  </ListItem>
-                );
-              })}
-            </List>
-          </CardContent>
-        </Card>
-      ))}
-    </Box>
+    <Accordion defaultExpanded disableGutters>
+      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+          <MaterialSymbol icon="timeline" size={20} color="#666" />
+          <Typography fontWeight={600}>Lifecycle</Typography>
+        </Box>
+        {!editing && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            <MaterialSymbol icon="edit" size={16} />
+          </IconButton>
+        )}
+      </AccordionSummary>
+      <AccordionDetails>
+        {/* Timeline visualization */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0, mb: 2 }}>
+          {PHASES.map((phase, i) => {
+            const date = lifecycle[phase];
+            const now = new Date().toISOString().slice(0, 10);
+            const isCurrent = date && date <= now;
+            const isPast =
+              i < PHASES.length - 1 &&
+              PHASES.slice(i + 1).some((p) => lifecycle[p] && lifecycle[p]! <= now);
+            return (
+              <Box
+                key={phase}
+                sx={{
+                  flex: 1,
+                  textAlign: "center",
+                  position: "relative",
+                }}
+              >
+                <Box
+                  sx={{
+                    height: 4,
+                    bgcolor: isPast || isCurrent ? "#1976d2" : "#e0e0e0",
+                    borderRadius: i === 0 ? "2px 0 0 2px" : i === 4 ? "0 2px 2px 0" : 0,
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 12,
+                    height: 12,
+                    borderRadius: "50%",
+                    bgcolor: isCurrent && !isPast ? "#1976d2" : isPast ? "#1976d2" : "#e0e0e0",
+                    border: isCurrent && !isPast ? "2px solid #0d47a1" : "none",
+                    position: "absolute",
+                    top: -4,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  display="block"
+                  sx={{
+                    mt: 1.5,
+                    fontWeight: isCurrent && !isPast ? 700 : 400,
+                    color: isCurrent || isPast ? "text.primary" : "text.secondary",
+                  }}
+                >
+                  {PHASE_LABELS[phase]}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {date || "—"}
+                </Typography>
+              </Box>
+            );
+          })}
+        </Box>
+        {editing && (
+          <Box>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+              {PHASES.map((phase) => (
+                <TextField
+                  key={phase}
+                  label={PHASE_LABELS[phase]}
+                  type="date"
+                  size="small"
+                  value={lifecycle[phase] || ""}
+                  onChange={(e) =>
+                    setLifecycle({ ...lifecycle, [phase]: e.target.value })
+                  }
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 170 }}
+                />
+              ))}
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  setLifecycle(fs.lifecycle || {});
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button size="small" variant="contained" onClick={save}>
+                Save
+              </Button>
+            </Box>
+          </Box>
+        )}
+      </AccordionDetails>
+    </Accordion>
   );
 }
 
-// --- Comments Tab ---
+// ── Section: Type-specific attributes ───────────────────────────
+function AttributeSection({
+  section,
+  fs,
+  onSave,
+}: {
+  section: { section: string; fields: FieldDef[] };
+  fs: FactSheet;
+  onSave: (u: Record<string, unknown>) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [attrs, setAttrs] = useState<Record<string, unknown>>(
+    fs.attributes || {}
+  );
+
+  useEffect(() => {
+    setAttrs(fs.attributes || {});
+  }, [fs.attributes]);
+
+  const save = async () => {
+    await onSave({ attributes: attrs });
+    setEditing(false);
+  };
+
+  const setAttr = (key: string, value: unknown) => {
+    setAttrs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Count filled fields in this section
+  const filled = section.fields.filter((f) => {
+    const v = (fs.attributes || {})[f.key];
+    return v != null && v !== "" && v !== false;
+  }).length;
+
+  return (
+    <Accordion disableGutters>
+      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
+          <MaterialSymbol icon="tune" size={20} color="#666" />
+          <Typography fontWeight={600}>{section.section}</Typography>
+          <Chip
+            size="small"
+            label={`${filled}/${section.fields.length}`}
+            sx={{ ml: 1, height: 20, fontSize: "0.7rem" }}
+          />
+        </Box>
+        {!editing && (
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            <MaterialSymbol icon="edit" size={16} />
+          </IconButton>
+        )}
+      </AccordionSummary>
+      <AccordionDetails>
+        {editing ? (
+          <Box>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
+              {section.fields.map((field) => (
+                <FieldEditor
+                  key={field.key}
+                  field={field}
+                  value={attrs[field.key]}
+                  onChange={(v) => setAttr(field.key, v)}
+                />
+              ))}
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              <Button
+                size="small"
+                onClick={() => {
+                  setAttrs(fs.attributes || {});
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button size="small" variant="contained" onClick={save}>
+                Save
+              </Button>
+            </Box>
+          </Box>
+        ) : (
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "180px 1fr",
+              rowGap: 1,
+              columnGap: 2,
+              alignItems: "center",
+            }}
+          >
+            {section.fields.map((field) => (
+              <Box key={field.key} sx={{ display: "contents" }}>
+                <Typography variant="body2" color="text.secondary">
+                  {field.label}
+                </Typography>
+                <FieldValue
+                  field={field}
+                  value={(fs.attributes || {})[field.key]}
+                />
+              </Box>
+            ))}
+          </Box>
+        )}
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+// ── Section: Relations ──────────────────────────────────────────
+function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
+  const [relations, setRelations] = useState<Relation[]>([]);
+  const { relationTypes } = useMetamodel();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    api
+      .get<Relation[]>(`/relations?fact_sheet_id=${fsId}`)
+      .then(setRelations)
+      .catch(() => {});
+  }, [fsId]);
+
+  const relevantRTs = relationTypes.filter(
+    (rt) => rt.source_type_key === fsType || rt.target_type_key === fsType
+  );
+
+  // Group relations by relation type
+  const grouped = relevantRTs.map((rt) => ({
+    rt,
+    rels: relations.filter((r) => r.type === rt.key),
+  }));
+
+  return (
+    <Accordion disableGutters>
+      <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <MaterialSymbol icon="hub" size={20} color="#666" />
+          <Typography fontWeight={600}>Relations</Typography>
+          <Chip
+            size="small"
+            label={relations.length}
+            sx={{ ml: 1, height: 20, fontSize: "0.7rem" }}
+          />
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails>
+        {grouped.length === 0 && (
+          <Typography color="text.secondary" variant="body2">
+            No relation types configured.
+          </Typography>
+        )}
+        {grouped.map(({ rt, rels }) => (
+          <Box key={rt.key} sx={{ mb: 2 }}>
+            <Typography
+              variant="subtitle2"
+              color="text.secondary"
+              sx={{ mb: 0.5 }}
+            >
+              {rt.label}
+            </Typography>
+            {rels.length === 0 ? (
+              <Typography variant="body2" color="text.disabled" sx={{ ml: 1 }}>
+                No {rt.label.toLowerCase()} linked.
+              </Typography>
+            ) : (
+              <List dense disablePadding>
+                {rels.map((r) => {
+                  const other =
+                    r.source_id === fsId ? r.target : r.source;
+                  return (
+                    <ListItem
+                      key={r.id}
+                      component="div"
+                      onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
+                      sx={{
+                        cursor: "pointer",
+                        borderRadius: 1,
+                        "&:hover": { bgcolor: "action.hover" },
+                        py: 0.5,
+                      }}
+                    >
+                      <ListItemText
+                        primary={other?.name || "Unknown"}
+                        secondary={other?.type}
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+          </Box>
+        ))}
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+// ── Tab: Comments ───────────────────────────────────────────────
 function CommentsTab({ fsId }: { fsId: string }) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState("");
 
-  useEffect(() => {
-    api.get<CommentType[]>(`/fact-sheets/${fsId}/comments`).then(setComments);
+  const load = useCallback(() => {
+    api
+      .get<CommentType[]>(`/fact-sheets/${fsId}/comments`)
+      .then(setComments)
+      .catch(() => {});
   }, [fsId]);
+  useEffect(load, [load]);
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;
     await api.post(`/fact-sheets/${fsId}/comments`, { content: newComment });
     setNewComment("");
-    api.get<CommentType[]>(`/fact-sheets/${fsId}/comments`).then(setComments);
+    load();
   };
 
   return (
@@ -292,15 +686,28 @@ function CommentsTab({ fsId }: { fsId: string }) {
           onChange={(e) => setNewComment(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
         />
-        <Button variant="contained" onClick={handleAdd} disabled={!newComment.trim()}>
+        <Button
+          variant="contained"
+          onClick={handleAdd}
+          disabled={!newComment.trim()}
+        >
           Post
         </Button>
       </Box>
+      {comments.length === 0 && (
+        <Typography color="text.secondary" variant="body2">
+          No comments yet.
+        </Typography>
+      )}
       {comments.map((c) => (
         <Card key={c.id} sx={{ mb: 1 }}>
           <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-              <Typography variant="subtitle2">{c.user_display_name || "User"}</Typography>
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}
+            >
+              <Typography variant="subtitle2">
+                {c.user_display_name || "User"}
+              </Typography>
               <Typography variant="caption" color="text.secondary">
                 {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
               </Typography>
@@ -313,48 +720,76 @@ function CommentsTab({ fsId }: { fsId: string }) {
   );
 }
 
-// --- Todos Tab ---
+// ── Tab: Todos ──────────────────────────────────────────────────
 function TodosTab({ fsId }: { fsId: string }) {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [newDesc, setNewDesc] = useState("");
 
-  useEffect(() => {
-    api.get<Todo[]>(`/fact-sheets/${fsId}/todos`).then(setTodos);
+  const load = useCallback(() => {
+    api
+      .get<Todo[]>(`/fact-sheets/${fsId}/todos`)
+      .then(setTodos)
+      .catch(() => {});
   }, [fsId]);
+  useEffect(load, [load]);
 
   const handleAdd = async () => {
     if (!newDesc.trim()) return;
     await api.post(`/fact-sheets/${fsId}/todos`, { description: newDesc });
     setNewDesc("");
-    api.get<Todo[]>(`/fact-sheets/${fsId}/todos`).then(setTodos);
+    load();
   };
 
   const toggleStatus = async (todo: Todo) => {
     const newStatus = todo.status === "open" ? "done" : "open";
     await api.patch(`/todos/${todo.id}`, { status: newStatus });
-    setTodos(todos.map((t) => (t.id === todo.id ? { ...t, status: newStatus } : t)));
+    setTodos(
+      todos.map((t) => (t.id === todo.id ? { ...t, status: newStatus } : t))
+    );
   };
 
   return (
     <Box>
       <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
         <TextField
-          fullWidth size="small" placeholder="Add a to-do..."
-          value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
+          fullWidth
+          size="small"
+          placeholder="Add a to-do..."
+          value={newDesc}
+          onChange={(e) => setNewDesc(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAdd()}
         />
-        <Button variant="contained" onClick={handleAdd} disabled={!newDesc.trim()}>Add</Button>
+        <Button
+          variant="contained"
+          onClick={handleAdd}
+          disabled={!newDesc.trim()}
+        >
+          Add
+        </Button>
       </Box>
       <List dense>
         {todos.map((t) => (
           <ListItem key={t.id}>
-            <IconButton size="small" onClick={() => toggleStatus(t)} sx={{ mr: 1 }}>
-              <MaterialSymbol icon={t.status === "done" ? "check_circle" : "radio_button_unchecked"} size={20}
-                color={t.status === "done" ? "#4caf50" : "#999"} />
+            <IconButton
+              size="small"
+              onClick={() => toggleStatus(t)}
+              sx={{ mr: 1 }}
+            >
+              <MaterialSymbol
+                icon={
+                  t.status === "done"
+                    ? "check_circle"
+                    : "radio_button_unchecked"
+                }
+                size={20}
+                color={t.status === "done" ? "#4caf50" : "#999"}
+              />
             </IconButton>
             <ListItemText
               primary={t.description}
-              sx={{ textDecoration: t.status === "done" ? "line-through" : "none" }}
+              sx={{
+                textDecoration: t.status === "done" ? "line-through" : "none",
+              }}
             />
           </ListItem>
         ))}
@@ -363,54 +798,83 @@ function TodosTab({ fsId }: { fsId: string }) {
   );
 }
 
-// --- Subscriptions Tab ---
+// ── Tab: Subscriptions ──────────────────────────────────────────
 function SubscriptionsTab({ fs }: { fs: FactSheet }) {
   const subs = fs.subscriptions || [];
-  const grouped = { responsible: subs.filter((s) => s.role === "responsible"), accountable: subs.filter((s) => s.role === "accountable"), observer: subs.filter((s) => s.role === "observer") };
+  const roles = ["responsible", "accountable", "observer"] as const;
 
   return (
     <Box>
-      {(["responsible", "accountable", "observer"] as const).map((role) => (
-        <Card key={role} sx={{ mb: 2 }}>
-          <CardContent>
-            <Typography variant="subtitle2" textTransform="capitalize" gutterBottom>{role}</Typography>
-            {grouped[role].length === 0 ? (
-              <Typography variant="body2" color="text.secondary">No {role} assigned</Typography>
-            ) : (
-              <List dense>
-                {grouped[role].map((s) => (
-                  <ListItem key={s.id}>
-                    <MaterialSymbol icon="person" size={20} />
-                    <ListItemText primary={s.user_display_name || s.user_email} sx={{ ml: 1 }} />
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </CardContent>
-        </Card>
-      ))}
+      {roles.map((role) => {
+        const items = subs.filter((s) => s.role === role);
+        return (
+          <Card key={role} sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography
+                variant="subtitle2"
+                textTransform="capitalize"
+                gutterBottom
+              >
+                {role}
+              </Typography>
+              {items.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  No {role} assigned
+                </Typography>
+              ) : (
+                <List dense>
+                  {items.map((s) => (
+                    <ListItem key={s.id}>
+                      <MaterialSymbol icon="person" size={20} />
+                      <ListItemText
+                        primary={s.user_display_name || s.user_email}
+                        sx={{ ml: 1 }}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
     </Box>
   );
 }
 
-// --- History Tab ---
+// ── Tab: History ────────────────────────────────────────────────
 function HistoryTab({ fsId }: { fsId: string }) {
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
-    api.get<EventEntry[]>(`/fact-sheets/${fsId}/history`).then(setEvents);
+    api
+      .get<EventEntry[]>(`/fact-sheets/${fsId}/history`)
+      .then(setEvents)
+      .catch(() => {});
   }, [fsId]);
 
   return (
     <Box>
-      {events.length === 0 && <Typography color="text.secondary">No history yet.</Typography>}
+      {events.length === 0 && (
+        <Typography color="text.secondary" variant="body2">
+          No history yet.
+        </Typography>
+      )}
       {events.map((e) => (
         <Card key={e.id} sx={{ mb: 1 }}>
           <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label={e.event_type} />
-              <Typography variant="body2">{e.user_display_name || "System"}</Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-                {e.created_at ? new Date(e.created_at).toLocaleString() : ""}
+              <Typography variant="body2">
+                {e.user_display_name || "System"}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ ml: "auto" }}
+              >
+                {e.created_at
+                  ? new Date(e.created_at).toLocaleString()
+                  : ""}
               </Typography>
             </Box>
           </CardContent>
@@ -420,7 +884,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
   );
 }
 
-// --- Main Detail Page ---
+// ── Main Detail Page ────────────────────────────────────────────
 export default function FactSheetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -428,14 +892,25 @@ export default function FactSheetDetail() {
   const [fs, setFs] = useState<FactSheet | null>(null);
   const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
+  const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
+    null
+  );
 
   useEffect(() => {
     if (!id) return;
-    api.get<FactSheet>(`/fact-sheets/${id}`).then(setFs).catch((e) => setError(e.message));
+    api
+      .get<FactSheet>(`/fact-sheets/${id}`)
+      .then(setFs)
+      .catch((e) => setError(e.message));
   }, [id]);
 
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!fs) return <Typography>Loading...</Typography>;
+  if (!fs)
+    return (
+      <Box sx={{ p: 4 }}>
+        <LinearProgress />
+      </Box>
+    );
 
   const typeConfig = getType(fs.type);
 
@@ -444,54 +919,131 @@ export default function FactSheetDetail() {
     setFs(updated);
   };
 
+  const handleSealAction = async (action: string) => {
+    setSealMenuAnchor(null);
+    await api.post(`/fact-sheets/${fs.id}/quality-seal?action=${action}`);
+    const newSeal =
+      action === "approve"
+        ? "APPROVED"
+        : action === "reject"
+          ? "REJECTED"
+          : "DRAFT";
+    setFs({ ...fs, quality_seal: newSeal });
+  };
+
   return (
-    <Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <IconButton onClick={() => navigate("/inventory")}>
+    <Box sx={{ maxWidth: 960, mx: "auto" }}>
+      {/* ── Header ── */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+        <IconButton onClick={() => navigate(-1)}>
           <MaterialSymbol icon="arrow_back" size={24} />
         </IconButton>
         {typeConfig && (
-          <MaterialSymbol icon={typeConfig.icon} size={28} color={typeConfig.color} />
-        )}
-        <Box>
-          <Typography variant="h5" fontWeight={600}>{fs.name}</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {typeConfig?.label || fs.type}
-          </Typography>
-        </Box>
-        <Box sx={{ flex: 1 }} />
-        <LifecycleBadge lifecycle={fs.lifecycle} />
-        <QualitySealBadge seal={fs.quality_seal} />
-        {fs.quality_seal !== "APPROVED" && (
-          <Button
-            size="small"
-            variant="outlined"
-            color="success"
-            onClick={async () => {
-              await api.post(`/fact-sheets/${fs.id}/quality-seal?action=approve`);
-              setFs({ ...fs, quality_seal: "APPROVED" });
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              bgcolor: typeConfig.color + "18",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            Approve Seal
-          </Button>
+            <MaterialSymbol
+              icon={typeConfig.icon}
+              size={24}
+              color={typeConfig.color}
+            />
+          </Box>
         )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h5" fontWeight={700} noWrap>
+            {fs.name}
+          </Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {typeConfig?.label || fs.type}
+            </Typography>
+            {fs.subtype && (
+              <Chip size="small" label={fs.subtype} variant="outlined" sx={{ height: 20 }} />
+            )}
+          </Box>
+        </Box>
+        <CompletionRing value={fs.completion} />
+        <LifecycleBadge lifecycle={fs.lifecycle} />
+        <QualitySealBadge seal={fs.quality_seal} />
+        <Button
+          size="small"
+          variant="outlined"
+          onClick={(e) => setSealMenuAnchor(e.currentTarget)}
+          endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
+        >
+          Seal
+        </Button>
+        <Menu
+          anchorEl={sealMenuAnchor}
+          open={!!sealMenuAnchor}
+          onClose={() => setSealMenuAnchor(null)}
+        >
+          <MenuItem
+            onClick={() => handleSealAction("approve")}
+            disabled={fs.quality_seal === "APPROVED"}
+          >
+            <MaterialSymbol icon="verified" size={18} color="#4caf50" />
+            <Typography sx={{ ml: 1 }}>Approve</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => handleSealAction("reject")}
+            disabled={fs.quality_seal === "REJECTED"}
+          >
+            <MaterialSymbol icon="cancel" size={18} color="#f44336" />
+            <Typography sx={{ ml: 1 }}>Reject</Typography>
+          </MenuItem>
+          <MenuItem
+            onClick={() => handleSealAction("reset")}
+            disabled={fs.quality_seal === "DRAFT"}
+          >
+            <MaterialSymbol icon="restart_alt" size={18} color="#666" />
+            <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
+          </MenuItem>
+        </Menu>
       </Box>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: "divider" }}>
-        <Tab label="Overview" />
-        <Tab label="Relations" />
-        <Tab label="Subscriptions" />
-        <Tab label="Comments" />
-        <Tab label="Todos" />
-        <Tab label="History" />
-      </Tabs>
+      {/* ── Sections ── */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 3 }}>
+        <DescriptionSection fs={fs} onSave={handleUpdate} />
+        <LifecycleSection fs={fs} onSave={handleUpdate} />
+        {typeConfig?.fields_schema.map((section) => (
+          <AttributeSection
+            key={section.section}
+            section={section}
+            fs={fs}
+            onSave={handleUpdate}
+          />
+        ))}
+        <RelationsSection fsId={fs.id} fsType={fs.type} />
+      </Box>
 
-      {tab === 0 && <OverviewTab fs={fs} typeConfig={typeConfig} onUpdate={handleUpdate} />}
-      {tab === 1 && <RelationsTab fsId={fs.id} />}
-      {tab === 2 && <SubscriptionsTab fs={fs} />}
-      {tab === 3 && <CommentsTab fsId={fs.id} />}
-      {tab === 4 && <TodosTab fsId={fs.id} />}
-      {tab === 5 && <HistoryTab fsId={fs.id} />}
+      {/* ── Secondary tabs ── */}
+      <Card>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}
+        >
+          <Tab label="Comments" />
+          <Tab label="Todos" />
+          <Tab label="Subscriptions" />
+          <Tab label="History" />
+        </Tabs>
+        <CardContent>
+          {tab === 0 && <CommentsTab fsId={fs.id} />}
+          {tab === 1 && <TodosTab fsId={fs.id} />}
+          {tab === 2 && <SubscriptionsTab fs={fs} />}
+          {tab === 3 && <HistoryTab fsId={fs.id} />}
+        </CardContent>
+      </Card>
     </Box>
   );
 }
