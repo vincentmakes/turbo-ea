@@ -607,6 +607,7 @@ function HierarchySection({
   const [createMode, setCreateMode] = useState<"parent" | "child" | null>(null);
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
+  const [hierarchyError, setHierarchyError] = useState("");
 
   const loadHierarchy = useCallback(() => {
     api.get<HierarchyData>(`/fact-sheets/${fs.id}/hierarchy`).then(setHierarchy).catch(() => {});
@@ -650,12 +651,17 @@ function HierarchySection({
 
   const handleSetParent = async () => {
     if (!selectedParent) return;
-    await api.patch(`/fact-sheets/${fs.id}`, { parent_id: selectedParent.id });
-    setPickingParent(false);
-    setSelectedParent(null);
-    setParentSearch("");
-    loadHierarchy();
-    onUpdate();
+    try {
+      setHierarchyError("");
+      await api.patch(`/fact-sheets/${fs.id}`, { parent_id: selectedParent.id });
+      setPickingParent(false);
+      setSelectedParent(null);
+      setParentSearch("");
+      loadHierarchy();
+      onUpdate();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : "Failed to set parent");
+    }
   };
 
   const handleRemoveParent = async () => {
@@ -666,11 +672,16 @@ function HierarchySection({
 
   const handleAddChild = async () => {
     if (!selectedChild) return;
-    await api.patch(`/fact-sheets/${selectedChild.id}`, { parent_id: fs.id });
-    setAddChildOpen(false);
-    setSelectedChild(null);
-    setChildSearch("");
-    loadHierarchy();
+    try {
+      setHierarchyError("");
+      await api.patch(`/fact-sheets/${selectedChild.id}`, { parent_id: fs.id });
+      setAddChildOpen(false);
+      setSelectedChild(null);
+      setChildSearch("");
+      loadHierarchy();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : "Failed to add child");
+    }
   };
 
   const handleRemoveChild = async (childId: string) => {
@@ -681,6 +692,7 @@ function HierarchySection({
   const handleQuickCreate = async () => {
     if (!createName.trim()) return;
     setCreateLoading(true);
+    setHierarchyError("");
     try {
       const created = await api.post<{ id: string; name: string }>("/fact-sheets", {
         type: fs.type,
@@ -695,6 +707,8 @@ function HierarchySection({
       setCreateMode(null);
       setCreateName("");
       loadHierarchy();
+    } catch (err: unknown) {
+      setHierarchyError(err instanceof Error ? err.message : "Failed to create");
     } finally {
       setCreateLoading(false);
     }
@@ -721,6 +735,11 @@ function HierarchySection({
         </Box>
       </AccordionSummary>
       <AccordionDetails>
+        {hierarchyError && (
+          <Alert severity="error" onClose={() => setHierarchyError("")} sx={{ mb: 2 }}>
+            {hierarchyError}
+          </Alert>
+        )}
         {!hierarchy ? (
           <LinearProgress />
         ) : (
@@ -796,9 +815,14 @@ function HierarchySection({
             </Box>
 
             {/* Parent picker dialog */}
-            <Dialog open={pickingParent} onClose={() => { setPickingParent(false); setCreateMode(null); }} maxWidth="sm" fullWidth>
+            <Dialog open={pickingParent} onClose={() => { setPickingParent(false); setCreateMode(null); setHierarchyError(""); }} maxWidth="sm" fullWidth>
               <DialogTitle>Set Parent</DialogTitle>
               <DialogContent>
+                {hierarchyError && (
+                  <Alert severity="error" onClose={() => setHierarchyError("")} sx={{ mb: 1, mt: 1 }}>
+                    {hierarchyError}
+                  </Alert>
+                )}
                 {!createMode ? (
                   <>
                     <Autocomplete
@@ -899,9 +923,14 @@ function HierarchySection({
             </Box>
 
             {/* Add child dialog */}
-            <Dialog open={addChildOpen} onClose={() => { setAddChildOpen(false); setCreateMode(null); }} maxWidth="sm" fullWidth>
+            <Dialog open={addChildOpen} onClose={() => { setAddChildOpen(false); setCreateMode(null); setHierarchyError(""); }} maxWidth="sm" fullWidth>
               <DialogTitle>Add Child</DialogTitle>
               <DialogContent>
+                {hierarchyError && (
+                  <Alert severity="error" onClose={() => setHierarchyError("")} sx={{ mb: 1, mt: 1 }}>
+                    {hierarchyError}
+                  </Alert>
+                )}
                 {createMode !== "child" ? (
                   <>
                     <Autocomplete

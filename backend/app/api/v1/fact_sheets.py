@@ -67,6 +67,83 @@ async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
     return round((filled_weight / total_weight) * 100, 1)
 
 
+async def _max_descendant_depth(db: AsyncSession, fs_id: uuid.UUID) -> int:
+    """Return the maximum depth of the subtree rooted at fs_id (0 if no children)."""
+    children_result = await db.execute(
+        select(FactSheet.id).where(FactSheet.parent_id == fs_id, FactSheet.status == "ACTIVE")
+    )
+    child_ids = [row[0] for row in children_result.all()]
+    if not child_ids:
+        return 0
+    max_depth = 0
+    for cid in child_ids:
+        d = await _max_descendant_depth(db, cid)
+        max_depth = max(max_depth, d + 1)
+    return max_depth
+
+
+async def _check_hierarchy_depth(db: AsyncSession, fs: FactSheet, new_parent_id: uuid.UUID | None) -> None:
+    """Raise HTTPException if setting new_parent_id would push any descendant beyond level 5."""
+    if fs.type != "BusinessCapability":
+        return
+    if new_parent_id is None:
+        return  # removing parent always safe
+
+    # Compute ancestor depth from new parent
+    ancestor_depth = 0
+    current_id = new_parent_id
+    seen: set[uuid.UUID] = {fs.id}
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        ancestor_depth += 1
+        res = await db.execute(select(FactSheet.parent_id).where(FactSheet.id == current_id))
+        row = res.first()
+        current_id = row[0] if row else None
+
+    # fs itself would be at level = ancestor_depth + 1
+    own_level = ancestor_depth + 1
+    # deepest descendant would be at own_level + max_descendant_depth
+    desc_depth = await _max_descendant_depth(db, fs.id)
+    deepest = own_level + desc_depth
+
+    if deepest > 5:
+        raise HTTPException(
+            400,
+            f"Cannot set parent: hierarchy would exceed maximum depth of 5 levels "
+            f"(this item would be L{own_level}, deepest descendant would be L{deepest})",
+        )
+
+
+async def _sync_capability_level(db: AsyncSession, fs: FactSheet) -> None:
+    """Auto-compute capabilityLevel for BusinessCapability based on parent depth, then cascade to children."""
+    if fs.type != "BusinessCapability":
+        return
+
+    # Walk up to compute depth
+    depth = 0
+    current_id = fs.parent_id
+    seen: set[uuid.UUID] = {fs.id}
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        depth += 1
+        res = await db.execute(select(FactSheet.parent_id).where(FactSheet.id == current_id))
+        row = res.first()
+        current_id = row[0] if row else None
+
+    level_key = f"L{min(depth + 1, 5)}"
+    attrs = dict(fs.attributes or {})
+    if attrs.get("capabilityLevel") != level_key:
+        attrs["capabilityLevel"] = level_key
+        fs.attributes = attrs
+
+    # Cascade to direct children
+    children_result = await db.execute(
+        select(FactSheet).where(FactSheet.parent_id == fs.id, FactSheet.status == "ACTIVE")
+    )
+    for child in children_result.scalars().all():
+        await _sync_capability_level(db, child)
+
+
 def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
     tags = []
     for t in (fs.tags or []):
@@ -173,6 +250,13 @@ async def create_fact_sheet(
     db.add(fs)
     await db.flush()
 
+    # Guard: hierarchy depth limit for BusinessCapability
+    if fs.parent_id:
+        await _check_hierarchy_depth(db, fs, fs.parent_id)
+
+    # Auto-set capability level for BusinessCapability
+    await _sync_capability_level(db, fs)
+
     # Compute completion score
     fs.completion = await _calc_completion(db, fs)
 
@@ -248,8 +332,16 @@ async def update_fact_sheet(
     if not fs:
         raise HTTPException(404, "Fact sheet not found")
 
+    updates = body.model_dump(exclude_unset=True)
+
+    # Guard: hierarchy depth limit before applying parent change
+    if "parent_id" in updates:
+        new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
+        if new_pid != fs.parent_id:
+            await _check_hierarchy_depth(db, fs, new_pid)
+
     changes = {}
-    for field, value in body.model_dump(exclude_unset=True).items():
+    for field, value in updates.items():
         if field == "parent_id" and value is not None:
             value = uuid.UUID(value)
         old = getattr(fs, field)
@@ -264,6 +356,10 @@ async def update_fact_sheet(
             seal_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
             if seal_breaking & changes.keys():
                 fs.quality_seal = "BROKEN"
+
+        # Auto-sync capability level when parent changes
+        if "parent_id" in changes:
+            await _sync_capability_level(db, fs)
 
         # Recalculate completion
         fs.completion = await _calc_completion(db, fs)

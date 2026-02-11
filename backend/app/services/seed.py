@@ -228,6 +228,13 @@ TYPES = [
             {
                 "section": "Capability Information",
                 "fields": [
+                    {"key": "capabilityLevel", "label": "Capability Level", "type": "single_select", "options": [
+                        {"key": "L1", "label": "Level 1", "color": "#1565c0"},
+                        {"key": "L2", "label": "Level 2", "color": "#42a5f5"},
+                        {"key": "L3", "label": "Level 3", "color": "#90caf9"},
+                        {"key": "L4", "label": "Level 4", "color": "#bbdefb"},
+                        {"key": "L5", "label": "Level 5", "color": "#e3f2fd"},
+                    ], "weight": 0},
                     {"key": "isCoreCapability", "label": "Core Capability", "type": "boolean", "weight": 0},
                 ],
             },
