@@ -17,9 +17,10 @@ class FactSheetType(Base, UUIDMixin, TimestampMixin):
     description: Mapped[str | None] = mapped_column(Text)
     icon: Mapped[str] = mapped_column(String(100), default="category")
     color: Mapped[str] = mapped_column(String(20), default="#1976d2")
-    category: Mapped[str] = mapped_column(String(50), default="application")
+    category: Mapped[str | None] = mapped_column(String(100))  # free-text layer label, not enum
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

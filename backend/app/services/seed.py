@@ -1,4 +1,4 @@
-"""Seed default LeanIX metamodel v4 fact sheet types and relation types."""
+"""Seed the default LeanIX metamodel v4 — matched to the official Meta_Model.xml."""
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -49,20 +49,20 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
 DATA_SENSITIVITY_OPTIONS = [
     {"key": "public", "label": "Public", "color": "#4caf50"},
     {"key": "internal", "label": "Internal", "color": "#2196f3"},
-    {"key": "confidential", "label": "Confidential", "color": "#f57c00"},
+    {"key": "confidential", "label": "Confidential", "color": "#ff9800"},
     {"key": "restricted", "label": "Restricted", "color": "#d32f2f"},
 ]
 
 INITIATIVE_STATUS_OPTIONS = [
-    {"key": "proposed", "label": "Proposed", "color": "#9e9e9e"},
-    {"key": "approved", "label": "Approved", "color": "#2196f3"},
-    {"key": "inProgress", "label": "In Progress", "color": "#ff9800"},
-    {"key": "completed", "label": "Completed", "color": "#4caf50"},
-    {"key": "cancelled", "label": "Cancelled", "color": "#d32f2f"},
+    {"key": "onTrack", "label": "On Track", "color": "#4caf50"},
+    {"key": "atRisk", "label": "At Risk", "color": "#ff9800"},
+    {"key": "offTrack", "label": "Off Track", "color": "#d32f2f"},
+    {"key": "onHold", "label": "On Hold", "color": "#9e9e9e"},
+    {"key": "completed", "label": "Completed", "color": "#1976d2"},
 ]
 
 FREQUENCY_OPTIONS = [
-    {"key": "realtime", "label": "Real-time"},
+    {"key": "realTime", "label": "Real-Time"},
     {"key": "daily", "label": "Daily"},
     {"key": "weekly", "label": "Weekly"},
     {"key": "monthly", "label": "Monthly"},
@@ -70,342 +70,69 @@ FREQUENCY_OPTIONS = [
     {"key": "batch", "label": "Batch"},
 ]
 
-# ── Fact Sheet Types ───────────────────────────────────────────────────
+SUPPORT_TYPE_OPTIONS = [
+    {"key": "leading", "label": "Leading", "color": "#2e7d32"},
+    {"key": "supporting", "label": "Supporting", "color": "#66bb6a"},
+    {"key": "noSupport", "label": "No Support", "color": "#9e9e9e"},
+]
 
-FACT_SHEET_TYPES = [
-    # ── Business Architecture ──
-    {
-        "key": "BusinessCapability",
-        "label": "Business Capability",
-        "description": "What the business can do — stable functional decomposition (L1→L2→L3).",
-        "icon": "account_tree",
-        "color": "#4caf50",
-        "category": "business",
-        "has_hierarchy": True,
-        "sort_order": 1,
-        "subtypes": [],
-        "fields_schema": [
-            {
-                "section": "Business Capability Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    {
-        "key": "BusinessContext",
-        "label": "Business Context",
-        "description": "Activities: value streams, business products, processes, customer journeys.",
-        "icon": "domain",
-        "color": "#66bb6a",
-        "category": "business",
-        "has_hierarchy": True,
-        "sort_order": 2,
-        "subtypes": [
-            {"key": "process", "label": "Process"},
-            {"key": "valueStream", "label": "Value Stream"},
-            {"key": "customerJourney", "label": "Customer Journey"},
-            {"key": "product", "label": "Product"},
-        ],
-        "fields_schema": [
-            {
-                "section": "Business Context Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    {
-        "key": "Organization",
-        "label": "Organization",
-        "description": "Business units, regions, teams, legal entities, customers.",
-        "icon": "corporate_fare",
-        "color": "#43a047",
-        "category": "business",
-        "has_hierarchy": True,
-        "sort_order": 3,
-        "subtypes": [
-            {"key": "businessUnit", "label": "Business Unit"},
-            {"key": "region", "label": "Region"},
-            {"key": "legalEntity", "label": "Legal Entity"},
-            {"key": "team", "label": "Team"},
-            {"key": "customer", "label": "Customer"},
-        ],
-        "fields_schema": [
-            {
-                "section": "Organization Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    # ── Application Architecture ──
-    {
-        "key": "Application",
-        "label": "Application",
-        "description": "Central entity — software systems, microservices, deployments.",
-        "icon": "apps",
-        "color": "#1976d2",
-        "category": "application",
-        "has_hierarchy": True,
-        "sort_order": 4,
-        "subtypes": [
-            {"key": "businessApplication", "label": "Business Application"},
-            {"key": "microservice", "label": "Microservice"},
-            {"key": "deployment", "label": "Deployment"},
-        ],
-        "fields_schema": [
-            {
-                "section": "Application Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                    {
-                        "key": "businessCriticality",
-                        "label": "Business Criticality",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": BUSINESS_CRITICALITY_OPTIONS,
-                    },
-                    {
-                        "key": "functionalSuitability",
-                        "label": "Functional Fit",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": FUNCTIONAL_SUITABILITY_OPTIONS,
-                    },
-                    {
-                        "key": "technicalSuitability",
-                        "label": "Technical Fit",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": TECHNICAL_SUITABILITY_OPTIONS,
-                    },
-                    {
-                        "key": "hostingType",
-                        "label": "Hosting Type",
-                        "type": "single_select",
-                        "required": False,
-                        "weight": 1,
-                        "options": HOSTING_TYPE_OPTIONS,
-                    },
-                ],
-            },
-            {
-                "section": "Cost",
-                "fields": [
-                    {"key": "totalAnnualCost", "label": "Total Annual Cost", "type": "number", "weight": 1},
-                    {"key": "costCurrency", "label": "Currency", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    {
-        "key": "Interface",
-        "label": "Interface",
-        "description": "Data exchange connections between applications (APIs, data feeds).",
-        "icon": "sync_alt",
-        "color": "#1565c0",
-        "category": "application",
-        "has_hierarchy": False,
-        "sort_order": 5,
-        "subtypes": [
-            {"key": "logicalInterface", "label": "Logical Interface"},
-            {"key": "api", "label": "API"},
-        ],
-        "fields_schema": [
-            {
-                "section": "Interface Information",
-                "fields": [
-                    {
-                        "key": "frequency",
-                        "label": "Frequency",
-                        "type": "single_select",
-                        "weight": 1,
-                        "options": FREQUENCY_OPTIONS,
-                    },
-                    {
-                        "key": "dataDirection",
-                        "label": "Data Direction",
-                        "type": "single_select",
-                        "weight": 1,
-                        "options": [
-                            {"key": "unidirectional", "label": "Unidirectional"},
-                            {"key": "bidirectional", "label": "Bidirectional"},
-                        ],
-                    },
-                    {
-                        "key": "technicalSuitability",
-                        "label": "Technical Fit",
-                        "type": "single_select",
-                        "weight": 1,
-                        "options": TECHNICAL_SUITABILITY_OPTIONS,
-                    },
-                ],
-            },
-        ],
-    },
-    {
-        "key": "DataObject",
-        "label": "Data Object",
-        "description": "Business data entities (customer, order, product data).",
-        "icon": "database",
-        "color": "#0d47a1",
-        "category": "application",
-        "has_hierarchy": True,
-        "sort_order": 6,
-        "subtypes": [],
-        "fields_schema": [
-            {
-                "section": "Data Object Information",
-                "fields": [
-                    {
-                        "key": "dataSensitivity",
-                        "label": "Data Sensitivity",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": DATA_SENSITIVITY_OPTIONS,
-                    },
-                    {"key": "isPersonalData", "label": "Contains Personal Data", "type": "boolean", "weight": 1},
-                ],
-            },
-        ],
-    },
-    # ── Technology Architecture ──
-    {
-        "key": "ITComponent",
-        "label": "IT Component",
-        "description": "Technology dependencies — software, hardware, SaaS, infrastructure.",
-        "icon": "memory",
-        "color": "#7b1fa2",
-        "category": "technology",
-        "has_hierarchy": True,
-        "sort_order": 7,
-        "subtypes": [
-            {"key": "software", "label": "Software"},
-            {"key": "hardware", "label": "Hardware"},
-            {"key": "saas", "label": "SaaS"},
-            {"key": "iaas", "label": "IaaS"},
-            {"key": "paas", "label": "PaaS"},
-            {"key": "service", "label": "Service"},
-        ],
-        "fields_schema": [
-            {
-                "section": "IT Component Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                    {
-                        "key": "technicalSuitability",
-                        "label": "Technical Fit",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": TECHNICAL_SUITABILITY_OPTIONS,
-                    },
-                ],
-            },
-            {
-                "section": "Cost",
-                "fields": [
-                    {"key": "totalAnnualCost", "label": "Total Annual Cost", "type": "number", "weight": 1},
-                ],
-            },
-        ],
-    },
-    {
-        "key": "TechCategory",
-        "label": "Tech Category",
-        "description": "Taxonomy for grouping IT Components (e.g., DBMS, OS, Cloud Platform).",
-        "icon": "category",
-        "color": "#9c27b0",
-        "category": "technology",
-        "has_hierarchy": True,
-        "sort_order": 8,
-        "subtypes": [],
-        "fields_schema": [
-            {
-                "section": "Tech Category Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    {
-        "key": "Provider",
-        "label": "Provider",
-        "description": "Vendors and suppliers of technology and services.",
-        "icon": "store",
-        "color": "#6a1b9a",
-        "category": "technology",
-        "has_hierarchy": False,
-        "sort_order": 9,
-        "subtypes": [],
-        "fields_schema": [
-            {
-                "section": "Provider Information",
-                "fields": [
-                    {"key": "website", "label": "Website", "type": "text", "weight": 1},
-                    {"key": "headquarters", "label": "Headquarters", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
-    # ── Transformation Architecture ──
-    {
-        "key": "Platform",
-        "label": "Platform",
-        "description": "Strategic groupings of applications and technologies.",
-        "icon": "hub",
-        "color": "#e65100",
-        "category": "transformation",
-        "has_hierarchy": False,
-        "sort_order": 10,
-        "subtypes": [
-            {"key": "digital", "label": "Digital"},
-            {"key": "technical", "label": "Technical"},
-        ],
-        "fields_schema": [
-            {
-                "section": "Platform Information",
-                "fields": [
-                    {"key": "alias", "label": "Alias", "type": "text", "weight": 0},
-                ],
-            },
-        ],
-    },
+USAGE_TYPE_OPTIONS = [
+    {"key": "owner", "label": "Owner", "color": "#1976d2"},
+    {"key": "user", "label": "User", "color": "#66bb6a"},
+    {"key": "stakeholder", "label": "Stakeholder", "color": "#ff9800"},
+]
+
+
+# ── 13 Fact Sheet Types (from Meta_Model.xml) ─────────────────────────
+
+TYPES = [
+    # -- Strategy & Transformation layer --
     {
         "key": "Objective",
         "label": "Objective",
-        "description": "Strategic goals driving initiatives and transformation.",
+        "description": "Strategic objectives and goals that drive the enterprise architecture.",
         "icon": "flag",
-        "color": "#ef6c00",
-        "category": "transformation",
+        "color": "#c7527d",
+        "category": "Strategy & Transformation",
         "has_hierarchy": False,
-        "sort_order": 11,
         "subtypes": [],
+        "sort_order": 0,
         "fields_schema": [
             {
                 "section": "Objective Information",
                 "fields": [
-                    {
-                        "key": "category",
-                        "label": "Category",
-                        "type": "single_select",
-                        "weight": 1,
-                        "options": [
-                            {"key": "strategic", "label": "Strategic"},
-                            {"key": "tactical", "label": "Tactical"},
-                            {"key": "operational", "label": "Operational"},
-                        ],
-                    },
-                    {"key": "kpiDescription", "label": "KPI Description", "type": "text", "weight": 1},
+                    {"key": "objectiveType", "label": "Objective Type", "type": "single_select", "options": [
+                        {"key": "strategic", "label": "Strategic"},
+                        {"key": "tactical", "label": "Tactical"},
+                        {"key": "operational", "label": "Operational"},
+                    ], "weight": 1},
+                    {"key": "targetDate", "label": "Target Date", "type": "date", "weight": 1},
+                    {"key": "progress", "label": "Progress (%)", "type": "number", "weight": 1},
+                ],
+            },
+        ],
+    },
+    {
+        "key": "Platform",
+        "label": "Platform",
+        "description": "Technology or business platforms that group applications and components.",
+        "icon": "layers",
+        "color": "#027446",
+        "category": "Strategy & Transformation",
+        "has_hierarchy": False,
+        "subtypes": [
+            {"key": "digital", "label": "Digital"},
+            {"key": "technical", "label": "Technical"},
+        ],
+        "sort_order": 1,
+        "fields_schema": [
+            {
+                "section": "Platform Information",
+                "fields": [
+                    {"key": "platformType", "label": "Platform Type", "type": "single_select", "options": [
+                        {"key": "digital", "label": "Digital", "color": "#1976d2"},
+                        {"key": "technical", "label": "Technical", "color": "#607d8b"},
+                    ], "weight": 1},
                 ],
             },
         ],
@@ -413,286 +140,420 @@ FACT_SHEET_TYPES = [
     {
         "key": "Initiative",
         "label": "Initiative",
-        "description": "Transformation efforts — ideas, projects, programs, epics.",
+        "description": "Projects, programs, and epics that transform the enterprise architecture.",
         "icon": "rocket_launch",
-        "color": "#f57c00",
-        "category": "transformation",
+        "color": "#33cc58",
+        "category": "Strategy & Transformation",
         "has_hierarchy": True,
-        "sort_order": 12,
         "subtypes": [
             {"key": "idea", "label": "Idea"},
             {"key": "program", "label": "Program"},
             {"key": "project", "label": "Project"},
             {"key": "epic", "label": "Epic"},
         ],
+        "sort_order": 2,
         "fields_schema": [
             {
                 "section": "Initiative Information",
                 "fields": [
-                    {
-                        "key": "status",
-                        "label": "Status",
-                        "type": "single_select",
-                        "required": True,
-                        "weight": 2,
-                        "options": INITIATIVE_STATUS_OPTIONS,
-                    },
-                    {"key": "budget", "label": "Budget", "type": "number", "weight": 1},
+                    {"key": "initiativeStatus", "label": "Status", "type": "single_select", "options": INITIATIVE_STATUS_OPTIONS, "weight": 2},
+                    {"key": "businessValue", "label": "Business Value", "type": "single_select", "options": [
+                        {"key": "high", "label": "High", "color": "#2e7d32"},
+                        {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                        {"key": "low", "label": "Low", "color": "#9e9e9e"},
+                    ], "weight": 1},
+                    {"key": "effort", "label": "Effort", "type": "single_select", "options": [
+                        {"key": "high", "label": "High", "color": "#d32f2f"},
+                        {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                        {"key": "low", "label": "Low", "color": "#4caf50"},
+                    ], "weight": 1},
+                ],
+            },
+            {
+                "section": "Cost & Timeline",
+                "fields": [
+                    {"key": "costBudget", "label": "Budget", "type": "number", "weight": 1},
+                    {"key": "costActual", "label": "Actual Cost", "type": "number", "weight": 0},
                     {"key": "startDate", "label": "Start Date", "type": "date", "weight": 1},
                     {"key": "endDate", "label": "End Date", "type": "date", "weight": 1},
                 ],
             },
         ],
     },
-]
-
-# ── Relation Types ─────────────────────────────────────────────────────
-
-RELATION_TYPES = [
-    # Application as hub
+    # -- Business Architecture layer --
     {
-        "key": "relAppToBC",
-        "label": "Application → Business Capability",
-        "source_type_key": "Application",
-        "target_type_key": "BusinessCapability",
-        "attributes_schema": [
+        "key": "Organization",
+        "label": "Organization",
+        "description": "Organizational units, regions, legal entities, teams, and customers.",
+        "icon": "corporate_fare",
+        "color": "#2889ff",
+        "category": "Business Architecture",
+        "has_hierarchy": True,
+        "subtypes": [
+            {"key": "businessUnit", "label": "Business Unit"},
+            {"key": "region", "label": "Region"},
+            {"key": "legalEntity", "label": "Legal Entity"},
+            {"key": "team", "label": "Team"},
+            {"key": "customer", "label": "Customer"},
+        ],
+        "sort_order": 3,
+        "fields_schema": [
             {
-                "key": "functionalSuitability",
-                "label": "Functional Fit",
-                "type": "single_select",
-                "options": FUNCTIONAL_SUITABILITY_OPTIONS,
-            },
-            {
-                "key": "supportType",
-                "label": "Support Type",
-                "type": "single_select",
-                "options": [
-                    {"key": "leading", "label": "Leading"},
-                    {"key": "effective", "label": "Effective"},
+                "section": "Organization Information",
+                "fields": [
+                    {"key": "headCount", "label": "Head Count", "type": "number", "weight": 0},
+                    {"key": "location", "label": "Location", "type": "text", "weight": 0},
                 ],
             },
         ],
     },
     {
-        "key": "relAppToOrg",
-        "label": "Application → Organization",
-        "source_type_key": "Application",
-        "target_type_key": "Organization",
-        "attributes_schema": [
+        "key": "BusinessCapability",
+        "label": "Business Capability",
+        "description": "Stable decomposition of what the business does, independent of how it is done.",
+        "icon": "account_tree",
+        "color": "#003399",
+        "category": "Business Architecture",
+        "has_hierarchy": True,
+        "subtypes": [],
+        "sort_order": 4,
+        "fields_schema": [
             {
-                "key": "usageType",
-                "label": "Usage Type",
-                "type": "single_select",
-                "options": [{"key": "user", "label": "User"}, {"key": "owner", "label": "Owner"}],
+                "section": "Capability Information",
+                "fields": [
+                    {"key": "capabilityLevel", "label": "Capability Level", "type": "single_select", "options": [
+                        {"key": "L1", "label": "Level 1", "color": "#1565c0"},
+                        {"key": "L2", "label": "Level 2", "color": "#42a5f5"},
+                        {"key": "L3", "label": "Level 3", "color": "#90caf9"},
+                    ], "weight": 1},
+                    {"key": "isCoreCapability", "label": "Core Capability", "type": "boolean", "weight": 0},
+                ],
             },
         ],
     },
     {
-        "key": "relAppToITC",
-        "label": "Application → IT Component",
-        "source_type_key": "Application",
-        "target_type_key": "ITComponent",
-        "attributes_schema": [
+        "key": "BusinessContext",
+        "label": "Business Context",
+        "description": "Business processes, value streams, customer journeys, and products.",
+        "icon": "swap_horiz",
+        "color": "#fe6690",
+        "category": "Business Architecture",
+        "has_hierarchy": True,
+        "subtypes": [
+            {"key": "process", "label": "Process"},
+            {"key": "valueStream", "label": "Value Stream"},
+            {"key": "customerJourney", "label": "Customer Journey"},
+            {"key": "businessProduct", "label": "Business Product"},
+            {"key": "esgCapability", "label": "ESG Capability"},
+        ],
+        "sort_order": 5,
+        "fields_schema": [
             {
-                "key": "technicalSuitability",
-                "label": "Technical Fit",
-                "type": "single_select",
-                "options": TECHNICAL_SUITABILITY_OPTIONS,
+                "section": "Business Context Information",
+                "fields": [
+                    {"key": "maturity", "label": "Maturity", "type": "single_select", "options": [
+                        {"key": "initial", "label": "Initial", "color": "#d32f2f"},
+                        {"key": "defined", "label": "Defined", "color": "#ff9800"},
+                        {"key": "managed", "label": "Managed", "color": "#fbc02d"},
+                        {"key": "optimized", "label": "Optimized", "color": "#4caf50"},
+                    ], "weight": 1},
+                ],
             },
-            {"key": "costTotalAnnual", "label": "Annual Cost", "type": "number"},
         ],
     },
+    # -- Application & Data Architecture layer --
     {
-        "key": "relProviderAppToInterface",
-        "label": "Application → Interface (Provider)",
-        "source_type_key": "Application",
-        "target_type_key": "Interface",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relConsumerAppToInterface",
-        "label": "Application → Interface (Consumer)",
-        "source_type_key": "Application",
-        "target_type_key": "Interface",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relAppToDataObj",
-        "label": "Application → Data Object",
-        "source_type_key": "Application",
-        "target_type_key": "DataObject",
-        "attributes_schema": [
-            {"key": "crudFlags", "label": "CRUD", "type": "text"},
+        "key": "Application",
+        "label": "Application",
+        "description": "Software applications, microservices, and deployments in the IT landscape.",
+        "icon": "apps",
+        "color": "#0f7eb5",
+        "category": "Application & Data",
+        "has_hierarchy": True,
+        "subtypes": [
+            {"key": "businessApplication", "label": "Business Application"},
+            {"key": "microservice", "label": "Microservice"},
+            {"key": "aiAgent", "label": "AI Agent"},
+            {"key": "deployment", "label": "Deployment"},
         ],
-    },
-    {
-        "key": "relAppToProvider",
-        "label": "Application → Provider",
-        "source_type_key": "Application",
-        "target_type_key": "Provider",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relAppToPlatform",
-        "label": "Application → Platform",
-        "source_type_key": "Application",
-        "target_type_key": "Platform",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relAppToBCx",
-        "label": "Application → Business Context",
-        "source_type_key": "Application",
-        "target_type_key": "BusinessContext",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relAppToInitiative",
-        "label": "Application → Initiative",
-        "source_type_key": "Application",
-        "target_type_key": "Initiative",
-        "attributes_schema": [],
-    },
-    # Interface relations
-    {
-        "key": "relInterfaceToDataObj",
-        "label": "Interface → Data Object",
-        "source_type_key": "Interface",
-        "target_type_key": "DataObject",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relInterfaceToITC",
-        "label": "Interface → IT Component",
-        "source_type_key": "Interface",
-        "target_type_key": "ITComponent",
-        "attributes_schema": [],
-    },
-    # IT Component relations
-    {
-        "key": "relITCToTechCat",
-        "label": "IT Component → Tech Category",
-        "source_type_key": "ITComponent",
-        "target_type_key": "TechCategory",
-        "attributes_schema": [
+        "sort_order": 6,
+        "fields_schema": [
             {
-                "key": "resourceClassification",
-                "label": "Resource Classification",
-                "type": "single_select",
-                "options": RESOURCE_CLASSIFICATION_OPTIONS,
+                "section": "Application Information",
+                "fields": [
+                    {"key": "businessCriticality", "label": "Business Criticality", "type": "single_select", "required": True, "options": BUSINESS_CRITICALITY_OPTIONS, "weight": 2},
+                    {"key": "functionalSuitability", "label": "Functional Suitability", "type": "single_select", "options": FUNCTIONAL_SUITABILITY_OPTIONS, "weight": 2},
+                    {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS, "weight": 2},
+                    {"key": "hostingType", "label": "Hosting Type", "type": "single_select", "options": HOSTING_TYPE_OPTIONS, "weight": 1},
+                ],
+            },
+            {
+                "section": "Cost & Ownership",
+                "fields": [
+                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "number", "weight": 1},
+                    {"key": "numberOfUsers", "label": "Number of Users", "type": "number", "weight": 0},
+                    {"key": "vendor", "label": "Vendor", "type": "text", "weight": 0},
+                    {"key": "productName", "label": "Product Name", "type": "text", "weight": 0},
+                ],
             },
         ],
     },
     {
-        "key": "relITCToProvider",
-        "label": "IT Component → Provider",
-        "source_type_key": "ITComponent",
-        "target_type_key": "Provider",
-        "attributes_schema": [],
-    },
-    # Objective relations
-    {
-        "key": "relObjToBC",
-        "label": "Objective → Business Capability",
-        "source_type_key": "Objective",
-        "target_type_key": "BusinessCapability",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relObjToInitiative",
-        "label": "Objective → Initiative",
-        "source_type_key": "Objective",
-        "target_type_key": "Initiative",
-        "attributes_schema": [],
-    },
-    # Initiative relations
-    {
-        "key": "relInitToApp",
-        "label": "Initiative → Application",
-        "source_type_key": "Initiative",
-        "target_type_key": "Application",
-        "attributes_schema": [],
+        "key": "Interface",
+        "label": "Interface",
+        "description": "Data flows and integrations between applications.",
+        "icon": "sync_alt",
+        "color": "#02afa4",
+        "category": "Application & Data",
+        "has_hierarchy": False,
+        "subtypes": [
+            {"key": "logicalInterface", "label": "Logical Interface"},
+            {"key": "api", "label": "API"},
+            {"key": "mcpServer", "label": "MCP Server"},
+        ],
+        "sort_order": 7,
+        "fields_schema": [
+            {
+                "section": "Interface Information",
+                "fields": [
+                    {"key": "frequency", "label": "Frequency", "type": "single_select", "options": FREQUENCY_OPTIONS, "weight": 1},
+                    {"key": "dataFormat", "label": "Data Format", "type": "text", "weight": 0},
+                    {"key": "protocol", "label": "Protocol", "type": "text", "weight": 0},
+                ],
+            },
+        ],
     },
     {
-        "key": "relInitToITC",
-        "label": "Initiative → IT Component",
-        "source_type_key": "Initiative",
-        "target_type_key": "ITComponent",
-        "attributes_schema": [],
+        "key": "DataObject",
+        "label": "Data Object",
+        "description": "Business data objects and their classifications.",
+        "icon": "database",
+        "color": "#774fcc",
+        "category": "Application & Data",
+        "has_hierarchy": True,
+        "subtypes": [],
+        "sort_order": 8,
+        "fields_schema": [
+            {
+                "section": "Data Information",
+                "fields": [
+                    {"key": "dataSensitivity", "label": "Data Sensitivity", "type": "single_select", "options": DATA_SENSITIVITY_OPTIONS, "weight": 1},
+                    {"key": "dataOwner", "label": "Data Owner", "type": "text", "weight": 0},
+                    {"key": "isPersonalData", "label": "Contains Personal Data", "type": "boolean", "weight": 1},
+                ],
+            },
+        ],
+    },
+    # -- Technical Architecture layer --
+    {
+        "key": "ITComponent",
+        "label": "IT Component",
+        "description": "Technology components: software, hardware, SaaS, PaaS, IaaS, services.",
+        "icon": "memory",
+        "color": "#d29270",
+        "category": "Technical Architecture",
+        "has_hierarchy": True,
+        "subtypes": [
+            {"key": "software", "label": "Software"},
+            {"key": "hardware", "label": "Hardware"},
+            {"key": "saas", "label": "SaaS"},
+            {"key": "paas", "label": "PaaS"},
+            {"key": "iaas", "label": "IaaS"},
+            {"key": "service", "label": "Service"},
+            {"key": "aiModel", "label": "AI Model"},
+        ],
+        "sort_order": 9,
+        "fields_schema": [
+            {
+                "section": "Component Information",
+                "fields": [
+                    {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS, "weight": 2},
+                    {"key": "resourceClassification", "label": "Resource Classification", "type": "single_select", "options": RESOURCE_CLASSIFICATION_OPTIONS, "weight": 2},
+                    {"key": "vendor", "label": "Vendor", "type": "text", "weight": 0},
+                    {"key": "version", "label": "Version", "type": "text", "weight": 0},
+                ],
+            },
+            {
+                "section": "Cost",
+                "fields": [
+                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "number", "weight": 1},
+                    {"key": "licenseType", "label": "License Type", "type": "text", "weight": 0},
+                ],
+            },
+        ],
     },
     {
-        "key": "relInitToBC",
-        "label": "Initiative → Business Capability",
-        "source_type_key": "Initiative",
-        "target_type_key": "BusinessCapability",
-        "attributes_schema": [],
-    },
-    # Platform relations
-    {
-        "key": "relPlatformToApp",
-        "label": "Platform → Application",
-        "source_type_key": "Platform",
-        "target_type_key": "Application",
-        "attributes_schema": [],
+        "key": "TechCategory",
+        "label": "Tech Category",
+        "description": "Technology categories for classifying IT components (e.g., Databases, Middleware).",
+        "icon": "category",
+        "color": "#a6566d",
+        "category": "Technical Architecture",
+        "has_hierarchy": True,
+        "subtypes": [],
+        "sort_order": 10,
+        "fields_schema": [],
     },
     {
-        "key": "relPlatformToITC",
-        "label": "Platform → IT Component",
-        "source_type_key": "Platform",
-        "target_type_key": "ITComponent",
-        "attributes_schema": [],
+        "key": "Provider",
+        "label": "Provider",
+        "description": "External technology providers and vendors.",
+        "icon": "storefront",
+        "color": "#ffa31f",
+        "category": "Technical Architecture",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 11,
+        "fields_schema": [
+            {
+                "section": "Provider Information",
+                "fields": [
+                    {"key": "providerType", "label": "Provider Type", "type": "single_select", "options": [
+                        {"key": "vendor", "label": "Vendor"},
+                        {"key": "partner", "label": "Partner"},
+                        {"key": "internalProvider", "label": "Internal Provider"},
+                    ], "weight": 1},
+                    {"key": "website", "label": "Website", "type": "text", "weight": 0},
+                    {"key": "contractEnd", "label": "Contract End Date", "type": "date", "weight": 0},
+                ],
+            },
+        ],
     },
     {
-        "key": "relPlatformToBC",
-        "label": "Platform → Business Capability",
-        "source_type_key": "Platform",
-        "target_type_key": "BusinessCapability",
-        "attributes_schema": [],
-    },
-    # Organization relations
-    {
-        "key": "relOrgToApp",
-        "label": "Organization → Application",
-        "source_type_key": "Organization",
-        "target_type_key": "Application",
-        "attributes_schema": [],
-    },
-    # Business Context relations
-    {
-        "key": "relBCxToBC",
-        "label": "Business Context → Business Capability",
-        "source_type_key": "BusinessContext",
-        "target_type_key": "BusinessCapability",
-        "attributes_schema": [],
-    },
-    {
-        "key": "relBCxToApp",
-        "label": "Business Context → Application",
-        "source_type_key": "BusinessContext",
-        "target_type_key": "Application",
-        "attributes_schema": [],
-    },
-    # Business Capability relations
-    {
-        "key": "relBCToOrg",
-        "label": "Business Capability → Organization",
-        "source_type_key": "BusinessCapability",
-        "target_type_key": "Organization",
-        "attributes_schema": [],
+        "key": "System",
+        "label": "System",
+        "description": "Technical systems and runtime environments.",
+        "icon": "dns",
+        "color": "#5B738B",
+        "category": "Technical Architecture",
+        "has_hierarchy": False,
+        "subtypes": [],
+        "sort_order": 12,
+        "is_hidden": False,
+        "fields_schema": [
+            {
+                "section": "System Information",
+                "fields": [
+                    {"key": "systemType", "label": "System Type", "type": "single_select", "options": [
+                        {"key": "cluster", "label": "Cluster"},
+                        {"key": "server", "label": "Server"},
+                        {"key": "virtualMachine", "label": "Virtual Machine"},
+                        {"key": "container", "label": "Container"},
+                    ], "weight": 1},
+                    {"key": "environment", "label": "Environment", "type": "single_select", "options": [
+                        {"key": "production", "label": "Production", "color": "#d32f2f"},
+                        {"key": "staging", "label": "Staging", "color": "#ff9800"},
+                        {"key": "development", "label": "Development", "color": "#4caf50"},
+                        {"key": "test", "label": "Test", "color": "#2196f3"},
+                    ], "weight": 1},
+                ],
+            },
+        ],
     },
 ]
 
 
+# ── Relations (from Meta_Model.xml — verbs are the edge labels) ────────
+
+RELATIONS = [
+    # Strategy & Transformation connections
+    {"key": "relObjectiveToBC", "label": "improves", "reverse_label": "is improved by", "source_type_key": "Objective", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 0},
+    {"key": "relPlatformToObjective", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Platform", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 1},
+    {"key": "relPlatformToApp", "label": "runs", "reverse_label": "runs on", "source_type_key": "Platform", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 2},
+    {"key": "relPlatformToITC", "label": "implements", "reverse_label": "is implemented by", "source_type_key": "Platform", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 3},
+    {"key": "relInitiativeToObjective", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Initiative", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 4},
+    {"key": "relInitiativeToPlatform", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Platform", "cardinality": "n:m", "sort_order": 5},
+    {"key": "relInitiativeToBC", "label": "improves", "reverse_label": "is improved by", "source_type_key": "Initiative", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 6},
+    {"key": "relInitiativeToApp", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 7},
+    {"key": "relInitiativeToInterface", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Interface", "cardinality": "n:m", "sort_order": 8},
+    {"key": "relInitiativeToDataObj", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 9},
+    {"key": "relInitiativeToITC", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 10},
+    {"key": "relInitiativeToSystem", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "System", "cardinality": "n:m", "sort_order": 11},
+
+    # Organization connections
+    {"key": "relOrgToObjective", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 12},
+    {"key": "relOrgToInitiative", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "Initiative", "cardinality": "n:m", "sort_order": 13},
+    {"key": "relOrgToBizCtx", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "BusinessContext", "cardinality": "n:m", "sort_order": 14},
+    {"key": "relOrgToApp", "label": "uses", "reverse_label": "is used by", "source_type_key": "Organization", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 15, "attributes_schema": [
+        {"key": "usageType", "label": "Usage Type", "type": "single_select", "options": USAGE_TYPE_OPTIONS},
+    ]},
+    {"key": "relOrgToITC", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 16},
+
+    # Application connections
+    {"key": "relAppToBC", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Application", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 17, "attributes_schema": [
+        {"key": "functionalSuitability", "label": "Functional Suitability", "type": "single_select", "options": FUNCTIONAL_SUITABILITY_OPTIONS},
+        {"key": "supportType", "label": "Support Type", "type": "single_select", "options": SUPPORT_TYPE_OPTIONS},
+    ]},
+    {"key": "relAppToBizCtx", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Application", "target_type_key": "BusinessContext", "cardinality": "n:m", "sort_order": 18},
+    {"key": "relAppToInterface", "label": "provides / consumes", "reverse_label": "is provided / consumed by", "source_type_key": "Application", "target_type_key": "Interface", "cardinality": "n:m", "sort_order": 19},
+    {"key": "relAppToDataObj", "label": "CRUD", "reverse_label": "is used by", "source_type_key": "Application", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 20, "attributes_schema": [
+        {"key": "crudCreate", "label": "Create", "type": "boolean"},
+        {"key": "crudRead", "label": "Read", "type": "boolean"},
+        {"key": "crudUpdate", "label": "Update", "type": "boolean"},
+        {"key": "crudDelete", "label": "Delete", "type": "boolean"},
+    ]},
+    {"key": "relAppToITC", "label": "uses", "reverse_label": "is used by", "source_type_key": "Application", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 21, "attributes_schema": [
+        {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS},
+        {"key": "costTotalAnnual", "label": "Annual Cost", "type": "number"},
+    ]},
+    {"key": "relAppToSystem", "label": "runs on", "reverse_label": "runs", "source_type_key": "Application", "target_type_key": "System", "cardinality": "n:m", "sort_order": 22},
+
+    # IT Component connections
+    {"key": "relITCToTechCat", "label": "belongs to", "reverse_label": "includes", "source_type_key": "ITComponent", "target_type_key": "TechCategory", "cardinality": "n:m", "sort_order": 23, "attributes_schema": [
+        {"key": "resourceClassification", "label": "Resource Classification", "type": "single_select", "options": RESOURCE_CLASSIFICATION_OPTIONS},
+    ]},
+    {"key": "relITCToPlatform", "label": "implements", "reverse_label": "is implemented by", "source_type_key": "ITComponent", "target_type_key": "Platform", "cardinality": "n:m", "sort_order": 24},
+
+    # Interface connections
+    {"key": "relInterfaceToDataObj", "label": "transfers", "reverse_label": "is transferred by", "source_type_key": "Interface", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 25},
+    {"key": "relInterfaceToITC", "label": "uses", "reverse_label": "is used by", "source_type_key": "Interface", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 26},
+
+    # Provider connections
+    {"key": "relProviderToInitiative", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Provider", "target_type_key": "Initiative", "cardinality": "n:m", "sort_order": 27},
+    {"key": "relProviderToITC", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 28},
+
+    # Business Context connections
+    {"key": "relBizCtxToBC", "label": "is associated with", "reverse_label": "is associated with", "source_type_key": "BusinessContext", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 29},
+]
+
+
 async def seed_metamodel(db: AsyncSession) -> None:
-    """Insert default fact sheet types and relation types if they don't exist."""
-    result = await db.execute(select(FactSheetType).limit(1))
+    """Seed the default metamodel if no types exist yet."""
+    result = await db.execute(select(FactSheetType.id).limit(1))
     if result.scalar_one_or_none() is not None:
-        return  # already seeded
+        return  # Already seeded
 
-    for data in FACT_SHEET_TYPES:
-        db.add(FactSheetType(**data))
+    for i, t in enumerate(TYPES):
+        fst = FactSheetType(
+            key=t["key"],
+            label=t["label"],
+            description=t.get("description"),
+            icon=t.get("icon", "category"),
+            color=t.get("color", "#1976d2"),
+            category=t.get("category"),
+            has_hierarchy=t.get("has_hierarchy", False),
+            subtypes=t.get("subtypes", []),
+            fields_schema=t.get("fields_schema", []),
+            built_in=True,
+            is_hidden=t.get("is_hidden", False),
+            sort_order=t.get("sort_order", i),
+        )
+        db.add(fst)
 
-    for data in RELATION_TYPES:
-        db.add(RelationType(**data))
+    for i, r in enumerate(RELATIONS):
+        rt = RelationType(
+            key=r["key"],
+            label=r["label"],
+            reverse_label=r.get("reverse_label"),
+            description=r.get("description"),
+            source_type_key=r["source_type_key"],
+            target_type_key=r["target_type_key"],
+            cardinality=r.get("cardinality", "n:m"),
+            attributes_schema=r.get("attributes_schema", []),
+            built_in=True,
+            is_hidden=False,
+            sort_order=r.get("sort_order", i),
+        )
+        db.add(rt)
 
     await db.commit()
