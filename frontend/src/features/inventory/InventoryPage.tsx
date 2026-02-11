@@ -20,6 +20,8 @@ import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
+import ImportDialog from "./ImportDialog";
+import { exportToExcel } from "./excelExport";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { FactSheet, FactSheetListResponse, FieldDef, Relation, RelationType } from "@/types";
@@ -83,6 +85,7 @@ export default function InventoryPage() {
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
 
   // Relations data: relTypeKey → Map<factSheetId, relatedNames[]>
@@ -645,6 +648,25 @@ export default function InventoryPage() {
             {gridEditMode ? "Editing" : "Grid Edit"}
           </Button>
           <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="download" size={18} />}
+            onClick={() => exportToExcel(filteredData, typeConfig, types)}
+            disabled={filteredData.length === 0}
+            sx={{ textTransform: "none" }}
+          >
+            Export
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<MaterialSymbol icon="upload" size={18} />}
+            onClick={() => setImportOpen(true)}
+            sx={{ textTransform: "none" }}
+          >
+            Import
+          </Button>
+          <Button
             variant="contained"
             startIcon={<MaterialSymbol icon="add" size={18} />}
             onClick={() => setCreateOpen(true)}
@@ -768,6 +790,15 @@ export default function InventoryPage() {
         }}
         onCreate={handleCreate}
         initialType={selectedType}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onComplete={loadData}
+        existingFactSheets={data}
+        allTypes={types}
+        preSelectedType={selectedType || undefined}
       />
     </Box>
   );
