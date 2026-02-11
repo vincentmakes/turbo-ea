@@ -130,6 +130,7 @@ export default function InventoryPage() {
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
+          if (field.readonly) continue;
           fields.push({ key: `attr_${field.key}`, label: field.label, fieldDef: field, isCore: false });
         }
       }
