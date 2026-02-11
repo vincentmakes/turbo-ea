@@ -10,7 +10,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import FactSheetSidebar from "./FactSheetSidebar";
 import FactSheetPickerDialog from "./FactSheetPickerDialog";
-import { buildFactSheetXml } from "./drawio-shapes";
+import { buildFactSheetCell } from "./drawio-shapes";
 import type { FactSheet, FactSheetType } from "@/types";
 
 /**
@@ -125,7 +125,7 @@ export default function DiagramEditor() {
     [diagram]
   );
 
-  /** Insert a fact sheet shape into DrawIO via the merge action */
+  /** Insert a fact sheet shape into DrawIO via PreConfig.js graph API */
   const handleInsertFactSheet = useCallback(
     (fs: FactSheet, fsType: FactSheetType) => {
       // Use right-click position if available, otherwise fall back to grid layout
@@ -143,7 +143,7 @@ export default function DiagramEditor() {
       }
       insertCountRef.current += 1;
 
-      const xml = buildFactSheetXml({
+      const msg = buildFactSheetCell({
         factSheetId: fs.id,
         factSheetType: fs.type,
         name: fs.name,
@@ -152,7 +152,7 @@ export default function DiagramEditor() {
         y,
       });
 
-      postToDrawIO({ action: "merge", xml });
+      postToDrawIO(msg);
       setSnackMsg(`Inserted "${fs.name}"`);
     },
     [postToDrawIO]

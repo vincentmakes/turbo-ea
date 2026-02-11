@@ -1,9 +1,9 @@
 /**
- * Generates DrawIO mxGraphModel XML for inserting fact sheet shapes.
+ * Helpers for DrawIO fact-sheet shape insertion and extraction.
  *
- * Uses <object> elements with custom attributes (factSheetId, factSheetType)
- * so we can extract references when parsing the saved diagram XML.
- * This is the standard DrawIO pattern for metadata on cells.
+ * Insertion now works via a custom "insertFactSheetCell" postMessage handled
+ * by PreConfig.js inside the DrawIO iframe, which calls mxGraph.insertVertex
+ * directly.  This avoids the XML merge action and its root-cell conflicts.
  */
 
 /** Darken a hex color by a factor (0-1) for stroke color */
@@ -18,16 +18,7 @@ function darken(hex: string, factor = 0.25): string {
   return `#${d(r)}${d(g)}${d(b)}`;
 }
 
-/** Escape XML special characters */
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-interface InsertFactSheetOpts {
+export interface InsertFactSheetOpts {
   factSheetId: string;
   factSheetType: string;
   name: string;
@@ -37,11 +28,10 @@ interface InsertFactSheetOpts {
 }
 
 /**
- * Build the mxGraphModel XML to merge a single fact sheet shape into DrawIO.
- * The shape is a rounded rectangle colored by the type, with metadata stored
- * as attributes on the <object> element.
+ * Build the postMessage payload for inserting a fact sheet shape.
+ * Sent to the DrawIO iframe where PreConfig.js handles it via the mxGraph API.
  */
-export function buildFactSheetXml(opts: InsertFactSheetOpts): string {
+export function buildFactSheetCell(opts: InsertFactSheetOpts): Record<string, unknown> {
   const { factSheetId, factSheetType, name, color, x, y } = opts;
   const stroke = darken(color);
   const cellId = `fs-${factSheetId.slice(0, 8)}-${Date.now()}`;
@@ -59,17 +49,18 @@ export function buildFactSheetXml(opts: InsertFactSheetOpts): string {
     "shadow=1",
   ].join(";");
 
-  return [
-    '<mxGraphModel><root>',
-    '<mxCell id="0"/>',
-    '<mxCell id="1" parent="0"/>',
-    `<object label="${esc(name)}" factSheetId="${esc(factSheetId)}" factSheetType="${esc(factSheetType)}" id="${cellId}">`,
-    `<mxCell style="${style}" vertex="1" parent="1">`,
-    `<mxGeometry x="${x}" y="${y}" width="180" height="60" as="geometry"/>`,
-    "</mxCell>",
-    "</object>",
-    "</root></mxGraphModel>",
-  ].join("");
+  return {
+    action: "insertFactSheetCell",
+    cellId,
+    label: name,
+    factSheetId,
+    factSheetType,
+    x,
+    y,
+    width: 180,
+    height: 60,
+    style,
+  };
 }
 
 /**
