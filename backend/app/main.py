@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,10 +12,21 @@ from app.models import Base
 from app.api.v1.router import api_router
 
 
+def _run_alembic_stamp(alembic_cfg, revision):
+    """Run alembic stamp in a thread-safe way."""
+    from alembic import command
+    command.stamp(alembic_cfg, revision)
+
+
+def _run_alembic_upgrade(alembic_cfg, revision):
+    """Run alembic upgrade in a thread-safe way."""
+    from alembic import command
+    command.upgrade(alembic_cfg, revision)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from alembic.config import Config
-    from alembic import command
     from sqlalchemy import text, inspect as sa_inspect
 
     alembic_cfg = Config("alembic.ini")
@@ -25,7 +37,7 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
         # Stamp so future non-reset runs just upgrade
-        command.stamp(alembic_cfg, "head")
+        await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
     else:
         # Ensure all tables exist (first run / new install)
         async with engine.begin() as conn:
@@ -38,16 +50,16 @@ async def lifespan(app: FastAPI):
             )
             if not has_table:
                 # First Alembic run on existing DB – stamp current state
-                command.stamp(alembic_cfg, "head")
+                await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
             else:
                 row = await conn.execute(
                     text("SELECT version_num FROM alembic_version LIMIT 1")
                 )
                 if row.first() is None:
-                    command.stamp(alembic_cfg, "head")
+                    await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
                 else:
                     # Normal path: run pending migrations
-                    command.upgrade(alembic_cfg, "head")
+                    await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
 
     # Seed default metamodel
     from app.database import async_session
