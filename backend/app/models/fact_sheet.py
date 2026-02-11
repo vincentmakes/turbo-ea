@@ -13,6 +13,7 @@ class FactSheet(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "fact_sheets"
 
     type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    subtype: Mapped[str | None] = mapped_column(String(100))
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -21,7 +22,7 @@ class FactSheet(Base, UUIDMixin, TimestampMixin):
     lifecycle: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
-    quality_seal: Mapped[str] = mapped_column(String(20), default="UNSET")
+    quality_seal: Mapped[str] = mapped_column(String(20), default="DRAFT")
     completion: Mapped[float] = mapped_column(Float, default=0.0)
     external_id: Mapped[str | None] = mapped_column(String(500))
     alias: Mapped[str | None] = mapped_column(String(500))
