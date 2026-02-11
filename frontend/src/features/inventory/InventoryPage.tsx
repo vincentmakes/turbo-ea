@@ -22,7 +22,7 @@ import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheet, FactSheetListResponse, FieldDef } from "@/types";
+import type { FactSheet, FactSheetListResponse, FieldDef, Relation, RelationType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -35,10 +35,37 @@ const SEAL_COLORS: Record<string, string> = {
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
+/**
+ * Build a lookup: for each relation type, map factSheetId → array of related names.
+ * When the selected type is the source, we index by source_id and show target names.
+ * When the selected type is the target, we index by target_id and show source names.
+ */
+function buildRelationIndex(
+  relations: Relation[],
+  relationType: RelationType,
+  selectedType: string
+): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  const isSource = relationType.source_type_key === selectedType;
+
+  for (const rel of relations) {
+    const myId = isSource ? rel.source_id : rel.target_id;
+    const otherName = isSource ? rel.target?.name : rel.source?.name;
+    if (!otherName) continue;
+    const existing = index.get(myId);
+    if (existing) {
+      existing.push(otherName);
+    } else {
+      index.set(myId, [otherName]);
+    }
+  }
+  return index;
+}
+
 export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const gridRef = useRef<AgGridReact>(null);
 
   // Sidebar state
@@ -49,15 +76,17 @@ export default function InventoryPage() {
     search: searchParams.get("search") || "",
     qualitySeals: [],
     attributes: {},
+    relations: {},
   });
 
   const [data, setData] = useState<FactSheet[]>([]);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState(
-    searchParams.get("create") === "true"
-  );
+  const [createOpen, setCreateOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
+
+  // Relations data: relTypeKey → Map<factSheetId, relatedNames[]>
+  const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
 
   // Mass edit state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -67,9 +96,24 @@ export default function InventoryPage() {
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
 
+  // React to ?create=true search param
+  useEffect(() => {
+    if (searchParams.get("create") === "true") {
+      setCreateOpen(true);
+    }
+  }, [searchParams]);
+
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
+
+  // Relevant relation types for the selected type
+  const relevantRelTypes = useMemo(() => {
+    if (!selectedType) return [];
+    return relationTypes.filter(
+      (rt) => !rt.is_hidden && (rt.source_type_key === selectedType || rt.target_type_key === selectedType)
+    );
+  }, [selectedType, relationTypes]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -95,6 +139,38 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
+  // Fetch relations for each relevant relation type when data changes
+  useEffect(() => {
+    if (!selectedType || relevantRelTypes.length === 0 || data.length === 0) {
+      setRelationsMap(new Map());
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const newMap = new Map<string, Map<string, string[]>>();
+      const results = await Promise.all(
+        relevantRelTypes.map((rt) =>
+          api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
+        )
+      );
+
+      if (cancelled) return;
+
+      for (let i = 0; i < relevantRelTypes.length; i++) {
+        const rt = relevantRelTypes[i];
+        const rels = results[i];
+        newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
+      }
+      setRelationsMap(newMap);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedType, relevantRelTypes, data]);
+
   // Client-side filtering: type multi-select (>1 type) and attribute filters
   const filteredData = useMemo(() => {
     let result = data;
@@ -113,8 +189,21 @@ export default function InventoryPage() {
       });
     }
 
+    // Relation filters (client-side)
+    const relEntries = Object.entries(filters.relations || {});
+    if (relEntries.length > 0) {
+      result = result.filter((fs) => {
+        return relEntries.every(([relTypeKey, relatedName]) => {
+          const index = relationsMap.get(relTypeKey);
+          if (!index) return false;
+          const names = index.get(fs.id);
+          return names?.includes(relatedName) ?? false;
+        });
+      });
+    }
+
     return result;
-  }, [data, filters.types, filters.attributes]);
+  }, [data, filters.types, filters.attributes, filters.relations, relationsMap]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const fs = event.data as FactSheet;
@@ -398,8 +487,52 @@ export default function InventoryPage() {
       }
     }
 
+    // Add relation columns (one per relevant relation type)
+    for (const rt of relevantRelTypes) {
+      const isSource = rt.source_type_key === selectedType;
+      const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
+      const otherType = types.find((t) => t.key === otherTypeKey);
+      const headerName = otherType?.label || otherTypeKey;
+      const index = relationsMap.get(rt.key);
+
+      cols.push({
+        field: `rel_${rt.key}`,
+        headerName,
+        width: 180,
+        valueGetter: (p: { data: FactSheet }) => {
+          if (!index) return "";
+          const names = index.get(p.data?.id);
+          return names ? names.join("; ") : "";
+        },
+        cellRenderer: (p: { value: string }) => {
+          if (!p.value) return "";
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                overflow: "hidden",
+              }}
+            >
+              {otherType && (
+                <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} />
+              )}
+              <Typography
+                variant="body2"
+                sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                title={p.value}
+              >
+                {p.value}
+              </Typography>
+            </Box>
+          );
+        },
+      });
+    }
+
     return cols;
-  }, [types, typeConfig, gridEditMode]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -479,7 +612,7 @@ export default function InventoryPage() {
   };
 
   return (
-    <Box sx={{ display: "flex", height: "calc(100vh - 64px)", mx: -3, mt: -3 }}>
+    <Box sx={{ display: "flex", height: "calc(100vh - 64px)", m: -3 }}>
       {/* Sidebar */}
       <InventoryFilterSidebar
         types={types}
@@ -489,12 +622,14 @@ export default function InventoryPage() {
         onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
+        relevantRelTypes={relevantRelTypes}
+        relationsMap={relationsMap}
       />
 
       {/* Main content */}
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", p: 2 }}>
         {/* Header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.5, flexShrink: 0 }}>
           <Typography variant="h5" fontWeight={600}>
             Inventory
           </Typography>
@@ -532,6 +667,7 @@ export default function InventoryPage() {
               bgcolor: "primary.main",
               color: "primary.contrastText",
               borderRadius: 1,
+              flexShrink: 0,
             }}
           >
             <MaterialSymbol icon="check_box" size={20} />
@@ -563,7 +699,7 @@ export default function InventoryPage() {
         {/* AG Grid */}
         <Box
           className="ag-theme-quartz"
-          sx={{ flex: 1, width: "100%" }}
+          sx={{ flex: 1, width: "100%", minHeight: 0 }}
         >
           <AgGridReact
             ref={gridRef}

@@ -26,7 +26,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheetType, Bookmark, FieldDef } from "@/types";
+import type { FactSheetType, Bookmark, FieldDef, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -37,6 +37,7 @@ export interface Filters {
   search: string;
   qualitySeals: string[];
   attributes: Record<string, string>; // key → value (single_select only for now)
+  relations: Record<string, string>; // relTypeKey → related fact sheet name
 }
 
 interface Props {
@@ -47,6 +48,8 @@ interface Props {
   onToggleCollapse: () => void;
   width: number;
   onWidthChange: (w: number) => void;
+  relevantRelTypes?: RelationType[];
+  relationsMap?: Map<string, Map<string, string[]>>;
 }
 
 const SEAL_OPTIONS = [
@@ -71,6 +74,8 @@ export default function InventoryFilterSidebar({
   onToggleCollapse,
   width,
   onWidthChange,
+  relevantRelTypes = [],
+  relationsMap,
 }: Props) {
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -78,6 +83,7 @@ export default function InventoryFilterSidebar({
     search: true,
     seals: false,
     attributes: false,
+    relationships: false,
   });
 
   // Views state
@@ -142,14 +148,40 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, attributes: next });
   };
 
+  const setRelFilter = (relTypeKey: string, value: string) => {
+    const next = { ...(filters.relations || {}) };
+    if (value) next[relTypeKey] = value;
+    else delete next[relTypeKey];
+    onFiltersChange({ ...filters, relations: next });
+  };
+
+  // Compute unique related names per relation type for filter dropdowns
+  const relFilterOptions = useMemo(() => {
+    if (!relationsMap || relevantRelTypes.length === 0) return new Map<string, string[]>();
+    const result = new Map<string, string[]>();
+    for (const rt of relevantRelTypes) {
+      const index = relationsMap.get(rt.key);
+      if (!index) continue;
+      const names = new Set<string>();
+      for (const arr of index.values()) {
+        for (const name of arr) names.add(name);
+      }
+      if (names.size > 0) {
+        result.set(rt.key, Array.from(names).sort());
+      }
+    }
+    return result;
+  }, [relationsMap, relevantRelTypes]);
+
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", qualitySeals: [], attributes: {} });
+    onFiltersChange({ types: [], search: "", qualitySeals: [], attributes: {}, relations: {} });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
     filters.qualitySeals.length +
-    Object.keys(filters.attributes).length;
+    Object.keys(filters.attributes).length +
+    Object.keys(filters.relations || {}).length;
 
   /* ---- Views actions ---- */
 
@@ -184,6 +216,7 @@ export default function InventoryFilterSidebar({
         search: f.search || "",
         qualitySeals: f.qualitySeals || [],
         attributes: f.attributes || {},
+        relations: f.relations || {},
       });
     }
     setTab(0);
@@ -449,6 +482,56 @@ export default function InventoryFilterSidebar({
                           </Select>
                         </FormControl>
                       ))}
+                    </Box>
+                  </Collapse>
+                </>
+              )}
+
+              {/* Relationship Filters (only when single type selected and relations exist) */}
+              {relFilterOptions.size > 0 && (
+                <>
+                  <SectionHeader
+                    label="Relationships"
+                    icon="share"
+                    expanded={expandedSections.relationships}
+                    onToggle={() => toggleSection("relationships")}
+                    count={Object.keys(filters.relations || {}).length}
+                  />
+                  <Collapse in={expandedSections.relationships}>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
+                      {relevantRelTypes.map((rt) => {
+                        const options = relFilterOptions.get(rt.key);
+                        if (!options || options.length === 0) return null;
+                        const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
+                        const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
+                        const otherType = types.find((t) => t.key === otherTypeKey);
+                        const label = otherType?.label || otherTypeKey;
+                        return (
+                          <FormControl key={rt.key} size="small" fullWidth>
+                            <InputLabel sx={{ fontSize: 13 }}>{label}</InputLabel>
+                            <Select
+                              value={(filters.relations || {})[rt.key] || ""}
+                              label={label}
+                              onChange={(e) => setRelFilter(rt.key, e.target.value as string)}
+                              sx={{ fontSize: 13 }}
+                            >
+                              <MenuItem value="">
+                                <em>Any</em>
+                              </MenuItem>
+                              {options.map((name) => (
+                                <MenuItem key={name} value={name}>
+                                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    {otherType && (
+                                      <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} />
+                                    )}
+                                    {name}
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        );
+                      })}
                     </Box>
                   </Collapse>
                 </>

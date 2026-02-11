@@ -324,7 +324,7 @@ export default function DiagramEditor() {
   const iframeSrc = `${DRAWIO_BASE_URL}?${DRAWIO_URL_PARAMS}`;
 
   return (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box sx={{ height: "calc(100vh - 64px)", m: -3, display: "flex", flexDirection: "column" }}>
       {/* Toolbar */}
       <Box
         sx={{
