@@ -15,7 +15,7 @@ export interface FieldOption {
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "number" | "boolean" | "date" | "single_select";
+  type: "text" | "number" | "boolean" | "date" | "single_select" | "multiple_select";
   options?: FieldOption[];
   required?: boolean;
   weight?: number;
@@ -37,20 +37,27 @@ export interface FactSheetType {
   description?: string;
   icon: string;
   color: string;
-  category: string;
+  category?: string;
   has_hierarchy: boolean;
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
   built_in: boolean;
+  is_hidden: boolean;
+  sort_order: number;
 }
 
 export interface RelationType {
   key: string;
   label: string;
+  reverse_label?: string;
+  description?: string;
   source_type_key: string;
   target_type_key: string;
+  cardinality: "1:1" | "1:n" | "n:m";
   attributes_schema: FieldDef[];
   built_in: boolean;
+  is_hidden: boolean;
+  sort_order: number;
 }
 
 export interface TagRef {

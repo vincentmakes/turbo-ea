@@ -570,7 +570,7 @@ function AttributeSection({
 // ── Section: Relations ──────────────────────────────────────────
 function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
   const [relations, setRelations] = useState<Relation[]>([]);
-  const { relationTypes } = useMetamodel();
+  const { relationTypes, getType } = useMetamodel();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -585,10 +585,18 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
   );
 
   // Group relations by relation type
-  const grouped = relevantRTs.map((rt) => ({
-    rt,
-    rels: relations.filter((r) => r.type === rt.key),
-  }));
+  const grouped = relevantRTs.map((rt) => {
+    const isSource = rt.source_type_key === fsType;
+    const verb = isSource ? rt.label : (rt.reverse_label || rt.label);
+    const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
+    const otherType = getType(otherTypeKey);
+    return {
+      rt,
+      verb,
+      otherType,
+      rels: relations.filter((r) => r.type === rt.key),
+    };
+  });
 
   return (
     <Accordion disableGutters>
@@ -609,18 +617,36 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
             No relation types configured.
           </Typography>
         )}
-        {grouped.map(({ rt, rels }) => (
+        {grouped.map(({ rt, verb, otherType, rels }) => (
           <Box key={rt.key} sx={{ mb: 2 }}>
-            <Typography
-              variant="subtitle2"
-              color="text.secondary"
-              sx={{ mb: 0.5 }}
-            >
-              {rt.label}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+              <Typography variant="subtitle2" fontWeight={600}>
+                {verb}
+              </Typography>
+              <MaterialSymbol icon="arrow_forward" size={14} color="#bbb" />
+              {otherType && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Box
+                    sx={{
+                      width: 10, height: 10, borderRadius: "50%",
+                      bgcolor: otherType.color, flexShrink: 0,
+                    }}
+                  />
+                  <Typography variant="subtitle2" color="text.secondary">
+                    {otherType.label}
+                  </Typography>
+                </Box>
+              )}
+              <Chip
+                size="small"
+                label={rt.cardinality}
+                variant="outlined"
+                sx={{ height: 18, fontSize: "0.65rem" }}
+              />
+            </Box>
             {rels.length === 0 ? (
               <Typography variant="body2" color="text.disabled" sx={{ ml: 1 }}>
-                No {rt.label.toLowerCase()} linked.
+                None linked
               </Typography>
             ) : (
               <List dense disablePadding>

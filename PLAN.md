@@ -1,430 +1,313 @@
-# Turbo EA — LeanIX Clone
+# Turbo EA — Fully Dynamic Metamodel Overhaul
 
-## Overview
+## Vision
 
-Turbo EA is a self-hosted Enterprise Architecture Management (EAM) platform — a faithful clone of SAP LeanIX. It provides a configurable metamodel, fact sheet management with rich detail pages, an inventory view with AG Grid, visual reports, diagrams, collaboration features, and data quality governance.
+Turbo EA is a self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. The metamodel is **fully admin-configurable** — fact sheet types, fields, subtypes, and relations are all data, not code.
 
-## Technology Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Frontend** | React 18 + TypeScript + Vite + MUI 5 |
-| **Data Grid** | AG Grid Community |
-| **Backend** | Python 3.12 + FastAPI |
-| **Database** | PostgreSQL 16+ |
-| **Real-time** | SSE (Server-Sent Events) via internal async event bus |
-| **Icons** | Material Symbols Outlined |
-| **Containers** | Docker Alpine |
-| **Reverse Proxy** | Nginx Alpine |
-| **Deployment** | Docker Compose on Unraid |
+The user's goal: reproduce the LeanIX metamodel exactly, with full admin configurability to add/edit/delete types, fields, subtypes, and relations.
 
 ---
 
-## LeanIX Metamodel v4 — Complete Specification
+## Key Principles from LeanIX
 
-### 12 Fact Sheet Types
-
-#### Business Architecture Layer
-
-**1. Business Capability** (`BusinessCapability`)
-- Icon: `account_tree` | Color: `#4caf50` | Hierarchy: Yes (L1→L2→L3+)
-- Subtypes: none
-- Fields: alias (text)
-- Purpose: Stable functional decomposition of what the business does
-
-**2. Business Context** (`BusinessContext`)
-- Icon: `domain` | Color: `#66bb6a` | Hierarchy: Yes
-- Subtypes: Process, Value Stream, Customer Journey, Product
-- Fields: alias (text)
-- Purpose: Activities an org performs — value streams, products, processes
-
-**3. Organization** (`Organization`)
-- Icon: `corporate_fare` | Color: `#43a047` | Hierarchy: Yes
-- Subtypes: Business Unit, Region, Legal Entity, Team, Customer
-- Fields: alias (text)
-- Purpose: Business units, regions, teams, legal entities
-
-#### Application & Data Architecture Layer
-
-**4. Application** (`Application`) — CENTER OF THE METAMODEL
-- Icon: `apps` | Color: `#1976d2` | Hierarchy: Yes
-- Subtypes: Business Application, Microservice, Deployment
-- Fields:
-  - *Information section*: alias (text), businessCriticality (single_select: missionCritical/businessCritical/businessOperational/administrativeService), functionalSuitability (single_select: perfect/appropriate/insufficient/unreasonable — UI: "Functional Fit"), technicalSuitability (single_select: fullyAppropriate/adequate/unreasonable/inappropriate — UI: "Technical Fit"), hostingType (single_select: onPremise/cloudSaaS/cloudPaaS/cloudIaaS/hybrid)
-  - *Cost section*: totalAnnualCost (number), costCurrency (text)
-- Purpose: Software systems, microservices, deployments — connects to more types than any other
-
-**5. Interface** (`Interface`)
-- Icon: `sync_alt` | Color: `#1565c0` | Hierarchy: No
-- Subtypes: Logical Interface, API
-- Fields:
-  - *Interface Information section*: frequency (single_select: realtime/daily/weekly/monthly/onDemand/batch), dataDirection (single_select: unidirectional/bidirectional), technicalSuitability (single_select — same as Application)
-- Purpose: Data exchange connections between applications (Provider/Consumer pattern)
-
-**6. Data Object** (`DataObject`)
-- Icon: `database` | Color: `#0d47a1` | Hierarchy: Yes
-- Subtypes: none
-- Fields:
-  - *Data Object Information section*: dataSensitivity (single_select: public/internal/confidential/restricted), isPersonalData (boolean)
-- Purpose: Business data entities (customer, order, product data)
-
-#### Technology Architecture Layer
-
-**7. IT Component** (`ITComponent`)
-- Icon: `memory` | Color: `#7b1fa2` | Hierarchy: Yes
-- Subtypes: Software, Hardware, SaaS, IaaS, PaaS, Service
-- Fields:
-  - *IT Component Information section*: alias (text), technicalSuitability (single_select — same as Application)
-  - *Cost section*: totalAnnualCost (number)
-- Purpose: Technology dependencies — software, hardware, cloud services
-
-**8. Tech Category** (`TechCategory`)
-- Icon: `category` | Color: `#9c27b0` | Hierarchy: Yes
-- Subtypes: none
-- Fields: alias (text)
-- Purpose: Standardized groupings for IT Components (e.g., DBMS, OS, Cloud Platform)
-
-**9. Provider** (`Provider`)
-- Icon: `store` | Color: `#6a1b9a` | Hierarchy: No
-- Subtypes: none
-- Fields:
-  - *Provider Information section*: website (text), headquarters (text)
-- Purpose: Vendors and suppliers of technology and services
-
-#### Transformation Architecture Layer
-
-**10. Platform** (`Platform`)
-- Icon: `hub` | Color: `#e65100` | Hierarchy: No
-- Subtypes: Digital, Technical
-- Fields: alias (text)
-- Purpose: Strategic groupings of applications and technologies
-
-**11. Objective** (`Objective`)
-- Icon: `flag` | Color: `#ef6c00` | Hierarchy: No
-- Subtypes: none
-- Fields:
-  - *Objective Information section*: category (single_select: strategic/tactical/operational), kpiDescription (text)
-- Purpose: Strategic goals driving initiatives and transformation
-
-**12. Initiative** (`Initiative`)
-- Icon: `rocket_launch` | Color: `#f57c00` | Hierarchy: Yes
-- Subtypes: Idea, Program, Project, Epic
-- Fields:
-  - *Initiative Information section*: status (single_select: proposed/approved/inProgress/completed/cancelled), budget (number), startDate (date), endDate (date)
-- Purpose: Transformation efforts — ideas, projects, programs, epics
-
-### Common Properties (ALL fact sheet types)
-
-| Property | Type | Description |
-|----------|------|-------------|
-| name | text (required) | Primary identifier |
-| alias | text | Alternative name |
-| description | text (multiline) | Rich description |
-| lifecycle | JSONB | Dates for: plan, phaseIn, active, phaseOut, endOfLife |
-| tags | relation | Multi-select from tag groups |
-| subscriptions | relation | Responsible, Accountable, Observer |
-| quality_seal | enum | DRAFT / APPROVED / BROKEN / REJECTED |
-| completion | float | Auto-calculated 0–100% based on filled fields |
-| external_id | text | Integration identifier |
-| documents | relation | Links/attachments |
-| comments | relation | Threaded discussion |
-| todos | relation | Action items |
-| history | events | Full audit trail |
-
-### Lifecycle Model (5 phases)
-
-| Phase | Meaning | Color |
-|-------|---------|-------|
-| Plan | Envisioned in TO-BE landscape | `#9e9e9e` |
-| Phase In | Implementation underway | `#2196f3` |
-| Active | In production | `#4caf50` |
-| Phase Out | Being retired/replaced | `#ff9800` |
-| End of Life | Decommissioned | `#f44336` |
-
-### Quality Seal States
-
-| State | Description | Trigger |
-|-------|-------------|---------|
-| DRAFT | New/work-in-progress | Default on creation |
-| APPROVED | Data verified by Responsible/Accountable | Manual approval |
-| BROKEN | Data changed or inactivity timeout | Auto on field/relation change by non-subscriber |
-| REJECTED | Removed from quality process | Manual rejection |
-
-What breaks the seal: Changes to attributes, relations, lifecycle.
-What does NOT break it: Changes to comments, subscriptions, todos.
-
-### Relation Types (25+ including self-referencing)
-
-#### Cross-Type Relations
-
-| # | Key | Source → Target | Relation Attributes |
-|---|-----|----------------|-------------------|
-| 1 | relAppToBC | Application → Business Capability | functionalSuitability, supportType (leading/effective) |
-| 2 | relAppToOrg | Application → Organization | usageType (user/owner) |
-| 3 | relAppToITC | Application → IT Component | technicalSuitability, costTotalAnnual |
-| 4 | relProviderAppToInterface | Application → Interface | (provider side) |
-| 5 | relConsumerAppToInterface | Application → Interface | (consumer side) |
-| 6 | relAppToDataObj | Application → Data Object | crudFlags (C/R/U/D) |
-| 7 | relAppToProvider | Application → Provider | — |
-| 8 | relAppToPlatform | Application → Platform | — |
-| 9 | relAppToBCx | Application → Business Context | — |
-| 10 | relAppToInitiative | Application → Initiative | — |
-| 11 | relInterfaceToDataObj | Interface → Data Object | — |
-| 12 | relInterfaceToITC | Interface → IT Component | (middleware) |
-| 13 | relITCToTechCat | IT Component → Tech Category | resourceClassification (standard/phaseIn/tolerated/phaseOut/declined) |
-| 14 | relITCToProvider | IT Component → Provider | — |
-| 15 | relObjToBC | Objective → Business Capability | — |
-| 16 | relObjToInitiative | Objective → Initiative | — |
-| 17 | relInitToApp | Initiative → Application | — |
-| 18 | relInitToITC | Initiative → IT Component | — |
-| 19 | relInitToBC | Initiative → Business Capability | — |
-| 20 | relPlatformToApp | Platform → Application | — |
-| 21 | relPlatformToITC | Platform → IT Component | — |
-| 22 | relPlatformToBC | Platform → Business Capability | — |
-| 23 | relOrgToApp | Organization → Application | — |
-| 24 | relBCxToBC | Business Context → Business Capability | — |
-| 25 | relBCxToApp | Business Context → Application | — |
-| 26 | relBCToOrg | Business Capability → Organization | — |
-
-#### Self-Referencing Relations (ALL types support these)
-
-| Key | Label | Description |
-|-----|-------|-------------|
-| relToSuccessor | Successor | Planned replacement |
-| relToPredecessor | Predecessor | What this replaced |
-| relToRequires | Requires | Same-type dependency |
-| relToRequiredBy | Required By | Inverse dependency |
-
-Parent/Child hierarchy is handled by `parent_id` on the fact sheet model.
-
-### Tag Groups
-
-| Property | Values | Description |
-|----------|--------|-------------|
-| mode | single / multi | Single-select or multi-select per fact sheet |
-| create_mode | open / restricted | Who can create new tags |
-| restrict_to_types | JSONB array | Limit to specific fact sheet types |
-| mandatory | boolean | Required for quality seal approval |
-
-### Subscription Model
-
-| Role | Description | Limit |
-|------|-------------|-------|
-| Responsible | Maintains/updates the fact sheet | Multiple per FS |
-| Accountable | Overall ownership (must be enabled) | One per FS |
-| Observer | Notified of changes | Multiple per FS |
-
-### Completion Score Calculation
-
-Score = (filled weighted fields / total weighted fields) × 100
-
-Each field in `fields_schema` has a `weight` (default 1). Weight 0 = excluded.
-Completion only counts fields and relations, NOT tags or subscriptions.
+1. **The metamodel is data, not code.** Every aspect — types, fields, relations, subtypes — is stored in the database and configurable through the admin UI.
+2. **Types are not tied to categories.** Categories are informational labels, not structural constraints. A type can have any category or none.
+3. **Relations have cardinality.** Each relation type has a multiplicity (1:1, 1:n, n:m) that determines enforcement.
+4. **Relations have edge labels.** Each relation has a verb (e.g., "supports", "affects", "uses") describing the directional meaning.
+5. **Fields are admin-managed per type.** Admins can add/remove/reorder fields and sections on any type.
+6. **Subtypes are admin-managed per type.** Admins can add/remove subtypes on any type.
 
 ---
 
-## Current Implementation Plan — Phase 2: Rich Fact Sheets
+## LeanIX Metamodel from XML (Exact Reference)
 
-### Backend Changes
+### Fact Sheet Types (from XML)
 
-#### 1. Enrich FactSheetType model
-- Add `subtypes` JSONB column: `[{key, label}]`
-- Add `completion_weights` JSONB column (or embed weights in fields_schema)
+| Key | Label | Color | Layer | Hierarchy | Subtypes |
+|-----|-------|-------|-------|-----------|----------|
+| Objective | Objective | #c7527d | Strategy & Transformation | No | — |
+| Platform | Platform | #027446 | Strategy & Transformation | No | Digital, Technical |
+| Initiative | Initiative | #33cc58 | Strategy & Transformation | Yes | Idea, Program, Project, Epic |
+| Organization | Organization | #2889ff | Business Architecture | Yes | Business Unit, Region, Legal Entity, Team, Customer |
+| BusinessCapability | Business Capability | #003399 | Business Architecture | Yes | — |
+| BusinessContext | Business Context | #fe6690 | Business Architecture | Yes | Process, Value Stream, Customer Journey, Business Product, ESG Capability* |
+| Application | Application | #0f7eb5 | Application & Data | Yes | Business Application*, Microservice*, AI Agent*, Deployment |
+| Interface | Interface | #02afa4 | Application & Data | No | Logical Interface, API, MCP Server* |
+| DataObject | Data Object | #774fcc | Application & Data | Yes | — |
+| ITComponent | IT Component | #d29270 | Technical Architecture | Yes | SaaS, PaaS, IaaS, Software, Hardware, Service, AI Model |
+| TechCategory | Tech Category | #a6566d | Technical Architecture | Yes | — |
+| Provider | Provider | #ffa31f | Technical Architecture | No | — |
+| System | System | #5B738B | Technical Architecture | No | — (optional type) |
 
-#### 2. Enrich TagGroup model
-- Add `create_mode` column: "open" / "restricted" (default: "open")
-- Add `restrict_to_types` JSONB column: list of fact sheet type keys (null = all)
+*Asterisks mark optional/newer subtypes shown dashed in the XML diagram.
 
-#### 3. Quality Seal states
-- Change default from "UNSET" to "DRAFT"
-- Support 4 states: DRAFT, APPROVED, BROKEN, REJECTED
-- Auto-break seal on attribute/relation/lifecycle changes (except by responsible/accountable)
+### Relations (from XML — edge labels are the verbs)
 
-#### 4. Overhaul seed data
-Complete LeanIX-faithful field schemas for all 12 types with:
-- Multiple sections per type (Information, Cost, etc.)
-- Proper field keys matching LeanIX GraphQL names (functionalSuitability not functionalFit)
-- Required flags on key fields
-- Weight values for completion
-- Subtypes for Application, Interface, ITComponent, Organization, BusinessContext, Initiative, Platform
+| Source | Target | Label (verb) | Cardinality |
+|--------|--------|-------------|-------------|
+| Objective | Business Capability | improves | n:m |
+| Objective | ESG Capability* | improves | n:m |
+| Platform | Objective | supports | n:m |
+| Platform | Application | runs | n:m |
+| Platform | IT Component | implements | n:m |
+| Initiative | Objective | supports | n:m |
+| Initiative | Platform | affects | n:m |
+| Initiative | Business Capability | improves | n:m |
+| Initiative | ESG Capability* | affects | n:m |
+| Initiative | Application | affects | n:m |
+| Initiative | Interface | affects | n:m |
+| Initiative | Data Object | affects | n:m |
+| Initiative | IT Component | affects | n:m |
+| Initiative | System* | affects | n:m |
+| Organization | Objective | owns | n:m |
+| Organization | Initiative | owns | n:m |
+| Organization | Business Context | owns | n:m |
+| Organization | Application | uses | n:m |
+| Organization | IT Component | owns | n:m |
+| Organization | Microservice* | owns | n:m |
+| Application | Business Capability | supports | n:m |
+| Application | Business Context | supports | n:m |
+| Application | Interface | provides / consumes | n:m |
+| Application | Data Object | CRUD | n:m |
+| Application | IT Component | uses | n:m |
+| Application | System* | runs on | n:m |
+| IT Component | Tech Category | belongs to | n:m |
+| IT Component | Platform | implements | n:m |
+| Interface | Data Object | transfers | n:m |
+| Interface | IT Component | uses | n:m |
+| Provider | Initiative | supports | n:m |
+| Provider | IT Component | offers | n:m |
+| Business Context | Business Capability | is associated with | n:m |
+| Business Capability | ESG Capability* | is associated with | n:m |
+| Business Application* | System* | runs on | n:m |
+| Microservice* | System* | supports | n:m |
 
-Enriched relation types with proper attributes:
-- relAppToBC: functionalSuitability, supportType
-- relAppToITC: technicalSuitability, costTotalAnnual
-- relAppToOrg: usageType
-- relITCToTechCat: resourceClassification (5 values with colors)
-- relAppToDataObj: crudFlags
-- Provider/Consumer interface pattern
-- Self-referencing: successor, predecessor, requires, requiredBy
+---
 
-#### 5. Completion score calculation
-- Backend computes score on fact sheet create/update
-- Reads fields_schema weights, checks which fields in `attributes` are filled
-- Returns completion as 0–100 integer
+## What Needs to Change
 
-#### 6. Fact sheet PATCH improvements
-- Break quality seal on attribute/relation change (check if user is subscriber)
-- Record field-level changes in events (old_value → new_value)
-- Validate against fields_schema types
+### Problem 1: Category is a constraint, should be a label
+**Current**: `category` column on FactSheetType used to group types in the UI. The admin create dialog forces one of 4 categories.
+**Fix**: Remove category as a required concept. Make it an optional label string. Remove from type filtering/grouping. Types stand on their own.
 
-### Frontend Changes
+### Problem 2: Cannot edit types after creation
+**Current**: Admin UI only creates types. No way to edit fields, subtypes, icon, color, or label after creation. No inline field editor.
+**Fix**: Full CRUD admin UI for types with inline field editor, subtype management, and drag-reorder.
 
-#### 1. FactSheetDetail — Complete Overhaul
-**Header area:**
-- Fact sheet type badge (colored chip with icon)
-- Name (large, editable inline)
-- Completion score ring (circular progress %)
-- Quality seal badge with approve/reject actions
-- Tags displayed as colored chips
-- Action menu: Edit, Delete, Clone, Subscribe
+### Problem 3: Cannot manage fields on types
+**Current**: `fields_schema` is set once at creation (always empty from UI). No UI to add/edit/remove fields or sections.
+**Fix**: Section/field builder UI on each type's detail panel. Add field types: text, number, boolean, date, single_select, multiple_select.
 
-**Body — Section-based layout (NOT tabs for content):**
-Replace current tab-based layout with scrollable sections like real LeanIX:
+### Problem 4: Cannot manage subtypes on types
+**Current**: `subtypes` JSONB exists on the model but no UI to manage them. Seed data sets them.
+**Fix**: Subtype management UI on each type's detail panel.
 
-1. **Information Section** (collapsible)
-   - Subsections from fields_schema, each with header
-   - Edit button per subsection → inline form
-   - Field types: text input, single_select dropdown (colored chips), number, boolean switch, date picker
-   - Required fields marked with asterisk
+### Problem 5: Relations lack cardinality
+**Current**: `RelationType` has no multiplicity. All relations are implicitly n:m.
+**Fix**: Add `cardinality` column (enum: "1:1", "1:n", "n:m"). Add `label` as the verb/description of the relationship from source perspective. Add `reverse_label` for the target perspective.
 
-2. **Lifecycle Section** (collapsible)
-   - 5-phase horizontal timeline visualization
-   - Date pickers for each phase
-   - Color-coded current phase indicator
+### Problem 6: Cannot edit relations after creation
+**Current**: Admin UI creates relation types but cannot edit or delete them.
+**Fix**: Full CRUD for relation types. Edit attributes_schema, label, reverse_label. Delete with cascade warning.
 
-3. **Relations Sections** (one per relation type, collapsible)
-   - Grouped by relation type (e.g., "Business Capabilities", "IT Components")
-   - Each shows list of related fact sheets with relation attributes
-   - Add relation: search dialog with fact sheet type filter
-   - Relation attributes editable inline
+### Problem 7: Relation types flat list is inefficient
+**Current**: All 26+ relation types displayed as flat cards. Hard to understand the graph.
+**Fix**: Show relations grouped by the selected type (what can this type connect to?). Add visual metamodel graph view.
 
-4. **Tags Section** (collapsible)
-   - Tag groups with assigned tags
-   - Add/remove tags
+### Problem 8: No delete for types or relations
+**Current**: No DELETE endpoints.
+**Fix**: Add soft-delete (hide) for built-in types/relations. Hard delete for custom ones (with cascade warning for types that have instances).
 
-5. **Subscriptions Section** (collapsible)
-   - Grouped by role (Responsible, Accountable, Observer)
-   - Add/remove subscribers
+---
 
-6. **Documents Section** (collapsible)
-   - List of links/resources
-   - Add new link
+## Implementation Plan
 
-**Sidebar tabs (Comments, Todos, History):**
-- Right sidebar or bottom tabs for collaborative features
+### Phase A: Backend — Dynamic Metamodel Models & API
 
-#### 2. CreateFactSheetDialog — Enhanced
-- Type selector with icons
-- **Subtype selector** (shows subtypes for selected type)
-- **Parent selector** (for hierarchical types — search existing fact sheets)
-- Name (required)
+#### A1. Update RelationType model
+Add to `relation_type.py`:
+```python
+cardinality: Mapped[str] = mapped_column(String(10), default="n:m")  # "1:1", "1:n", "n:m"
+reverse_label: Mapped[str | None] = mapped_column(String(200))  # verb from target side
+description: Mapped[str | None] = mapped_column(Text)
+sort_order: Mapped[int] = mapped_column(Integer, default=0)
+```
+
+#### A2. Update FactSheetType model
+Add to `fact_sheet_type.py`:
+```python
+is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)  # soft-delete for built-in
+```
+Remove the hard dependency on `category` being one of 4 values — keep it as a free-text optional field.
+
+#### A3. Update Metamodel API endpoints
+Enhance `metamodel.py`:
+
+**Types:**
+- `GET /types` — add `subtypes` to response, filter out `is_hidden=True` by default, add `?include_hidden=true` param
+- `PATCH /types/{key}` — accept `subtypes`, `sort_order`, `is_hidden`
+- `DELETE /types/{key}` — soft-delete built-in (set `is_hidden=True`), hard-delete custom (check for existing instances first)
+
+**Relation Types:**
+- `GET /relation-types` — add `cardinality`, `reverse_label`, `description`
+- `GET /relation-types?type_key=X` — filter relations that connect to type X
+- `PATCH /relation-types/{key}` — update label, reverse_label, cardinality (only if no instances exist), attributes_schema, description
+- `DELETE /relation-types/{key}` — hard-delete custom (check for instances), soft-delete built-in
+
+**New: Field management sub-endpoints (convenience — can also use PATCH /types/{key}):**
+- `POST /types/{key}/sections` — add a section
+- `POST /types/{key}/sections/{section}/fields` — add a field to a section
+- `DELETE /types/{key}/sections/{section}/fields/{field_key}` — remove a field
+- `PATCH /types/{key}/sections/{section}/fields/{field_key}` — update field properties
+- `POST /types/{key}/subtypes` — add a subtype
+- `DELETE /types/{key}/subtypes/{subtype_key}` — remove a subtype
+
+#### A4. Update seed data
+- Update seed to match the XML exactly (13 types with correct colors)
+- Add `cardinality` and `reverse_label` to all relation types
+- Add `description` to relation types using the XML edge labels as verbs
+- Keep `sort_order` matching XML layer ordering
+
+#### A5. Add multiple_select field type
+- Add "multiple_select" to field type options
+- Frontend renders as multi-select chip input
+- Stored as JSON array in attributes JSONB
+
+### Phase B: Frontend — Metamodel Admin Overhaul
+
+#### B1. Rewrite MetamodelAdmin with 3 views
+
+**View 1: Types List**
+- Card per type showing icon, color swatch, label, layer label, hierarchy badge, subtype count, field count, relation count
+- Click to open type detail panel (drawer or inline expand)
+- "New Type" button opens create dialog
+- Sort by sort_order, drag to reorder
+- Show/hide toggle for hidden types
+
+**View 2: Type Detail Panel** (the main editing view)
+- Header: icon picker, color picker, label (editable), description, hierarchy toggle
+- **Subtypes section**: List of subtypes with add/remove
+- **Fields section**: Sections as collapsible groups. Each section has:
+  - Section name (editable)
+  - List of fields (drag-reorder within section)
+  - "Add Field" button → field dialog (key, label, type, required, weight, options for select types)
+  - Edit/delete per field
+- **Relations section**: Shows all relation types connected to this type (as source or target)
+  - Each shows: verb/label, target type icon+name, cardinality badge
+  - "Add Relation" button → opens dialog to create a new relation type
+
+**View 3: Metamodel Graph**
+- Visual graph showing types as colored nodes and relations as labeled edges
+- Use the exact layout from the LeanIX XML (4-layer horizontal layout)
+- Types positioned by layer: Strategy & Transformation (top) → Business → Application & Data → Technical (bottom)
+- Edges labeled with the verb (supports, affects, etc.)
+- Click a type node to navigate to its detail panel
+- Implementation: Simple SVG/Canvas rendering (not a heavy library)
+
+#### B2. Type Create/Edit Dialog
+- Key (auto-generated slug from label, immutable after creation)
+- Label
 - Description
-- Mandatory fields from fields_schema (marked with asterisk)
+- Icon (Material Symbol picker or text input)
+- Color (color picker)
+- Layer label (free text, not enum — e.g., "Strategy & Transformation", "Business Architecture")
+- Has hierarchy toggle
 
-#### 3. InventoryPage — Enhanced Filters
-- Quality seal filter (Draft/Approved/Broken/Rejected chips)
-- Lifecycle phase filter
-- Tag filter (multi-select from tag groups)
-- Subscription filter (my fact sheets)
-- Completion range filter
-- Column for subtype
+#### B3. Field Editor Dialog
+- Key (auto-slug from label, immutable after creation)
+- Label
+- Type: text | number | boolean | date | single_select | multiple_select
+- Required toggle
+- Weight (number, for completion scoring)
+- Options editor (for select types): list of {key, label, color} with add/remove/reorder
 
-#### 4. QualitySealBadge — Enhanced
-- Show all 4 states with distinct colors
-- DRAFT: gray, APPROVED: green, BROKEN: amber, REJECTED: red
-- Approve button only shown to subscribers
+#### B4. Relation Type Create/Edit Dialog
+- Source type (dropdown)
+- Target type (dropdown)
+- Label (verb, e.g., "supports")
+- Reverse label (e.g., "is supported by")
+- Cardinality: 1:1 | 1:n | n:m
+- Attributes schema (inline field editor, same as type fields)
 
----
+#### B5. Update useMetamodel hook
+- Add `subtypes` to the cached type data
+- Add `cardinality`, `reverse_label` to relation types
+- Add mutation helpers: `updateType()`, `deleteType()`, `updateRelationType()`, `deleteRelationType()`
 
-## Database Schema
+#### B6. Update types/index.ts
+```typescript
+interface RelationType {
+  key: string;
+  label: string;
+  reverse_label?: string;
+  source_type_key: string;
+  target_type_key: string;
+  cardinality: "1:1" | "1:n" | "n:m";
+  attributes_schema: FieldDef[];
+  built_in: boolean;
+  description?: string;
+}
 
-### Core Tables
-
-```sql
-fact_sheet_types (
-  id UUID PK,
-  key VARCHAR(100) UNIQUE,
-  label VARCHAR(200),
-  description TEXT,
-  icon VARCHAR(100),
-  color VARCHAR(20),
-  category VARCHAR(50),        -- business/application/technology/transformation
-  has_hierarchy BOOLEAN,
-  subtypes JSONB,              -- [{key, label}] — NEW
-  fields_schema JSONB,         -- [{section, fields: [{key, label, type, options, required, weight}]}]
-  built_in BOOLEAN DEFAULT true,
-  sort_order INT,
-  created_at, updated_at
-)
-
-relation_types (
-  id UUID PK,
-  key VARCHAR(100) UNIQUE,
-  label VARCHAR(200),
-  source_type_key VARCHAR(100),
-  target_type_key VARCHAR(100),
-  attributes_schema JSONB,
-  built_in BOOLEAN DEFAULT true,
-  created_at, updated_at
-)
-
-fact_sheets (
-  id UUID PK,
-  type VARCHAR(100),
-  subtype VARCHAR(100),        -- NEW
-  name VARCHAR(500) NOT NULL,
-  description TEXT,
-  parent_id UUID FK,
-  lifecycle JSONB,
-  attributes JSONB,
-  status VARCHAR(20) DEFAULT 'ACTIVE',
-  quality_seal VARCHAR(20) DEFAULT 'DRAFT',  -- CHANGED from UNSET
-  completion FLOAT DEFAULT 0,
-  external_id VARCHAR(500),
-  alias VARCHAR(500),
-  created_by UUID FK,
-  updated_by UUID FK,
-  created_at, updated_at
-)
-
-tag_groups (
-  id UUID PK,
-  name VARCHAR(200),
-  description TEXT,
-  mode VARCHAR(20) DEFAULT 'multi',
-  create_mode VARCHAR(20) DEFAULT 'open',    -- NEW
-  restrict_to_types JSONB,                    -- NEW
-  mandatory BOOLEAN DEFAULT false,
-  created_at
-)
-
--- All other tables unchanged from Phase 1
+// Add multiple_select to FieldDef type union
+interface FieldDef {
+  type: "text" | "number" | "boolean" | "date" | "single_select" | "multiple_select";
+  // ...existing
+}
 ```
 
+### Phase C: Frontend — Update Consuming Components
+
+#### C1. FactSheetDetail — Relations section
+- Group relations by relation type, showing the verb label
+- Show cardinality badge
+- Show relation attributes (if any)
+
+#### C2. CreateFactSheetDialog
+- No changes needed (already uses dynamic metamodel)
+
+#### C3. InventoryPage
+- No category-based grouping (types are independent)
+
+### Phase D: Seed Data — Match XML Exactly
+
+Update seed.py to:
+1. Use exact colors from XML
+2. Include all 13 types (including System as optional/hidden)
+3. Include all relations with exact verb labels from XML
+4. Set cardinality on all relations
+5. Include optional subtypes (AI Agent, MCP Server, ESG Capability, AI Model)
+
 ---
 
-## API Routes (unchanged from Phase 1, plus)
+## File Changes Summary
 
-- `POST /api/v1/fact-sheets/{id}/quality-seal` body: `{action: "approve"|"reject"|"reset"}`
-- `GET /api/v1/fact-sheets/{id}` now returns computed completion, resolved relations with attributes
+### Backend
+| File | Action |
+|------|--------|
+| `backend/app/models/relation_type.py` | Add cardinality, reverse_label, description, sort_order columns |
+| `backend/app/models/fact_sheet_type.py` | Add is_hidden column |
+| `backend/app/api/v1/metamodel.py` | Full rewrite: CRUD for types (with subtypes/fields inline), CRUD for relation types, DELETE endpoints |
+| `backend/app/services/seed.py` | Update to match XML exactly: 13 types, exact colors, all relations with verbs and cardinality |
+
+### Frontend
+| File | Action |
+|------|--------|
+| `frontend/src/types/index.ts` | Add cardinality, reverse_label to RelationType; add multiple_select to FieldDef |
+| `frontend/src/hooks/useMetamodel.ts` | Add subtypes to cache, add mutation helpers |
+| `frontend/src/features/admin/MetamodelAdmin.tsx` | Complete rewrite: 3-view layout (types list, type detail, graph) |
+| `frontend/src/features/fact-sheets/FactSheetDetail.tsx` | Update relations section to show verb labels and cardinality |
+
+### Migration
+- Set `RESET_DB=true` to get new schema + re-seed
 
 ---
 
-## Unraid Deployment
+## Implementation Order
 
-### Prerequisites
-- Existing PostgreSQL container (16+)
-- Docker Compose support
-
-### Setup
-```bash
-mkdir -p /mnt/user/appdata/turbo-ea && cd /mnt/user/appdata/turbo-ea
-git clone https://github.com/vincentmakes/turbo-ea.git .
-cp .env.example .env
-# Edit .env: POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, SECRET_KEY
-docker compose up -d --build
-```
-
-First run with old database: `RESET_DB=true docker compose up -d`
-
-Access: `http://<unraid-ip>:8920`
+1. **A1-A2**: Model changes (add columns)
+2. **A4**: Seed data update (match XML exactly)
+3. **A3**: API enhancement (CRUD endpoints)
+4. **B5-B6**: Frontend types + hook updates
+5. **B1-B4**: Admin UI rewrite (biggest piece)
+6. **C1-C3**: Update consuming components
+7. Build + test + commit
