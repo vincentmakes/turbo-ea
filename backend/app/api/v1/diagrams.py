@@ -30,18 +30,21 @@ def _extract_fact_sheet_refs(data: dict | None) -> list[str]:
 
 class DiagramCreate(BaseModel):
     name: str
+    description: str | None = None
     type: str = "free_draw"
     data: dict | None = None
 
 
 class DiagramUpdate(BaseModel):
     name: str | None = None
+    description: str | None = None
     data: dict | None = None
 
 
 class DiagramOut(BaseModel):
     id: str
     name: str
+    description: str | None = None
     type: str
     data: dict | None = None
     created_at: str | None = None
@@ -56,6 +59,7 @@ async def list_diagrams(db: AsyncSession = Depends(get_db)):
         {
             "id": str(d.id),
             "name": d.name,
+            "description": d.description,
             "type": d.type,
             "thumbnail": (d.data or {}).get("thumbnail"),
             "fact_sheet_count": len(_extract_fact_sheet_refs(d.data)),
@@ -72,7 +76,7 @@ async def create_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    d = Diagram(name=body.name, type=body.type, data=body.data or {}, created_by=user.id)
+    d = Diagram(name=body.name, description=body.description, type=body.type, data=body.data or {}, created_by=user.id)
     db.add(d)
     await db.commit()
     await db.refresh(d)
@@ -92,6 +96,7 @@ async def get_diagram(
     return {
         "id": str(d.id),
         "name": d.name,
+        "description": d.description,
         "type": d.type,
         "data": d.data,
         "fact_sheet_refs": _extract_fact_sheet_refs(d.data),
@@ -113,6 +118,8 @@ async def update_diagram(
         raise HTTPException(404, "Diagram not found")
     if body.name is not None:
         d.name = body.name
+    if body.description is not None:
+        d.description = body.description
     if body.data is not None:
         # Store the data and auto-extract fact sheet references into it
         new_data = dict(body.data)
