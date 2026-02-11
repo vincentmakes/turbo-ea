@@ -24,6 +24,7 @@ interface DiagramSummary {
   id: string;
   name: string;
   type: string;
+  thumbnail?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -66,10 +67,52 @@ export default function DiagramsPage() {
           <Grid item xs={12} sm={6} md={4} key={d.id}>
             <Card>
               <CardActionArea onClick={() => navigate(`/diagrams/${d.id}`)}>
+                {/* Thumbnail preview */}
+                {d.thumbnail ? (
+                  <Box
+                    sx={{
+                      height: 160,
+                      overflow: "hidden",
+                      bgcolor: "#fafafa",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderBottom: "1px solid #eee",
+                    }}
+                  >
+                    <img
+                      src={
+                        d.thumbnail.startsWith("data:")
+                          ? d.thumbnail
+                          : `data:image/svg+xml;base64,${btoa(d.thumbnail)}`
+                      }
+                      alt={d.name}
+                      style={{
+                        maxWidth: "100%",
+                        maxHeight: "100%",
+                        objectFit: "contain",
+                      }}
+                    />
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      height: 160,
+                      bgcolor: "#fafafa",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderBottom: "1px solid #eee",
+                    }}
+                  >
+                    <MaterialSymbol icon="draw" size={48} color="#ccc" />
+                  </Box>
+                )}
+
                 <CardContent>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <MaterialSymbol icon={d.type === "data_flow" ? "device_hub" : "draw"} size={24} color="#1976d2" />
-                    <Typography variant="subtitle1" fontWeight={600}>{d.name}</Typography>
+                    <Typography variant="subtitle1" fontWeight={600} noWrap>{d.name}</Typography>
                   </Box>
                   <Chip size="small" label={d.type === "data_flow" ? "Data Flow" : "Free Draw"} />
                   {d.updated_at && (
