@@ -118,6 +118,15 @@ class BookmarkCreate(BaseModel):
     is_default: bool = False
 
 
+class BookmarkUpdate(BaseModel):
+    name: str | None = None
+    fact_sheet_type: str | None = None
+    filters: dict | None = None
+    columns: list | None = None
+    sort: dict | None = None
+    is_default: bool | None = None
+
+
 class BookmarkResponse(BaseModel):
     id: str
     name: str

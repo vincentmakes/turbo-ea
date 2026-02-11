@@ -188,6 +188,7 @@ async def list_fact_sheets(
     status: str | None = Query(None, alias="status"),
     search: str | None = Query(None),
     parent_id: str | None = Query(None),
+    quality_seal: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     sort_by: str = Query("name"),
@@ -212,6 +213,10 @@ async def list_fact_sheets(
     if parent_id:
         q = q.where(FactSheet.parent_id == uuid.UUID(parent_id))
         count_q = count_q.where(FactSheet.parent_id == uuid.UUID(parent_id))
+    if quality_seal:
+        seals = [s.strip() for s in quality_seal.split(",") if s.strip()]
+        q = q.where(FactSheet.quality_seal.in_(seals))
+        count_q = count_q.where(FactSheet.quality_seal.in_(seals))
 
     # Sorting
     sort_col = getattr(FactSheet, sort_by, FactSheet.name)

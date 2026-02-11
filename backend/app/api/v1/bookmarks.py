@@ -10,7 +10,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.bookmark import Bookmark
 from app.models.user import User
-from app.schemas.common import BookmarkCreate
+from app.schemas.common import BookmarkCreate, BookmarkUpdate
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 
@@ -57,6 +57,35 @@ async def create_bookmark(
     await db.commit()
     await db.refresh(bm)
     return {"id": str(bm.id), "name": bm.name}
+
+
+@router.patch("/{bm_id}")
+async def update_bookmark(
+    bm_id: str,
+    body: BookmarkUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Bookmark).where(Bookmark.id == uuid.UUID(bm_id), Bookmark.user_id == user.id)
+    )
+    bm = result.scalar_one_or_none()
+    if not bm:
+        raise HTTPException(404, "Bookmark not found")
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(bm, field, value)
+    await db.commit()
+    await db.refresh(bm)
+    return {
+        "id": str(bm.id),
+        "name": bm.name,
+        "fact_sheet_type": bm.fact_sheet_type,
+        "filters": bm.filters,
+        "columns": bm.columns,
+        "sort": bm.sort,
+        "is_default": bm.is_default,
+        "created_at": bm.created_at.isoformat() if bm.created_at else None,
+    }
 
 
 @router.delete("/{bm_id}", status_code=204)
