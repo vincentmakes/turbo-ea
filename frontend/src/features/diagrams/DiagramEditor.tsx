@@ -10,7 +10,10 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import FactSheetSidebar from "./FactSheetSidebar";
 import FactSheetPickerDialog from "./FactSheetPickerDialog";
-import { buildFactSheetCell } from "./drawio-shapes";
+import {
+  buildFactSheetCellData,
+  insertFactSheetIntoGraph,
+} from "./drawio-shapes";
 import type { FactSheet, FactSheetType } from "@/types";
 
 /**
@@ -56,6 +59,68 @@ interface DrawIOMessage {
   modified?: boolean;
   x?: number;
   y?: number;
+}
+
+/**
+ * Bootstrap the same-origin DrawIO iframe: store the mxGraph reference on
+ * window.__turboGraph so the parent can call graph.insertVertex() directly.
+ *
+ * Uses Draw.loadPlugin which, when called after init, executes the callback
+ * immediately with the current editor.  We also inject a right-click context
+ * menu item ("Insert Fact Sheet…") that posts a message back to the parent.
+ */
+function bootstrapDrawIO(iframe: HTMLIFrameElement) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = iframe.contentWindow as any;
+    if (!win?.Draw?.loadPlugin) return;
+
+    win.Draw.loadPlugin((ui: /* EditorUi */ Record<string, unknown>) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const editor = ui.editor as any;
+      const graph = editor?.graph;
+      if (graph) {
+        win.__turboGraph = graph;
+      }
+
+      // Inject right-click "Insert Fact Sheet…" context menu item
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const menus = ui.menus as any;
+      if (menus?.createPopupMenu) {
+        const origFactory = menus.createPopupMenu;
+        menus.createPopupMenu = function (
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          menu: any,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          _cell: any,
+          evt: MouseEvent
+        ) {
+          origFactory.apply(this, arguments);
+          menu.addSeparator();
+
+          const mxEvent = win.mxEvent;
+          const offset = graph.container.getBoundingClientRect();
+          const s = graph.view.scale;
+          const tr = graph.view.translate;
+          const gx = Math.round(
+            (mxEvent.getClientX(evt) - offset.left) / s - tr.x
+          );
+          const gy = Math.round(
+            (mxEvent.getClientY(evt) - offset.top) / s - tr.y
+          );
+
+          menu.addItem("Insert Fact Sheet\u2026", null, () => {
+            win.parent.postMessage(
+              JSON.stringify({ event: "insertFactSheet", x: gx, y: gy }),
+              "*"
+            );
+          });
+        };
+      }
+    });
+  } catch {
+    // Cross-origin or editor not ready — fall through silently
+  }
 }
 
 export default function DiagramEditor() {
@@ -125,9 +190,12 @@ export default function DiagramEditor() {
     [diagram]
   );
 
-  /** Insert a fact sheet shape into DrawIO via PreConfig.js graph API */
+  /** Insert a fact sheet shape directly into the DrawIO graph */
   const handleInsertFactSheet = useCallback(
     (fs: FactSheet, fsType: FactSheetType) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+
       // Use right-click position if available, otherwise fall back to grid layout
       let x: number;
       let y: number;
@@ -143,7 +211,7 @@ export default function DiagramEditor() {
       }
       insertCountRef.current += 1;
 
-      const msg = buildFactSheetCell({
+      const data = buildFactSheetCellData({
         factSheetId: fs.id,
         factSheetType: fs.type,
         name: fs.name,
@@ -152,10 +220,14 @@ export default function DiagramEditor() {
         y,
       });
 
-      postToDrawIO(msg);
-      setSnackMsg(`Inserted "${fs.name}"`);
+      const ok = insertFactSheetIntoGraph(frame, data);
+      if (ok) {
+        setSnackMsg(`Inserted "${fs.name}"`);
+      } else {
+        setSnackMsg("Editor not ready — try again in a moment");
+      }
     },
-    [postToDrawIO]
+    []
   );
 
   /** Handle postMessage events from DrawIO */
@@ -178,6 +250,14 @@ export default function DiagramEditor() {
             xml: diagram?.data?.xml || EMPTY_DIAGRAM,
             autosave: 0,
           });
+
+          // Bootstrap: grab the graph reference and inject context menu.
+          // Give DrawIO a tick to finish its own init processing.
+          setTimeout(() => {
+            if (iframeRef.current) {
+              bootstrapDrawIO(iframeRef.current);
+            }
+          }, 300);
           break;
 
         case "save":
@@ -218,7 +298,7 @@ export default function DiagramEditor() {
           break;
 
         case "insertFactSheet":
-          // Custom event from our PreConfig.js plugin — open the picker dialog
+          // Custom event from our injected context menu item
           contextInsertPosRef.current = {
             x: msg.x ?? 100,
             y: msg.y ?? 100,
