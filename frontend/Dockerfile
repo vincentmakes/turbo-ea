@@ -22,10 +22,12 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=drawio /drawio/src/main/webapp /usr/share/nginx/drawio
 
 # Add custom DrawIO configuration files:
-#   PreConfig.js    — right-click "Insert Fact Sheet" context menu item
-#   grapheditor.css — custom style overrides (placeholder to suppress 404)
+#   PreConfig.js      — placeholder (loaded before app.min.js, no API available)
+#   PostConfig.js     — plugin: right-click "Insert Fact Sheet" + cell insertion handler
+#   grapheditor.css   — custom style overrides (placeholder to suppress 404)
 #   high-contrast.css — accessibility overrides (placeholder to suppress 404)
 COPY drawio-config/PreConfig.js      /usr/share/nginx/drawio/js/PreConfig.js
+COPY drawio-config/PostConfig.js     /usr/share/nginx/drawio/js/PostConfig.js
 COPY drawio-config/grapheditor.css   /usr/share/nginx/drawio/styles/grapheditor.css
 COPY drawio-config/high-contrast.css /usr/share/nginx/drawio/styles/high-contrast.css
 
