@@ -10,13 +10,14 @@ import { api } from "@/api/client";
 
 /**
  * DrawIO embed mode URL.
- * In production, replace with self-hosted path: "/drawio/index.html"
- * to avoid loading external scripts. See nginx.conf for setup.
+ * Defaults to self-hosted path (DrawIO static files bundled in the Docker image).
+ * Override with VITE_DRAWIO_URL env var if needed (e.g. "https://embed.diagrams.net"
+ * for local dev without Docker).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const _meta = import.meta as any;
 const DRAWIO_BASE_URL: string =
-  _meta.env?.VITE_DRAWIO_URL || "https://embed.diagrams.net";
+  _meta.env?.VITE_DRAWIO_URL || "/drawio/index.html";
 
 const DRAWIO_URL_PARAMS = new URLSearchParams({
   embed: "1",
