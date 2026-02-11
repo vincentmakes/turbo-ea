@@ -10,11 +10,8 @@ import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
-import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -22,6 +19,7 @@ import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
+import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { FactSheet, FactSheetListResponse, FieldDef } from "@/types";
@@ -35,16 +33,24 @@ const SEAL_COLORS: Record<string, string> = {
   REJECTED: "#f44336",
 };
 
+const DEFAULT_SIDEBAR_WIDTH = 300;
+
 export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { types } = useMetamodel();
   const gridRef = useRef<AgGridReact>(null);
-  const [selectedType, setSelectedType] = useState(
-    searchParams.get("type") || ""
-  );
-  const [search, setSearch] = useState(searchParams.get("search") || "");
-  const [sealFilter, setSealFilter] = useState<string[]>([]);
+
+  // Sidebar state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [filters, setFilters] = useState<Filters>({
+    types: searchParams.get("type") ? [searchParams.get("type")!] : [],
+    search: searchParams.get("search") || "",
+    qualitySeals: [],
+    attributes: {},
+  });
+
   const [data, setData] = useState<FactSheet[]>([]);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -61,14 +67,19 @@ export default function InventoryPage() {
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
 
+  // Derive the single selected type for column rendering (only when exactly one type selected)
+  const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedType) params.set("type", selectedType);
-      if (search) params.set("search", search);
+      if (filters.types.length === 1) params.set("type", filters.types[0]);
+      if (filters.search) params.set("search", filters.search);
+      if (filters.qualitySeals.length > 0) {
+        params.set("quality_seal", filters.qualitySeals.join(","));
+      }
       params.set("page_size", "500");
       const res = await api.get<FactSheetListResponse>(
         `/fact-sheets?${params}`
@@ -78,17 +89,32 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedType, search]);
+  }, [filters.types, filters.search, filters.qualitySeals]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Client-side seal filter
+  // Client-side filtering: type multi-select (>1 type) and attribute filters
   const filteredData = useMemo(() => {
-    if (sealFilter.length === 0) return data;
-    return data.filter((fs) => sealFilter.includes(fs.quality_seal));
-  }, [data, sealFilter]);
+    let result = data;
+
+    // When multiple types selected, filter client-side (API only supports single type)
+    if (filters.types.length > 1) {
+      result = result.filter((fs) => filters.types.includes(fs.type));
+    }
+
+    // Attribute filters (client-side)
+    const attrEntries = Object.entries(filters.attributes);
+    if (attrEntries.length > 0) {
+      result = result.filter((fs) => {
+        const attrs = fs.attributes || {};
+        return attrEntries.every(([key, val]) => attrs[key] === val);
+      });
+    }
+
+    return result;
+  }, [data, filters.types, filters.attributes]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const fs = event.data as FactSheet;
@@ -97,7 +123,6 @@ export default function InventoryPage() {
       await api.patch(`/fact-sheets/${fs.id}`, { [field]: event.newValue });
     } else if (field.startsWith("attr_")) {
       const key = field.replace("attr_", "");
-      // Block writes to readonly fields
       const fieldDef = typeConfig?.fields_schema
         .flatMap((s) => s.fields)
         .find((f) => f.key === key);
@@ -454,169 +479,116 @@ export default function InventoryPage() {
   };
 
   return (
-    <Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-        <Typography variant="h5" fontWeight={600}>
-          Inventory
-        </Typography>
-        <Chip label={`${filteredData.length} items`} size="small" />
-        <Box sx={{ flex: 1 }} />
-        <Button
-          variant={gridEditMode ? "contained" : "outlined"}
-          color={gridEditMode ? "primary" : "inherit"}
-          startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
-          onClick={() => setGridEditMode((v) => !v)}
-          sx={{ textTransform: "none" }}
-        >
-          {gridEditMode ? "Editing" : "Grid Edit"}
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          onClick={() => setCreateOpen(true)}
-          sx={{ textTransform: "none" }}
-        >
-          Create
-        </Button>
-      </Box>
+    <Box sx={{ display: "flex", height: "calc(100vh - 64px)", mx: -3, mt: -3 }}>
+      {/* Sidebar */}
+      <InventoryFilterSidebar
+        types={types}
+        filters={filters}
+        onFiltersChange={setFilters}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+        width={sidebarWidth}
+        onWidthChange={setSidebarWidth}
+      />
 
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          mb: 2,
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Type</InputLabel>
-          <Select
-            value={selectedType}
-            label="Type"
-            onChange={(e) => setSelectedType(e.target.value)}
-          >
-            <MenuItem value="">All Types</MenuItem>
-            {types.map((t) => (
-              <MenuItem key={t.key} value={t.key}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                  {t.label}
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          size="small"
-          placeholder="Search..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <MaterialSymbol icon="search" size={18} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ minWidth: 250 }}
-        />
-        <ToggleButtonGroup
-          size="small"
-          value={sealFilter}
-          onChange={(_, v) => setSealFilter(v)}
-        >
-          {(["DRAFT", "APPROVED", "BROKEN", "REJECTED"] as const).map(
-            (seal) => (
-              <ToggleButton
-                key={seal}
-                value={seal}
-                sx={{
-                  textTransform: "none",
-                  px: 1.5,
-                  fontSize: "0.75rem",
-                  "&.Mui-selected": {
-                    bgcolor: SEAL_COLORS[seal] + "22",
-                    borderColor: SEAL_COLORS[seal],
-                    color: SEAL_COLORS[seal],
-                  },
-                }}
-              >
-                {seal.charAt(0) + seal.slice(1).toLowerCase()}
-              </ToggleButton>
-            )
-          )}
-        </ToggleButtonGroup>
-      </Box>
-
-      {/* Mass edit toolbar */}
-      {selectedIds.length > 0 && (
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 2,
-            mb: 1,
-            px: 2,
-            py: 1,
-            bgcolor: "primary.main",
-            color: "primary.contrastText",
-            borderRadius: 1,
-          }}
-        >
-          <MaterialSymbol icon="check_box" size={20} />
-          <Typography variant="body2" fontWeight={600}>
-            {selectedIds.length} selected
+      {/* Main content */}
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", p: 2 }}>
+        {/* Header */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.5 }}>
+          <Typography variant="h5" fontWeight={600}>
+            Inventory
           </Typography>
+          <Chip label={`${filteredData.length} items`} size="small" />
+          <Box sx={{ flex: 1 }} />
           <Button
-            size="small"
-            variant="contained"
-            color="inherit"
-            sx={{ color: "primary.main", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
-            startIcon={<MaterialSymbol icon="edit" size={16} />}
-            onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
+            variant={gridEditMode ? "contained" : "outlined"}
+            color={gridEditMode ? "primary" : "inherit"}
+            startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
+            onClick={() => setGridEditMode((v) => !v)}
+            sx={{ textTransform: "none" }}
           >
-            Mass Edit
+            {gridEditMode ? "Editing" : "Grid Edit"}
           </Button>
           <Button
-            size="small"
-            variant="outlined"
-            color="inherit"
-            sx={{ borderColor: "rgba(255,255,255,0.5)", textTransform: "none" }}
-            onClick={() => gridRef.current?.api?.deselectAll()}
+            variant="contained"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => setCreateOpen(true)}
+            sx={{ textTransform: "none" }}
           >
-            Clear Selection
+            Create
           </Button>
         </Box>
-      )}
 
-      <Box
-        className="ag-theme-quartz"
-        sx={{ height: selectedIds.length > 0 ? "calc(100vh - 290px)" : "calc(100vh - 240px)", width: "100%" }}
-      >
-        <AgGridReact
-          ref={gridRef}
-          rowData={filteredData}
-          columnDefs={columnDefs}
-          loading={loading}
-          rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: false }}
-          onSelectionChanged={handleSelectionChanged}
-          onCellValueChanged={handleCellEdit}
-          onRowClicked={(e) => {
-            if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
-              navigate(`/fact-sheets/${e.data.id}`);
-            }
-          }}
-          getRowId={(p) => p.data.id}
-          animateRows
-          pagination
-          paginationPageSize={100}
-          defaultColDef={{
-            sortable: true,
-            filter: true,
-            resizable: true,
-          }}
-        />
+        {/* Mass edit toolbar */}
+        {selectedIds.length > 0 && (
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              mb: 1,
+              px: 2,
+              py: 1,
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              borderRadius: 1,
+            }}
+          >
+            <MaterialSymbol icon="check_box" size={20} />
+            <Typography variant="body2" fontWeight={600}>
+              {selectedIds.length} selected
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              color="inherit"
+              sx={{ color: "primary.main", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+              startIcon={<MaterialSymbol icon="edit" size={16} />}
+              onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
+            >
+              Mass Edit
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              sx={{ borderColor: "rgba(255,255,255,0.5)", textTransform: "none" }}
+              onClick={() => gridRef.current?.api?.deselectAll()}
+            >
+              Clear Selection
+            </Button>
+          </Box>
+        )}
+
+        {/* AG Grid */}
+        <Box
+          className="ag-theme-quartz"
+          sx={{ flex: 1, width: "100%" }}
+        >
+          <AgGridReact
+            ref={gridRef}
+            rowData={filteredData}
+            columnDefs={columnDefs}
+            loading={loading}
+            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: false }}
+            onSelectionChanged={handleSelectionChanged}
+            onCellValueChanged={handleCellEdit}
+            onRowClicked={(e) => {
+              if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
+                navigate(`/fact-sheets/${e.data.id}`);
+              }
+            }}
+            getRowId={(p) => p.data.id}
+            animateRows
+            pagination
+            paginationPageSize={100}
+            defaultColDef={{
+              sortable: true,
+              filter: true,
+              resizable: true,
+            }}
+          />
+        </Box>
       </Box>
 
       {/* Mass Edit Dialog */}
