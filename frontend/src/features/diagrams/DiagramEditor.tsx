@@ -5,8 +5,12 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
+import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import FactSheetSidebar from "./FactSheetSidebar";
+import { buildFactSheetXml } from "./drawio-shapes";
+import type { FactSheet, FactSheetType } from "@/types";
 
 /**
  * DrawIO embed mode URL.
@@ -43,7 +47,7 @@ interface DiagramData {
   };
 }
 
-/** Messages FROM DrawIO iframe → host */
+/** Messages FROM DrawIO iframe -> host */
 interface DrawIOMessage {
   event: "init" | "save" | "exit" | "export" | "configure";
   xml?: string;
@@ -59,8 +63,11 @@ export default function DiagramEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   // Track whether we're waiting for a thumbnail export after save
   const pendingSaveXmlRef = useRef<string | null>(null);
+  // Stagger insertion positions so shapes don't overlap
+  const insertCountRef = useRef(0);
 
   // Load diagram from API
   useEffect(() => {
@@ -110,6 +117,30 @@ export default function DiagramEditor() {
       }
     },
     [diagram]
+  );
+
+  /** Insert a fact sheet shape into DrawIO via the merge action */
+  const handleInsertFactSheet = useCallback(
+    (fs: FactSheet, fsType: FactSheetType) => {
+      const col = Math.floor(insertCountRef.current / 8);
+      const row = insertCountRef.current % 8;
+      const x = 100 + col * 220;
+      const y = 60 + row * 80;
+      insertCountRef.current += 1;
+
+      const xml = buildFactSheetXml({
+        factSheetId: fs.id,
+        factSheetType: fs.type,
+        name: fs.name,
+        color: fsType.color,
+        x,
+        y,
+      });
+
+      postToDrawIO({ action: "merge", xml });
+      setSnackMsg(`Inserted "${fs.name}"`);
+    },
+    [postToDrawIO]
   );
 
   /** Handle postMessage events from DrawIO */
@@ -214,30 +245,41 @@ export default function DiagramEditor() {
         <Typography variant="subtitle1" fontWeight={600} noWrap>
           {diagram.name}
         </Typography>
-        {saving && (
-          <CircularProgress size={16} sx={{ ml: 1 }} />
-        )}
+        {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
         <Box sx={{ flex: 1 }} />
-        <Typography variant="caption" color="text.secondary">
-          DrawIO Editor
-        </Typography>
+        <Tooltip title={sidebarOpen ? "Hide fact sheets" : "Show fact sheets"}>
+          <IconButton size="small" onClick={() => setSidebarOpen((v) => !v)}>
+            <MaterialSymbol
+              icon={sidebarOpen ? "left_panel_close" : "left_panel_open"}
+              size={20}
+            />
+          </IconButton>
+        </Tooltip>
       </Box>
 
-      {/* DrawIO iframe */}
-      <Box sx={{ flex: 1, position: "relative" }}>
-        <iframe
-          ref={iframeRef}
-          src={iframeSrc}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            border: "none",
-          }}
-          title="Diagram Editor"
-        />
+      {/* Main area: sidebar + DrawIO */}
+      <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
+        {/* Fact sheet sidebar */}
+        {sidebarOpen && (
+          <FactSheetSidebar onInsert={handleInsertFactSheet} />
+        )}
+
+        {/* DrawIO iframe */}
+        <Box sx={{ flex: 1, position: "relative" }}>
+          <iframe
+            ref={iframeRef}
+            src={iframeSrc}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+              border: "none",
+            }}
+            title="Diagram Editor"
+          />
+        </Box>
       </Box>
 
       <Snackbar
