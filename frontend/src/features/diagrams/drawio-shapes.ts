@@ -1,9 +1,10 @@
 /**
  * Helpers for DrawIO fact-sheet shape insertion and extraction.
  *
- * Insertion now works via a custom "insertFactSheetCell" postMessage handled
- * by PreConfig.js inside the DrawIO iframe, which calls mxGraph.insertVertex
- * directly.  This avoids the XML merge action and its root-cell conflicts.
+ * Insertion uses same-origin access to the DrawIO iframe — we call
+ * graph.insertVertex() directly from the parent window, bypassing
+ * postMessage entirely.  This is the most reliable approach because
+ * it avoids XML merge root-cell conflicts and plugin lifecycle issues.
  */
 
 /** Darken a hex color by a factor (0-1) for stroke color */
@@ -27,11 +28,23 @@ export interface InsertFactSheetOpts {
   y: number;
 }
 
+/** Shape data needed for direct mxGraph API insertion */
+export interface FactSheetCellData {
+  cellId: string;
+  label: string;
+  factSheetId: string;
+  factSheetType: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  style: string;
+}
+
 /**
- * Build the postMessage payload for inserting a fact sheet shape.
- * Sent to the DrawIO iframe where PreConfig.js handles it via the mxGraph API.
+ * Build the data for inserting a fact sheet shape via the mxGraph API.
  */
-export function buildFactSheetCell(opts: InsertFactSheetOpts): Record<string, unknown> {
+export function buildFactSheetCellData(opts: InsertFactSheetOpts): FactSheetCellData {
   const { factSheetId, factSheetType, name, color, x, y } = opts;
   const stroke = darken(color);
   const cellId = `fs-${factSheetId.slice(0, 8)}-${Date.now()}`;
@@ -50,7 +63,6 @@ export function buildFactSheetCell(opts: InsertFactSheetOpts): Record<string, un
   ].join(";");
 
   return {
-    action: "insertFactSheetCell",
     cellId,
     label: name,
     factSheetId,
@@ -61,6 +73,58 @@ export function buildFactSheetCell(opts: InsertFactSheetOpts): Record<string, un
     height: 60,
     style,
   };
+}
+
+/**
+ * Insert a fact sheet shape directly into the DrawIO graph via same-origin
+ * iframe access.  Returns true on success, false if the graph isn't ready.
+ */
+export function insertFactSheetIntoGraph(
+  iframe: HTMLIFrameElement,
+  data: FactSheetCellData
+): boolean {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = iframe.contentWindow as any;
+    const doc = iframe.contentDocument;
+    if (!win || !doc) return false;
+
+    // Obtain the graph.  After DrawIO init the reference is stored by our
+    // bootstrap (see DiagramEditor's init handler) on window.__turboGraph.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graph: any = win.__turboGraph;
+    if (!graph) return false;
+
+    const model = graph.getModel();
+    const parent = graph.getDefaultParent();
+
+    // Create an <object> element carrying the custom attributes that the
+    // backend regex will extract (factSheetId, factSheetType).
+    const obj = doc.createElement("object");
+    obj.setAttribute("label", data.label);
+    obj.setAttribute("factSheetId", data.factSheetId);
+    obj.setAttribute("factSheetType", data.factSheetType);
+
+    model.beginUpdate();
+    try {
+      graph.insertVertex(
+        parent,
+        data.cellId,
+        obj,
+        data.x,
+        data.y,
+        data.width,
+        data.height,
+        data.style
+      );
+    } finally {
+      model.endUpdate();
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
