@@ -26,6 +26,7 @@ export interface FieldDef {
   options?: FieldOption[];
   required?: boolean;
   weight?: number;
+  readonly?: boolean;
 }
 
 export interface SubtypeDef {

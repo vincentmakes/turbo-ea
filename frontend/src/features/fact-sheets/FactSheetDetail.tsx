@@ -524,14 +524,24 @@ function AttributeSection({
         {editing ? (
           <Box>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
-              {section.fields.map((field) => (
-                <FieldEditor
-                  key={field.key}
-                  field={field}
-                  value={attrs[field.key]}
-                  onChange={(v) => setAttr(field.key, v)}
-                />
-              ))}
+              {section.fields.map((field) =>
+                field.readonly ? (
+                  <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
+                      {field.label}
+                    </Typography>
+                    <FieldValue field={field} value={attrs[field.key]} />
+                    <Chip size="small" label="auto" sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+                  </Box>
+                ) : (
+                  <FieldEditor
+                    key={field.key}
+                    field={field}
+                    value={attrs[field.key]}
+                    onChange={(v) => setAttr(field.key, v)}
+                  />
+                )
+              )}
             </Box>
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
@@ -562,6 +572,9 @@ function AttributeSection({
               <Box key={field.key} sx={{ display: "contents" }}>
                 <Typography variant="body2" color="text.secondary">
                   {field.label}
+                  {field.readonly && (
+                    <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+                  )}
                 </Typography>
                 <FieldValue
                   field={field}

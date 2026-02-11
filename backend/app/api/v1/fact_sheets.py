@@ -357,8 +357,11 @@ async def update_fact_sheet(
             if seal_breaking & changes.keys():
                 fs.quality_seal = "BROKEN"
 
-        # Auto-sync capability level when parent changes
-        if "parent_id" in changes:
+        # Auto-sync capability level when parent changes or level is missing
+        if "parent_id" in changes or (
+            fs.type == "BusinessCapability"
+            and not (fs.attributes or {}).get("capabilityLevel")
+        ):
             await _sync_capability_level(db, fs)
 
         # Recalculate completion
