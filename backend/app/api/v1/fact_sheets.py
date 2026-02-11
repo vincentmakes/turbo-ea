@@ -67,6 +67,36 @@ async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
     return round((filled_weight / total_weight) * 100, 1)
 
 
+async def _sync_capability_level(db: AsyncSession, fs: FactSheet) -> None:
+    """Auto-compute capabilityLevel for BusinessCapability based on parent depth, then cascade to children."""
+    if fs.type != "BusinessCapability":
+        return
+
+    # Walk up to compute depth
+    depth = 0
+    current_id = fs.parent_id
+    seen: set[uuid.UUID] = {fs.id}
+    while current_id and current_id not in seen:
+        seen.add(current_id)
+        depth += 1
+        res = await db.execute(select(FactSheet.parent_id).where(FactSheet.id == current_id))
+        row = res.first()
+        current_id = row[0] if row else None
+
+    level_key = f"L{min(depth + 1, 5)}"
+    attrs = dict(fs.attributes or {})
+    if attrs.get("capabilityLevel") != level_key:
+        attrs["capabilityLevel"] = level_key
+        fs.attributes = attrs
+
+    # Cascade to direct children
+    children_result = await db.execute(
+        select(FactSheet).where(FactSheet.parent_id == fs.id, FactSheet.status == "ACTIVE")
+    )
+    for child in children_result.scalars().all():
+        await _sync_capability_level(db, child)
+
+
 def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
     tags = []
     for t in (fs.tags or []):
@@ -173,6 +203,9 @@ async def create_fact_sheet(
     db.add(fs)
     await db.flush()
 
+    # Auto-set capability level for BusinessCapability
+    await _sync_capability_level(db, fs)
+
     # Compute completion score
     fs.completion = await _calc_completion(db, fs)
 
@@ -264,6 +297,10 @@ async def update_fact_sheet(
             seal_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
             if seal_breaking & changes.keys():
                 fs.quality_seal = "BROKEN"
+
+        # Auto-sync capability level when parent changes
+        if "parent_id" in changes:
+            await _sync_capability_level(db, fs)
 
         # Recalculate completion
         fs.completion = await _calc_completion(db, fs)
