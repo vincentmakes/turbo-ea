@@ -28,6 +28,7 @@ export function exportToExcel(
       name: fs.name,
       description: fs.description ?? "",
       subtype: fs.subtype ?? "",
+      parent_id: fs.parent_id ?? "",
       external_id: fs.external_id ?? "",
       alias: fs.alias ?? "",
       quality_seal: fs.quality_seal ?? "",
