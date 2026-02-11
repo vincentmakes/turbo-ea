@@ -144,6 +144,21 @@ async def _sync_capability_level(db: AsyncSession, fs: FactSheet) -> None:
         await _sync_capability_level(db, child)
 
 
+async def sync_all_capability_levels(db: AsyncSession) -> None:
+    """Backfill capabilityLevel for all existing BusinessCapability fact sheets."""
+    # Start from roots (no parent) and cascade down
+    roots = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "BusinessCapability",
+            FactSheet.parent_id.is_(None),
+            FactSheet.status == "ACTIVE",
+        )
+    )
+    for fs in roots.scalars().all():
+        await _sync_capability_level(db, fs)
+    await db.commit()
+
+
 def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
     tags = []
     for t in (fs.tags or []):
