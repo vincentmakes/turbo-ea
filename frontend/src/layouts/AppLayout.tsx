@@ -1,14 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
-import Drawer from "@mui/material/Drawer";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import Collapse from "@mui/material/Collapse";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
@@ -17,9 +11,9 @@ import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
-
-const DRAWER_WIDTH = 240;
 
 interface NavItem {
   label: string;
@@ -61,13 +55,9 @@ interface Props {
 export default function AppLayout({ children, user, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [reportsOpen, setReportsOpen] = useState(
-    location.pathname.startsWith("/reports")
-  );
-  const [adminOpen, setAdminOpen] = useState(
-    location.pathname.startsWith("/admin")
-  );
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
+  const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
+  const [adminMenu, setAdminMenu] = useState<HTMLElement | null>(null);
   const [search, setSearch] = useState("");
 
   const handleSearch = (e: React.KeyboardEvent) => {
@@ -77,22 +67,131 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   };
 
   const isActive = (path?: string) => !!(path && location.pathname === path);
+  const isGroupActive = (children?: { path: string }[]) =>
+    !!children?.some((c) => location.pathname === c.path);
+
+  const navBtnSx = (active: boolean) => ({
+    color: active ? "#fff" : "rgba(255,255,255,0.7)",
+    textTransform: "none" as const,
+    fontWeight: active ? 700 : 500,
+    fontSize: "0.85rem",
+    minWidth: 0,
+    px: 1.5,
+    borderRadius: 1,
+    bgcolor: active ? "rgba(255,255,255,0.12)" : "transparent",
+    "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
+  });
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <AppBar
         position="fixed"
-        sx={{ zIndex: (t) => t.zIndex.drawer + 1, bgcolor: "#1a1a2e" }}
+        sx={{ bgcolor: "#1a1a2e" }}
         elevation={0}
       >
-        <Toolbar>
+        <Toolbar sx={{ gap: 0.5 }}>
+          {/* Brand */}
           <MaterialSymbol icon="hub" size={28} color="#64b5f6" />
           <Typography
             variant="h6"
-            sx={{ ml: 1, fontWeight: 700, letterSpacing: "-0.5px", mr: 4 }}
+            sx={{
+              ml: 1,
+              fontWeight: 700,
+              letterSpacing: "-0.5px",
+              mr: 3,
+              cursor: "pointer",
+            }}
+            onClick={() => navigate("/")}
           >
             Turbo EA
           </Typography>
+
+          {/* Main nav items */}
+          {NAV_ITEMS.map((item) =>
+            item.children ? (
+              <Button
+                key={item.label}
+                size="small"
+                startIcon={<MaterialSymbol icon={item.icon} size={18} />}
+                endIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                sx={navBtnSx(isGroupActive(item.children))}
+                onClick={(e) => setReportsMenu(e.currentTarget)}
+              >
+                {item.label}
+              </Button>
+            ) : (
+              <Button
+                key={item.label}
+                size="small"
+                startIcon={<MaterialSymbol icon={item.icon} size={18} />}
+                sx={navBtnSx(isActive(item.path))}
+                onClick={() => item.path && navigate(item.path)}
+              >
+                {item.label}
+              </Button>
+            )
+          )}
+
+          {/* Admin dropdown */}
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="admin_panel_settings" size={18} />}
+            endIcon={<MaterialSymbol icon="expand_more" size={16} />}
+            sx={navBtnSx(isGroupActive(ADMIN_ITEMS as { path: string }[]))}
+            onClick={(e) => setAdminMenu(e.currentTarget)}
+          >
+            Admin
+          </Button>
+
+          {/* Reports dropdown menu */}
+          <Menu
+            anchorEl={reportsMenu}
+            open={!!reportsMenu}
+            onClose={() => setReportsMenu(null)}
+          >
+            {NAV_ITEMS.find((n) => n.children)?.children?.map((child) => (
+              <MenuItem
+                key={child.path}
+                selected={isActive(child.path)}
+                onClick={() => {
+                  navigate(child.path);
+                  setReportsMenu(null);
+                }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon={child.icon} size={18} />
+                </ListItemIcon>
+                <ListItemText>{child.label}</ListItemText>
+              </MenuItem>
+            ))}
+          </Menu>
+
+          {/* Admin dropdown menu */}
+          <Menu
+            anchorEl={adminMenu}
+            open={!!adminMenu}
+            onClose={() => setAdminMenu(null)}
+          >
+            {ADMIN_ITEMS.map((item) => (
+              <MenuItem
+                key={item.path}
+                selected={isActive(item.path)}
+                onClick={() => {
+                  item.path && navigate(item.path);
+                  setAdminMenu(null);
+                }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon={item.icon} size={18} />
+                </ListItemIcon>
+                <ListItemText>{item.label}</ListItemText>
+              </MenuItem>
+            ))}
+          </Menu>
+
+          <Box sx={{ flex: 1 }} />
+
+          {/* Search */}
           <TextField
             size="small"
             placeholder="Search fact sheets..."
@@ -100,12 +199,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleSearch}
             sx={{
-              flex: 1,
-              maxWidth: 500,
+              maxWidth: 360,
               bgcolor: "rgba(255,255,255,0.08)",
               borderRadius: 1,
               "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-              input: { color: "#fff" },
+              input: { color: "#fff", py: 0.75 },
             }}
             InputProps={{
               startAdornment: (
@@ -115,17 +213,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               ),
             }}
           />
+
+          {/* Create button */}
           <Button
             variant="contained"
             size="small"
             startIcon={<MaterialSymbol icon="add" size={18} />}
-            sx={{ ml: 2, textTransform: "none" }}
+            sx={{ ml: 1.5, textTransform: "none" }}
             onClick={() => navigate("/inventory?create=true")}
           >
             Create
           </Button>
+
+          {/* User menu */}
           <IconButton
-            sx={{ ml: 2, color: "#fff" }}
+            sx={{ ml: 1, color: "#fff" }}
             onClick={(e) => setUserMenu(e.currentTarget)}
           >
             <MaterialSymbol icon="account_circle" size={28} />
@@ -156,98 +258,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         </Toolbar>
       </AppBar>
 
-      <Drawer
-        variant="permanent"
-        sx={{
-          width: DRAWER_WIDTH,
-          flexShrink: 0,
-          "& .MuiDrawer-paper": {
-            width: DRAWER_WIDTH,
-            boxSizing: "border-box",
-            bgcolor: "#f5f7fa",
-            borderRight: "1px solid #e0e0e0",
-          },
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ overflow: "auto", py: 1 }}>
-          <List dense>
-            {NAV_ITEMS.map((item) =>
-              item.children ? (
-                <Box key={item.label}>
-                  <ListItemButton onClick={() => setReportsOpen(!reportsOpen)}>
-                    <ListItemIcon sx={{ minWidth: 36 }}>
-                      <MaterialSymbol icon={item.icon} size={20} />
-                    </ListItemIcon>
-                    <ListItemText primary={item.label} />
-                    <MaterialSymbol
-                      icon={reportsOpen ? "expand_less" : "expand_more"}
-                      size={20}
-                    />
-                  </ListItemButton>
-                  <Collapse in={reportsOpen} timeout="auto">
-                    <List dense disablePadding>
-                      {item.children.map((child) => (
-                        <ListItemButton
-                          key={child.path}
-                          sx={{ pl: 5 }}
-                          selected={isActive(child.path)}
-                          onClick={() => navigate(child.path)}
-                        >
-                          <ListItemIcon sx={{ minWidth: 32 }}>
-                            <MaterialSymbol icon={child.icon} size={18} />
-                          </ListItemIcon>
-                          <ListItemText primary={child.label} />
-                        </ListItemButton>
-                      ))}
-                    </List>
-                  </Collapse>
-                </Box>
-              ) : (
-                <ListItemButton
-                  key={item.label}
-                  selected={isActive(item.path)}
-                  onClick={() => item.path && navigate(item.path)}
-                >
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    <MaterialSymbol icon={item.icon} size={20} />
-                  </ListItemIcon>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              )
-            )}
-          </List>
-          <Divider sx={{ my: 1 }} />
-          <ListItemButton onClick={() => setAdminOpen(!adminOpen)}>
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              <MaterialSymbol icon="admin_panel_settings" size={20} />
-            </ListItemIcon>
-            <ListItemText primary="Admin" />
-            <MaterialSymbol
-              icon={adminOpen ? "expand_less" : "expand_more"}
-              size={20}
-            />
-          </ListItemButton>
-          <Collapse in={adminOpen} timeout="auto">
-            <List dense disablePadding>
-              {ADMIN_ITEMS.map((item) => (
-                <ListItemButton
-                  key={item.path}
-                  sx={{ pl: 5 }}
-                  selected={isActive(item.path)}
-                  onClick={() => item.path && navigate(item.path)}
-                >
-                  <ListItemIcon sx={{ minWidth: 32 }}>
-                    <MaterialSymbol icon={item.icon} size={18} />
-                  </ListItemIcon>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              ))}
-            </List>
-          </Collapse>
-        </Box>
-      </Drawer>
-
+      {/* Main content — full width now, no sidebar */}
       <Box
         component="main"
         sx={{
