@@ -86,8 +86,7 @@ export function insertFactSheetIntoGraph(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const win = iframe.contentWindow as any;
-    const doc = iframe.contentDocument;
-    if (!win || !doc) return false;
+    if (!win) return false;
 
     // Obtain the graph.  After DrawIO init the reference is stored by our
     // bootstrap (see DiagramEditor's init handler) on window.__turboGraph.
@@ -98,9 +97,13 @@ export function insertFactSheetIntoGraph(
     const model = graph.getModel();
     const parent = graph.getDefaultParent();
 
-    // Create an <object> element carrying the custom attributes that the
-    // backend regex will extract (factSheetId, factSheetType).
-    const obj = doc.createElement("object");
+    // Create the user-object in an XML document — NOT the HTML document.
+    // Using iframe.contentDocument.createElement("object") produces an
+    // HTMLObjectElement which mxGraph's XML codec silently drops during
+    // serialization, causing labels and custom attributes to be lost.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const xmlDoc = (win.mxUtils as any).createXmlDocument();
+    const obj = xmlDoc.createElement("object");
     obj.setAttribute("label", data.label);
     obj.setAttribute("factSheetId", data.factSheetId);
     obj.setAttribute("factSheetType", data.factSheetType);
