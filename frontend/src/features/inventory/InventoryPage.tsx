@@ -329,7 +329,7 @@ export default function InventoryPage() {
             field: `attr_${field.key}`,
             headerName: field.label,
             width: 150,
-            editable: gridEditMode,
+            editable: gridEditMode && !field.readonly,
             valueGetter: (p: { data: FactSheet }) =>
               (p.data?.attributes || {})[field.key] ?? "",
             valueSetter: (p) => {
