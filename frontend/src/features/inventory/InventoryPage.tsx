@@ -37,38 +37,42 @@ const SEAL_COLORS: Record<string, string> = {
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
-interface HierarchyInfo {
-  name: string;
-  parentId?: string;
-}
-
 /**
- * Walk the parent_id chain to build the full hierarchy path for a fact sheet.
- * Returns "Grandparent / Parent / Child" when ancestors are in the dataset,
- * or just the fact sheet name when it has no parent or the parent isn't loaded.
- *
- * Uses an immutable snapshot map (id → {name, parentId}) rather than the live
- * data objects, because AG Grid can mutate `data[field]` under the hood which
- * would cause ancestor names to accumulate across hierarchy levels.
+ * Pre-compute hierarchy display paths from raw fact sheet data.
+ * Reads names and parent_ids once into plain-string maps, then builds
+ * each path by walking the parent chain.  The result is a Map<id, path>
+ * that is completely detached from the original data objects.
  */
-function getHierarchyPath(
-  fsId: string,
-  infoById: Map<string, HierarchyInfo>,
-): string {
-  const info = infoById.get(fsId);
-  if (!info) return "";
-  const segments: string[] = [info.name];
-  const seen = new Set<string>([fsId]);
-  let currentParentId = info.parentId;
-  while (currentParentId) {
-    if (seen.has(currentParentId)) break; // cycle guard
-    const parentInfo = infoById.get(currentParentId);
-    if (!parentInfo) break;
-    seen.add(currentParentId);
-    segments.unshift(parentInfo.name);
-    currentParentId = parentInfo.parentId;
+function buildHierarchyPaths(items: FactSheet[]): Map<string, string> {
+  const names = new Map<string, string>();
+  const parents = new Map<string, string>();
+  for (const fs of items) {
+    names.set(fs.id, fs.name);
+    if (fs.parent_id) parents.set(fs.id, fs.parent_id);
   }
-  return segments.join(" / ");
+
+  const cache = new Map<string, string>();
+
+  function resolve(id: string, seen: Set<string>): string {
+    const cached = cache.get(id);
+    if (cached !== undefined) return cached;
+    const name = names.get(id) ?? "";
+    const parentId = parents.get(id);
+    if (!parentId || !names.has(parentId) || seen.has(parentId)) {
+      cache.set(id, name);
+      return name;
+    }
+    seen.add(id);
+    const parentPath = resolve(parentId, seen);
+    const path = parentPath ? parentPath + " / " + name : name;
+    cache.set(id, path);
+    return path;
+  }
+
+  for (const fs of items) {
+    resolve(fs.id, new Set([fs.id]));
+  }
+  return cache;
 }
 
 /**
@@ -208,15 +212,10 @@ export default function InventoryPage() {
     };
   }, [selectedType, relevantRelTypes, data]);
 
-  // Immutable snapshot of id→{name, parentId} for hierarchy path computation.
-  // Stored as plain strings so AG Grid field mutations can't corrupt ancestor names.
-  const hierarchyInfo = useMemo(() => {
-    const m = new Map<string, HierarchyInfo>();
-    for (const fs of data) {
-      m.set(fs.id, { name: fs.name, parentId: fs.parent_id || undefined });
-    }
-    return m;
-  }, [data]);
+  // Pre-computed hierarchy display paths (id → "Parent / Child").
+  // Built once from raw API data; completely detached from the mutable row objects
+  // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
+  const hierarchyPaths = useMemo(() => buildHierarchyPaths(data), [data]);
 
   // Client-side filtering: type multi-select (>1 type) and attribute filters
   const filteredData = useMemo(() => {
@@ -367,14 +366,11 @@ export default function InventoryPage() {
         flex: 1,
         minWidth: 200,
         editable: gridEditMode,
-        valueGetter: (p: { data: FactSheet }) => {
-          if (!p.data) return "";
-          if (gridEditMode) return p.data.name; // edit the leaf name only
-          return getHierarchyPath(p.data.id, hierarchyInfo);
-        },
-        valueSetter: (p) => {
-          p.data.name = p.newValue;
-          return true;
+        // valueFormatter only affects display — AG Grid still reads/writes the
+        // raw name via `field: "name"`, so editing and data stay clean.
+        valueFormatter: (p) => {
+          if (!p.data || gridEditMode) return p.value;
+          return hierarchyPaths.get(p.data.id) ?? p.value;
         },
         cellStyle: gridEditMode
           ? { fontWeight: 500 }
@@ -588,7 +584,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyInfo]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
