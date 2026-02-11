@@ -423,7 +423,30 @@ async def bulk_update(
     return [_fs_to_response(fs) for fs in sheets]
 
 
-@router.get("/{fs_id}/history")
+@router.post("/fix-hierarchy-names")
+async def fix_hierarchy_names(db: AsyncSession = Depends(get_db)):
+    """One-time cleanup: strip accumulated hierarchy prefixes from names.
+
+    A UI bug caused hierarchy paths like "Parent / Child" to be persisted as
+    the fact sheet name.  This endpoint detects and fixes those entries by
+    keeping only the last " / "-separated segment for any fact sheet that has
+    a parent_id.
+    """
+    result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.parent_id.isnot(None),
+            FactSheet.name.contains(" / "),
+            FactSheet.status == "ACTIVE",
+        )
+    )
+    fixed: list[dict] = []
+    for fs in result.scalars().all():
+        leaf_name = fs.name.rsplit(" / ", 1)[-1]
+        if leaf_name != fs.name:
+            fixed.append({"id": str(fs.id), "old_name": fs.name, "new_name": leaf_name})
+            fs.name = leaf_name
+    await db.commit()
+    return {"fixed": len(fixed), "details": fixed}
 async def get_history(
     fs_id: str,
     db: AsyncSession = Depends(get_db),
