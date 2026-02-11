@@ -195,6 +195,47 @@ async def get_fact_sheet(fs_id: str, db: AsyncSession = Depends(get_db)):
     return _fs_to_response(fs)
 
 
+@router.get("/{fs_id}/hierarchy")
+async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db)):
+    """Return ancestors (root→parent), children, and computed level."""
+    uid = uuid.UUID(fs_id)
+    result = await db.execute(select(FactSheet).where(FactSheet.id == uid))
+    fs = result.scalar_one_or_none()
+    if not fs:
+        raise HTTPException(404, "Fact sheet not found")
+
+    # Walk up parent chain to collect ancestors
+    ancestors: list[dict] = []
+    current = fs
+    seen: set[uuid.UUID] = {uid}
+    while current.parent_id and current.parent_id not in seen:
+        seen.add(current.parent_id)
+        res = await db.execute(select(FactSheet).where(FactSheet.id == current.parent_id))
+        parent = res.scalar_one_or_none()
+        if not parent:
+            break
+        ancestors.append({"id": str(parent.id), "name": parent.name, "type": parent.type})
+        current = parent
+    ancestors.reverse()  # root first
+
+    # Direct children
+    children_result = await db.execute(
+        select(FactSheet)
+        .where(FactSheet.parent_id == uid, FactSheet.status == "ACTIVE")
+        .order_by(FactSheet.name)
+    )
+    children = [
+        {"id": str(c.id), "name": c.name, "type": c.type}
+        for c in children_result.scalars().all()
+    ]
+
+    return {
+        "ancestors": ancestors,
+        "children": children,
+        "level": len(ancestors) + 1,
+    }
+
+
 @router.patch("/{fs_id}", response_model=FactSheetResponse)
 async def update_fact_sheet(
     fs_id: str,

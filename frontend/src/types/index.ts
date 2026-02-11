@@ -105,6 +105,18 @@ export interface FactSheet {
   subscriptions: SubscriptionRef[];
 }
 
+export interface HierarchyNode {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface HierarchyData {
+  ancestors: HierarchyNode[];
+  children: HierarchyNode[];
+  level: number;
+}
+
 export interface FactSheetListResponse {
   items: FactSheet[];
   total: number;
