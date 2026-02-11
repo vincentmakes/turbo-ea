@@ -98,14 +98,15 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           menu.addSeparator();
 
           const mxEvent = win.mxEvent;
-          const offset = graph.container.getBoundingClientRect();
+          const container = graph.container;
+          const offset = container.getBoundingClientRect();
           const s = graph.view.scale;
           const tr = graph.view.translate;
           const gx = Math.round(
-            (mxEvent.getClientX(evt) - offset.left) / s - tr.x
+            (mxEvent.getClientX(evt) - offset.left + container.scrollLeft) / s - tr.x
           );
           const gy = Math.round(
-            (mxEvent.getClientY(evt) - offset.top) / s - tr.y
+            (mxEvent.getClientY(evt) - offset.top + container.scrollTop) / s - tr.y
           );
 
           menu.addItem("Insert Fact Sheet\u2026", null, () => {
