@@ -25,6 +25,7 @@ interface DiagramSummary {
   name: string;
   type: string;
   thumbnail?: string;
+  fact_sheet_count?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -115,6 +116,14 @@ export default function DiagramsPage() {
                     <Typography variant="subtitle1" fontWeight={600} noWrap>{d.name}</Typography>
                   </Box>
                   <Chip size="small" label={d.type === "data_flow" ? "Data Flow" : "Free Draw"} />
+                  {!!d.fact_sheet_count && (
+                    <Chip
+                      size="small"
+                      label={`${d.fact_sheet_count} fact sheet${d.fact_sheet_count > 1 ? "s" : ""}`}
+                      variant="outlined"
+                      sx={{ ml: 0.5 }}
+                    />
+                  )}
                   {d.updated_at && (
                     <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
                       Updated: {new Date(d.updated_at).toLocaleDateString()}

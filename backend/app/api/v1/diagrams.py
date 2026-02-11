@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -13,6 +14,18 @@ from app.models.diagram import Diagram
 from app.models.user import User
 
 router = APIRouter(prefix="/diagrams", tags=["diagrams"])
+
+# Regex to pull factSheetId values out of DrawIO XML <object> elements.
+# Faster than full XML parsing and safe here because the attribute value is a UUID.
+_FS_ID_RE = re.compile(r'factSheetId="([0-9a-fA-F-]{36})"')
+
+
+def _extract_fact_sheet_refs(data: dict | None) -> list[str]:
+    """Return deduplicated list of fact-sheet UUIDs found in diagram XML."""
+    xml = (data or {}).get("xml", "")
+    if not xml:
+        return []
+    return list(dict.fromkeys(_FS_ID_RE.findall(xml)))
 
 
 class DiagramCreate(BaseModel):
@@ -45,6 +58,7 @@ async def list_diagrams(db: AsyncSession = Depends(get_db)):
             "name": d.name,
             "type": d.type,
             "thumbnail": (d.data or {}).get("thumbnail"),
+            "fact_sheet_count": len(_extract_fact_sheet_refs(d.data)),
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "updated_at": d.updated_at.isoformat() if d.updated_at else None,
         }
@@ -80,6 +94,7 @@ async def get_diagram(
         "name": d.name,
         "type": d.type,
         "data": d.data,
+        "fact_sheet_refs": _extract_fact_sheet_refs(d.data),
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
     }
@@ -99,7 +114,10 @@ async def update_diagram(
     if body.name is not None:
         d.name = body.name
     if body.data is not None:
-        d.data = body.data
+        # Store the data and auto-extract fact sheet references into it
+        new_data = dict(body.data)
+        new_data["fact_sheet_refs"] = _extract_fact_sheet_refs(new_data)
+        d.data = new_data
     await db.commit()
     await db.refresh(d)
     return {"id": str(d.id), "name": d.name}
