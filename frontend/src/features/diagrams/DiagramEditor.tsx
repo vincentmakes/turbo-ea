@@ -5,14 +5,13 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
-import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import FactSheetSidebar from "./FactSheetSidebar";
 import FactSheetPickerDialog from "./FactSheetPickerDialog";
 import {
   buildFactSheetCellData,
   insertFactSheetIntoGraph,
+  getVisibleCenter,
 } from "./drawio-shapes";
 import type { FactSheet, FactSheetType } from "@/types";
 
@@ -131,12 +130,9 @@ export default function DiagramEditor() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Track whether we're waiting for a thumbnail export after save
   const pendingSaveXmlRef = useRef<string | null>(null);
-  // Stagger insertion positions so shapes don't overlap
-  const insertCountRef = useRef(0);
   // Graph-space coordinates from right-click context menu
   const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -196,7 +192,7 @@ export default function DiagramEditor() {
       const frame = iframeRef.current;
       if (!frame) return;
 
-      // Use right-click position if available, otherwise fall back to grid layout
+      // Use right-click position, or fall back to the center of the visible canvas
       let x: number;
       let y: number;
       if (contextInsertPosRef.current) {
@@ -204,12 +200,10 @@ export default function DiagramEditor() {
         y = contextInsertPosRef.current.y;
         contextInsertPosRef.current = null;
       } else {
-        const col = Math.floor(insertCountRef.current / 8);
-        const row = insertCountRef.current % 8;
-        x = 100 + col * 220;
-        y = 60 + row * 80;
+        const center = getVisibleCenter(frame);
+        x = center ? center.x - 90 : 100;   // offset by half-width
+        y = center ? center.y - 30 : 100;    // offset by half-height
       }
-      insertCountRef.current += 1;
 
       const data = buildFactSheetCellData({
         factSheetId: fs.id,
@@ -350,25 +344,10 @@ export default function DiagramEditor() {
           {diagram.name}
         </Typography>
         {saving && <CircularProgress size={16} sx={{ ml: 1 }} />}
-        <Box sx={{ flex: 1 }} />
-        <Tooltip title={sidebarOpen ? "Hide fact sheets" : "Show fact sheets"}>
-          <IconButton size="small" onClick={() => setSidebarOpen((v) => !v)}>
-            <MaterialSymbol
-              icon={sidebarOpen ? "left_panel_close" : "left_panel_open"}
-              size={20}
-            />
-          </IconButton>
-        </Tooltip>
       </Box>
 
-      {/* Main area: sidebar + DrawIO */}
+      {/* DrawIO canvas */}
       <Box sx={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Fact sheet sidebar */}
-        {sidebarOpen && (
-          <FactSheetSidebar onInsert={handleInsertFactSheet} />
-        )}
-
-        {/* DrawIO iframe */}
         <Box sx={{ flex: 1, position: "relative" }}>
           <iframe
             ref={iframeRef}

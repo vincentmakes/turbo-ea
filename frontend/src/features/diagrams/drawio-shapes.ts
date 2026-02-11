@@ -128,6 +128,31 @@ export function insertFactSheetIntoGraph(
 }
 
 /**
+ * Return the graph-space coordinates of the center of the currently visible
+ * portion of the DrawIO canvas.  Useful as a fallback insertion position.
+ */
+export function getVisibleCenter(iframe: HTMLIFrameElement): { x: number; y: number } | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = iframe.contentWindow as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graph: any = win?.__turboGraph;
+    if (!graph) return null;
+
+    const container = graph.container as HTMLElement;
+    const s = graph.view.scale as number;
+    const tr = graph.view.translate as { x: number; y: number };
+
+    const cx = (container.scrollLeft + container.clientWidth / 2) / s - tr.x;
+    const cy = (container.scrollTop + container.clientHeight / 2) / s - tr.y;
+
+    return { x: Math.round(cx), y: Math.round(cy) };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Parse diagram XML and return the set of factSheetId values found.
  * Used client-side for display; the backend does its own authoritative parse.
  */
