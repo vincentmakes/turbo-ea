@@ -1,40 +1,38 @@
 /**
  * DrawIO PreConfig.js — loaded automatically by the self-hosted DrawIO editor.
  *
- * Adds an "Insert Fact Sheet" item to the right-click context menu.
- * When clicked it posts a message to the parent window (our React app)
- * which opens a picker dialog and merges the selected shape back.
+ * Two responsibilities:
+ * 1. Adds "Insert Fact Sheet…" to the right-click context menu.
+ *    Clicking it posts a message to the parent so it can open a picker dialog.
+ *
+ * 2. Listens for "insertFactSheetCell" messages from the parent and uses the
+ *    mxGraph API directly to insert a vertex.  This avoids the XML merge
+ *    action which has issues with root-cell conflicts (duplicate id="0"/"1"
+ *    replaces the graph, missing them drops the cell).
  */
 
-/* global Draw, mxResources, mxEvent, mxPopupMenu */
+/* global Draw, mxEvent, mxCell, mxGeometry */
 
 Draw.loadPlugin(function (ui) {
-  // Wait until the editor is fully initialised
   var graph = ui.editor.graph;
 
-  // Patch the popup-menu factory so we can append our custom item
+  // ── 1. Right-click context menu item ──────────────────────────────────
   var origFactory = ui.menus.createPopupMenu;
   ui.menus.createPopupMenu = function (menu, cell, evt) {
-    // Call the original factory first so all default items are added
     origFactory.apply(this, arguments);
 
     menu.addSeparator();
 
-    // Compute the graph-space coordinates of the click so we can position
-    // the inserted shape exactly where the user right-clicked.
-    var pt = mxEvent.getClientXY
-      ? new (graph.container.ownerDocument.defaultView || window).DOMPoint(
-          mxEvent.getClientX(evt),
-          mxEvent.getClientY(evt)
-        )
-      : { x: mxEvent.getClientX(evt), y: mxEvent.getClientY(evt) };
-
+    // Convert screen coordinates → graph-space coordinates
     var offset = graph.container.getBoundingClientRect();
     var s = graph.view.scale;
     var tr = graph.view.translate;
-
-    var graphX = Math.round((pt.x - offset.left) / s - tr.x);
-    var graphY = Math.round((pt.y - offset.top) / s - tr.y);
+    var graphX = Math.round(
+      (mxEvent.getClientX(evt) - offset.left) / s - tr.x
+    );
+    var graphY = Math.round(
+      (mxEvent.getClientY(evt) - offset.top) / s - tr.y
+    );
 
     menu.addItem("Insert Fact Sheet\u2026", null, function () {
       window.parent.postMessage(
@@ -47,4 +45,45 @@ Draw.loadPlugin(function (ui) {
       );
     });
   };
+
+  // ── 2. Handle "insertFactSheetCell" from the parent ───────────────────
+  window.addEventListener("message", function (evt) {
+    if (typeof evt.data !== "string") return;
+
+    var msg;
+    try {
+      msg = JSON.parse(evt.data);
+    } catch (_) {
+      return;
+    }
+    if (msg.action !== "insertFactSheetCell") return;
+
+    var model = graph.getModel();
+    var parent = graph.getDefaultParent();
+
+    // Build an <object> element to hold custom attributes (factSheetId etc.)
+    var doc = graph.domNode
+      ? graph.domNode.ownerDocument
+      : document;
+    var obj = doc.createElement("object");
+    obj.setAttribute("label", msg.label || "");
+    obj.setAttribute("factSheetId", msg.factSheetId || "");
+    obj.setAttribute("factSheetType", msg.factSheetType || "");
+
+    model.beginUpdate();
+    try {
+      graph.insertVertex(
+        parent,
+        msg.cellId || null,
+        obj,
+        msg.x || 0,
+        msg.y || 0,
+        msg.width || 180,
+        msg.height || 60,
+        msg.style || ""
+      );
+    } finally {
+      model.endUpdate();
+    }
+  });
 });
