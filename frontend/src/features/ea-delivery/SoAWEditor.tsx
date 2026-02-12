@@ -360,6 +360,16 @@ export default function SoAWEditor() {
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {isNew ? "New Statement of Architecture Work" : name || "Untitled"}
         </Typography>
+        {!isNew && (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="visibility" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}
+          >
+            Preview
+          </Button>
+        )}
         <Button
           size="small"
           startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}

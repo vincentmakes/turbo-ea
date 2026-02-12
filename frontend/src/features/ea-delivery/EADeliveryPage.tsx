@@ -293,9 +293,21 @@ export default function EADeliveryPage() {
           sx={{ mr: 1 }}
         />
         <Chip label="SoAW" size="small" variant="outlined" />
+        <Tooltip title="Preview">
+          <IconButton
+            size="small"
+            sx={{ ml: 0.5 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              navigate(`/ea-delivery/soaw/${s.id}/preview`);
+            }}
+          >
+            <MaterialSymbol icon="visibility" size={18} />
+          </IconButton>
+        </Tooltip>
         <IconButton
           size="small"
-          sx={{ ml: 0.5 }}
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -519,6 +531,17 @@ export default function EADeliveryPage() {
         open={!!ctxMenu}
         onClose={() => setCtxMenu(null)}
       >
+        <MenuItem
+          onClick={() => {
+            if (ctxMenu) navigate(`/ea-delivery/soaw/${ctxMenu.soaw.id}/preview`);
+            setCtxMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <MaterialSymbol icon="visibility" size={18} />
+          </ListItemIcon>
+          <ListItemText>Preview</ListItemText>
+        </MenuItem>
         <MenuItem
           onClick={() => {
             if (ctxMenu) navigate(`/ea-delivery/soaw/${ctxMenu.soaw.id}`);

@@ -531,37 +531,32 @@ export async function exportToDocx(
   saveAs(blob, filename);
 }
 
-// ─── PDF export (print-based) ───────────────────────────────────────────────
+// ─── Preview / PDF shared HTML ──────────────────────────────────────────────
 
-export function exportToPdf(
+export const PREVIEW_CSS = `
+  body, .soaw-preview { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #222; line-height: 1.6; font-size: 11pt; }
+  .soaw-preview h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
+  .soaw-preview h2 { font-size: 16pt; color: #333; margin-top: 28px; }
+  .soaw-preview h3 { font-size: 13pt; color: #444; margin-top: 20px; }
+  .soaw-preview table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .soaw-preview th, .soaw-preview td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; }
+  .soaw-preview th { background: #f5f5f5; font-weight: 600; }
+  .soaw-preview .meta-label { font-weight: 600; width: 140px; }
+  .soaw-preview .part-header { font-size: 18pt; color: #1976d2; margin-top: 36px; border-bottom: 2px solid #e0e0e0; padding-bottom: 6px; }
+  .soaw-preview .preamble { color: #666; font-style: italic; margin-bottom: 8px; }
+  .soaw-preview .custom-badge { display: inline-block; background: #1976d2; color: #fff; font-size: 9pt; padding: 1px 8px; border-radius: 3px; margin-right: 8px; }
+  @media print { body { margin: 20px; } .no-print { display: none !important; } }
+`;
+
+/** Build the inner HTML body content for preview and PDF export. */
+export function buildPreviewBody(
   name: string,
   docInfo: SoAWDocumentInfo,
   versionHistory: SoAWVersionEntry[],
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
-) {
-  const w = window.open("", "_blank");
-  if (!w) {
-    alert("Please allow pop-ups to export PDF.");
-    return;
-  }
-
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>${name || "SoAW"}</title>
-<style>
-  body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #222; line-height: 1.6; font-size: 11pt; }
-  h1 { font-size: 22pt; color: #1a1a2e; border-bottom: 2px solid #1976d2; padding-bottom: 8px; }
-  h2 { font-size: 16pt; color: #333; margin-top: 28px; }
-  h3 { font-size: 13pt; color: #444; margin-top: 20px; }
-  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; font-size: 10pt; }
-  th { background: #f5f5f5; font-weight: 600; }
-  .meta-label { font-weight: 600; width: 140px; }
-  .part-header { font-size: 18pt; color: #1976d2; margin-top: 36px; border-bottom: 2px solid #e0e0e0; padding-bottom: 6px; }
-  .preamble { color: #666; font-style: italic; margin-bottom: 8px; }
-  .custom-badge { display: inline-block; background: #1976d2; color: #fff; font-size: 9pt; padding: 1px 8px; border-radius: 3px; margin-right: 8px; }
-  @media print { body { margin: 20px; } }
-</style></head><body>`;
+): string {
+  let html = "";
 
   // Title
   html += `<h1 style="text-align:center;border:none;">Statement of Architecture Work</h1>`;
@@ -642,7 +637,28 @@ export function exportToPdf(
     }
   }
 
-  html += `</body></html>`;
+  return html;
+}
+
+// ─── PDF export (print-based) ───────────────────────────────────────────────
+
+export function exportToPdf(
+  name: string,
+  docInfo: SoAWDocumentInfo,
+  versionHistory: SoAWVersionEntry[],
+  sections: Record<string, SoAWSectionData>,
+  customSections: { id: string; title: string; content: string; insertAfter: string }[],
+) {
+  const w = window.open("", "_blank");
+  if (!w) {
+    alert("Please allow pop-ups to export PDF.");
+    return;
+  }
+
+  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections);
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>${name || "SoAW"}</title>
+<style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}</body></html>`;
 
   w.document.write(html);
   w.document.close();
