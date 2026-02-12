@@ -663,21 +663,14 @@ export default function DependencyReport() {
                 const dimmed = hovered !== null && !inChain;
 
                 return (
-                  <Tooltip
-                    key={card.instanceId}
-                    title={
-                      <span>
-                        <strong>{tl(card.node.type, types)}</strong>
-                        {" · "}
-                        {card.connectionCount} connections
-                        {card.isDuplicate ? " · Also appears elsewhere" : ""}
-                        <br />
-                        <em>Click to expand · Double-click to open · Right-click to re-center</em>
-                      </span>
-                    }
-                    placement="top"
-                    arrow
-                    enterDelay={500}
+                  <g
+                    key={n.id}
+                    transform={`translate(${n.x},${n.y})`}
+                    style={{ cursor: "pointer" }}
+                    opacity={dimmed ? 0.2 : 1}
+                    onMouseEnter={() => setHovered(n.id)}
+                    onMouseLeave={() => setHovered(null)}
+                    onClick={() => setSelected(nodes.find((nd) => nd.id === n.id) || null)}
                   >
                     <Paper
                       elevation={inChain ? 4 : card.isRoot ? 2 : 0}
@@ -730,111 +723,21 @@ export default function DependencyReport() {
                       onMouseEnter={() => setHovered(card.instanceId)}
                       onMouseLeave={() => setHovered(null)}
                     >
-                      {/* Card content */}
-                      {card.isRoot ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color,
-                              fontWeight: 700,
-                              lineHeight: 1.2,
-                              fontSize: "0.63rem",
-                              textTransform: "uppercase",
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            {tl(card.node.type, types)}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            noWrap
-                            sx={{ fontWeight: 600, lineHeight: 1.3 }}
-                          >
-                            {card.node.name}
-                          </Typography>
-                        </Box>
-                      ) : card.breadcrumb.length > 0 ? (
-                        <Box
-                          sx={{
-                            display: "flex",
-                            flexDirection: "column",
-                            flex: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            noWrap
-                            sx={{
-                              color: "text.disabled",
-                              lineHeight: 1.2,
-                              fontSize: "0.65rem",
-                            }}
-                          >
-                            {card.breadcrumb.join(" / ")}
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            noWrap
-                            sx={{ fontWeight: 500, lineHeight: 1.3 }}
-                          >
-                            {card.node.name}
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{ flex: 1, fontWeight: 500, minWidth: 0 }}
-                        >
-                          {card.node.name}
-                        </Typography>
-                      )}
-
-                      {card.isDuplicate && !card.isRoot && (
-                        <Tooltip title="Also appears elsewhere in this tree" arrow>
-                          <Box sx={{ display: "flex" }}>
-                            <MaterialSymbol icon="link" size={14} color="#bbb" />
-                          </Box>
-                        </Tooltip>
-                      )}
-
-                      {card.canExpand && (
-                        <Badge
-                          badgeContent={card.connectionCount}
-                          color="default"
-                          max={99}
-                          sx={{
-                            "& .MuiBadge-badge": {
-                              fontSize: "0.6rem",
-                              height: 16,
-                              minWidth: 16,
-                              bgcolor: "rgba(0,0,0,0.08)",
-                              color: "text.secondary",
-                            },
-                          }}
-                        >
-                          <MaterialSymbol
-                            icon={
-                              card.isExpanded
-                                ? "expand_more"
-                                : "chevron_right"
-                            }
-                            size={18}
-                            color="#999"
-                          />
-                        </Badge>
-                      )}
-                    </Paper>
-                  </Tooltip>
+                      {n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name}
+                    </text>
+                    {/* Open in new tab icon */}
+                    <g
+                      transform={`translate(${isCenter ? 10 : 7}, ${isCenter ? -10 : -7})`}
+                      style={{ cursor: "pointer" }}
+                      onClick={(e) => { e.stopPropagation(); window.open(`/fact-sheets/${n.id}`, "_blank"); }}
+                    >
+                      <circle r={7} fill="#fff" stroke="#ccc" strokeWidth={0.5} />
+                      <path
+                        d="M-3 1L-3-3L1-3M-1 1L3-3M3-3L3 1L1 1M-1 3L-3 3L-3 1"
+                        fill="none" stroke="#555" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round"
+                      />
+                    </g>
+                  </g>
                 );
               })}
             </Box>
