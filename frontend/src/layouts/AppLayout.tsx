@@ -161,7 +161,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   bgcolor: isGroupActive(item.children) ? "rgba(255,255,255,0.12)" : "transparent",
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>
+                <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
                   <MaterialSymbol icon={item.icon} size={20} color="inherit" />
                 </ListItemIcon>
                 <ListItemText primary={item.label} />
@@ -180,7 +180,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       onClick={() => drawerNav(child.path)}
                       sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)", "&.Mui-selected": { color: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
                     >
-                      <ListItemIcon sx={{ minWidth: 32 }}>
+                      <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
                         <MaterialSymbol icon={child.icon} size={18} color="inherit" />
                       </ListItemIcon>
                       <ListItemText primary={child.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
@@ -200,7 +200,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 "&.Mui-selected": { bgcolor: "rgba(255,255,255,0.12)" },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 36 }}>
+              <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
                 <MaterialSymbol icon={item.icon} size={20} color="inherit" />
               </ListItemIcon>
               <ListItemText primary={item.label} />
@@ -218,7 +218,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             color: isGroupActive(ADMIN_ITEMS as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)",
           }}
         >
-          <ListItemIcon sx={{ minWidth: 36 }}>
+          <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
             <MaterialSymbol icon="admin_panel_settings" size={20} color="inherit" />
           </ListItemIcon>
           <ListItemText primary="Admin" />
@@ -237,7 +237,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 onClick={() => item.path && drawerNav(item.path)}
                 sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)", "&.Mui-selected": { color: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
               >
-                <ListItemIcon sx={{ minWidth: 32 }}>
+                <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
                   <MaterialSymbol icon={item.icon} size={18} color="inherit" />
                 </ListItemIcon>
                 <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
@@ -253,7 +253,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           onClick={() => drawerNav("/inventory?create=true")}
           sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)" }}
         >
-          <ListItemIcon sx={{ minWidth: 36 }}>
+          <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
             <MaterialSymbol icon="add" size={20} color="inherit" />
           </ListItemIcon>
           <ListItemText primary="Create Fact Sheet" />
