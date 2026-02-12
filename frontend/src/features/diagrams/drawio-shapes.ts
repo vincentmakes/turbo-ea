@@ -462,6 +462,15 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
   return { pendingFS, pendingRels, syncedFS };
 }
 
+/** SVG data URI for the "out of sync" resync overlay icon (orange !) */
+const RESYNC_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">' +
+    '<circle cx="10" cy="10" r="9" fill="#ff9800" stroke="#e65100" stroke-width="1"/>' +
+    '<rect x="9" y="5" width="2" height="7" rx="1" fill="#fff"/>' +
+    '<circle cx="10" cy="14.5" r="1.2" fill="#fff"/>' +
+    '</svg>',
+)}`;
+
 /** SVG data URI for the + overlay icon */
 const PLUS_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">' +
@@ -716,4 +725,59 @@ export function refreshFactSheetOverlays(
       onToggle(cell.id, fsId, expanded);
     });
   }
+}
+
+/**
+ * Return the set of factSheetId values for children currently present in the
+ * graph for a given parent cell.
+ */
+export function getGroupChildFactSheetIds(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): Set<string> {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return new Set();
+  const { graph } = ctx;
+
+  const result = new Set<string>();
+  const cells = graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    const c = cells[k];
+    if (c?.value?.getAttribute?.("parentGroupCell") === parentCellId) {
+      const fsId = c.value.getAttribute("factSheetId");
+      if (fsId) result.add(fsId);
+    }
+  }
+  return result;
+}
+
+/**
+ * Add a resync overlay (orange "!" icon) at the top-left of a fact sheet cell.
+ * Indicates the cell's expanded children are out of sync with inventory.
+ * Must be called AFTER addExpandOverlay (which clears all overlays first).
+ */
+export function addResyncOverlay(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  onClick: () => void,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+
+  const overlay = new win.mxCellOverlay(
+    new win.mxImage(RESYNC_OVERLAY, 18, 18),
+    "Restore removed relations (click to resync)",
+    win.mxConstants.ALIGN_LEFT,
+    win.mxConstants.ALIGN_TOP,
+    new win.mxPoint(0, 0),
+  );
+  overlay.cursor = "pointer";
+  overlay.addListener(win.mxEvent.CLICK, () => onClick());
+
+  graph.addCellOverlay(cell, overlay);
+  return true;
 }
