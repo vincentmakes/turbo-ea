@@ -311,3 +311,391 @@ Update seed.py to:
 5. **B1-B4**: Admin UI rewrite (biggest piece)
 6. **C1-C3**: Update consuming components
 7. Build + test + commit
+
+---
+---
+
+# Reports Redesign
+
+## Philosophy
+
+The metamodel is powerful (configurable types, attributes, relations, hierarchies), but the current reports don't leverage it — they're hardcoded to specific attributes and lack interactivity. The redesign follows three principles:
+
+1. **Data-driven, not hardcoded** — reports read the metamodel to populate filter options, axis choices, and color mappings dynamically
+2. **Interactive** — every visual element is clickable, filterable, and explorable
+3. **Dual-mode** — each report has a **chart view** and a **table view** toggle
+
+**Chart library:** Recharts (React-native, lightweight, covers scatter/bubble, treemap, bar, radar) + custom SVG for specialized layouts (capability map, tech radar).
+
+---
+
+## Report 1 — Application Portfolio (TIME / Bubble Chart)
+
+> The #1 EA report. Maps items on a configurable 2D grid to drive invest/migrate/tolerate/eliminate decisions.
+
+### Current problems
+- Axes hardcoded to `functionalFit` / `technicalFit`
+- No axis customization, no legend, no filters
+- Crude CSS-grid bubbles with 2-letter abbreviations
+- No table view fallback
+
+### Proposed design
+
+**Top toolbar:**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Fact Sheet Type | Dropdown (from metamodel) | Which items to plot (default: Application) |
+| X-Axis | Dropdown (single_select fields of chosen type) | Horizontal dimension |
+| Y-Axis | Dropdown (single_select fields of chosen type) | Vertical dimension |
+| Bubble Size | Dropdown (number fields + "None") | Third dimension |
+| Bubble Color | Dropdown (single_select fields + "None") | Fourth dimension |
+| Filter by | Multi-select chips (tags, lifecycle status, related type) | Narrow dataset |
+
+**Chart area:**
+- Recharts `ScatterChart` with labeled quadrant grid
+- Axis labels derived from the selected field's `options[].label`
+- Bubble size scaled with a visible legend (min/max reference circles)
+- Bubble color mapped from field option colors (with legend strip below chart)
+- Hover tooltip: name, all four mapped values, plus lifecycle status
+- Click bubble → navigate to fact sheet detail
+
+**Quadrant overlay:**
+- Semi-transparent colored backgrounds for the 4 quadrants
+- Labels in each corner: "Invest", "Migrate", "Tolerate", "Eliminate"
+- Quadrant labels configurable (user can rename them)
+
+**Table toggle:**
+- Switch to a sortable data table showing all plotted items with columns for name, x-value, y-value, size-value, color-value, lifecycle
+- Row click → navigate to detail
+
+**Empty / partial states:**
+- Items missing axis values shown in a "Not classified" sidebar count
+- Prompt to "Complete data for N items" linking to the data quality report
+
+---
+
+## Report 2 — Business Capability Heatmap
+
+> Visualizes the capability hierarchy as a nested tile map, colored by a chosen metric. The "executive Rosetta Stone" of EA.
+
+### Proposed design
+
+**Top toolbar:**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Heatmap Metric | Dropdown | What colors the tiles (see below) |
+| Scope | Multi-select | Filter by business unit / tag |
+
+**Metric options (dropdown):**
+- Application Count — how many apps support each capability (darker = more)
+- Average Application Health — mean of functional fit / technical fit scores
+- Total Cost — sum of `totalAnnualCost` of linked applications
+- Risk — count of linked end-of-life technologies
+- Strategic Importance — a single_select attribute on the capability type
+- Custom — any number attribute on the capability type
+
+**Tile layout:**
+- L1 capabilities as large labeled cards in a responsive CSS Grid (3-4 columns)
+- L2 capabilities nested inside as smaller tiles
+- L3 capabilities (if any) shown as colored chips within L2 tiles
+- Each tile shows: capability name, metric value, small sparkline or badge
+- Color scale: 5-step sequential palette (light → dark) with legend bar at bottom
+
+**Interactivity:**
+- Hover tile → tooltip with capability name, metric value, top 3 supporting apps
+- Click tile → slide-out drawer listing all linked applications with their health scores
+- Tile border highlight if any linked app is end-of-life
+
+**Fallback:**
+- If no hierarchy exists, render as a flat grid sorted by metric value (still useful)
+
+---
+
+## Report 3 — Technology Lifecycle & Obsolescence
+
+> Timeline showing technology end-of-life risk. Replaces the current Roadmap report.
+
+### Current problems
+- No date axis labels at all
+- No legend for phase colors
+- No date range controls or zoom
+- No filtering beyond type
+
+### Proposed design
+
+**Top toolbar:**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Fact Sheet Type | Dropdown | Default: "IT Component" / "Technology" |
+| Time Range | Date range picker | Start/end of visible window |
+| Group By | Dropdown | None, Category, Related Application, Tag |
+| Filter | Multi-select chips | Lifecycle phase, category, tags |
+
+**Timeline area:**
+- Proper horizontal date axis at top with labeled tick marks (quarters or years)
+- "Today" marker line (dashed vertical red line)
+- Each item = horizontal bar spanning its lifecycle phases
+- Phases color-coded: Plan (gray) → Phase In (blue) → Active (green) → Phase Out (amber) → End of Life (red)
+- Grouped rows with collapsible group headers when "Group By" is set
+
+**Legend:**
+- Horizontal color strip legend always visible below toolbar
+- Includes count badges: "12 Active · 5 Phase Out · 3 End of Life"
+
+**Risk indicators:**
+- Items in End of Life phase get a warning icon
+- Items approaching End of Life (within selected threshold) get a caution icon
+- Summary banner at top: "N technologies reaching end of life within 12 months"
+
+**Interactivity:**
+- Hover bar segment → tooltip with exact dates, phase, linked applications count
+- Click bar → navigate to fact sheet detail
+- Mouse wheel / pinch to zoom timeline; drag to pan
+
+**Table toggle:**
+- Sortable table: Name, Category, Current Phase, Phase-Out Date, End-of-Life Date, # Linked Apps
+
+---
+
+## Report 4 — Dependency / Interface Map
+
+> Network graph showing how applications connect. Critical for impact analysis and migration planning.
+
+### Proposed design
+
+**Top toolbar:**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Center On | Search/autocomplete | Focus on a specific application |
+| Depth | Slider (1-3) | How many hops of dependencies to show |
+| Relation Types | Multi-select | Which relation types to include as edges |
+| Layout | Toggle: Force / Hierarchical | Graph layout algorithm |
+| Filter | Multi-select chips | Type, tags, lifecycle |
+
+**Graph area:**
+- Force-directed or hierarchical graph layout (custom SVG)
+- Nodes = applications (circles with name labels)
+- Node size = configurable (user count, cost, or uniform)
+- Node color = by type, lifecycle status, or domain/tag
+- Edges = relations between applications
+- Edge thickness = uniform (or by a relation attribute if available)
+- Edge color = by relation type (with legend)
+
+**Interactivity:**
+- Drag nodes to rearrange
+- Hover node → highlight all connected edges, dim unconnected
+- Click node → sidebar panel with: name, type, lifecycle, list of all relations
+- Double-click node → navigate to fact sheet detail
+- Hover edge → tooltip with relation type, description
+
+**Impact analysis mode:**
+- Select a node → all downstream dependents highlighted in red cascade
+- Badge showing "N direct + M transitive dependents"
+
+**Table toggle:**
+- Flat table: Source App, Relation Type, Target App, Description
+- Sortable, searchable
+
+---
+
+## Report 5 — Cost & Rationalization Treemap
+
+> Replaces the current bar-chart cost report with a treemap that instantly shows where money goes.
+
+### Current problems
+- Only shows flat list with LinearProgress bars
+- Hardcoded to Application type, totalAnnualCost field
+- No grouping, no drill-down
+
+### Proposed design
+
+**Top toolbar:**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Fact Sheet Type | Dropdown | Which items to analyze |
+| Cost Field | Dropdown (number fields) | Which attribute represents cost |
+| Group By | Dropdown | None, Business Capability, Business Unit, Tag, Lifecycle |
+| Color By | Dropdown | Health score, lifecycle phase, business criticality |
+| Filter | Multi-select chips | Tags, lifecycle, related types |
+
+**Treemap area:**
+- Recharts `Treemap` component
+- Rectangle size = cost value
+- Rectangle color = selected color dimension (with legend)
+- Group By creates nested treemap (outer rectangles = groups, inner = items)
+- Each rectangle labeled with: name (truncated), cost value
+
+**Summary strip above treemap:**
+- Total cost (large number)
+- Item count
+- Average cost per item
+- Top cost driver (name + % of total)
+
+**Interactivity:**
+- Hover rectangle → tooltip: name, cost, % of total, group, lifecycle
+- Click rectangle → navigate to fact sheet detail
+- Click group → zoom into group (breadcrumb to zoom back out)
+
+**Table toggle:**
+- Sortable table: Name, Cost, % of Total, Group, Lifecycle, Health
+- Total row at bottom
+
+---
+
+## Report 6 — Matrix Report (Enhanced)
+
+> Keep the cross-reference matrix but make it actually useful.
+
+### Current problems
+- Just a bullet "●" — no information density
+- No hover details, no counts, no color coding
+- Unwieldy at scale — no pagination or virtualization
+
+### Proposed design
+
+**Top toolbar (same as current + additions):**
+
+| Control | Type | Purpose |
+|---------|------|---------|
+| Row Type | Dropdown | Fact sheet type for rows |
+| Column Type | Dropdown | Fact sheet type for columns |
+| Cell Metric | Dropdown: Count / Attribute / Exists | What to show in cells |
+| Sort Rows By | Dropdown: Name / Relation Count | Row ordering |
+| Filter | Search field + tag chips | Narrow rows/columns |
+
+**Matrix area:**
+- Sticky header row + sticky first column (preserved from current)
+- **Cell content options:**
+  - "Exists" mode: colored dot (current but improved — color by a relation attribute)
+  - "Count" mode: number showing how many relations exist (heat-colored: white → blue)
+  - "Attribute" mode: show a specific relation attribute value in each cell
+- Cell background: intensity-shaded by value (heatmap effect)
+- Row/column count badges in headers: "(12)" after each name
+
+**Interactivity:**
+- Hover cell → tooltip: row item name, column item name, relation details
+- Click cell → popover with full relation details + link to both items
+- Click row/column header → navigate to that fact sheet
+
+**Scale handling:**
+- Virtual scrolling for large matrices (react-window or similar)
+- Show top N rows/columns with "Show all" toggle
+- Summary row at bottom: column totals
+
+---
+
+## Report 7 — Data Quality & Completeness Dashboard
+
+> Meta-report on the health of the EA repository. Drives data governance.
+
+### Proposed design
+
+**KPI cards row (top):**
+
+| Card | Value |
+|------|-------|
+| Overall Completion | Gauge (0-100%) across all types |
+| Items with Complete Lifecycle | Count / % |
+| Orphaned Items | Count of items with zero relations |
+| Stale Items | Items not updated in 90+ days |
+
+**Completeness by Type (main area):**
+- Horizontal stacked bar chart — one bar per fact sheet type
+- Segments: Complete (green), Partial (amber), Minimal (red)
+- Sorted by worst-first (most incomplete at top)
+- Each bar labeled with type name and count
+
+**Worst offenders table:**
+- Table listing the 20 lowest-completion items across all types
+- Columns: Name, Type, Completion %, Missing Fields (comma-separated), Last Updated, Owner
+- Click row → navigate to item to fill in data
+- Sortable by any column
+
+**Trend sparklines:**
+- Small sparkline chart per type showing completion trend over last 6 data points (if historical data available)
+
+**Interactivity:**
+- Click on a bar segment → filtered table showing those items
+- Filter by type, owner, tag
+- "Fix now" button on each row → navigates to edit mode of the fact sheet
+
+---
+
+## UI / Visual Design Guidelines (all reports)
+
+### Layout pattern (consistent across all reports):
+```
+┌─────────────────────────────────────────────┐
+│  Report Title            [Chart] [Table]  ↗ │  ← title + view toggle + fullscreen
+├─────────────────────────────────────────────┤
+│  [Filter1 ▾] [Filter2 ▾] [Filter3 ▾]  🔍  │  ← toolbar with filters
+├─────────────────────────────────────────────┤
+│                                             │
+│           Main visualization area           │  ← chart or table
+│                                             │
+├─────────────────────────────────────────────┤
+│  ● Legend    ○ Legend    ◉ Legend            │  ← always-visible legend
+└─────────────────────────────────────────────┘
+```
+
+### Shared components to build:
+1. **ReportShell** — wraps every report with consistent title bar, chart/table toggle, fullscreen button, export menu
+2. **ReportToolbar** — flex-wrap row of filter controls with responsive collapse
+3. **ReportLegend** — horizontal legend strip with color swatches
+4. **MetricCard** — small KPI card (value + label + optional trend)
+5. **ChartTableToggle** — icon toggle between chart and table views
+
+### Responsive behavior:
+- Toolbar filters wrap to multiple lines on narrow screens
+- Charts maintain aspect ratio with horizontal scroll when needed
+- Table view is the automatic fallback on mobile (< 600px)
+- Legends stack vertically on narrow screens
+
+### Color palette:
+- Sequential: `#e3f2fd → #1565c0` (light blue → dark blue) for heatmaps
+- Diverging: `#c62828 → #fff → #2e7d32` (red → white → green) for health/risk
+- Categorical: MUI palette colors for type-based coloring
+- Always respect field option colors from the metamodel when available
+
+### Export menu (all reports):
+- Export as PNG (chart screenshot)
+- Export as CSV (underlying data)
+- Copy shareable link
+
+---
+
+## Proposed Navigation
+
+Replace the current flat "Reports" dropdown with grouped sub-navigation:
+
+```
+Reports ▾
+  ├── Portfolio        (Bubble chart — TIME model)
+  ├── Capability Map   (Heatmap)
+  ├── Lifecycle        (Timeline / obsolescence)
+  ├── Dependencies     (Network graph)
+  ├── Cost             (Treemap)
+  ├── Matrix           (Cross-reference)
+  └── Data Quality     (Completeness dashboard)
+```
+
+Drop "Landscape" as a separate report — its use case is covered better by the Capability Map (for capabilities) and by the Portfolio report's table view (for listing with filters).
+
+---
+
+## Implementation Priority
+
+| Phase | Reports | Rationale |
+|-------|---------|-----------|
+| **Phase 1** | Portfolio (bubble), Lifecycle (timeline), Cost (treemap) | Highest value, existing API endpoints, direct upgrades of current reports |
+| **Phase 2** | Capability Heatmap, Matrix (enhanced) | Require hierarchy traversal and more complex rendering |
+| **Phase 3** | Dependencies (graph), Data Quality (dashboard) | New report types, new API endpoints needed |
+
+### New dependencies to add:
+- `recharts` — scatter, treemap, bar charts
+- No other external dependencies needed (graph can use custom SVG)
