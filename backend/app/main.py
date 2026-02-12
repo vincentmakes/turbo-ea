@@ -68,6 +68,18 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await seed_metamodel(db)
 
+    # Optionally seed demo data (NexaTech Industries dataset)
+    if settings.SEED_DEMO:
+        from app.services.seed_demo import seed_demo_data
+
+        async with async_session() as db:
+            result = await seed_demo_data(db)
+            if not result.get("skipped"):
+                print(f"[seed_demo] Seeded {result['fact_sheets']} fact sheets, "
+                      f"{result['relations']} relations, {result['tag_groups']} tag groups")
+            else:
+                print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
+
     yield
 
 
