@@ -170,8 +170,297 @@ export function extractFactSheetIds(xml: string): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Expand / collapse group helpers                                    */
+/*  Pending (unsynchronised) cell helpers                              */
 /* ------------------------------------------------------------------ */
+
+/** Style for a pending (not-yet-synced) fact sheet cell — dashed border */
+function buildPendingStyle(color: string): string {
+  const stroke = darken(color);
+  return [
+    "rounded=1", "whiteSpace=wrap", "html=1",
+    `fillColor=${color}`, "fontColor=#ffffff",
+    `strokeColor=${stroke}`, "fontSize=12",
+    "fontStyle=1", "arcSize=12",
+    "dashed=1", "dashPattern=5 3",
+  ].join(";");
+}
+
+/** Style for a synced (normal) fact sheet cell */
+function buildSyncedStyle(color: string): string {
+  const stroke = darken(color);
+  return [
+    "rounded=1", "whiteSpace=wrap", "html=1",
+    `fillColor=${color}`, "fontColor=#ffffff",
+    `strokeColor=${stroke}`, "fontSize=12",
+    "fontStyle=1", "arcSize=12", "shadow=1",
+  ].join(";");
+}
+
+/**
+ * Insert a pending (not-yet-synced) fact sheet cell.
+ * Uses a dashed border to distinguish it from synced cells.
+ */
+export function insertPendingFactSheet(
+  iframe: HTMLIFrameElement,
+  opts: { tempId: string; type: string; name: string; color: string; x: number; y: number },
+): string | null {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return null;
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const parent = graph.getDefaultParent();
+  const cellId = `pfs-${Date.now()}`;
+
+  const xmlDoc = win.mxUtils.createXmlDocument();
+  const obj = xmlDoc.createElement("object");
+  obj.setAttribute("label", opts.name);
+  obj.setAttribute("factSheetId", opts.tempId);
+  obj.setAttribute("factSheetType", opts.type);
+  obj.setAttribute("pending", "1");
+
+  model.beginUpdate();
+  try {
+    graph.insertVertex(parent, cellId, obj, opts.x, opts.y, 180, 60, buildPendingStyle(opts.color));
+  } finally {
+    model.endUpdate();
+  }
+  return cellId;
+}
+
+/**
+ * After the user draws an edge between two FS cells and picks a relation type,
+ * stamp the edge with relation metadata and apply entity-relation style.
+ */
+export function stampEdgeAsRelation(
+  iframe: HTMLIFrameElement,
+  edgeCellId: string,
+  relationType: string,
+  relationLabel: string,
+  color: string,
+  pending: boolean,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const edge = model.getCell(edgeCellId);
+  if (!edge) return false;
+
+  model.beginUpdate();
+  try {
+    // Replace user object with rich metadata
+    const xmlDoc = win.mxUtils.createXmlDocument();
+    const obj = xmlDoc.createElement("object");
+    obj.setAttribute("label", relationLabel);
+    obj.setAttribute("relationType", relationType);
+    if (pending) obj.setAttribute("pending", "1");
+    model.setValue(edge, obj);
+
+    const dash = pending ? "dashed=1;dashPattern=5 3;" : "";
+    const style =
+      `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;${dash}`;
+    graph.setCellStyles("edgeStyle", "entityRelationEdgeStyle", [edge]);
+    model.setStyle(edge, style);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Mark a pending cell as synced: update its factSheetId to the real one
+ * and switch from dashed to solid style.
+ */
+export function markCellSynced(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  realFactSheetId: string,
+  color: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell) return false;
+
+  model.beginUpdate();
+  try {
+    const obj = cell.value;
+    if (obj?.setAttribute) {
+      obj.setAttribute("factSheetId", realFactSheetId);
+      if (obj.removeAttribute) obj.removeAttribute("pending");
+    }
+    model.setStyle(cell, buildSyncedStyle(color));
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Mark a pending relation edge as synced (remove dashed style).
+ */
+export function markEdgeSynced(
+  iframe: HTMLIFrameElement,
+  edgeCellId: string,
+  color: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const edge = model.getCell(edgeCellId);
+  if (!edge) return false;
+
+  model.beginUpdate();
+  try {
+    const obj = edge.value;
+    if (obj?.removeAttribute) obj.removeAttribute("pending");
+    const style =
+      `edgeStyle=entityRelationEdgeStyle;strokeColor=${color};strokeWidth=1.5;` +
+      `endArrow=none;startArrow=none;fontSize=10;fontColor=#666;`;
+    model.setStyle(edge, style);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Update a cell's label (e.g. after accepting an inventory name change).
+ */
+export function updateCellLabel(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  newLabel: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const cell = model.getCell(cellId);
+  if (!cell) return false;
+
+  model.beginUpdate();
+  try {
+    if (cell.value?.setAttribute) {
+      cell.value.setAttribute("label", newLabel);
+    }
+    graph.refresh(cell);
+  } finally {
+    model.endUpdate();
+  }
+  return true;
+}
+
+/**
+ * Remove a cell (vertex or edge) and its connected edges from the graph.
+ */
+export function removeDiagramCell(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+
+  graph.removeCells([cell], true);
+  return true;
+}
+
+export interface ScannedPendingFS {
+  cellId: string;
+  tempId: string;
+  type: string;
+  name: string;
+}
+
+export interface ScannedPendingRel {
+  edgeCellId: string;
+  relationType: string;
+  relationLabel: string;
+  sourceFactSheetId: string;
+  targetFactSheetId: string;
+  sourceName: string;
+  targetName: string;
+}
+
+export interface ScannedSyncedFS {
+  cellId: string;
+  factSheetId: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * Scan the graph for pending and synced items.
+ */
+export function scanDiagramItems(iframe: HTMLIFrameElement): {
+  pendingFS: ScannedPendingFS[];
+  pendingRels: ScannedPendingRel[];
+  syncedFS: ScannedSyncedFS[];
+} {
+  const pendingFS: ScannedPendingFS[] = [];
+  const pendingRels: ScannedPendingRel[] = [];
+  const syncedFS: ScannedSyncedFS[] = [];
+
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return { pendingFS, pendingRels, syncedFS };
+  const { graph } = ctx;
+
+  const cells = graph.getModel().cells || {};
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+
+    const isPending = cell.value.getAttribute("pending") === "1";
+    const fsId = cell.value.getAttribute("factSheetId");
+    const relType = cell.value.getAttribute("relationType");
+
+    if (relType && isPending) {
+      // Pending relation edge
+      const src = graph.getModel().getTerminal(cell, true);
+      const tgt = graph.getModel().getTerminal(cell, false);
+      pendingRels.push({
+        edgeCellId: cell.id,
+        relationType: relType,
+        relationLabel: cell.value.getAttribute("label") || relType,
+        sourceFactSheetId: src?.value?.getAttribute?.("factSheetId") || "",
+        targetFactSheetId: tgt?.value?.getAttribute?.("factSheetId") || "",
+        sourceName: src?.value?.getAttribute?.("label") || "?",
+        targetName: tgt?.value?.getAttribute?.("label") || "?",
+      });
+    } else if (fsId && isPending) {
+      // Pending fact sheet vertex
+      pendingFS.push({
+        cellId: cell.id,
+        tempId: fsId,
+        type: cell.value.getAttribute("factSheetType") || "",
+        name: cell.value.getAttribute("label") || "",
+      });
+    } else if (fsId && !isPending && !cell.value.getAttribute("parentGroupCell")) {
+      // Synced top-level fact sheet vertex
+      syncedFS.push({
+        cellId: cell.id,
+        factSheetId: fsId,
+        name: cell.value.getAttribute("label") || "",
+        type: cell.value.getAttribute("factSheetType") || "",
+      });
+    }
+  }
+
+  return { pendingFS, pendingRels, syncedFS };
+}
 
 /** SVG data URI for the + overlay icon */
 const PLUS_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
