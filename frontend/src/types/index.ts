@@ -219,9 +219,7 @@ export interface DashboardData {
 // ---------------------------------------------------------------------------
 
 export interface SoAWDocumentInfo {
-  project_name: string;
   prepared_by: string;
-  title: string;
   reviewed_by: string;
   review_date: string;
 }

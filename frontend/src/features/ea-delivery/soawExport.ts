@@ -10,6 +10,8 @@ import {
   HeadingLevel,
   AlignmentType,
   ShadingType,
+  BorderStyle,
+  convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
 import {
@@ -18,6 +20,44 @@ import {
   type TemplateSectionDef,
 } from "./soawTemplate";
 import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData } from "@/types";
+
+// ─── constants (matching PDF styles) ─────────────────────────────────────────
+
+const FONT = "Segoe UI";
+const COLOR_BODY = "222222"; // body text
+const COLOR_H1 = "1a1a2e"; // h1
+const COLOR_H2 = "333333"; // h2
+const COLOR_H3 = "444444"; // h3
+const COLOR_PART = "1976d2"; // part header (blue)
+const COLOR_SUBTITLE = "555555"; // doc name subtitle
+const COLOR_PREAMBLE = "666666"; // preamble italic text
+const COLOR_BORDER = "cccccc"; // table borders
+
+// Sizes in half-points (PDF pt × 2)
+const SIZE_BODY = 22; // 11pt
+const SIZE_TITLE = 44; // 22pt
+const SIZE_SUBTITLE = 28; // 14pt
+const SIZE_PART = 36; // 18pt
+const SIZE_H2 = 32; // 16pt
+const SIZE_H3 = 26; // 13pt
+const SIZE_TABLE = 20; // 10pt
+
+// Line spacing: 1.6× = 384 (240 = single)
+const LINE_SPACING = 384;
+
+// Spacing in twips
+const SPACING_AFTER_DEFAULT = 160; // ~8pt
+const SPACING_PART_BEFORE = 540; // ~27pt (36px)
+const SPACING_PART_AFTER = 200;
+const SPACING_H2_BEFORE = 420; // ~21pt (28px)
+const SPACING_H3_BEFORE = 300; // ~15pt (20px)
+const SPACING_AFTER_TABLE = 240;
+
+const CELL_BORDER = {
+  style: BorderStyle.SINGLE,
+  size: 1,
+  color: COLOR_BORDER,
+};
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -31,7 +71,12 @@ function htmlToParagraphs(html: string): Paragraph[] {
     if (node.nodeType === Node.TEXT_NODE) {
       const text = node.textContent?.trim();
       if (text) {
-        paragraphs.push(new Paragraph({ children: [new TextRun(text)] }));
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY })],
+            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
+          }),
+        );
       }
       return;
     }
@@ -41,21 +86,45 @@ function htmlToParagraphs(html: string): Paragraph[] {
 
     if (tag === "p") {
       const runs = inlineRuns(el);
-      if (runs.length > 0) paragraphs.push(new Paragraph({ children: runs }));
+      if (runs.length > 0) {
+        paragraphs.push(
+          new Paragraph({
+            children: runs,
+            spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
+          }),
+        );
+      }
     } else if (tag === "h3" || tag === "h4") {
       paragraphs.push(
         new Paragraph({
-          children: [new TextRun({ text: el.textContent ?? "", bold: true })],
+          children: [
+            new TextRun({
+              text: el.textContent ?? "",
+              bold: true,
+              font: FONT,
+              size: SIZE_H3,
+              color: COLOR_H3,
+            }),
+          ],
           heading: tag === "h3" ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_4,
+          spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
         }),
       );
     } else if (tag === "ul" || tag === "ol") {
       el.querySelectorAll("li").forEach((li, idx) => {
-        const prefix = tag === "ol" ? `${idx + 1}. ` : "- ";
+        const prefix = tag === "ol" ? `${idx + 1}. ` : "\u2022  ";
         paragraphs.push(
           new Paragraph({
-            children: [new TextRun(prefix + (li.textContent ?? ""))],
+            children: [
+              new TextRun({
+                text: prefix + (li.textContent ?? ""),
+                font: FONT,
+                size: SIZE_BODY,
+                color: COLOR_BODY,
+              }),
+            ],
             indent: { left: 720 },
+            spacing: { line: LINE_SPACING, after: 80 },
           }),
         );
       });
@@ -66,14 +135,16 @@ function htmlToParagraphs(html: string): Paragraph[] {
             new TextRun({
               text: el.textContent ?? "",
               italics: true,
-              color: "666666",
+              font: FONT,
+              size: SIZE_BODY,
+              color: COLOR_PREAMBLE,
             }),
           ],
           indent: { left: 720 },
+          spacing: { line: LINE_SPACING, after: SPACING_AFTER_DEFAULT },
         }),
       );
     } else {
-      // Recurse into unknown wrappers
       el.childNodes.forEach(processNode);
     }
   };
@@ -88,7 +159,7 @@ function inlineRuns(el: HTMLElement): TextRun[] {
   el.childNodes.forEach((child) => {
     if (child.nodeType === Node.TEXT_NODE) {
       const text = child.textContent ?? "";
-      if (text) runs.push(new TextRun(text));
+      if (text) runs.push(new TextRun({ text, font: FONT, size: SIZE_BODY, color: COLOR_BODY }));
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       const c = child as HTMLElement;
       const tag = c.tagName.toLowerCase();
@@ -96,6 +167,9 @@ function inlineRuns(el: HTMLElement): TextRun[] {
       runs.push(
         new TextRun({
           text,
+          font: FONT,
+          size: SIZE_BODY,
+          color: COLOR_BODY,
           bold: tag === "strong" || tag === "b",
           italics: tag === "em" || tag === "i",
           underline: tag === "u" ? {} : undefined,
@@ -107,17 +181,41 @@ function inlineRuns(el: HTMLElement): TextRun[] {
   return runs;
 }
 
-/** Build a simple docx Table from column headers and row data. */
+/** Build a docx Table with proper borders and styling matching the PDF. */
 function buildDocxTable(columns: string[], rows: string[][]): Table {
+  const cellBorders = {
+    top: CELL_BORDER,
+    bottom: CELL_BORDER,
+    left: CELL_BORDER,
+    right: CELL_BORDER,
+  };
+
+  const cellMargins = {
+    top: convertInchesToTwip(0.04),
+    bottom: convertInchesToTwip(0.04),
+    left: convertInchesToTwip(0.07),
+    right: convertInchesToTwip(0.07),
+  };
+
   const headerCells = columns.map(
     (col) =>
       new TableCell({
         children: [
           new Paragraph({
-            children: [new TextRun({ text: col, bold: true, size: 20 })],
+            children: [
+              new TextRun({
+                text: col,
+                bold: true,
+                font: FONT,
+                size: SIZE_TABLE,
+                color: COLOR_BODY,
+              }),
+            ],
           }),
         ],
-        shading: { type: ShadingType.CLEAR, fill: "f0f0f0" },
+        shading: { type: ShadingType.CLEAR, fill: "f5f5f5" },
+        borders: cellBorders,
+        margins: cellMargins,
       }),
   );
 
@@ -129,9 +227,18 @@ function buildDocxTable(columns: string[], rows: string[][]): Table {
             new TableCell({
               children: [
                 new Paragraph({
-                  children: [new TextRun({ text: cell, size: 20 })],
+                  children: [
+                    new TextRun({
+                      text: cell,
+                      font: FONT,
+                      size: SIZE_TABLE,
+                      color: COLOR_BODY,
+                    }),
+                  ],
                 }),
               ],
+              borders: cellBorders,
+              margins: cellMargins,
             }),
         ),
       }),
@@ -152,73 +259,97 @@ export async function exportToDocx(
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
 ) {
-  const tables: (Paragraph | Table)[] = [];
+  const children: (Paragraph | Table)[] = [];
 
-  // Title
-  tables.push(
+  // ── Title ──
+  children.push(
     new Paragraph({
       children: [
         new TextRun({
           text: "Statement of Architecture Work",
           bold: true,
-          size: 36,
+          font: FONT,
+          size: SIZE_TITLE,
+          color: COLOR_H1,
         }),
       ],
-      heading: HeadingLevel.TITLE,
       alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
     }),
   );
 
-  tables.push(
+  // Blue rule under title (simulated with a bottom-bordered paragraph)
+  children.push(
     new Paragraph({
-      children: [new TextRun({ text: name, size: 28, color: "333333" })],
+      children: [
+        new TextRun({
+          text: name,
+          font: FONT,
+          size: SIZE_SUBTITLE,
+          color: COLOR_SUBTITLE,
+        }),
+      ],
       alignment: AlignmentType.CENTER,
       spacing: { after: 400 },
+      border: {
+        bottom: { style: BorderStyle.SINGLE, size: 3, color: COLOR_PART, space: 8 },
+      },
     }),
   );
 
-  // Document info table
-  const infoRows = [
-    ["Project Name", docInfo.project_name],
-    ["Prepared By", docInfo.prepared_by],
-    ["Title", docInfo.title],
-    ["Reviewed By", docInfo.reviewed_by],
-    ["Review Date", docInfo.review_date],
-  ];
-  tables.push(
+  // ── Document Information ──
+  children.push(
     new Paragraph({
-      children: [new TextRun({ text: "Document Information", bold: true, size: 24 })],
-      heading: HeadingLevel.HEADING_2,
+      children: [
+        new TextRun({
+          text: "Document Information",
+          bold: true,
+          font: FONT,
+          size: SIZE_H2,
+          color: COLOR_H2,
+        }),
+      ],
+      spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
     }),
   );
-  tables.push(
+  children.push(
     buildDocxTable(
       ["Field", "Value"],
-      infoRows,
+      [
+        ["Prepared By", docInfo.prepared_by],
+        ["Reviewed By", docInfo.reviewed_by],
+        ["Review Date", docInfo.review_date],
+      ],
     ),
   );
-  tables.push(new Paragraph({ spacing: { after: 200 } }));
+  children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
 
-  // Version history
+  // ── Version History ──
   if (versionHistory.some((v) => v.version || v.date)) {
-    tables.push(
+    children.push(
       new Paragraph({
         children: [
-          new TextRun({ text: "Document Version History", bold: true, size: 24 }),
+          new TextRun({
+            text: "Document Version History",
+            bold: true,
+            font: FONT,
+            size: SIZE_H2,
+            color: COLOR_H2,
+          }),
         ],
-        heading: HeadingLevel.HEADING_2,
+        spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
       }),
     );
-    tables.push(
+    children.push(
       buildDocxTable(
         ["Version", "Date", "Revised By", "Description"],
         versionHistory.map((v) => [v.version, v.date, v.revised_by, v.description]),
       ),
     );
-    tables.push(new Paragraph({ spacing: { after: 200 } }));
+    children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
   }
 
-  // Sections
+  // ── Sections ──
   let currentPart: string | null = null;
 
   const addSectionContent = (def: TemplateSectionDef, data: SoAWSectionData) => {
@@ -227,57 +358,76 @@ export async function exportToDocx(
     // Part header
     if (def.part !== currentPart) {
       currentPart = def.part;
-      tables.push(
+      children.push(
         new Paragraph({
           children: [
             new TextRun({
               text: `Part ${def.part}: ${def.part === "I" ? "Statement of Architecture Work" : "Baseline and Target Architectures"}`,
               bold: true,
-              size: 28,
+              font: FONT,
+              size: SIZE_PART,
+              color: COLOR_PART,
             }),
           ],
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 },
+          spacing: { before: SPACING_PART_BEFORE, after: SPACING_PART_AFTER },
+          border: {
+            bottom: { style: BorderStyle.SINGLE, size: 3, color: "e0e0e0", space: 6 },
+          },
         }),
       );
     }
 
     // Section heading
-    const level =
-      def.level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3;
-    tables.push(
+    const isH2 = def.level === 2;
+    children.push(
       new Paragraph({
         children: [
-          new TextRun({ text: def.title, bold: true, size: def.level === 2 ? 24 : 22 }),
+          new TextRun({
+            text: def.title,
+            bold: true,
+            font: FONT,
+            size: isH2 ? SIZE_H2 : SIZE_H3,
+            color: isH2 ? COLOR_H2 : COLOR_H3,
+          }),
         ],
-        heading: level,
+        spacing: {
+          before: isH2 ? SPACING_H2_BEFORE : SPACING_H3_BEFORE,
+          after: SPACING_AFTER_DEFAULT,
+        },
       }),
     );
 
     if (def.preamble) {
-      tables.push(
+      children.push(
         new Paragraph({
           children: [
-            new TextRun({ text: def.preamble, italics: true, size: 20 }),
+            new TextRun({
+              text: def.preamble,
+              italics: true,
+              font: FONT,
+              size: SIZE_BODY,
+              color: COLOR_PREAMBLE,
+            }),
           ],
+          spacing: { after: SPACING_AFTER_DEFAULT },
         }),
       );
     }
 
     if (def.type === "rich_text" && data.content) {
       for (const p of htmlToParagraphs(data.content)) {
-        tables.push(p);
+        children.push(p);
       }
     }
 
     if (def.type === "table" && data.table_data) {
-      tables.push(
+      children.push(
         buildDocxTable(data.table_data.columns, data.table_data.rows),
       );
     }
 
     if (def.type === "togaf_phases" && data.togaf_data) {
-      tables.push(
+      children.push(
         buildDocxTable(
           ["Phase", "Relevant Artefacts"],
           TOGAF_PHASES.map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
@@ -285,21 +435,29 @@ export async function exportToDocx(
       );
     }
 
-    tables.push(new Paragraph({ spacing: { after: 200 } }));
+    children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
 
     // Insert custom sections after this template section
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
-        tables.push(
+        children.push(
           new Paragraph({
-            children: [new TextRun({ text: cs.title, bold: true, size: 22 })],
-            heading: HeadingLevel.HEADING_3,
+            children: [
+              new TextRun({
+                text: cs.title,
+                bold: true,
+                font: FONT,
+                size: SIZE_H3,
+                color: COLOR_H3,
+              }),
+            ],
+            spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
           }),
         );
         for (const p of htmlToParagraphs(cs.content)) {
-          tables.push(p);
+          children.push(p);
         }
-        tables.push(new Paragraph({ spacing: { after: 200 } }));
+        children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
       }
     }
   };
@@ -315,20 +473,42 @@ export async function exportToDocx(
       !cs.insertAfter ||
       !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)
     ) {
-      tables.push(
+      children.push(
         new Paragraph({
-          children: [new TextRun({ text: cs.title, bold: true, size: 22 })],
-          heading: HeadingLevel.HEADING_3,
+          children: [
+            new TextRun({
+              text: cs.title,
+              bold: true,
+              font: FONT,
+              size: SIZE_H3,
+              color: COLOR_H3,
+            }),
+          ],
+          spacing: { before: SPACING_H3_BEFORE, after: SPACING_AFTER_DEFAULT },
         }),
       );
       for (const p of htmlToParagraphs(cs.content)) {
-        tables.push(p);
+        children.push(p);
       }
-      tables.push(new Paragraph({ spacing: { after: 200 } }));
+      children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
     }
   }
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: FONT,
+            size: SIZE_BODY,
+            color: COLOR_BODY,
+          },
+          paragraph: {
+            spacing: { line: LINE_SPACING },
+          },
+        },
+      },
+    },
     sections: [
       {
         properties: {
@@ -341,7 +521,7 @@ export async function exportToDocx(
             },
           },
         },
-        children: tables,
+        children,
       },
     ],
   });
@@ -389,9 +569,7 @@ export function exportToPdf(
 
   // Doc info
   html += `<h2>Document Information</h2><table>`;
-  html += `<tr><td class="meta-label">Project Name</td><td>${docInfo.project_name}</td></tr>`;
   html += `<tr><td class="meta-label">Prepared By</td><td>${docInfo.prepared_by}</td></tr>`;
-  html += `<tr><td class="meta-label">Title</td><td>${docInfo.title}</td></tr>`;
   html += `<tr><td class="meta-label">Reviewed By</td><td>${docInfo.reviewed_by}</td></tr>`;
   html += `<tr><td class="meta-label">Review Date</td><td>${docInfo.review_date}</td></tr>`;
   html += `</table>`;
@@ -438,7 +616,7 @@ export function exportToPdf(
     if (def.type === "togaf_phases" && data.togaf_data) {
       html += `<table><tr><th>Phase</th><th>Relevant Artefacts</th></tr>`;
       for (const p of TOGAF_PHASES) {
-        html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "—"}</td></tr>`;
+        html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "\u2014"}</td></tr>`;
       }
       html += `</table>`;
     }
