@@ -11,6 +11,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-turboea}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       RESET_DB: ${RESET_DB:-false}
+      SEED_DEMO: ${SEED_DEMO:-false}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
     ports:
