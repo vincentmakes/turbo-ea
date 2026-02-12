@@ -168,3 +168,246 @@ export function extractFactSheetIds(xml: string): string[] {
   }
   return ids;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Expand / collapse group helpers                                    */
+/* ------------------------------------------------------------------ */
+
+/** SVG data URI for the + overlay icon */
+const PLUS_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">' +
+    '<circle cx="10" cy="10" r="9" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>' +
+    '<path d="M10 5v10M5 10h10" stroke="rgba(0,0,0,0.55)" stroke-width="2" stroke-linecap="round"/>' +
+    '</svg>',
+)}`;
+
+/** SVG data URI for the − overlay icon */
+const MINUS_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">' +
+    '<circle cx="10" cy="10" r="9" fill="rgba(255,255,255,0.9)" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>' +
+    '<path d="M5 10h10" stroke="rgba(0,0,0,0.55)" stroke-width="2" stroke-linecap="round"/>' +
+    '</svg>',
+)}`;
+
+const CHILD_CARD_W = 160;
+const CHILD_CARD_H = 40;
+const CHILD_GAP_Y = 10;
+const CHILD_GAP_X = 60;
+const TYPE_GROUP_GAP = 16;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getMxGraph(iframe: HTMLIFrameElement): { win: any; graph: any } | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = iframe.contentWindow as any;
+    const graph = win?.__turboGraph;
+    return graph ? { win, graph } : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface ExpandChildData {
+  id: string;
+  name: string;
+  type: string;
+  color: string;
+  relationType: string;
+}
+
+/**
+ * Add a +/− overlay icon to a fact sheet cell.
+ */
+export function addExpandOverlay(
+  iframe: HTMLIFrameElement,
+  cellId: string,
+  expanded: boolean,
+  onClick: () => void,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { win, graph } = ctx;
+
+  const cell = graph.getModel().getCell(cellId);
+  if (!cell) return false;
+
+  graph.removeCellOverlays(cell);
+
+  const overlay = new win.mxCellOverlay(
+    new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 20, 20),
+    expanded ? "Collapse" : "Expand related fact sheets",
+    win.mxConstants.ALIGN_RIGHT,
+    win.mxConstants.ALIGN_MIDDLE,
+    new win.mxPoint(0, 0),
+  );
+  overlay.cursor = "pointer";
+  overlay.addListener(win.mxEvent.CLICK, () => onClick());
+
+  graph.addCellOverlay(cell, overlay);
+  return true;
+}
+
+/**
+ * Insert child vertices + edges around a parent fact sheet cell.
+ * Children are laid out in a column to the right, grouped by type.
+ */
+export function expandFactSheetGroup(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+  children: ExpandChildData[],
+): string[] {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return [];
+  const { win, graph } = ctx;
+
+  const model = graph.getModel();
+  const root = graph.getDefaultParent();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return [];
+
+  const geo = graph.getCellGeometry(parentCell);
+  if (!geo) return [];
+
+  // Compute total height with gaps between type groups
+  let totalH = 0;
+  for (let i = 0; i < children.length; i++) {
+    if (i > 0) {
+      totalH += children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
+    }
+    totalH += CHILD_CARD_H;
+  }
+
+  const startX = geo.x + geo.width + CHILD_GAP_X;
+  const startY = geo.y + geo.height / 2 - totalH / 2;
+
+  const childIds: string[] = [];
+  model.beginUpdate();
+  try {
+    let yOff = 0;
+    for (let i = 0; i < children.length; i++) {
+      if (i > 0) {
+        yOff += children[i].type !== children[i - 1].type ? TYPE_GROUP_GAP : CHILD_GAP_Y;
+      }
+      const ch = children[i];
+      const cid = `fsg-${ch.id.slice(0, 8)}-${Date.now()}-${i}`;
+      const stroke = darken(ch.color);
+      const style = [
+        "rounded=1", "whiteSpace=wrap", "html=1",
+        `fillColor=${ch.color}`, "fontColor=#ffffff",
+        `strokeColor=${stroke}`, "fontSize=11",
+        "fontStyle=1", "arcSize=12",
+      ].join(";");
+
+      const xmlDoc = win.mxUtils.createXmlDocument();
+      const obj = xmlDoc.createElement("object");
+      obj.setAttribute("label", ch.name);
+      obj.setAttribute("factSheetId", ch.id);
+      obj.setAttribute("factSheetType", ch.type);
+      obj.setAttribute("parentGroupCell", parentCellId);
+
+      const vertex = graph.insertVertex(
+        root, cid, obj, startX, startY + yOff, CHILD_CARD_W, CHILD_CARD_H, style,
+      );
+
+      graph.insertEdge(
+        root, `fse-${cid}`, "",
+        parentCell, vertex,
+        `strokeColor=${ch.color};strokeWidth=1.5;rounded=1;curved=1;endArrow=classic;endSize=6`,
+      );
+
+      childIds.push(cid);
+      yOff += CHILD_CARD_H;
+    }
+
+    const pv = parentCell.value;
+    if (pv?.setAttribute) {
+      pv.setAttribute("expanded", "1");
+      pv.setAttribute("childCellIds", childIds.join(","));
+    }
+  } finally {
+    model.endUpdate();
+  }
+
+  return childIds;
+}
+
+/**
+ * Remove all child cells (and their edges) belonging to a parent group.
+ */
+export function collapseFactSheetGroup(
+  iframe: HTMLIFrameElement,
+  parentCellId: string,
+): boolean {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return false;
+  const { graph } = ctx;
+
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return false;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toRemove: any[] = [];
+  const cells = model.cells || {};
+  for (const k of Object.keys(cells)) {
+    const c = cells[k];
+    if (c?.value?.getAttribute?.("parentGroupCell") === parentCellId) {
+      toRemove.push(c);
+    }
+  }
+
+  if (toRemove.length === 0) return false;
+
+  model.beginUpdate();
+  try {
+    graph.removeCells(toRemove, true);
+    const pv = parentCell.value;
+    if (pv?.setAttribute) {
+      pv.setAttribute("expanded", "0");
+      if (pv.removeAttribute) pv.removeAttribute("childCellIds");
+    }
+  } finally {
+    model.endUpdate();
+  }
+
+  return true;
+}
+
+/**
+ * Scan all cells and add expand/collapse overlays to top-level fact sheet
+ * cells (those without a parentGroupCell attribute).
+ */
+export function refreshFactSheetOverlays(
+  iframe: HTMLIFrameElement,
+  onToggle: (cellId: string, factSheetId: string, currentlyExpanded: boolean) => void,
+): void {
+  const ctx = getMxGraph(iframe);
+  if (!ctx) return;
+  const { graph } = ctx;
+
+  const cells = graph.getModel().cells || {};
+
+  // Detect which parent cells actually have children present in the graph
+  const parentsWithChildren = new Set<string>();
+  for (const k of Object.keys(cells)) {
+    const pgc = cells[k]?.value?.getAttribute?.("parentGroupCell");
+    if (pgc) parentsWithChildren.add(pgc);
+  }
+
+  for (const k of Object.keys(cells)) {
+    const cell = cells[k];
+    if (!cell?.value?.getAttribute) continue;
+
+    const fsId = cell.value.getAttribute("factSheetId");
+    if (!fsId) continue;
+    if (cell.value.getAttribute("parentGroupCell")) continue;
+
+    let expanded = cell.value.getAttribute("expanded") === "1";
+    // If marked expanded but children were deleted, treat as collapsed
+    if (expanded && !parentsWithChildren.has(cell.id)) expanded = false;
+
+    addExpandOverlay(iframe, cell.id, expanded, () => {
+      onToggle(cell.id, fsId, expanded);
+    });
+  }
+}
