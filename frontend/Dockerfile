@@ -33,9 +33,12 @@ COPY drawio-config/high-contrast.css /usr/share/nginx/drawio/styles/high-contras
 
 # Strip PWA manifest + service-worker from DrawIO so it works behind auth
 # proxies like Cloudflare Access (browser manifest fetches don't send cookies).
+# Also inject <!--email_off--> to disable Cloudflare Email Address Obfuscation
+# which rewrites page content, breaking DrawIO's JavaScript initialisation.
 RUN sed -i \
     -e '/<link rel="manifest"/d' \
     -e '/serviceWorker/d' \
+    -e 's/<head>/<head><!--email_off-->/' \
     /usr/share/nginx/drawio/index.html
 
 EXPOSE 80
