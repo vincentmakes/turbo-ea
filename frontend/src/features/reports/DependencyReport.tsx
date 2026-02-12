@@ -719,25 +719,125 @@ export default function DependencyReport() {
                           }),
                       }}
                       onClick={() => toggleExpand(card.instanceId)}
-                      onDoubleClick={() => navigate(`/fact-sheets/${card.id}`)}
                       onMouseEnter={() => setHovered(card.instanceId)}
                       onMouseLeave={() => setHovered(null)}
                     >
-                      {n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name}
-                    </text>
-                    {/* Open in new tab icon */}
-                    <g
-                      transform={`translate(${isCenter ? 10 : 7}, ${isCenter ? -10 : -7})`}
-                      style={{ cursor: "pointer" }}
-                      onClick={(e) => { e.stopPropagation(); window.open(`/fact-sheets/${n.id}`, "_blank"); }}
-                    >
-                      <circle r={7} fill="#fff" stroke="#ccc" strokeWidth={0.5} />
-                      <path
-                        d="M-3 1L-3-3L1-3M-1 1L3-3M3-3L3 1L1 1M-1 3L-3 3L-3 1"
-                        fill="none" stroke="#555" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round"
-                      />
-                    </g>
-                  </g>
+                      {/* Card content */}
+                      {card.isRoot ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color,
+                              fontWeight: 700,
+                              lineHeight: 1.2,
+                              fontSize: "0.63rem",
+                              textTransform: "uppercase",
+                              letterSpacing: 0.5,
+                            }}
+                          >
+                            {tl(card.node.type, types)}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            noWrap
+                            sx={{ fontWeight: 600, lineHeight: 1.3 }}
+                          >
+                            {card.node.name}
+                          </Typography>
+                        </Box>
+                      ) : card.breadcrumb.length > 0 ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            noWrap
+                            sx={{
+                              color: "text.disabled",
+                              lineHeight: 1.2,
+                              fontSize: "0.65rem",
+                            }}
+                          >
+                            {card.breadcrumb.join(" / ")}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            noWrap
+                            sx={{ fontWeight: 500, lineHeight: 1.3 }}
+                          >
+                            {card.node.name}
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography
+                          variant="body2"
+                          noWrap
+                          sx={{ flex: 1, fontWeight: 500, minWidth: 0 }}
+                        >
+                          {card.node.name}
+                        </Typography>
+                      )}
+
+                      {card.isDuplicate && !card.isRoot && (
+                        <Tooltip title="Also appears elsewhere in this tree" arrow>
+                          <Box sx={{ display: "flex" }}>
+                            <MaterialSymbol icon="link" size={14} color="#bbb" />
+                          </Box>
+                        </Tooltip>
+                      )}
+
+                      {/* Open in new tab */}
+                      <Tooltip title="Open fact sheet" arrow>
+                        <IconButton
+                          size="small"
+                          sx={{ p: 0.25, ml: "auto" }}
+                          onClick={(e) => { e.stopPropagation(); window.open(`/fact-sheets/${card.id}`, "_blank"); }}
+                        >
+                          <MaterialSymbol icon="open_in_new" size={14} color="#999" />
+                        </IconButton>
+                      </Tooltip>
+
+                      {card.canExpand && (
+                        <Badge
+                          badgeContent={card.connectionCount}
+                          color="default"
+                          max={99}
+                          sx={{
+                            "& .MuiBadge-badge": {
+                              fontSize: "0.6rem",
+                              height: 16,
+                              minWidth: 16,
+                              bgcolor: "rgba(0,0,0,0.08)",
+                              color: "text.secondary",
+                            },
+                          }}
+                        >
+                          <MaterialSymbol
+                            icon={
+                              card.isExpanded
+                                ? "expand_more"
+                                : "chevron_right"
+                            }
+                            size={18}
+                            color="#999"
+                          />
+                        </Badge>
+                      )}
+                    </Paper>
+                  </Tooltip>
                 );
               })}
             </Box>
