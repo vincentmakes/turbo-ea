@@ -22,7 +22,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheet, SoAW } from "@/types";
+import type { FactSheet, SoAW, DiagramSummary } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -40,6 +40,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 interface InitiativeGroup {
   initiative: FactSheet;
+  diagrams: DiagramSummary[];
   soaws: SoAW[];
 }
 
@@ -49,6 +50,7 @@ export default function EADeliveryPage() {
   const navigate = useNavigate();
 
   const [initiatives, setInitiatives] = useState<FactSheet[]>([]);
+  const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -72,11 +74,13 @@ export default function EADeliveryPage() {
     setLoading(true);
     setError("");
     try {
-      const [initRes, soawRes] = await Promise.all([
+      const [initRes, diagRes, soawRes] = await Promise.all([
         api.get<{ items: FactSheet[] }>("/fact-sheets?type=Initiative&page_size=500"),
+        api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
       ]);
       setInitiatives(initRes.items);
+      setDiagrams(diagRes);
       setSoaws(soawRes);
       // Auto-expand first initiative
       if (initRes.items.length > 0 && Object.keys(expanded).length === 0) {
@@ -99,13 +103,19 @@ export default function EADeliveryPage() {
   const groups: InitiativeGroup[] = useMemo(() => {
     return initiatives.map((init) => ({
       initiative: init,
+      diagrams: diagrams.filter((d) => d.initiative_id === init.id),
       soaws: soaws.filter((s) => s.initiative_id === init.id),
     }));
-  }, [initiatives, soaws]);
+  }, [initiatives, diagrams, soaws]);
 
   const unlinkedSoaws = useMemo(
     () => soaws.filter((s) => !s.initiative_id),
     [soaws],
+  );
+
+  const unlinkedDiagrams = useMemo(
+    () => diagrams.filter((d) => !d.initiative_id),
+    [diagrams],
   );
 
   // ── create SoAW ────────────────────────────────────────────────────────
@@ -152,6 +162,55 @@ export default function EADeliveryPage() {
   const toggle = (id: string) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
+  // ── shared card renderers ──────────────────────────────────────────────
+
+  const renderDiagramCard = (d: DiagramSummary) => (
+    <Card key={`d-${d.id}`} variant="outlined" sx={{ mb: 1 }}>
+      <CardActionArea
+        onClick={() => navigate(`/diagrams/${d.id}`)}
+        sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
+      >
+        <MaterialSymbol icon="schema" size={20} color="#1976d2" />
+        <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
+          {d.name}
+        </Typography>
+        <Chip label="Diagram" size="small" color="info" variant="outlined" />
+      </CardActionArea>
+    </Card>
+  );
+
+  const renderSoawCard = (s: SoAW) => (
+    <Card key={`s-${s.id}`} variant="outlined" sx={{ mb: 1 }}>
+      <CardActionArea
+        onClick={() => navigate(`/ea-delivery/soaw/${s.id}`)}
+        sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
+      >
+        <MaterialSymbol icon="description" size={20} color="#e65100" />
+        <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
+          {s.name}
+        </Typography>
+        <Chip
+          label={STATUS_LABELS[s.status] ?? s.status}
+          size="small"
+          color={STATUS_COLORS[s.status] ?? "default"}
+          sx={{ mr: 1 }}
+        />
+        <Chip label="SoAW" size="small" variant="outlined" />
+        <IconButton
+          size="small"
+          sx={{ ml: 0.5 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setCtxMenu({ anchor: e.currentTarget, soaw: s });
+          }}
+        >
+          <MaterialSymbol icon="more_vert" size={18} />
+        </IconButton>
+      </CardActionArea>
+    </Card>
+  );
+
   // ── render ─────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -191,7 +250,7 @@ export default function EADeliveryPage() {
         </Alert>
       )}
 
-      {initiatives.length === 0 && soaws.length === 0 && (
+      {initiatives.length === 0 && soaws.length === 0 && diagrams.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           No initiatives found. Create initiatives in the Inventory first, then
           come back here to manage artefacts.
@@ -199,17 +258,14 @@ export default function EADeliveryPage() {
       )}
 
       {/* Initiative groups */}
-      {groups.map(({ initiative, soaws: initSoaws }) => {
+      {groups.map(({ initiative, soaws: initSoaws, diagrams: initDiagrams }) => {
         const isOpen = expanded[initiative.id] ?? false;
-        const artefactCount = initSoaws.length;
+        const artefactCount = initSoaws.length + initDiagrams.length;
 
         return (
           <Card
             key={initiative.id}
-            sx={{
-              mb: 2,
-              borderLeft: "4px solid #33cc58",
-            }}
+            sx={{ mb: 2, borderLeft: "4px solid #33cc58" }}
           >
             {/* Initiative header */}
             <Box
@@ -246,7 +302,7 @@ export default function EADeliveryPage() {
                 variant="outlined"
                 sx={{ mr: 1 }}
               />
-              <Tooltip title="Create artefact for this initiative">
+              <Tooltip title="Create SoAW for this initiative">
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -276,63 +332,27 @@ export default function EADeliveryPage() {
                         cursor: "pointer",
                         "&:hover": { textDecoration: "underline" },
                       }}
-                      onClick={() =>
-                        handleCreateForInitiative(initiative.id)
-                      }
+                      onClick={() => handleCreateForInitiative(initiative.id)}
                     >
                       Create a Statement of Architecture Work
                     </Box>
+                    {" or link a diagram from the Diagrams page."}
                   </Typography>
                 )}
 
+                {/* Diagram cards */}
+                {initDiagrams.map(renderDiagramCard)}
+
                 {/* SoAW cards */}
-                {initSoaws.map((s) => (
-                  <Card
-                    key={s.id}
-                    variant="outlined"
-                    sx={{ mb: 1 }}
-                  >
-                    <CardActionArea
-                      onClick={() => navigate(`/ea-delivery/soaw/${s.id}`)}
-                      sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
-                    >
-                      <MaterialSymbol
-                        icon="description"
-                        size={20}
-                        color="#e65100"
-                      />
-                      <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
-                        {s.name}
-                      </Typography>
-                      <Chip
-                        label={STATUS_LABELS[s.status] ?? s.status}
-                        size="small"
-                        color={STATUS_COLORS[s.status] ?? "default"}
-                        sx={{ mr: 1 }}
-                      />
-                      <Chip label="SoAW" size="small" variant="outlined" />
-                      <IconButton
-                        size="small"
-                        sx={{ ml: 0.5 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setCtxMenu({ anchor: e.currentTarget, soaw: s });
-                        }}
-                      >
-                        <MaterialSymbol icon="more_vert" size={18} />
-                      </IconButton>
-                    </CardActionArea>
-                  </Card>
-                ))}
+                {initSoaws.map(renderSoawCard)}
               </Box>
             </Collapse>
           </Card>
         );
       })}
 
-      {/* Unlinked SoAWs */}
-      {unlinkedSoaws.length > 0 && (
+      {/* Unlinked artefacts */}
+      {(unlinkedSoaws.length > 0 || unlinkedDiagrams.length > 0) && (
         <Card sx={{ mb: 2, borderLeft: "4px solid #999" }}>
           <Box
             sx={{
@@ -347,11 +367,7 @@ export default function EADeliveryPage() {
           >
             <IconButton size="small" sx={{ mr: 1 }}>
               <MaterialSymbol
-                icon={
-                  expanded["__unlinked__"]
-                    ? "expand_more"
-                    : "chevron_right"
-                }
+                icon={expanded["__unlinked__"] ? "expand_more" : "chevron_right"}
                 size={20}
               />
             </IconButton>
@@ -362,50 +378,15 @@ export default function EADeliveryPage() {
               Not linked to an Initiative
             </Typography>
             <Chip
-              label={`${unlinkedSoaws.length} artefact${unlinkedSoaws.length !== 1 ? "s" : ""}`}
+              label={`${unlinkedSoaws.length + unlinkedDiagrams.length} artefact${unlinkedSoaws.length + unlinkedDiagrams.length !== 1 ? "s" : ""}`}
               size="small"
               variant="outlined"
             />
           </Box>
           <Collapse in={expanded["__unlinked__"] ?? false}>
             <Box sx={{ px: 2, pb: 2 }}>
-              {unlinkedSoaws.map((s) => (
-                <Card key={s.id} variant="outlined" sx={{ mb: 1 }}>
-                  <CardActionArea
-                    onClick={() => navigate(`/ea-delivery/soaw/${s.id}`)}
-                    sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
-                  >
-                    <MaterialSymbol
-                      icon="description"
-                      size={20}
-                      color="#e65100"
-                    />
-                    <Typography
-                      sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}
-                    >
-                      {s.name}
-                    </Typography>
-                    <Chip
-                      label={STATUS_LABELS[s.status] ?? s.status}
-                      size="small"
-                      color={STATUS_COLORS[s.status] ?? "default"}
-                      sx={{ mr: 1 }}
-                    />
-                    <Chip label="SoAW" size="small" variant="outlined" />
-                    <IconButton
-                      size="small"
-                      sx={{ ml: 0.5 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        setCtxMenu({ anchor: e.currentTarget, soaw: s });
-                      }}
-                    >
-                      <MaterialSymbol icon="more_vert" size={18} />
-                    </IconButton>
-                  </CardActionArea>
-                </Card>
-              ))}
+              {unlinkedDiagrams.map(renderDiagramCard)}
+              {unlinkedSoaws.map(renderSoawCard)}
             </Box>
           </Collapse>
         </Card>
