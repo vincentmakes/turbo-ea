@@ -14,6 +14,9 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
+import InputAdornment from "@mui/material/InputAdornment";
+import IconButton from "@mui/material/IconButton";
+import Badge from "@mui/material/Badge";
 import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -21,7 +24,7 @@ import { api } from "@/api/client";
 import type { FactSheetType } from "@/types";
 
 /* ------------------------------------------------------------------ */
-/*  Data interfaces                                                    */
+/*  Data types                                                         */
 /* ------------------------------------------------------------------ */
 
 interface GNode {
@@ -30,6 +33,8 @@ interface GNode {
   type: string;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
+  parent_id?: string | null;
+  path?: string[];
 }
 
 interface GEdge {
@@ -40,19 +45,23 @@ interface GEdge {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Layout interfaces                                                  */
+/*  Layout types                                                       */
 /* ------------------------------------------------------------------ */
 
 interface PositionedCard {
+  instanceId: string;
   id: string;
   node: GNode;
   column: number;
   x: number;
   y: number;
-  parentId: string | null;
+  parentInstanceId: string | null;
   isExpanded: boolean;
   canExpand: boolean;
   isRoot: boolean;
+  isDuplicate: boolean;
+  breadcrumb: string[];
+  connectionCount: number;
 }
 
 interface PositionedHeader {
@@ -67,8 +76,8 @@ interface PositionedHeader {
 }
 
 interface Connection {
-  fromId: string;
-  toId: string;
+  fromInstance: string;
+  toInstance: string;
   x1: number;
   y1: number;
   x2: number;
@@ -85,13 +94,14 @@ interface TreeLayout {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Layout constants                                                   */
+/*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const CARD_W = 232;
+const CARD_W = 248;
 const CARD_H = 40;
-const ROOT_CARD_H = 54;
-const COL_GAP = 100;
+const CARD_PATH_H = 52;
+const ROOT_CARD_H = 56;
+const COL_GAP = 90;
 const COL_SPACING = CARD_W + COL_GAP;
 const ITEM_GAP = 5;
 const GROUP_GAP = 18;
@@ -112,15 +122,13 @@ const FALLBACK_COLORS: Record<string, string> = {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function typeColor(key: string, types: FactSheetType[]): string {
+function tc(key: string, types: FactSheetType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
-
-function typeLabel(key: string, types: FactSheetType[]): string {
+function tl(key: string, types: FactSheetType[]): string {
   return types.find((t) => t.key === key)?.label || key;
 }
-
-function typeIcon(key: string, types: FactSheetType[]): string {
+function ti(key: string, types: FactSheetType[]): string {
   return types.find((t) => t.key === key)?.icon || "description";
 }
 
@@ -129,8 +137,13 @@ function curvePath(x1: number, y1: number, x2: number, y2: number): string {
   return `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
 }
 
+function cardH(card: { isRoot: boolean; breadcrumb: string[] }): number {
+  if (card.isRoot) return ROOT_CARD_H;
+  return card.breadcrumb.length > 0 ? CARD_PATH_H : CARD_H;
+}
+
 /* ------------------------------------------------------------------ */
-/*  Tree layout algorithm                                              */
+/*  Tree layout engine                                                 */
 /* ------------------------------------------------------------------ */
 
 function computeTreeLayout(
@@ -142,42 +155,51 @@ function computeTreeLayout(
 ): TreeLayout {
   const cards: PositionedCard[] = [];
   const headers: PositionedHeader[] = [];
-  const visited = new Set<string>();
+  const placedNodeIds = new Set<string>();
 
   function layoutNode(
     nodeId: string,
+    instanceId: string,
     column: number,
     yOffset: number,
-    parentId: string | null,
+    parentInstanceId: string | null,
+    pathAncestors: Set<string>,
   ): number {
     const node = nodeMap.get(nodeId);
     if (!node) return 0;
 
-    visited.add(nodeId);
-    const isRoot = nodeId === rootId;
-    const cardH = isRoot ? ROOT_CARD_H : CARD_H;
+    const isRoot = parentInstanceId === null;
+    const breadcrumb = node.path || [];
+    const thisH = isRoot ? ROOT_CARD_H : breadcrumb.length > 0 ? CARD_PATH_H : CARD_H;
     const x = column * COL_SPACING + PADDING;
-    const isExp = expanded.has(nodeId);
+    const isExp = expanded.has(instanceId);
+    const totalConns = (adjMap.get(nodeId) || []).length;
     const neighbors = (adjMap.get(nodeId) || []).filter(
-      (n) => !visited.has(n.nodeId) && nodeMap.has(n.nodeId),
+      (n) => !pathAncestors.has(n.nodeId) && nodeMap.has(n.nodeId),
     );
+    const isDuplicate = placedNodeIds.has(nodeId);
+    placedNodeIds.add(nodeId);
 
     if (!isExp || neighbors.length === 0) {
       cards.push({
+        instanceId,
         id: nodeId,
         node,
         column,
         x,
         y: yOffset,
-        parentId,
+        parentInstanceId,
         isExpanded: isExp,
         canExpand: neighbors.length > 0,
         isRoot,
+        isDuplicate,
+        breadcrumb,
+        connectionCount: totalConns,
       });
-      return cardH;
+      return thisH;
     }
 
-    // Group neighbors by fact-sheet type
+    // Group neighbors by type
     const groupMap = new Map<string, string[]>();
     const groupOrder: string[] = [];
     for (const n of neighbors) {
@@ -189,15 +211,11 @@ function computeTreeLayout(
       }
       groupMap.get(nn.type)!.push(n.nodeId);
     }
-
-    // Sort groups by metamodel sort_order
     groupOrder.sort((a, b) => {
       const sa = types.find((t) => t.key === a)?.sort_order ?? 99;
       const sb = types.find((t) => t.key === b)?.sort_order ?? 99;
       return sa - sb;
     });
-
-    // Sort items within each group alphabetically
     for (const ids of groupMap.values()) {
       ids.sort((a, b) => {
         const na = nodeMap.get(a)?.name || "";
@@ -206,7 +224,9 @@ function computeTreeLayout(
       });
     }
 
-    // Layout children in the next column
+    // Layout children
+    const childPath = new Set(pathAncestors);
+    childPath.add(nodeId);
     let childY = yOffset;
     for (let gi = 0; gi < groupOrder.length; gi++) {
       const tk = groupOrder[gi];
@@ -214,11 +234,11 @@ function computeTreeLayout(
       if (gi > 0) childY += GROUP_GAP;
 
       headers.push({
-        key: `${nodeId}-${tk}`,
+        key: `${instanceId}-${tk}`,
         typeKey: tk,
-        typeLabel: typeLabel(tk, types),
-        typeColor: typeColor(tk, types),
-        typeIcon: typeIcon(tk, types),
+        typeLabel: tl(tk, types),
+        typeColor: tc(tk, types),
+        typeIcon: ti(tk, types),
         count: nodeIds.length,
         x: (column + 1) * COL_SPACING + PADDING,
         y: childY,
@@ -227,57 +247,69 @@ function computeTreeLayout(
 
       for (let i = 0; i < nodeIds.length; i++) {
         if (i > 0) childY += ITEM_GAP;
-        childY += layoutNode(nodeIds[i], column + 1, childY, nodeId);
+        const childInstanceId = `${instanceId}:${nodeIds[i]}`;
+        childY += layoutNode(
+          nodeIds[i],
+          childInstanceId,
+          column + 1,
+          childY,
+          instanceId,
+          childPath,
+        );
       }
     }
 
     const childrenH = childY - yOffset;
-    const nodeY = yOffset + Math.max(0, childrenH / 2 - cardH / 2);
+    const nodeY = yOffset + Math.max(0, childrenH / 2 - thisH / 2);
 
     cards.push({
+      instanceId,
       id: nodeId,
       node,
       column,
       x,
       y: nodeY,
-      parentId,
+      parentInstanceId,
       isExpanded: true,
       canExpand: true,
       isRoot,
+      isDuplicate,
+      breadcrumb,
+      connectionCount: totalConns,
     });
 
-    return Math.max(cardH, childrenH);
+    return Math.max(thisH, childrenH);
   }
 
-  // Run layout
-  const rootNode = nodeMap.get(rootId);
-  if (!rootNode) return { cards: [], headers: [], connections: [], width: 0, height: 0 };
+  if (!nodeMap.has(rootId))
+    return { cards: [], headers: [], connections: [], width: 0, height: 0 };
 
-  const totalH = layoutNode(rootId, 0, PADDING, null);
+  const rootInstance = `root:${rootId}`;
+  const totalH = layoutNode(rootId, rootInstance, 0, PADDING, null, new Set());
 
   // Build connections
   const connections: Connection[] = [];
-  const cardById = new Map(cards.map((c) => [c.id, c]));
+  const cardByInst = new Map(cards.map((c) => [c.instanceId, c]));
   for (const card of cards) {
-    if (!card.parentId) continue;
-    const parent = cardById.get(card.parentId);
+    if (!card.parentInstanceId) continue;
+    const parent = cardByInst.get(card.parentInstanceId);
     if (!parent) continue;
-    const pH = parent.isRoot ? ROOT_CARD_H : CARD_H;
-    const cH = card.isRoot ? ROOT_CARD_H : CARD_H;
+    const pH = cardH(parent);
+    const cH = cardH(card);
     connections.push({
-      fromId: card.parentId,
-      toId: card.id,
+      fromInstance: card.parentInstanceId,
+      toInstance: card.instanceId,
       x1: parent.x + CARD_W,
       y1: parent.y + pH / 2,
       x2: card.x,
       y2: card.y + cH / 2,
-      color: typeColor(card.node.type, types),
+      color: tc(card.node.type, types),
     });
   }
 
   const maxX = cards.length ? Math.max(...cards.map((c) => c.x + CARD_W)) : 0;
   const maxY = Math.max(
-    ...(cards.length ? cards.map((c) => c.y + (c.isRoot ? ROOT_CARD_H : CARD_H)) : [0]),
+    ...(cards.length ? cards.map((c) => c.y + cardH(c)) : [0]),
     ...(headers.length ? headers.map((h) => h.y + HEADER_H) : [0]),
     totalH + PADDING,
   );
@@ -308,7 +340,11 @@ export default function DependencyReport() {
   const [hovered, setHovered] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch all data once (optionally filtered by type)
+  /* -- picker state -- */
+  const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
+
+  // Fetch data
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
@@ -322,7 +358,7 @@ export default function DependencyReport() {
       });
   }, [fsType]);
 
-  // Build adjacency map
+  // Adjacency map
   const adjMap = useMemo(() => {
     const m = new Map<string, { nodeId: string; relType: string }[]>();
     for (const e of edges) {
@@ -336,23 +372,34 @@ export default function DependencyReport() {
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
 
+  // Connection counts
+  const connCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
+    return m;
+  }, [nodes, adjMap]);
+
   // Reset expansion when center changes
   useEffect(() => {
     if (center) {
-      setExpanded(new Set([center]));
+      setExpanded(new Set([`root:${center}`]));
     } else {
       setExpanded(new Set());
     }
   }, [center]);
 
-  const toggleExpand = useCallback((id: string) => {
+  const toggleExpand = useCallback((instanceId: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(instanceId)) next.delete(instanceId);
+      else next.add(instanceId);
       return next;
     });
   }, []);
+
+  const collapseAll = useCallback(() => {
+    if (center) setExpanded(new Set([`root:${center}`]));
+  }, [center]);
 
   // Compute tree layout
   const layout = useMemo<TreeLayout | null>(() => {
@@ -360,13 +407,68 @@ export default function DependencyReport() {
     return computeTreeLayout(center, expanded, adjMap, nodeMap, types);
   }, [center, expanded, adjMap, nodeMap, types]);
 
-  // Autocomplete options respect type filter
+  // Hovered ancestry chain (for highlighting the path)
+  const hoveredChain = useMemo(() => {
+    if (!hovered || !layout) return new Set<string>();
+    const s = new Set<string>();
+    const byInst = new Map(layout.cards.map((c) => [c.instanceId, c]));
+    // Walk up
+    let cur: string | null = hovered;
+    while (cur) {
+      s.add(cur);
+      const card = byInst.get(cur);
+      cur = card?.parentInstanceId ?? null;
+    }
+    // Direct children
+    for (const c of layout.cards) {
+      if (c.parentInstanceId === hovered) s.add(c.instanceId);
+    }
+    return s;
+  }, [hovered, layout]);
+
+  // Picker: used types
+  const usedTypes = useMemo(() => [...new Set(nodes.map((n) => n.type))], [nodes]);
+
+  // Picker: filtered items
+  const pickerItems = useMemo(() => {
+    let items = nodes;
+    if (pickerTypeFilter) items = items.filter((n) => n.type === pickerTypeFilter);
+    if (pickerSearch.trim()) {
+      const q = pickerSearch.trim().toLowerCase();
+      items = items.filter(
+        (n) =>
+          n.name.toLowerCase().includes(q) ||
+          (n.path && n.path.some((p) => p.toLowerCase().includes(q))),
+      );
+    }
+    return items;
+  }, [nodes, pickerTypeFilter, pickerSearch]);
+
+  // Picker: group by type
+  const pickerGroups = useMemo(() => {
+    const groups = new Map<string, GNode[]>();
+    const order: string[] = [];
+    for (const n of pickerItems) {
+      if (!groups.has(n.type)) {
+        groups.set(n.type, []);
+        order.push(n.type);
+      }
+      groups.get(n.type)!.push(n);
+    }
+    order.sort((a, b) => {
+      const sa = types.find((t) => t.key === a)?.sort_order ?? 99;
+      const sb = types.find((t) => t.key === b)?.sort_order ?? 99;
+      return sa - sb;
+    });
+    for (const arr of groups.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
+    return { groups, order };
+  }, [pickerItems, types]);
+
+  // Autocomplete options for toolbar
   const acOptions = useMemo(
     () => (fsType ? nodes.filter((n) => n.type === fsType) : nodes),
     [nodes, fsType],
   );
-
-  const usedTypes = useMemo(() => [...new Set(nodes.map((n) => n.type))], [nodes]);
 
   if (loading)
     return (
@@ -375,7 +477,9 @@ export default function DependencyReport() {
       </Box>
     );
 
-  /* ---------- render ---------- */
+  /* ================================================================ */
+  /*  RENDER                                                           */
+  /* ================================================================ */
   return (
     <ReportShell
       title="Dependencies"
@@ -393,6 +497,7 @@ export default function DependencyReport() {
             onChange={(e) => {
               setFsType(e.target.value);
               setCenter("");
+              setPickerTypeFilter(null);
             }}
             sx={{ minWidth: 150 }}
           >
@@ -417,20 +522,20 @@ export default function DependencyReport() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    bgcolor: typeColor(option.type, types),
+                    bgcolor: tc(option.type, types),
                     mr: 1,
                     flexShrink: 0,
                   }}
                 />
-                <Typography variant="body2" noWrap>
+                <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                   {option.name}
                 </Typography>
                 <Typography
                   variant="caption"
                   color="text.disabled"
-                  sx={{ ml: "auto", pl: 1, flexShrink: 0 }}
+                  sx={{ ml: 1, flexShrink: 0 }}
                 >
-                  {typeLabel(option.type, types)}
+                  {tl(option.type, types)}
                 </Typography>
               </li>
             )}
@@ -439,6 +544,14 @@ export default function DependencyReport() {
             )}
             sx={{ minWidth: 220 }}
           />
+
+          {center && (
+            <Tooltip title="Collapse all branches">
+              <IconButton size="small" onClick={collapseAll}>
+                <MaterialSymbol icon="unfold_less" size={20} />
+              </IconButton>
+            </Tooltip>
+          )}
         </>
       }
       legend={
@@ -450,11 +563,11 @@ export default function DependencyReport() {
                   width: 10,
                   height: 10,
                   borderRadius: "50%",
-                  bgcolor: typeColor(t, types),
+                  bgcolor: tc(t, types),
                 }}
               />
               <Typography variant="caption" color="text.secondary">
-                {typeLabel(t, types)}
+                {tl(t, types)}
               </Typography>
             </Box>
           ))}
@@ -464,15 +577,11 @@ export default function DependencyReport() {
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
         center && layout && layout.cards.length > 0 ? (
+          /* ---------- TREE VIEW ---------- */
           <Paper
             variant="outlined"
-            sx={{
-              overflow: "auto",
-              bgcolor: "#f8f9fb",
-              borderRadius: 2,
-              position: "relative",
-            }}
             ref={scrollRef}
+            sx={{ overflow: "auto", bgcolor: "#f8f9fb", borderRadius: 2 }}
           >
             <Box
               sx={{
@@ -482,7 +591,7 @@ export default function DependencyReport() {
                 minWidth: "100%",
               }}
             >
-              {/* --- SVG curves --- */}
+              {/* SVG curves */}
               <svg
                 style={{
                   position: "absolute",
@@ -493,21 +602,19 @@ export default function DependencyReport() {
                 }}
               >
                 {layout.connections.map((c) => {
-                  const active =
-                    hovered === c.fromId || hovered === c.toId;
+                  const inChain =
+                    hovered !== null &&
+                    hoveredChain.has(c.fromInstance) &&
+                    hoveredChain.has(c.toInstance);
                   return (
                     <path
-                      key={`${c.fromId}-${c.toId}`}
+                      key={`${c.fromInstance}-${c.toInstance}`}
                       d={curvePath(c.x1, c.y1, c.x2, c.y2)}
                       fill="none"
                       stroke={c.color}
-                      strokeWidth={active ? 2.2 : 1.4}
+                      strokeWidth={inChain ? 2.4 : 1.4}
                       strokeOpacity={
-                        hovered
-                          ? active
-                            ? 0.85
-                            : 0.12
-                          : 0.35
+                        hovered ? (inChain ? 0.9 : 0.1) : 0.35
                       }
                       style={{ transition: "stroke-opacity 0.2s, stroke-width 0.2s" }}
                     />
@@ -515,7 +622,7 @@ export default function DependencyReport() {
                 })}
               </svg>
 
-              {/* --- Type group headers --- */}
+              {/* Type group headers */}
               {layout.headers.map((h) => (
                 <Box
                   key={h.key}
@@ -531,56 +638,76 @@ export default function DependencyReport() {
                     userSelect: "none",
                   }}
                 >
-                  <MaterialSymbol icon={h.typeIcon} size={15} color={h.typeColor} />
+                  <MaterialSymbol icon={h.typeIcon} size={14} color={h.typeColor} />
                   <Typography
                     variant="caption"
                     sx={{ fontWeight: 700, color: h.typeColor, lineHeight: 1 }}
                   >
                     {h.typeLabel}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: "text.disabled", lineHeight: 1 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.disabled", lineHeight: 1 }}
+                  >
                     ({h.count})
                   </Typography>
                 </Box>
               ))}
 
-              {/* --- Cards --- */}
+              {/* Cards */}
               {layout.cards.map((card) => {
-                const cardH = card.isRoot ? ROOT_CARD_H : CARD_H;
-                const tc = typeColor(card.node.type, types);
-                const isHov = hovered === card.id;
-                const dimmed = hovered !== null && !isHov;
+                const h = cardH(card);
+                const color = tc(card.node.type, types);
+                const inChain =
+                  hovered !== null && hoveredChain.has(card.instanceId);
+                const dimmed = hovered !== null && !inChain;
 
                 return (
                   <Tooltip
-                    key={card.id}
-                    title={`${typeLabel(card.node.type, types)} · ${(adjMap.get(card.id) || []).length} connections`}
+                    key={card.instanceId}
+                    title={
+                      <span>
+                        <strong>{tl(card.node.type, types)}</strong>
+                        {" · "}
+                        {card.connectionCount} connections
+                        {card.isDuplicate ? " · Also appears elsewhere" : ""}
+                        <br />
+                        <em>Click to expand · Double-click to open · Right-click to re-center</em>
+                      </span>
+                    }
                     placement="top"
                     arrow
-                    enterDelay={400}
+                    enterDelay={500}
                   >
                     <Paper
-                      elevation={isHov ? 4 : card.isRoot ? 2 : 0}
+                      elevation={inChain ? 4 : card.isRoot ? 2 : 0}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setCenter(card.id);
+                      }}
                       sx={{
                         position: "absolute",
                         left: card.x,
                         top: card.y,
                         width: CARD_W,
-                        height: cardH,
+                        height: h,
                         display: "flex",
                         alignItems: "center",
                         px: 1.5,
                         gap: 0.75,
                         cursor: "pointer",
-                        borderLeft: `3.5px solid ${tc}`,
+                        borderLeft: `3.5px solid ${color}`,
                         borderRadius: "8px",
                         bgcolor: card.isExpanded
-                          ? "rgba(0,0,0,0.03)"
+                          ? "rgba(0,0,0,0.025)"
                           : "background.paper",
-                        opacity: dimmed ? 0.45 : 1,
+                        opacity: dimmed ? 0.4 : 1,
                         transition:
-                          "box-shadow 0.2s, opacity 0.2s, background-color 0.2s",
-                        "&:hover": { boxShadow: 4, bgcolor: "background.paper" },
+                          "box-shadow 0.2s, opacity 0.2s, background-color 0.15s",
+                        "&:hover": {
+                          boxShadow: 4,
+                          bgcolor: "background.paper",
+                        },
                         ...(card.isRoot && {
                           borderLeftWidth: 4,
                           boxShadow: 2,
@@ -589,16 +716,22 @@ export default function DependencyReport() {
                           !card.isExpanded && {
                             border: "1px solid",
                             borderColor: "divider",
-                            borderLeftColor: tc,
+                            borderLeftColor: color,
                             borderLeftWidth: "3.5px",
                           }),
+                        ...(card.isDuplicate &&
+                          !card.isRoot && {
+                            borderStyle: "dashed",
+                            borderLeftStyle: "solid",
+                          }),
                       }}
-                      onClick={() => toggleExpand(card.id)}
+                      onClick={() => toggleExpand(card.instanceId)}
                       onDoubleClick={() => navigate(`/fact-sheets/${card.id}`)}
-                      onMouseEnter={() => setHovered(card.id)}
+                      onMouseEnter={() => setHovered(card.instanceId)}
                       onMouseLeave={() => setHovered(null)}
                     >
-                      {card.isRoot && (
+                      {/* Card content */}
+                      {card.isRoot ? (
                         <Box
                           sx={{
                             display: "flex",
@@ -610,15 +743,15 @@ export default function DependencyReport() {
                           <Typography
                             variant="caption"
                             sx={{
-                              color: tc,
+                              color,
                               fontWeight: 700,
                               lineHeight: 1.2,
-                              fontSize: "0.65rem",
+                              fontSize: "0.63rem",
                               textTransform: "uppercase",
                               letterSpacing: 0.5,
                             }}
                           >
-                            {typeLabel(card.node.type, types)}
+                            {tl(card.node.type, types)}
                           </Typography>
                           <Typography
                             variant="body2"
@@ -628,9 +761,35 @@ export default function DependencyReport() {
                             {card.node.name}
                           </Typography>
                         </Box>
-                      )}
-
-                      {!card.isRoot && (
+                      ) : card.breadcrumb.length > 0 ? (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: "column",
+                            flex: 1,
+                            minWidth: 0,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            noWrap
+                            sx={{
+                              color: "text.disabled",
+                              lineHeight: 1.2,
+                              fontSize: "0.65rem",
+                            }}
+                          >
+                            {card.breadcrumb.join(" / ")}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            noWrap
+                            sx={{ fontWeight: 500, lineHeight: 1.3 }}
+                          >
+                            {card.node.name}
+                          </Typography>
+                        </Box>
+                      ) : (
                         <Typography
                           variant="body2"
                           noWrap
@@ -640,12 +799,39 @@ export default function DependencyReport() {
                         </Typography>
                       )}
 
+                      {card.isDuplicate && !card.isRoot && (
+                        <Tooltip title="Also appears elsewhere in this tree" arrow>
+                          <Box sx={{ display: "flex" }}>
+                            <MaterialSymbol icon="link" size={14} color="#bbb" />
+                          </Box>
+                        </Tooltip>
+                      )}
+
                       {card.canExpand && (
-                        <MaterialSymbol
-                          icon={card.isExpanded ? "expand_more" : "chevron_right"}
-                          size={18}
-                          color="#999"
-                        />
+                        <Badge
+                          badgeContent={card.connectionCount}
+                          color="default"
+                          max={99}
+                          sx={{
+                            "& .MuiBadge-badge": {
+                              fontSize: "0.6rem",
+                              height: 16,
+                              minWidth: 16,
+                              bgcolor: "rgba(0,0,0,0.08)",
+                              color: "text.secondary",
+                            },
+                          }}
+                        >
+                          <MaterialSymbol
+                            icon={
+                              card.isExpanded
+                                ? "expand_more"
+                                : "chevron_right"
+                            }
+                            size={18}
+                            color="#999"
+                          />
+                        </Badge>
                       )}
                     </Paper>
                   </Tooltip>
@@ -653,8 +839,17 @@ export default function DependencyReport() {
               })}
             </Box>
 
-            {/* Stats chip */}
-            <Box sx={{ position: "sticky", bottom: 8, left: 0, px: 1, pb: 0.5, textAlign: "right" }}>
+            {/* Stats chip (sticky bottom-right) */}
+            <Box
+              sx={{
+                position: "sticky",
+                bottom: 8,
+                left: 0,
+                px: 1,
+                pb: 0.5,
+                textAlign: "right",
+              }}
+            >
               <Chip
                 size="small"
                 label={`${layout.cards.length} nodes · ${layout.connections.length} relations`}
@@ -664,34 +859,114 @@ export default function DependencyReport() {
             </Box>
           </Paper>
         ) : (
-          /* ---------- Picker / empty state ---------- */
-          <Paper
-            variant="outlined"
-            sx={{ p: 4, textAlign: "center", borderRadius: 2 }}
-          >
-            <MaterialSymbol icon="account_tree" size={52} color="#c0c0c0" />
-            <Typography variant="h6" color="text.secondary" sx={{ mt: 1.5 }}>
-              Select a fact sheet to explore
-            </Typography>
-            <Typography
-              variant="body2"
-              color="text.disabled"
-              sx={{ mb: 3, maxWidth: 380, mx: "auto" }}
-            >
-              Use the &ldquo;Center on&rdquo; search above, or click a fact sheet
-              below to visualize its dependencies.
-            </Typography>
+          /* ---------- PICKER (no center selected) ---------- */
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            {/* Picker header */}
+            <Box sx={{ p: 2.5, pb: 0 }}>
+              <Box sx={{ textAlign: "center", mb: 2 }}>
+                <MaterialSymbol icon="account_tree" size={44} color="#bbb" />
+                <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Select a fact sheet to explore
+                </Typography>
+                <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: "auto" }}>
+                  Search and pick a starting point. Click to center, then expand
+                  branches interactively.
+                </Typography>
+              </Box>
 
-            {nodes.length === 0 ? (
-              <Typography color="text.disabled" variant="body2">
-                No fact sheets found.
-              </Typography>
-            ) : (
-              <Box sx={{ textAlign: "left", maxWidth: 720, mx: "auto" }}>
+              {/* Search */}
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="Search fact sheets..."
+                value={pickerSearch}
+                onChange={(e) => setPickerSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MaterialSymbol icon="search" size={20} color="#999" />
+                    </InputAdornment>
+                  ),
+                  ...(pickerSearch && {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setPickerSearch("")}
+                        >
+                          <MaterialSymbol icon="close" size={16} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }),
+                }}
+                sx={{ mb: 1.5 }}
+              />
+
+              {/* Type filter chips */}
+              <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}>
+                <Chip
+                  label="All"
+                  size="small"
+                  variant={pickerTypeFilter === null ? "filled" : "outlined"}
+                  onClick={() => setPickerTypeFilter(null)}
+                  sx={{
+                    fontWeight: pickerTypeFilter === null ? 700 : 400,
+                  }}
+                />
                 {usedTypes.map((tk) => {
-                  const items = nodes.filter((n) => n.type === tk);
-                  const tc = typeColor(tk, types);
-                  const MAX = 12;
+                  const active = pickerTypeFilter === tk;
+                  const color = tc(tk, types);
+                  const count = nodes.filter((n) => n.type === tk).length;
+                  return (
+                    <Chip
+                      key={tk}
+                      size="small"
+                      variant={active ? "filled" : "outlined"}
+                      label={`${tl(tk, types)} (${count})`}
+                      onClick={() =>
+                        setPickerTypeFilter(active ? null : tk)
+                      }
+                      icon={
+                        <Box
+                          sx={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: "50%",
+                            bgcolor: color,
+                            ml: "4px !important",
+                          }}
+                          component="span"
+                        />
+                      }
+                      sx={{
+                        fontWeight: active ? 700 : 400,
+                        ...(active && {
+                          bgcolor: color + "18",
+                          color: color,
+                          borderColor: color,
+                        }),
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            </Box>
+
+            {/* Results list */}
+            {pickerItems.length === 0 ? (
+              <Box sx={{ py: 4, textAlign: "center" }}>
+                <Typography color="text.disabled" variant="body2">
+                  {nodes.length === 0
+                    ? "No fact sheets found."
+                    : "No results match your search."}
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ maxHeight: 420, overflow: "auto", px: 2.5, pb: 2 }}>
+                {pickerGroups.order.map((tk) => {
+                  const items = pickerGroups.groups.get(tk)!;
+                  const color = tc(tk, types);
                   return (
                     <Box key={tk} sx={{ mb: 2 }}>
                       <Box
@@ -699,50 +974,91 @@ export default function DependencyReport() {
                           display: "flex",
                           alignItems: "center",
                           gap: 0.5,
-                          mb: 0.75,
+                          mb: 0.5,
+                          position: "sticky",
+                          top: 0,
+                          bgcolor: "background.paper",
+                          py: 0.25,
+                          zIndex: 1,
                         }}
                       >
                         <MaterialSymbol
-                          icon={typeIcon(tk, types)}
-                          size={16}
-                          color={tc}
+                          icon={ti(tk, types)}
+                          size={15}
+                          color={color}
                         />
                         <Typography
                           variant="subtitle2"
-                          sx={{ fontWeight: 700, color: tc }}
+                          sx={{ fontWeight: 700, color }}
                         >
-                          {typeLabel(tk, types)}
+                          {tl(tk, types)}
                         </Typography>
                         <Typography variant="caption" color="text.disabled">
                           ({items.length})
                         </Typography>
                       </Box>
-                      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-                        {items.slice(0, MAX).map((n) => (
-                          <Chip
+                      {items.map((n) => {
+                        const conns = connCounts.get(n.id) || 0;
+                        const path = n.path || [];
+                        return (
+                          <Box
                             key={n.id}
-                            label={n.name}
-                            size="small"
                             onClick={() => setCenter(n.id)}
-                            variant="outlined"
                             sx={{
-                              borderColor: tc + "50",
-                              "&:hover": {
-                                bgcolor: tc + "14",
-                                borderColor: tc,
-                              },
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              py: 0.6,
+                              px: 1,
+                              borderRadius: 1,
+                              cursor: "pointer",
+                              "&:hover": { bgcolor: color + "0a" },
                             }}
-                          />
-                        ))}
-                        {items.length > MAX && (
-                          <Chip
-                            label={`+${items.length - MAX} more`}
-                            size="small"
-                            variant="outlined"
-                            sx={{ fontStyle: "italic", color: "text.disabled" }}
-                          />
-                        )}
-                      </Box>
+                          >
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              {path.length > 0 && (
+                                <Typography
+                                  variant="caption"
+                                  noWrap
+                                  sx={{
+                                    color: "text.disabled",
+                                    fontSize: "0.65rem",
+                                    display: "block",
+                                    lineHeight: 1.2,
+                                  }}
+                                >
+                                  {path.join(" / ")}
+                                </Typography>
+                              )}
+                              <Typography
+                                variant="body2"
+                                noWrap
+                                sx={{ fontWeight: 500 }}
+                              >
+                                {n.name}
+                              </Typography>
+                            </Box>
+                            {conns > 0 && (
+                              <Chip
+                                size="small"
+                                label={conns}
+                                variant="outlined"
+                                sx={{
+                                  height: 20,
+                                  fontSize: "0.7rem",
+                                  color: "text.disabled",
+                                  borderColor: "divider",
+                                }}
+                              />
+                            )}
+                            <MaterialSymbol
+                              icon="chevron_right"
+                              size={16}
+                              color="#ccc"
+                            />
+                          </Box>
+                        );
+                      })}
                     </Box>
                   );
                 })}
@@ -769,16 +1085,24 @@ export default function DependencyReport() {
                   <TableRow key={i} hover>
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
-                      onClick={() => s && navigate(`/fact-sheets/${s.id}`)}
+                      onClick={() =>
+                        s && navigate(`/fact-sheets/${s.id}`)
+                      }
                     >
                       {s?.name}
                     </TableCell>
                     <TableCell>
-                      <Chip size="small" label={e.type} variant="outlined" />
+                      <Chip
+                        size="small"
+                        label={e.type}
+                        variant="outlined"
+                      />
                     </TableCell>
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
-                      onClick={() => t && navigate(`/fact-sheets/${t.id}`)}
+                      onClick={() =>
+                        t && navigate(`/fact-sheets/${t.id}`)
+                      }
                     >
                       {t?.name}
                     </TableCell>
