@@ -4,7 +4,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import Snackbar from "@mui/material/Snackbar";
-import Badge from "@mui/material/Badge";
+import Button from "@mui/material/Button";
 import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -823,17 +823,16 @@ export default function DiagramEditor() {
 
         {/* Sync button */}
         <Tooltip title="Synchronise diagram with inventory">
-          <IconButton size="small" onClick={() => setSyncOpen(true)}>
-            <Badge
-              badgeContent={totalPending}
-              color="warning"
-              max={99}
-              invisible={totalPending === 0}
-              sx={{ "& .MuiBadge-badge": { fontSize: "0.6rem", height: 16, minWidth: 16 } }}
-            >
-              <MaterialSymbol icon="sync" size={20} />
-            </Badge>
-          </IconButton>
+          <Button
+            size="small"
+            variant={totalPending > 0 ? "contained" : "outlined"}
+            color={totalPending > 0 ? "warning" : "inherit"}
+            startIcon={<MaterialSymbol icon="sync" size={18} />}
+            onClick={() => setSyncOpen(true)}
+            sx={{ textTransform: "none", minWidth: 0, px: 1.5, py: 0.25, fontSize: "0.8rem" }}
+          >
+            Sync{totalPending > 0 ? ` (${totalPending})` : ""}
+          </Button>
         </Tooltip>
       </Box>
 
