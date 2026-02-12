@@ -213,3 +213,53 @@ export interface DashboardData {
   quality_seals: Record<string, number>;
   recent_events: EventEntry[];
 }
+
+// ---------------------------------------------------------------------------
+// Statement of Architecture Work (SoAW)
+// ---------------------------------------------------------------------------
+
+export interface SoAWDocumentInfo {
+  project_name: string;
+  prepared_by: string;
+  title: string;
+  reviewed_by: string;
+  review_date: string;
+}
+
+export interface SoAWVersionEntry {
+  version: string;
+  date: string;
+  revised_by: string;
+  description: string;
+}
+
+export interface SoAWSectionData {
+  content: string;
+  hidden: boolean;
+  table_data?: { columns: string[]; rows: string[][] };
+  togaf_data?: Record<string, string>;
+}
+
+export interface SoAW {
+  id: string;
+  name: string;
+  initiative_id: string | null;
+  status: "draft" | "in_review" | "approved";
+  document_info: SoAWDocumentInfo;
+  version_history: SoAWVersionEntry[];
+  sections: Record<string, SoAWSectionData>;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DiagramSummary {
+  id: string;
+  name: string;
+  description?: string;
+  type: string;
+  thumbnail?: string;
+  fact_sheet_count: number;
+  created_at?: string;
+  updated_at?: string;
+}

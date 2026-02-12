@@ -12,6 +12,7 @@ from app.models.event import Event
 from app.models.document import Document
 from app.models.bookmark import Bookmark
 from app.models.diagram import Diagram
+from app.models.soaw import SoAW
 
 __all__ = [
     "Base",
@@ -30,4 +31,5 @@ __all__ = [
     "Document",
     "Bookmark",
     "Diagram",
+    "SoAW",
 ]

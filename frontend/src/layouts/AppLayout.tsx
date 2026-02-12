@@ -37,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
+  { label: "EA Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -66,7 +67,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     }
   };
 
-  const isActive = (path?: string) => !!(path && location.pathname === path);
+  const isActive = (path?: string) =>
+    !!(path && (location.pathname === path || (path !== "/" && location.pathname.startsWith(path))));
   const isGroupActive = (children?: { path: string }[]) =>
     !!children?.some((c) => location.pathname === c.path);
 
