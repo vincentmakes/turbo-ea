@@ -24,8 +24,10 @@ import {
   insertFactSheetIntoGraph,
   getVisibleCenter,
   addExpandOverlay,
+  addResyncOverlay,
   expandFactSheetGroup,
   collapseFactSheetGroup,
+  getGroupChildFactSheetIds,
   refreshFactSheetOverlays,
   insertPendingFactSheet,
   stampEdgeAsRelation,
@@ -242,6 +244,11 @@ export default function DiagramEditor() {
   const pendingSaveXmlRef = useRef<string | null>(null);
   const contextInsertPosRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Expand/collapse caches — survive collapse/expand cycles so locally
+  // deleted children don't reappear.
+  const expandCacheRef = useRef<Map<string, ExpandChildData[]>>(new Map());
+  const deletedChildrenRef = useRef<Map<string, Set<string>>>(new Map());
+
   // Dialog states
   const [pickerOpen, setPickerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -296,61 +303,169 @@ export default function DiagramEditor() {
   );
 
   /* ---------- Expand / collapse ---------- */
+
+  /** Expand children into the graph and wire up overlays. */
+  const doExpand = useCallback(
+    (frame: HTMLIFrameElement, cellId: string, factSheetId: string, children: ExpandChildData[]) => {
+      const deleted = deletedChildrenRef.current.get(cellId);
+      const visible = deleted?.size
+        ? children.filter((c) => !deleted.has(c.id))
+        : children;
+
+      if (visible.length === 0) {
+        setSnackMsg("No related fact sheets");
+        return;
+      }
+
+      const inserted = expandFactSheetGroup(frame, cellId, visible);
+      addExpandOverlay(frame, cellId, true, () =>
+        handleToggleGroup(cellId, factSheetId, true),
+      );
+      // If some children were locally removed, show resync icon
+      if (deleted?.size) {
+        addResyncOverlay(frame, cellId, () =>
+          handleResync(cellId, factSheetId),
+        );
+      }
+      for (const child of inserted) {
+        addExpandOverlay(frame, child.cellId, false, () =>
+          handleToggleGroup(child.cellId, child.factSheetId, false),
+        );
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   const handleToggleGroup = useCallback(
     (cellId: string, factSheetId: string, currentlyExpanded: boolean) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
       if (currentlyExpanded) {
+        // Before collapsing, detect children the user removed while expanded
+        const cached = expandCacheRef.current.get(cellId);
+        if (cached) {
+          const stillPresent = getGroupChildFactSheetIds(frame, cellId);
+          const nowDeleted = cached.filter((c) => !stillPresent.has(c.id)).map((c) => c.id);
+          if (nowDeleted.length > 0) {
+            const existing = deletedChildrenRef.current.get(cellId) ?? new Set<string>();
+            nowDeleted.forEach((id) => existing.add(id));
+            deletedChildrenRef.current.set(cellId, existing);
+          }
+        }
+
         collapseFactSheetGroup(frame, cellId);
         addExpandOverlay(frame, cellId, false, () =>
           handleToggleGroup(cellId, factSheetId, false),
         );
+        // Keep resync icon if there are local deletions
+        if (deletedChildrenRef.current.get(cellId)?.size) {
+          addResyncOverlay(frame, cellId, () =>
+            handleResync(cellId, factSheetId),
+          );
+        }
       } else {
-        api
-          .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
-          .then((rels) => {
-            if (!iframeRef.current) return;
-            const seen = new Set<string>();
-            const children: ExpandChildData[] = [];
-            for (const r of rels) {
-              const other = r.source_id === factSheetId ? r.target : r.source;
-              if (!other || seen.has(other.id)) continue;
-              seen.add(other.id);
-              const t = fsTypesRef.current.find((tp) => tp.key === other.type);
-              children.push({
-                id: other.id,
-                name: other.name,
-                type: other.type,
-                color: t?.color || "#999",
-                relationType: r.type,
+        // Use cached children if available, otherwise fetch from API
+        const cached = expandCacheRef.current.get(cellId);
+        if (cached) {
+          doExpand(frame, cellId, factSheetId, cached);
+        } else {
+          api
+            .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
+            .then((rels) => {
+              if (!iframeRef.current) return;
+              const seen = new Set<string>();
+              const children: ExpandChildData[] = [];
+              for (const r of rels) {
+                const other = r.source_id === factSheetId ? r.target : r.source;
+                if (!other || seen.has(other.id)) continue;
+                seen.add(other.id);
+                const t = fsTypesRef.current.find((tp) => tp.key === other.type);
+                children.push({
+                  id: other.id,
+                  name: other.name,
+                  type: other.type,
+                  color: t?.color || "#999",
+                  relationType: r.type,
+                });
+              }
+              if (children.length === 0) {
+                setSnackMsg("No related fact sheets");
+                return;
+              }
+              children.sort((a, b) => {
+                const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
+                const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
+                if (sa !== sb) return sa - sb;
+                return a.name.localeCompare(b.name);
               });
-            }
-            if (children.length === 0) {
-              setSnackMsg("No related fact sheets");
-              return;
-            }
-            children.sort((a, b) => {
-              const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
-              const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
-              if (sa !== sb) return sa - sb;
-              return a.name.localeCompare(b.name);
-            });
-            const inserted = expandFactSheetGroup(iframeRef.current, cellId, children);
-            addExpandOverlay(iframeRef.current, cellId, true, () =>
-              handleToggleGroup(cellId, factSheetId, true),
-            );
-            for (const child of inserted) {
-              addExpandOverlay(iframeRef.current, child.cellId, false, () =>
-                handleToggleGroup(child.cellId, child.factSheetId, false),
-              );
-            }
-          })
-          .catch(() => setSnackMsg("Failed to load relations"));
+              // Cache the full API result
+              expandCacheRef.current.set(cellId, children);
+              doExpand(iframeRef.current!, cellId, factSheetId, children);
+            })
+            .catch(() => setSnackMsg("Failed to load relations"));
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [doExpand],
+  );
+
+  /** Clear local caches and re-fetch relations from inventory. */
+  const handleResync = useCallback(
+    (cellId: string, factSheetId: string) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+
+      // Clear caches
+      expandCacheRef.current.delete(cellId);
+      deletedChildrenRef.current.delete(cellId);
+
+      // Collapse first if currently expanded
+      collapseFactSheetGroup(frame, cellId);
+
+      // Re-fetch and expand
+      api
+        .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
+        .then((rels) => {
+          if (!iframeRef.current) return;
+          const seen = new Set<string>();
+          const children: ExpandChildData[] = [];
+          for (const r of rels) {
+            const other = r.source_id === factSheetId ? r.target : r.source;
+            if (!other || seen.has(other.id)) continue;
+            seen.add(other.id);
+            const t = fsTypesRef.current.find((tp) => tp.key === other.type);
+            children.push({
+              id: other.id,
+              name: other.name,
+              type: other.type,
+              color: t?.color || "#999",
+              relationType: r.type,
+            });
+          }
+          if (children.length === 0) {
+            addExpandOverlay(iframeRef.current!, cellId, false, () =>
+              handleToggleGroup(cellId, factSheetId, false),
+            );
+            setSnackMsg("No related fact sheets");
+            return;
+          }
+          children.sort((a, b) => {
+            const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
+            const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
+            if (sa !== sb) return sa - sb;
+            return a.name.localeCompare(b.name);
+          });
+          expandCacheRef.current.set(cellId, children);
+          doExpand(iframeRef.current!, cellId, factSheetId, children);
+          setSnackMsg("Relations restored from inventory");
+        })
+        .catch(() => setSnackMsg("Failed to resync relations"));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doExpand],
   );
 
   /* ---------- Insert existing fact sheet ---------- */
@@ -709,16 +824,24 @@ export default function DiagramEditor() {
             xml: diagram?.data?.xml || EMPTY_DIAGRAM,
             autosave: 0,
           });
-          setTimeout(() => {
-            if (iframeRef.current) {
-              bootstrapDrawIO(iframeRef.current);
+          // Poll for Draw.loadPlugin instead of a hardcoded delay — behind
+          // Cloudflare (or slow networks) the iframe may need more than 300 ms.
+          (function tryBootstrap(attempt: number) {
+            const frame = iframeRef.current;
+            if (!frame) return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const win = frame.contentWindow as any;
+            if (win?.Draw?.loadPlugin) {
+              bootstrapDrawIO(frame);
               setTimeout(() => {
                 if (iframeRef.current) {
                   refreshFactSheetOverlays(iframeRef.current, handleToggleGroup);
                 }
               }, 200);
+            } else if (attempt < 50) {
+              setTimeout(() => tryBootstrap(attempt + 1), 200);
             }
-          }, 300);
+          })(0);
           break;
 
         case "save":
