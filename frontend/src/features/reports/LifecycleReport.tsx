@@ -258,7 +258,10 @@ export default function LifecycleReport() {
                           {eolPct != null && (
                             <Tooltip title={`End of Life: ${fmtDate(item.lifecycle.endOfLife)}`}>
                               <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
-                                <MaterialSymbol icon="block" size={20} color="#f44336" />
+                                <svg width="20" height="20" viewBox="0 0 20 20">
+                                  <circle cx="10" cy="10" r="9" fill="#f44336" stroke="#b71c1c" strokeWidth="1" />
+                                  <rect x="4" y="8" width="12" height="4" rx="1" fill="#fff" />
+                                </svg>
                               </Box>
                             </Tooltip>
                           )}
