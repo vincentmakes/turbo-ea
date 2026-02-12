@@ -12,8 +12,14 @@ import {
   buildFactSheetCellData,
   insertFactSheetIntoGraph,
   getVisibleCenter,
+  addExpandOverlay,
+  expandFactSheetGroup,
+  collapseFactSheetGroup,
+  refreshFactSheetOverlays,
 } from "./drawio-shapes";
-import type { FactSheet, FactSheetType } from "@/types";
+import type { ExpandChildData } from "./drawio-shapes";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import type { FactSheet, FactSheetType, Relation } from "@/types";
 
 /**
  * DrawIO embed mode URL.
@@ -132,6 +138,9 @@ export default function DiagramEditor() {
   const [saving, setSaving] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
+  const { types: fsTypes } = useMetamodel();
+  const fsTypesRef = useRef(fsTypes);
+  fsTypesRef.current = fsTypes;
   // Track whether we're waiting for a thumbnail export after save
   const pendingSaveXmlRef = useRef<string | null>(null);
   // Graph-space coordinates from right-click context menu
@@ -187,6 +196,61 @@ export default function DiagramEditor() {
     [diagram]
   );
 
+  /** Toggle expand/collapse for a fact sheet group in the DrawIO graph */
+  const handleToggleGroup = useCallback(
+    (cellId: string, factSheetId: string, currentlyExpanded: boolean) => {
+      const frame = iframeRef.current;
+      if (!frame) return;
+
+      if (currentlyExpanded) {
+        collapseFactSheetGroup(frame, cellId);
+        addExpandOverlay(frame, cellId, false, () =>
+          handleToggleGroup(cellId, factSheetId, false),
+        );
+      } else {
+        api
+          .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
+          .then((rels) => {
+            if (!iframeRef.current) return;
+            const seen = new Set<string>();
+            const children: ExpandChildData[] = [];
+            for (const r of rels) {
+              const other =
+                r.source_id === factSheetId ? r.target : r.source;
+              if (!other || seen.has(other.id)) continue;
+              seen.add(other.id);
+              const t = fsTypesRef.current.find((tp) => tp.key === other.type);
+              children.push({
+                id: other.id,
+                name: other.name,
+                type: other.type,
+                color: t?.color || "#999",
+                relationType: r.type,
+              });
+            }
+            if (children.length === 0) {
+              setSnackMsg("No related fact sheets");
+              return;
+            }
+            // Sort by type then name for neat grouping
+            children.sort((a, b) => {
+              const sa = fsTypesRef.current.find((t) => t.key === a.type)?.sort_order ?? 99;
+              const sb = fsTypesRef.current.find((t) => t.key === b.type)?.sort_order ?? 99;
+              if (sa !== sb) return sa - sb;
+              return a.name.localeCompare(b.name);
+            });
+            expandFactSheetGroup(iframeRef.current, cellId, children);
+            addExpandOverlay(iframeRef.current, cellId, true, () =>
+              handleToggleGroup(cellId, factSheetId, true),
+            );
+          })
+          .catch(() => setSnackMsg("Failed to load relations"));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
   /** Insert a fact sheet shape directly into the DrawIO graph */
   const handleInsertFactSheet = useCallback(
     (fs: FactSheet, fsType: FactSheetType) => {
@@ -217,12 +281,15 @@ export default function DiagramEditor() {
 
       const ok = insertFactSheetIntoGraph(frame, data);
       if (ok) {
+        addExpandOverlay(frame, data.cellId, false, () =>
+          handleToggleGroup(data.cellId, fs.id, false),
+        );
         setSnackMsg(`Inserted "${fs.name}"`);
       } else {
         setSnackMsg("Editor not ready — try again in a moment");
       }
     },
-    []
+    [handleToggleGroup],
   );
 
   /** Handle postMessage events from DrawIO */
@@ -251,6 +318,12 @@ export default function DiagramEditor() {
           setTimeout(() => {
             if (iframeRef.current) {
               bootstrapDrawIO(iframeRef.current);
+              // Re-add expand/collapse overlays to existing fact sheet cells
+              setTimeout(() => {
+                if (iframeRef.current) {
+                  refreshFactSheetOverlays(iframeRef.current, handleToggleGroup);
+                }
+              }, 200);
             }
           }, 300);
           break;
@@ -308,7 +381,7 @@ export default function DiagramEditor() {
 
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [diagram, postToDrawIO, saveDiagram, navigate]);
+  }, [diagram, postToDrawIO, saveDiagram, navigate, handleToggleGroup]);
 
   if (loading) {
     return (
