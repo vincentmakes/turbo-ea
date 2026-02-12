@@ -22,14 +22,13 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=drawio /drawio/src/main/webapp /usr/share/nginx/drawio
 
 # Add custom DrawIO configuration files:
-#   PreConfig.js      — placeholder (loaded before app.min.js, no API available)
-#   PostConfig.js     — plugin: right-click "Insert Fact Sheet" + cell insertion handler
-#   grapheditor.css   — custom style overrides (placeholder to suppress 404)
-#   high-contrast.css — accessibility overrides (placeholder to suppress 404)
+#   PreConfig.js  — placeholder (loaded before app.min.js, no API available)
+#   PostConfig.js — placeholder (all logic handled from DiagramEditor.tsx)
+# NOTE: Do NOT overwrite styles/grapheditor.css or styles/high-contrast.css —
+# those are real DrawIO stylesheets (~1850 lines) copied from the git clone
+# above and are critical for the editor layout.
 COPY drawio-config/PreConfig.js      /usr/share/nginx/drawio/js/PreConfig.js
 COPY drawio-config/PostConfig.js     /usr/share/nginx/drawio/js/PostConfig.js
-COPY drawio-config/grapheditor.css   /usr/share/nginx/drawio/styles/grapheditor.css
-COPY drawio-config/high-contrast.css /usr/share/nginx/drawio/styles/high-contrast.css
 
 # Strip PWA manifest + service-worker from DrawIO so it works behind auth
 # proxies like Cloudflare Access (browser manifest fetches don't send cookies).
