@@ -32,12 +32,14 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import type { FactSheet } from "@/types";
 
 interface DiagramSummary {
   id: string;
   name: string;
   description?: string;
   type: string;
+  initiative_id?: string | null;
   thumbnail?: string;
   fact_sheet_count?: number;
   created_at?: string;
@@ -53,17 +55,22 @@ export default function DiagramsPage() {
     () => (localStorage.getItem("diagrams_view") as ViewMode) || "card"
   );
 
+  // Initiatives for linking
+  const [initiatives, setInitiatives] = useState<FactSheet[]>([]);
+
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createType, setCreateType] = useState("free_draw");
+  const [createInitiativeId, setCreateInitiativeId] = useState("");
 
-  // Edit dialog (rename + description)
+  // Edit dialog (rename + description + initiative)
   const [editOpen, setEditOpen] = useState(false);
   const [editDiagram, setEditDiagram] = useState<DiagramSummary | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editInitiativeId, setEditInitiativeId] = useState("");
 
   // Delete confirmation
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -79,6 +86,10 @@ export default function DiagramsPage() {
 
   useEffect(() => {
     loadDiagrams();
+    api
+      .get<{ items: FactSheet[] }>("/fact-sheets?type=Initiative&page_size=500")
+      .then((res) => setInitiatives(res.items))
+      .catch(() => {});
   }, [loadDiagrams]);
 
   const handleViewChange = (_: unknown, mode: ViewMode | null) => {
@@ -94,11 +105,13 @@ export default function DiagramsPage() {
       name: createName,
       description: createDesc.trim() || undefined,
       type: createType,
+      initiative_id: createInitiativeId || null,
     });
     setCreateOpen(false);
     setCreateName("");
     setCreateDesc("");
     setCreateType("free_draw");
+    setCreateInitiativeId("");
     navigate(`/diagrams/${d.id}`);
   };
 
@@ -106,6 +119,7 @@ export default function DiagramsPage() {
     setEditDiagram(d);
     setEditName(d.name);
     setEditDesc(d.description || "");
+    setEditInitiativeId(d.initiative_id || "");
     setEditOpen(true);
     setMenuAnchor(null);
   };
@@ -115,6 +129,7 @@ export default function DiagramsPage() {
     await api.patch(`/diagrams/${editDiagram.id}`, {
       name: editName.trim(),
       description: editDesc.trim() || null,
+      initiative_id: editInitiativeId || null,
     });
     setEditOpen(false);
     setEditDiagram(null);
@@ -478,7 +493,7 @@ export default function DiagramsPage() {
             rows={2}
             sx={{ mb: 2 }}
           />
-          <FormControl fullWidth>
+          <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Type</InputLabel>
             <Select
               value={createType}
@@ -489,6 +504,23 @@ export default function DiagramsPage() {
               <MenuItem value="data_flow">Data Flow</MenuItem>
             </Select>
           </FormControl>
+          <TextField
+            select
+            fullWidth
+            label="Initiative"
+            value={createInitiativeId}
+            onChange={(e) => setCreateInitiativeId(e.target.value)}
+            helperText="Link this diagram to an initiative (optional)"
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {initiatives.map((init) => (
+              <MenuItem key={init.id} value={init.id}>
+                {init.name}
+              </MenuItem>
+            ))}
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
@@ -529,7 +561,25 @@ export default function DiagramsPage() {
             onChange={(e) => setEditDesc(e.target.value)}
             multiline
             rows={3}
+            sx={{ mb: 2 }}
           />
+          <TextField
+            select
+            fullWidth
+            label="Initiative"
+            value={editInitiativeId}
+            onChange={(e) => setEditInitiativeId(e.target.value)}
+            helperText="Link this diagram to an initiative (optional)"
+          >
+            <MenuItem value="">
+              <em>None</em>
+            </MenuItem>
+            {initiatives.map((init) => (
+              <MenuItem key={init.id} value={init.id}>
+                {init.name}
+              </MenuItem>
+            ))}
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>

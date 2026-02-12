@@ -33,12 +33,14 @@ class DiagramCreate(BaseModel):
     description: str | None = None
     type: str = "free_draw"
     data: dict | None = None
+    initiative_id: str | None = None
 
 
 class DiagramUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     data: dict | None = None
+    initiative_id: str | None = None
 
 
 class DiagramOut(BaseModel):
@@ -52,8 +54,14 @@ class DiagramOut(BaseModel):
 
 
 @router.get("")
-async def list_diagrams(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Diagram).order_by(Diagram.updated_at.desc()))
+async def list_diagrams(
+    initiative_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = select(Diagram).order_by(Diagram.updated_at.desc())
+    if initiative_id:
+        stmt = stmt.where(Diagram.initiative_id == uuid.UUID(initiative_id))
+    result = await db.execute(stmt)
     rows = result.scalars().all()
     return [
         {
@@ -61,6 +69,7 @@ async def list_diagrams(db: AsyncSession = Depends(get_db)):
             "name": d.name,
             "description": d.description,
             "type": d.type,
+            "initiative_id": str(d.initiative_id) if d.initiative_id else None,
             "thumbnail": (d.data or {}).get("thumbnail"),
             "fact_sheet_count": len(_extract_fact_sheet_refs(d.data)),
             "created_at": d.created_at.isoformat() if d.created_at else None,
@@ -76,7 +85,14 @@ async def create_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    d = Diagram(name=body.name, description=body.description, type=body.type, data=body.data or {}, created_by=user.id)
+    d = Diagram(
+        name=body.name,
+        description=body.description,
+        type=body.type,
+        data=body.data or {},
+        initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
+        created_by=user.id,
+    )
     db.add(d)
     await db.commit()
     await db.refresh(d)
@@ -99,6 +115,7 @@ async def get_diagram(
         "description": d.description,
         "type": d.type,
         "data": d.data,
+        "initiative_id": str(d.initiative_id) if d.initiative_id else None,
         "fact_sheet_refs": _extract_fact_sheet_refs(d.data),
         "created_at": d.created_at.isoformat() if d.created_at else None,
         "updated_at": d.updated_at.isoformat() if d.updated_at else None,
@@ -120,6 +137,8 @@ async def update_diagram(
         d.name = body.name
     if body.description is not None:
         d.description = body.description
+    if body.initiative_id is not None:
+        d.initiative_id = uuid.UUID(body.initiative_id) if body.initiative_id else None
     if body.data is not None:
         # Store the data and auto-extract fact sheet references into it
         new_data = dict(body.data)

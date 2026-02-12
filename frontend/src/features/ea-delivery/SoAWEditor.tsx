@@ -737,9 +737,9 @@ export default function SoAWEditor() {
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ bgcolor: "grey.50" }}>
-                      <TableCell sx={{ fontWeight: 600 }}>Phase</TableCell>
-                      <TableCell sx={{ fontWeight: 600, width: 120, textAlign: "center" }}>
-                        In / Out
+                      <TableCell sx={{ fontWeight: 600, width: 280 }}>Phase</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>
+                        Relevant Artefacts
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -749,9 +749,10 @@ export default function SoAWEditor() {
                         <TableCell>{phase.label}</TableCell>
                         <TableCell sx={{ p: 0.5 }}>
                           <TextField
-                            select
                             size="small"
                             fullWidth
+                            multiline
+                            placeholder="e.g. documents, diagrams, architecture decisions..."
                             value={data.togaf_data?.[phase.key] ?? ""}
                             onChange={(e) => {
                               const next = {
@@ -763,11 +764,7 @@ export default function SoAWEditor() {
                             variant="standard"
                             InputProps={{ disableUnderline: true }}
                             sx={{ px: 1 }}
-                          >
-                            <MenuItem value="">—</MenuItem>
-                            <MenuItem value="In">In</MenuItem>
-                            <MenuItem value="Out">Out</MenuItem>
-                          </TextField>
+                          />
                         </TableCell>
                       </TableRow>
                     ))}

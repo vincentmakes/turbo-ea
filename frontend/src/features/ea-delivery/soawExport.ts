@@ -279,7 +279,7 @@ export async function exportToDocx(
     if (def.type === "togaf_phases" && data.togaf_data) {
       tables.push(
         buildDocxTable(
-          ["Phase", "In / Out"],
+          ["Phase", "Relevant Artefacts"],
           TOGAF_PHASES.map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
         ),
       );
@@ -436,9 +436,9 @@ export function exportToPdf(
     }
 
     if (def.type === "togaf_phases" && data.togaf_data) {
-      html += `<table><tr><th>Phase</th><th>In / Out</th></tr>`;
+      html += `<table><tr><th>Phase</th><th>Relevant Artefacts</th></tr>`;
       for (const p of TOGAF_PHASES) {
-        html += `<tr><td>${p.label}</td><td style="text-align:center">${data.togaf_data[p.key] || "—"}</td></tr>`;
+        html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "—"}</td></tr>`;
       }
       html += `</table>`;
     }
