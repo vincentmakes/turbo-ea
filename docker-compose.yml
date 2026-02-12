@@ -4,6 +4,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    networks:
+      - guac-net
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -22,7 +24,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    networks:
+      - guac-net
     depends_on:
       - backend
     ports:
       - "${HOST_PORT:-8920}:80"
+
+networks:
+  guac-net:
+    external: true
