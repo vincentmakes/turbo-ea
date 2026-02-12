@@ -182,12 +182,15 @@ async def matrix(
     )
     rels = rels_result.scalars().all()
 
-    # Build intersection set
+    # Build intersection set – normalise to (row_id, col_id) direction
+    row_id_set = {str(fs.id) for fs in rows}
     intersections = set()
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
-        intersections.add((sid, tid))
-        intersections.add((tid, sid))
+        if sid in row_id_set:
+            intersections.add((sid, tid))
+        else:
+            intersections.add((tid, sid))
 
     return {
         "rows": [{"id": str(r.id), "name": r.name} for r in rows],

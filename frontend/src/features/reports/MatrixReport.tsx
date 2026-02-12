@@ -59,11 +59,8 @@ export default function MatrixReport() {
     if (!data) return new Map<string, string[]>();
     const m = new Map<string, string[]>();
     for (const i of data.intersections) {
-      // row_id:col_id -> list of relation IDs (just count for now)
-      const fwd = `${i.row_id}:${i.col_id}`;
-      const rev = `${i.col_id}:${i.row_id}`;
-      m.set(fwd, [...(m.get(fwd) || []), "1"]);
-      m.set(rev, [...(m.get(rev) || []), "1"]);
+      const k = `${i.row_id}:${i.col_id}`;
+      m.set(k, [...(m.get(k) || []), "1"]);
     }
     return m;
   }, [data]);

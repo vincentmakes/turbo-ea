@@ -162,6 +162,7 @@ export default function LifecycleReport() {
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
           ) : (
             <>
+              <Box sx={{ position: "relative" }}>
               {/* Date axis */}
               <Box sx={{ ml: "200px", position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
                 {ticks.map((t) => (
@@ -226,7 +227,7 @@ export default function LifecycleReport() {
               <Box
                 sx={{
                   position: "absolute",
-                  left: `calc(200px + ${todayPct}% * (100% - 200px) / 100)`,
+                  left: `calc(200px + (100% - 200px) * ${todayPct / 100})`,
                   top: 0,
                   bottom: 0,
                   width: 0,
@@ -235,6 +236,7 @@ export default function LifecycleReport() {
                   zIndex: 1,
                 }}
               />
+              </Box>
             </>
           )}
         </Paper>
