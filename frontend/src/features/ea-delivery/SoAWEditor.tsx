@@ -26,6 +26,8 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import RichTextEditor from "./RichTextEditor";
 import EditableTable from "./EditableTable";
@@ -52,6 +54,8 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 export default function SoAWEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = !id;
 
   // SoAW state
@@ -350,58 +354,74 @@ export default function SoAWEditor() {
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* Top bar */}
-      <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", mb: 3, gap: 1 }}>
         <Tooltip title="Back to EA Delivery">
           <IconButton onClick={() => navigate("/ea-delivery")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        <MaterialSymbol icon="description" size={26} color="#e65100" />
-        <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
+        {!compact && <MaterialSymbol icon="description" size={26} color="#e65100" />}
+        <Typography
+          variant={compact ? "subtitle1" : "h5"}
+          sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
+          noWrap
+        >
           {isNew ? "New Statement of Architecture Work" : name || "Untitled"}
         </Typography>
         {!isNew && (
+          compact ? (
+            <Tooltip title="Preview">
+              <IconButton onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}>
+                <MaterialSymbol icon="visibility" size={20} />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Button
+              size="small"
+              startIcon={<MaterialSymbol icon="visibility" size={18} />}
+              sx={{ textTransform: "none" }}
+              onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}
+            >
+              Preview
+            </Button>
+          )
+        )}
+        {compact ? (
+          <Tooltip title="Export PDF">
+            <IconButton
+              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections)}
+            >
+              <MaterialSymbol icon="picture_as_pdf" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
           <Button
             size="small"
-            startIcon={<MaterialSymbol icon="visibility" size={18} />}
+            startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}
+            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections)}
           >
-            Preview
+            PDF
           </Button>
         )}
-        <Button
-          size="small"
-          startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={() =>
-            exportToPdf(
-              name,
-              docInfo,
-              versionHistory,
-              sections,
-              customSections,
-            )
-          }
-        >
-          PDF
-        </Button>
-        <Button
-          size="small"
-          startIcon={<MaterialSymbol icon="article" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={() =>
-            exportToDocx(
-              name,
-              docInfo,
-              versionHistory,
-              sections,
-              customSections,
-            )
-          }
-        >
-          Word
-        </Button>
+        {compact ? (
+          <Tooltip title="Export Word">
+            <IconButton
+              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+            >
+              <MaterialSymbol icon="article" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="article" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+          >
+            Word
+          </Button>
+        )}
         <Button
           variant="contained"
           size="small"

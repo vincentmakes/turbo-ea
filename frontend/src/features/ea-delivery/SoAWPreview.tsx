@@ -9,8 +9,10 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { buildPreviewBody, PREVIEW_CSS } from "./soawExport";
+import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
 import type { SoAW, SoAWSectionData } from "@/types";
 
@@ -29,6 +31,8 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
 export default function SoAWPreview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [soaw, setSoaw] = useState<SoAW | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,10 +60,6 @@ export default function SoAWPreview() {
       () => setSnack("Link copied to clipboard"),
       () => setSnack("Failed to copy link"),
     );
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   if (loading) {
@@ -100,6 +100,9 @@ export default function SoAWPreview() {
   const versionHistory = soaw.version_history ?? [];
   const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections);
 
+  const handleExportPdf = () =>
+    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections);
+
   return (
     <>
       {/* Toolbar (hidden when printing) */}
@@ -108,6 +111,7 @@ export default function SoAWPreview() {
         sx={{
           display: "flex",
           alignItems: "center",
+          flexWrap: "wrap",
           mb: 2,
           gap: 1,
           maxWidth: 960,
@@ -119,8 +123,12 @@ export default function SoAWPreview() {
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>
-        <MaterialSymbol icon="description" size={26} color="#e65100" />
-        <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }} noWrap>
+        {!compact && <MaterialSymbol icon="description" size={26} color="#e65100" />}
+        <Typography
+          variant={compact ? "subtitle1" : "h5"}
+          sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
+          noWrap
+        >
           {soaw.name}
         </Typography>
         <Chip
@@ -133,30 +141,46 @@ export default function SoAWPreview() {
             <MaterialSymbol icon="link" size={20} />
           </IconButton>
         </Tooltip>
-        <Button
-          size="small"
-          startIcon={<MaterialSymbol icon="print" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={handlePrint}
-        >
-          Print
-        </Button>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<MaterialSymbol icon="edit" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={() => navigate(`/ea-delivery/soaw/${id}`)}
-        >
-          Edit
-        </Button>
+        {compact ? (
+          <Tooltip title="Export PDF">
+            <IconButton onClick={handleExportPdf}>
+              <MaterialSymbol icon="picture_as_pdf" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleExportPdf}
+          >
+            PDF
+          </Button>
+        )}
+        {compact ? (
+          <Tooltip title="Edit">
+            <IconButton onClick={() => navigate(`/ea-delivery/soaw/${id}`)}>
+              <MaterialSymbol icon="edit" size={20} />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="edit" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => navigate(`/ea-delivery/soaw/${id}`)}
+          >
+            Edit
+          </Button>
+        )}
       </Box>
 
       {/* Styled preview content */}
       <style>{PREVIEW_CSS}</style>
       <Box
         className="soaw-preview"
-        sx={{ maxWidth: 800, mx: "auto", pb: 8 }}
+        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 }, pb: 8 }}
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
 
