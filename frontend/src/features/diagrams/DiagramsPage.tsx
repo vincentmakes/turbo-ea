@@ -18,6 +18,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Grid from "@mui/material/Grid";
 import Chip from "@mui/material/Chip";
+import Checkbox from "@mui/material/Checkbox";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Table from "@mui/material/Table";
@@ -28,6 +29,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import Menu from "@mui/material/Menu";
+import Autocomplete from "@mui/material/Autocomplete";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -39,7 +41,7 @@ interface DiagramSummary {
   name: string;
   description?: string;
   type: string;
-  initiative_id?: string | null;
+  initiative_ids: string[];
   thumbnail?: string;
   fact_sheet_count?: number;
   created_at?: string;
@@ -63,14 +65,14 @@ export default function DiagramsPage() {
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createType, setCreateType] = useState("free_draw");
-  const [createInitiativeId, setCreateInitiativeId] = useState("");
+  const [createInitiativeIds, setCreateInitiativeIds] = useState<string[]>([]);
 
-  // Edit dialog (rename + description + initiative)
+  // Edit dialog (rename + description + initiatives)
   const [editOpen, setEditOpen] = useState(false);
   const [editDiagram, setEditDiagram] = useState<DiagramSummary | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [editInitiativeId, setEditInitiativeId] = useState("");
+  const [editInitiativeIds, setEditInitiativeIds] = useState<string[]>([]);
 
   // Delete confirmation
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -105,13 +107,13 @@ export default function DiagramsPage() {
       name: createName,
       description: createDesc.trim() || undefined,
       type: createType,
-      initiative_id: createInitiativeId || null,
+      initiative_ids: createInitiativeIds.length > 0 ? createInitiativeIds : undefined,
     });
     setCreateOpen(false);
     setCreateName("");
     setCreateDesc("");
     setCreateType("free_draw");
-    setCreateInitiativeId("");
+    setCreateInitiativeIds([]);
     navigate(`/diagrams/${d.id}`);
   };
 
@@ -119,7 +121,7 @@ export default function DiagramsPage() {
     setEditDiagram(d);
     setEditName(d.name);
     setEditDesc(d.description || "");
-    setEditInitiativeId(d.initiative_id || "");
+    setEditInitiativeIds(d.initiative_ids || []);
     setEditOpen(true);
     setMenuAnchor(null);
   };
@@ -129,7 +131,7 @@ export default function DiagramsPage() {
     await api.patch(`/diagrams/${editDiagram.id}`, {
       name: editName.trim(),
       description: editDesc.trim() || null,
-      initiative_id: editInitiativeId || null,
+      initiative_ids: editInitiativeIds,
     });
     setEditOpen(false);
     setEditDiagram(null);
@@ -160,6 +162,13 @@ export default function DiagramsPage() {
   const typeIcon = (t: string) => (t === "data_flow" ? "device_hub" : "draw");
   const fmtDate = (iso?: string) =>
     iso ? new Date(iso).toLocaleDateString() : "";
+
+  // Helper: resolve initiative names from IDs
+  const initiativeNames = (ids: string[]) =>
+    ids
+      .map((id) => initiatives.find((i) => i.id === id)?.name)
+      .filter(Boolean)
+      .join(", ");
 
   return (
     <Box>
@@ -297,6 +306,15 @@ export default function DiagramsPage() {
                           variant="outlined"
                         />
                       )}
+                      {d.initiative_ids.length > 0 && (
+                        <Chip
+                          size="small"
+                          icon={<MaterialSymbol icon="link" size={14} />}
+                          label={`${d.initiative_ids.length} initiative${d.initiative_ids.length > 1 ? "s" : ""}`}
+                          variant="outlined"
+                          color="success"
+                        />
+                      )}
                       {d.updated_at && (
                         <Typography
                           variant="caption"
@@ -349,6 +367,7 @@ export default function DiagramsPage() {
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 180 }}>Initiatives</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
                   Fact Sheets
                 </TableCell>
@@ -386,11 +405,20 @@ export default function DiagramsPage() {
                       sx={{ maxWidth: 300 }}
                       title={d.description}
                     >
-                      {d.description || "—"}
+                      {d.description || "\u2014"}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip size="small" label={typeLabel(d.type)} />
+                  </TableCell>
+                  <TableCell>
+                    {d.initiative_ids.length > 0 ? (
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={initiativeNames(d.initiative_ids)}>
+                        {initiativeNames(d.initiative_ids) || `${d.initiative_ids.length} linked`}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>
+                    )}
                   </TableCell>
                   <TableCell align="center">
                     {d.fact_sheet_count || 0}
@@ -412,7 +440,7 @@ export default function DiagramsPage() {
               ))}
               {diagrams.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       No diagrams yet. Create one to get started.
                     </Typography>
@@ -504,23 +532,27 @@ export default function DiagramsPage() {
               <MenuItem value="data_flow">Data Flow</MenuItem>
             </Select>
           </FormControl>
-          <TextField
-            select
-            fullWidth
-            label="Initiative"
-            value={createInitiativeId}
-            onChange={(e) => setCreateInitiativeId(e.target.value)}
-            helperText="Link this diagram to an initiative (optional)"
-          >
-            <MenuItem value="">
-              <em>None</em>
-            </MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Autocomplete
+            multiple
+            options={initiatives}
+            getOptionLabel={(opt) => opt.name}
+            value={initiatives.filter((i) => createInitiativeIds.includes(i.id))}
+            onChange={(_, newVal) => setCreateInitiativeIds(newVal.map((v) => v.id))}
+            disableCloseOnSelect
+            renderOption={(props, option, { selected }) => (
+              <li {...props} key={option.id}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                {option.name}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Initiatives"
+                helperText="Link to one or more initiatives (optional)"
+              />
+            )}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
@@ -563,23 +595,27 @@ export default function DiagramsPage() {
             rows={3}
             sx={{ mb: 2 }}
           />
-          <TextField
-            select
-            fullWidth
-            label="Initiative"
-            value={editInitiativeId}
-            onChange={(e) => setEditInitiativeId(e.target.value)}
-            helperText="Link this diagram to an initiative (optional)"
-          >
-            <MenuItem value="">
-              <em>None</em>
-            </MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Autocomplete
+            multiple
+            options={initiatives}
+            getOptionLabel={(opt) => opt.name}
+            value={initiatives.filter((i) => editInitiativeIds.includes(i.id))}
+            onChange={(_, newVal) => setEditInitiativeIds(newVal.map((v) => v.id))}
+            disableCloseOnSelect
+            renderOption={(props, option, { selected }) => (
+              <li {...props} key={option.id}>
+                <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+                {option.name}
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Initiatives"
+                helperText="Link to one or more initiatives (optional)"
+              />
+            )}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Cancel</Button>
