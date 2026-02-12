@@ -728,8 +728,11 @@ export function refreshFactSheetOverlays(
 }
 
 /**
- * Return the set of factSheetId values for children currently present in the
- * graph for a given parent cell.
+ * Return the set of factSheetId values for children currently connected to a
+ * parent cell.  A child is "connected" only if its vertex is still present AND
+ * it still has at least one edge linking it to the parent.  This catches both
+ * vertex deletions (user deleted the child) and edge-only deletions (user
+ * deleted the relation line but left the child shape).
  */
 export function getGroupChildFactSheetIds(
   iframe: HTMLIFrameElement,
@@ -739,13 +742,22 @@ export function getGroupChildFactSheetIds(
   if (!ctx) return new Set();
   const { graph } = ctx;
 
+  const model = graph.getModel();
+  const parentCell = model.getCell(parentCellId);
+  if (!parentCell) return new Set();
+
   const result = new Set<string>();
-  const cells = graph.getModel().cells || {};
+  const cells = model.cells || {};
   for (const k of Object.keys(cells)) {
     const c = cells[k];
-    if (c?.value?.getAttribute?.("parentGroupCell") === parentCellId) {
-      const fsId = c.value.getAttribute("factSheetId");
-      if (fsId) result.add(fsId);
+    if (c?.value?.getAttribute?.("parentGroupCell") !== parentCellId) continue;
+    const fsId = c.value.getAttribute("factSheetId");
+    if (!fsId) continue;
+
+    // Verify the child still has an edge to the parent
+    const edges = graph.getEdgesBetween(parentCell, c, false);
+    if (edges && edges.length > 0) {
+      result.add(fsId);
     }
   }
   return result;
