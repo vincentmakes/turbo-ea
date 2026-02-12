@@ -108,6 +108,11 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
     const win = iframe.contentWindow as any;
     if (!win?.Draw?.loadPlugin) return;
 
+    // Remove PWA manifest link so it doesn't trigger auth-proxy redirects
+    // (e.g. Cloudflare Access) — browser manifest fetches omit cookies.
+    const manifestLink = win.document.querySelector('link[rel="manifest"]');
+    if (manifestLink) manifestLink.remove();
+
     win.Draw.loadPlugin((ui: Record<string, unknown>) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const editor = ui.editor as any;

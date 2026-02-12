@@ -31,5 +31,12 @@ COPY drawio-config/PostConfig.js     /usr/share/nginx/drawio/js/PostConfig.js
 COPY drawio-config/grapheditor.css   /usr/share/nginx/drawio/styles/grapheditor.css
 COPY drawio-config/high-contrast.css /usr/share/nginx/drawio/styles/high-contrast.css
 
+# Strip PWA manifest + service-worker from DrawIO so it works behind auth
+# proxies like Cloudflare Access (browser manifest fetches don't send cookies).
+RUN sed -i \
+    -e '/<link rel="manifest"/d' \
+    -e '/serviceWorker/d' \
+    /usr/share/nginx/drawio/index.html
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
