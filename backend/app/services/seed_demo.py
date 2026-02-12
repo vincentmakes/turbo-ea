@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fact_sheet import FactSheet
+from app.services.seed import TYPES as _META_TYPES
 from app.models.relation import Relation
 from app.models.tag import TagGroup, Tag, FactSheetTag
 
@@ -1758,8 +1759,237 @@ TAG_GROUPS = [
 
 
 # ===================================================================
+# ENRICHMENT DATA – descriptions, lifecycle for items missing them
+# ===================================================================
+_ENRICHMENTS: dict[str, dict] = {
+    # -- Organizations (desc + lifecycle) --
+    "org_engineering": {
+        "description": "Engineering division responsible for product design, firmware, software, and quality assurance.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_hw_eng": {
+        "description": "Team designing PCBs, enclosures, and electromechanical assemblies for all product lines.",
+        "lifecycle": {"active": "2010-01-01"},
+    },
+    "org_fw_eng": {
+        "description": "Team developing real-time firmware for sensors, actuators, and IoT gateways.",
+        "lifecycle": {"active": "2012-06-01"},
+    },
+    "org_sw_eng": {
+        "description": "Team building cloud services, mobile apps, and internal development tools.",
+        "lifecycle": {"active": "2015-01-01"},
+    },
+    "org_sys_eng": {
+        "description": "Team responsible for system-level architecture, integration testing, and V&V.",
+        "lifecycle": {"active": "2014-01-01"},
+    },
+    "org_qa_eng": {
+        "description": "Team managing test automation, reliability analysis, and process validation.",
+        "lifecycle": {"active": "2008-01-01"},
+    },
+    "org_manufacturing": {
+        "description": "Division operating production lines for sensors, actuators, and IoT gateways in Stuttgart.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_prod_sensors": {
+        "description": "Production line for SmartSense S100 and S200 sensor families.",
+        "lifecycle": {"active": "2012-01-01"},
+    },
+    "org_prod_actuators": {
+        "description": "Production line for SmartActuator A300 series electromechanical actuators.",
+        "lifecycle": {"active": "2010-06-01"},
+    },
+    "org_prod_gateways": {
+        "description": "Production line for G500 IoT gateway and NexaHub H100.",
+        "lifecycle": {"active": "2018-01-01"},
+    },
+    "org_supply_chain": {
+        "description": "Team managing procurement, warehouse operations, and outbound logistics.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_sales": {
+        "description": "Division driving revenue through direct sales, channel partners, and marketing campaigns.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_emea": {
+        "description": "Regional sales team covering Europe, Middle East, and Africa.",
+        "lifecycle": {"active": "2006-01-01"},
+    },
+    "org_americas": {
+        "description": "Regional sales team covering North and South America.",
+        "lifecycle": {"active": "2009-01-01"},
+    },
+    "org_apac": {
+        "description": "Regional sales team covering Asia-Pacific including China, Japan, and Australia.",
+        "lifecycle": {"active": "2013-01-01"},
+    },
+    "org_marketing": {
+        "description": "Team managing brand, content marketing, trade shows, and digital campaigns.",
+        "lifecycle": {"active": "2008-01-01"},
+    },
+    "org_operations": {
+        "description": "Division managing IT infrastructure, facilities, and customer support.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_it_ops": {
+        "description": "Team responsible for infrastructure, cloud, networking, and IT service management.",
+        "lifecycle": {"active": "2007-01-01"},
+    },
+    "org_facilities": {
+        "description": "Team managing factory and office facilities, HSE compliance, and physical security.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_support": {
+        "description": "Team handling technical support tickets, field service dispatch, and warranty claims.",
+        "lifecycle": {"active": "2008-06-01"},
+    },
+    "org_rnd": {
+        "description": "Division focused on advanced research, prototyping, and new technology exploration.",
+        "lifecycle": {"active": "2012-01-01"},
+    },
+    "org_research": {
+        "description": "Team conducting applied research in sensing, edge AI, and novel materials.",
+        "lifecycle": {"active": "2016-01-01"},
+    },
+    "org_innovation": {
+        "description": "Team running rapid prototyping sprints and evaluating emerging technologies.",
+        "lifecycle": {"active": "2019-01-01"},
+    },
+    "org_corporate": {
+        "description": "Corporate functions including finance, HR, legal, and strategic management.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_finance": {
+        "description": "Team managing financial planning, accounting, controlling, and statutory reporting.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_hr": {
+        "description": "Team responsible for talent acquisition, development, payroll, and company culture.",
+        "lifecycle": {"active": "2005-03-15"},
+    },
+    "org_legal": {
+        "description": "Team handling contracts, IP protection, regulatory compliance, and data privacy.",
+        "lifecycle": {"active": "2007-01-01"},
+    },
+    # -- L2 Business Capabilities (desc only) --
+    "bc_prod_strategy": {"description": "Define product vision, roadmaps, and investment priorities across product families."},
+    "bc_prod_req": {"description": "Capture, trace, and manage product requirements across stakeholders and development phases."},
+    "bc_prod_portfolio": {"description": "Manage the product portfolio lifecycle including profitability and strategic fit analysis."},
+    "bc_prod_retire": {"description": "Plan and execute end-of-life for legacy products including spare parts and customer migration."},
+    "bc_mech_design": {"description": "Design mechanical enclosures, assemblies, and thermal solutions for sensor and actuator products."},
+    "bc_elec_design": {"description": "Design electronic schematics, PCB layouts, and select components for all product lines."},
+    "bc_fw_dev": {"description": "Develop embedded firmware for microcontrollers and real-time operating systems across product lines."},
+    "bc_sw_dev": {"description": "Build cloud-native applications, REST/GraphQL APIs, and cross-platform mobile apps."},
+    "bc_sys_integration": {"description": "Integrate hardware, firmware, and software subsystems into complete validated product systems."},
+    "bc_simulation": {"description": "Run FEA, CFD, signal integrity simulations, and hardware-in-the-loop testing for design validation."},
+    "bc_prod_planning": {"description": "Plan production schedules, capacity allocation, and material requirements for all product lines."},
+    "bc_prod_execution": {"description": "Execute manufacturing work orders on the shop floor from raw materials to finished goods."},
+    "bc_assembly": {"description": "Assemble sub-components into finished goods and run integration checks before packaging."},
+    "bc_test_cal": {"description": "Perform electrical, functional, and environmental testing and calibration on every production unit."},
+    "bc_packaging": {"description": "Package finished goods with documentation and coordinate outbound shipments to customers."},
+    "bc_procurement": {"description": "Source and purchase raw materials, electronic components, and external services."},
+    "bc_vendor_mgmt": {"description": "Qualify, assess, and manage supplier relationships, scorecards, and performance."},
+    "bc_inventory": {"description": "Track stock levels across warehouses, manage replenishment, and optimize inventory turns."},
+    "bc_logistics": {"description": "Manage warehouse operations, inbound receiving, outbound logistics, and freight carriers."},
+    "bc_demand_forecast": {"description": "Forecast product demand using historical data and market signals for production planning."},
+    "bc_lead_mgmt": {"description": "Capture, qualify, and nurture sales leads across digital and field channels."},
+    "bc_opp_mgmt": {"description": "Track and manage sales opportunities through the pipeline from qualification to close."},
+    "bc_order_mgmt": {"description": "Process customer orders from entry through fulfillment, invoicing, and delivery tracking."},
+    "bc_pricing": {"description": "Configure complex product bundles, calculate volume pricing, and generate customer quotes."},
+    "bc_channel_mgmt": {"description": "Manage distribution channels, reseller programs, and OEM partner agreements."},
+    "bc_cust_onboard": {"description": "Onboard new customers with account setup, product training, and first deployment support."},
+    "bc_account_mgmt": {"description": "Manage ongoing customer relationships, renewals, and identify cross-sell opportunities."},
+    "bc_cust_comm": {"description": "Manage email campaigns, newsletters, webinars, and personalized customer outreach."},
+    "bc_cust_analytics": {"description": "Analyze customer behavior patterns, churn risk indicators, and lifetime value metrics."},
+    "bc_tech_support": {"description": "Provide L1-L3 technical support for deployed sensors, actuators, and IoT gateways."},
+    "bc_field_service": {"description": "Dispatch and manage field technicians for on-site installation, maintenance, and repair."},
+    "bc_warranty": {"description": "Track warranty entitlements, process claims, and manage replacement part fulfillment."},
+    "bc_spare_parts": {"description": "Manage spare parts inventory, forecasting, and fulfillment for aftermarket service."},
+    "bc_remote_monitor": {"description": "Monitor deployed device health remotely and diagnose issues via real-time telemetry streams."},
+    "bc_fp_a": {"description": "Financial budgeting, rolling forecasts, variance analysis, and management reporting."},
+    "bc_accounting": {"description": "General ledger, accounts payable/receivable, cost center accounting, and statutory reporting."},
+    "bc_hcm": {"description": "Recruit, develop, and retain talent; administer payroll, benefits, and workforce analytics."},
+    "bc_legal_contract": {"description": "Draft, review, and manage commercial contracts, NDAs, and legal obligations."},
+    "bc_corp_strategy": {"description": "Define corporate vision, M&A strategy, and long-term investment priorities."},
+    "bc_itsm": {"description": "Manage IT incidents, service requests, change management, and service-level agreements."},
+    "bc_cybersecurity": {"description": "Protect information assets through threat detection, incident response, and compliance."},
+    "bc_data_mgmt": {"description": "Govern, integrate, and ensure quality of enterprise data assets across all domains."},
+    "bc_cloud_infra": {"description": "Provision, monitor, and optimize cloud resources across Azure and AWS."},
+    "bc_apm": {"description": "Assess, rationalize, and strategically plan the enterprise application landscape."},
+    "bc_network": {"description": "Design, operate, and secure enterprise LAN, WAN, and factory-floor network infrastructure."},
+    "bc_qms": {"description": "Maintain ISO 9001 quality management system processes and drive continuous improvement."},
+    "bc_regulatory": {"description": "Ensure products and manufacturing processes meet all applicable regulatory requirements."},
+    "bc_env_compliance": {"description": "Manage environmental regulations including RoHS, REACH, WEEE, and sustainability reporting."},
+    "bc_certification": {"description": "Obtain and maintain CE, UL, IEC, and other required product certifications."},
+    "bc_audit": {"description": "Plan and execute internal quality audits and coordinate external certification audits."},
+    # -- L3 Business Capabilities (desc only) --
+    "bc_cad_modeling": {"description": "Create detailed 3D parametric models of enclosures and assemblies using Siemens NX."},
+    "bc_tolerance": {"description": "Analyze dimensional tolerances and geometric fits to ensure manufacturability."},
+    "bc_thermal": {"description": "Design thermal management solutions for heat dissipation in sealed IP67 enclosures."},
+    "bc_schematic": {"description": "Create electronic circuit schematics for sensor front-ends and gateway power systems."},
+    "bc_pcb_layout": {"description": "Design multi-layer PCB layouts optimizing signal integrity, EMI, and manufacturability."},
+    "bc_component_sel": {"description": "Select electronic components balancing availability, cost, reliability, and lifecycle."},
+    "bc_rtos": {"description": "Configure and maintain FreeRTOS/Zephyr RTOS for deterministic firmware execution."},
+    "bc_comm_protocols": {"description": "Implement BLE, Zigbee, LoRaWAN, Wi-Fi, and CAN bus communication stacks."},
+    "bc_ota": {"description": "Manage secure over-the-air firmware updates with delta patching, rollback, and validation."},
+    "bc_cloud_app_dev": {"description": "Build cloud-native microservices on AKS using Node.js, Python, and serverless functions."},
+    "bc_mobile_dev": {"description": "Develop cross-platform React Native mobile apps for iOS and Android."},
+    "bc_api_dev": {"description": "Design and implement RESTful and GraphQL APIs for internal and partner consumption."},
+    "bc_smt": {"description": "Surface-mount technology: pick-and-place, solder paste, and reflow soldering processes."},
+    "bc_tht": {"description": "Through-hole component insertion and wave soldering for power and connector assemblies."},
+    "bc_final_assembly": {"description": "Final assembly of tested PCBAs into enclosures with connectors, labels, and firmware."},
+    # -- Tech Categories (desc only) --
+    "tc_databases": {"description": "Relational, NoSQL, time-series databases and object storage solutions."},
+    "tc_middleware": {"description": "Message brokers, event streaming, ESBs, and API gateway technologies."},
+    "tc_cloud": {"description": "IaaS, PaaS, container orchestration, and serverless cloud services."},
+    "tc_security": {"description": "Identity management, network security, encryption, and secrets management."},
+    "tc_devtools": {"description": "CI/CD pipelines, source control, code quality tools, and developer productivity."},
+    "tc_rdbms": {"description": "SQL-based relational databases for transactional and analytical workloads."},
+    "tc_tsdb": {"description": "Specialized databases optimized for high-volume time-stamped sensor data."},
+    "tc_obj_store": {"description": "Blob and object storage for firmware images, backups, and unstructured data."},
+    "tc_msg_broker": {"description": "Event streaming and message queuing platforms for real-time data pipelines."},
+    "tc_api_gw": {"description": "HTTP reverse proxies, rate limiters, and API lifecycle management tools."},
+    "tc_container_orch": {"description": "Kubernetes and container runtime management for microservice workloads."},
+    "tc_compute": {"description": "Virtual machines, bare-metal servers, and serverless compute resources."},
+    "tc_iam": {"description": "Authentication, authorization, SSO, MFA, and directory services."},
+    "tc_netsec": {"description": "Firewalls, IDS/IPS, VPN, and network micro-segmentation technologies."},
+    "tc_cicd": {"description": "Continuous integration and continuous deployment automation pipelines."},
+    "tc_code_quality": {"description": "Static analysis, linting, code coverage, and security scanning tools."},
+}
+
+
+# ===================================================================
 # SEED FUNCTION  (called from main.py or CLI)
 # ===================================================================
+def _compute_completion(d: dict, type_schemas: dict[str, list]) -> float:
+    """Compute completion score for a fact-sheet dict using the same logic as the API."""
+    schema = type_schemas.get(d["type"], [])
+    total_weight = 0.0
+    filled_weight = 0.0
+    attrs = d.get("attributes", {})
+    for section in schema:
+        for field in section.get("fields", []):
+            weight = field.get("weight", 1)
+            if weight <= 0:
+                continue
+            total_weight += weight
+            val = attrs.get(field["key"])
+            if val is not None and val != "" and val is not False:
+                filled_weight += weight
+    # description
+    total_weight += 1
+    if d.get("description") and d["description"].strip():
+        filled_weight += 1
+    # lifecycle
+    total_weight += 1
+    lc = d.get("lifecycle", {})
+    if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
+        filled_weight += 1
+    if total_weight == 0:
+        return 0.0
+    return round((filled_weight / total_weight) * 100, 1)
+
+
 async def seed_demo_data(db: AsyncSession) -> dict:
     """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists)."""
     result = await db.execute(select(FactSheet.id).limit(1))
@@ -1772,6 +2002,24 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         + TECH_CATEGORIES + PROVIDERS + OBJECTIVES + INITIATIVES
         + PLATFORMS + SYSTEMS
     )
+
+    # Build reverse lookup: UUID → ref name
+    uuid_to_ref = {uid: ref for ref, uid in _refs.items()}
+
+    # Enrich with extra descriptions / lifecycle where missing
+    for d in all_fs:
+        ref = uuid_to_ref.get(d["id"])
+        if ref and ref in _ENRICHMENTS:
+            extra = _ENRICHMENTS[ref]
+            if "description" in extra and not d.get("description"):
+                d["description"] = extra["description"]
+            if "lifecycle" in extra and not any(d.get("lifecycle", {}).values()):
+                d["lifecycle"] = extra["lifecycle"]
+
+    # Compute completion scores using the metamodel type schemas
+    type_schemas = {t["key"]: t.get("fields_schema", []) for t in _META_TYPES}
+    for d in all_fs:
+        d["completion"] = _compute_completion(d, type_schemas)
 
     # Insert fact sheets (parents first – lists are ordered that way)
     for d in all_fs:

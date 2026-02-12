@@ -447,6 +447,9 @@ async def fix_hierarchy_names(db: AsyncSession = Depends(get_db)):
             fs.name = leaf_name
     await db.commit()
     return {"fixed": len(fixed), "details": fixed}
+
+
+@router.get("/{fs_id}/history")
 async def get_history(
     fs_id: str,
     db: AsyncSession = Depends(get_db),

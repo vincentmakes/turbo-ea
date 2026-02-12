@@ -34,7 +34,7 @@ class Tag(Base, UUIDMixin):
     color: Mapped[str | None] = mapped_column(String(20))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
-    group = relationship("TagGroup", back_populates="tags")
+    group = relationship("TagGroup", back_populates="tags", lazy="selectin")
 
 
 class FactSheetTag(Base):
