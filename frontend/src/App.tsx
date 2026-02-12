@@ -7,11 +7,13 @@ import LoginPage from "@/features/auth/LoginPage";
 import Dashboard from "@/features/dashboard/Dashboard";
 import InventoryPage from "@/features/inventory/InventoryPage";
 import FactSheetDetail from "@/features/fact-sheets/FactSheetDetail";
-import LandscapeReport from "@/features/reports/LandscapeReport";
 import PortfolioReport from "@/features/reports/PortfolioReport";
-import MatrixReport from "@/features/reports/MatrixReport";
-import RoadmapReport from "@/features/reports/RoadmapReport";
+import CapabilityMapReport from "@/features/reports/CapabilityMapReport";
+import LifecycleReport from "@/features/reports/LifecycleReport";
+import DependencyReport from "@/features/reports/DependencyReport";
 import CostReport from "@/features/reports/CostReport";
+import MatrixReport from "@/features/reports/MatrixReport";
+import DataQualityReport from "@/features/reports/DataQualityReport";
 import DiagramsPage from "@/features/diagrams/DiagramsPage";
 import DiagramEditor from "@/features/diagrams/DiagramEditor";
 import TodosPage from "@/features/todos/TodosPage";
@@ -67,11 +69,13 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/fact-sheets/:id" element={<FactSheetDetail />} />
-            <Route path="/reports/landscape" element={<LandscapeReport />} />
             <Route path="/reports/portfolio" element={<PortfolioReport />} />
-            <Route path="/reports/matrix" element={<MatrixReport />} />
-            <Route path="/reports/roadmap" element={<RoadmapReport />} />
+            <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
+            <Route path="/reports/lifecycle" element={<LifecycleReport />} />
+            <Route path="/reports/dependencies" element={<DependencyReport />} />
             <Route path="/reports/cost" element={<CostReport />} />
+            <Route path="/reports/matrix" element={<MatrixReport />} />
+            <Route path="/reports/data-quality" element={<DataQualityReport />} />
             <Route path="/diagrams" element={<DiagramsPage />} />
             <Route path="/diagrams/:id" element={<DiagramEditor />} />
             <Route path="/ea-delivery" element={<EADeliveryPage />} />
