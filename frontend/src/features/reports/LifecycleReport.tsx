@@ -71,15 +71,15 @@ export default function LifecycleReport() {
     api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`).then((r) => setData(r.items));
   }, [fsType]);
 
-  const { items, minDate, maxDate, range, todayPct, eolCount } = useMemo(() => {
-    if (!data || !data.length) return { items: [], minDate: 0, maxDate: 0, range: 0, todayPct: 0, eolCount: 0 };
+  const { items, minDate, maxDate, range, eolCount } = useMemo(() => {
+    if (!data || !data.length) return { items: [], minDate: 0, maxDate: 0, range: 0, eolCount: 0 };
     const now = Date.now();
     const fiveYears = 5 * 365.25 * 86400000;
     const min = now - fiveYears;
     const max = now + fiveYears;
     const rng = max - min;
     const eol = data.filter((d) => currentPhase(d.lifecycle) === "endOfLife").length;
-    return { items: data, minDate: min, maxDate: max, range: rng, todayPct: 50, eolCount: eol };
+    return { items: data, minDate: min, maxDate: max, range: rng, eolCount: eol };
   }, [data]);
 
   // Year tick marks
