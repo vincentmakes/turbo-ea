@@ -404,7 +404,7 @@ export default function DiagramEditor() {
 
       const typeInfo = fsTypesRef.current.find((t) => t.key === data.type);
       const color = typeInfo?.color || "#999";
-      const tempId = `pending-${crypto.randomUUID()}`;
+      const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
       const cellId = insertPendingFactSheet(frame, {
         tempId,
@@ -417,10 +417,11 @@ export default function DiagramEditor() {
 
       if (cellId) {
         setSnackMsg(`"${data.name}" added (pending sync)`);
+        refreshSyncPanel();
       }
       setCreateOpen(false);
     },
-    [],
+    [refreshSyncPanel],
   );
 
   /* ---------- Relation picker result ---------- */
@@ -437,8 +438,9 @@ export default function DiagramEditor() {
       setRelPickerOpen(false);
       pendingEdgeRef.current = null;
       setSnackMsg(`Relation "${relType.label}" added (pending sync)`);
+      refreshSyncPanel();
     },
-    [],
+    [refreshSyncPanel],
   );
 
   const handleRelationCancelled = useCallback(() => {
