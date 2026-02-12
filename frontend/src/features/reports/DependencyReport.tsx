@@ -280,7 +280,6 @@ export default function DependencyReport() {
                     onMouseEnter={() => setHovered(n.id)}
                     onMouseLeave={() => setHovered(null)}
                     onClick={() => setSelected(nodes.find((nd) => nd.id === n.id) || null)}
-                    onDoubleClick={() => navigate(`/fact-sheets/${n.id}`)}
                   >
                     <circle
                       r={isCenter ? 14 : 10}
@@ -297,6 +296,18 @@ export default function DependencyReport() {
                     >
                       {n.name.length > 16 ? n.name.slice(0, 15) + "…" : n.name}
                     </text>
+                    {/* Open in new tab icon */}
+                    <g
+                      transform={`translate(${isCenter ? 10 : 7}, ${isCenter ? -10 : -7})`}
+                      style={{ cursor: "pointer" }}
+                      onClick={(e) => { e.stopPropagation(); window.open(`/fact-sheets/${n.id}`, "_blank"); }}
+                    >
+                      <circle r={7} fill="#fff" stroke="#ccc" strokeWidth={0.5} />
+                      <path
+                        d="M-3 1L-3-3L1-3M-1 1L3-3M3-3L3 1L1 1M-1 3L-3 3L-3 1"
+                        fill="none" stroke="#555" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round"
+                      />
+                    </g>
                   </g>
                 );
               })}
