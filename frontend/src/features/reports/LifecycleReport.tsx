@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -64,6 +64,7 @@ export default function LifecycleReport() {
   const [view, setView] = useState<"chart" | "table">("chart");
   const [sortK, setSortK] = useState("name");
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const params = fsType ? `?type=${fsType}` : "";
@@ -115,6 +116,32 @@ export default function LifecycleReport() {
     return counts;
   }, [items]);
 
+  // Scroll so "today" line is centered in view
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (!container || !range || items.length === 0) return;
+    const tp = todayPct / 100;
+    if (tp <= 0 || tp >= 1) return;
+
+    const nameCol = 200;
+    const viewWidth = container.clientWidth;
+
+    // Calculate minimum inner width so today can be scrolled to center
+    const minTimelineFromRight = viewWidth / (2 * Math.max(1 - tp, 0.05));
+    const minTimelineFromLeft = Math.max(0, viewWidth / 2 - nameCol) / Math.max(tp, 0.05);
+    const minTimeline = Math.max(minTimelineFromRight, minTimelineFromLeft, viewWidth - nameCol);
+    const inner = container.firstElementChild as HTMLElement;
+    if (inner) inner.style.minWidth = `${nameCol + minTimeline}px`;
+
+    // Scroll to center today
+    requestAnimationFrame(() => {
+      const contentWidth = inner?.offsetWidth || container.scrollWidth;
+      const timelineWidth = contentWidth - nameCol;
+      const todayX = nameCol + timelineWidth * tp;
+      container.scrollLeft = todayX - viewWidth / 2;
+    });
+  }, [todayPct, range, items.length]);
+
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -157,23 +184,26 @@ export default function LifecycleReport() {
       )}
 
       {view === "chart" ? (
-        <Paper variant="outlined" sx={{ p: 2, overflow: "auto" }}>
+        <Paper ref={scrollRef} variant="outlined" sx={{ p: 2, overflow: "auto" }}>
           {items.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
           ) : (
             <>
               <Box sx={{ position: "relative" }}>
               {/* Date axis */}
-              <Box sx={{ ml: "200px", position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
-                {ticks.map((t) => (
-                  <Typography
-                    key={t.label}
-                    variant="caption"
-                    sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
-                  >
-                    {t.label}
-                  </Typography>
-                ))}
+              <Box sx={{ display: "flex", height: 24, mb: 1 }}>
+                <Box sx={{ width: 200, flexShrink: 0, position: "sticky", left: 0, zIndex: 2, bgcolor: "#fff" }} />
+                <Box sx={{ flex: 1, position: "relative", borderBottom: "1px solid #e0e0e0" }}>
+                  {ticks.map((t) => (
+                    <Typography
+                      key={t.label}
+                      variant="caption"
+                      sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
+                    >
+                      {t.label}
+                    </Typography>
+                  ))}
+                </Box>
               </Box>
 
               {/* Items */}
@@ -194,10 +224,10 @@ export default function LifecycleReport() {
                 return (
                   <Box
                     key={item.id}
-                    sx={{ display: "flex", alignItems: "center", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                    sx={{ display: "flex", alignItems: "center", height: 32, cursor: "pointer", bgcolor: "#fff", "&:hover": { bgcolor: "#f5f5f5" } }}
                     onClick={() => navigate(`/fact-sheets/${item.id}`)}
                   >
-                    <Box sx={{ width: 200, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.5, pr: 1 }}>
+                    <Box sx={{ width: 200, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.5, pr: 1, position: "sticky", left: 0, zIndex: 1, bgcolor: "inherit" }}>
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
                         {item.name}
