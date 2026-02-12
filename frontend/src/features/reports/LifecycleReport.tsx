@@ -220,9 +220,14 @@ export default function LifecycleReport() {
                   {/* Timeline bars */}
                   {items.map((item) => {
                     const segments: { left: number; width: number; color: string; label: string }[] = [];
+                    let eolPct: number | null = null;
                     for (let i = 0; i < PHASES.length; i++) {
                       const start = parseDate(item.lifecycle[PHASES[i].key]);
                       if (!start) continue;
+                      if (PHASES[i].key === "endOfLife") {
+                        eolPct = ((start - totalMin) / totalRange) * 100;
+                        continue;
+                      }
                       const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
                       const end = nextPhaseStart ?? totalMax;
                       const left = ((start - totalMin) / totalRange) * 100;
@@ -250,6 +255,13 @@ export default function LifecycleReport() {
                               />
                             </Tooltip>
                           ))}
+                          {eolPct != null && (
+                            <Tooltip title={`End of Life: ${fmtDate(item.lifecycle.endOfLife)}`}>
+                              <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
+                                <MaterialSymbol icon="block" size={20} color="#f44336" />
+                              </Box>
+                            </Tooltip>
+                          )}
                         </Box>
                       </Box>
                     );
