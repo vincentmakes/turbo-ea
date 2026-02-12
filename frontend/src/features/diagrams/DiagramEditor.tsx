@@ -391,6 +391,46 @@ export default function DiagramEditor() {
     [handleToggleGroup],
   );
 
+  /* ---------- Sync panel helpers ---------- */
+  const refreshSyncPanel = useCallback(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+
+    const { pendingFS: pfs, pendingRels: prels, syncedFS: _ } = scanDiagramItems(frame);
+
+    setPendingFS(
+      pfs.map((p) => {
+        const typeInfo = fsTypesRef.current.find((t) => t.key === p.type);
+        return {
+          cellId: p.cellId,
+          type: p.type,
+          typeLabel: typeInfo?.label || p.type,
+          typeColor: typeInfo?.color || "#999",
+          name: p.name,
+        };
+      }),
+    );
+
+    setPendingRels(
+      prels.map((p) => {
+        const srcType = fsTypesRef.current.find((t) =>
+          pfs.some((f) => f.tempId === p.sourceFactSheetId && f.type === t.key),
+        );
+        return {
+          edgeCellId: p.edgeCellId,
+          relationType: p.relationType,
+          relationLabel: p.relationLabel,
+          sourceName: p.sourceName,
+          targetName: p.targetName,
+          sourceColor: srcType?.color || "#999",
+          targetColor: "#999",
+          sourceFactSheetId: p.sourceFactSheetId,
+          targetFactSheetId: p.targetFactSheetId,
+        };
+      }),
+    );
+  }, []);
+
   /* ---------- Create new (pending) fact sheet ---------- */
   const handleCreateFactSheet = useCallback(
     (data: { type: string; name: string; description?: string }) => {
@@ -457,46 +497,6 @@ export default function DiagramEditor() {
     }
     setRelPickerOpen(false);
     pendingEdgeRef.current = null;
-  }, []);
-
-  /* ---------- Sync panel helpers ---------- */
-  const refreshSyncPanel = useCallback(() => {
-    const frame = iframeRef.current;
-    if (!frame) return;
-
-    const { pendingFS: pfs, pendingRels: prels, syncedFS: _ } = scanDiagramItems(frame);
-
-    setPendingFS(
-      pfs.map((p) => {
-        const typeInfo = fsTypesRef.current.find((t) => t.key === p.type);
-        return {
-          cellId: p.cellId,
-          type: p.type,
-          typeLabel: typeInfo?.label || p.type,
-          typeColor: typeInfo?.color || "#999",
-          name: p.name,
-        };
-      }),
-    );
-
-    setPendingRels(
-      prels.map((p) => {
-        const srcType = fsTypesRef.current.find((t) =>
-          pfs.some((f) => f.tempId === p.sourceFactSheetId && f.type === t.key),
-        );
-        return {
-          edgeCellId: p.edgeCellId,
-          relationType: p.relationType,
-          relationLabel: p.relationLabel,
-          sourceName: p.sourceName,
-          targetName: p.targetName,
-          sourceColor: srcType?.color || "#999",
-          targetColor: "#999",
-          sourceFactSheetId: p.sourceFactSheetId,
-          targetFactSheetId: p.targetFactSheetId,
-        };
-      }),
-    );
   }, []);
 
   const handleSyncFS = useCallback(
