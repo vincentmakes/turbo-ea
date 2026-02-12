@@ -400,13 +400,18 @@ async def dependencies(
     type: str | None = Query(None),
 ):
     """Dependency / interface map: nodes + edges for graph rendering."""
-    # Get fact sheets
-    q = select(FactSheet).where(FactSheet.status == "ACTIVE")
+    # Always load ALL active fact sheets for ancestor path resolution
+    full_result = await db.execute(
+        select(FactSheet).where(FactSheet.status == "ACTIVE")
+    )
+    all_sheets = full_result.scalars().all()
+    full_map = {str(fs.id): fs for fs in all_sheets}
+
+    # Apply optional type filter for the graph scope
     if type:
-        q = q.where(FactSheet.type == type)
-    result = await db.execute(q)
-    sheets = result.scalars().all()
-    sheet_map = {str(fs.id): fs for fs in sheets}
+        sheet_map = {k: v for k, v in full_map.items() if v.type == type}
+    else:
+        sheet_map = dict(full_map)
 
     # Get all relations
     all_ids = list(sheet_map.keys())
@@ -439,6 +444,23 @@ async def dependencies(
     else:
         visible_ids = set(all_ids)
 
+    # Helper: build ancestor path names (root-first) using full_map
+    def _ancestor_path(fs_id: str) -> list[str]:
+        path: list[str] = []
+        cur = full_map.get(fs_id)
+        seen: set[str] = set()
+        while cur and cur.parent_id:
+            pid = str(cur.parent_id)
+            if pid in seen:
+                break
+            seen.add(pid)
+            parent = full_map.get(pid)
+            if not parent:
+                break
+            path.insert(0, parent.name)
+            cur = parent
+        return path
+
     # Build nodes
     nodes = []
     for nid in visible_ids:
@@ -451,6 +473,8 @@ async def dependencies(
             "type": fs.type,
             "lifecycle": fs.lifecycle,
             "attributes": fs.attributes,
+            "parent_id": str(fs.parent_id) if fs.parent_id else None,
+            "path": _ancestor_path(nid),
         })
 
     # Build edges (only between visible nodes)
