@@ -239,10 +239,16 @@ export default function DiagramEditor() {
               if (sa !== sb) return sa - sb;
               return a.name.localeCompare(b.name);
             });
-            expandFactSheetGroup(iframeRef.current, cellId, children);
+            const inserted = expandFactSheetGroup(iframeRef.current, cellId, children);
             addExpandOverlay(iframeRef.current, cellId, true, () =>
               handleToggleGroup(cellId, factSheetId, true),
             );
+            // Add expand overlays to each child so they can be expanded too
+            for (const child of inserted) {
+              addExpandOverlay(iframeRef.current, child.cellId, false, () =>
+                handleToggleGroup(child.cellId, child.factSheetId, false),
+              );
+            }
           })
           .catch(() => setSnackMsg("Failed to load relations"));
       }

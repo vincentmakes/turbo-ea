@@ -255,7 +255,7 @@ export function expandFactSheetGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
   children: ExpandChildData[],
-): string[] {
+): Array<{ cellId: string; factSheetId: string }> {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
   const { win, graph } = ctx;
@@ -280,7 +280,7 @@ export function expandFactSheetGroup(
   const startX = geo.x + geo.width + CHILD_GAP_X;
   const startY = geo.y + geo.height / 2 - totalH / 2;
 
-  const childIds: string[] = [];
+  const inserted: Array<{ cellId: string; factSheetId: string }> = [];
   model.beginUpdate();
   try {
     let yOff = 0;
@@ -312,27 +312,29 @@ export function expandFactSheetGroup(
       graph.insertEdge(
         root, `fse-${cid}`, "",
         parentCell, vertex,
-        `strokeColor=${ch.color};strokeWidth=1.5;rounded=1;curved=1;endArrow=classic;endSize=6`,
+        `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
       );
 
-      childIds.push(cid);
+      inserted.push({ cellId: cid, factSheetId: ch.id });
       yOff += CHILD_CARD_H;
     }
 
     const pv = parentCell.value;
     if (pv?.setAttribute) {
       pv.setAttribute("expanded", "1");
-      pv.setAttribute("childCellIds", childIds.join(","));
+      pv.setAttribute("childCellIds", inserted.map((c) => c.cellId).join(","));
     }
   } finally {
     model.endUpdate();
   }
 
-  return childIds;
+  return inserted;
 }
 
 /**
- * Remove all child cells (and their edges) belonging to a parent group.
+ * Remove all descendant cells (and their edges) belonging to a parent group.
+ * Recurses into children that are themselves expanded, so nested expansions
+ * are cleaned up correctly.
  */
 export function collapseFactSheetGroup(
   iframe: HTMLIFrameElement,
@@ -346,13 +348,29 @@ export function collapseFactSheetGroup(
   const parentCell = model.getCell(parentCellId);
   if (!parentCell) return false;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const toRemove: any[] = [];
   const cells = model.cells || {};
+
+  // Build parent→children index so we can walk the tree
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const childrenOf = new Map<string, any[]>();
   for (const k of Object.keys(cells)) {
     const c = cells[k];
-    if (c?.value?.getAttribute?.("parentGroupCell") === parentCellId) {
+    const pgc = c?.value?.getAttribute?.("parentGroupCell");
+    if (pgc) {
+      if (!childrenOf.has(pgc)) childrenOf.set(pgc, []);
+      childrenOf.get(pgc)!.push(c);
+    }
+  }
+
+  // Collect all descendants recursively
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toRemove: any[] = [];
+  const queue = [parentCellId];
+  while (queue.length > 0) {
+    const pid = queue.shift()!;
+    for (const c of childrenOf.get(pid) || []) {
       toRemove.push(c);
+      queue.push(c.id);
     }
   }
 
@@ -374,8 +392,8 @@ export function collapseFactSheetGroup(
 }
 
 /**
- * Scan all cells and add expand/collapse overlays to top-level fact sheet
- * cells (those without a parentGroupCell attribute).
+ * Scan all cells and add expand/collapse overlays to every fact sheet cell
+ * (including children from previous expansions).
  */
 export function refreshFactSheetOverlays(
   iframe: HTMLIFrameElement,
@@ -400,7 +418,6 @@ export function refreshFactSheetOverlays(
 
     const fsId = cell.value.getAttribute("factSheetId");
     if (!fsId) continue;
-    if (cell.value.getAttribute("parentGroupCell")) continue;
 
     let expanded = cell.value.getAttribute("expanded") === "1";
     // If marked expanded but children were deleted, treat as collapsed
