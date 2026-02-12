@@ -663,14 +663,21 @@ export default function DependencyReport() {
                 const dimmed = hovered !== null && !inChain;
 
                 return (
-                  <g
-                    key={n.id}
-                    transform={`translate(${n.x},${n.y})`}
-                    style={{ cursor: "pointer" }}
-                    opacity={dimmed ? 0.2 : 1}
-                    onMouseEnter={() => setHovered(n.id)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => setSelected(nodes.find((nd) => nd.id === n.id) || null)}
+                  <Tooltip
+                    key={card.instanceId}
+                    title={
+                      <span>
+                        <strong>{tl(card.node.type, types)}</strong>
+                        {" · "}
+                        {card.connectionCount} connections
+                        {card.isDuplicate ? " · Also appears elsewhere" : ""}
+                        <br />
+                        <em>Click to expand · Right-click to re-center</em>
+                      </span>
+                    }
+                    placement="top"
+                    arrow
+                    enterDelay={500}
                   >
                     <Paper
                       elevation={inChain ? 4 : card.isRoot ? 2 : 0}
