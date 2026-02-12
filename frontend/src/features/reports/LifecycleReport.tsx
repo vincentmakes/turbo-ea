@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -64,6 +64,7 @@ export default function LifecycleReport() {
   const [view, setView] = useState<"chart" | "table">("chart");
   const [sortK, setSortK] = useState("name");
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const params = fsType ? `?type=${fsType}` : "";
@@ -103,6 +104,14 @@ export default function LifecycleReport() {
     for (const d of items) counts[currentPhase(d.lifecycle)]++;
     return counts;
   }, [items]);
+
+  // Scroll timeline so "today" (center) is visible
+  useLayoutEffect(() => {
+    const el = timelineRef.current;
+    if (!el || items.length === 0) return;
+    const todayX = el.scrollWidth * 0.5;
+    el.scrollLeft = todayX - el.clientWidth / 2;
+  }, [items.length]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -146,90 +155,102 @@ export default function LifecycleReport() {
       )}
 
       {view === "chart" ? (
-        <Paper variant="outlined" sx={{ p: 2, overflow: "auto" }}>
+        <Paper variant="outlined" sx={{ p: 2 }}>
           {items.length === 0 ? (
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
           ) : (
-            <>
-              <Box sx={{ position: "relative" }}>
-              {/* Date axis */}
-              <Box sx={{ display: "flex", height: 24, mb: 1 }}>
-                <Box sx={{ width: 200, flexShrink: 0, position: "sticky", left: 0, zIndex: 2, bgcolor: "#fff" }} />
-                <Box sx={{ flex: 1, position: "relative", borderBottom: "1px solid #e0e0e0" }}>
-                  {ticks.map((t) => (
-                    <Typography
-                      key={t.label}
-                      variant="caption"
-                      sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
+            <Box sx={{ display: "flex" }}>
+              {/* Fixed name column */}
+              <Box sx={{ width: 200, flexShrink: 0, pr: 1 }}>
+                <Box sx={{ height: 24, mb: 1 }} />
+                {items.map((item) => {
+                  const cp = currentPhase(item.lifecycle);
+                  const isEol = cp === "endOfLife";
+                  return (
+                    <Box
+                      key={item.id}
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                      onClick={() => navigate(`/fact-sheets/${item.id}`)}
                     >
-                      {t.label}
-                    </Typography>
-                  ))}
-                </Box>
-              </Box>
-
-              {/* Items */}
-              {items.map((item) => {
-                const segments: { left: number; width: number; color: string; label: string }[] = [];
-                for (let i = 0; i < PHASES.length; i++) {
-                  const start = parseDate(item.lifecycle[PHASES[i].key]);
-                  if (!start) continue;
-                  const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
-                  const end = nextPhaseStart ?? maxDate;
-                  const left = ((start - minDate) / range) * 100;
-                  const width = Math.max(((end - start) / range) * 100, 0.5);
-                  segments.push({ left, width, color: PHASES[i].color, label: PHASES[i].label });
-                }
-                const cp = currentPhase(item.lifecycle);
-                const isEol = cp === "endOfLife";
-
-                return (
-                  <Box
-                    key={item.id}
-                    sx={{ display: "flex", alignItems: "center", height: 32, cursor: "pointer", bgcolor: "#fff", "&:hover": { bgcolor: "#f5f5f5" } }}
-                    onClick={() => navigate(`/fact-sheets/${item.id}`)}
-                  >
-                    <Box sx={{ width: 200, flexShrink: 0, display: "flex", alignItems: "center", gap: 0.5, pr: 1, position: "sticky", left: 0, zIndex: 1, bgcolor: "inherit" }}>
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
                         {item.name}
                       </Typography>
                     </Box>
-                    <Box sx={{ flex: 1, position: "relative", height: 16 }}>
-                      {segments.map((s, i) => (
-                        <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`}>
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              left: `${s.left}%`,
-                              width: `${s.width}%`,
-                              height: "100%",
-                              bgcolor: s.color,
-                              borderRadius: i === 0 ? "3px 0 0 3px" : i === segments.length - 1 ? "0 3px 3px 0" : 0,
-                            }}
-                          />
-                        </Tooltip>
-                      ))}
-                    </Box>
-                  </Box>
-                );
-              })}
-
-              {/* Today line */}
-              <Box
-                sx={{
-                  position: "absolute",
-                  left: `calc(200px + (100% - 200px) * ${todayPct / 100})`,
-                  top: 0,
-                  bottom: 0,
-                  width: 0,
-                  borderLeft: "2px dashed #f44336",
-                  pointerEvents: "none",
-                  zIndex: 1,
-                }}
-              />
+                  );
+                })}
               </Box>
-            </>
+
+              {/* Scrollable timeline */}
+              <Box ref={timelineRef} sx={{ flex: 1, overflowX: "auto" }}>
+                <Box sx={{ position: "relative", minWidth: 1800 }}>
+                  {/* Date axis */}
+                  <Box sx={{ position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
+                    {ticks.map((t) => (
+                      <Typography
+                        key={t.label}
+                        variant="caption"
+                        sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
+                      >
+                        {t.label}
+                      </Typography>
+                    ))}
+                  </Box>
+
+                  {/* Timeline bars */}
+                  {items.map((item) => {
+                    const segments: { left: number; width: number; color: string; label: string }[] = [];
+                    for (let i = 0; i < PHASES.length; i++) {
+                      const start = parseDate(item.lifecycle[PHASES[i].key]);
+                      if (!start) continue;
+                      const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
+                      const end = nextPhaseStart ?? maxDate;
+                      const left = ((start - minDate) / range) * 100;
+                      const width = Math.max(((end - start) / range) * 100, 0.5);
+                      segments.push({ left, width, color: PHASES[i].color, label: PHASES[i].label });
+                    }
+                    return (
+                      <Box
+                        key={item.id}
+                        sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                        onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                      >
+                        <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
+                          {segments.map((s, i) => (
+                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`}>
+                              <Box
+                                sx={{
+                                  position: "absolute",
+                                  left: `${s.left}%`,
+                                  width: `${s.width}%`,
+                                  height: "100%",
+                                  bgcolor: s.color,
+                                  borderRadius: i === 0 ? "3px 0 0 3px" : i === segments.length - 1 ? "0 3px 3px 0" : 0,
+                                }}
+                              />
+                            </Tooltip>
+                          ))}
+                        </Box>
+                      </Box>
+                    );
+                  })}
+
+                  {/* Today line */}
+                  <Box
+                    sx={{
+                      position: "absolute",
+                      left: "50%",
+                      top: 0,
+                      bottom: 0,
+                      width: 0,
+                      borderLeft: "2px dashed #f44336",
+                      pointerEvents: "none",
+                      zIndex: 1,
+                    }}
+                  />
+                </Box>
+              </Box>
+            </Box>
           )}
         </Paper>
       ) : (
