@@ -17,6 +17,7 @@ import DiagramEditor from "@/features/diagrams/DiagramEditor";
 import TodosPage from "@/features/todos/TodosPage";
 import EADeliveryPage from "@/features/ea-delivery/EADeliveryPage";
 import SoAWEditor from "@/features/ea-delivery/SoAWEditor";
+import SoAWPreview from "@/features/ea-delivery/SoAWPreview";
 import MetamodelAdmin from "@/features/admin/MetamodelAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import UsersAdmin from "@/features/admin/UsersAdmin";
@@ -74,8 +75,9 @@ export default function App() {
             <Route path="/diagrams" element={<DiagramsPage />} />
             <Route path="/diagrams/:id" element={<DiagramEditor />} />
             <Route path="/ea-delivery" element={<EADeliveryPage />} />
-            <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
             <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
+            <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
+            <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
             <Route path="/todos" element={<TodosPage />} />
             <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
             <Route path="/admin/tags" element={<TagsAdmin />} />

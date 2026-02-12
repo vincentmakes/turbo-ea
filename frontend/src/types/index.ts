@@ -219,9 +219,7 @@ export interface DashboardData {
 // ---------------------------------------------------------------------------
 
 export interface SoAWDocumentInfo {
-  project_name: string;
   prepared_by: string;
-  title: string;
   reviewed_by: string;
   review_date: string;
 }
@@ -258,7 +256,7 @@ export interface DiagramSummary {
   name: string;
   description?: string;
   type: string;
-  initiative_id?: string | null;
+  initiative_ids: string[];
   thumbnail?: string;
   fact_sheet_count: number;
   created_at?: string;

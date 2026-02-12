@@ -59,9 +59,7 @@ export default function SoAWEditor() {
   const [initiativeId, setInitiativeId] = useState("");
   const [status, setStatus] = useState("draft");
   const [docInfo, setDocInfo] = useState({
-    project_name: "",
     prepared_by: "",
-    title: "",
     reviewed_by: "",
     review_date: "",
   });
@@ -362,6 +360,16 @@ export default function SoAWEditor() {
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
           {isNew ? "New Statement of Architecture Work" : name || "Untitled"}
         </Typography>
+        {!isNew && (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="visibility" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}
+          >
+            Preview
+          </Button>
+        )}
         <Button
           size="small"
           startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
@@ -442,25 +450,6 @@ export default function SoAWEditor() {
               </MenuItem>
             ))}
           </TextField>
-        </Box>
-
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
-          <TextField
-            label="Project Name"
-            fullWidth
-            value={docInfo.project_name}
-            onChange={(e) =>
-              setDocInfo((p) => ({ ...p, project_name: e.target.value }))
-            }
-          />
-          <TextField
-            label="Title"
-            fullWidth
-            value={docInfo.title}
-            onChange={(e) =>
-              setDocInfo((p) => ({ ...p, title: e.target.value }))
-            }
-          />
         </Box>
 
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, mb: 2 }}>
