@@ -71,31 +71,51 @@ export default function LifecycleReport() {
     api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`).then((r) => setData(r.items));
   }, [fsType]);
 
-  const { items, minDate, maxDate, range, eolCount } = useMemo(() => {
-    if (!data || !data.length) return { items: [], minDate: 0, maxDate: 0, range: 0, eolCount: 0 };
+  const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
+    if (!data || !data.length) return { items: [], totalMin: 0, totalRange: 1, viewMin: 0, contentPct: 100, todayPct: 50, eolCount: 0 };
     const now = Date.now();
     const fiveYears = 5 * 365.25 * 86400000;
-    const min = now - fiveYears;
-    const max = now + fiveYears;
-    const rng = max - min;
+    const vMin = now - fiveYears;
+    const vMax = now + fiveYears;
+    const vSpan = vMax - vMin;
+
+    // Find actual data extent
+    let dMin = Infinity, dMax = -Infinity;
+    for (const d of data) {
+      for (const p of PHASES) {
+        const t = parseDate(d.lifecycle[p.key]);
+        if (t != null) { dMin = Math.min(dMin, t); dMax = Math.max(dMax, t); }
+      }
+    }
+    const tMin = Math.min(vMin, dMin === Infinity ? vMin : dMin);
+    const tMax = Math.max(vMax, dMax === -Infinity ? vMax : dMax);
+    const tRange = tMax - tMin;
+
     const eol = data.filter((d) => currentPhase(d.lifecycle) === "endOfLife").length;
-    return { items: data, minDate: min, maxDate: max, range: rng, eolCount: eol };
+    return {
+      items: data, totalMin: tMin, totalRange: tRange,
+      viewMin: vMin,
+      contentPct: (tRange / vSpan) * 100,
+      todayPct: ((now - tMin) / tRange) * 100,
+      eolCount: eol,
+    };
   }, [data]);
 
-  // Year tick marks
+  // Year tick marks across the full range
+  const totalMax = totalMin + totalRange;
   const ticks = useMemo(() => {
-    if (!range) return [];
+    if (!totalRange) return [];
     const out: { label: string; pct: number }[] = [];
-    const startYear = new Date(minDate).getFullYear();
-    const endYear = new Date(maxDate).getFullYear();
+    const startYear = new Date(totalMin).getFullYear();
+    const endYear = new Date(totalMax).getFullYear();
     for (let y = startYear; y <= endYear + 1; y++) {
       const t = new Date(y, 0, 1).getTime();
-      if (t >= minDate && t <= maxDate) {
-        out.push({ label: String(y), pct: ((t - minDate) / range) * 100 });
+      if (t >= totalMin && t <= totalMax) {
+        out.push({ label: String(y), pct: ((t - totalMin) / totalRange) * 100 });
       }
     }
     return out;
-  }, [minDate, maxDate, range]);
+  }, [totalMin, totalMax, totalRange]);
 
   // Phase counts
   const phaseCounts = useMemo(() => {
@@ -105,13 +125,13 @@ export default function LifecycleReport() {
     return counts;
   }, [items]);
 
-  // Scroll timeline so "today" (center) is visible
+  // Scroll so the ±5yr viewport is visible (viewMin at left edge)
   useLayoutEffect(() => {
     const el = timelineRef.current;
-    if (!el || items.length === 0) return;
-    const todayX = el.scrollWidth * 0.5;
-    el.scrollLeft = todayX - el.clientWidth / 2;
-  }, [items.length]);
+    if (!el || items.length === 0 || !totalRange) return;
+    const viewMinPct = (viewMin - totalMin) / totalRange;
+    el.scrollLeft = el.scrollWidth * viewMinPct;
+  }, [items.length, viewMin, totalMin, totalRange]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -183,7 +203,7 @@ export default function LifecycleReport() {
 
               {/* Scrollable timeline */}
               <Box ref={timelineRef} sx={{ flex: 1, overflowX: "auto" }}>
-                <Box sx={{ position: "relative", minWidth: 1800 }}>
+                <Box sx={{ position: "relative", width: `${contentPct}%`, minWidth: "100%" }}>
                   {/* Date axis */}
                   <Box sx={{ position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
                     {ticks.map((t) => (
@@ -204,9 +224,9 @@ export default function LifecycleReport() {
                       const start = parseDate(item.lifecycle[PHASES[i].key]);
                       if (!start) continue;
                       const nextPhaseStart = PHASES.slice(i + 1).map((p) => parseDate(item.lifecycle[p.key])).find((d) => d != null);
-                      const end = nextPhaseStart ?? maxDate;
-                      const left = ((start - minDate) / range) * 100;
-                      const width = Math.max(((end - start) / range) * 100, 0.5);
+                      const end = nextPhaseStart ?? totalMax;
+                      const left = ((start - totalMin) / totalRange) * 100;
+                      const width = Math.max(((end - start) / totalRange) * 100, 0.5);
                       segments.push({ left, width, color: PHASES[i].color, label: PHASES[i].label });
                     }
                     return (
@@ -239,7 +259,7 @@ export default function LifecycleReport() {
                   <Box
                     sx={{
                       position: "absolute",
-                      left: "50%",
+                      left: `${todayPct}%`,
                       top: 0,
                       bottom: 0,
                       width: 0,
