@@ -18,6 +18,7 @@ import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useCurrency } from "@/hooks/useCurrency";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -347,6 +348,7 @@ function CapabilityCard({
   maxVal,
   onCapClick,
   onAppClick,
+  fmtCost,
 }: {
   node: CapNode;
   displayLevel: number;
@@ -356,10 +358,11 @@ function CapabilityCard({
   maxVal: number;
   onCapClick: (cap: CapNode) => void;
   onAppClick: (id: string) => void;
+  fmtCost: (v: number) => string;
 }) {
   const val = metricValue(node, metric);
   const fmtVal = (v: number) =>
-    metric === "total_cost" ? `$${(v / 1000).toFixed(0)}k` : String(v);
+    metric === "total_cost" ? fmtCost(v) : String(v);
 
   // Apps to display at THIS node — pushed to deepest visible level
   const visibleApps = useMemo(
@@ -519,6 +522,7 @@ function CapabilityCard({
               maxVal={maxVal}
               onCapClick={onCapClick}
               onAppClick={onAppClick}
+              fmtCost={fmtCost}
             />
           </Box>
         ))}
@@ -618,6 +622,7 @@ const HOST_OPTS = [
 
 export default function CapabilityMapReport() {
   const navigate = useNavigate();
+  const { fmtShort } = useCurrency();
 
   // Data
   const [data, setData] = useState<CapItem[] | null>(null);
@@ -686,8 +691,8 @@ export default function CapabilityMapReport() {
   }, [tree, metric]);
 
   const fmtVal = useCallback(
-    (v: number) => (metric === "total_cost" ? `$${(v / 1000).toFixed(0)}k` : String(v)),
-    [metric],
+    (v: number) => (metric === "total_cost" ? fmtShort(v) : String(v)),
+    [metric, fmtShort],
   );
 
   const handleAppClick = useCallback(
@@ -976,6 +981,7 @@ export default function CapabilityMapReport() {
               maxVal={maxVal}
               onCapClick={setDrawer}
               onAppClick={handleAppClick}
+              fmtCost={fmtShort}
             />
           ))}
         </Box>
@@ -1007,7 +1013,7 @@ export default function CapabilityMapReport() {
                     {o.key === "app_count"
                       ? drawer.deepAppCount
                       : o.key === "total_cost"
-                        ? `$${(metricValue(drawer, o.key) / 1000).toFixed(0)}k`
+                          ? fmtShort(metricValue(drawer, o.key))
                         : metricValue(drawer, o.key)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">

@@ -54,6 +54,13 @@ class EmailSettingsPayload(BaseModel):
     app_base_url: str = ""
 
 
+class CurrencyPayload(BaseModel):
+    currency: str = "USD"
+
+
+DEFAULT_CURRENCY = "USD"
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -164,6 +171,39 @@ async def test_email_settings(
         raise HTTPException(502, f"Failed to send test email: {exc}") from exc
 
     return {"ok": True, "sent_to": user.email}
+
+
+# ---------------------------------------------------------------------------
+# Currency endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/currency")
+async def get_currency(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the configured display currency."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"currency": general.get("currency", DEFAULT_CURRENCY)}
+
+
+@router.patch("/currency")
+async def update_currency(
+    body: CurrencyPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set the display currency for all cost fields."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["currency"] = body.currency
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
