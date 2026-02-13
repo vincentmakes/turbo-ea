@@ -66,6 +66,9 @@ export default function SurveyBuilder() {
   const [relatedOptions, setRelatedOptions] = useState<FactSheet[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [roles, setRoles] = useState<SubscriptionRoleDef[]>([]);
+  const [attributeFilters, setAttributeFilters] = useState<
+    { key: string; op: string; value: string }[]
+  >([]);
 
   // Step 3 — Fields
   const [selectedFields, setSelectedFields] = useState<SurveyField[]>([]);
@@ -87,6 +90,7 @@ export default function SurveyBuilder() {
         setTargetRoles(s.target_roles || []);
         setRelatedIds(s.target_filters?.related_ids || []);
         setTagIds(s.target_filters?.tag_ids || []);
+        setAttributeFilters(s.target_filters?.attribute_filters || []);
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
@@ -171,6 +175,7 @@ export default function SurveyBuilder() {
         target_filters: {
           related_ids: relatedIds.length > 0 ? relatedIds : undefined,
           tag_ids: tagIds.length > 0 ? tagIds : undefined,
+          attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
         } as SurveyTargetFilters,
         target_roles: targetRoles,
         fields: selectedFields,
@@ -188,7 +193,7 @@ export default function SurveyBuilder() {
     } finally {
       setSaving(false);
     }
-  }, [name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, selectedFields, surveyId]);
+  }, [name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, attributeFilters, selectedFields, surveyId]);
 
   // Preview targets
   const loadPreview = useCallback(async () => {
@@ -208,6 +213,7 @@ export default function SurveyBuilder() {
         target_filters: {
           related_ids: relatedIds.length > 0 ? relatedIds : undefined,
           tag_ids: tagIds.length > 0 ? tagIds : undefined,
+          attribute_filters: attributeFilters.length > 0 ? attributeFilters : undefined,
         } as SurveyTargetFilters,
         target_roles: targetRoles,
         fields: selectedFields,
@@ -230,7 +236,7 @@ export default function SurveyBuilder() {
     } finally {
       setPreviewing(false);
     }
-  }, [surveyId, name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, selectedFields, saveDraft]);
+  }, [surveyId, name, description, message, targetTypeKey, targetRoles, relatedIds, tagIds, attributeFilters, selectedFields, saveDraft]);
 
   // Send survey
   const handleSend = async () => {
@@ -398,6 +404,7 @@ export default function SurveyBuilder() {
             onChange={(e) => {
               setTargetTypeKey(e.target.value);
               setSelectedFields([]);
+              setAttributeFilters([]);
             }}
             sx={{ mb: 3 }}
             required
@@ -473,6 +480,94 @@ export default function SurveyBuilder() {
             }
             sx={{ mb: 3 }}
           />
+
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+            Filter by Attributes (optional)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Only target fact sheets where specific attributes match a condition (e.g., cost greater than 10000, TIME rating is missing)
+          </Typography>
+
+          {attributeFilters.map((af, idx) => {
+            const needsValue = af.op !== "is_empty" && af.op !== "is_not_empty";
+            return (
+              <Box key={idx} sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Field"
+                  value={af.key}
+                  onChange={(e) => {
+                    const updated = [...attributeFilters];
+                    updated[idx] = { ...af, key: e.target.value };
+                    setAttributeFilters(updated);
+                  }}
+                  sx={{ minWidth: 180, flex: 1 }}
+                >
+                  {allFields.map((f) => (
+                    <MenuItem key={f.key} value={f.key}>
+                      {f.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  select
+                  size="small"
+                  label="Operator"
+                  value={af.op}
+                  onChange={(e) => {
+                    const updated = [...attributeFilters];
+                    updated[idx] = { ...af, op: e.target.value };
+                    setAttributeFilters(updated);
+                  }}
+                  sx={{ minWidth: 140 }}
+                >
+                  <MenuItem value="eq">equals</MenuItem>
+                  <MenuItem value="ne">not equals</MenuItem>
+                  <MenuItem value="gt">greater than</MenuItem>
+                  <MenuItem value="gte">greater or equal</MenuItem>
+                  <MenuItem value="lt">less than</MenuItem>
+                  <MenuItem value="lte">less or equal</MenuItem>
+                  <MenuItem value="contains">contains</MenuItem>
+                  <MenuItem value="is_empty">is empty</MenuItem>
+                  <MenuItem value="is_not_empty">is not empty</MenuItem>
+                </TextField>
+                {needsValue && (
+                  <TextField
+                    size="small"
+                    label="Value"
+                    value={af.value}
+                    onChange={(e) => {
+                      const updated = [...attributeFilters];
+                      updated[idx] = { ...af, value: e.target.value };
+                      setAttributeFilters(updated);
+                    }}
+                    sx={{ flex: 1 }}
+                  />
+                )}
+                <IconButton
+                  size="small"
+                  onClick={() =>
+                    setAttributeFilters((prev) => prev.filter((_, i) => i !== idx))
+                  }
+                >
+                  <MaterialSymbol icon="close" size={18} color="#999" />
+                </IconButton>
+              </Box>
+            );
+          })}
+
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={16} />}
+            sx={{ textTransform: "none", mb: 1 }}
+            disabled={!targetTypeKey}
+            onClick={() =>
+              setAttributeFilters((prev) => [...prev, { key: "", op: "eq", value: "" }])
+            }
+          >
+            Add Attribute Filter
+          </Button>
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>

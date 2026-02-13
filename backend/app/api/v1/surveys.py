@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+import sqlalchemy
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,10 +139,50 @@ async def _resolve_targets(
     attr_filters = filters.get("attribute_filters") or []
     for af in attr_filters:
         key = af.get("key")
+        op = af.get("op", "eq")
         value = af.get("value")
-        if key and value is not None:
-            # JSONB attribute filter
-            q = q.where(FactSheet.attributes[key].astext == str(value))
+
+        if not key:
+            continue
+
+        col = FactSheet.attributes[key].astext
+
+        if op == "is_empty":
+            # NULL or missing key in JSONB, or empty string
+            q = q.where(
+                (FactSheet.attributes[key] == None)  # noqa: E711
+                | (col == "")
+            )
+        elif op == "is_not_empty":
+            q = q.where(
+                FactSheet.attributes[key] != None,  # noqa: E711
+                col != "",
+            )
+        elif value is not None:
+            str_val = str(value)
+            if op == "eq":
+                q = q.where(col == str_val)
+            elif op == "ne":
+                q = q.where(col != str_val)
+            elif op in ("gt", "lt", "gte", "lte"):
+                # Cast to numeric for comparisons
+                num_col = FactSheet.attributes[key].astext.cast(
+                    sqlalchemy.Numeric
+                )
+                try:
+                    num_val = float(value)
+                except (ValueError, TypeError):
+                    continue
+                if op == "gt":
+                    q = q.where(num_col > num_val)
+                elif op == "lt":
+                    q = q.where(num_col < num_val)
+                elif op == "gte":
+                    q = q.where(num_col >= num_val)
+                elif op == "lte":
+                    q = q.where(num_col <= num_val)
+            elif op == "contains":
+                q = q.where(col.ilike(f"%{str_val}%"))
 
     result = await db.execute(q)
     fact_sheets = result.scalars().all()
