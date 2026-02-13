@@ -39,6 +39,11 @@ export interface SectionDef {
   fields: FieldDef[];
 }
 
+export interface SubscriptionRoleDefinition {
+  key: string;
+  label: string;
+}
+
 export interface FactSheetType {
   key: string;
   label: string;
@@ -49,6 +54,7 @@ export interface FactSheetType {
   has_hierarchy: boolean;
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
+  subscription_roles?: SubscriptionRoleDefinition[];
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;

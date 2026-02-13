@@ -198,6 +198,11 @@ async def list_fact_sheets(
     q = select(FactSheet)
     count_q = select(func.count(FactSheet.id))
 
+    # Exclude fact sheets whose type is hidden
+    hidden_types_sq = select(FactSheetType.key).where(FactSheetType.is_hidden == True)  # noqa: E712
+    q = q.where(FactSheet.type.not_in(hidden_types_sq))
+    count_q = count_q.where(FactSheet.type.not_in(hidden_types_sq))
+
     if type:
         q = q.where(FactSheet.type == type)
         count_q = count_q.where(FactSheet.type == type)

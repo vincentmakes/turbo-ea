@@ -9,6 +9,7 @@ from app.models.fact_sheet_type import FactSheetType
 from app.models.relation_type import RelationType
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
+from app.models.subscription import Subscription
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
@@ -26,6 +27,7 @@ def _serialize_type(t: FactSheetType) -> dict:
         "has_hierarchy": t.has_hierarchy,
         "subtypes": t.subtypes or [],
         "fields_schema": t.fields_schema or [],
+        "subscription_roles": t.subscription_roles or [],
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -83,6 +85,10 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db)):
     max_order = await db.execute(select(func.max(FactSheetType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
+    default_roles = [
+        {"key": "responsible", "label": "Responsible"},
+        {"key": "observer", "label": "Observer"},
+    ]
     t = FactSheetType(
         key=body["key"],
         label=body["label"],
@@ -93,6 +99,7 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db)):
         has_hierarchy=body.get("has_hierarchy", False),
         subtypes=body.get("subtypes", []),
         fields_schema=body.get("fields_schema", []),
+        subscription_roles=body.get("subscription_roles", default_roles),
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -110,9 +117,33 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db)):
     if not t:
         raise HTTPException(404, "Type not found")
 
+    # Prevent removing subscription roles that are in use
+    if "subscription_roles" in body:
+        old_keys = {r["key"] for r in (t.subscription_roles or [])}
+        new_keys = {r["key"] for r in (body["subscription_roles"] or [])}
+        removed = old_keys - new_keys
+        if removed:
+            # Check if any subscriptions use the removed roles on fact sheets of this type
+            in_use = (
+                await db.execute(
+                    select(Subscription.role, func.count(Subscription.id))
+                    .join(FactSheet, Subscription.fact_sheet_id == FactSheet.id)
+                    .where(FactSheet.type == key, Subscription.role.in_(removed))
+                    .group_by(Subscription.role)
+                )
+            ).all()
+            if in_use:
+                details = ", ".join(f"'{r}' ({c} subscription(s))" for r, c in in_use)
+                raise HTTPException(
+                    400,
+                    f"Cannot remove roles that are in use: {details}. "
+                    "Remove the subscriptions first.",
+                )
+
     updatable = [
         "label", "description", "icon", "color", "category",
-        "has_hierarchy", "subtypes", "fields_schema", "sort_order", "is_hidden",
+        "has_hierarchy", "subtypes", "fields_schema", "subscription_roles",
+        "sort_order", "is_hidden",
     ]
     for field in updatable:
         if field in body:

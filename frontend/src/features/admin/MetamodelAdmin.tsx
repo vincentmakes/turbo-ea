@@ -308,6 +308,11 @@ function TypeDetailDrawer({
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
 
+  /* --- Subscription roles --- */
+  const [addRoleOpen, setAddRoleOpen] = useState(false);
+  const [newRoleKey, setNewRoleKey] = useState("");
+  const [newRoleLabel, setNewRoleLabel] = useState("");
+
   /* Initialise local state from the type whenever the drawer opens or the type changes */
   useEffect(() => {
     if (fsType) {
@@ -448,6 +453,41 @@ function TypeDetailDrawer({
     }
   };
 
+  /* --- Subscription Roles --- */
+  const handleAddRole = async () => {
+    if (!newRoleKey || !newRoleLabel) return;
+    try {
+      const updated = [...(fsType.subscription_roles || []), { key: newRoleKey, label: newRoleLabel }];
+      await api.patch(`/metamodel/types/${fsType.key}`, { subscription_roles: updated });
+      onRefresh();
+      setNewRoleKey("");
+      setNewRoleLabel("");
+      setAddRoleOpen(false);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to add role");
+    }
+  };
+
+  const handleRemoveRole = async (roleKey: string) => {
+    try {
+      const updated = (fsType.subscription_roles || []).filter((r) => r.key !== roleKey);
+      await api.patch(`/metamodel/types/${fsType.key}`, { subscription_roles: updated });
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to remove role");
+    }
+  };
+
+  /* --- Hide / Unhide --- */
+  const handleToggleHidden = async () => {
+    try {
+      await api.patch(`/metamodel/types/${fsType.key}`, { is_hidden: !fsType.is_hidden });
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update visibility");
+    }
+  };
+
   /* --- Render --- */
   return (
     <Drawer
@@ -490,7 +530,16 @@ function TypeDetailDrawer({
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <Tooltip title={fsType.is_hidden ? "Unhide type" : "Hide type"}>
+              <IconButton size="small" onClick={handleToggleHidden}>
+                <MaterialSymbol
+                  icon={fsType.is_hidden ? "visibility_off" : "visibility"}
+                  size={20}
+                  color={fsType.is_hidden ? "#f57c00" : "#999"}
+                />
+              </IconButton>
+            </Tooltip>
             <Button
               variant="contained"
               size="small"
@@ -658,6 +707,76 @@ function TypeDetailDrawer({
             sx={{ mb: 2 }}
           >
             Add Subtype
+          </Button>
+        )}
+
+        <Divider sx={{ mb: 2 }} />
+
+        {/* ---------- Subscription Roles ---------- */}
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+          Subscription Roles
+        </Typography>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
+          {(fsType.subscription_roles || []).map((r) => (
+            <Chip
+              key={r.key}
+              label={`${r.label} (${r.key})`}
+              onDelete={() => handleRemoveRole(r.key)}
+              variant="outlined"
+              size="small"
+            />
+          ))}
+          {(!fsType.subscription_roles || fsType.subscription_roles.length === 0) && (
+            <Typography variant="body2" color="text.secondary">
+              No roles defined (defaults: Responsible, Observer)
+            </Typography>
+          )}
+        </Box>
+        {addRoleOpen ? (
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, mb: 2 }}>
+            <TextField
+              size="small"
+              label="Key"
+              value={newRoleKey}
+              onChange={(e) => setNewRoleKey(e.target.value.replace(/\s+/g, "_").toLowerCase())}
+              sx={{ flex: 1 }}
+              placeholder="e.g. data_steward"
+            />
+            <TextField
+              size="small"
+              label="Label"
+              value={newRoleLabel}
+              onChange={(e) => setNewRoleLabel(e.target.value)}
+              sx={{ flex: 1 }}
+              placeholder="e.g. Data Steward"
+            />
+            <Button
+              size="small"
+              variant="contained"
+              onClick={handleAddRole}
+              disabled={!newRoleKey || !newRoleLabel}
+            >
+              Add
+            </Button>
+            <IconButton
+              size="small"
+              onClick={() => {
+                setAddRoleOpen(false);
+                setNewRoleKey("");
+                setNewRoleLabel("");
+              }}
+            >
+              <MaterialSymbol icon="close" size={18} />
+            </IconButton>
+          </Box>
+        ) : (
+          <Button
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={16} />}
+            onClick={() => setAddRoleOpen(true)}
+            sx={{ mb: 2 }}
+          >
+            Add Role
           </Button>
         )}
 
@@ -1434,7 +1553,7 @@ export default function MetamodelAdmin() {
                           color="#fff"
                         />
                       </Box>
-                      <Box sx={{ minWidth: 0 }}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography fontWeight={600} noWrap>
                           {t.label}
                         </Typography>
@@ -1446,6 +1565,23 @@ export default function MetamodelAdmin() {
                           {t.category || "Uncategorized"}
                         </Typography>
                       </Box>
+                      <Tooltip title={t.is_hidden ? "Unhide" : "Hide"}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            api
+                              .patch(`/metamodel/types/${t.key}`, { is_hidden: !t.is_hidden })
+                              .then(refresh);
+                          }}
+                        >
+                          <MaterialSymbol
+                            icon={t.is_hidden ? "visibility_off" : "visibility"}
+                            size={18}
+                            color={t.is_hidden ? "#f57c00" : "#bbb"}
+                          />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
 
                     <Box
