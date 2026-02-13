@@ -64,7 +64,7 @@ async def send_notification_email(
     link: str | None = None,
 ) -> None:
     """Send a notification email with a standard template."""
-    base_url = "http://localhost:8920"  # Configurable in future
+    base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
 
     link_html = ""

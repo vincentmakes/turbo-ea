@@ -56,6 +56,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel" },
   { label: "Tags", icon: "label", path: "/admin/tags" },
   { label: "Users", icon: "group", path: "/admin/users" },
+  { label: "Settings", icon: "settings", path: "/admin/settings" },
 ];
 
 interface Props {

@@ -1356,7 +1356,11 @@ function CommentsTab({ fsId }: { fsId: string }) {
 // ── Tab: Todos ──────────────────────────────────────────────────
 function TodosTab({ fsId }: { fsId: string }) {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [newDesc, setNewDesc] = useState("");
+  const [newAssignee, setNewAssignee] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
 
   const load = useCallback(() => {
     api
@@ -1366,10 +1370,20 @@ function TodosTab({ fsId }: { fsId: string }) {
   }, [fsId]);
   useEffect(load, [load]);
 
+  useEffect(() => {
+    api.get<User[]>("/users").then(setUsers).catch(() => {});
+  }, []);
+
   const handleAdd = async () => {
     if (!newDesc.trim()) return;
-    await api.post(`/fact-sheets/${fsId}/todos`, { description: newDesc });
+    const payload: Record<string, unknown> = { description: newDesc };
+    if (newAssignee) payload.assigned_to = newAssignee;
+    if (newDueDate) payload.due_date = newDueDate;
+    await api.post(`/fact-sheets/${fsId}/todos`, payload);
     setNewDesc("");
+    setNewAssignee("");
+    setNewDueDate("");
+    setDialogOpen(false);
     load();
   };
 
@@ -1381,28 +1395,34 @@ function TodosTab({ fsId }: { fsId: string }) {
     );
   };
 
+  const handleDelete = async (todoId: string) => {
+    await api.delete(`/todos/${todoId}`);
+    load();
+  };
+
   return (
     <Box>
-      <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Add a to-do..."
-          value={newDesc}
-          onChange={(e) => setNewDesc(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-        />
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
         <Button
           variant="contained"
-          onClick={handleAdd}
-          disabled={!newDesc.trim()}
+          size="small"
+          startIcon={<MaterialSymbol icon="add" size={18} />}
+          sx={{ textTransform: "none" }}
+          onClick={() => setDialogOpen(true)}
         >
-          Add
+          Add Todo
         </Button>
       </Box>
       <List dense>
         {todos.map((t) => (
-          <ListItem key={t.id}>
+          <ListItem
+            key={t.id}
+            secondaryAction={
+              <IconButton size="small" onClick={() => handleDelete(t.id)}>
+                <MaterialSymbol icon="close" size={16} color="#999" />
+              </IconButton>
+            }
+          >
             <IconButton
               size="small"
               onClick={() => toggleStatus(t)}
@@ -1420,13 +1440,82 @@ function TodosTab({ fsId }: { fsId: string }) {
             </IconButton>
             <ListItemText
               primary={t.description}
+              secondary={
+                <Box component="span" sx={{ display: "flex", gap: 1, mt: 0.25 }}>
+                  {t.assignee_name && (
+                    <Chip
+                      size="small"
+                      label={t.assignee_name}
+                      icon={<MaterialSymbol icon="person" size={14} />}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
+                    />
+                  )}
+                  {t.due_date && (
+                    <Chip
+                      size="small"
+                      label={t.due_date}
+                      icon={<MaterialSymbol icon="event" size={14} />}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: "0.7rem" }}
+                    />
+                  )}
+                </Box>
+              }
               sx={{
                 textDecoration: t.status === "done" ? "line-through" : "none",
               }}
             />
           </ListItem>
         ))}
+        {todos.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
+            No todos yet.
+          </Typography>
+        )}
       </List>
+
+      {/* Add Todo Dialog */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Todo</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="Description"
+            fullWidth
+            value={newDesc}
+            onChange={(e) => setNewDesc(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            sx={{ mt: 1, mb: 2 }}
+          />
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+            <Autocomplete
+              options={users.filter((u) => u.is_active)}
+              getOptionLabel={(u) => u.display_name}
+              value={users.find((u) => u.id === newAssignee) || null}
+              onChange={(_, val) => setNewAssignee(val?.id ?? "")}
+              renderInput={(params) => (
+                <TextField {...params} label="Assign to" size="small" />
+              )}
+              size="small"
+            />
+            <TextField
+              label="Due date"
+              type="date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              value={newDueDate}
+              onChange={(e) => setNewDueDate(e.target.value)}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={!newDesc.trim()} onClick={handleAdd}>
+            Add
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -280,6 +280,7 @@ export interface SoAWSectionData {
 export interface SoAWSignatory {
   user_id: string;
   display_name: string;
+  email?: string;
   status: "pending" | "signed" | "rejected";
   signed_at: string | null;
 }
