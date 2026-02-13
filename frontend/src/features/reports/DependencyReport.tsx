@@ -41,6 +41,8 @@ interface GEdge {
   source: string;
   target: string;
   type: string;
+  label?: string;
+  reverse_label?: string;
   description?: string;
 }
 
@@ -83,6 +85,9 @@ interface Connection {
   x2: number;
   y2: number;
   color: string;
+  relType: string;
+  relLabel: string;
+  relDescription?: string;
 }
 
 interface TreeLayout {
@@ -149,7 +154,7 @@ function cardH(card: { isRoot: boolean; breadcrumb: string[] }): number {
 function computeTreeLayout(
   rootId: string,
   expanded: Set<string>,
-  adjMap: Map<string, { nodeId: string; relType: string }[]>,
+  adjMap: Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>,
   nodeMap: Map<string, GNode>,
   types: FactSheetType[],
 ): TreeLayout {
@@ -296,6 +301,9 @@ function computeTreeLayout(
     if (!parent) continue;
     const pH = cardH(parent);
     const cH = cardH(card);
+    // Find the relation info between parent and child nodes
+    const adj = adjMap.get(parent.id) || [];
+    const relInfo = adj.find((a) => a.nodeId === card.id);
     connections.push({
       fromInstance: card.parentInstanceId,
       toInstance: card.instanceId,
@@ -304,6 +312,9 @@ function computeTreeLayout(
       x2: card.x,
       y2: card.y + cH / 2,
       color: tc(card.node.type, types),
+      relType: relInfo?.relType || "",
+      relLabel: relInfo?.relLabel || relInfo?.relType || "",
+      relDescription: relInfo?.relDescription,
     });
   }
 
@@ -338,6 +349,11 @@ export default function DependencyReport() {
   const [view, setView] = useState<"chart" | "table">("chart");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
+  const [hoveredConn, setHoveredConn] = useState<{
+    conn: Connection;
+    x: number;
+    y: number;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   /* -- picker state -- */
@@ -360,12 +376,12 @@ export default function DependencyReport() {
 
   // Adjacency map
   const adjMap = useMemo(() => {
-    const m = new Map<string, { nodeId: string; relType: string }[]>();
+    const m = new Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>();
     for (const e of edges) {
       if (!m.has(e.source)) m.set(e.source, []);
-      m.get(e.source)!.push({ nodeId: e.target, relType: e.type });
+      m.get(e.source)!.push({ nodeId: e.target, relType: e.type, relLabel: e.label || e.type, relDescription: e.description });
       if (!m.has(e.target)) m.set(e.target, []);
-      m.get(e.target)!.push({ nodeId: e.source, relType: e.type });
+      m.get(e.target)!.push({ nodeId: e.source, relType: e.type, relLabel: e.reverse_label || e.label || e.type, relDescription: e.description });
     }
     return m;
   }, [edges]);
@@ -602,25 +618,93 @@ export default function DependencyReport() {
                 }}
               >
                 {layout.connections.map((c) => {
+                  const connKey = `${c.fromInstance}-${c.toInstance}`;
                   const inChain =
                     hovered !== null &&
                     hoveredChain.has(c.fromInstance) &&
                     hoveredChain.has(c.toInstance);
+                  const isHoveredConn =
+                    hoveredConn?.conn.fromInstance === c.fromInstance &&
+                    hoveredConn?.conn.toInstance === c.toInstance;
                   return (
-                    <path
-                      key={`${c.fromInstance}-${c.toInstance}`}
-                      d={curvePath(c.x1, c.y1, c.x2, c.y2)}
-                      fill="none"
-                      stroke={c.color}
-                      strokeWidth={inChain ? 2.4 : 1.4}
-                      strokeOpacity={
-                        hovered ? (inChain ? 0.9 : 0.1) : 0.35
-                      }
-                      style={{ transition: "stroke-opacity 0.2s, stroke-width 0.2s" }}
-                    />
+                    <g key={connKey}>
+                      <path
+                        d={curvePath(c.x1, c.y1, c.x2, c.y2)}
+                        fill="none"
+                        stroke={c.color}
+                        strokeWidth={isHoveredConn ? 3 : inChain ? 2.4 : 1.4}
+                        strokeOpacity={
+                          isHoveredConn ? 1 : hovered ? (inChain ? 0.9 : 0.1) : 0.35
+                        }
+                        style={{ transition: "stroke-opacity 0.2s, stroke-width 0.2s" }}
+                      />
+                      {/* Wider invisible hit area for hover */}
+                      <path
+                        d={curvePath(c.x1, c.y1, c.x2, c.y2)}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={14}
+                        style={{ pointerEvents: "stroke", cursor: "default" }}
+                        onMouseEnter={(e) => {
+                          const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+                          setHoveredConn({
+                            conn: c,
+                            x: e.clientX - rect.left,
+                            y: e.clientY - rect.top,
+                          });
+                        }}
+                        onMouseMove={(e) => {
+                          const rect = (e.target as SVGElement).closest("svg")!.getBoundingClientRect();
+                          setHoveredConn((prev) =>
+                            prev && prev.conn === c
+                              ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top }
+                              : prev,
+                          );
+                        }}
+                        onMouseLeave={() => setHoveredConn(null)}
+                      />
+                    </g>
                   );
                 })}
               </svg>
+
+              {/* Connection tooltip */}
+              {hoveredConn && (() => {
+                const fromCard = layout.cards.find((c) => c.instanceId === hoveredConn.conn.fromInstance);
+                const toCard = layout.cards.find((c) => c.instanceId === hoveredConn.conn.toInstance);
+                return (
+                  <Paper
+                    elevation={6}
+                    sx={{
+                      position: "absolute",
+                      left: hoveredConn.x + 12,
+                      top: hoveredConn.y - 10,
+                      px: 1.5,
+                      py: 1,
+                      pointerEvents: "none",
+                      zIndex: 20,
+                      maxWidth: 280,
+                      borderLeft: `3px solid ${hoveredConn.conn.color}`,
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: "0.8rem" }}>
+                      {hoveredConn.conn.relLabel}
+                    </Typography>
+                    {fromCard && toCard && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4, mt: 0.25 }}>
+                        {fromCard.node.name}
+                        <span style={{ color: "#aaa", margin: "0 4px" }}>&rarr;</span>
+                        {toCard.node.name}
+                      </Typography>
+                    )}
+                    {hoveredConn.conn.relDescription && (
+                      <Typography variant="caption" color="text.disabled" sx={{ display: "block", mt: 0.5, lineHeight: 1.3, fontStyle: "italic" }}>
+                        {hoveredConn.conn.relDescription}
+                      </Typography>
+                    )}
+                  </Paper>
+                );
+              })()}
 
               {/* Type group headers */}
               {layout.headers.map((h) => (
@@ -1102,11 +1186,13 @@ export default function DependencyReport() {
                       {s?.name}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        label={e.type}
-                        variant="outlined"
-                      />
+                      <Tooltip title={e.description || e.type} arrow>
+                        <Chip
+                          size="small"
+                          label={e.label || e.type}
+                          variant="outlined"
+                        />
+                      </Tooltip>
                     </TableCell>
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
