@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.event import Event
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -440,10 +441,13 @@ async def dependencies(
     else:
         sheet_map = dict(full_map)
 
-    # Get all relations
+    # Get all relations + relation type labels
     all_ids = list(sheet_map.keys())
     rels_result = await db.execute(select(Relation))
     rels = rels_result.scalars().all()
+
+    rt_result = await db.execute(select(RelationType.key, RelationType.label, RelationType.reverse_label))
+    rel_type_info = {row[0]: {"label": row[1], "reverse_label": row[2]} for row in rt_result.all()}
 
     # If center_id, do BFS to limited depth
     if center_id and center_id in sheet_map:
@@ -513,10 +517,13 @@ async def dependencies(
             edge_key = f"{min(sid, tid)}:{max(sid, tid)}"
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
+                rt_info = rel_type_info.get(r.type, {})
                 edges.append({
                     "source": sid,
                     "target": tid,
                     "type": r.type,
+                    "label": rt_info.get("label", r.type),
+                    "reverse_label": rt_info.get("reverse_label"),
                     "description": r.description,
                 })
 
