@@ -582,34 +582,16 @@ export default function SoAWEditor() {
         </Alert>
       )}
 
-      {/* Signatories panel */}
-      {signatories.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3, border: "1px solid", borderColor: isSigned ? "success.light" : "warning.light" }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-            Signatories
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-            {signatories.map((sig) => (
-              <Chip
-                key={sig.user_id}
-                label={`${sig.display_name} - ${sig.status === "signed" ? "Signed" : "Pending"}`}
-                color={sig.status === "signed" ? "success" : "warning"}
-                size="small"
-                icon={
-                  <MaterialSymbol
-                    icon={sig.status === "signed" ? "check_circle" : "pending"}
-                    size={16}
-                  />
-                }
-              />
-            ))}
-          </Box>
-          {!isSigned && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-              {signatories.filter((s) => s.status === "signed").length} of {signatories.length} signatures collected
-            </Typography>
-          )}
-        </Paper>
+      {/* Signatories progress */}
+      {signatories.length > 0 && !isSigned && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          icon={<MaterialSymbol icon="draw" size={20} />}
+        >
+          {signatories.filter((s) => s.status === "signed").length} of{" "}
+          {signatories.length} signatures collected
+        </Alert>
       )}
 
       {/* ── Document metadata ──────────────────────────────────────────── */}
@@ -1036,6 +1018,79 @@ export default function SoAWEditor() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ── Signature Block ───────────────────────────────────────────── */}
+      {signatories.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3, border: "2px solid", borderColor: isSigned ? "success.main" : "grey.300" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+            <MaterialSymbol
+              icon={isSigned ? "verified" : "draw"}
+              size={24}
+              color={isSigned ? "#2e7d32" : "#ed6c02"}
+            />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Signatures
+            </Typography>
+            {isSigned && (
+              <Chip label="Fully Signed" size="small" color="success" />
+            )}
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+            {signatories.map((sig) => (
+              <Box
+                key={sig.user_id}
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor: sig.status === "signed" ? "success.light" : "grey.300",
+                  borderRadius: 1,
+                  bgcolor: sig.status === "signed" ? "success.50" : "grey.50",
+                }}
+              >
+                {sig.status === "signed" ? (
+                  <>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                      <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "success.dark" }}>
+                        Approved
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {sig.display_name}
+                    </Typography>
+                    {sig.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {sig.email}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                      Signed: {sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "N/A"}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                      <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "warning.dark" }}>
+                        Pending
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {sig.display_name}
+                    </Typography>
+                    {sig.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {sig.email}
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      )}
 
       {/* ── Bottom save bar ────────────────────────────────────────────── */}
       <Box

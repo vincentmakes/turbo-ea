@@ -11,6 +11,7 @@ import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
@@ -182,9 +183,125 @@ export default function SoAWPreview() {
       <style>{PREVIEW_CSS}</style>
       <Box
         className="soaw-preview"
-        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 }, pb: 8 }}
+        sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
         dangerouslySetInnerHTML={{ __html: bodyHtml }}
       />
+
+      {/* Signature Block */}
+      {(soaw.signatories ?? []).length > 0 && (
+        <Box
+          sx={{
+            maxWidth: 800,
+            mx: "auto",
+            px: { xs: 1, sm: 0 },
+            pb: 8,
+            mt: 4,
+          }}
+        >
+          <Divider sx={{ mb: 3 }} />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+            <MaterialSymbol
+              icon={soaw.status === "signed" ? "verified" : "draw"}
+              size={24}
+              color={soaw.status === "signed" ? "#2e7d32" : "#ed6c02"}
+            />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              Signatures
+            </Typography>
+            {soaw.status === "signed" && (
+              <Chip label="Fully Signed" size="small" color="success" />
+            )}
+          </Box>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 2,
+            }}
+          >
+            {soaw.signatories.map((sig) => (
+              <Box
+                key={sig.user_id}
+                sx={{
+                  p: 2,
+                  border: "1px solid",
+                  borderColor:
+                    sig.status === "signed" ? "success.light" : "grey.300",
+                  borderRadius: 1,
+                  bgcolor:
+                    sig.status === "signed" ? "success.50" : "grey.50",
+                }}
+              >
+                {sig.status === "signed" ? (
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, color: "success.dark" }}
+                      >
+                        Approved
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {sig.display_name}
+                    </Typography>
+                    {sig.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {sig.email}
+                      </Typography>
+                    )}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ display: "block", mt: 0.5 }}
+                    >
+                      Signed:{" "}
+                      {sig.signed_at
+                        ? new Date(sig.signed_at).toLocaleString()
+                        : "N/A"}
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 700, color: "warning.dark" }}
+                      >
+                        Pending
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {sig.display_name}
+                    </Typography>
+                    {sig.email && (
+                      <Typography variant="caption" color="text.secondary">
+                        {sig.email}
+                      </Typography>
+                    )}
+                  </>
+                )}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       <Snackbar
         open={!!snack}

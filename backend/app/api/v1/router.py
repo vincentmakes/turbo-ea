@@ -12,6 +12,7 @@ from app.api.v1 import (
     notifications,
     relations,
     reports,
+    settings,
     soaw,
     subscriptions,
     tags,
@@ -36,3 +37,4 @@ api_router.include_router(soaw.router)
 api_router.include_router(events.router)
 api_router.include_router(users.router)
 api_router.include_router(notifications.router)
+api_router.include_router(settings.router)

@@ -198,6 +198,7 @@ async def request_signatures(
         signatories.append({
             "user_id": str(uid),
             "display_name": u.display_name,
+            "email": u.email,
             "status": "pending",
             "signed_at": None,
         })
@@ -288,6 +289,23 @@ async def sign_soaw(
                 title="SoAW Fully Signed",
                 message=f'All signatories have signed "{s.name}"',
                 link=f"/ea-delivery/soaw/{soaw_id}/preview",
+                data={"soaw_id": soaw_id, "soaw_name": s.name},
+                actor_id=user.id,
+            )
+    else:
+        # Notify creator that an individual signatory has signed
+        if s.created_by:
+            signed_count = sum(1 for sig in signatories if sig["status"] == "signed")
+            await notification_service.create_notification(
+                db,
+                user_id=s.created_by,
+                notif_type="soaw_signed",
+                title="SoAW Signature Received",
+                message=(
+                    f'{user.display_name} signed "{s.name}"'
+                    f" ({signed_count}/{len(signatories)})"
+                ),
+                link=f"/ea-delivery/soaw/{soaw_id}",
                 data={"soaw_id": soaw_id, "soaw_name": s.name},
                 actor_id=user.id,
             )

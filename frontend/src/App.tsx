@@ -23,6 +23,7 @@ import SoAWPreview from "@/features/ea-delivery/SoAWPreview";
 import MetamodelAdmin from "@/features/admin/MetamodelAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import UsersAdmin from "@/features/admin/UsersAdmin";
+import SettingsAdmin from "@/features/admin/SettingsAdmin";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
             <Route path="/admin/tags" element={<TagsAdmin />} />
             <Route path="/admin/users" element={<UsersAdmin />} />
+            <Route path="/admin/settings" element={<SettingsAdmin />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </AppLayout>

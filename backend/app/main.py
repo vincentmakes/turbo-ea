@@ -6,10 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.router import api_router
 from app.config import settings
 from app.database import engine
 from app.models import Base
-from app.api.v1.router import api_router
 
 
 def _run_alembic_stamp(alembic_cfg, revision):
@@ -27,7 +27,8 @@ def _run_alembic_upgrade(alembic_cfg, revision):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from alembic.config import Config
-    from sqlalchemy import text, inspect as sa_inspect
+    from sqlalchemy import inspect as sa_inspect
+    from sqlalchemy import text
 
     alembic_cfg = Config("alembic.ini")
 
@@ -61,8 +62,35 @@ async def lifespan(app: FastAPI):
                     # Normal path: run pending migrations
                     await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
 
-    # Seed default metamodel
+    # Load DB-persisted email settings into runtime config
+    from sqlalchemy import select as _sel
+
     from app.database import async_session
+    from app.models.app_settings import AppSettings
+
+    async with async_session() as _db:
+        _res = await _db.execute(
+            _sel(AppSettings).where(AppSettings.id == "default")
+        )
+        _row = _res.scalar_one_or_none()
+        if _row and _row.email_settings:
+            _email = _row.email_settings
+            if _email.get("smtp_host"):
+                settings.SMTP_HOST = _email["smtp_host"]
+            if _email.get("smtp_port"):
+                settings.SMTP_PORT = int(_email["smtp_port"])
+            if _email.get("smtp_user"):
+                settings.SMTP_USER = _email["smtp_user"]
+            if _email.get("smtp_password"):
+                settings.SMTP_PASSWORD = _email["smtp_password"]
+            if _email.get("smtp_from"):
+                settings.SMTP_FROM = _email["smtp_from"]
+            if "smtp_tls" in _email:
+                settings.SMTP_TLS = bool(_email["smtp_tls"])
+            if _email.get("app_base_url"):
+                settings._app_base_url = _email["app_base_url"]
+
+    # Seed default metamodel
     from app.services.seed import seed_metamodel
 
     async with async_session() as db:
