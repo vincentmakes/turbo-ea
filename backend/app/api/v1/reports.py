@@ -338,21 +338,48 @@ async def capability_heatmap(
     apps = apps_result.scalars().all()
     app_map = {str(a.id): a for a in apps}
 
+    # Get all organizations for filtering
+    orgs_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Organization", FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    orgs = orgs_result.scalars().all()
+
+    # Get relations linking caps↔apps and orgs↔apps
+    all_ids = cap_ids + [o.id for o in orgs]
     rels_result = await db.execute(
         select(Relation).where(
-            ((Relation.source_id.in_(cap_ids)) | (Relation.target_id.in_(cap_ids)))
+            (Relation.source_id.in_(all_ids)) | (Relation.target_id.in_(all_ids))
         )
     )
     rels = rels_result.scalars().all()
 
-    # Build cap_id -> [app_fact_sheet] mapping
+    # Build cap_id -> [app_fact_sheet] and app_id -> [org_id] mappings
     cap_apps: dict[str, list] = {str(c.id): [] for c in caps}
+    org_ids = {str(o.id) for o in orgs}
+    app_orgs: dict[str, set[str]] = {}
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in cap_apps and tid in app_map:
             cap_apps[sid].append(app_map[tid])
         elif tid in cap_apps and sid in app_map:
             cap_apps[tid].append(app_map[sid])
+        # org -> app relations
+        if sid in org_ids and tid in app_map:
+            app_orgs.setdefault(tid, set()).add(sid)
+        elif tid in org_ids and sid in app_map:
+            app_orgs.setdefault(sid, set()).add(tid)
+
+    def _app_to_dict(a):
+        return {
+            "id": str(a.id),
+            "name": a.name,
+            "subtype": a.subtype,
+            "attributes": a.attributes,
+            "lifecycle": a.lifecycle,
+            "org_ids": sorted(app_orgs.get(str(a.id), set())),
+        }
 
     # Build hierarchy-aware data
     items = []
@@ -361,13 +388,13 @@ async def capability_heatmap(
         linked_apps = cap_apps.get(cid, [])
         app_count = len(linked_apps)
 
-        # Aggregate cost
         total_cost = sum(
-            (a.attributes or {}).get("totalAnnualCost", 0) or 0
+            (a.attributes or {}).get("costTotalAnnual", 0)
+            or (a.attributes or {}).get("totalAnnualCost", 0)
+            or 0
             for a in linked_apps
         )
 
-        # Count end-of-life risk (apps with endOfLife lifecycle phase set)
         risk_count = sum(
             1 for a in linked_apps
             if (a.lifecycle or {}).get("endOfLife")
@@ -381,18 +408,15 @@ async def capability_heatmap(
             "total_cost": total_cost,
             "risk_count": risk_count,
             "attributes": c.attributes,
-            "apps": [
-                {
-                    "id": str(a.id),
-                    "name": a.name,
-                    "attributes": a.attributes,
-                    "lifecycle": a.lifecycle,
-                }
-                for a in linked_apps[:10]  # limit to top 10 for performance
-            ],
+            "apps": [_app_to_dict(a) for a in linked_apps],
         })
 
-    return {"items": items, "metric": metric}
+    organizations = [
+        {"id": str(o.id), "name": o.name}
+        for o in orgs
+    ]
+
+    return {"items": items, "metric": metric, "organizations": organizations}
 
 
 @router.get("/dependencies")
