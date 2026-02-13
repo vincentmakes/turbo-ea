@@ -395,6 +395,11 @@ export interface SurveyRespondForm {
   existing_responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;
 }
 
+export interface BadgeCounts {
+  open_todos: number;
+  pending_surveys: number;
+}
+
 export interface DiagramSummary {
   id: string;
   name: string;

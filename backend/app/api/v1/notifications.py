@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.notification import Notification
+from app.models.survey import SurveyResponse
+from app.models.todo import Todo
 from app.models.user import User
 from app.services import notification_service
 
@@ -70,6 +72,33 @@ async def unread_count(
 ):
     count = await notification_service.get_unread_count(db, user.id)
     return {"count": count}
+
+
+@router.get("/badge-counts")
+async def badge_counts(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return counts for nav-bar badge dots: open todos and pending surveys."""
+    open_todos = (
+        await db.execute(
+            select(func.count(Todo.id)).where(
+                Todo.status == "open",
+                (Todo.assigned_to == user.id) | (Todo.created_by == user.id),
+            )
+        )
+    ).scalar() or 0
+
+    pending_surveys = (
+        await db.execute(
+            select(func.count(SurveyResponse.id)).where(
+                SurveyResponse.user_id == user.id,
+                SurveyResponse.status == "pending",
+            )
+        )
+    ).scalar() or 0
+
+    return {"open_todos": open_todos, "pending_surveys": pending_surveys}
 
 
 @router.patch("/{notification_id}/read")
