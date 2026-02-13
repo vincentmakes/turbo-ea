@@ -72,9 +72,9 @@ const NODE_W = 160;
 const NODE_H = 56;
 const NODE_RX = 12;
 const NODE_GAP_X = 48;
-const LAYER_GAP_Y = 120;
+const LAYER_GAP_Y = 140;
 const PAD_X = 80;
-const PAD_Y = 60;
+const PAD_Y = 80;
 const LAYER_LABEL_W = 180;
 
 /* ------------------------------------------------------------------ */
@@ -1077,49 +1077,112 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
 
   /* --- Build edges --- */
   const edges = useMemo(() => {
-    return relationTypes
-      .filter(
-        (r) =>
-          layout.map[r.source_type_key] && layout.map[r.target_type_key],
-      )
-      .map((r) => {
-        const src = layout.map[r.source_type_key];
-        const tgt = layout.map[r.target_type_key];
-        const srcCx = src.x + NODE_W / 2;
-        const tgtCx = tgt.x + NODE_W / 2;
+    const visible = relationTypes.filter(
+      (r) => layout.map[r.source_type_key] && layout.map[r.target_type_key],
+    );
 
-        let d: string;
-        let labelX: number;
-        let labelY: number;
+    // ---- Step 1: Compute port slots per node ----
+    // For each node, count how many edges leave from the bottom and arrive
+    // at the top so we can distribute connection points evenly.
+    const bottomPorts: Record<string, string[]> = {}; // nodeKey → sorted edge keys
+    const topPorts: Record<string, string[]> = {};
 
-        if (src.y < tgt.y) {
-          /* Source layer is above target layer */
-          const srcBotY = src.y + NODE_H;
-          const tgtTopY = tgt.y;
-          const midY = (srcBotY + tgtTopY) / 2;
-          d = `M${srcCx},${srcBotY} C${srcCx},${midY} ${tgtCx},${midY} ${tgtCx},${tgtTopY}`;
-          labelX = (srcCx + tgtCx) / 2;
-          labelY = midY;
-        } else if (src.y > tgt.y) {
-          /* Source layer is below target layer */
-          const srcTopY = src.y;
-          const tgtBotY = tgt.y + NODE_H;
-          const midY = (srcTopY + tgtBotY) / 2;
-          d = `M${srcCx},${srcTopY} C${srcCx},${midY} ${tgtCx},${midY} ${tgtCx},${tgtBotY}`;
-          labelX = (srcCx + tgtCx) / 2;
-          labelY = midY;
-        } else {
-          /* Same layer -- arc below the nodes */
-          const botY = src.y + NODE_H;
-          const arcDrop = 50 + Math.abs(srcCx - tgtCx) * 0.15;
-          const cpY = botY + arcDrop;
-          d = `M${srcCx},${botY} C${srcCx},${cpY} ${tgtCx},${cpY} ${tgtCx},${botY}`;
-          labelX = (srcCx + tgtCx) / 2;
-          labelY = cpY - 6;
-        }
+    for (const r of visible) {
+      const src = layout.map[r.source_type_key];
+      const tgt = layout.map[r.target_type_key];
 
-        return { key: r.key, d, label: r.label, labelX, labelY };
-      });
+      if (src.y === tgt.y) {
+        // Same layer: leave & arrive at bottom
+        (bottomPorts[r.source_type_key] ??= []).push(r.key);
+        (bottomPorts[r.target_type_key] ??= []).push(r.key);
+      } else if (src.y < tgt.y) {
+        (bottomPorts[r.source_type_key] ??= []).push(r.key);
+        (topPorts[r.target_type_key] ??= []).push(r.key);
+      } else {
+        (topPorts[r.source_type_key] ??= []).push(r.key);
+        (bottomPorts[r.target_type_key] ??= []).push(r.key);
+      }
+    }
+
+    // Sort ports by the x-position of the other end for minimal crossings
+    const sortPorts = (ports: Record<string, string[]>) => {
+      for (const nodeKey of Object.keys(ports)) {
+        ports[nodeKey].sort((a, b) => {
+          const ra = visible.find((r) => r.key === a)!;
+          const rb = visible.find((r) => r.key === b)!;
+          const otherA = ra.source_type_key === nodeKey ? ra.target_type_key : ra.source_type_key;
+          const otherB = rb.source_type_key === nodeKey ? rb.target_type_key : rb.source_type_key;
+          return (layout.map[otherA]?.x ?? 0) - (layout.map[otherB]?.x ?? 0);
+        });
+      }
+    };
+    sortPorts(bottomPorts);
+    sortPorts(topPorts);
+
+    // Returns the x offset within a node for a given port index
+    const portX = (nodeKey: string, edgeKey: string, side: "top" | "bottom") => {
+      const ports = side === "bottom" ? bottomPorts[nodeKey] : topPorts[nodeKey];
+      if (!ports) return NODE_W / 2;
+      const idx = ports.indexOf(edgeKey);
+      const n = ports.length;
+      // Distribute within the middle 70% of the node width
+      const margin = NODE_W * 0.15;
+      const span = NODE_W - 2 * margin;
+      return margin + (n === 1 ? span / 2 : (idx / (n - 1)) * span);
+    };
+
+    // ---- Step 2: Build paths ----
+    // Track same-layer arc indices to stagger heights
+    let sameLayerIdx = 0;
+
+    return visible.map((r) => {
+      const src = layout.map[r.source_type_key];
+      const tgt = layout.map[r.target_type_key];
+
+      let d: string;
+      let labelX: number;
+      let labelY: number;
+
+      if (src.y === tgt.y) {
+        // Same layer — arc above the nodes with staggered heights
+        const srcPx = src.x + portX(r.source_type_key, r.key, "bottom");
+        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "bottom");
+        const topY = src.y;
+        const stagger = sameLayerIdx++ * 14;
+        const arcLift = 40 + stagger + Math.abs(srcPx - tgtPx) * 0.12;
+        const cpY = topY - arcLift;
+        d = `M${srcPx},${topY} C${srcPx},${cpY} ${tgtPx},${cpY} ${tgtPx},${topY}`;
+        labelX = (srcPx + tgtPx) / 2;
+        labelY = cpY + 12;
+      } else if (src.y < tgt.y) {
+        // Source above target
+        const srcPx = src.x + portX(r.source_type_key, r.key, "bottom");
+        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "top");
+        const srcBotY = src.y + NODE_H;
+        const tgtTopY = tgt.y;
+        const gap = tgtTopY - srcBotY;
+        // Control points pull 40% into the gap from each end
+        const cp1Y = srcBotY + gap * 0.4;
+        const cp2Y = tgtTopY - gap * 0.4;
+        d = `M${srcPx},${srcBotY} C${srcPx},${cp1Y} ${tgtPx},${cp2Y} ${tgtPx},${tgtTopY}`;
+        labelX = (srcPx + tgtPx) / 2;
+        labelY = (srcBotY + tgtTopY) / 2;
+      } else {
+        // Source below target
+        const srcPx = src.x + portX(r.source_type_key, r.key, "top");
+        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "bottom");
+        const srcTopY = src.y;
+        const tgtBotY = tgt.y + NODE_H;
+        const gap = srcTopY - tgtBotY;
+        const cp1Y = srcTopY - gap * 0.4;
+        const cp2Y = tgtBotY + gap * 0.4;
+        d = `M${srcPx},${srcTopY} C${srcPx},${cp1Y} ${tgtPx},${cp2Y} ${tgtPx},${tgtBotY}`;
+        labelX = (srcPx + tgtPx) / 2;
+        labelY = (srcTopY + tgtBotY) / 2;
+      }
+
+      return { key: r.key, d, label: r.label, labelX, labelY };
+    });
   }, [relationTypes, layout]);
 
   /* --- Category label y positions --- */
@@ -1155,16 +1218,21 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
         height={layout.svgH}
         style={{ display: "block", minWidth: layout.svgW }}
       >
+
+        <style>{`
+          .mm-edge:hover path { stroke: #6b7280; stroke-width: 2; }
+          .mm-edge:hover .mm-edge-label { opacity: 1 !important; }
+        `}</style>
         <defs>
           <marker
             id="mm-arrow"
-            markerWidth="10"
-            markerHeight="7"
-            refX="10"
-            refY="3.5"
+            markerWidth="8"
+            markerHeight="6"
+            refX="8"
+            refY="3"
             orient="auto"
           >
-            <path d="M0,0 L10,3.5 L0,7 Z" fill="#b0b0b0" />
+            <path d="M0,0 L8,3 L0,6 Z" fill="#b0b8c4" />
           </marker>
           <filter
             id="mm-shadow"
@@ -1212,35 +1280,44 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
 
         {/* ---- Edges ---- */}
         {edges.map((e) => (
-          <g key={e.key}>
+          <g key={e.key} className="mm-edge">
             <path
               d={e.d}
               fill="none"
-              stroke="#c0c4cc"
-              strokeWidth={1.5}
+              stroke="#c8ccd4"
+              strokeWidth={1.2}
               markerEnd="url(#mm-arrow)"
             />
-            <rect
-              x={e.labelX - 36}
-              y={e.labelY - 9}
-              width={72}
-              height={18}
-              rx={4}
-              fill="#fff"
-              fillOpacity={0.9}
-              stroke="#e0e0e0"
-              strokeWidth={0.5}
+            {/* Invisible wider hit area for hover */}
+            <path
+              d={e.d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={12}
             />
-            <text
-              x={e.labelX}
-              y={e.labelY + 4}
-              textAnchor="middle"
-              fontSize={10}
-              fill="#777"
-              fontFamily="Inter, Roboto, system-ui, sans-serif"
-            >
-              {truncate(e.label, 14)}
-            </text>
+            <g className="mm-edge-label" opacity={0}>
+              <rect
+                x={e.labelX - 42}
+                y={e.labelY - 10}
+                width={84}
+                height={20}
+                rx={5}
+                fill="#fff"
+                fillOpacity={0.95}
+                stroke="#d0d4dc"
+                strokeWidth={0.5}
+              />
+              <text
+                x={e.labelX}
+                y={e.labelY + 4}
+                textAnchor="middle"
+                fontSize={10}
+                fill="#555"
+                fontFamily="Inter, Roboto, system-ui, sans-serif"
+              >
+                {truncate(e.label, 16)}
+              </text>
+            </g>
           </g>
         ))}
 
