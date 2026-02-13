@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.fact_sheet import FactSheet
+from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
 from app.models.user import User
 from app.schemas.relation import RelationCreate, RelationResponse, RelationUpdate, FactSheetRef
@@ -39,6 +41,12 @@ async def list_relations(
     type: str | None = Query(None),
 ):
     q = select(Relation)
+
+    # Exclude relations involving fact sheets of hidden types
+    hidden_types_sq = select(FactSheetType.key).where(FactSheetType.is_hidden == True)  # noqa: E712
+    src_fs = select(FactSheet.id).where(FactSheet.type.in_(hidden_types_sq))
+    q = q.where(Relation.source_id.not_in(src_fs), Relation.target_id.not_in(src_fs))
+
     if fact_sheet_id:
         uid = uuid.UUID(fact_sheet_id)
         q = q.where((Relation.source_id == uid) | (Relation.target_id == uid))

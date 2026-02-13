@@ -21,6 +21,7 @@ class FactSheetType(Base, UUIDMixin, TimestampMixin):
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
+    subscription_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

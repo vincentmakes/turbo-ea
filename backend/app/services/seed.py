@@ -533,7 +533,17 @@ async def seed_metamodel(db: AsyncSession) -> None:
     if result.scalar_one_or_none() is not None:
         return  # Already seeded
 
+    _default_roles = [
+        {"key": "responsible", "label": "Responsible"},
+        {"key": "observer", "label": "Observer"},
+    ]
+    _app_roles = _default_roles + [
+        {"key": "technical_application_owner", "label": "Technical Application Owner"},
+        {"key": "business_application_owner", "label": "Business Application Owner"},
+    ]
+
     for i, t in enumerate(TYPES):
+        roles = _app_roles if t["key"] == "Application" else _default_roles
         fst = FactSheetType(
             key=t["key"],
             label=t["label"],
@@ -544,6 +554,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             has_hierarchy=t.get("has_hierarchy", False),
             subtypes=t.get("subtypes", []),
             fields_schema=t.get("fields_schema", []),
+            subscription_roles=t.get("subscription_roles", roles),
             built_in=True,
             is_hidden=t.get("is_hidden", False),
             sort_order=t.get("sort_order", i),
