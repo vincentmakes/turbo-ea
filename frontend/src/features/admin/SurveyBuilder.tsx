@@ -60,6 +60,7 @@ export default function SurveyBuilder() {
   const [targetTypeKey, setTargetTypeKey] = useState("");
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
+  const [relatedItems, setRelatedItems] = useState<FactSheet[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [relatedSearch, setRelatedSearch] = useState("");
   const [relatedOptions, setRelatedOptions] = useState<FactSheet[]>([]);
@@ -121,6 +122,12 @@ export default function SurveyBuilder() {
     }, 300);
     return () => clearTimeout(t);
   }, [relatedSearch]);
+
+  // Merge selected items with search results so selected values are always in options
+  const mergedRelatedOptions = useMemo(() => {
+    const ids = new Set(relatedOptions.map((o) => o.id));
+    return [...relatedOptions, ...relatedItems.filter((item) => !ids.has(item.id))];
+  }, [relatedOptions, relatedItems]);
 
   // Get the selected type's fields schema
   const selectedType = useMemo(
@@ -416,11 +423,19 @@ export default function SurveyBuilder() {
           </Typography>
           <Autocomplete
             multiple
-            options={relatedOptions}
+            filterSelectedOptions
+            options={mergedRelatedOptions}
             getOptionLabel={(o) => `${o.name} (${o.type})`}
-            value={relatedOptions.filter((o) => relatedIds.includes(o.id))}
-            onInputChange={(_, val) => setRelatedSearch(val)}
-            onChange={(_, vals) => setRelatedIds(vals.map((v) => v.id))}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            value={relatedItems}
+            inputValue={relatedSearch}
+            onInputChange={(_, val, reason) => {
+              if (reason !== "reset") setRelatedSearch(val);
+            }}
+            onChange={(_, vals) => {
+              setRelatedItems(vals);
+              setRelatedIds(vals.map((v) => v.id));
+            }}
             renderInput={(params) => (
               <TextField {...params} label="Search fact sheets..." size="small" />
             )}
