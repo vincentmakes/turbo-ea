@@ -24,6 +24,7 @@ const NOTIFICATION_TYPES = [
   { key: "quality_seal_changed", label: "Quality Seal Changed" },
   { key: "soaw_sign_requested", label: "SoAW Signature Requested" },
   { key: "soaw_signed", label: "SoAW Signed" },
+  { key: "survey_request", label: "Survey Request" },
 ];
 
 interface Props {

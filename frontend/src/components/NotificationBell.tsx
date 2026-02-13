@@ -25,6 +25,7 @@ const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   quality_seal_changed: { icon: "verified", color: "#9c27b0" },
   soaw_sign_requested: { icon: "draw", color: "#d32f2f" },
   soaw_signed: { icon: "task_alt", color: "#2e7d32" },
+  survey_request: { icon: "assignment", color: "#0288d1" },
 };
 
 function timeAgo(dateStr: string): string {

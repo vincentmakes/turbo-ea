@@ -25,11 +25,24 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { Survey, SurveyResponseDetail } from "@/types";
+import type { Survey, SurveyResponseDetail, SurveyField } from "@/types";
 
-function formatValue(val: unknown): string {
+/** Resolve a value to its display label using field options when available. */
+function formatValue(val: unknown, field?: SurveyField): string {
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? "Yes" : "No";
+
+  const opts = field?.options;
+  if (opts && opts.length > 0) {
+    if (Array.isArray(val)) {
+      return val
+        .map((v) => opts.find((o) => o.key === v)?.label ?? String(v))
+        .join(", ");
+    }
+    const match = opts.find((o) => o.key === val);
+    if (match) return match.label;
+  }
+
   if (Array.isArray(val)) return val.join(", ");
   return String(val);
 }
@@ -383,14 +396,14 @@ export default function SurveyResults() {
                             {field.label}
                           </Typography>
                         </TableCell>
-                        <TableCell>{formatValue(resp.current_value)}</TableCell>
+                        <TableCell>{formatValue(resp.current_value, field)}</TableCell>
                         <TableCell>
                           {changed ? (
                             <Typography variant="body2" sx={{ color: "info.main", fontWeight: 600 }}>
-                              {formatValue(resp.new_value)}
+                              {formatValue(resp.new_value, field)}
                             </Typography>
                           ) : (
-                            formatValue(resp.current_value)
+                            formatValue(resp.current_value, field)
                           )}
                         </TableCell>
                         <TableCell>

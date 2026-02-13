@@ -18,9 +18,22 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { SurveyRespondForm, SurveyField } from "@/types";
 
-function formatValue(val: unknown): string {
+/** Resolve a value to its display label using field options when available. */
+function formatValue(val: unknown, field?: SurveyField & { current_value?: unknown }): string {
   if (val === null || val === undefined || val === "") return "—";
   if (typeof val === "boolean") return val ? "Yes" : "No";
+
+  const opts = field?.options;
+  if (opts && opts.length > 0) {
+    if (Array.isArray(val)) {
+      return val
+        .map((v) => opts.find((o) => o.key === v)?.label ?? String(v))
+        .join(", ");
+    }
+    const match = opts.find((o) => o.key === val);
+    if (match) return match.label;
+  }
+
   if (Array.isArray(val)) return val.join(", ");
   return String(val);
 }
@@ -52,17 +65,22 @@ export default function SurveyRespond() {
         );
         setForm(data);
 
-        // Initialize field responses — default to confirmed
+        // Initialize field responses based on action type
         const initial: Record<string, FieldResponse> = {};
         for (const field of data.fields) {
           const existing = data.existing_responses[field.key];
           if (existing) {
+            // Restore previous answers
             initial[field.key] = {
               confirmed: existing.confirmed,
               new_value: existing.new_value,
             };
-          } else {
+          } else if (field.action === "confirm") {
+            // Confirm: default to confirmed (toggle on)
             initial[field.key] = { confirmed: true, new_value: null };
+          } else {
+            // Maintain: default to editing (show input immediately)
+            initial[field.key] = { confirmed: false, new_value: null };
           }
         }
         setFieldResponses(initial);
@@ -277,17 +295,17 @@ export default function SurveyRespond() {
 
       {/* Field cards */}
       {form.fields.map((field) => {
-        const resp = fieldResponses[field.key] || { confirmed: true, new_value: null };
-        const isConfirm = field.action === "confirm";
+        const resp = fieldResponses[field.key] || { confirmed: false, new_value: null };
+        const isMaintain = field.action === "maintain";
 
         return (
           <Card key={field.key} sx={{ mb: 2, p: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{field.label}</Typography>
               <Chip
-                label={field.action === "maintain" ? "Maintain" : "Confirm"}
+                label={isMaintain ? "Maintain" : "Confirm"}
                 size="small"
-                color={field.action === "maintain" ? "primary" : "default"}
+                color={isMaintain ? "primary" : "default"}
                 variant="outlined"
               />
               <Typography variant="caption" color="text.secondary">
@@ -300,40 +318,71 @@ export default function SurveyRespond() {
                 Current value:
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {formatValue(field.current_value)}
+                {formatValue(field.current_value, field)}
               </Typography>
             </Box>
 
             <Divider sx={{ my: 1 }} />
 
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 1 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={resp.confirmed}
-                    onChange={(e) => setConfirmed(field.key, e.target.checked)}
-                    color="success"
+            {isMaintain ? (
+              /* ── Maintain: input is shown by default; optional "no change" toggle ── */
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={resp.confirmed}
+                        onChange={(e) => setConfirmed(field.key, e.target.checked)}
+                        color="success"
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" color="text.secondary">
+                        No change needed
+                      </Typography>
+                    }
                   />
-                }
-                label={
-                  <Typography variant="body2">
-                    {isConfirm
-                      ? "I confirm this value is correct"
-                      : resp.confirmed
-                        ? "Value is correct"
-                        : "I want to propose a change"}
-                  </Typography>
-                }
-              />
-            </Box>
-
-            {!resp.confirmed && (
-              <Box sx={{ mt: 1.5 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                  New value:
-                </Typography>
-                {renderFieldInput(field, resp)}
-              </Box>
+                </Box>
+                {!resp.confirmed && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Updated value:
+                    </Typography>
+                    {renderFieldInput(field, resp)}
+                  </Box>
+                )}
+              </>
+            ) : (
+              /* ── Confirm: toggle is on by default, turn off to propose a change ── */
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={resp.confirmed}
+                        onChange={(e) => setConfirmed(field.key, e.target.checked)}
+                        color="success"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        {resp.confirmed
+                          ? "I confirm this value is correct"
+                          : "I want to propose a change"}
+                      </Typography>
+                    }
+                  />
+                </Box>
+                {!resp.confirmed && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      Proposed value:
+                    </Typography>
+                    {renderFieldInput(field, resp)}
+                  </Box>
+                )}
+              </>
             )}
           </Card>
         );
