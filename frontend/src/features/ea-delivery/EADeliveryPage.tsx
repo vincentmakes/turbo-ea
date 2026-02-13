@@ -30,16 +30,18 @@ import type { FactSheet, SoAW, DiagramSummary } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
+const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
   in_review: "warning",
   approved: "success",
+  signed: "info",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   in_review: "In Review",
   approved: "Approved",
+  signed: "Signed",
 };
 
 interface InitiativeGroup {

@@ -21,6 +21,8 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import NotificationBell from "@/components/NotificationBell";
+import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
 
 interface NavItem {
   label: string;
@@ -58,7 +60,7 @@ const ADMIN_ITEMS: NavItem[] = [
 
 interface Props {
   children: ReactNode;
-  user: { display_name: string; email: string; role: string };
+  user: { id: string; display_name: string; email: string; role: string };
   onLogout: () => void;
 }
 
@@ -76,6 +78,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
+  const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
 
   const handleSearch = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && search.trim()) {
@@ -488,6 +491,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </Button>
           )}
 
+          {/* Notification bell */}
+          <NotificationBell userId={user.id} />
+
           {/* User menu */}
           <IconButton
             sx={{ ml: isMobile ? 0 : 1, color: "#fff" }}
@@ -512,14 +518,34 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             <MenuItem
               onClick={() => {
                 setUserMenu(null);
+                setNotifPrefsOpen(true);
+              }}
+            >
+              <ListItemIcon>
+                <MaterialSymbol icon="notifications_active" size={18} />
+              </ListItemIcon>
+              <ListItemText>Notification Settings</ListItemText>
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setUserMenu(null);
                 onLogout();
               }}
             >
-              Logout
+              <ListItemIcon>
+                <MaterialSymbol icon="logout" size={18} />
+              </ListItemIcon>
+              <ListItemText>Logout</ListItemText>
             </MenuItem>
           </Menu>
         </Toolbar>
       </AppBar>
+
+      {/* Notification preferences dialog */}
+      <NotificationPreferencesDialog
+        open={notifPrefsOpen}
+        onClose={() => setNotifPrefsOpen(false)}
+      />
 
       {/* Mobile drawer */}
       {isMobile && renderDrawer()}

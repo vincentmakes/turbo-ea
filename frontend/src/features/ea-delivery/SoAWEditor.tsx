@@ -26,6 +26,11 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
+import Checkbox from "@mui/material/Checkbox";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -39,7 +44,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
-import type { FactSheet, SoAW, SoAWSectionData } from "@/types";
+import type { FactSheet, SoAW, SoAWSectionData, SoAWSignatory, User } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -47,6 +52,7 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "draft", label: "Draft" },
   { value: "in_review", label: "In Review" },
   { value: "approved", label: "Approved" },
+  { value: "signed", label: "Signed" },
 ];
 
 // ─── component ──────────────────────────────────────────────────────────────
@@ -94,6 +100,17 @@ export default function SoAWEditor() {
   const [newSectionAfter, setNewSectionAfter] = useState("");
   const soawIdRef = useRef<string | null>(id ?? null);
 
+  // Signing state
+  const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
+  const [signedAt, setSignedAt] = useState<string | null>(null);
+  const [revisionNumber, setRevisionNumber] = useState(1);
+  const [parentId, setParentId] = useState<string | null>(null);
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedSignatories, setSelectedSignatories] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const isSigned = status === "signed";
+
   // ── load data ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -107,7 +124,25 @@ export default function SoAWEditor() {
         /* non-critical */
       }
     };
+    const loadUsers = async () => {
+      try {
+        const res = await api.get<User[]>("/users");
+        setUsers(res);
+      } catch {
+        /* non-critical */
+      }
+    };
+    const loadCurrentUser = async () => {
+      try {
+        const res = await api.get<{ id: string }>("/auth/me");
+        setCurrentUserId(res.id);
+      } catch {
+        /* non-critical */
+      }
+    };
     loadInitiatives();
+    loadUsers();
+    loadCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -121,6 +156,10 @@ export default function SoAWEditor() {
         setStatus(data.status);
         if (data.document_info) setDocInfo(data.document_info);
         if (data.version_history?.length) setVersionHistory(data.version_history);
+        setSignatories(data.signatories ?? []);
+        setSignedAt(data.signed_at);
+        setRevisionNumber(data.revision_number ?? 1);
+        setParentId(data.parent_id);
 
         // Merge persisted sections with template defaults so new template
         // sections added later still appear.
@@ -267,6 +306,64 @@ export default function SoAWEditor() {
       setSaving(false);
     }
   };
+
+  // ── signing helpers ────────────────────────────────────────────────────
+
+  const handleRequestSignatures = async () => {
+    if (!soawIdRef.current || selectedSignatories.length === 0) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await api.post<SoAW>(
+        `/soaw/${soawIdRef.current}/request-signatures`,
+        { user_ids: selectedSignatories }
+      );
+      setSignatories(data.signatories ?? []);
+      setStatus(data.status);
+      setSignDialogOpen(false);
+      setSelectedSignatories([]);
+      setSnack("Signature requests sent");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to request signatures");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSign = async () => {
+    if (!soawIdRef.current) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/sign`);
+      setSignatories(data.signatories ?? []);
+      setStatus(data.status);
+      setSignedAt(data.signed_at);
+      setSnack(data.status === "signed" ? "Document fully signed" : "Signature recorded");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to sign");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRevise = async () => {
+    if (!soawIdRef.current) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/revise`);
+      navigate(`/ea-delivery/soaw/${data.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create revision");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const currentUserIsSignatory = signatories.some(
+    (s) => s.user_id === currentUserId && s.status === "pending"
+  );
 
   // ── version history helpers ────────────────────────────────────────────
 
@@ -422,22 +519,99 @@ export default function SoAWEditor() {
             Word
           </Button>
         )}
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MaterialSymbol icon="save" size={18} />}
-          sx={{ textTransform: "none" }}
-          disabled={saving}
-          onClick={handleSave}
-        >
-          {saving ? "Saving..." : "Save"}
-        </Button>
+        {!isSigned && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            disabled={saving}
+            onClick={handleSave}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        )}
+        {/* Signing actions */}
+        {!isNew && !isSigned && soawIdRef.current && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="draw" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => setSignDialogOpen(true)}
+          >
+            Request Signatures
+          </Button>
+        )}
+        {currentUserIsSignatory && (
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<MaterialSymbol icon="task_alt" size={18} />}
+            sx={{ textTransform: "none" }}
+            disabled={saving}
+            onClick={handleSign}
+          >
+            Sign
+          </Button>
+        )}
+        {isSigned && (
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<MaterialSymbol icon="content_copy" size={18} />}
+            sx={{ textTransform: "none" }}
+            disabled={saving}
+            onClick={handleRevise}
+          >
+            New Revision
+          </Button>
+        )}
       </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
+      )}
+
+      {/* Signed banner */}
+      {isSigned && (
+        <Alert severity="success" sx={{ mb: 2 }} icon={<MaterialSymbol icon="verified" size={20} />}>
+          This document was signed on {signedAt ? new Date(signedAt).toLocaleDateString() : "N/A"} and is read-only.
+          {revisionNumber > 1 && ` (Revision ${revisionNumber})`}
+        </Alert>
+      )}
+
+      {/* Signatories panel */}
+      {signatories.length > 0 && (
+        <Paper sx={{ p: 2, mb: 3, border: "1px solid", borderColor: isSigned ? "success.light" : "warning.light" }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+            Signatories
+          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+            {signatories.map((sig) => (
+              <Chip
+                key={sig.user_id}
+                label={`${sig.display_name} - ${sig.status === "signed" ? "Signed" : "Pending"}`}
+                color={sig.status === "signed" ? "success" : "warning"}
+                size="small"
+                icon={
+                  <MaterialSymbol
+                    icon={sig.status === "signed" ? "check_circle" : "pending"}
+                    size={16}
+                  />
+                }
+              />
+            ))}
+          </Box>
+          {!isSigned && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+              {signatories.filter((s) => s.status === "signed").length} of {signatories.length} signatures collected
+            </Typography>
+          )}
+        </Paper>
       )}
 
       {/* ── Document metadata ──────────────────────────────────────────── */}
@@ -453,6 +627,7 @@ export default function SoAWEditor() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            disabled={isSigned}
           />
           <TextField
             select
@@ -460,6 +635,7 @@ export default function SoAWEditor() {
             fullWidth
             value={initiativeId}
             onChange={(e) => setInitiativeId(e.target.value)}
+            disabled={isSigned}
           >
             <MenuItem value="">
               <em>None</em>
@@ -480,6 +656,7 @@ export default function SoAWEditor() {
             onChange={(e) =>
               setDocInfo((p) => ({ ...p, prepared_by: e.target.value }))
             }
+            disabled={isSigned}
           />
           <TextField
             label="Reviewed By"
@@ -488,6 +665,7 @@ export default function SoAWEditor() {
             onChange={(e) =>
               setDocInfo((p) => ({ ...p, reviewed_by: e.target.value }))
             }
+            disabled={isSigned}
           />
           <TextField
             label="Review Date"
@@ -498,6 +676,7 @@ export default function SoAWEditor() {
             onChange={(e) =>
               setDocInfo((p) => ({ ...p, review_date: e.target.value }))
             }
+            disabled={isSigned}
           />
         </Box>
 
@@ -507,6 +686,7 @@ export default function SoAWEditor() {
             value={status}
             label="Status"
             onChange={(e) => setStatus(e.target.value)}
+            disabled={isSigned}
           >
             {STATUS_OPTIONS.map((o) => (
               <MenuItem key={o.value} value={o.value}>
@@ -515,6 +695,14 @@ export default function SoAWEditor() {
             ))}
           </Select>
         </FormControl>
+        {revisionNumber > 1 && (
+          <Chip
+            label={`Revision ${revisionNumber}`}
+            size="small"
+            variant="outlined"
+            sx={{ ml: 1 }}
+          />
+        )}
       </Paper>
 
       {/* ── Version History ────────────────────────────────────────────── */}
@@ -867,16 +1055,89 @@ export default function SoAWEditor() {
         >
           Back
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="save" size={18} />}
-          sx={{ textTransform: "none" }}
-          disabled={saving}
-          onClick={handleSave}
-        >
-          {saving ? "Saving..." : "Save"}
-        </Button>
+        {!isSigned && (
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            disabled={saving}
+            onClick={handleSave}
+          >
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        )}
+        {isSigned && (
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="content_copy" size={18} />}
+            sx={{ textTransform: "none" }}
+            disabled={saving}
+            onClick={handleRevise}
+          >
+            New Revision
+          </Button>
+        )}
       </Box>
+
+      {/* Request Signatures dialog */}
+      <Dialog
+        open={signDialogOpen}
+        onClose={() => setSignDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Request Signatures</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Select users who should sign this document. A todo will be created for
+            each signatory and they will receive a notification.
+          </Typography>
+          <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
+            {users
+              .filter((u) => u.is_active)
+              .map((u) => {
+                const checked = selectedSignatories.includes(u.id);
+                return (
+                  <ListItemButton
+                    key={u.id}
+                    onClick={() =>
+                      setSelectedSignatories((prev) =>
+                        checked
+                          ? prev.filter((id) => id !== u.id)
+                          : [...prev, u.id]
+                      )
+                    }
+                    dense
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Checkbox
+                        edge="start"
+                        checked={checked}
+                        tabIndex={-1}
+                        disableRipple
+                        size="small"
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={u.display_name}
+                      secondary={u.email}
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSignDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={saving || selectedSignatories.length === 0}
+            onClick={handleRequestSignatures}
+          >
+            {saving ? "Sending..." : `Request ${selectedSignatories.length} Signature${selectedSignatories.length !== 1 ? "s" : ""}`}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

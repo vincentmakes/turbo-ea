@@ -13,6 +13,7 @@ from app.models.document import Document
 from app.models.bookmark import Bookmark
 from app.models.diagram import Diagram
 from app.models.soaw import SoAW
+from app.models.notification import Notification
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "Bookmark",
     "Diagram",
     "SoAW",
+    "Notification",
 ]
