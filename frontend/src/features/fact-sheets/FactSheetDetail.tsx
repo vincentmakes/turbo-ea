@@ -1541,14 +1541,9 @@ function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => v
 
   useEffect(() => {
     load();
-    api.get<SubscriptionRoleDef[]>("/subscription-roles").then(setRoles).catch(() => {});
+    api.get<SubscriptionRoleDef[]>(`/subscription-roles?type_key=${fs.type}`).then(setRoles).catch(() => {});
     api.get<User[]>("/users").then(setUsers).catch(() => {});
-  }, [load]);
-
-  // Filter roles: only show roles that are valid for this fact sheet type
-  const availableRoles = roles.filter(
-    (r) => !r.allowed_types || r.allowed_types.includes(fs.type)
-  );
+  }, [load, fs.type]);
 
   const handleAdd = async () => {
     if (!addRole || !addUserId) return;
@@ -1574,7 +1569,7 @@ function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => v
   };
 
   // Group by role
-  const grouped = availableRoles.map((role) => ({
+  const grouped = roles.map((role) => ({
     role,
     items: subs.filter((s) => s.role === role.key),
   }));
@@ -1635,7 +1630,7 @@ function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => v
               <FormControl size="small" sx={{ minWidth: 200 }}>
                 <InputLabel>Role</InputLabel>
                 <Select value={addRole} label="Role" onChange={(e) => setAddRole(e.target.value)}>
-                  {availableRoles.map((r) => (
+                  {roles.map((r) => (
                     <MenuItem key={r.key} value={r.key}>{r.label}</MenuItem>
                   ))}
                 </Select>
