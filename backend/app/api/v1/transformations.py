@@ -64,18 +64,6 @@ def _tx_to_response(tx: Transformation) -> TransformationResponse:
             "name": tx.template.name,
             "target_fact_sheet_type": tx.template.target_fact_sheet_type,
         }
-    elif tx.template_name:
-        # Predefined templates aren't stored in DB — reconstruct ref from name
-        for pt in PREDEFINED_TEMPLATES:
-            if pt["name"] == tx.template_name:
-                template_ref = {
-                    "id": f"predefined:{pt['name'].lower().replace(' ', '_')}",
-                    "name": pt["name"],
-                    "target_fact_sheet_type": pt["target_fact_sheet_type"],
-                }
-                break
-        if not template_ref:
-            template_ref = {"id": "", "name": tx.template_name, "target_fact_sheet_type": ""}
     initiative_ref = None
     if tx.initiative:
         initiative_ref = {
@@ -284,7 +272,6 @@ async def create_transformation(
                     break
             if not template_schema:
                 raise HTTPException(status_code=404, detail="Predefined template not found")
-            tx.template_name = template_schema["name"]
         else:
             # Custom template from DB
             tpl_result = await db.execute(
@@ -296,7 +283,6 @@ async def create_transformation(
             if not tpl:
                 raise HTTPException(status_code=404, detail="Template not found")
             tx.template_id = tpl.id
-            tx.template_name = tpl.name
             template_schema = {
                 "implied_impacts_schema": tpl.implied_impacts_schema or [],
             }
