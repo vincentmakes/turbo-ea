@@ -287,6 +287,11 @@ export default function EADeliveryPage() {
         <MaterialSymbol icon="description" size={20} color="#e65100" />
         <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
           {s.name}
+          {s.revision_number > 1 && (
+            <Typography component="span" sx={{ ml: 0.5, fontSize: "0.8rem", color: "text.secondary" }}>
+              (Rev {s.revision_number})
+            </Typography>
+          )}
         </Typography>
         <Chip
           label={STATUS_LABELS[s.status] ?? s.status}
