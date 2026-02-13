@@ -464,6 +464,7 @@ async def send_survey(
     survey.status = "active"
     survey.sent_at = datetime.now(timezone.utc)
     await db.commit()
+    await db.refresh(survey)
 
     stats = await _get_response_stats(db, survey.id)
     return {**_survey_to_dict(survey, stats), "targets_created": created}
@@ -489,6 +490,7 @@ async def close_survey(
     survey.status = "closed"
     survey.closed_at = datetime.now(timezone.utc)
     await db.commit()
+    await db.refresh(survey)
 
     stats = await _get_response_stats(db, survey.id)
     return _survey_to_dict(survey, stats)
