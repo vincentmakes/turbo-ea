@@ -109,6 +109,16 @@ export default function SettingsAdmin() {
     }
   };
 
+  const updateFavicons = () => {
+    const v = Date.now();
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (link) link.href = `/api/v1/settings/favicon?v=${v}`;
+    const apple = document.querySelector<HTMLLinkElement>(
+      'link[rel="apple-touch-icon"]',
+    );
+    if (apple) apple.href = `/api/v1/settings/favicon?v=${v}`;
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -118,11 +128,7 @@ export default function SettingsAdmin() {
       await api.upload("/settings/logo", file);
       setHasCustomLogo(true);
       setLogoVersion((v) => v + 1);
-      // Update favicon
-      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-      if (link) link.href = `/api/v1/settings/logo?v=${Date.now()}`;
-      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-      if (apple) apple.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      updateFavicons();
       setSnack("Logo updated");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload logo");
@@ -139,11 +145,7 @@ export default function SettingsAdmin() {
       await api.delete("/settings/logo");
       setHasCustomLogo(false);
       setLogoVersion((v) => v + 1);
-      // Update favicon
-      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-      if (link) link.href = `/api/v1/settings/logo?v=${Date.now()}`;
-      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
-      if (apple) apple.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      updateFavicons();
       setSnack("Logo reset to default");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset logo");
@@ -190,9 +192,10 @@ export default function SettingsAdmin() {
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom logo to replace the default Turbo EA logo in the
-          navigation bar, favicon, and Apple touch icon. Recommended: PNG or SVG
-          with a transparent background. Max 2 MB.
+          Upload a custom logo to replace the default Turbo EA branding. The
+          uploaded image will be used in the navigation bar, as the browser
+          favicon, and as the Apple touch icon. Recommended: PNG or SVG with
+          visible colors (not white-on-transparent). Max 2 MB.
         </Typography>
 
         <Box
