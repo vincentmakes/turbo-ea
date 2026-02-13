@@ -15,6 +15,7 @@ from app.api.v1 import (
     settings,
     soaw,
     subscriptions,
+    surveys,
     tags,
     todos,
     users,
@@ -37,4 +38,5 @@ api_router.include_router(soaw.router)
 api_router.include_router(events.router)
 api_router.include_router(users.router)
 api_router.include_router(notifications.router)
+api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
