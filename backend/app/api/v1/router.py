@@ -9,6 +9,7 @@ from app.api.v1 import (
     events,
     fact_sheets,
     metamodel,
+    milestones,
     notifications,
     relations,
     reports,
@@ -18,6 +19,7 @@ from app.api.v1 import (
     surveys,
     tags,
     todos,
+    transformations,
     users,
 )
 
@@ -40,3 +42,5 @@ api_router.include_router(users.router)
 api_router.include_router(notifications.router)
 api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
+api_router.include_router(transformations.router)
+api_router.include_router(milestones.router)
