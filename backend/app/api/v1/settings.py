@@ -18,7 +18,9 @@ from app.models.user import User
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 _DEFAULT_LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "default_logo.png"
+_DEFAULT_FAVICON_PATH = Path(__file__).resolve().parent.parent.parent / "default_favicon.png"
 _DEFAULT_LOGO_BYTES: bytes | None = None
+_DEFAULT_FAVICON_BYTES: bytes | None = None
 
 ALLOWED_LOGO_MIMES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"}
 MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
@@ -29,6 +31,13 @@ def _get_default_logo() -> bytes:
     if _DEFAULT_LOGO_BYTES is None:
         _DEFAULT_LOGO_BYTES = _DEFAULT_LOGO_PATH.read_bytes()
     return _DEFAULT_LOGO_BYTES
+
+
+def _get_default_favicon() -> bytes:
+    global _DEFAULT_FAVICON_BYTES
+    if _DEFAULT_FAVICON_BYTES is None:
+        _DEFAULT_FAVICON_BYTES = _DEFAULT_FAVICON_PATH.read_bytes()
+    return _DEFAULT_FAVICON_BYTES
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +185,32 @@ async def get_logo(db: AsyncSession = Depends(get_db)):
 
     return Response(
         content=_get_default_logo(),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@router.get("/favicon")
+async def get_favicon(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — favicon-friendly version of the logo.
+
+    Returns the custom logo if set, otherwise a dark-blue recolored
+    default that is visible on light browser chrome / bookmark bars.
+    """
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+
+    if row and row.custom_logo:
+        return Response(
+            content=row.custom_logo,
+            media_type=row.custom_logo_mime or "image/png",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    return Response(
+        content=_get_default_favicon(),
         media_type="image/png",
         headers={"Cache-Control": "public, max-age=300"},
     )
