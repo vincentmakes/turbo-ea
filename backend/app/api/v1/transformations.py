@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -33,26 +32,10 @@ from app.services.transformation_templates import (
     generate_implied_impacts,
 )
 
-log = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/transformations", tags=["transformations"])
 
 
 # ── Helpers ─────────────────────────────────────────────────────
-
-
-async def _reload_tx(db: AsyncSession, tx_id: uuid.UUID) -> Transformation:
-    """Re-query a transformation to ensure all nested selectin relationships load."""
-    result = await db.execute(
-        select(Transformation).where(Transformation.id == tx_id)
-    )
-    tx = result.scalar_one_or_none()
-    if not tx:
-        raise HTTPException(
-            status_code=500,
-            detail="Transformation committed but could not be reloaded",
-        )
-    return tx
 
 
 def _tx_to_response(tx: Transformation) -> TransformationResponse:
@@ -303,21 +286,16 @@ async def create_transformation(
         for imp in impacts:
             db.add(imp)
 
-    try:
-        await event_bus.publish(
-            "transformation.created",
-            {"id": str(tx.id), "name": tx.name, "initiative_id": str(tx.initiative_id)},
-            db=db,
-            fact_sheet_id=tx.initiative_id,
-            user_id=user.id,
-        )
-        await db.commit()
-    except Exception:
-        log.exception("Failed to commit transformation %s", tx.name)
-        raise
+    await event_bus.publish(
+        "transformation.created",
+        {"id": str(tx.id), "name": tx.name, "initiative_id": str(tx.initiative_id)},
+        db=db,
+        fact_sheet_id=tx.initiative_id,
+        user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(tx)
 
-    # Re-query instead of refresh to ensure nested selectin chains load
-    tx = await _reload_tx(db, tx.id)
     return _tx_to_response(tx)
 
 
@@ -383,7 +361,7 @@ async def update_transformation(
         user_id=user.id,
     )
     await db.commit()
-    tx = await _reload_tx(db, tx.id)
+    await db.refresh(tx)
 
     return _tx_to_response(tx)
 
@@ -474,7 +452,7 @@ async def execute_transformation_endpoint(
         user_id=user.id,
     )
     await db.commit()
-    tx = await _reload_tx(db, tx.id)
+    await db.refresh(tx)
 
     return _tx_to_response(tx)
 

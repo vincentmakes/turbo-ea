@@ -205,49 +205,22 @@ async def roadmap(
     db: AsyncSession = Depends(get_db),
     type: str | None = Query(None),
 ):
-    """Roadmap: lifecycle timeline data with milestones for Initiatives."""
-    from app.models.milestone import Milestone
-
+    """Roadmap: lifecycle timeline data."""
     q = select(FactSheet).where(FactSheet.status == "ACTIVE")
     if type:
         q = q.where(FactSheet.type == type)
     result = await db.execute(q)
     sheets = result.scalars().all()
-
-    # Collect Initiative IDs to batch-load milestones
-    initiative_ids = [fs.id for fs in sheets if fs.type == "Initiative"]
-    milestones_map: dict[str, list[dict]] = {}
-    if initiative_ids:
-        ms_result = await db.execute(
-            select(Milestone)
-            .where(Milestone.initiative_id.in_(initiative_ids))
-            .order_by(Milestone.target_date)
-        )
-        for ms in ms_result.scalars().all():
-            key = str(ms.initiative_id)
-            milestones_map.setdefault(key, []).append(
-                {
-                    "id": str(ms.id),
-                    "name": ms.name,
-                    "target_date": str(ms.target_date),
-                }
-            )
-
     items = []
     for fs in sheets:
         lc = fs.lifecycle or {}
         if any(lc.values()):
-            item: dict = {
+            items.append({
                 "id": str(fs.id),
                 "name": fs.name,
                 "type": fs.type,
                 "lifecycle": lc,
-            }
-            # Attach milestones for Initiative items
-            ms_list = milestones_map.get(str(fs.id))
-            if ms_list:
-                item["milestones"] = ms_list
-            items.append(item)
+            })
     return {"items": items}
 
 

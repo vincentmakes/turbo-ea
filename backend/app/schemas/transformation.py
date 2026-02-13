@@ -159,7 +159,6 @@ class MilestoneResponse(BaseModel):
     name: str
     target_date: date
     description: str | None = None
-    inherited: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
