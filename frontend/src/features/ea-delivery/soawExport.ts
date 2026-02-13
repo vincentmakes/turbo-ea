@@ -297,32 +297,33 @@ export async function exportToDocx(
     }),
   );
 
-  // ── Document Information ──
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: "Document Information",
-          bold: true,
-          font: FONT,
-          size: SIZE_H2,
-          color: COLOR_H2,
-        }),
-      ],
-      spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
-    }),
-  );
-  children.push(
-    buildDocxTable(
-      ["Field", "Value"],
-      [
-        ["Prepared By", docInfo.prepared_by],
-        ["Reviewed By", docInfo.reviewed_by],
-        ["Review Date", docInfo.review_date],
-      ],
-    ),
-  );
-  children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+  // ── Document Information (hide empty fields, hide section if all empty) ──
+  const docxDocInfoRows: [string, string][] = [
+    ["Prepared By", docInfo.prepared_by],
+    ["Reviewed By", docInfo.reviewed_by],
+    ["Review Date", docInfo.review_date],
+  ].filter(([, val]) => val?.trim()) as [string, string][];
+
+  if (docxDocInfoRows.length > 0) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "Document Information",
+            bold: true,
+            font: FONT,
+            size: SIZE_H2,
+            color: COLOR_H2,
+          }),
+        ],
+        spacing: { before: SPACING_H2_BEFORE, after: SPACING_AFTER_DEFAULT },
+      }),
+    );
+    children.push(
+      buildDocxTable(["Field", "Value"], docxDocInfoRows),
+    );
+    children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
+  }
 
   // ── Version History ──
   if (versionHistory.some((v) => v.version || v.date)) {
@@ -556,7 +557,8 @@ function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean
     return !c;
   }
   if (def.type === "table") {
-    return !data.table_data || !data.table_data.rows || data.table_data.rows.length === 0;
+    if (!data.table_data || !data.table_data.rows || data.table_data.rows.length === 0) return true;
+    return data.table_data.rows.every((row) => row.every((cell) => !cell?.trim()));
   }
   if (def.type === "togaf_phases") {
     if (!data.togaf_data) return true;
@@ -581,12 +583,20 @@ export function buildPreviewBody(
   const revLabel = revisionNumber && revisionNumber > 1 ? ` — Revision ${revisionNumber}` : "";
   html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}${revLabel}</p>`;
 
-  // Doc info
-  html += `<h2>Document Information</h2><table>`;
-  html += `<tr><td class="meta-label">Prepared By</td><td>${docInfo.prepared_by}</td></tr>`;
-  html += `<tr><td class="meta-label">Reviewed By</td><td>${docInfo.reviewed_by}</td></tr>`;
-  html += `<tr><td class="meta-label">Review Date</td><td>${docInfo.review_date}</td></tr>`;
-  html += `</table>`;
+  // Doc info (hide empty fields, hide entire section if all empty)
+  const docInfoRows: [string, string][] = [
+    ["Prepared By", docInfo.prepared_by],
+    ["Reviewed By", docInfo.reviewed_by],
+    ["Review Date", docInfo.review_date],
+  ].filter(([, val]) => val?.trim()) as [string, string][];
+
+  if (docInfoRows.length > 0) {
+    html += `<h2>Document Information</h2><table>`;
+    for (const [label, val] of docInfoRows) {
+      html += `<tr><td class="meta-label">${label}</td><td>${val}</td></tr>`;
+    }
+    html += `</table>`;
+  }
 
   // Version history
   if (versionHistory.some((v) => v.version || v.date)) {
