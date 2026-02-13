@@ -5,6 +5,7 @@ import type { ColDef, CellValueChangedEvent, SelectionChangedEvent } from "ag-gr
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
@@ -17,6 +18,10 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Alert from "@mui/material/Alert";
+import Drawer from "@mui/material/Drawer";
+import Tooltip from "@mui/material/Tooltip";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
@@ -107,6 +112,9 @@ export default function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { types, relationTypes } = useMetamodel();
   const gridRef = useRef<AgGridReact>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -665,64 +673,128 @@ export default function InventoryPage() {
 
   return (
     <Box sx={{ display: "flex", height: "calc(100vh - 64px)", m: -3 }}>
-      {/* Sidebar */}
-      <InventoryFilterSidebar
-        types={types}
-        filters={filters}
-        onFiltersChange={setFilters}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
-        width={sidebarWidth}
-        onWidthChange={setSidebarWidth}
-        relevantRelTypes={relevantRelTypes}
-        relationsMap={relationsMap}
-      />
+      {/* Sidebar — Drawer on mobile, inline on desktop */}
+      {isMobile ? (
+        <Drawer
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          PaperProps={{ sx: { width: 300 } }}
+        >
+          <InventoryFilterSidebar
+            types={types}
+            filters={filters}
+            onFiltersChange={(f) => { setFilters(f); setFilterDrawerOpen(false); }}
+            collapsed={false}
+            onToggleCollapse={() => setFilterDrawerOpen(false)}
+            width={300}
+            onWidthChange={() => {}}
+            relevantRelTypes={relevantRelTypes}
+            relationsMap={relationsMap}
+          />
+        </Drawer>
+      ) : (
+        <InventoryFilterSidebar
+          types={types}
+          filters={filters}
+          onFiltersChange={setFilters}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          relevantRelTypes={relevantRelTypes}
+          relationsMap={relationsMap}
+        />
+      )}
 
       {/* Main content */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", p: 2 }}>
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", p: { xs: 1, sm: 2 } }}>
         {/* Header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 1.5, flexShrink: 0 }}>
-          <Typography variant="h5" fontWeight={600}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 1.5, flexShrink: 0, flexWrap: "wrap" }}>
+          {isMobile && (
+            <Tooltip title="Filters">
+              <IconButton onClick={() => setFilterDrawerOpen(true)} size="small">
+                <MaterialSymbol icon="filter_list" size={22} />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight={600}>
             Inventory
           </Typography>
           <Chip label={`${filteredData.length} items`} size="small" />
           <Box sx={{ flex: 1 }} />
-          <Button
-            variant={gridEditMode ? "contained" : "outlined"}
-            color={gridEditMode ? "primary" : "inherit"}
-            startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
-            onClick={() => setGridEditMode((v) => !v)}
-            sx={{ textTransform: "none" }}
-          >
-            {gridEditMode ? "Editing" : "Grid Edit"}
-          </Button>
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<MaterialSymbol icon="download" size={18} />}
-            onClick={() => exportToExcel(filteredData, typeConfig, types)}
-            disabled={filteredData.length === 0}
-            sx={{ textTransform: "none" }}
-          >
-            Export
-          </Button>
-          <Button
-            variant="outlined"
-            color="inherit"
-            startIcon={<MaterialSymbol icon="upload" size={18} />}
-            onClick={() => setImportOpen(true)}
-            sx={{ textTransform: "none" }}
-          >
-            Import
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setCreateOpen(true)}
-            sx={{ textTransform: "none" }}
-          >
-            Create
-          </Button>
+          {isMobile ? (
+            <>
+              <Tooltip title={gridEditMode ? "Editing" : "Grid Edit"}>
+                <IconButton
+                  color={gridEditMode ? "primary" : "default"}
+                  onClick={() => setGridEditMode((v) => !v)}
+                  size="small"
+                >
+                  <MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={20} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Export">
+                <span>
+                  <IconButton
+                    onClick={() => exportToExcel(filteredData, typeConfig, types)}
+                    disabled={filteredData.length === 0}
+                    size="small"
+                  >
+                    <MaterialSymbol icon="download" size={20} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Tooltip title="Import">
+                <IconButton onClick={() => setImportOpen(true)} size="small">
+                  <MaterialSymbol icon="upload" size={20} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Create">
+                <IconButton color="primary" onClick={() => setCreateOpen(true)} size="small">
+                  <MaterialSymbol icon="add" size={20} />
+                </IconButton>
+              </Tooltip>
+            </>
+          ) : (
+            <>
+              <Button
+                variant={gridEditMode ? "contained" : "outlined"}
+                color={gridEditMode ? "primary" : "inherit"}
+                startIcon={<MaterialSymbol icon={gridEditMode ? "edit" : "edit_off"} size={18} />}
+                onClick={() => setGridEditMode((v) => !v)}
+                sx={{ textTransform: "none" }}
+              >
+                {gridEditMode ? "Editing" : "Grid Edit"}
+              </Button>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MaterialSymbol icon="download" size={18} />}
+                onClick={() => exportToExcel(filteredData, typeConfig, types)}
+                disabled={filteredData.length === 0}
+                sx={{ textTransform: "none" }}
+              >
+                Export
+              </Button>
+              <Button
+                variant="outlined"
+                color="inherit"
+                startIcon={<MaterialSymbol icon="upload" size={18} />}
+                onClick={() => setImportOpen(true)}
+                sx={{ textTransform: "none" }}
+              >
+                Import
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setCreateOpen(true)}
+                sx={{ textTransform: "none" }}
+              >
+                Create
+              </Button>
+            </>
+          )}
         </Box>
 
         {/* Mass edit toolbar */}

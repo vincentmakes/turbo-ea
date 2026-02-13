@@ -26,6 +26,8 @@ import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
@@ -562,10 +564,10 @@ function AttributeSection({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "180px 1fr",
+              gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" },
               rowGap: 1,
               columnGap: 2,
-              alignItems: "center",
+              alignItems: { sm: "center" },
             }}
           >
             {section.fields.map((field) => (
@@ -1703,6 +1705,8 @@ function HistoryTab({ fsId }: { fsId: string }) {
 export default function FactSheetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const [fs, setFs] = useState<FactSheet | null>(null);
   const [tab, setTab] = useState(0);
@@ -1749,15 +1753,15 @@ export default function FactSheetDetail() {
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* ── Header ── */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <IconButton onClick={() => navigate(-1)}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 1, sm: 2 }, mb: 3 }}>
+        <IconButton onClick={() => navigate(-1)} sx={{ mr: { xs: -0.5, sm: 0 } }}>
           <MaterialSymbol icon="arrow_back" size={24} />
         </IconButton>
         {typeConfig && (
           <Box
             sx={{
-              width: 40,
-              height: 40,
+              width: { xs: 32, sm: 40 },
+              height: { xs: 32, sm: 40 },
               borderRadius: 2,
               bgcolor: typeConfig.color + "18",
               display: "flex",
@@ -1767,13 +1771,13 @@ export default function FactSheetDetail() {
           >
             <MaterialSymbol
               icon={typeConfig.icon}
-              size={24}
+              size={isMobile ? 20 : 24}
               color={typeConfig.color}
             />
           </Box>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h5" fontWeight={700} noWrap>
+          <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
             {fs.name}
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1785,17 +1789,20 @@ export default function FactSheetDetail() {
             )}
           </Box>
         </Box>
-        <CompletionRing value={fs.completion} />
-        <LifecycleBadge lifecycle={fs.lifecycle} />
-        <QualitySealBadge seal={fs.quality_seal} />
-        <Button
-          size="small"
-          variant="outlined"
-          onClick={(e) => setSealMenuAnchor(e.currentTarget)}
-          endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
-        >
-          Seal
-        </Button>
+        {/* Badges — wrap to second row on mobile */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
+          <CompletionRing value={fs.completion} />
+          <LifecycleBadge lifecycle={fs.lifecycle} />
+          <QualitySealBadge seal={fs.quality_seal} />
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={(e) => setSealMenuAnchor(e.currentTarget)}
+            endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
+          >
+            Seal
+          </Button>
+        </Box>
         <Menu
           anchorEl={sealMenuAnchor}
           open={!!sealMenuAnchor}
@@ -1846,7 +1853,9 @@ export default function FactSheetDetail() {
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
-          sx={{ borderBottom: 1, borderColor: "divider", px: 2 }}
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          sx={{ borderBottom: 1, borderColor: "divider", px: { xs: 0, sm: 2 } }}
         >
           <Tab label="Comments" />
           <Tab label="Todos" />
