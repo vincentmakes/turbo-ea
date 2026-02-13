@@ -26,6 +26,7 @@ import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
+import Popover from "@mui/material/Popover";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -51,6 +52,7 @@ import type {
   SubscriptionRoleDef,
   User,
   HierarchyData,
+  Milestone,
 } from "@/types";
 
 // ── Completion Ring ─────────────────────────────────────────────
@@ -341,15 +343,64 @@ function LifecycleSection({
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     fs.lifecycle || {}
   );
+  const [milestoneLinks, setMilestoneLinks] = useState<Record<string, string>>(
+    fs.milestone_links || {}
+  );
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [msAnchorEl, setMsAnchorEl] = useState<HTMLElement | null>(null);
+  const [msPhase, setMsPhase] = useState<string | null>(null);
 
   useEffect(() => {
     setLifecycle(fs.lifecycle || {});
-  }, [fs.lifecycle]);
+    setMilestoneLinks(fs.milestone_links || {});
+  }, [fs.lifecycle, fs.milestone_links]);
+
+  useEffect(() => {
+    if (fs.type === "Initiative") {
+      api
+        .get<Milestone[]>(`/milestones?initiative_id=${fs.id}&include_inherited=true`)
+        .then(setMilestones)
+        .catch(() => {});
+    }
+  }, [fs.id, fs.type]);
 
   const save = async () => {
-    await onSave({ lifecycle });
+    await onSave({ lifecycle, milestone_links: milestoneLinks });
     setEditing(false);
   };
+
+  const handleOpenMilestonePicker = (
+    event: React.MouseEvent<HTMLElement>,
+    phase: string
+  ) => {
+    setMsAnchorEl(event.currentTarget);
+    setMsPhase(phase);
+  };
+
+  const handleLinkMilestone = (milestone: Milestone) => {
+    if (!msPhase) return;
+    setMilestoneLinks((prev) => ({ ...prev, [msPhase]: milestone.id }));
+    setLifecycle((prev) => ({ ...prev, [msPhase]: milestone.target_date }));
+    setMsAnchorEl(null);
+    setMsPhase(null);
+  };
+
+  const handleUnlinkMilestone = (phase: string) => {
+    setMilestoneLinks((prev) => {
+      const next = { ...prev };
+      delete next[phase];
+      return next;
+    });
+  };
+
+  const getMilestoneName = (phase: string): string | null => {
+    const msId = milestoneLinks[phase];
+    if (!msId) return null;
+    const ms = milestones.find((m) => m.id === msId);
+    return ms ? ms.name : null;
+  };
+
+  const isInitiative = fs.type === "Initiative";
 
   return (
     <Accordion defaultExpanded disableGutters>
@@ -380,6 +431,7 @@ function LifecycleSection({
             const isPast =
               i < PHASES.length - 1 &&
               PHASES.slice(i + 1).some((p) => lifecycle[p] && lifecycle[p]! <= now);
+            const linkedMsName = isInitiative ? getMilestoneName(phase) : null;
             return (
               <Box
                 key={phase}
@@ -421,8 +473,15 @@ function LifecycleSection({
                   {PHASE_LABELS[phase]}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {date || "—"}
+                  {date || "\u2014"}
                 </Typography>
+                {linkedMsName && !editing && (
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.25, mt: 0.25 }}>
+                    <Typography variant="caption" sx={{ color: "#9c27b0", fontSize: "0.65rem" }}>
+                      {"\u25C6"} {linkedMsName}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             );
           })}
@@ -430,26 +489,67 @@ function LifecycleSection({
         {editing && (
           <Box>
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
-              {PHASES.map((phase) => (
-                <TextField
-                  key={phase}
-                  label={PHASE_LABELS[phase]}
-                  type="date"
-                  size="small"
-                  value={lifecycle[phase] || ""}
-                  onChange={(e) =>
-                    setLifecycle({ ...lifecycle, [phase]: e.target.value })
-                  }
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ width: 170 }}
-                />
-              ))}
+              {PHASES.map((phase) => {
+                const linked = isInitiative && milestoneLinks[phase];
+                const linkedMsName = isInitiative ? getMilestoneName(phase) : null;
+                return (
+                  <Box key={phase} sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <TextField
+                        label={PHASE_LABELS[phase]}
+                        type="date"
+                        size="small"
+                        value={lifecycle[phase] || ""}
+                        onChange={(e) =>
+                          setLifecycle({ ...lifecycle, [phase]: e.target.value })
+                        }
+                        InputLabelProps={{ shrink: true }}
+                        sx={{ width: 170 }}
+                        disabled={!!linked}
+                      />
+                      {isInitiative && (
+                        <Tooltip title={linked ? "Linked to milestone" : "Link to milestone"}>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleOpenMilestonePicker(e, phase)}
+                            sx={{
+                              color: linked ? "#9c27b0" : "#bdbdbd",
+                              fontSize: "1rem",
+                              width: 28,
+                              height: 28,
+                            }}
+                          >
+                            <span style={{ fontSize: 14, lineHeight: 1 }}>{"\u25C6"}</span>
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    {linked && linkedMsName && (
+                      <Chip
+                        size="small"
+                        label={linkedMsName}
+                        onDelete={() => handleUnlinkMilestone(phase)}
+                        sx={{
+                          height: 20,
+                          fontSize: "0.65rem",
+                          bgcolor: "#f3e5f5",
+                          color: "#7b1fa2",
+                          "& .MuiChip-deleteIcon": { fontSize: 14 },
+                          maxWidth: 200,
+                        }}
+                        icon={<span style={{ fontSize: 10, marginLeft: 6 }}>{"\u25C6"}</span>}
+                      />
+                    )}
+                  </Box>
+                );
+              })}
             </Box>
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
                 onClick={() => {
                   setLifecycle(fs.lifecycle || {});
+                  setMilestoneLinks(fs.milestone_links || {});
                   setEditing(false);
                 }}
               >
@@ -461,6 +561,52 @@ function LifecycleSection({
             </Box>
           </Box>
         )}
+
+        {/* Milestone picker popover */}
+        <Popover
+          open={!!msAnchorEl}
+          anchorEl={msAnchorEl}
+          onClose={() => { setMsAnchorEl(null); setMsPhase(null); }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+          transformOrigin={{ vertical: "top", horizontal: "left" }}
+        >
+          <Box sx={{ p: 1, minWidth: 220, maxHeight: 300, overflow: "auto" }}>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 1, pb: 0.5, display: "block" }}>
+              Link milestone to {msPhase ? PHASE_LABELS[msPhase] : ""}
+            </Typography>
+            {milestones.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>
+                No milestones found
+              </Typography>
+            ) : (
+              <List dense disablePadding>
+                {milestones.map((ms) => (
+                  <ListItem
+                    key={ms.id}
+                    component="div"
+                    onClick={() => handleLinkMilestone(ms)}
+                    sx={{
+                      cursor: "pointer",
+                      borderRadius: 1,
+                      "&:hover": { bgcolor: "action.hover" },
+                      bgcolor: msPhase && milestoneLinks[msPhase] === ms.id ? "action.selected" : "transparent",
+                    }}
+                  >
+                    <ListItemText
+                      primary={ms.name}
+                      secondary={ms.target_date}
+                      primaryTypographyProps={{ variant: "body2", fontWeight: 500 }}
+                      secondaryTypographyProps={{ variant: "caption" }}
+                    />
+                    {ms.inherited && (
+                      <Chip size="small" label="inherited" sx={{ height: 16, fontSize: "0.55rem", ml: 1 }} variant="outlined" />
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Box>
+        </Popover>
       </AccordionDetails>
     </Accordion>
   );

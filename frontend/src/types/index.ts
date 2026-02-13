@@ -98,6 +98,7 @@ export interface FactSheet {
   description?: string;
   parent_id?: string;
   lifecycle?: Record<string, string>;
+  milestone_links?: Record<string, string>;
   attributes?: Record<string, unknown>;
   status: string;
   quality_seal: string;
@@ -521,6 +522,7 @@ export interface Milestone {
   name: string;
   target_date: string;
   description?: string;
+  inherited?: boolean;
   created_at?: string;
   updated_at?: string;
 }

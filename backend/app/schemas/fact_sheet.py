@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -24,6 +23,7 @@ class FactSheetUpdate(BaseModel):
     description: str | None = None
     parent_id: str | None = None
     lifecycle: dict | None = None
+    milestone_links: dict | None = None
     attributes: dict | None = None
     status: str | None = None
     external_id: str | None = None
@@ -62,6 +62,7 @@ class FactSheetResponse(BaseModel):
     description: str | None = None
     parent_id: str | None = None
     lifecycle: dict | None = None
+    milestone_links: dict | None = None
     attributes: dict | None = None
     status: str
     quality_seal: str
