@@ -35,6 +35,25 @@ export const api = {
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  upload: <T>(path: string, file: File, fieldName = "file") => {
+    const form = new FormData();
+    form.append(fieldName, file);
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return fetch(`${BASE}${path}`, { method: "POST", headers, body: form }).then(
+      async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          const msg = Array.isArray(err.detail)
+            ? err.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
+            : err.detail || res.statusText;
+          throw new Error(msg);
+        }
+        return res.json() as Promise<T>;
+      },
+    );
+  },
 };
 
 // Auth helpers

@@ -1,7 +1,10 @@
-"""Admin-only application settings — currently just email / SMTP configuration."""
+"""Admin-only application settings — email / SMTP configuration + logo management."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +16,19 @@ from app.models.app_settings import AppSettings
 from app.models.user import User
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+_DEFAULT_LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "default_logo.png"
+_DEFAULT_LOGO_BYTES: bytes | None = None
+
+ALLOWED_LOGO_MIMES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"}
+MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
+
+
+def _get_default_logo() -> bytes:
+    global _DEFAULT_LOGO_BYTES
+    if _DEFAULT_LOGO_BYTES is None:
+        _DEFAULT_LOGO_BYTES = _DEFAULT_LOGO_PATH.read_bytes()
+    return _DEFAULT_LOGO_BYTES
 
 
 # ---------------------------------------------------------------------------
@@ -139,3 +155,89 @@ async def test_email_settings(
         raise HTTPException(502, f"Failed to send test email: {exc}") from exc
 
     return {"ok": True, "sent_to": user.email}
+
+
+# ---------------------------------------------------------------------------
+# Logo endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/logo")
+async def get_logo(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the current logo (custom or default)."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+
+    if row and row.custom_logo:
+        return Response(
+            content=row.custom_logo,
+            media_type=row.custom_logo_mime or "image/png",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+
+    return Response(
+        content=_get_default_logo(),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
+
+
+@router.get("/logo/info")
+async def get_logo_info(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — returns metadata about the current logo."""
+    _require_admin(user)
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+
+    has_custom = bool(row and row.custom_logo)
+    return {
+        "has_custom_logo": has_custom,
+        "mime_type": (row.custom_logo_mime if has_custom else "image/png"),
+    }
+
+
+@router.post("/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — upload a custom logo."""
+    _require_admin(user)
+
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_LOGO_MIMES:
+        raise HTTPException(
+            400,
+            f"Unsupported file type: {content_type}. "
+            "Allowed: PNG, JPEG, SVG, WebP, GIF.",
+        )
+
+    data = await file.read()
+    if len(data) > MAX_LOGO_SIZE:
+        raise HTTPException(400, f"Logo must be under {MAX_LOGO_SIZE // (1024 * 1024)} MB.")
+
+    row = await _get_or_create_row(db)
+    row.custom_logo = data
+    row.custom_logo_mime = content_type
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.delete("/logo")
+async def reset_logo(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — reset to the default logo."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    row.custom_logo = None
+    row.custom_logo_mime = None
+    await db.commit()
+
+    return {"ok": True}
