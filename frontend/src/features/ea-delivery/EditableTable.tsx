@@ -14,9 +14,10 @@ interface Props {
   columns: string[];
   rows: string[][];
   onChange: (rows: string[][]) => void;
+  readOnly?: boolean;
 }
 
-export default function EditableTable({ columns, rows, onChange }: Props) {
+export default function EditableTable({ columns, rows, onChange, readOnly }: Props) {
   const updateCell = (ri: number, ci: number, value: string) => {
     const next = rows.map((r) => [...r]);
     next[ri][ci] = value;
@@ -52,7 +53,7 @@ export default function EditableTable({ columns, rows, onChange }: Props) {
                   {col}
                 </TableCell>
               ))}
-              <TableCell sx={{ width: 40, p: 0 }} />
+              {!readOnly && <TableCell sx={{ width: 40, p: 0 }} />}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -66,6 +67,7 @@ export default function EditableTable({ columns, rows, onChange }: Props) {
                     <InputBase
                       fullWidth
                       multiline
+                      readOnly={readOnly}
                       value={cell}
                       onChange={(e) => updateCell(ri, ci, e.target.value)}
                       sx={{
@@ -76,32 +78,36 @@ export default function EditableTable({ columns, rows, onChange }: Props) {
                     />
                   </TableCell>
                 ))}
-                <TableCell sx={{ p: 0, width: 40 }}>
-                  {rows.length > 1 && (
-                    <Tooltip title="Remove row">
-                      <IconButton
-                        size="small"
-                        className="row-action"
-                        sx={{ opacity: 0, transition: "opacity 0.15s" }}
-                        onClick={() => removeRow(ri)}
-                      >
-                        <MaterialSymbol icon="close" size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </TableCell>
+                {!readOnly && (
+                  <TableCell sx={{ p: 0, width: 40 }}>
+                    {rows.length > 1 && (
+                      <Tooltip title="Remove row">
+                        <IconButton
+                          size="small"
+                          className="row-action"
+                          sx={{ opacity: 0, transition: "opacity 0.15s" }}
+                          onClick={() => removeRow(ri)}
+                        >
+                          <MaterialSymbol icon="close" size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ mt: 0.5 }}>
-        <Tooltip title="Add row">
-          <IconButton size="small" onClick={addRow}>
-            <MaterialSymbol icon="add" size={18} />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      {!readOnly && (
+        <Box sx={{ mt: 0.5 }}>
+          <Tooltip title="Add row">
+            <IconButton size="small" onClick={addRow}>
+              <MaterialSymbol icon="add" size={18} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
     </Box>
   );
 }

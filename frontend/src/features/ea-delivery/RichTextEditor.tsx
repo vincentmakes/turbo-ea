@@ -13,9 +13,10 @@ interface Props {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  readOnly?: boolean;
 }
 
-export default function RichTextEditor({ content, onChange, placeholder }: Props) {
+export default function RichTextEditor({ content, onChange, placeholder, readOnly }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -25,10 +26,18 @@ export default function RichTextEditor({ content, onChange, placeholder }: Props
       Placeholder.configure({ placeholder: placeholder ?? "Start typing..." }),
     ],
     content,
+    editable: !readOnly,
     onUpdate: ({ editor: e }) => {
       onChange(e.getHTML());
     },
   });
+
+  // Sync editable state when readOnly changes
+  useEffect(() => {
+    if (editor) {
+      editor.setEditable(!readOnly);
+    }
+  }, [editor, readOnly]);
 
   // Sync external content changes (e.g. loading from API)
   useEffect(() => {
@@ -72,7 +81,7 @@ export default function RichTextEditor({ content, onChange, placeholder }: Props
       }}
     >
       {/* Toolbar */}
-      <Box
+      {!readOnly && <Box
         sx={{
           display: "flex",
           alignItems: "center",
@@ -144,7 +153,7 @@ export default function RichTextEditor({ content, onChange, placeholder }: Props
 
         {btn("undo", "Undo", () => editor.chain().focus().undo().run())}
         {btn("redo", "Redo", () => editor.chain().focus().redo().run())}
-      </Box>
+      </Box>}
 
       {/* Editor content */}
       <Box
