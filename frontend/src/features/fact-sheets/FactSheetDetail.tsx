@@ -1361,6 +1361,7 @@ function TodosTab({ fsId }: { fsId: string }) {
   const [newDesc, setNewDesc] = useState("");
   const [newAssignee, setNewAssignee] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -1375,16 +1376,21 @@ function TodosTab({ fsId }: { fsId: string }) {
   }, []);
 
   const handleAdd = async () => {
-    if (!newDesc.trim()) return;
-    const payload: Record<string, unknown> = { description: newDesc };
-    if (newAssignee) payload.assigned_to = newAssignee;
-    if (newDueDate) payload.due_date = newDueDate;
-    await api.post(`/fact-sheets/${fsId}/todos`, payload);
-    setNewDesc("");
-    setNewAssignee("");
-    setNewDueDate("");
-    setDialogOpen(false);
-    load();
+    if (!newDesc.trim() || saving) return;
+    setSaving(true);
+    try {
+      const payload: Record<string, unknown> = { description: newDesc };
+      if (newAssignee) payload.assigned_to = newAssignee;
+      if (newDueDate) payload.due_date = newDueDate;
+      await api.post(`/fact-sheets/${fsId}/todos`, payload);
+      setNewDesc("");
+      setNewAssignee("");
+      setNewDueDate("");
+      setDialogOpen(false);
+      load();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleStatus = async (todo: Todo) => {
@@ -1511,8 +1517,8 @@ function TodosTab({ fsId }: { fsId: string }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={!newDesc.trim()} onClick={handleAdd}>
-            Add
+          <Button variant="contained" disabled={!newDesc.trim() || saving} onClick={handleAdd}>
+            {saving ? "Adding…" : "Add"}
           </Button>
         </DialogActions>
       </Dialog>
