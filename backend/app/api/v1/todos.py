@@ -73,8 +73,8 @@ async def create_todo(
     db.add(todo)
     await db.flush()
 
-    # Notify the assignee
-    if todo.assigned_to and todo.assigned_to != user.id:
+    # Notify the assignee (even if self-assigned)
+    if todo.assigned_to:
         await notification_service.create_notification(
             db,
             user_id=todo.assigned_to,
@@ -84,7 +84,6 @@ async def create_todo(
             link="/todos",
             data={"todo_id": str(todo.id), "fact_sheet_id": fs_id},
             fact_sheet_id=uuid.UUID(fs_id),
-            actor_id=user.id,
         )
 
     await db.commit()
@@ -112,9 +111,9 @@ async def update_todo(
         setattr(todo, field, value)
     await db.flush()
 
-    # Notify new assignee if assignment changed
+    # Notify new assignee if assignment changed (even if self-assigned)
     new_assignee = todo.assigned_to
-    if new_assignee and new_assignee != old_assignee and new_assignee != user.id:
+    if new_assignee and new_assignee != old_assignee:
         await notification_service.create_notification(
             db,
             user_id=new_assignee,
@@ -124,7 +123,6 @@ async def update_todo(
             link="/todos",
             data={"todo_id": todo_id},
             fact_sheet_id=todo.fact_sheet_id,
-            actor_id=user.id,
         )
 
     await db.commit()

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -204,6 +205,7 @@ async def request_signatures(
         })
 
     s.signatories = signatories
+    flag_modified(s, "signatories")
     s.status = "in_review"
 
     # Create a todo for each signatory
@@ -216,7 +218,7 @@ async def request_signatures(
         )
         db.add(todo)
 
-        # Create notification
+        # Create notification (no actor_id so self-request still notifies)
         await notification_service.create_notification(
             db,
             user_id=uuid.UUID(sig["user_id"]),
@@ -225,7 +227,6 @@ async def request_signatures(
             message=f'{user.display_name} requested your signature on "{s.name}"',
             link=f"/ea-delivery/soaw/{soaw_id}",
             data={"soaw_id": soaw_id, "soaw_name": s.name},
-            actor_id=user.id,
         )
 
     await db.commit()
@@ -273,6 +274,7 @@ async def sign_soaw(
         raise HTTPException(403, "You are not a signatory of this document")
 
     s.signatories = signatories
+    flag_modified(s, "signatories")
 
     # Check if all signatories have signed
     all_signed = all(sig["status"] == "signed" for sig in signatories)
@@ -290,12 +292,13 @@ async def sign_soaw(
                 message=f'All signatories have signed "{s.name}"',
                 link=f"/ea-delivery/soaw/{soaw_id}/preview",
                 data={"soaw_id": soaw_id, "soaw_name": s.name},
-                actor_id=user.id,
             )
     else:
         # Notify creator that an individual signatory has signed
         if s.created_by:
-            signed_count = sum(1 for sig in signatories if sig["status"] == "signed")
+            signed_count = sum(
+                1 for sig in signatories if sig["status"] == "signed"
+            )
             await notification_service.create_notification(
                 db,
                 user_id=s.created_by,
@@ -307,7 +310,6 @@ async def sign_soaw(
                 ),
                 link=f"/ea-delivery/soaw/{soaw_id}",
                 data={"soaw_id": soaw_id, "soaw_name": s.name},
-                actor_id=user.id,
             )
 
     await db.commit()
