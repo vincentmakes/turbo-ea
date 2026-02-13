@@ -48,7 +48,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
-  { label: "EA Delivery", icon: "architecture", path: "/ea-delivery" },
+  { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
 ];
 
