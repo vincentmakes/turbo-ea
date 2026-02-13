@@ -354,6 +354,7 @@ export async function exportToDocx(
 
   const addSectionContent = (def: TemplateSectionDef, data: SoAWSectionData) => {
     if (data.hidden) return;
+    if (isSectionEmpty(def, data)) return;
 
     // Part header
     if (def.part !== currentPart) {
@@ -548,6 +549,22 @@ export const PREVIEW_CSS = `
   @media print { body { margin: 20px; } .no-print { display: none !important; } }
 `;
 
+/** Check if a section has meaningful content worth rendering. */
+function isSectionEmpty(def: TemplateSectionDef, data: SoAWSectionData): boolean {
+  if (def.type === "rich_text") {
+    const c = (data.content ?? "").replace(/<[^>]*>/g, "").trim();
+    return !c;
+  }
+  if (def.type === "table") {
+    return !data.table_data || !data.table_data.rows || data.table_data.rows.length === 0;
+  }
+  if (def.type === "togaf_phases") {
+    if (!data.togaf_data) return true;
+    return TOGAF_PHASES.every((p) => !(data.togaf_data?.[p.key] ?? "").trim());
+  }
+  return false;
+}
+
 /** Build the inner HTML body content for preview and PDF export. */
 export function buildPreviewBody(
   name: string,
@@ -555,12 +572,14 @@ export function buildPreviewBody(
   versionHistory: SoAWVersionEntry[],
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
+  revisionNumber?: number,
 ): string {
   let html = "";
 
   // Title
   html += `<h1 style="text-align:center;border:none;">Statement of Architecture Work</h1>`;
-  html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}</p>`;
+  const revLabel = revisionNumber && revisionNumber > 1 ? ` — Revision ${revisionNumber}` : "";
+  html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}${revLabel}</p>`;
 
   // Doc info
   html += `<h2>Document Information</h2><table>`;
@@ -583,6 +602,7 @@ export function buildPreviewBody(
 
   const renderSection = (def: TemplateSectionDef, data: SoAWSectionData) => {
     if (data.hidden) return;
+    if (isSectionEmpty(def, data)) return;
 
     if (def.part !== currentPart) {
       currentPart = def.part;
@@ -648,6 +668,7 @@ export function exportToPdf(
   versionHistory: SoAWVersionEntry[],
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
+  revisionNumber?: number,
 ) {
   const w = window.open("", "_blank");
   if (!w) {
@@ -655,7 +676,7 @@ export function exportToPdf(
     return;
   }
 
-  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections);
+  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber);
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${name || "SoAW"}</title>
 <style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}</body></html>`;

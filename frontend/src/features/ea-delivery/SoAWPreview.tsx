@@ -101,10 +101,10 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections);
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
 
   const handleExportPdf = () =>
-    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections);
+    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
 
   return (
     <>
