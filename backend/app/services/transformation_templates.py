@@ -463,6 +463,27 @@ def _resolve_value(
     return value
 
 
+def _extract_fs_id(value: str | dict | None) -> uuid.UUID | None:
+    """Extract a UUID from a template field value.
+
+    The frontend sends FSRef objects ``{id, type, name}`` for
+    ``fact_sheet_ref`` fields.  Plain UUID strings are also accepted.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        raw = value.get("id")
+        if raw:
+            return uuid.UUID(str(raw))
+        return None
+    if isinstance(value, str) and value:
+        try:
+            return uuid.UUID(value)
+        except ValueError:
+            return None
+    return None
+
+
 def generate_implied_impacts(
     transformation_id: uuid.UUID,
     impacts_schema: list[dict],
@@ -487,12 +508,14 @@ def generate_implied_impacts(
         target_ref = schema_item.get("target_field", "")
         target_id = None
         if isinstance(target_ref, str) and target_ref.startswith("$"):
-            target_id = template_fields.get(target_ref[1:])
+            raw_target = template_fields.get(target_ref[1:])
+            target_id = _extract_fs_id(raw_target)
 
         source_ref = schema_item.get("source_field", "")
         source_id = None
         if isinstance(source_ref, str) and source_ref.startswith("$"):
-            source_id = template_fields.get(source_ref[1:])
+            raw_source = template_fields.get(source_ref[1:])
+            source_id = _extract_fs_id(raw_source)
 
         action = schema_item["action"]
         field_name = schema_item.get("field_name")
@@ -505,8 +528,8 @@ def generate_implied_impacts(
             transformation_id=transformation_id,
             impact_type=schema_item["impact_type"],
             action=action,
-            source_fact_sheet_id=source_id if source_id else None,
-            target_fact_sheet_id=target_id if target_id else None,
+            source_fact_sheet_id=source_id,
+            target_fact_sheet_id=target_id,
             field_name=field_name,
             field_value=field_value,
             relation_type=relation_type,
