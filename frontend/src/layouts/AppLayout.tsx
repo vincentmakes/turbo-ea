@@ -52,7 +52,6 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
-  { label: "Planning", icon: "route", path: "/planning" },
   { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
   { label: "Surveys", icon: "assignment", path: "/surveys" },

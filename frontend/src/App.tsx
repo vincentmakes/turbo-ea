@@ -29,7 +29,6 @@ import SurveyBuilder from "@/features/admin/SurveyBuilder";
 import SurveyResults from "@/features/admin/SurveyResults";
 import MySurveys from "@/features/surveys/MySurveys";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
-import TransformationsExplorer from "@/features/planning/TransformationsExplorer";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
@@ -89,7 +88,6 @@ export default function App() {
             <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
             <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
             <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
-            <Route path="/planning" element={<TransformationsExplorer />} />
             <Route path="/todos" element={<TodosPage />} />
             <Route path="/surveys" element={<MySurveys />} />
             <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />

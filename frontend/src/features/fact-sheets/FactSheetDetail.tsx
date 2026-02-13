@@ -33,8 +33,6 @@ import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import TransformationsTab from "@/features/planning/TransformationsTab";
-import MilestonesSection from "@/features/planning/MilestonesSection";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -1848,7 +1846,6 @@ export default function FactSheetDetail() {
         ))}
         <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
         <RelationsSection fsId={fs.id} fsType={fs.type} />
-        {fs.type === "Initiative" && <MilestonesSection fsId={fs.id} />}
       </Box>
 
       {/* ── Secondary tabs ── */}
@@ -1862,16 +1859,14 @@ export default function FactSheetDetail() {
         >
           <Tab label="Comments" />
           <Tab label="Todos" />
-          <Tab label="Transformations" />
           <Tab label="Subscriptions" />
           <Tab label="History" />
         </Tabs>
         <CardContent>
           {tab === 0 && <CommentsTab fsId={fs.id} />}
           {tab === 1 && <TodosTab fsId={fs.id} />}
-          {tab === 2 && <TransformationsTab fsId={fs.id} fsType={fs.type} />}
-          {tab === 3 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
-          {tab === 4 && <HistoryTab fsId={fs.id} />}
+          {tab === 2 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
+          {tab === 3 && <HistoryTab fsId={fs.id} />}
         </CardContent>
       </Card>
     </Box>
