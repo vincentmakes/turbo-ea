@@ -696,11 +696,13 @@ export default function SoAWEditor() {
           <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
             Document Version History
           </Typography>
-          <Tooltip title="Add version entry">
-            <IconButton size="small" onClick={addVersionRow}>
-              <MaterialSymbol icon="add" size={18} />
-            </IconButton>
-          </Tooltip>
+          {!isSigned && (
+            <Tooltip title="Add version entry">
+              <IconButton size="small" onClick={addVersionRow}>
+                <MaterialSymbol icon="add" size={18} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
         <Table size="small">
           <TableHead>
@@ -719,6 +721,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
+                    disabled={isSigned}
                     value={row.version}
                     onChange={(e) =>
                       updateVersionRow(idx, "version", e.target.value)
@@ -732,6 +735,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
+                    disabled={isSigned}
                     type="date"
                     value={row.date}
                     onChange={(e) =>
@@ -747,6 +751,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
+                    disabled={isSigned}
                     value={row.revised_by}
                     onChange={(e) =>
                       updateVersionRow(idx, "revised_by", e.target.value)
@@ -760,6 +765,7 @@ export default function SoAWEditor() {
                   <TextField
                     size="small"
                     fullWidth
+                    disabled={isSigned}
                     value={row.description}
                     onChange={(e) =>
                       updateVersionRow(idx, "description", e.target.value)
@@ -770,7 +776,7 @@ export default function SoAWEditor() {
                   />
                 </TableCell>
                 <TableCell sx={{ p: 0.5 }}>
-                  {versionHistory.length > 1 && (
+                  {!isSigned && versionHistory.length > 1 && (
                     <IconButton size="small" onClick={() => removeVersionRow(idx)}>
                       <MaterialSymbol icon="close" size={16} />
                     </IconButton>
@@ -810,19 +816,22 @@ export default function SoAWEditor() {
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>
                   {cs.title}
                 </Typography>
-                <Tooltip title="Remove custom section">
-                  <IconButton
-                    size="small"
-                    onClick={() => removeCustomSection(cs.id)}
-                  >
-                    <MaterialSymbol icon="delete_outline" size={18} />
-                  </IconButton>
-                </Tooltip>
+                {!isSigned && (
+                  <Tooltip title="Remove custom section">
+                    <IconButton
+                      size="small"
+                      onClick={() => removeCustomSection(cs.id)}
+                    >
+                      <MaterialSymbol icon="delete_outline" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
               <RichTextEditor
                 content={cs.content}
                 onChange={(html) => updateCustomContent(cs.id, html)}
                 placeholder="Enter content for this section..."
+                readOnly={isSigned}
               />
             </Paper>
           );
@@ -865,17 +874,19 @@ export default function SoAWEditor() {
               >
                 {def.title}
               </Typography>
-              <Tooltip title={isHidden ? "Show section" : "Hide section"}>
-                <IconButton
-                  size="small"
-                  onClick={() => toggleSectionHidden(def.id)}
-                >
-                  <MaterialSymbol
-                    icon={isHidden ? "visibility_off" : "visibility"}
-                    size={18}
-                  />
-                </IconButton>
-              </Tooltip>
+              {!isSigned && (
+                <Tooltip title={isHidden ? "Show section" : "Hide section"}>
+                  <IconButton
+                    size="small"
+                    onClick={() => toggleSectionHidden(def.id)}
+                  >
+                    <MaterialSymbol
+                      icon={isHidden ? "visibility_off" : "visibility"}
+                      size={18}
+                    />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
 
             {/* Section body */}
@@ -897,6 +908,7 @@ export default function SoAWEditor() {
                     updateSection(def.id, { content: html })
                   }
                   placeholder={def.hint}
+                  readOnly={isSigned}
                 />
               )}
 
@@ -912,6 +924,7 @@ export default function SoAWEditor() {
                       },
                     })
                   }
+                  readOnly={isSigned}
                 />
               )}
 
@@ -934,6 +947,7 @@ export default function SoAWEditor() {
                             size="small"
                             fullWidth
                             multiline
+                            disabled={isSigned}
                             placeholder="e.g. documents, diagrams, architecture decisions..."
                             value={data.togaf_data?.[phase.key] ?? ""}
                             onChange={(e) => {
@@ -966,16 +980,18 @@ export default function SoAWEditor() {
       })}
 
       {/* ── Add custom section ─────────────────────────────────────────── */}
-      <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
-        <Button
-          variant="outlined"
-          startIcon={<MaterialSymbol icon="add" size={18} />}
-          sx={{ textTransform: "none" }}
-          onClick={() => setAddSectionOpen(true)}
-        >
-          Add Custom Section
-        </Button>
-      </Box>
+      {!isSigned && (
+        <Box sx={{ display: "flex", justifyContent: "center", my: 3 }}>
+          <Button
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => setAddSectionOpen(true)}
+          >
+            Add Custom Section
+          </Button>
+        </Box>
+      )}
 
       <Dialog
         open={addSectionOpen}
