@@ -24,4 +24,4 @@ class Comment(Base, UUIDMixin, TimestampMixin):
     )
 
     user = relationship("User", lazy="selectin")
-    replies = relationship("Comment", lazy="selectin")
+    replies = relationship("Comment", lazy="selectin", join_depth=5)

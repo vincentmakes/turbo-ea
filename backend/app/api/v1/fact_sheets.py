@@ -389,7 +389,6 @@ async def update_fact_sheet(
             message=f'{user.display_name} updated "{fs.name}" ({changed_fields})',
             link=f"/fact-sheets/{fs.id}",
             data={"changes": list(changes.keys())},
-            actor_id=user.id,
         )
 
         await db.commit()

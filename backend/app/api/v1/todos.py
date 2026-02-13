@@ -25,6 +25,8 @@ def _todo_to_dict(t: Todo) -> dict:
         "fact_sheet_type": t.fact_sheet.type if t.fact_sheet else None,
         "description": t.description,
         "status": t.status,
+        "link": t.link,
+        "is_system": t.is_system,
         "assigned_to": str(t.assigned_to) if t.assigned_to else None,
         "assignee_name": t.assignee.display_name if t.assignee else None,
         "created_by": str(t.created_by) if t.created_by else None,
@@ -36,14 +38,21 @@ def _todo_to_dict(t: Todo) -> dict:
 @router.get("/todos")
 async def list_all_todos(
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
     status: str | None = Query(None),
     assigned_to: str | None = Query(None),
+    mine: bool = Query(True),
 ):
     q = select(Todo).order_by(Todo.created_at.desc())
     if status:
         q = q.where(Todo.status == status)
     if assigned_to:
         q = q.where(Todo.assigned_to == uuid.UUID(assigned_to))
+    elif mine:
+        # Default: only show todos assigned to or created by the current user
+        q = q.where(
+            (Todo.assigned_to == user.id) | (Todo.created_by == user.id)
+        )
     result = await db.execute(q)
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
@@ -102,8 +111,17 @@ async def update_todo(
     todo = result.scalar_one_or_none()
     if not todo:
         raise HTTPException(404, "Todo not found")
+
+    # System-generated todos (e.g. sign requests) cannot be manually toggled
+    update_data = body.model_dump(exclude_unset=True)
+    if todo.is_system and "status" in update_data:
+        raise HTTPException(
+            403,
+            "This action must be completed from its linked page",
+        )
+
     old_assignee = todo.assigned_to
-    for field, value in body.model_dump(exclude_unset=True).items():
+    for field, value in update_data.items():
         if field == "assigned_to" and value is not None:
             value = uuid.UUID(value)
         if field == "due_date" and value is not None:
