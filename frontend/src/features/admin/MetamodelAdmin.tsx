@@ -1152,8 +1152,10 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
 
     // ---- Step 2: Build paths ----
     let sameLayerIdx = 0;
+    const LABEL_W = 84;
+    const LABEL_H = 20;
 
-    return visible.map((r) => {
+    const rawEdges = visible.map((r) => {
       const src = layout.map[r.source_type_key];
       const tgt = layout.map[r.target_type_key];
 
@@ -1196,6 +1198,64 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
 
       return { key: r.key, d, label: r.label, labelX, labelY };
     });
+
+    // ---- Step 3: Resolve label overlaps ----
+    // Collect node rects as occupied zones
+    type Rect = { x: number; y: number; w: number; h: number };
+    const rectsOverlap = (a: Rect, b: Rect) =>
+      a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+    const nodeRects: Rect[] = Object.values(layout.map).map((pos) => ({
+      x: pos.x, y: pos.y, w: NODE_W, h: NODE_H,
+    }));
+
+    const placedLabels: Rect[] = [];
+    for (const edge of rawEdges) {
+      let lx = edge.labelX - LABEL_W / 2;
+      let ly = edge.labelY - LABEL_H / 2;
+      let labelRect: Rect = { x: lx, y: ly, w: LABEL_W, h: LABEL_H };
+
+      // Check for overlaps with nodes and already-placed labels
+      const allBlocked = [...nodeRects, ...placedLabels];
+      let hasOverlap = allBlocked.some((r) => rectsOverlap(labelRect, r));
+
+      if (hasOverlap) {
+        // Try shifting vertically in small increments along the vertical
+        // segments of the path (up to ±40px)
+        let resolved = false;
+        for (let dy = -LABEL_H; dy <= LABEL_H * 2; dy += 6) {
+          if (dy === 0) continue;
+          const tryRect: Rect = { x: lx, y: ly + dy, w: LABEL_W, h: LABEL_H };
+          if (!allBlocked.some((r) => rectsOverlap(tryRect, r))) {
+            ly += dy;
+            labelRect = tryRect;
+            resolved = true;
+            break;
+          }
+        }
+        // If vertical shift didn't help, try horizontal shifts
+        if (!resolved) {
+          for (let dx = LABEL_W; dx <= LABEL_W * 2; dx += LABEL_W) {
+            for (const sign of [1, -1]) {
+              const tryRect: Rect = { x: lx + dx * sign, y: ly, w: LABEL_W, h: LABEL_H };
+              if (!allBlocked.some((r) => rectsOverlap(tryRect, r))) {
+                lx += dx * sign;
+                labelRect = tryRect;
+                resolved = true;
+                break;
+              }
+            }
+            if (resolved) break;
+          }
+        }
+      }
+
+      placedLabels.push(labelRect);
+      edge.labelX = lx + LABEL_W / 2;
+      edge.labelY = ly + LABEL_H / 2;
+    }
+
+    return rawEdges;
   }, [relationTypes, layout]);
 
   /* --- Category label y positions --- */
