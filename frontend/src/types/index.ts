@@ -162,6 +162,8 @@ export interface Todo {
   fact_sheet_type?: string;
   description: string;
   status: string;
+  link?: string;
+  is_system?: boolean;
   assigned_to?: string;
   assignee_name?: string;
   created_by?: string;

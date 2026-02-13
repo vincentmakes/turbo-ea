@@ -215,6 +215,8 @@ async def request_signatures(
             description=f'Sign SoAW: "{s.name}"',
             assigned_to=uuid.UUID(sig["user_id"]),
             created_by=user.id,
+            link=f"/ea-delivery/soaw/{soaw_id}",
+            is_system=True,
         )
         db.add(todo)
 
@@ -272,6 +274,18 @@ async def sign_soaw(
 
     if not found:
         raise HTTPException(403, "You are not a signatory of this document")
+
+    # Auto-close the sign-request todo for this user
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.assigned_to == user.id,
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.ilike(f'%Sign SoAW%"{s.name}"%'),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
 
     s.signatories = signatories
     flag_modified(s, "signatories")
