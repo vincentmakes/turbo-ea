@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
@@ -25,12 +25,23 @@ interface EmailSettings {
   configured: boolean;
 }
 
+interface LogoInfo {
+  has_custom_logo: boolean;
+  mime_type: string;
+}
+
 export default function SettingsAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
+
+  // Logo state
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
+  const [logoVersion, setLogoVersion] = useState(0);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
@@ -42,17 +53,20 @@ export default function SettingsAdmin() {
   const [configured, setConfigured] = useState(false);
 
   useEffect(() => {
-    api
-      .get<EmailSettings>("/settings/email")
-      .then((data) => {
-        setSmtpHost(data.smtp_host);
-        setSmtpPort(data.smtp_port);
-        setSmtpUser(data.smtp_user);
-        setSmtpPassword(data.smtp_password);
-        setSmtpFrom(data.smtp_from);
-        setSmtpTls(data.smtp_tls);
-        setAppBaseUrl(data.app_base_url);
-        setConfigured(data.configured);
+    Promise.all([
+      api.get<EmailSettings>("/settings/email"),
+      api.get<LogoInfo>("/settings/logo/info"),
+    ])
+      .then(([emailData, logoData]) => {
+        setSmtpHost(emailData.smtp_host);
+        setSmtpPort(emailData.smtp_port);
+        setSmtpUser(emailData.smtp_user);
+        setSmtpPassword(emailData.smtp_password);
+        setSmtpFrom(emailData.smtp_from);
+        setSmtpTls(emailData.smtp_tls);
+        setAppBaseUrl(emailData.app_base_url);
+        setConfigured(emailData.configured);
+        setHasCustomLogo(logoData.has_custom_logo);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -95,6 +109,49 @@ export default function SettingsAdmin() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    setError("");
+    try {
+      await api.upload("/settings/logo", file);
+      setHasCustomLogo(true);
+      setLogoVersion((v) => v + 1);
+      // Update favicon
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (link) link.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+      if (apple) apple.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      setSnack("Logo updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload logo");
+    } finally {
+      setUploadingLogo(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleLogoReset = async () => {
+    setUploadingLogo(true);
+    setError("");
+    try {
+      await api.delete("/settings/logo");
+      setHasCustomLogo(false);
+      setLogoVersion((v) => v + 1);
+      // Update favicon
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+      if (link) link.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      const apple = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+      if (apple) apple.href = `/api/v1/settings/logo?v=${Date.now()}`;
+      setSnack("Logo reset to default");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset logo");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -117,6 +174,95 @@ export default function SettingsAdmin() {
           {error}
         </Alert>
       )}
+
+      {/* Logo Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="image" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            Logo
+          </Typography>
+          <Chip
+            label={hasCustomLogo ? "Custom" : "Default"}
+            size="small"
+            color={hasCustomLogo ? "info" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Upload a custom logo to replace the default Turbo EA logo in the
+          navigation bar, favicon, and Apple touch icon. Recommended: PNG or SVG
+          with a transparent background. Max 2 MB.
+        </Typography>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            mb: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 200,
+              height: 80,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: "#1a1a2e",
+              p: 1,
+            }}
+          >
+            <img
+              src={`/api/v1/settings/logo?v=${logoVersion}`}
+              alt="Current logo"
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+              style={{ display: "none" }}
+              onChange={handleLogoUpload}
+            />
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                uploadingLogo ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MaterialSymbol icon="upload" size={18} />
+                )
+              }
+              sx={{ textTransform: "none" }}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingLogo}
+            >
+              Upload Logo
+            </Button>
+            {hasCustomLogo && (
+              <Button
+                variant="outlined"
+                size="small"
+                color="warning"
+                startIcon={<MaterialSymbol icon="restart_alt" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleLogoReset}
+                disabled={uploadingLogo}
+              >
+                Reset to Default
+              </Button>
+            )}
+          </Box>
+        </Box>
+      </Paper>
 
       {/* Email / SMTP Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>

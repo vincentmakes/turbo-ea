@@ -169,11 +169,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       PaperProps={{ sx: { width: 280, bgcolor: "#1a1a2e" } }}
     >
       {/* Brand header */}
-      <Box sx={{ display: "flex", alignItems: "center", p: 2, gap: 1 }}>
-        <MaterialSymbol icon="hub" size={28} color="#64b5f6" />
-        <Typography variant="h6" sx={{ fontWeight: 700, color: "#fff" }}>
-          Turbo EA
-        </Typography>
+      <Box
+        sx={{ display: "flex", alignItems: "center", p: 2, cursor: "pointer" }}
+        onClick={() => drawerNav("/")}
+      >
+        <img
+          src="/api/v1/settings/logo"
+          alt="Turbo EA"
+          style={{ height: 32, objectFit: "contain" }}
+        />
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
 
@@ -356,21 +360,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           )}
 
           {/* Brand */}
-          <MaterialSymbol icon="hub" size={28} color="#64b5f6" />
-          <Typography
-            variant="h6"
+          <Box
             sx={{
-              ml: 1,
-              fontWeight: 700,
-              letterSpacing: "-0.5px",
+              display: "flex",
+              alignItems: "center",
               mr: isMobile ? 0 : 3,
               cursor: "pointer",
-              display: { xs: "none", sm: "block" },
             }}
             onClick={() => navigate("/")}
           >
-            Turbo EA
-          </Typography>
+            <img
+              src="/api/v1/settings/logo"
+              alt="Turbo EA"
+              style={{ height: 32, objectFit: "contain" }}
+            />
+          </Box>
 
           {/* Desktop / tablet nav items */}
           {!isMobile &&
