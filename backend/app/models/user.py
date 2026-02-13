@@ -14,6 +14,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "quality_seal_changed": True,
         "soaw_sign_requested": True,
         "soaw_signed": True,
+        "survey_request": True,
     },
     "email": {
         "todo_assigned": True,
@@ -22,6 +23,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
         "quality_seal_changed": False,
         "soaw_sign_requested": True,
         "soaw_signed": True,
+        "survey_request": True,
     },
 }
 

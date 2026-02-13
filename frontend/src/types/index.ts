@@ -226,7 +226,8 @@ export type NotificationType =
   | "comment_added"
   | "quality_seal_changed"
   | "soaw_sign_requested"
-  | "soaw_signed";
+  | "soaw_signed"
+  | "survey_request";
 
 export interface Notification {
   id: string;

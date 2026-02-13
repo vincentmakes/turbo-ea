@@ -24,6 +24,7 @@ const NOTIFICATION_TYPES = [
   { key: "quality_seal_changed", label: "Quality Seal Changed" },
   { key: "soaw_sign_requested", label: "SoAW Signature Requested" },
   { key: "soaw_signed", label: "SoAW Signed" },
+  { key: "survey_request", label: "Survey Request", forceEmail: true },
 ];
 
 interface Props {
@@ -119,8 +120,9 @@ export default function NotificationPreferencesDialog({ open, onClose }: Props) 
                     <TableCell align="center">
                       <Switch
                         size="small"
-                        checked={prefs.email[nt.key] ?? false}
+                        checked={nt.forceEmail || (prefs.email[nt.key] ?? false)}
                         onChange={() => toggle("email", nt.key)}
+                        disabled={nt.forceEmail}
                       />
                     </TableCell>
                   </TableRow>
