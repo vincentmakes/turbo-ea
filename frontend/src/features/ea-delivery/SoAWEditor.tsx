@@ -104,7 +104,6 @@ export default function SoAWEditor() {
   const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [revisionNumber, setRevisionNumber] = useState(1);
-  const [parentId, setParentId] = useState<string | null>(null);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [selectedSignatories, setSelectedSignatories] = useState<string[]>([]);
@@ -159,7 +158,6 @@ export default function SoAWEditor() {
         setSignatories(data.signatories ?? []);
         setSignedAt(data.signed_at);
         setRevisionNumber(data.revision_number ?? 1);
-        setParentId(data.parent_id);
 
         // Merge persisted sections with template defaults so new template
         // sections added later still appear.
