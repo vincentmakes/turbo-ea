@@ -26,7 +26,6 @@ interface RoadmapItem {
   name: string;
   type: string;
   lifecycle: Record<string, string>;
-  milestones?: { id: string; name: string; target_date: string }[];
 }
 
 const PHASES = [
@@ -166,12 +165,6 @@ export default function LifecycleReport() {
           {PHASES.map((p) => (
             <Chip key={p.key} size="small" label={`${phaseCounts[p.key]}`} sx={{ bgcolor: p.color, color: "#fff", fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
           ))}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
-              <rect x="2" y="2" width="10" height="10" rx="1" transform="rotate(45 7 7)" fill="#00897b" stroke="#004d40" strokeWidth="0.5" />
-            </svg>
-            <Typography variant="caption" sx={{ color: "#666", fontSize: "0.75rem" }}>Milestone</Typography>
-          </Box>
         </Box>
       }
     >
@@ -272,20 +265,6 @@ export default function LifecycleReport() {
                               </Box>
                             </Tooltip>
                           )}
-                          {item.milestones?.map((ms) => {
-                            const msTime = parseDate(ms.target_date);
-                            if (msTime == null) return null;
-                            const msPct = ((msTime - totalMin) / totalRange) * 100;
-                            return (
-                              <Tooltip key={ms.id} title={`${ms.name} — ${fmtDate(ms.target_date)}`}>
-                                <Box sx={{ position: "absolute", left: `${msPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 3, lineHeight: 0, cursor: "pointer" }}>
-                                  <svg width="14" height="14" viewBox="0 0 14 14">
-                                    <rect x="2" y="2" width="10" height="10" rx="1" transform="rotate(45 7 7)" fill="#00897b" stroke="#004d40" strokeWidth="0.5" />
-                                  </svg>
-                                </Box>
-                              </Tooltip>
-                            );
-                          })}
                         </Box>
                       </Box>
                     );
@@ -318,7 +297,6 @@ export default function LifecycleReport() {
                 <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>Type</TableSortLabel></TableCell>
                 <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>Current Phase</TableSortLabel></TableCell>
                 {PHASES.map((p) => <TableCell key={p.key}>{p.label}</TableCell>)}
-                <TableCell>Milestones</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -333,7 +311,6 @@ export default function LifecycleReport() {
                       <Chip size="small" label={phase?.label || cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
-                    <TableCell>{d.milestones && d.milestones.length > 0 ? d.milestones.map((ms) => ms.name).join(", ") : "—"}</TableCell>
                   </TableRow>
                 );
               })}

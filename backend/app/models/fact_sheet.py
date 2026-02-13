@@ -6,7 +6,7 @@ from sqlalchemy import Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.base import Base, UUIDMixin, TimestampMixin
 
 
 class FactSheet(Base, UUIDMixin, TimestampMixin):
@@ -24,7 +24,6 @@ class FactSheet(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE")
     quality_seal: Mapped[str] = mapped_column(String(20), default="DRAFT")
     completion: Mapped[float] = mapped_column(Float, default=0.0)
-    milestone_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     external_id: Mapped[str | None] = mapped_column(String(500))
     alias: Mapped[str | None] = mapped_column(String(500))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))

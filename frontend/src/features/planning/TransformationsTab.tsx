@@ -20,13 +20,6 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Tooltip from "@mui/material/Tooltip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Divider from "@mui/material/Divider";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import ToggleButton from "@mui/material/ToggleButton";
-import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type {
@@ -973,7 +966,6 @@ export default function TransformationsTab({ fsId, fsType }: { fsId: string; fsT
   const [transformations, setTransformations] = useState<Transformation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
   // Dialog states
   const [createOpen, setCreateOpen] = useState(false);
@@ -1036,25 +1028,9 @@ export default function TransformationsTab({ fsId, fsType }: { fsId: string; fsT
           mb: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-          <Typography variant="subtitle1" fontWeight={600}>
-            Transformations
-          </Typography>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={(_, v) => v && setViewMode(v)}
-            size="small"
-            sx={{ height: 28 }}
-          >
-            <ToggleButton value="cards" sx={{ px: 0.75 }}>
-              <MaterialSymbol icon="view_agenda" size={16} />
-            </ToggleButton>
-            <ToggleButton value="table" sx={{ px: 0.75 }}>
-              <MaterialSymbol icon="table_rows" size={16} />
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+        <Typography variant="subtitle1" fontWeight={600}>
+          Transformations
+        </Typography>
         {isInitiative && (
           <Button
             variant="contained"
@@ -1089,149 +1065,91 @@ export default function TransformationsTab({ fsId, fsType }: { fsId: string; fsT
       )}
 
       {/* Transformation cards */}
-      {viewMode === "cards" &&
-        transformations.map((t) => {
-          const statusProps = STATUS_CHIP_PROPS[t.status];
-          return (
-            <Card
-              key={t.id}
-              sx={{
-                mb: 1.5,
-                cursor: "pointer",
-                border: "1px solid",
-                borderColor: "divider",
-                "&:hover": { borderColor: "primary.light", boxShadow: 1 },
-              }}
-              onClick={() => setDetailTransformation(t)}
-            >
-              <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+      {transformations.map((t) => {
+        const statusProps = STATUS_CHIP_PROPS[t.status];
+        return (
+          <Card
+            key={t.id}
+            sx={{
+              mb: 1.5,
+              cursor: "pointer",
+              border: "1px solid",
+              borderColor: "divider",
+              "&:hover": { borderColor: "primary.light", boxShadow: 1 },
+            }}
+            onClick={() => setDetailTransformation(t)}
+          >
+            <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                }}
+              >
+                <MaterialSymbol icon="transform" size={20} color="#666" />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="subtitle2" fontWeight={600} noWrap>
+                    {t.name}
+                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}>
+                    {t.template && (
+                      <Typography variant="caption" color="text.secondary">
+                        {t.template.name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 1.5,
+                    gap: 1,
+                    flexShrink: 0,
                   }}
                 >
-                  <MaterialSymbol icon="transform" size={20} color="#666" />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle2" fontWeight={600} noWrap>
-                      {t.name}
-                    </Typography>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25 }}>
-                      {t.template && (
-                        <Typography variant="caption" color="text.secondary">
-                          {t.template.name}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {t.completion_date && (
-                      <Tooltip title="Completion date">
-                        <Chip
-                          size="small"
-                          label={t.completion_date}
-                          icon={<MaterialSymbol icon="event" size={14} />}
-                          variant="outlined"
-                          sx={{ height: 22, fontSize: "0.7rem" }}
-                        />
-                      </Tooltip>
-                    )}
-                    <Tooltip title={`${t.impact_count} impact${t.impact_count !== 1 ? "s" : ""}`}>
+                  {t.completion_date && (
+                    <Tooltip title="Completion date">
                       <Chip
                         size="small"
-                        label={t.impact_count}
-                        icon={<MaterialSymbol icon="bolt" size={14} />}
+                        label={t.completion_date}
+                        icon={<MaterialSymbol icon="event" size={14} />}
                         variant="outlined"
                         sx={{ height: 22, fontSize: "0.7rem" }}
                       />
                     </Tooltip>
+                  )}
+                  <Tooltip title={`${t.impact_count} impact${t.impact_count !== 1 ? "s" : ""}`}>
                     <Chip
                       size="small"
-                      label={statusProps.label}
-                      color={statusProps.color}
-                    />
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(t);
-                        }}
-                      >
-                        <MaterialSymbol icon="delete" size={18} color="#999" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          );
-        })}
-
-      {/* Transformation table view */}
-      {viewMode === "table" && transformations.length > 0 && (
-        <Table size="small" sx={{ "& td, & th": { fontSize: "0.8rem" } }}>
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Template</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Completion</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="center">Impacts</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Created By</TableCell>
-              <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {transformations.map((t) => {
-              const statusProps = STATUS_CHIP_PROPS[t.status];
-              return (
-                <TableRow
-                  key={t.id}
-                  hover
-                  sx={{ cursor: "pointer" }}
-                  onClick={() => setDetailTransformation(t)}
-                >
-                  <TableCell sx={{ fontWeight: 500 }}>{t.name}</TableCell>
-                  <TableCell>{t.template?.name || "Custom"}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={statusProps.label}
-                      color={statusProps.color}
+                      label={t.impact_count}
+                      icon={<MaterialSymbol icon="bolt" size={14} />}
+                      variant="outlined"
                       sx={{ height: 22, fontSize: "0.7rem" }}
                     />
-                  </TableCell>
-                  <TableCell>{t.completion_date || "—"}</TableCell>
-                  <TableCell align="center">{t.impact_count}</TableCell>
-                  <TableCell>{t.creator?.display_name || "—"}</TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(t);
-                        }}
-                      >
-                        <MaterialSymbol icon="delete" size={16} color="#999" />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
+                  </Tooltip>
+                  <Chip
+                    size="small"
+                    label={statusProps.label}
+                    color={statusProps.color}
+                  />
+                  <Tooltip title="Delete">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget(t);
+                      }}
+                    >
+                      <MaterialSymbol icon="delete" size={18} color="#999" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Dialogs */}
       <CreateTransformationDialog

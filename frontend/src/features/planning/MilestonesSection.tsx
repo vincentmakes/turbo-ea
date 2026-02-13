@@ -65,7 +65,7 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
 
   const load = useCallback(() => {
     api
-      .get<Milestone[]>(`/milestones?initiative_id=${fsId}&include_inherited=true`)
+      .get<Milestone[]>(`/milestones?initiative_id=${fsId}`)
       .then((data) => {
         const sorted = [...data].sort(
           (a, b) => a.target_date.localeCompare(b.target_date)
@@ -190,8 +190,7 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
           ) : (
             <List disablePadding>
               {milestones.map((ms, idx) => {
-                const overdue = !ms.inherited && isOverdue(ms.target_date);
-                const inherited = !!ms.inherited;
+                const overdue = isOverdue(ms.target_date);
                 return (
                   <ListItem
                     key={ms.id}
@@ -200,7 +199,6 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
                       alignItems: "flex-start",
                       pl: 0,
                       "&:hover .ms-actions": { opacity: 1 },
-                      ...(inherited && { opacity: 0.7 }),
                     }}
                   >
                     {/* Timeline track */}
@@ -220,17 +218,9 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
                           width: 12,
                           height: 12,
                           transform: "rotate(45deg)",
-                          bgcolor: inherited
-                            ? "#9e9e9e"
-                            : overdue
-                              ? "#f44336"
-                              : "#1976d2",
+                          bgcolor: overdue ? "#f44336" : "#1976d2",
                           borderRadius: "2px",
                           flexShrink: 0,
-                          ...(inherited && {
-                            border: "1px dashed #757575",
-                            bgcolor: "transparent",
-                          }),
                         }}
                       />
                       {/* Connector line */}
@@ -251,7 +241,7 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
                     <ListItemText
                       primary={
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                          <Typography variant="body1" fontWeight={inherited ? 400 : 600}>
+                          <Typography variant="body1" fontWeight={600}>
                             {ms.name}
                           </Typography>
                           <Tooltip title={overdue ? "Overdue" : "Target date"}>
@@ -270,19 +260,6 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
                               }}
                             />
                           </Tooltip>
-                          {inherited && ms.initiative && (
-                            <Chip
-                              size="small"
-                              label={`↑ ${ms.initiative.name}`}
-                              variant="outlined"
-                              sx={{
-                                height: 20,
-                                fontSize: "0.65rem",
-                                color: "#757575",
-                                borderColor: "#bdbdbd",
-                              }}
-                            />
-                          )}
                         </Box>
                       }
                       secondary={
@@ -298,27 +275,25 @@ export default function MilestonesSection({ fsId }: { fsId: string }) {
                       }
                     />
 
-                    {/* Action icons (visible on hover) — only for own milestones */}
-                    {!inherited && (
-                      <Box
-                        className="ms-actions"
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                          opacity: 0,
-                          transition: "opacity 0.15s",
-                          pt: 0.25,
-                        }}
-                      >
-                        <IconButton size="small" onClick={() => openEdit(ms)}>
-                          <MaterialSymbol icon="edit" size={16} />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => setDeleteTarget(ms)}>
-                          <MaterialSymbol icon="delete" size={16} color="#f44336" />
-                        </IconButton>
-                      </Box>
-                    )}
+                    {/* Action icons (visible on hover) */}
+                    <Box
+                      className="ms-actions"
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.5,
+                        opacity: 0,
+                        transition: "opacity 0.15s",
+                        pt: 0.25,
+                      }}
+                    >
+                      <IconButton size="small" onClick={() => openEdit(ms)}>
+                        <MaterialSymbol icon="edit" size={16} />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => setDeleteTarget(ms)}>
+                        <MaterialSymbol icon="delete" size={16} color="#f44336" />
+                      </IconButton>
+                    </Box>
                   </ListItem>
                 );
               })}

@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -42,89 +42,21 @@ def _ms_to_response(ms: Milestone) -> MilestoneResponse:
     )
 
 
-async def _propagate_milestone_date(
-    db: AsyncSession, milestone_id: str, new_date: str
-) -> None:
-    """Update lifecycle dates on all fact sheets linked to this milestone."""
-    result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.milestone_links.isnot(None),
-            FactSheet.status == "ACTIVE",
-        )
-    )
-    for fs in result.scalars().all():
-        links = fs.milestone_links or {}
-        changed = False
-        lc = dict(fs.lifecycle or {})
-        for phase_key, linked_ms_id in links.items():
-            if linked_ms_id == milestone_id:
-                lc[phase_key] = new_date
-                changed = True
-        if changed:
-            fs.lifecycle = lc
-
-
 @router.get("", response_model=list[MilestoneResponse])
 async def list_milestones(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
     initiative_id: str | None = Query(None),
-    include_inherited: bool = Query(False),
 ):
-    """List milestones, optionally filtered by initiative.
-
-    When *include_inherited* is true and *initiative_id* is provided, the
-    response also includes milestones from ancestor (parent) Initiatives,
-    marked with ``inherited: true``.
-    """
+    """List milestones, optionally filtered by initiative."""
     q = select(Milestone)
     if initiative_id:
-        uid = uuid.UUID(initiative_id)
-        if include_inherited:
-            # Collect ancestor initiative IDs
-            ancestor_ids: list[uuid.UUID] = []
-            current_id: uuid.UUID | None = uid
-            seen: set[uuid.UUID] = set()
-            while current_id and current_id not in seen:
-                seen.add(current_id)
-                res = await db.execute(
-                    select(FactSheet.parent_id, FactSheet.type).where(
-                        FactSheet.id == current_id
-                    )
-                )
-                row = res.one_or_none()
-                if not row or row[0] is None:
-                    break
-                parent_id = row[0]
-                # Walk up only Initiative-typed ancestors
-                p_res = await db.execute(
-                    select(FactSheet.type).where(FactSheet.id == parent_id)
-                )
-                p_type = p_res.scalar_one_or_none()
-                if p_type == "Initiative":
-                    ancestor_ids.append(parent_id)
-                current_id = parent_id
-            q = q.where(
-                or_(
-                    Milestone.initiative_id == uid,
-                    Milestone.initiative_id.in_(ancestor_ids) if ancestor_ids else False,
-                )
-            )
-        else:
-            q = q.where(Milestone.initiative_id == uid)
+        q = q.where(Milestone.initiative_id == uuid.UUID(initiative_id))
     q = q.order_by(Milestone.target_date)
 
     result = await db.execute(q)
     milestones = result.scalars().all()
-    target_uid = uuid.UUID(initiative_id) if initiative_id else None
-    responses = []
-    for ms in milestones:
-        resp = _ms_to_response(ms)
-        # Mark as inherited if from a parent initiative
-        if target_uid and ms.initiative_id != target_uid:
-            resp.inherited = True
-        responses.append(resp)
-    return responses
+    return [_ms_to_response(ms) for ms in milestones]
 
 
 @router.post("", response_model=MilestoneResponse, status_code=201)
@@ -200,16 +132,10 @@ async def update_milestone(
 
     if body.name is not None:
         ms.name = body.name
-    date_changed = False
-    if body.target_date is not None and body.target_date != ms.target_date:
+    if body.target_date is not None:
         ms.target_date = body.target_date
-        date_changed = True
     if body.description is not None:
         ms.description = body.description
-
-    # Propagate date changes to all fact sheets that link this milestone
-    if date_changed:
-        await _propagate_milestone_date(db, str(ms.id), str(ms.target_date))
 
     await event_bus.publish(
         "milestone.updated",
