@@ -14,6 +14,7 @@ import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
+import Slider from "@mui/material/Slider";
 import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -115,12 +116,35 @@ const ATTRIBUTE_COLORS: Record<string, Record<string, { label: string; color: st
 
 const UNSET_COLOR = "#e0e0e0";
 
+const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function metricValue(item: CapItem, metric: Metric): number {
-  return item[metric] ?? 0;
+function parseDate(s: string | undefined): number | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.getTime();
+}
+
+/** An app is "alive" at a date if it has started (earliest phase <= date) and hasn't been retired (endOfLife > date). */
+function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
+  const lc = app.lifecycle;
+  if (!lc) return true;
+  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter((d): d is number => d != null);
+  if (dates.length === 0) return true;
+  if (Math.min(...dates) > dateMs) return false;
+  const eol = parseDate(lc.endOfLife);
+  if (eol != null && eol <= dateMs) return false;
+  return true;
+}
+
+function nodeMetric(node: CapNode, metric: Metric): number {
+  if (metric === "app_count") return node.deepAppCount;
+  if (metric === "total_cost") return node.deepCost;
+  if (metric === "risk_count") return node.deepRiskCount;
+  return 0;
 }
 
 function heatColor(value: number, max: number, metric: Metric): string {
@@ -157,6 +181,8 @@ function matchesFilters(
   app: AppData,
   filters: FilterState,
 ): boolean {
+  // Timeline filter
+  if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
   if (filters.orgIds.length > 0 && !filters.orgIds.some((o) => app.org_ids.includes(o)))
     return false;
   const attrs = app.attributes || {};
@@ -192,6 +218,7 @@ interface FilterState {
   functionalSuitability: string[];
   technicalSuitability: string[];
   hostingType: string[];
+  timelineDate: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,6 +234,10 @@ interface CapNode extends CapItem {
   deepUniqueApps: Map<string, AppData>;
   /** Count of unique filtered apps in this subtree */
   deepAppCount: number;
+  /** Sum of costs from deepUniqueApps */
+  deepCost: number;
+  /** Count of apps with endOfLife from deepUniqueApps */
+  deepRiskCount: number;
 }
 
 function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
@@ -220,6 +251,8 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
       filteredApps,
       deepUniqueApps: new Map(),
       deepAppCount: 0,
+      deepCost: 0,
+      deepRiskCount: 0,
     });
   }
 
@@ -243,9 +276,7 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
   roots.sort((a, b) => a.name.localeCompare(b.name));
   setLevel(roots, 1);
 
-  // Propagate unique apps upward (bottom-up).
-  // Each node's deepUniqueApps = its own filteredApps ∪ all children's deepUniqueApps,
-  // deduplicated by app id.
+  // Propagate unique apps upward (bottom-up) and compute deep metrics.
   function propagate(n: CapNode): Map<string, AppData> {
     const map = new Map<string, AppData>();
     for (const a of n.filteredApps) map.set(a.id, a);
@@ -254,6 +285,12 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
     }
     n.deepUniqueApps = map;
     n.deepAppCount = map.size;
+    n.deepCost = 0;
+    n.deepRiskCount = 0;
+    for (const app of map.values()) {
+      n.deepCost += ((app.attributes?.totalAnnualCost as number) || 0);
+      if (app.lifecycle?.endOfLife) n.deepRiskCount++;
+    }
     return map;
   }
   for (const r of roots) propagate(r);
@@ -263,18 +300,12 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
 
 /**
  * Get the apps that should be DISPLAYED at a given node, considering the
- * display level.  Apps are shown at their deepest visible capability only:
- *
- * - Display-leaf (level >= displayLevel or no children): show all unique
- *   apps from the entire subtree (deepUniqueApps).
- * - Non-leaf: show only apps directly linked here that are NOT present in
- *   any child's subtree (i.e. apps that would otherwise be invisible).
+ * display level.  Apps are shown at their deepest visible capability only.
  */
 function getVisibleApps(node: CapNode, displayLevel: number): AppData[] {
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
 
   if (isLeaf) {
-    // Leaf at this display level: show every unique app in the subtree
     return Array.from(node.deepUniqueApps.values());
   }
 
@@ -314,7 +345,7 @@ function AppChip({
   const color = getAppColor(app, colorBy);
   const colorLabel = getAppColorLabel(app, colorBy);
   const isLight = color === UNSET_COLOR || color === "#fbc02d" || color === "#ff9800";
-  const tip = colorLabel ? `${app.name} — ${colorLabel}` : app.name;
+  const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (
     <Tooltip title={tip}>
@@ -360,7 +391,7 @@ function CapabilityCard({
   onAppClick: (id: string) => void;
   fmtCost: (v: number) => string;
 }) {
-  const val = metricValue(node, metric);
+  const val = nodeMetric(node, metric);
   const fmtVal = (v: number) =>
     metric === "total_cost" ? fmtCost(v) : String(v);
 
@@ -411,13 +442,11 @@ function CapabilityCard({
           </Typography>
           <Chip
             size="small"
-            label={fmtVal(
-              metric === "app_count" ? node.deepAppCount : val,
-            )}
+            label={fmtVal(val)}
             sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
           />
-          {node.risk_count > 0 && metric !== "risk_count" && (
-            <Tooltip title={`${node.risk_count} EOL risk`}>
+          {node.deepRiskCount > 0 && metric !== "risk_count" && (
+            <Tooltip title={`${node.deepRiskCount} EOL risk`}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
               </Box>
@@ -484,8 +513,8 @@ function CapabilityCard({
           label={`${node.deepAppCount} apps`}
           sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
         />
-        {node.risk_count > 0 && metric !== "risk_count" && (
-          <Tooltip title={`${node.risk_count} EOL risk`}>
+        {node.deepRiskCount > 0 && metric !== "risk_count" && (
+          <Tooltip title={`${node.deepRiskCount} EOL risk`}>
             <Box sx={{ display: "flex" }}>
               <MaterialSymbol icon="warning" size={16} color="#e65100" />
             </Box>
@@ -635,6 +664,10 @@ export default function CapabilityMapReport() {
   const [showApps, setShowApps] = useState(false);
   const [colorBy, setColorBy] = useState<AppColorBy>("none");
 
+  // Timeline slider
+  const todayMs = useMemo(() => Date.now(), []);
+  const [timelineDate, setTimelineDate] = useState(todayMs);
+
   // Filters
   const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
   const [filterTime, setFilterTime] = useState<string[]>([]);
@@ -654,6 +687,44 @@ export default function CapabilityMapReport() {
       });
   }, [metric]);
 
+  // Compute date range from all app lifecycle dates
+  const { dateRange, yearMarks } = useMemo(() => {
+    const now = todayMs;
+    const pad3y = 3 * 365.25 * 86400000;
+    if (!data)
+      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
+
+    let minD = Infinity, maxD = -Infinity;
+    for (const cap of data) {
+      for (const app of cap.apps) {
+        const lc = app.lifecycle || {};
+        for (const p of LIFECYCLE_PHASES) {
+          const d = parseDate(lc[p]);
+          if (d != null) { minD = Math.min(minD, d); maxD = Math.max(maxD, d); }
+        }
+      }
+    }
+    if (minD === Infinity)
+      return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
+
+    const pad = 365.25 * 86400000;
+    minD -= pad; maxD += pad;
+    const marks: { value: number; label: string }[] = [];
+    const sy = new Date(minD).getFullYear(), ey = new Date(maxD).getFullYear();
+    for (let y = sy; y <= ey + 1; y++) {
+      const t = new Date(y, 0, 1).getTime();
+      if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
+    }
+    return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
+  }, [data, todayMs]);
+
+  const hasLifecycleData = useMemo(() => {
+    if (!data) return false;
+    return data.some((cap) =>
+      cap.apps.some((app) => app.lifecycle && LIFECYCLE_PHASES.some((p) => app.lifecycle?.[p])),
+    );
+  }, [data]);
+
   const filters = useMemo<FilterState>(
     () => ({
       orgIds: filterOrgs,
@@ -662,8 +733,9 @@ export default function CapabilityMapReport() {
       functionalSuitability: filterFunc,
       technicalSuitability: filterTech,
       hostingType: filterHost,
+      timelineDate,
     }),
-    [filterOrgs, filterTime, filterCrit, filterFunc, filterTech, filterHost],
+    [filterOrgs, filterTime, filterCrit, filterFunc, filterTech, filterHost, timelineDate],
   );
 
   const hasActiveFilters =
@@ -682,7 +754,7 @@ export default function CapabilityMapReport() {
     let mx = 0;
     function walk(nodes: CapNode[]) {
       for (const n of nodes) {
-        mx = Math.max(mx, metric === "app_count" ? n.deepAppCount : metricValue(n, metric));
+        mx = Math.max(mx, nodeMetric(n, metric));
         walk(n.children);
       }
     }
@@ -725,6 +797,11 @@ export default function CapabilityMapReport() {
     if (!map) return null;
     return Object.values(map);
   }, [colorBy]);
+
+  const fmtSliderDate = useCallback(
+    (v: number) => new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short" }),
+    [],
+  );
 
   if (data === null)
     return (
@@ -802,6 +879,33 @@ export default function CapabilityMapReport() {
                 </MenuItem>
               ))}
             </TextField>
+          )}
+
+          {/* Timeline slider */}
+          {hasLifecycleData && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, width: "100%", pt: 0.5 }}>
+              <MaterialSymbol icon="calendar_month" size={18} color="#999" />
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+                Timeline:
+              </Typography>
+              <Slider
+                value={timelineDate}
+                min={dateRange.min}
+                max={dateRange.max}
+                step={86400000}
+                onChange={(_, v) => setTimelineDate(v as number)}
+                valueLabelDisplay="auto"
+                valueLabelFormat={fmtSliderDate}
+                marks={yearMarks}
+                sx={{ flex: 1, mx: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", minWidth: 100 }}>
+                {new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+              </Typography>
+              {Math.abs(timelineDate - todayMs) > 86400000 && (
+                <Chip size="small" label="Today" variant="outlined" onClick={() => setTimelineDate(todayMs)} sx={{ fontSize: "0.72rem" }} />
+              )}
+            </Box>
           )}
 
           {/* Row 2: Application filters */}
@@ -1010,11 +1114,9 @@ export default function CapabilityMapReport() {
               {METRIC_OPTIONS.map((o) => (
                 <Box key={o.key} sx={{ textAlign: "center", minWidth: 80 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {o.key === "app_count"
-                      ? drawer.deepAppCount
-                      : o.key === "total_cost"
-                          ? fmtShort(metricValue(drawer, o.key))
-                        : metricValue(drawer, o.key)}
+                    {o.key === "total_cost"
+                      ? fmtShort(nodeMetric(drawer, o.key))
+                      : nodeMetric(drawer, o.key)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {o.label}
@@ -1065,7 +1167,7 @@ export default function CapabilityMapReport() {
                             a.lifecycle?.endOfLife && `EOL: ${a.lifecycle.endOfLife}`,
                           ]
                             .filter(Boolean)
-                            .join(" · ") || undefined
+                            .join(" \u00B7 ") || undefined
                         }
                       />
                       {colorBy !== "none" && (

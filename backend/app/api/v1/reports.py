@@ -214,12 +214,15 @@ async def roadmap(
     items = []
     for fs in sheets:
         lc = fs.lifecycle or {}
-        if any(lc.values()):
+        attrs = fs.attributes or {}
+        if any(lc.values()) or attrs.get("startDate") or attrs.get("endDate"):
             items.append({
                 "id": str(fs.id),
                 "name": fs.name,
                 "type": fs.type,
+                "subtype": fs.subtype,
                 "lifecycle": lc,
+                "attributes": attrs,
             })
     return {"items": items}
 
