@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
 import AppBar from "@mui/material/AppBar";
@@ -7,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
 import InputAdornment from "@mui/material/InputAdornment";
+import Badge from "@mui/material/Badge";
 import Button from "@mui/material/Button";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -23,6 +24,9 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
+import { api } from "@/api/client";
+import { useEventStream } from "@/hooks/useEventStream";
+import type { BadgeCounts } from "@/types";
 
 interface NavItem {
   label: string;
@@ -82,6 +86,45 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
+
+  const fetchBadgeCounts = useCallback(async () => {
+    try {
+      const res = await api.get<BadgeCounts>("/notifications/badge-counts");
+      setBadgeCounts(res);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBadgeCounts();
+  }, [fetchBadgeCounts]);
+
+  // Refresh badge counts on relevant real-time events
+  useEventStream(
+    useCallback(
+      (event: Record<string, unknown>) => {
+        const evt = event.event as string | undefined;
+        if (
+          evt === "notification.created" ||
+          evt === "todo.created" ||
+          evt === "todo.updated" ||
+          evt === "todo.deleted" ||
+          evt === "survey.sent" ||
+          evt === "survey.responded"
+        ) {
+          fetchBadgeCounts();
+        }
+      },
+      [fetchBadgeCounts],
+    ),
+  );
+
+  // Also refresh when navigating (covers completing a todo, responding to a survey)
+  useEffect(() => {
+    fetchBadgeCounts();
+  }, [location.pathname, fetchBadgeCounts]);
 
   const handleSearch = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && search.trim()) {
@@ -111,6 +154,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     navigate(path);
     setDrawerOpen(false);
   };
+
+  const hasBadge = (label: string) =>
+    (label === "Todos" && badgeCounts.open_todos > 0) ||
+    (label === "Surveys" && badgeCounts.pending_surveys > 0);
 
   // ── Mobile drawer ───────────────────────────────────────────────────────
 
@@ -207,7 +254,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               }}
             >
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
-                <MaterialSymbol icon={item.icon} size={20} color="inherit" />
+                <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                  <MaterialSymbol icon={item.icon} size={20} color="inherit" />
+                </Badge>
               </ListItemIcon>
               <ListItemText primary={item.label} />
             </ListItemButton>
@@ -359,14 +408,20 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     }}
                     onClick={() => item.path && navigate(item.path)}
                   >
-                    <MaterialSymbol icon={item.icon} size={20} />
+                    <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                      <MaterialSymbol icon={item.icon} size={20} />
+                    </Badge>
                   </IconButton>
                 </Tooltip>
               ) : (
                 <Button
                   key={item.label}
                   size="small"
-                  startIcon={<MaterialSymbol icon={item.icon} size={18} />}
+                  startIcon={
+                    <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                      <MaterialSymbol icon={item.icon} size={18} />
+                    </Badge>
+                  }
                   sx={navBtnSx(isActive(item.path))}
                   onClick={() => item.path && navigate(item.path)}
                 >

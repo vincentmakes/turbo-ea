@@ -46,15 +46,19 @@ def _send_sync(to: str, subject: str, body_html: str, body_text: str) -> None:
         logger.exception("Failed to send email to %s", to)
 
 
-async def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> None:
-    """Send an email asynchronously. No-op if SMTP is not configured."""
+async def send_email(to: str, subject: str, body_html: str, body_text: str = "") -> bool:
+    """Send an email asynchronously. No-op if SMTP is not configured.
+
+    Returns True if the email was actually sent, False otherwise.
+    """
     if not _is_configured():
-        return
+        return False
 
     if not body_text:
         body_text = body_html  # Fallback plain text
 
     await asyncio.to_thread(_send_sync, to, subject, body_html, body_text)
+    return True
 
 
 async def send_notification_email(
@@ -62,8 +66,11 @@ async def send_notification_email(
     title: str,
     message: str,
     link: str | None = None,
-) -> None:
-    """Send a notification email with a standard template."""
+) -> bool:
+    """Send a notification email with a standard template.
+
+    Returns True if the email was actually sent, False otherwise.
+    """
     base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
 
@@ -97,4 +104,4 @@ async def send_notification_email(
         body_text += f"\n\nView: {full_link}"
 
     subject = f"[Turbo EA] {title}"
-    await send_email(to, subject, body_html, body_text)
+    return await send_email(to, subject, body_html, body_text)

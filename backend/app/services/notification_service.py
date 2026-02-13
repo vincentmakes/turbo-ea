@@ -44,8 +44,10 @@ async def create_notification(
     if not user or not user.is_active:
         return None
 
-    # Don't notify the actor about their own action
-    if actor_id and actor_id == user_id:
+    # Don't notify the actor about their own action, except for types where
+    # the actor is performing a batch/admin action (surveys, todo assignments).
+    allow_self_types = {"survey_request", "todo_assigned"}
+    if actor_id and actor_id == user_id and notif_type not in allow_self_types:
         return None
 
     if not _user_wants_notification(user, notif_type, "in_app"):
@@ -83,14 +85,15 @@ async def create_notification(
         from app.services.email_service import send_notification_email
 
         try:
-            await send_notification_email(
+            sent = await send_notification_email(
                 to=user.email,
                 title=title,
                 message=message,
                 link=link,
             )
-            notif.is_emailed = True
-            await db.flush()
+            if sent:
+                notif.is_emailed = True
+                await db.flush()
         except Exception:
             pass  # Email failure shouldn't block the notification
 
