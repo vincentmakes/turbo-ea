@@ -180,15 +180,6 @@ export const SOAW_TEMPLATE_SECTIONS: TemplateSectionDef[] = [
     level: 3,
     columns: ["Description", "Status"],
   },
-  {
-    id: "8.0",
-    title: "8. Signature Approvals",
-    type: "table",
-    part: "II",
-    level: 2,
-    preamble: "To be used once scope is further defined.",
-    columns: ["Signature", "Date"],
-  },
 ];
 
 /** The TOGAF ADM phases shown in section 3.1 */

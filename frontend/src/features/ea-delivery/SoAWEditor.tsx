@@ -100,6 +100,11 @@ export default function SoAWEditor() {
   const [newSectionAfter, setNewSectionAfter] = useState("");
   const soawIdRef = useRef<string | null>(id ?? null);
 
+  // Keep ref in sync when route param changes (e.g. after revision navigation)
+  useEffect(() => {
+    if (id) soawIdRef.current = id;
+  }, [id]);
+
   // Signing state
   const [signatories, setSignatories] = useState<SoAWSignatory[]>([]);
   const [signedAt, setSignedAt] = useState<string | null>(null);
