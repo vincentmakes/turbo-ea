@@ -9,8 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.comment import Comment
+from app.models.fact_sheet import FactSheet
 from app.models.user import User
 from app.schemas.common import CommentCreate, CommentUpdate
+from app.services import notification_service
 from app.services.event_bus import event_bus
 
 router = APIRouter(tags=["comments"])
@@ -61,6 +63,22 @@ async def create_comment(
         {"id": str(comment.id), "content": comment.content[:100]},
         db=db, fact_sheet_id=uuid.UUID(fs_id), user_id=user.id,
     )
+
+    # Notify subscribers of the fact sheet
+    fs_result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    fs = fs_result.scalar_one_or_none()
+    fs_name = fs.name if fs else "Unknown"
+    await notification_service.create_notifications_for_subscribers(
+        db,
+        fact_sheet_id=uuid.UUID(fs_id),
+        notif_type="comment_added",
+        title="New Comment",
+        message=f'{user.display_name} commented on "{fs_name}": {comment.content[:80]}',
+        link=f"/fact-sheets/{fs_id}",
+        data={"comment_id": str(comment.id)},
+        actor_id=user.id,
+    )
+
     await db.commit()
     await db.refresh(comment)
     return _comment_to_dict(comment)

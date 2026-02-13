@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.common import TodoCreate, TodoUpdate
+from app.services import notification_service
 
 router = APIRouter(tags=["todos"])
 
@@ -70,6 +71,22 @@ async def create_todo(
         due_date=date.fromisoformat(body.due_date) if body.due_date else None,
     )
     db.add(todo)
+    await db.flush()
+
+    # Notify the assignee
+    if todo.assigned_to and todo.assigned_to != user.id:
+        await notification_service.create_notification(
+            db,
+            user_id=todo.assigned_to,
+            notif_type="todo_assigned",
+            title="Todo Assigned",
+            message=f'{user.display_name} assigned you a todo: "{body.description[:80]}"',
+            link="/todos",
+            data={"todo_id": str(todo.id), "fact_sheet_id": fs_id},
+            fact_sheet_id=uuid.UUID(fs_id),
+            actor_id=user.id,
+        )
+
     await db.commit()
     await db.refresh(todo)
     return _todo_to_dict(todo)
@@ -86,12 +103,30 @@ async def update_todo(
     todo = result.scalar_one_or_none()
     if not todo:
         raise HTTPException(404, "Todo not found")
+    old_assignee = todo.assigned_to
     for field, value in body.model_dump(exclude_unset=True).items():
         if field == "assigned_to" and value is not None:
             value = uuid.UUID(value)
         if field == "due_date" and value is not None:
             value = date.fromisoformat(value)
         setattr(todo, field, value)
+    await db.flush()
+
+    # Notify new assignee if assignment changed
+    new_assignee = todo.assigned_to
+    if new_assignee and new_assignee != old_assignee and new_assignee != user.id:
+        await notification_service.create_notification(
+            db,
+            user_id=new_assignee,
+            notif_type="todo_assigned",
+            title="Todo Assigned",
+            message=f'{user.display_name} assigned you a todo: "{todo.description[:80]}"',
+            link="/todos",
+            data={"todo_id": todo_id},
+            fact_sheet_id=todo.fact_sheet_id,
+            actor_id=user.id,
+        )
+
     await db.commit()
     await db.refresh(todo)
     return _todo_to_dict(todo)

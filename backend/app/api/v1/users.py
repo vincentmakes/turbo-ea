@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.security import hash_password
 from app.database import get_db
-from app.models.user import User
+from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -151,3 +151,37 @@ async def delete_user(
     # Soft-delete: deactivate rather than hard-delete to preserve audit trail
     u.is_active = False
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Notification preferences
+# ---------------------------------------------------------------------------
+
+class NotificationPreferencesUpdate(BaseModel):
+    in_app: dict[str, bool] | None = None
+    email: dict[str, bool] | None = None
+
+
+@router.get("/me/notification-preferences")
+async def get_notification_preferences(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+
+
+@router.patch("/me/notification-preferences")
+async def update_notification_preferences(
+    body: NotificationPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prefs = dict(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
+
+    if body.in_app is not None:
+        prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
+    if body.email is not None:
+        prefs["email"] = {**prefs.get("email", {}), **body.email}
+
+    current_user.notification_preferences = prefs
+    await db.commit()
+    return prefs

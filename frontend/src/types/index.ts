@@ -215,6 +215,45 @@ export interface DashboardData {
 }
 
 // ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+export type NotificationType =
+  | "todo_assigned"
+  | "fact_sheet_updated"
+  | "comment_added"
+  | "quality_seal_changed"
+  | "soaw_sign_requested"
+  | "soaw_signed";
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link?: string;
+  is_read: boolean;
+  data?: Record<string, unknown>;
+  fact_sheet_id?: string;
+  actor_id?: string;
+  actor_name?: string;
+  created_at?: string;
+}
+
+export interface NotificationListResponse {
+  items: Notification[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface NotificationPreferences {
+  in_app: Record<string, boolean>;
+  email: Record<string, boolean>;
+}
+
+// ---------------------------------------------------------------------------
 // Statement of Architecture Work (SoAW)
 // ---------------------------------------------------------------------------
 
@@ -238,17 +277,28 @@ export interface SoAWSectionData {
   togaf_data?: Record<string, string>;
 }
 
+export interface SoAWSignatory {
+  user_id: string;
+  display_name: string;
+  status: "pending" | "signed" | "rejected";
+  signed_at: string | null;
+}
+
 export interface SoAW {
   id: string;
   name: string;
   initiative_id: string | null;
-  status: "draft" | "in_review" | "approved";
+  status: "draft" | "in_review" | "approved" | "signed";
   document_info: SoAWDocumentInfo;
   version_history: SoAWVersionEntry[];
   sections: Record<string, SoAWSectionData>;
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  revision_number: number;
+  parent_id: string | null;
+  signatories: SoAWSignatory[];
+  signed_at: string | null;
 }
 
 export interface DiagramSummary {

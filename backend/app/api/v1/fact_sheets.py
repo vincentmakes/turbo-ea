@@ -6,14 +6,14 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
-from app.models.event import Event
 from app.models.user import User
 from app.schemas.fact_sheet import (
     FactSheetBulkUpdate,
@@ -24,6 +24,7 @@ from app.schemas.fact_sheet import (
     SubscriptionRef,
     TagRef,
 )
+from app.services import notification_service
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/fact-sheets", tags=["fact-sheets"])
@@ -377,6 +378,20 @@ async def update_fact_sheet(
             {"id": str(fs.id), "changes": {k: str(v) for k, v in changes.items()}},
             db=db, fact_sheet_id=fs.id, user_id=user.id,
         )
+
+        # Notify subscribers about the update
+        changed_fields = ", ".join(changes.keys())
+        await notification_service.create_notifications_for_subscribers(
+            db,
+            fact_sheet_id=fs.id,
+            notif_type="fact_sheet_updated",
+            title=f"{fs.name} Updated",
+            message=f'{user.display_name} updated "{fs.name}" ({changed_fields})',
+            link=f"/fact-sheets/{fs.id}",
+            data={"changes": list(changes.keys())},
+            actor_id=user.id,
+        )
+
         await db.commit()
         await db.refresh(fs)
 
@@ -496,6 +511,20 @@ async def update_quality_seal(
         {"id": str(fs.id), "seal": fs.quality_seal},
         db=db, fact_sheet_id=fs.id, user_id=user.id,
     )
+
+    # Notify subscribers about quality seal change
+    action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
+    await notification_service.create_notifications_for_subscribers(
+        db,
+        fact_sheet_id=fs.id,
+        notif_type="quality_seal_changed",
+        title=f"Quality Seal {action_label[action].title()}",
+        message=f'{user.display_name} {action_label[action]} the quality seal on "{fs.name}"',
+        link=f"/fact-sheets/{fs_id}",
+        data={"seal": fs.quality_seal, "action": action},
+        actor_id=user.id,
+    )
+
     await db.commit()
     return {"quality_seal": fs.quality_seal}
 

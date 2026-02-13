@@ -19,6 +19,14 @@ class Settings:
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
+    # Email / SMTP (optional — if not configured, email notifications are skipped)
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
+    SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
+
     @property
     def database_url(self) -> str:
         return (
