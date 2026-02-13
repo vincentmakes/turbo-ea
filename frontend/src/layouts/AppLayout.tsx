@@ -50,12 +50,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
   { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
+  { label: "Surveys", icon: "assignment", path: "/surveys" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
   { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel" },
   { label: "Tags", icon: "label", path: "/admin/tags" },
   { label: "Users", icon: "group", path: "/admin/users" },
+  { label: "Surveys", icon: "assignment", path: "/admin/surveys" },
   { label: "Settings", icon: "settings", path: "/admin/settings" },
 ];
 

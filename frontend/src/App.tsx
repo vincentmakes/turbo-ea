@@ -24,6 +24,11 @@ import MetamodelAdmin from "@/features/admin/MetamodelAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import UsersAdmin from "@/features/admin/UsersAdmin";
 import SettingsAdmin from "@/features/admin/SettingsAdmin";
+import SurveysAdmin from "@/features/admin/SurveysAdmin";
+import SurveyBuilder from "@/features/admin/SurveyBuilder";
+import SurveyResults from "@/features/admin/SurveyResults";
+import MySurveys from "@/features/surveys/MySurveys";
+import SurveyRespond from "@/features/surveys/SurveyRespond";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
@@ -84,10 +89,16 @@ export default function App() {
             <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
             <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
             <Route path="/todos" element={<TodosPage />} />
+            <Route path="/surveys" element={<MySurveys />} />
+            <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />
             <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
             <Route path="/admin/tags" element={<TagsAdmin />} />
             <Route path="/admin/users" element={<UsersAdmin />} />
             <Route path="/admin/settings" element={<SettingsAdmin />} />
+            <Route path="/admin/surveys" element={<SurveysAdmin />} />
+            <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
+            <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
+            <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </AppLayout>

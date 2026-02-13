@@ -304,6 +304,96 @@ export interface SoAW {
   signed_at: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Surveys
+// ---------------------------------------------------------------------------
+
+export interface SurveyField {
+  key: string;
+  section: string;
+  label: string;
+  type: string;
+  options?: { key: string; label: string; color?: string }[];
+  action: "maintain" | "confirm";
+}
+
+export interface SurveyTargetFilters {
+  related_type?: string;
+  related_ids?: string[];
+  tag_ids?: string[];
+  attribute_filters?: { key: string; op: string; value: string }[];
+}
+
+export interface Survey {
+  id: string;
+  name: string;
+  description: string;
+  message: string;
+  status: "draft" | "active" | "closed";
+  target_type_key: string;
+  target_filters: SurveyTargetFilters;
+  target_roles: string[];
+  fields: SurveyField[];
+  created_by?: string;
+  creator_name?: string;
+  sent_at?: string;
+  closed_at?: string;
+  created_at?: string;
+  updated_at?: string;
+  total_responses?: number;
+  completed_responses?: number;
+  applied_responses?: number;
+}
+
+export interface SurveyResponseDetail {
+  id: string;
+  survey_id: string;
+  fact_sheet_id: string;
+  fact_sheet_name?: string;
+  fact_sheet_type?: string;
+  user_id: string;
+  user_display_name?: string;
+  user_email?: string;
+  status: "pending" | "completed";
+  responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;
+  applied: boolean;
+  responded_at?: string;
+  applied_at?: string;
+  created_at?: string;
+}
+
+export interface SurveyPreviewTarget {
+  fact_sheet_id: string;
+  fact_sheet_name: string;
+  fact_sheet_type: string;
+  users: { user_id: string; display_name: string; email: string; role: string }[];
+}
+
+export interface SurveyPreviewResult {
+  total_fact_sheets: number;
+  total_users: number;
+  targets: SurveyPreviewTarget[];
+}
+
+export interface MySurveyItem {
+  survey_id: string;
+  survey_name: string;
+  survey_message: string;
+  survey_status: string;
+  target_type_key: string;
+  pending_count: number;
+  items: { response_id: string; fact_sheet_id: string; fact_sheet_name: string }[];
+}
+
+export interface SurveyRespondForm {
+  response_id: string;
+  response_status: string;
+  survey: { id: string; name: string; message: string };
+  fact_sheet: { id: string; name: string; type: string; subtype?: string };
+  fields: (SurveyField & { current_value: unknown })[];
+  existing_responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;
+}
+
 export interface DiagramSummary {
   id: string;
   name: string;
