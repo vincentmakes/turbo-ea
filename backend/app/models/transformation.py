@@ -26,6 +26,7 @@ class Transformation(Base, UUIDMixin, TimestampMixin):
         ForeignKey("transformation_templates.id", ondelete="SET NULL"),
         nullable=True,
     )
+    template_name: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[str] = mapped_column(
         String(50), default="draft", nullable=False
     )  # draft, planned, executed
