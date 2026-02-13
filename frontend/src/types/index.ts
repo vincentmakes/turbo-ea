@@ -417,3 +417,110 @@ export interface DiagramSummary {
   created_at?: string;
   updated_at?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Architecture & Roadmap Planning
+// ---------------------------------------------------------------------------
+
+export interface FSRef {
+  id: string;
+  type: string;
+  name: string;
+}
+
+export interface TransformationTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  target_fact_sheet_type: string;
+  is_predefined: boolean;
+  is_hidden?: boolean;
+  implied_impacts_schema: Record<string, unknown>[];
+  required_fields: TemplateRequiredField[];
+}
+
+export interface TemplateRequiredField {
+  key: string;
+  label: string;
+  type: "text" | "fact_sheet_ref";
+  fact_sheet_type?: string;
+  required?: boolean;
+}
+
+export type ImpactType =
+  | "introduction"
+  | "decommissioning"
+  | "rollout"
+  | "withdrawal"
+  | "discontinuation"
+  | "upgrade"
+  | "replacement"
+  | "migration"
+  | "modification";
+
+export type ImpactAction =
+  | "create_fact_sheet"
+  | "archive_fact_sheet"
+  | "set_field"
+  | "copy_field"
+  | "create_relation"
+  | "remove_relation"
+  | "remove_all_relations"
+  | "set_relation_validity"
+  | "set_relation_field"
+  | "add_tag"
+  | "remove_tag"
+  | "replace_tags";
+
+export interface Impact {
+  id: string;
+  transformation_id: string;
+  impact_type: ImpactType;
+  action: ImpactAction;
+  source_fact_sheet_id?: string;
+  target_fact_sheet_id?: string;
+  source_fact_sheet?: FSRef;
+  target_fact_sheet?: FSRef;
+  field_name?: string;
+  field_value?: unknown;
+  relation_type?: string;
+  is_implied: boolean;
+  is_disabled: boolean;
+  execution_order: number;
+}
+
+export type TransformationStatus = "draft" | "planned" | "executed";
+
+export interface Transformation {
+  id: string;
+  name: string;
+  initiative_id: string;
+  initiative?: FSRef;
+  template_id?: string;
+  template?: { id: string; name: string; target_fact_sheet_type: string };
+  status: TransformationStatus;
+  completion_date?: string;
+  created_by?: string;
+  updated_by?: string;
+  creator?: { id: string; display_name?: string };
+  impacts: Impact[];
+  impact_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TransformationListResponse {
+  items: Transformation[];
+  total: number;
+}
+
+export interface Milestone {
+  id: string;
+  initiative_id: string;
+  initiative?: FSRef;
+  name: string;
+  target_date: string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}

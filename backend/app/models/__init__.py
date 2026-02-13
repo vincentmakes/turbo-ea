@@ -7,6 +7,8 @@ from app.models.document import Document
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
+from app.models.impact import Impact
+from app.models.milestone import Milestone
 from app.models.notification import Notification
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -15,6 +17,8 @@ from app.models.subscription import Subscription
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import FactSheetTag, Tag, TagGroup
 from app.models.todo import Todo
+from app.models.transformation import Transformation
+from app.models.transformation_template import TransformationTemplate
 from app.models.user import User
 
 __all__ = [
@@ -39,4 +43,8 @@ __all__ = [
     "AppSettings",
     "Survey",
     "SurveyResponse",
+    "TransformationTemplate",
+    "Transformation",
+    "Impact",
+    "Milestone",
 ]
