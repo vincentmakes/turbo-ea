@@ -200,9 +200,11 @@ interface FilterState {
 interface CapNode extends CapItem {
   children: CapNode[];
   level: number;
-  /** Filtered apps (after user filters applied) */
+  /** Filtered apps directly linked to this capability */
   filteredApps: AppData[];
-  /** Aggregated count of filtered apps in this node + all descendants */
+  /** All unique filtered apps in this node + all descendants (deduplicated) */
+  deepUniqueApps: Map<string, AppData>;
+  /** Count of unique filtered apps in this subtree */
   deepAppCount: number;
 }
 
@@ -215,7 +217,8 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
       children: [],
       level: 0,
       filteredApps,
-      deepAppCount: filteredApps.length,
+      deepUniqueApps: new Map(),
+      deepAppCount: 0,
     });
   }
 
@@ -239,16 +242,47 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
   roots.sort((a, b) => a.name.localeCompare(b.name));
   setLevel(roots, 1);
 
-  // Propagate deep app counts upward
-  function propagate(n: CapNode): number {
-    let sum = n.filteredApps.length;
-    for (const ch of n.children) sum += propagate(ch);
-    n.deepAppCount = sum;
-    return sum;
+  // Propagate unique apps upward (bottom-up).
+  // Each node's deepUniqueApps = its own filteredApps ∪ all children's deepUniqueApps,
+  // deduplicated by app id.
+  function propagate(n: CapNode): Map<string, AppData> {
+    const map = new Map<string, AppData>();
+    for (const a of n.filteredApps) map.set(a.id, a);
+    for (const ch of n.children) {
+      for (const [id, a] of propagate(ch)) map.set(id, a);
+    }
+    n.deepUniqueApps = map;
+    n.deepAppCount = map.size;
+    return map;
   }
   for (const r of roots) propagate(r);
 
   return roots;
+}
+
+/**
+ * Get the apps that should be DISPLAYED at a given node, considering the
+ * display level.  Apps are shown at their deepest visible capability only:
+ *
+ * - Display-leaf (level >= displayLevel or no children): show all unique
+ *   apps from the entire subtree (deepUniqueApps).
+ * - Non-leaf: show only apps directly linked here that are NOT present in
+ *   any child's subtree (i.e. apps that would otherwise be invisible).
+ */
+function getVisibleApps(node: CapNode, displayLevel: number): AppData[] {
+  const isLeaf = node.level >= displayLevel || node.children.length === 0;
+
+  if (isLeaf) {
+    // Leaf at this display level: show every unique app in the subtree
+    return Array.from(node.deepUniqueApps.values());
+  }
+
+  // Non-leaf: only show apps that are NOT in any child subtree
+  const childAppIds = new Set<string>();
+  for (const ch of node.children) {
+    for (const id of ch.deepUniqueApps.keys()) childAppIds.add(id);
+  }
+  return node.filteredApps.filter((a) => !childAppIds.has(a.id));
 }
 
 function getMaxLevel(nodes: CapNode[]): number {
@@ -327,6 +361,12 @@ function CapabilityCard({
   const fmtVal = (v: number) =>
     metric === "total_cost" ? `$${(v / 1000).toFixed(0)}k` : String(v);
 
+  // Apps to display at THIS node — pushed to deepest visible level
+  const visibleApps = useMemo(
+    () => getVisibleApps(node, displayLevel),
+    [node, displayLevel],
+  );
+
   // If this node is at or below the display level, render as a leaf card
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
 
@@ -349,7 +389,7 @@ function CapabilityCard({
             p: 1.5,
             bgcolor: heatColor(val, maxVal, metric),
             borderBottom:
-              showApps && node.filteredApps.length > 0 ? "1px solid #e0e0e0" : "none",
+              showApps && visibleApps.length > 0 ? "1px solid #e0e0e0" : "none",
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -382,10 +422,10 @@ function CapabilityCard({
           )}
         </Box>
 
-        {/* Show nested apps */}
-        {showApps && node.filteredApps.length > 0 && (
+        {/* Show apps — all unique apps from the subtree */}
+        {showApps && visibleApps.length > 0 && (
           <Box sx={{ p: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-            {node.filteredApps
+            {visibleApps
               .sort((a, b) => a.name.localeCompare(b.name))
               .map((app) => (
                 <AppChip
@@ -450,10 +490,10 @@ function CapabilityCard({
         )}
       </Box>
 
-      {/* Show this level's own apps if showApps is on */}
-      {showApps && node.filteredApps.length > 0 && (
+      {/* Show only this node's own apps that aren't in any child subtree */}
+      {showApps && visibleApps.length > 0 && (
         <Box sx={{ px: 1.5, pt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-          {node.filteredApps
+          {visibleApps
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((app) => (
               <AppChip
@@ -964,9 +1004,11 @@ export default function CapabilityMapReport() {
               {METRIC_OPTIONS.map((o) => (
                 <Box key={o.key} sx={{ textAlign: "center", minWidth: 80 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {o.key === "total_cost"
-                      ? `$${(metricValue(drawer, o.key) / 1000).toFixed(0)}k`
-                      : metricValue(drawer, o.key)}
+                    {o.key === "app_count"
+                      ? drawer.deepAppCount
+                      : o.key === "total_cost"
+                        ? `$${(metricValue(drawer, o.key) / 1000).toFixed(0)}k`
+                        : metricValue(drawer, o.key)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {o.label}
@@ -995,12 +1037,12 @@ export default function CapabilityMapReport() {
               </>
             )}
 
-            {/* Supporting applications */}
+            {/* Supporting applications — all unique apps in the subtree */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Supporting Applications ({drawer.filteredApps.length})
+              Supporting Applications ({drawer.deepAppCount})
             </Typography>
             <List dense>
-              {drawer.filteredApps
+              {Array.from(drawer.deepUniqueApps.values())
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((a) => {
                   const timeVal = (a.attributes || {}).timeModel as string | undefined;
