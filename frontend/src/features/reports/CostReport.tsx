@@ -16,6 +16,7 @@ import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useCurrency } from "@/hooks/useCurrency";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
 
@@ -33,8 +34,6 @@ interface CostGroup {
   cost: number;
 }
 
-const fmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-
 function pickNumberFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
   const out: FieldDef[] = [];
   for (const s of schema) for (const f of s.fields) if (f.type === "number") out.push(f);
@@ -48,11 +47,12 @@ function treemapColor(index: number): string {
   return COLORS[index % COLORS.length];
 }
 
-// Custom treemap content
+// Custom treemap content — receives formatter via extra props from Recharts spread
 const TreemapContent = ({
-  x, y, width, height, name, cost, index,
+  x, y, width, height, name, cost, index, costFmt,
 }: {
   x: number; y: number; width: number; height: number; name: string; cost: number; index: number;
+  costFmt: Intl.NumberFormat;
 }) => {
   if (width < 4 || height < 4) return null;
   const showLabel = width > 50 && height > 30;
@@ -67,7 +67,7 @@ const TreemapContent = ({
       )}
       {showCost && (
         <text x={x + 6} y={y + 30} fontSize={10} fill="rgba(255,255,255,0.8)">
-          {fmt.format(cost)}
+          {costFmt.format(cost)}
         </text>
       )}
     </g>
@@ -77,6 +77,7 @@ const TreemapContent = ({
 export default function CostReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
+  const { fmt } = useCurrency();
   const [fsType, setFsType] = useState("Application");
   const [costField, setCostField] = useState("totalAnnualCost");
   const [groupBy, setGroupBy] = useState("");
@@ -187,7 +188,7 @@ export default function CostReport() {
                 data={treemapData}
                 dataKey="size"
                 stroke="#fff"
-                content={<TreemapContent x={0} y={0} width={0} height={0} name="" cost={0} index={0} />}
+                content={<TreemapContent x={0} y={0} width={0} height={0} name="" cost={0} index={0} costFmt={fmt} />}
               >
                 <RTooltip content={<Tip />} />
               </Treemap>

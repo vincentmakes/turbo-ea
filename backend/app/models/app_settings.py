@@ -16,6 +16,7 @@ class AppSettings(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True, default="default")
     email_settings: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    general_settings: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     custom_logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     custom_logo_mime: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
