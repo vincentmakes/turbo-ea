@@ -470,3 +470,140 @@ async def process_map(db: AsyncSession = Depends(get_db)):
         "organizations": organizations,
         "business_contexts": business_contexts,
     }
+
+
+@router.get("/value-stream-matrix")
+async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
+    """Value-stream × Organization matrix with processes at intersections."""
+    # All active BusinessProcesses
+    proc_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "BusinessProcess",
+            FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    processes = proc_result.scalars().all()
+    proc_map = {p.id: p for p in processes}
+
+    if not proc_map:
+        return {"contexts": [], "organizations": [], "cells": {}, "unassigned": []}
+
+    # All Organizations (rows) — with hierarchy data
+    org_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Organization",
+            FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    orgs = org_result.scalars().all()
+
+    # All BusinessContexts (columns) — with hierarchy data
+    ctx_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "BusinessContext",
+            FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    contexts = ctx_result.scalars().all()
+
+    # Fetch relevant relations: process→org and process→ctx
+    proc_ids = list(proc_map.keys())
+    rels_result = await db.execute(
+        select(Relation).where(
+            Relation.type.in_(["relProcessToOrg", "relProcessToBizCtx"]),
+            (Relation.source_id.in_(proc_ids)) | (Relation.target_id.in_(proc_ids)),
+        )
+    )
+    rels = rels_result.scalars().all()
+
+    proc_id_set = set(str(p) for p in proc_ids)
+    org_id_set = set(str(o.id) for o in orgs)
+    ctx_id_set = set(str(c.id) for c in contexts)
+
+    # Map process → set of org ids, process → set of ctx ids
+    p_orgs: dict[str, set[str]] = {}
+    p_ctxs: dict[str, set[str]] = {}
+
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        rtype = r.type or ""
+
+        if rtype == "relProcessToOrg":
+            if sid in proc_id_set and tid in org_id_set:
+                p_orgs.setdefault(sid, set()).add(tid)
+            elif tid in proc_id_set and sid in org_id_set:
+                p_orgs.setdefault(tid, set()).add(sid)
+
+        elif rtype == "relProcessToBizCtx":
+            if sid in proc_id_set and tid in ctx_id_set:
+                p_ctxs.setdefault(sid, set()).add(tid)
+            elif tid in proc_id_set and sid in ctx_id_set:
+                p_ctxs.setdefault(tid, set()).add(sid)
+
+    # Build cells: { org_id: { ctx_id: [process_dicts] } }
+    cells: dict[str, dict[str, list]] = {}
+    assigned_ids: set[str] = set()
+
+    for p in processes:
+        pid = str(p.id)
+        my_orgs = p_orgs.get(pid, set())
+        my_ctxs = p_ctxs.get(pid, set())
+        attrs = p.attributes or {}
+
+        proc_dict = {
+            "id": pid,
+            "name": p.name,
+            "subtype": p.subtype,
+            "attributes": attrs,
+            "lifecycle": p.lifecycle or {},
+        }
+
+        if my_orgs and my_ctxs:
+            assigned_ids.add(pid)
+            for oid in my_orgs:
+                for cid in my_ctxs:
+                    cells.setdefault(oid, {}).setdefault(cid, []).append(proc_dict)
+        elif my_orgs and not my_ctxs:
+            # Has org but no context — show in a special "no context" column
+            assigned_ids.add(pid)
+            for oid in my_orgs:
+                cells.setdefault(oid, {}).setdefault("__none__", []).append(proc_dict)
+        elif my_ctxs and not my_orgs:
+            # Has context but no org — show in a special "no org" row
+            assigned_ids.add(pid)
+            for cid in my_ctxs:
+                cells.setdefault("__none__", {}).setdefault(cid, []).append(proc_dict)
+
+    unassigned = [
+        {
+            "id": str(p.id),
+            "name": p.name,
+            "subtype": p.subtype,
+            "attributes": p.attributes or {},
+        }
+        for p in processes
+        if str(p.id) not in assigned_ids
+    ]
+
+    def _org_dict(o):
+        return {
+            "id": str(o.id),
+            "name": o.name,
+            "subtype": o.subtype,
+            "parent_id": str(o.parent_id) if o.parent_id else None,
+        }
+
+    def _ctx_dict(c):
+        return {
+            "id": str(c.id),
+            "name": c.name,
+            "subtype": c.subtype,
+            "parent_id": str(c.parent_id) if c.parent_id else None,
+        }
+
+    return {
+        "organizations": [_org_dict(o) for o in orgs],
+        "contexts": [_ctx_dict(c) for c in contexts],
+        "cells": cells,
+        "unassigned": unassigned,
+    }
