@@ -89,8 +89,46 @@ TIME_MODEL_OPTIONS = [
     {"key": "eliminate", "label": "Eliminate", "color": "#d32f2f"},
 ]
 
+# ── BPM option lists ──────────────────────────────────────────────────
 
-# ── 13 Fact Sheet Types (from Meta_Model.xml) ─────────────────────────
+PROCESS_TYPE_OPTIONS = [
+    {"key": "core", "label": "Core", "color": "#1976d2"},
+    {"key": "support", "label": "Support", "color": "#607d8b"},
+    {"key": "management", "label": "Management", "color": "#9c27b0"},
+]
+
+PROCESS_MATURITY_OPTIONS = [
+    {"key": "initial", "label": "1 - Initial", "color": "#d32f2f"},
+    {"key": "managed", "label": "2 - Managed", "color": "#ff9800"},
+    {"key": "defined", "label": "3 - Defined", "color": "#fbc02d"},
+    {"key": "measured", "label": "4 - Measured", "color": "#66bb6a"},
+    {"key": "optimized", "label": "5 - Optimized", "color": "#2e7d32"},
+]
+
+AUTOMATION_LEVEL_OPTIONS = [
+    {"key": "manual", "label": "Manual", "color": "#d32f2f"},
+    {"key": "partiallyAutomated", "label": "Partially Automated", "color": "#ff9800"},
+    {"key": "fullyAutomated", "label": "Fully Automated", "color": "#4caf50"},
+]
+
+PROCESS_RISK_OPTIONS = [
+    {"key": "low", "label": "Low", "color": "#4caf50"},
+    {"key": "medium", "label": "Medium", "color": "#ff9800"},
+    {"key": "high", "label": "High", "color": "#f44336"},
+    {"key": "critical", "label": "Critical", "color": "#b71c1c"},
+]
+
+PROCESS_FREQUENCY_OPTIONS = [
+    {"key": "adHoc", "label": "Ad Hoc"},
+    {"key": "daily", "label": "Daily"},
+    {"key": "weekly", "label": "Weekly"},
+    {"key": "monthly", "label": "Monthly"},
+    {"key": "quarterly", "label": "Quarterly"},
+    {"key": "yearly", "label": "Yearly"},
+    {"key": "continuous", "label": "Continuous"},
+]
+
+# ── 14 Fact Sheet Types (from Meta_Model.xml + BPM) ──────────────────
 
 TYPES = [
     # -- Strategy & Transformation layer --
@@ -238,6 +276,20 @@ TYPES = [
                     {"key": "isCoreCapability", "label": "Core Capability", "type": "boolean", "weight": 0},
                 ],
             },
+            {
+                "section": "BPM Assessment",
+                "fields": [
+                    {"key": "strategicImportance", "label": "Strategic Importance", "type": "single_select",
+                     "options": [
+                         {"key": "low", "label": "Low", "color": "#9e9e9e"},
+                         {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                         {"key": "high", "label": "High", "color": "#1976d2"},
+                         {"key": "critical", "label": "Critical", "color": "#d32f2f"},
+                     ], "weight": 1},
+                    {"key": "maturity", "label": "Capability Maturity", "type": "single_select",
+                     "options": PROCESS_MATURITY_OPTIONS, "weight": 1},
+                ],
+            },
         ],
     },
     {
@@ -270,6 +322,53 @@ TYPES = [
             },
         ],
     },
+    # -- BPM layer --
+    {
+        "key": "BusinessProcess",
+        "label": "Business Process",
+        "description": "Business processes with BPMN 2.0 flow modeling, lifecycle, and maturity tracking.",
+        "icon": "route",
+        "color": "#e65100",
+        "category": "Business Architecture",
+        "has_hierarchy": True,
+        "subtypes": [
+            {"key": "category", "label": "Process Category"},
+            {"key": "group", "label": "Process Group"},
+            {"key": "process", "label": "Process"},
+            {"key": "variant", "label": "Process Variant"},
+        ],
+        "sort_order": 6,
+        "fields_schema": [
+            {
+                "section": "Process Classification",
+                "fields": [
+                    {"key": "processType", "label": "Process Type", "type": "single_select",
+                     "required": True, "options": PROCESS_TYPE_OPTIONS, "weight": 2},
+                    {"key": "maturity", "label": "Maturity (CMMI)", "type": "single_select",
+                     "options": PROCESS_MATURITY_OPTIONS, "weight": 2},
+                    {"key": "automationLevel", "label": "Automation Level", "type": "single_select",
+                     "options": AUTOMATION_LEVEL_OPTIONS, "weight": 1},
+                    {"key": "riskLevel", "label": "Risk Level", "type": "single_select",
+                     "options": PROCESS_RISK_OPTIONS, "weight": 1},
+                ],
+            },
+            {
+                "section": "Operational Details",
+                "fields": [
+                    {"key": "frequency", "label": "Execution Frequency", "type": "single_select",
+                     "options": PROCESS_FREQUENCY_OPTIONS, "weight": 1},
+                    {"key": "responsibleOrg", "label": "Responsible Organization", "type": "text", "weight": 0},
+                    {"key": "documentationUrl", "label": "Process Documentation URL", "type": "text", "weight": 0},
+                    {"key": "regulatoryRelevance", "label": "Regulatory Relevance", "type": "boolean", "weight": 1},
+                ],
+            },
+        ],
+        "subscription_roles": [
+            {"key": "responsible", "label": "Responsible"},
+            {"key": "process_owner", "label": "Process Owner"},
+            {"key": "observer", "label": "Observer"},
+        ],
+    },
     # -- Application & Data Architecture layer --
     {
         "key": "Application",
@@ -285,7 +384,7 @@ TYPES = [
             {"key": "aiAgent", "label": "AI Agent"},
             {"key": "deployment", "label": "Deployment"},
         ],
-        "sort_order": 6,
+        "sort_order": 7,
         "fields_schema": [
             {
                 "section": "Application Information",
@@ -321,7 +420,7 @@ TYPES = [
             {"key": "api", "label": "API"},
             {"key": "mcpServer", "label": "MCP Server"},
         ],
-        "sort_order": 7,
+        "sort_order": 8,
         "fields_schema": [
             {
                 "section": "Interface Information",
@@ -342,7 +441,7 @@ TYPES = [
         "category": "Application & Data",
         "has_hierarchy": True,
         "subtypes": [],
-        "sort_order": 8,
+        "sort_order": 9,
         "fields_schema": [
             {
                 "section": "Data Information",
@@ -372,7 +471,7 @@ TYPES = [
             {"key": "service", "label": "Service"},
             {"key": "aiModel", "label": "AI Model"},
         ],
-        "sort_order": 9,
+        "sort_order": 10,
         "fields_schema": [
             {
                 "section": "Component Information",
@@ -401,7 +500,7 @@ TYPES = [
         "category": "Technical Architecture",
         "has_hierarchy": True,
         "subtypes": [],
-        "sort_order": 10,
+        "sort_order": 11,
         "fields_schema": [],
     },
     {
@@ -413,7 +512,7 @@ TYPES = [
         "category": "Technical Architecture",
         "has_hierarchy": False,
         "subtypes": [],
-        "sort_order": 11,
+        "sort_order": 12,
         "fields_schema": [
             {
                 "section": "Provider Information",
@@ -438,7 +537,7 @@ TYPES = [
         "category": "Technical Architecture",
         "has_hierarchy": False,
         "subtypes": [],
-        "sort_order": 12,
+        "sort_order": 13,
         "is_hidden": False,
         "fields_schema": [
             {
@@ -524,6 +623,56 @@ RELATIONS = [
 
     # Business Context connections
     {"key": "relBizCtxToBC", "label": "is associated with", "reverse_label": "is associated with", "source_type_key": "BusinessContext", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 29},
+
+    # BPM — Business Process connections
+    {"key": "relProcessToBC", "label": "supports", "reverse_label": "is supported by",
+     "source_type_key": "BusinessProcess", "target_type_key": "BusinessCapability",
+     "cardinality": "n:m", "sort_order": 30, "attributes_schema": [
+         {"key": "supportType", "label": "Support Type", "type": "single_select", "options": SUPPORT_TYPE_OPTIONS},
+     ]},
+    {"key": "relProcessToApp", "label": "is supported by", "reverse_label": "supports",
+     "source_type_key": "BusinessProcess", "target_type_key": "Application",
+     "cardinality": "n:m", "sort_order": 31, "attributes_schema": [
+         {"key": "usageType", "label": "Usage", "type": "single_select", "options": [
+             {"key": "creates", "label": "Creates"},
+             {"key": "reads", "label": "Reads"},
+             {"key": "updates", "label": "Updates"},
+             {"key": "deletes", "label": "Deletes"},
+             {"key": "orchestrates", "label": "Orchestrates"},
+         ]},
+         {"key": "criticality", "label": "Criticality", "type": "single_select", "options": [
+             {"key": "low", "label": "Low", "color": "#4caf50"},
+             {"key": "medium", "label": "Medium", "color": "#ff9800"},
+             {"key": "high", "label": "High", "color": "#f44336"},
+             {"key": "critical", "label": "Critical", "color": "#b71c1c"},
+         ]},
+     ]},
+    {"key": "relProcessToDataObj", "label": "uses", "reverse_label": "is used by",
+     "source_type_key": "BusinessProcess", "target_type_key": "DataObject",
+     "cardinality": "n:m", "sort_order": 32, "attributes_schema": [
+         {"key": "crudCreate", "label": "Create", "type": "boolean"},
+         {"key": "crudRead", "label": "Read", "type": "boolean"},
+         {"key": "crudUpdate", "label": "Update", "type": "boolean"},
+         {"key": "crudDelete", "label": "Delete", "type": "boolean"},
+     ]},
+    {"key": "relProcessToITC", "label": "uses", "reverse_label": "is used by",
+     "source_type_key": "BusinessProcess", "target_type_key": "ITComponent",
+     "cardinality": "n:m", "sort_order": 33},
+    {"key": "relProcessDependency", "label": "depends on", "reverse_label": "is depended on by",
+     "source_type_key": "BusinessProcess", "target_type_key": "BusinessProcess",
+     "cardinality": "n:m", "sort_order": 34},
+    {"key": "relProcessToOrg", "label": "is owned by", "reverse_label": "owns",
+     "source_type_key": "BusinessProcess", "target_type_key": "Organization",
+     "cardinality": "n:m", "sort_order": 35},
+    {"key": "relProcessToInitiative", "label": "is affected by", "reverse_label": "affects",
+     "source_type_key": "BusinessProcess", "target_type_key": "Initiative",
+     "cardinality": "n:m", "sort_order": 36},
+    {"key": "relProcessToObjective", "label": "supports", "reverse_label": "is supported by",
+     "source_type_key": "BusinessProcess", "target_type_key": "Objective",
+     "cardinality": "n:m", "sort_order": 37},
+    {"key": "relProcessToBizCtx", "label": "realizes", "reverse_label": "is realized by",
+     "source_type_key": "BusinessProcess", "target_type_key": "BusinessContext",
+     "cardinality": "n:m", "sort_order": 38},
 ]
 
 

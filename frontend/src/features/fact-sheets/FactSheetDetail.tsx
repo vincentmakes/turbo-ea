@@ -40,6 +40,8 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
+import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
+import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
 import type {
   FactSheet,
   Relation,
@@ -1877,16 +1879,31 @@ export default function FactSheetDetail() {
           scrollButtons={isMobile ? "auto" : false}
           sx={{ borderBottom: 1, borderColor: "divider", px: { xs: 0, sm: 2 } }}
         >
+          {fs.type === "BusinessProcess" && <Tab label="Process Flow" />}
+          {fs.type === "BusinessProcess" && <Tab label="Assessments" />}
           <Tab label="Comments" />
           <Tab label="Todos" />
           <Tab label="Subscriptions" />
           <Tab label="History" />
         </Tabs>
         <CardContent>
-          {tab === 0 && <CommentsTab fsId={fs.id} />}
-          {tab === 1 && <TodosTab fsId={fs.id} />}
-          {tab === 2 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
-          {tab === 3 && <HistoryTab fsId={fs.id} />}
+          {fs.type === "BusinessProcess" ? (
+            <>
+              {tab === 0 && <ProcessFlowTab processId={fs.id} />}
+              {tab === 1 && <ProcessAssessmentPanel processId={fs.id} />}
+              {tab === 2 && <CommentsTab fsId={fs.id} />}
+              {tab === 3 && <TodosTab fsId={fs.id} />}
+              {tab === 4 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
+              {tab === 5 && <HistoryTab fsId={fs.id} />}
+            </>
+          ) : (
+            <>
+              {tab === 0 && <CommentsTab fsId={fs.id} />}
+              {tab === 1 && <TodosTab fsId={fs.id} />}
+              {tab === 2 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
+              {tab === 3 && <HistoryTab fsId={fs.id} />}
+            </>
+          )}
         </CardContent>
       </Card>
     </Box>

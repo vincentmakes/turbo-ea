@@ -8,6 +8,9 @@ from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.notification import Notification
+from app.models.process_assessment import ProcessAssessment
+from app.models.process_diagram import ProcessDiagram
+from app.models.process_element import ProcessElement
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.soaw import SoAW
@@ -40,5 +43,8 @@ __all__ = [
     "AppSettings",
     "Survey",
     "SurveyResponse",
+    "ProcessDiagram",
+    "ProcessElement",
+    "ProcessAssessment",
     "WebPortal",
 ]

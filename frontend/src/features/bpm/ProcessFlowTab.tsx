@@ -1,0 +1,228 @@
+/**
+ * ProcessFlowTab — Rendered inside FactSheetDetail for BusinessProcess.
+ * Shows: BPMN viewer (read-only) + element table + link buttons.
+ */
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
+import Paper from "@mui/material/Paper";
+import MaterialSymbol from "@/components/MaterialSymbol";
+import BpmnViewer from "./BpmnViewer";
+import ElementLinker from "./ElementLinker";
+import BpmnTemplateChooser from "./BpmnTemplateChooser";
+import { api } from "@/api/client";
+import type { ProcessDiagramData, ProcessElement } from "@/types";
+
+interface Props {
+  processId: string;
+}
+
+export default function ProcessFlowTab({ processId }: Props) {
+  const navigate = useNavigate();
+  const [diagram, setDiagram] = useState<ProcessDiagramData | null>(null);
+  const [elements, setElements] = useState<ProcessElement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [linkElement, setLinkElement] = useState<ProcessElement | null>(null);
+  const [showTemplateChooser, setShowTemplateChooser] = useState(false);
+  const [selectedBpmnId, setSelectedBpmnId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [diagData, elemsData] = await Promise.all([
+        api.get<ProcessDiagramData | null>(`/bpm/processes/${processId}/diagram`),
+        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`),
+      ]);
+      setDiagram(diagData);
+      setElements(elemsData || []);
+    } catch {
+      // No diagram yet
+      setDiagram(null);
+      setElements([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [processId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleTemplateSelected = async (bpmnXml: string) => {
+    try {
+      await api.put(`/bpm/processes/${processId}/diagram`, {
+        bpmn_xml: bpmnXml,
+      });
+      setShowTemplateChooser(false);
+      loadData();
+    } catch (err) {
+      console.error("Failed to save template:", err);
+    }
+  };
+
+  if (loading) {
+    return <Typography color="text.secondary">Loading process flow...</Typography>;
+  }
+
+  if (!diagram) {
+    return (
+      <Box sx={{ textAlign: "center", py: 4 }}>
+        <MaterialSymbol icon="route" size={48} color="#666" />
+        <Typography variant="h6" gutterBottom>
+          No process flow diagram yet
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 2 }}>
+          Create a BPMN 2.0 diagram to document this process flow.
+        </Typography>
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="add" />}
+            onClick={() => setShowTemplateChooser(true)}
+          >
+            Start from Template
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="edit" />}
+            onClick={() => navigate(`/bpm/processes/${processId}/flow`)}
+          >
+            Open Editor
+          </Button>
+        </Box>
+        <BpmnTemplateChooser
+          open={showTemplateChooser}
+          onClose={() => setShowTemplateChooser(false)}
+          onSelect={handleTemplateSelected}
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      {/* Actions bar */}
+      <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<MaterialSymbol icon="edit" />}
+          onClick={() => navigate(`/bpm/processes/${processId}/flow`)}
+        >
+          Open Editor
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<MaterialSymbol icon="download" />}
+          onClick={() => window.open(`/api/v1/bpm/processes/${processId}/diagram/export/bpmn`)}
+        >
+          Export BPMN
+        </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<MaterialSymbol icon="image" />}
+          onClick={() => window.open(`/api/v1/bpm/processes/${processId}/diagram/export/svg`)}
+        >
+          Export SVG
+        </Button>
+        <Box sx={{ flex: 1 }} />
+        <Chip label={`v${diagram.version}`} size="small" variant="outlined" />
+      </Box>
+
+      {/* BPMN Diagram (read-only) */}
+      <BpmnViewer
+        bpmnXml={diagram.bpmn_xml}
+        elements={elements}
+        onElementClick={setSelectedBpmnId}
+        height={400}
+      />
+
+      {/* Elements Table */}
+      {elements.length > 0 && (
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="subtitle1" gutterBottom>
+            Process Elements ({elements.length})
+          </Typography>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Type</TableCell>
+                  <TableCell>Lane</TableCell>
+                  <TableCell>Application</TableCell>
+                  <TableCell>Data Object</TableCell>
+                  <TableCell>IT Component</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {elements.map((el) => (
+                  <TableRow
+                    key={el.id}
+                    hover
+                    selected={el.bpmn_element_id === selectedBpmnId}
+                    sx={{ cursor: "pointer" }}
+                    onClick={() => setSelectedBpmnId(el.bpmn_element_id)}
+                  >
+                    <TableCell>
+                      {el.name || <em style={{ color: "#999" }}>unnamed</em>}
+                      {el.is_automated && (
+                        <Chip label="Auto" size="small" color="success" sx={{ ml: 0.5 }} />
+                      )}
+                    </TableCell>
+                    <TableCell>{el.element_type}</TableCell>
+                    <TableCell>{el.lane_name || "—"}</TableCell>
+                    <TableCell>
+                      {el.application_name ? (
+                        <Chip label={el.application_name} size="small" color="primary" variant="outlined" />
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {el.data_object_name ? (
+                        <Chip label={el.data_object_name} size="small" color="secondary" variant="outlined" />
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {el.it_component_name ? (
+                        <Chip label={el.it_component_name} size="small" variant="outlined" />
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Link to EA">
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); setLinkElement(el); }}>
+                          <MaterialSymbol icon="link" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
+      <ElementLinker
+        open={!!linkElement}
+        onClose={() => setLinkElement(null)}
+        element={linkElement}
+        processId={processId}
+        onSaved={loadData}
+      />
+    </Box>
+  );
+}
