@@ -535,6 +535,10 @@ export interface PortalFactSheet {
     related_type: string;
     direction: string;
   }[];
+  subscriptions: {
+    role: string;
+    display_name: string;
+  }[];
   updated_at?: string;
 }
 

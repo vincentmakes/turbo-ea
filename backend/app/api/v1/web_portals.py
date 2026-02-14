@@ -13,6 +13,7 @@ from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.subscription import Subscription
 from app.models.tag import FactSheetTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
@@ -420,6 +421,25 @@ async def get_public_portal_fact_sheets(
                 "direction": "incoming",
             })
 
+    # Collect subscriptions for the result fact sheets
+    subs_map: dict[str, list] = {}
+    if fs_ids:
+        sub_rows = await db.execute(
+            select(
+                Subscription.fact_sheet_id,
+                Subscription.role,
+                User.display_name,
+            )
+            .join(User, User.id == Subscription.user_id)
+            .where(Subscription.fact_sheet_id.in_(fs_ids))
+        )
+        for row in sub_rows.all():
+            fsid = str(row[0])
+            subs_map.setdefault(fsid, []).append({
+                "role": row[1],
+                "display_name": row[2],
+            })
+
     items = []
     for fs in fact_sheets:
         fsid = str(fs.id)
@@ -435,6 +455,7 @@ async def get_public_portal_fact_sheets(
             "completion": fs.completion,
             "tags": tags_map.get(fsid, []),
             "relations": relations_map.get(fsid, []),
+            "subscriptions": subs_map.get(fsid, []),
             "updated_at": fs.updated_at.isoformat() if fs.updated_at else None,
         })
 
