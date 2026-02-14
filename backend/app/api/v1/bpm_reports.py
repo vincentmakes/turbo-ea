@@ -594,11 +594,13 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
         }
 
     def _ctx_dict(c):
+        attrs = c.attributes or {}
         return {
             "id": str(c.id),
             "name": c.name,
             "subtype": c.subtype,
             "parent_id": str(c.parent_id) if c.parent_id else None,
+            "sort_order": attrs.get("sortOrder"),
         }
 
     return {
