@@ -15,6 +15,7 @@ class Settings:
 
     RESET_DB: bool = os.getenv("RESET_DB", "").lower() in ("1", "true", "yes")
     SEED_DEMO: bool = os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes")
+    SEED_BPM: bool = os.getenv("SEED_BPM", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))

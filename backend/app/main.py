@@ -108,6 +108,19 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
 
+    # Seed BPM demo data: runs with SEED_DEMO (full install) or SEED_BPM (incremental)
+    if settings.SEED_DEMO or settings.SEED_BPM:
+        from app.services.seed_demo_bpm import seed_bpm_demo_data
+
+        async with async_session() as db:
+            result = await seed_bpm_demo_data(db)
+            if not result.get("skipped"):
+                print(f"[seed_bpm] Seeded {result['fact_sheets']} processes, "
+                      f"{result['relations']} relations, {result['diagrams']} diagrams, "
+                      f"{result['elements']} elements, {result['assessments']} assessments")
+            else:
+                print(f"[seed_bpm] Skipped: {result.get('reason', 'unknown')}")
+
     yield
 
 
