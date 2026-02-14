@@ -45,7 +45,6 @@ const DEFAULT_CARD: Record<string, boolean> = {
   subscribers: true,
   completion: true,
   quality_seal: false,
-  relations: false,
 };
 
 const DEFAULT_DETAIL: Record<string, boolean> = {
@@ -55,7 +54,6 @@ const DEFAULT_DETAIL: Record<string, boolean> = {
   subscribers: true,
   completion: true,
   quality_seal: true,
-  relations: true,
 };
 
 function isVisible(
@@ -268,12 +266,27 @@ export default function PortalViewer() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  // Admin-selected relation types for filtering
-  const enabledRelTypeKeys = (portal?.filters as Record<string, unknown>)
-    ?.relation_types as string[] | undefined;
-  const visibleRelTypes = portal?.relation_types?.filter(
-    (rt) => enabledRelTypeKeys?.includes(rt.key)
-  ) || [];
+  // Derive visible relation types from card_config toggles (rel:key entries)
+  const relToggles = portal?.card_config
+    ? ((portal.card_config as Record<string, unknown>).toggles as Toggles) || {}
+    : {};
+  const visibleRelTypes = (portal?.relation_types || []).filter((rt) => {
+    const entry = relToggles[`rel:${rt.key}`];
+    return entry && (entry.card || entry.detail);
+  });
+  // Subset visible on card specifically
+  const cardRelTypes = visibleRelTypes.filter((rt) => {
+    const entry = relToggles[`rel:${rt.key}`];
+    return entry?.card;
+  });
+  // Subset visible on detail specifically
+  const detailRelTypes = visibleRelTypes.filter((rt) => {
+    const entry = relToggles[`rel:${rt.key}`];
+    return entry?.detail;
+  });
+
+  // Stable key for effect dependency
+  const visibleRelKeysStr = visibleRelTypes.map((r) => r.key).join(",");
 
   // Fetch relation options (fact sheets of each related type) for filter dropdowns
   useEffect(() => {
@@ -289,7 +302,7 @@ export default function PortalViewer() {
       );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, enabledRelTypeKeys?.join(",")]);
+  }, [slug, visibleRelKeysStr]);
 
   const loadFactSheets = useCallback(async () => {
     if (!slug) return;
@@ -867,6 +880,33 @@ export default function PortalViewer() {
                     </Box>
                   )}
 
+                  {/* Card-level relations */}
+                  {cardRelTypes.length > 0 && fs.relations.length > 0 && (() => {
+                    const cardRelKeys = new Set(cardRelTypes.map((r) => r.key));
+                    const visible = fs.relations.filter((r) => cardRelKeys.has(r.type));
+                    if (visible.length === 0) return null;
+                    return (
+                      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 1.5 }}>
+                        {visible.slice(0, 4).map((rel, i) => (
+                          <Chip
+                            key={`${rel.related_id}-${i}`}
+                            label={rel.related_name}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 24, fontSize: "0.73rem", px: 0.5, fontWeight: 500 }}
+                          />
+                        ))}
+                        {visible.length > 4 && (
+                          <Chip
+                            label={`+${visible.length - 4}`}
+                            size="small"
+                            sx={{ height: 24, fontSize: "0.73rem" }}
+                          />
+                        )}
+                      </Box>
+                    );
+                  })()}
+
                   {/* Bottom row: subscribers + completion */}
                   {(show("subscribers", "card") || show("completion", "card")) && (
                   <Box
@@ -1354,39 +1394,39 @@ export default function PortalViewer() {
                 </Box>
               )}
 
-              {/* Relations */}
-              {show("relations", "detail") && selectedFs.relations.length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography
-                    variant="subtitle2"
-                    fontWeight={700}
-                    sx={{
-                      mb: 1.25,
-                      textTransform: "uppercase",
-                      fontSize: "0.75rem",
-                      letterSpacing: 1,
-                      color: "#888",
-                    }}
-                  >
-                    Related Items
-                  </Typography>
-                  {(() => {
-                    const grouped: Record<
-                      string,
-                      typeof selectedFs.relations
-                    > = {};
-                    for (const rel of selectedFs.relations) {
-                      const rt = portal.relation_types.find(
-                        (r) => r.key === rel.type
-                      );
-                      const label =
-                        rel.direction === "outgoing"
-                          ? rt?.label || rel.type
-                          : rt?.reverse_label || rt?.label || rel.type;
-                      grouped[label] = grouped[label] || [];
-                      grouped[label].push(rel);
-                    }
-                    return Object.entries(grouped).map(([label, rels]) => (
+              {/* Relations — only show detail-visible relation types */}
+              {detailRelTypes.length > 0 && selectedFs.relations.length > 0 && (() => {
+                const detailRelKeys = new Set(detailRelTypes.map((r) => r.key));
+                const visibleRels = selectedFs.relations.filter((r) => detailRelKeys.has(r.type));
+                if (visibleRels.length === 0) return null;
+
+                const grouped: Record<string, typeof visibleRels> = {};
+                for (const rel of visibleRels) {
+                  const rt = portal.relation_types.find((r) => r.key === rel.type);
+                  const label =
+                    rel.direction === "outgoing"
+                      ? rt?.label || rel.type
+                      : rt?.reverse_label || rt?.label || rel.type;
+                  grouped[label] = grouped[label] || [];
+                  grouped[label].push(rel);
+                }
+
+                return (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={700}
+                      sx={{
+                        mb: 1.25,
+                        textTransform: "uppercase",
+                        fontSize: "0.75rem",
+                        letterSpacing: 1,
+                        color: "#888",
+                      }}
+                    >
+                      Related Items
+                    </Typography>
+                    {Object.entries(grouped).map(([label, rels]) => (
                       <Box key={label} sx={{ mb: 2 }}>
                         <Typography
                           variant="caption"
@@ -1418,10 +1458,10 @@ export default function PortalViewer() {
                           ))}
                         </Box>
                       </Box>
-                    ));
-                  })()}
-                </Box>
-              )}
+                    ))}
+                  </Box>
+                );
+              })()}
 
               {/* Last updated */}
               {selectedFs.updated_at && (
