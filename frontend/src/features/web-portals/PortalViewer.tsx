@@ -194,9 +194,10 @@ function FieldValue({
           label={opt.label}
           size="small"
           sx={{
-            height: 22,
-            fontSize: "0.7rem",
-            bgcolor: opt.color ? `${opt.color}20` : "action.selected",
+            height: 26,
+            fontSize: "0.78rem",
+            px: 0.5,
+            bgcolor: opt.color ? `${opt.color}18` : "action.selected",
             color: opt.color || "text.primary",
             fontWeight: 500,
           }}
@@ -210,7 +211,7 @@ function FieldValue({
     field.options
   ) {
     return (
-      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
         {(value as string[]).map((v) => {
           const opt = field.options!.find((o) => o.key === v);
           return (
@@ -219,9 +220,10 @@ function FieldValue({
               label={opt?.label || v}
               size="small"
               sx={{
-                height: 20,
-                fontSize: "0.65rem",
-                bgcolor: opt?.color ? `${opt.color}20` : "action.selected",
+                height: 24,
+                fontSize: "0.73rem",
+                px: 0.5,
+                bgcolor: opt?.color ? `${opt.color}18` : "action.selected",
                 color: opt?.color || "text.primary",
               }}
             />
@@ -682,7 +684,7 @@ export default function PortalViewer() {
                       sx={{
                         display: "flex",
                         flexWrap: "wrap",
-                        gap: 1.5,
+                        gap: 2,
                         mb: 1.5,
                       }}
                     >
@@ -695,11 +697,13 @@ export default function PortalViewer() {
                             <Typography
                               variant="caption"
                               sx={{
-                                fontSize: "0.6rem",
+                                display: "block",
+                                fontSize: "0.68rem",
                                 textTransform: "uppercase",
                                 letterSpacing: 0.5,
-                                color: "#999",
+                                color: "#888",
                                 fontWeight: 600,
+                                mb: 0.4,
                               }}
                             >
                               {field.label}
@@ -723,9 +727,10 @@ export default function PortalViewer() {
                       size="small"
                       sx={{
                         mt: 1,
-                        height: 20,
-                        fontSize: "0.65rem",
+                        height: 24,
+                        fontSize: "0.73rem",
                         fontWeight: 600,
+                        px: 0.5,
                         bgcolor:
                           fs.quality_seal === "APPROVED"
                             ? "#e8f5e9"
@@ -747,7 +752,7 @@ export default function PortalViewer() {
                     <Box
                       sx={{
                         display: "flex",
-                        gap: 0.5,
+                        gap: 0.75,
                         flexWrap: "wrap",
                         mt: 1.5,
                       }}
@@ -758,12 +763,13 @@ export default function PortalViewer() {
                           label={tag.name}
                           size="small"
                           sx={{
-                            height: 20,
-                            fontSize: "0.65rem",
+                            height: 24,
+                            fontSize: "0.73rem",
+                            px: 0.5,
                             bgcolor: tag.color
-                              ? `${tag.color}20`
+                              ? `${tag.color}18`
                               : "#f0f0f0",
-                            color: tag.color || "#666",
+                            color: tag.color || "#555",
                             fontWeight: 500,
                           }}
                         />
@@ -772,7 +778,7 @@ export default function PortalViewer() {
                         <Chip
                           label={`+${fs.tags.length - 4}`}
                           size="small"
-                          sx={{ height: 20, fontSize: "0.65rem" }}
+                          sx={{ height: 24, fontSize: "0.73rem" }}
                         />
                       )}
                     </Box>
@@ -856,10 +862,10 @@ export default function PortalViewer() {
                     <Typography
                       variant="caption"
                       sx={{
-                        fontSize: "0.65rem",
-                        color: "#999",
-                        fontWeight: 500,
-                        minWidth: 28,
+                        fontSize: "0.73rem",
+                        color: "#777",
+                        fontWeight: 600,
+                        minWidth: 32,
                         textAlign: "right",
                       }}
                     >
@@ -941,8 +947,8 @@ export default function PortalViewer() {
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 1,
-                    mt: 0.5,
+                    gap: 1.25,
+                    mt: 1,
                     flexWrap: "wrap",
                   }}
                 >
@@ -950,6 +956,9 @@ export default function PortalViewer() {
                     label={portal.type_info?.label || selectedFs.type}
                     size="small"
                     sx={{
+                      height: 28,
+                      fontSize: "0.8rem",
+                      px: 0.75,
                       bgcolor: `${typeColor}15`,
                       color: typeColor,
                       fontWeight: 600,
@@ -964,6 +973,7 @@ export default function PortalViewer() {
                       }
                       size="small"
                       variant="outlined"
+                      sx={{ height: 28, fontSize: "0.8rem", px: 0.75 }}
                     />
                   )}
                   {show("completion", "detail") && (
@@ -971,6 +981,9 @@ export default function PortalViewer() {
                     label={`${Math.round(selectedFs.completion)}% complete`}
                     size="small"
                     sx={{
+                      height: 28,
+                      fontSize: "0.8rem",
+                      px: 0.75,
                       bgcolor:
                         selectedFs.completion >= 80
                           ? "#e8f5e9"
@@ -992,6 +1005,9 @@ export default function PortalViewer() {
                     label={selectedFs.quality_seal}
                     size="small"
                     sx={{
+                      height: 28,
+                      fontSize: "0.8rem",
+                      px: 0.75,
                       fontWeight: 600,
                       bgcolor:
                         selectedFs.quality_seal === "APPROVED"
@@ -1022,11 +1038,11 @@ export default function PortalViewer() {
                     variant="subtitle2"
                     fontWeight={700}
                     sx={{
-                      mb: 0.5,
+                      mb: 0.75,
                       textTransform: "uppercase",
-                      fontSize: "0.7rem",
+                      fontSize: "0.75rem",
                       letterSpacing: 1,
-                      color: "#999",
+                      color: "#888",
                     }}
                   >
                     Description
@@ -1053,11 +1069,11 @@ export default function PortalViewer() {
                       variant="subtitle2"
                       fontWeight={700}
                       sx={{
-                        mb: 1,
+                        mb: 1.25,
                         textTransform: "uppercase",
-                        fontSize: "0.7rem",
+                        fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#999",
+                        color: "#888",
                       }}
                     >
                       Lifecycle
@@ -1076,7 +1092,7 @@ export default function PortalViewer() {
                           <Box key={phase.key}>
                             <Typography
                               variant="caption"
-                              sx={{ fontSize: "0.65rem", color: "#999" }}
+                              sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
                             >
                               {phase.label}
                             </Typography>
@@ -1112,11 +1128,11 @@ export default function PortalViewer() {
                       variant="subtitle2"
                       fontWeight={700}
                       sx={{
-                        mb: 1,
+                        mb: 1.25,
                         textTransform: "uppercase",
-                        fontSize: "0.7rem",
+                        fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#999",
+                        color: "#888",
                       }}
                     >
                       {section.section}
@@ -1132,7 +1148,7 @@ export default function PortalViewer() {
                         <Box key={field.key}>
                           <Typography
                             variant="caption"
-                            sx={{ fontSize: "0.65rem", color: "#999" }}
+                            sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
                           >
                             {field.label}
                           </Typography>
@@ -1155,11 +1171,11 @@ export default function PortalViewer() {
                       variant="subtitle2"
                       fontWeight={700}
                       sx={{
-                        mb: 1,
+                        mb: 1.25,
                         textTransform: "uppercase",
-                        fontSize: "0.7rem",
+                        fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#999",
+                        color: "#888",
                       }}
                     >
                       Subscribers
@@ -1182,9 +1198,9 @@ export default function PortalViewer() {
                         >
                           <Avatar
                             sx={{
-                              width: 28,
-                              height: 28,
-                              fontSize: "0.65rem",
+                              width: 32,
+                              height: 32,
+                              fontSize: "0.73rem",
                               fontWeight: 700,
                               bgcolor:
                                 sub.role === "responsible"
@@ -1198,13 +1214,13 @@ export default function PortalViewer() {
                             <Typography
                               variant="body2"
                               fontWeight={600}
-                              sx={{ fontSize: "0.8rem", color: "#333" }}
+                              sx={{ fontSize: "0.85rem", color: "#333" }}
                             >
                               {sub.display_name}
                             </Typography>
                             <Typography
                               variant="caption"
-                              sx={{ fontSize: "0.65rem", color: "#999" }}
+                              sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
                             >
                               {ROLE_LABELS[sub.role] || sub.role}
                             </Typography>
@@ -1224,14 +1240,14 @@ export default function PortalViewer() {
                     sx={{
                       mb: 1,
                       textTransform: "uppercase",
-                      fontSize: "0.7rem",
+                      fontSize: "0.75rem",
                       letterSpacing: 1,
-                      color: "#999",
+                      color: "#888",
                     }}
                   >
                     Tags
                   </Typography>
-                  <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     {selectedFs.tags.map((tag) => (
                       <Chip
                         key={tag.id}
@@ -1242,8 +1258,11 @@ export default function PortalViewer() {
                         }
                         size="small"
                         sx={{
-                          bgcolor: tag.color ? `${tag.color}20` : "#f0f0f0",
-                          color: tag.color || "#555",
+                          height: 28,
+                          fontSize: "0.8rem",
+                          px: 0.75,
+                          bgcolor: tag.color ? `${tag.color}18` : "#f0f0f0",
+                          color: tag.color || "#444",
                           fontWeight: 500,
                         }}
                       />
@@ -1259,11 +1278,11 @@ export default function PortalViewer() {
                     variant="subtitle2"
                     fontWeight={700}
                     sx={{
-                      mb: 1,
+                      mb: 1.25,
                       textTransform: "uppercase",
-                      fontSize: "0.7rem",
+                      fontSize: "0.75rem",
                       letterSpacing: 1,
-                      color: "#999",
+                      color: "#888",
                     }}
                   >
                     Related Items
@@ -1285,14 +1304,15 @@ export default function PortalViewer() {
                       grouped[label].push(rel);
                     }
                     return Object.entries(grouped).map(([label, rels]) => (
-                      <Box key={label} sx={{ mb: 1.5 }}>
+                      <Box key={label} sx={{ mb: 2 }}>
                         <Typography
                           variant="caption"
                           fontWeight={600}
                           sx={{
-                            mb: 0.5,
+                            mb: 0.75,
                             display: "block",
-                            color: "#666",
+                            fontSize: "0.78rem",
+                            color: "#555",
                           }}
                         >
                           {label}
@@ -1301,7 +1321,7 @@ export default function PortalViewer() {
                           sx={{
                             display: "flex",
                             flexWrap: "wrap",
-                            gap: 0.75,
+                            gap: 1,
                           }}
                         >
                           {rels.map((rel, i) => (
@@ -1310,7 +1330,7 @@ export default function PortalViewer() {
                               label={rel.related_name}
                               size="small"
                               variant="outlined"
-                              sx={{ fontWeight: 500 }}
+                              sx={{ height: 28, fontSize: "0.8rem", px: 0.75, fontWeight: 500 }}
                             />
                           ))}
                         </Box>
