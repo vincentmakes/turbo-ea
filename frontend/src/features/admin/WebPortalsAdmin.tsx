@@ -249,7 +249,19 @@ export default function WebPortalsAdmin() {
                     fontWeight: 600,
                   }}
                 />
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  component="a"
+                  href={`/portal/${portal.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="caption"
+                  sx={{
+                    color: "primary.main",
+                    textDecoration: "none",
+                    "&:hover": { textDecoration: "underline" },
+                  }}
+                  onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                >
                   /portal/{portal.slug}
                 </Typography>
               </Box>
@@ -275,6 +287,17 @@ export default function WebPortalsAdmin() {
                   icon={portal.is_published ? "visibility" : "visibility_off"}
                   size={20}
                 />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Open Portal">
+              <IconButton
+                size="small"
+                component="a"
+                href={`/portal/${portal.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <MaterialSymbol icon="open_in_new" size={20} />
               </IconButton>
             </Tooltip>
             <Tooltip title="Copy portal URL">
