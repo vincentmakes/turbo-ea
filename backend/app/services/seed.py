@@ -677,11 +677,13 @@ RELATIONS = [
 
 
 async def seed_metamodel(db: AsyncSession) -> None:
-    """Seed the default metamodel if no types exist yet."""
-    result = await db.execute(select(FactSheetType.id).limit(1))
-    if result.scalar_one_or_none() is not None:
-        return  # Already seeded
+    """Seed the default metamodel, adding any missing types and relations.
 
+    On a fresh DB every type and relation is inserted. On an existing DB,
+    only types/relations whose key is not yet present are added, and
+    existing built-in types get their fields_schema updated to pick up
+    new sections (e.g. the BPM Assessment section on BusinessCapability).
+    """
     _default_roles = [
         {"key": "responsible", "label": "Responsible"},
         {"key": "observer", "label": "Observer"},
@@ -691,10 +693,33 @@ async def seed_metamodel(db: AsyncSession) -> None:
         {"key": "business_application_owner", "label": "Business Application Owner"},
     ]
 
+    # Load existing keys so we can skip or update
+    existing_types_result = await db.execute(select(FactSheetType))
+    existing_types = {t.key: t for t in existing_types_result.scalars().all()}
+
+    existing_rels_result = await db.execute(select(RelationType))
+    existing_rels = {r.key for r in existing_rels_result.scalars().all()}
+
     for i, t in enumerate(TYPES):
-        roles = _app_roles if t["key"] == "Application" else _default_roles
+        key = t["key"]
+        if key in existing_types:
+            # Update fields_schema on existing built-in types so new sections
+            # (like BPM Assessment on BusinessCapability) are picked up
+            existing = existing_types[key]
+            if existing.built_in:
+                seed_schema = t.get("fields_schema", [])
+                current_schema = existing.fields_schema or []
+                current_sections = {s["section"] for s in current_schema}
+                new_sections = [
+                    s for s in seed_schema if s["section"] not in current_sections
+                ]
+                if new_sections:
+                    existing.fields_schema = current_schema + new_sections
+            continue
+
+        roles = _app_roles if key == "Application" else _default_roles
         fst = FactSheetType(
-            key=t["key"],
+            key=key,
             label=t["label"],
             description=t.get("description"),
             icon=t.get("icon", "category"),
@@ -711,6 +736,9 @@ async def seed_metamodel(db: AsyncSession) -> None:
         db.add(fst)
 
     for i, r in enumerate(RELATIONS):
+        if r["key"] in existing_rels:
+            continue
+
         rt = RelationType(
             key=r["key"],
             label=r["label"],
