@@ -309,3 +309,164 @@ async def element_application_map(db: AsyncSession = Depends(get_db)):
         )
 
     return result_list
+
+
+@router.get("/process-map")
+async def process_map(db: AsyncSession = Depends(get_db)):
+    """Process landscape map: hierarchy + related apps, data objects, orgs, contexts."""
+    # All active BusinessProcess fact sheets
+    proc_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "BusinessProcess",
+            FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    processes = proc_result.scalars().all()
+    proc_ids = [p.id for p in processes]
+
+    if not proc_ids:
+        return {"items": [], "organizations": [], "business_contexts": []}
+
+    # All Applications
+    app_result = await db.execute(
+        select(FactSheet).where(FactSheet.type == "Application", FactSheet.status == "ACTIVE")
+    )
+    apps = app_result.scalars().all()
+    app_map = {a.id: a for a in apps}
+
+    # All DataObjects
+    do_result = await db.execute(
+        select(FactSheet).where(FactSheet.type == "DataObject", FactSheet.status == "ACTIVE")
+    )
+    data_objects = do_result.scalars().all()
+    do_map = {d.id: d for d in data_objects}
+
+    # All Organizations (for filtering)
+    org_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Organization", FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    orgs = org_result.scalars().all()
+    org_map = {o.id: o for o in orgs}
+
+    # All BusinessContexts (for filtering)
+    ctx_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "BusinessContext", FactSheet.status == "ACTIVE",
+        ).order_by(FactSheet.name)
+    )
+    contexts = ctx_result.scalars().all()
+    ctx_map = {c.id: c for c in contexts}
+
+    # Fetch all relations touching process ids, org ids, or context ids
+    all_entity_ids = proc_ids + list(org_map.keys()) + list(ctx_map.keys())
+    rels_result = await db.execute(
+        select(Relation).where(
+            (Relation.source_id.in_(all_entity_ids))
+            | (Relation.target_id.in_(all_entity_ids))
+        )
+    )
+    rels = rels_result.scalars().all()
+
+    # Build mappings: process -> [apps], process -> [data objects],
+    # process -> [org_ids], process -> [ctx_ids]
+    proc_id_set = set(str(p.id) for p in processes)
+    app_id_set = set(str(a.id) for a in apps)
+    do_id_set = set(str(d.id) for d in data_objects)
+    org_id_set = set(str(o.id) for o in orgs)
+    ctx_id_set = set(str(c.id) for c in contexts)
+
+    proc_apps: dict[str, list] = {pid: [] for pid in proc_id_set}
+    proc_data: dict[str, list] = {pid: [] for pid in proc_id_set}
+    proc_orgs: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
+    proc_ctxs: dict[str, set[str]] = {pid: set() for pid in proc_id_set}
+
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        rtype = r.type or ""
+
+        # Process -> Application (relProcessToApp)
+        if rtype == "relProcessToApp":
+            if sid in proc_id_set and tid in app_id_set:
+                proc_apps[sid].append({
+                    "id": tid,
+                    "name": app_map[r.target_id].name,
+                    "subtype": app_map[r.target_id].subtype,
+                    "attributes": app_map[r.target_id].attributes or {},
+                    "lifecycle": app_map[r.target_id].lifecycle or {},
+                    "rel_attributes": r.attributes or {},
+                })
+            elif tid in proc_id_set and sid in app_id_set:
+                proc_apps[tid].append({
+                    "id": sid,
+                    "name": app_map[r.source_id].name,
+                    "subtype": app_map[r.source_id].subtype,
+                    "attributes": app_map[r.source_id].attributes or {},
+                    "lifecycle": app_map[r.source_id].lifecycle or {},
+                    "rel_attributes": r.attributes or {},
+                })
+
+        # Process -> DataObject (relProcessToDataObj)
+        elif rtype == "relProcessToDataObj":
+            if sid in proc_id_set and tid in do_id_set:
+                proc_data[sid].append({
+                    "id": tid,
+                    "name": do_map[r.target_id].name,
+                })
+            elif tid in proc_id_set and sid in do_id_set:
+                proc_data[tid].append({
+                    "id": sid,
+                    "name": do_map[r.source_id].name,
+                })
+
+        # Process -> Organization (relProcessToOrg)
+        elif rtype == "relProcessToOrg":
+            if sid in proc_id_set and tid in org_id_set:
+                proc_orgs[sid].add(tid)
+            elif tid in proc_id_set and sid in org_id_set:
+                proc_orgs[tid].add(sid)
+
+        # Process -> BusinessContext (relProcessToBizCtx)
+        elif rtype == "relProcessToBizCtx":
+            if sid in proc_id_set and tid in ctx_id_set:
+                proc_ctxs[sid].add(tid)
+            elif tid in proc_id_set and sid in ctx_id_set:
+                proc_ctxs[tid].add(sid)
+
+    items = []
+    for p in processes:
+        pid = str(p.id)
+        linked_apps = proc_apps.get(pid, [])
+        attrs = p.attributes or {}
+
+        total_cost = sum(
+            (a.get("attributes", {}).get("costTotalAnnual", 0)
+             or a.get("attributes", {}).get("totalAnnualCost", 0)
+             or 0)
+            for a in linked_apps
+        )
+
+        items.append({
+            "id": pid,
+            "name": p.name,
+            "subtype": p.subtype,
+            "parent_id": str(p.parent_id) if p.parent_id else None,
+            "attributes": attrs,
+            "lifecycle": p.lifecycle or {},
+            "app_count": len(linked_apps),
+            "total_cost": total_cost,
+            "apps": linked_apps,
+            "data_objects": proc_data.get(pid, []),
+            "org_ids": sorted(proc_orgs.get(pid, set())),
+            "ctx_ids": sorted(proc_ctxs.get(pid, set())),
+        })
+
+    organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
+    business_contexts = [{"id": str(c.id), "name": c.name} for c in contexts]
+
+    return {
+        "items": items,
+        "organizations": organizations,
+        "business_contexts": business_contexts,
+    }
