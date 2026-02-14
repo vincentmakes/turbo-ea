@@ -85,6 +85,7 @@ export default function WebPortalsAdmin() {
   const [isPublished, setIsPublished] = useState(false);
   const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
+  const [showLogo, setShowLogo] = useState(true);
 
   const visibleTypes = types.filter((t) => !t.is_hidden);
 
@@ -110,6 +111,7 @@ export default function WebPortalsAdmin() {
     setIsPublished(false);
     setToggles({});
     setFilterSubtypes([]);
+    setShowLogo(true);
     setError("");
     setEditingPortal(null);
   };
@@ -129,6 +131,9 @@ export default function WebPortalsAdmin() {
     setIsPublished(portal.is_published);
     setToggles(
       (portal.card_config as Record<string, unknown>)?.toggles as Toggles || {}
+    );
+    setShowLogo(
+      (portal.card_config as Record<string, unknown>)?.show_logo !== false
     );
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
@@ -169,6 +174,7 @@ export default function WebPortalsAdmin() {
   const handleSave = async () => {
     setError("");
     const hasToggles = Object.keys(toggles).length > 0;
+    const hasCardConfig = hasToggles || !showLogo;
     const body = {
       name,
       slug,
@@ -178,7 +184,9 @@ export default function WebPortalsAdmin() {
       display_fields: null,
       filters:
         filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : null,
-      card_config: hasToggles ? { toggles } : null,
+      card_config: hasCardConfig
+        ? { ...(hasToggles ? { toggles } : {}), show_logo: showLogo }
+        : null,
     };
     try {
       if (editingPortal) {
@@ -739,6 +747,25 @@ export default function WebPortalsAdmin() {
                 </Typography>
               </Box>
             }
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showLogo}
+                onChange={(e) => setShowLogo(e.target.checked)}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1" fontWeight={500}>
+                  Show Logo
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Display the application logo in the portal header
+                </Typography>
+              </Box>
+            }
+            sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>

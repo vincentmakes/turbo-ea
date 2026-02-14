@@ -188,7 +188,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
 | `diagram_initiatives` | (association table) | M:N between diagrams and initiative fact sheets |
 | `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives, with JSONB sections |
-| `app_settings` | `AppSettings` | Singleton row (id='default'): email_settings (JSONB), general_settings (JSONB with currency, show_logo), custom_logo (LargeBinary), custom_logo_mime |
+| `app_settings` | `AppSettings` | Singleton row (id='default'): email_settings (JSONB), general_settings (JSONB with currency), custom_logo (LargeBinary), custom_logo_mime |
 | `surveys` | `Survey` | Admin-created data-maintenance surveys targeting fact sheet types with filters and field actions |
 | `survey_responses` | `SurveyResponse` | Individual response records (one per fact sheet + user pair per survey) |
 | `notifications` | `Notification` | Per-user notifications with types: todo_assigned, fact_sheet_updated, comment_added, quality_seal_changed, soaw_sign_requested, soaw_signed, subscription_update |
@@ -351,8 +351,6 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | POST | `/settings/email/test` | Admin | Send test email |
 | GET | `/settings/currency` | Public | Get global display currency |
 | PATCH | `/settings/currency` | Admin | Update currency |
-| GET | `/settings/logo-visibility` | Public | Get logo visibility flag |
-| PATCH | `/settings/logo-visibility` | Admin | Toggle logo visibility in navbar |
 | GET | `/settings/logo` | Public | Get current logo image (custom or default) |
 | GET | `/settings/favicon` | Public | Get favicon image |
 | GET | `/settings/logo/info` | Admin | Get logo metadata (has_custom_logo, mime_type) |
@@ -467,7 +465,7 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 
 **Notifications**: `NotificationBell` component in the navbar shows unread count. Badge counts (open todos + pending surveys) refresh on SSE events and navigation. Backend `notification_service.py` handles persistence and mark-as-read.
 
-**Logo Visibility**: Configurable via admin settings (`/settings/logo-visibility`). When disabled, the navigation bar shows a text title instead of the logo image. Logo height is 45px.
+**Logo Visibility**: Per-portal toggle stored in `card_config.show_logo` (default: true). When disabled, the logo is hidden from the portal header. Navbar logo height is 45px.
 
 **Hierarchy**: Fact sheets with `has_hierarchy=true` support parent-child trees (parent_id). BusinessCapability enforces max depth of 5 levels with auto-computed `capabilityLevel` attribute.
 
@@ -648,11 +646,12 @@ Configurable, public-facing views of the EA landscape accessible without authent
 ### Features
 - **Slug-based URLs**: Access via `/portal/:slug` (no login required)
 - **Configurable**: Choose which fact sheet type to display, which fields to show, card layout
+- **Logo toggle**: Per-portal option to show or hide the application logo in the portal header
 - **Relation filtering**: Visitors can filter by related fact sheets
 - **Admin management**: Create, edit, delete portals via `/admin/web-portals`
 
 ### Data Model
-- `web_portals` table: name, slug (unique), fact_sheet_type, display_fields (JSONB), card_config (JSONB), filters (JSONB), is_published
+- `web_portals` table: name, slug (unique), fact_sheet_type, display_fields (JSONB), card_config (JSONB with toggles + show_logo), filters (JSONB), is_published
 
 ---
 
@@ -679,7 +678,6 @@ Singleton `app_settings` table (id='default') manages global configuration:
 |---------|---------|-------------|
 | SMTP/Email | `email_settings` (JSONB) | Host, port, user, password, TLS, from address, app base URL |
 | Currency | `general_settings.currency` | Display currency for all cost values (default: USD) |
-| Logo visibility | `general_settings.show_logo` | Toggle logo display in navbar (default: true) |
 | Custom logo | `custom_logo` (LargeBinary) | Custom logo image bytes (max 2 MB) |
 | Logo MIME | `custom_logo_mime` (Text) | MIME type of custom logo |
 

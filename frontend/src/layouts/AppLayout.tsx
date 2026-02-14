@@ -109,7 +109,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
-  const [showLogo, setShowLogo] = useState(true);
 
   const fetchBadgeCounts = useCallback(async () => {
     try {
@@ -122,9 +121,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   useEffect(() => {
     fetchBadgeCounts();
-    api.get<{ show_logo: boolean }>("/settings/logo-visibility").then(
-      (res) => setShowLogo(res.show_logo),
-    ).catch(() => {});
   }, [fetchBadgeCounts]);
 
   // Refresh badge counts on relevant real-time events
@@ -252,17 +248,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         sx={{ display: "flex", alignItems: "center", p: 2, cursor: "pointer" }}
         onClick={() => drawerNav("/")}
       >
-        {showLogo ? (
-          <img
-            src="/api/v1/settings/logo"
-            alt="Turbo EA"
-            style={{ height: 45, objectFit: "contain" }}
-          />
-        ) : (
-          <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
-            Turbo EA
-          </Typography>
-        )}
+        <img
+          src="/api/v1/settings/logo"
+          alt="Turbo EA"
+          style={{ height: 45, objectFit: "contain" }}
+        />
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
 
@@ -510,17 +500,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             }}
             onClick={() => navigate("/")}
           >
-            {showLogo ? (
-              <img
-                src="/api/v1/settings/logo"
-                alt="Turbo EA"
-                style={{ height: 45, objectFit: "contain" }}
-              />
-            ) : (
-              <Typography variant="h6" sx={{ color: "#fff", fontWeight: 700 }}>
-                Turbo EA
-              </Typography>
-            )}
+            <img
+              src="/api/v1/settings/logo"
+              alt="Turbo EA"
+              style={{ height: 45, objectFit: "contain" }}
+            />
           </Box>
 
           {/* Desktop / tablet nav items */}
