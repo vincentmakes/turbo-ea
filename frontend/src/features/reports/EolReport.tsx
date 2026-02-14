@@ -26,7 +26,7 @@ import { api } from "@/api/client";
 /* ------------------------------------------------------------------ */
 
 interface CycleData {
-  cycle: string;
+  cycle?: string;
   releaseDate?: string;
   eol?: string | boolean;
   latest?: string;
@@ -48,9 +48,10 @@ interface EolItem {
   name: string;
   type: string;
   subtype?: string;
-  eol_product: string;
-  eol_cycle: string;
+  eol_product: string | null;
+  eol_cycle: string | null;
   status: "eol" | "approaching" | "supported" | "unknown";
+  source: "api" | "manual";
   cycle_data: CycleData | null;
   lifecycle?: Record<string, string>;
   affected_apps: AffectedApp[];
@@ -63,6 +64,7 @@ interface EolReportData {
     approaching: number;
     supported: number;
     impacted_apps: number;
+    manual: number;
   };
 }
 
@@ -107,6 +109,28 @@ function countdownLabel(days: number | null): string {
   if (days < 30) return `${days}d`;
   if (days < 365) return `${Math.round(days / 30)}mo`;
   return `${(days / 365).toFixed(1)}y`;
+}
+
+/** Source badge for manual vs API items */
+function SourceBadge({ source }: { source: "api" | "manual" }) {
+  if (source === "api") return null;
+  return (
+    <Tooltip title="End-of-Life date was manually maintained in the Lifecycle section, not from endoflife.date API">
+      <Chip
+        size="small"
+        label="Manual"
+        icon={<MaterialSymbol icon="edit_note" size={14} />}
+        sx={{
+          height: 18,
+          fontSize: "0.6rem",
+          fontWeight: 600,
+          bgcolor: "#e8eaf6",
+          color: "#3949ab",
+          "& .MuiChip-icon": { color: "#3949ab" },
+        }}
+      />
+    </Tooltip>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -163,6 +187,7 @@ export default function EolReport() {
   const [view, setView] = useState<"chart" | "table">("chart");
   const [filterStatus, setFilterStatus] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterSource, setFilterSource] = useState("");
   const [sortK, setSortK] = useState("status");
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
@@ -178,8 +203,9 @@ export default function EolReport() {
     let items = data.items;
     if (filterStatus) items = items.filter((i) => i.status === filterStatus);
     if (filterType) items = items.filter((i) => i.type === filterType);
+    if (filterSource) items = items.filter((i) => i.source === filterSource);
     return items;
-  }, [data, filterStatus, filterType]);
+  }, [data, filterStatus, filterType, filterSource]);
 
   // Sorted items for table
   const sortedItems = useMemo(() => {
@@ -188,7 +214,8 @@ export default function EolReport() {
       const d = sortD === "asc" ? 1 : -1;
       if (sortK === "name") return a.name.localeCompare(b.name) * d;
       if (sortK === "type") return a.type.localeCompare(b.type) * d;
-      if (sortK === "product") return a.eol_product.localeCompare(b.eol_product) * d;
+      if (sortK === "product") return (a.eol_product || "").localeCompare(b.eol_product || "") * d;
+      if (sortK === "source") return a.source.localeCompare(b.source) * d;
       if (sortK === "status") {
         return ((statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9)) * d;
       }
@@ -303,14 +330,39 @@ export default function EolReport() {
             <MenuItem value="Application">Application</MenuItem>
             <MenuItem value="ITComponent">IT Component</MenuItem>
           </TextField>
+          <TextField
+            select
+            size="small"
+            label="Source"
+            value={filterSource}
+            onChange={(e) => setFilterSource(e.target.value)}
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">All Sources</MenuItem>
+            <MenuItem value="api">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="cloud" size={16} color="#1976d2" />
+                endoflife.date
+              </Box>
+            </MenuItem>
+            <MenuItem value="manual">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="edit_note" size={16} color="#3949ab" />
+                Manual
+              </Box>
+            </MenuItem>
+          </TextField>
         </>
       }
       legend={
         <ReportLegend
-          items={Object.values(STATUS_CONFIG).map((s) => ({
-            label: s.label,
-            color: s.color,
-          }))}
+          items={[
+            ...Object.values(STATUS_CONFIG).map((s) => ({
+              label: s.label,
+              color: s.color,
+            })),
+            { label: "Manually Maintained", color: "#3949ab" },
+          ]}
         />
       }
     >
@@ -344,6 +396,13 @@ export default function EolReport() {
           color="#1565c0"
           bg="#e3f2fd"
         />
+        <KpiCard
+          icon="edit_note"
+          label="Manually Maintained"
+          value={data.summary.manual}
+          color="#3949ab"
+          bg="#e8eaf6"
+        />
       </Box>
 
       {filteredItems.length === 0 ? (
@@ -351,7 +410,7 @@ export default function EolReport() {
           <MaterialSymbol icon="info" size={40} color="#bdbdbd" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {data.items.length === 0
-              ? "No fact sheets with linked EOL data found. Link an Application or IT Component to endoflife.date to see it here."
+              ? "No fact sheets with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section."
               : "No items match the current filters."}
           </Typography>
         </Paper>
@@ -385,12 +444,13 @@ export default function EolReport() {
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: "flex" }}>
               {/* Fixed left column: names */}
-              <Box sx={{ width: 240, flexShrink: 0, pr: 1 }}>
+              <Box sx={{ width: 260, flexShrink: 0, pr: 1 }}>
                 <Box sx={{ height: 24, mb: 1 }} />
                 {filteredItems.map((item) => {
                   const cfg = STATUS_CONFIG[item.status];
                   const typeConf = getType(item.type);
                   const isExpanded = expandedItem === item.id;
+                  const isManual = item.source === "manual";
                   return (
                     <Box key={item.id}>
                       <Box
@@ -420,7 +480,11 @@ export default function EolReport() {
                             }}
                           />
                         )}
-                        <Tooltip title={`${item.name} (${item.eol_product} ${item.eol_cycle})`}>
+                        <Tooltip title={
+                          isManual
+                            ? `${item.name} (manually maintained)`
+                            : `${item.name} (${item.eol_product} ${item.eol_cycle})`
+                        }>
                           <Typography
                             variant="body2"
                             noWrap
@@ -433,6 +497,9 @@ export default function EolReport() {
                             {item.name}
                           </Typography>
                         </Tooltip>
+                        {isManual && (
+                          <SourceBadge source="manual" />
+                        )}
                         {item.affected_apps.length > 0 && (
                           <Tooltip title={`Impacts ${item.affected_apps.length} app${item.affected_apps.length > 1 ? "s" : ""}`}>
                             <Chip
@@ -521,6 +588,7 @@ export default function EolReport() {
                     const cd = item.cycle_data;
                     const cfg = STATUS_CONFIG[item.status];
                     const isExpanded = expandedItem === item.id;
+                    const isManual = item.source === "manual";
 
                     // Compute bar position
                     const releaseMs = parseDate(cd?.releaseDate);
@@ -550,7 +618,10 @@ export default function EolReport() {
 
                     const eolDays =
                       typeof cd?.eol === "string" ? daysUntil(cd.eol) : null;
-                    const tipText = `${item.eol_product} ${item.eol_cycle} \u00B7 EOL: ${fmtDate(cd?.eol)}${eolDays !== null ? ` (${countdownLabel(eolDays)})` : ""}`;
+                    const productLabel = isManual
+                      ? "Manual"
+                      : `${item.eol_product} ${item.eol_cycle}`;
+                    const tipText = `${productLabel} \u00B7 EOL: ${fmtDate(cd?.eol)}${eolDays !== null ? ` (${countdownLabel(eolDays)})` : ""}`;
 
                     return (
                       <Box key={item.id}>
@@ -583,7 +654,7 @@ export default function EolReport() {
                                   height: "100%",
                                   bgcolor: cfg.color + "30",
                                   borderRadius: "4px",
-                                  border: `1px solid ${cfg.color}60`,
+                                  border: `1px ${isManual ? "dashed" : "solid"} ${cfg.color}60`,
                                 }}
                               />
                             </Tooltip>
@@ -626,14 +697,28 @@ export default function EolReport() {
                                       stroke="#fff"
                                       strokeWidth="2"
                                     />
-                                    <rect
-                                      x="5"
-                                      y="10"
-                                      width="14"
-                                      height="4"
-                                      rx="1"
-                                      fill="#fff"
-                                    />
+                                    {isManual ? (
+                                      /* Pencil-like icon for manual */
+                                      <text
+                                        x="12"
+                                        y="16"
+                                        textAnchor="middle"
+                                        fill="#fff"
+                                        fontSize="12"
+                                        fontWeight="bold"
+                                      >
+                                        M
+                                      </text>
+                                    ) : (
+                                      <rect
+                                        x="5"
+                                        y="10"
+                                        width="14"
+                                        height="4"
+                                        rx="1"
+                                        fill="#fff"
+                                      />
+                                    )}
                                   </svg>
                                 </Box>
                               </Tooltip>
@@ -650,9 +735,10 @@ export default function EolReport() {
                                 fontWeight: 600,
                                 whiteSpace: "nowrap",
                                 pointerEvents: "none",
+                                fontStyle: isManual ? "italic" : "normal",
                               }}
                             >
-                              {item.eol_product} {item.eol_cycle}
+                              {isManual ? "lifecycle" : `${item.eol_product} ${item.eol_cycle}`}
                             </Typography>
                           </Box>
                         </Box>
@@ -737,6 +823,15 @@ export default function EolReport() {
                 <TableCell>Version</TableCell>
                 <TableCell>
                   <TableSortLabel
+                    active={sortK === "source"}
+                    direction={sortK === "source" ? sortD : "asc"}
+                    onClick={() => sort("source")}
+                  >
+                    Source
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  <TableSortLabel
                     active={sortK === "status"}
                     direction={sortK === "status" ? sortD : "asc"}
                     onClick={() => sort("status")}
@@ -773,6 +868,7 @@ export default function EolReport() {
                 const eolDays =
                   typeof cd?.eol === "string" ? daysUntil(cd.eol) : null;
                 const typeConf = getType(item.type);
+                const isManual = item.source === "manual";
 
                 return (
                   <TableRow
@@ -805,10 +901,33 @@ export default function EolReport() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{item.eol_product}</Typography>
+                      <Typography variant="body2">
+                        {item.eol_product || "\u2014"}
+                      </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">{item.eol_cycle}</Typography>
+                      <Typography variant="body2">
+                        {item.eol_cycle || "\u2014"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {isManual ? (
+                        <SourceBadge source="manual" />
+                      ) : (
+                        <Chip
+                          size="small"
+                          label="API"
+                          icon={<MaterialSymbol icon="cloud" size={12} />}
+                          sx={{
+                            height: 18,
+                            fontSize: "0.6rem",
+                            fontWeight: 600,
+                            bgcolor: "#e3f2fd",
+                            color: "#1976d2",
+                            "& .MuiChip-icon": { color: "#1976d2" },
+                          }}
+                        />
+                      )}
                     </TableCell>
                     <TableCell>
                       <Chip
