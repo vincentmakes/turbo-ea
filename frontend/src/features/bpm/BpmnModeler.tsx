@@ -225,7 +225,7 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px - 48px)" }}>
       {/* Toolbar */}
       <Box
         sx={{
@@ -306,7 +306,25 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
       </Box>
 
       {/* Canvas */}
-      <Box ref={containerRef} sx={{ flex: 1, bgcolor: "#fafafa", "& .bjs-powered-by": { display: "none" } }} />
+      <Box
+        ref={containerRef}
+        sx={{
+          flex: 1,
+          bgcolor: "#fafafa",
+          "& .bjs-powered-by": { display: "none" },
+          // Simple mode: hide advanced palette entries
+          ...(mode === "simple" && {
+            // Hide sub-process, data store, data object, group, participant/pool
+            '& .djs-palette [data-action="create.subprocess-expanded"]': { display: "none" },
+            '& .djs-palette [data-action="create.data-object"]': { display: "none" },
+            '& .djs-palette [data-action="create.data-store"]': { display: "none" },
+            '& .djs-palette [data-action="create.group"]': { display: "none" },
+            '& .djs-palette [data-action="create.participant-expanded"]': { display: "none" },
+            // Hide intermediate events (keep start/end only)
+            '& .djs-palette [data-action="create.intermediate-event"]': { display: "none" },
+          }),
+        }}
+      />
 
       {/* Snackbar */}
       <Snackbar
