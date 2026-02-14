@@ -427,6 +427,28 @@ export interface EolCycle {
   link?: string | null;
 }
 
+export interface EolProductMatch {
+  name: string;
+  score: number;
+}
+
+export interface MassEolCandidate {
+  fact_sheet_id: string;
+  fact_sheet_name: string;
+  fact_sheet_type: string;
+  eol_product: string;
+  score: number;
+}
+
+export interface MassEolResult {
+  fact_sheet_id: string;
+  fact_sheet_name: string;
+  fact_sheet_type: string;
+  current_eol_product?: string | null;
+  current_eol_cycle?: string | null;
+  candidates: MassEolCandidate[];
+}
+
 export interface DiagramSummary {
   id: string;
   name: string;

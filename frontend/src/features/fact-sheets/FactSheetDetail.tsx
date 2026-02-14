@@ -1836,6 +1836,7 @@ export default function FactSheetDetail() {
       {/* ── Sections ── */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 3 }}>
         <DescriptionSection fs={fs} onSave={handleUpdate} />
+        <EolLinkSection fs={fs} onSave={handleUpdate} />
         <LifecycleSection fs={fs} onSave={handleUpdate} />
         {typeConfig?.fields_schema.map((section) => (
           <AttributeSection
@@ -1845,7 +1846,6 @@ export default function FactSheetDetail() {
             onSave={handleUpdate}
           />
         ))}
-        <EolLinkSection fs={fs} onSave={handleUpdate} />
         <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
         <RelationsSection fsId={fs.id} fsType={fs.type} />
       </Box>
