@@ -126,7 +126,16 @@ export default function ProcessFlowTab({ processId }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="download" />}
-          onClick={() => window.open(`/api/v1/bpm/processes/${processId}/diagram/export/bpmn`)}
+          onClick={async () => {
+            const res = await api.getRaw(`/bpm/processes/${processId}/diagram/export/bpmn`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `process-${processId}.bpmn`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
         >
           Export BPMN
         </Button>
@@ -134,7 +143,16 @@ export default function ProcessFlowTab({ processId }: Props) {
           variant="outlined"
           size="small"
           startIcon={<MaterialSymbol icon="image" />}
-          onClick={() => window.open(`/api/v1/bpm/processes/${processId}/diagram/export/svg`)}
+          onClick={async () => {
+            const res = await api.getRaw(`/bpm/processes/${processId}/diagram/export/svg`);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `process-${processId}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
         >
           Export SVG
         </Button>

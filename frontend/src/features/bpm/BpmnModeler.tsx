@@ -306,7 +306,7 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
       </Box>
 
       {/* Canvas */}
-      <Box ref={containerRef} sx={{ flex: 1, bgcolor: "#fafafa" }} />
+      <Box ref={containerRef} sx={{ flex: 1, bgcolor: "#fafafa", "& .bjs-powered-by": { display: "none" } }} />
 
       {/* Snackbar */}
       <Snackbar

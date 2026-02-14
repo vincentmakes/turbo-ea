@@ -28,8 +28,26 @@ async function request<T>(
   return res.json();
 }
 
+async function requestRaw(path: string, options: RequestInit = {}): Promise<Response> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    const msg = Array.isArray(err.detail)
+      ? err.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join("; ")
+      : err.detail || res.statusText;
+    throw new Error(msg);
+  }
+  return res;
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getRaw: (path: string) => requestRaw(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
   patch: <T>(path: string, body?: unknown) =>
