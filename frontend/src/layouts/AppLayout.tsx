@@ -50,6 +50,7 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Portfolio", icon: "bubble_chart", path: "/reports/portfolio" },
       { label: "Capability Map", icon: "grid_view", path: "/reports/capability-map" },
+      { label: "Process Map", icon: "account_tree", path: "/reports/process-map" },
       { label: "Lifecycle", icon: "timeline", path: "/reports/lifecycle" },
       { label: "Dependencies", icon: "hub", path: "/reports/dependencies" },
       { label: "Cost", icon: "payments", path: "/reports/cost" },
