@@ -806,7 +806,8 @@ async def eol_report(
     items = []
     counts = {"eol": 0, "approaching": 0, "supported": 0}
     manual_count = 0
-    impacted_app_ids: set[str] = set()
+    eol_impacted_app_ids: set[str] = set()
+    approaching_impacted_app_ids: set[str] = set()
 
     # 4a. API-linked items
     for fs in api_sheets:
@@ -831,9 +832,12 @@ async def eol_report(
 
         # Impact: affected apps
         affected_apps = it_to_apps.get(str(fs.id), [])
-        if status in ("eol", "approaching") and fs.type == "ITComponent":
+        if fs.type == "ITComponent":
             for app in affected_apps:
-                impacted_app_ids.add(app["id"])
+                if status == "eol":
+                    eol_impacted_app_ids.add(app["id"])
+                elif status == "approaching":
+                    approaching_impacted_app_ids.add(app["id"])
 
         items.append({
             "id": str(fs.id),
@@ -860,9 +864,12 @@ async def eol_report(
 
         # Impact: affected apps
         affected_apps = it_to_apps.get(str(fs.id), [])
-        if status in ("eol", "approaching") and fs.type == "ITComponent":
+        if fs.type == "ITComponent":
             for app in affected_apps:
-                impacted_app_ids.add(app["id"])
+                if status == "eol":
+                    eol_impacted_app_ids.add(app["id"])
+                elif status == "approaching":
+                    approaching_impacted_app_ids.add(app["id"])
 
         # Build synthetic cycle_data from lifecycle dates for timeline display
         manual_cycle_data = {}
@@ -897,7 +904,8 @@ async def eol_report(
             "eol": counts["eol"],
             "approaching": counts["approaching"],
             "supported": counts["supported"],
-            "impacted_apps": len(impacted_app_ids),
+            "impacted_apps": len(eol_impacted_app_ids),
+            "approaching_impacted_apps": len(approaching_impacted_app_ids - eol_impacted_app_ids),
             "manual": manual_count,
         },
     }

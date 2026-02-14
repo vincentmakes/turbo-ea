@@ -64,6 +64,7 @@ interface EolReportData {
     approaching: number;
     supported: number;
     impacted_apps: number;
+    approaching_impacted_apps: number;
     manual: number;
   };
 }
@@ -429,7 +430,7 @@ export default function EolReport() {
                 `, impacting ${data.summary.impacted_apps} application${data.summary.impacted_apps > 1 ? "s" : ""}`}
             </Alert>
           )}
-          {data.summary.eol === 0 && data.summary.approaching > 0 && (
+          {data.summary.approaching > 0 && (
             <Alert
               severity="warning"
               icon={<MaterialSymbol icon="warning" size={20} />}
@@ -437,6 +438,8 @@ export default function EolReport() {
               <strong>{data.summary.approaching}</strong> item
               {data.summary.approaching > 1 ? "s are" : " is"} approaching End
               of Life within 6 months
+              {data.summary.approaching_impacted_apps > 0 &&
+                `, impacting ${data.summary.approaching_impacted_apps} additional application${data.summary.approaching_impacted_apps > 1 ? "s" : ""}`}
             </Alert>
           )}
 
