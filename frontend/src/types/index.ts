@@ -495,6 +495,8 @@ export interface PortalRelationType {
   reverse_label?: string;
   source_type_key: string;
   target_type_key: string;
+  other_type_key: string;
+  other_type_label: string;
 }
 
 export interface PortalTagGroup {

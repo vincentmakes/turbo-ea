@@ -216,16 +216,41 @@ async def get_public_portal(
             RelationType.is_hidden == False,  # noqa: E712
         )
     )
-    rel_types = [
-        {
+    rel_types_raw = rel_types_result.scalars().all()
+
+    # Collect all related type keys to batch-fetch their labels
+    related_type_keys = set()
+    for rt in rel_types_raw:
+        if rt.source_type_key != portal.fact_sheet_type:
+            related_type_keys.add(rt.source_type_key)
+        if rt.target_type_key != portal.fact_sheet_type:
+            related_type_keys.add(rt.target_type_key)
+
+    type_labels: dict[str, str] = {}
+    if related_type_keys:
+        labels_result = await db.execute(
+            select(FactSheetType.key, FactSheetType.label).where(
+                FactSheetType.key.in_(related_type_keys)
+            )
+        )
+        type_labels = {row.key: row.label for row in labels_result.all()}
+
+    rel_types = []
+    for rt in rel_types_raw:
+        other_type = (
+            rt.target_type_key
+            if rt.source_type_key == portal.fact_sheet_type
+            else rt.source_type_key
+        )
+        rel_types.append({
             "key": rt.key,
             "label": rt.label,
             "reverse_label": rt.reverse_label,
             "source_type_key": rt.source_type_key,
             "target_type_key": rt.target_type_key,
-        }
-        for rt in rel_types_result.scalars().all()
-    ]
+            "other_type_key": other_type,
+            "other_type_label": type_labels.get(other_type, other_type),
+        })
 
     # Fetch available tag groups
     tag_groups_result = await db.execute(
@@ -260,6 +285,31 @@ async def get_public_portal(
     }
 
 
+@router.get("/public/{slug}/relation-options")
+async def get_public_portal_relation_options(
+    slug: str,
+    type_key: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return fact sheet name/id pairs for a given type, for filter dropdowns."""
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+
+    fs_result = await db.execute(
+        select(FactSheet.id, FactSheet.name)
+        .where(FactSheet.type == type_key, FactSheet.status == "ACTIVE")
+        .order_by(FactSheet.name)
+    )
+    return [
+        {"id": str(row.id), "name": row.name}
+        for row in fs_result.all()
+    ]
+
+
 @router.get("/public/{slug}/fact-sheets")
 async def get_public_portal_fact_sheets(
     slug: str,
@@ -268,6 +318,7 @@ async def get_public_portal_fact_sheets(
     tag_ids: str | None = Query(None),
     related_type: str | None = Query(None),
     related_id: str | None = Query(None),
+    relation_filters: str | None = Query(None),
     attr_filters: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(24, ge=1, le=100),
@@ -341,7 +392,7 @@ async def get_public_portal_fact_sheets(
         except (json.JSONDecodeError, TypeError):
             pass  # Ignore malformed attr_filters
 
-    # Filter by relationship to a specific fact sheet
+    # Filter by relationship to a specific fact sheet (single, legacy)
     if related_type and related_id:
         rid = uuid.UUID(related_id)
         related_fs = select(Relation.target_id).where(
@@ -355,6 +406,29 @@ async def get_public_portal_fact_sheets(
         )
         q = q.where(FactSheet.id.in_(related_fs))
         count_q = count_q.where(FactSheet.id.in_(related_fs))
+
+    # Filter by multiple relations (JSON: {"relTypeKey": "factSheetId", ...})
+    if relation_filters:
+        try:
+            parsed_rf = json.loads(relation_filters)
+            if isinstance(parsed_rf, dict):
+                for rel_key, fs_id in parsed_rf.items():
+                    if not rel_key or not fs_id:
+                        continue
+                    rid = uuid.UUID(str(fs_id))
+                    sub = select(Relation.target_id).where(
+                        Relation.type == rel_key,
+                        Relation.source_id == rid,
+                    ).union(
+                        select(Relation.source_id).where(
+                            Relation.type == rel_key,
+                            Relation.target_id == rid,
+                        )
+                    )
+                    q = q.where(FactSheet.id.in_(sub))
+                    count_q = count_q.where(FactSheet.id.in_(sub))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
 
     # Sorting
     sort_col = getattr(FactSheet, sort_by, FactSheet.name)

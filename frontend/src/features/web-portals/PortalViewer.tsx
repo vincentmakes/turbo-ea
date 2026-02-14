@@ -248,6 +248,8 @@ export default function PortalViewer() {
   const [search, setSearch] = useState("");
   const [subtype, setSubtype] = useState("");
   const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
+  const [relationFilters, setRelationFilters] = useState<Record<string, string>>({});
+  const [relationOptions, setRelationOptions] = useState<Record<string, { id: string; name: string }[]>>({});
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [loading, setLoading] = useState(true);
@@ -266,6 +268,21 @@ export default function PortalViewer() {
       .finally(() => setLoading(false));
   }, [slug]);
 
+  // Fetch relation options (fact sheets of each related type) for filter dropdowns
+  useEffect(() => {
+    if (!slug || !portal?.relation_types?.length) return;
+    const seen = new Set<string>();
+    portal.relation_types.forEach((rt) => {
+      if (seen.has(rt.other_type_key)) return;
+      seen.add(rt.other_type_key);
+      publicGet<{ id: string; name: string }[]>(
+        `/web-portals/public/${slug}/relation-options?type_key=${rt.other_type_key}`
+      ).then((opts) =>
+        setRelationOptions((prev) => ({ ...prev, [rt.other_type_key]: opts }))
+      );
+    });
+  }, [slug, portal]);
+
   const loadFactSheets = useCallback(async () => {
     if (!slug) return;
     setFsLoading(true);
@@ -278,6 +295,12 @@ export default function PortalViewer() {
       );
       if (Object.keys(activeAttrFilters).length > 0) {
         params.set("attr_filters", JSON.stringify(activeAttrFilters));
+      }
+      const activeRelFilters = Object.fromEntries(
+        Object.entries(relationFilters).filter(([, v]) => v !== "")
+      );
+      if (Object.keys(activeRelFilters).length > 0) {
+        params.set("relation_filters", JSON.stringify(activeRelFilters));
       }
       params.set("page", String(page));
       params.set("page_size", String(pageSize));
@@ -293,7 +316,7 @@ export default function PortalViewer() {
     } finally {
       setFsLoading(false);
     }
-  }, [slug, search, subtype, attrFilters, page, pageSize, sortBy, sortDir]);
+  }, [slug, search, subtype, attrFilters, relationFilters, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     if (portal) loadFactSheets();
@@ -335,7 +358,9 @@ export default function PortalViewer() {
   );
 
   const hasActiveFilters =
-    subtype !== "" || Object.values(attrFilters).some((v) => v !== "");
+    subtype !== "" ||
+    Object.values(attrFilters).some((v) => v !== "") ||
+    Object.values(relationFilters).some((v) => v !== "");
 
   if (loading) {
     return (
@@ -558,6 +583,37 @@ export default function PortalViewer() {
               </TextField>
             ))}
 
+            {portal.relation_types.map((rt) => {
+              const opts = relationOptions[rt.other_type_key] || [];
+              if (opts.length === 0) return null;
+              return (
+                <TextField
+                  key={rt.key}
+                  select
+                  size="small"
+                  label={rt.other_type_label}
+                  value={relationFilters[rt.key] || ""}
+                  onChange={(e) => {
+                    setRelationFilters((prev) => ({
+                      ...prev,
+                      [rt.key]: e.target.value,
+                    }));
+                    setPage(1);
+                  }}
+                  sx={{ minWidth: 200, "& .MuiSelect-select": { pr: "32px !important" } }}
+                >
+                  <MenuItem value="">
+                    All {rt.other_type_label}s
+                  </MenuItem>
+                  {opts.map((o) => (
+                    <MenuItem key={o.id} value={o.id}>
+                      {o.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              );
+            })}
+
             {hasActiveFilters && (
               <Chip
                 label="Clear Filters"
@@ -565,6 +621,7 @@ export default function PortalViewer() {
                 onDelete={() => {
                   setSubtype("");
                   setAttrFilters({});
+                  setRelationFilters({});
                   setPage(1);
                 }}
                 sx={{ alignSelf: "center" }}
