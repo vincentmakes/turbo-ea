@@ -6,6 +6,7 @@ from app.api.v1 import (
     comments,
     diagrams,
     documents,
+    eol,
     events,
     fact_sheets,
     metamodel,
@@ -35,6 +36,7 @@ api_router.include_router(bookmarks.router)
 api_router.include_router(reports.router)
 api_router.include_router(diagrams.router)
 api_router.include_router(soaw.router)
+api_router.include_router(eol.router)
 api_router.include_router(events.router)
 api_router.include_router(users.router)
 api_router.include_router(notifications.router)

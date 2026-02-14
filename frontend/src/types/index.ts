@@ -406,6 +406,27 @@ export interface BadgeCounts {
   pending_surveys: number;
 }
 
+// ---------------------------------------------------------------------------
+// End of Life (endoflife.date)
+// ---------------------------------------------------------------------------
+
+export interface EolProduct {
+  name: string;
+}
+
+export interface EolCycle {
+  cycle: string;
+  releaseDate?: string | null;
+  eol?: string | boolean | null;
+  latest?: string | null;
+  latestReleaseDate?: string | null;
+  lts?: string | boolean | null;
+  support?: string | boolean | null;
+  discontinued?: string | boolean | null;
+  codename?: string | null;
+  link?: string | null;
+}
+
 export interface DiagramSummary {
   id: string;
   name: string;
