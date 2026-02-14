@@ -17,11 +17,13 @@ import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
+import Chip from "@mui/material/Chip";
+import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FieldDef, FactSheet, EolCycle } from "@/types";
+import type { FieldDef, FactSheet, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
@@ -68,6 +70,11 @@ export default function CreateFactSheetDialog({
   const [eolCycle, setEolCycle] = useState("");
   const [eolDialogOpen, setEolDialogOpen] = useState(false);
 
+  // Auto-search EOL state
+  const [eolSuggestions, setEolSuggestions] = useState<EolProductMatch[]>([]);
+  const [eolSearching, setEolSearching] = useState(false);
+  const [eolAutoSearchDone, setEolAutoSearchDone] = useState(false);
+
   const typeConfig = useMemo(
     () => types.find((t) => t.key === selectedType),
     [types, selectedType],
@@ -75,6 +82,7 @@ export default function CreateFactSheetDialog({
 
   const hasSubtypes = !!(typeConfig?.subtypes && typeConfig.subtypes.length > 0);
   const hasHierarchy = !!typeConfig?.has_hierarchy;
+  const isEolEligible = EOL_ELIGIBLE_TYPES.includes(selectedType);
 
   // Collect all required fields across all sections for the selected type
   const requiredFields = useMemo(() => {
@@ -100,6 +108,8 @@ export default function CreateFactSheetDialog({
     setError("");
     setEolProduct("");
     setEolCycle("");
+    setEolSuggestions([]);
+    setEolAutoSearchDone(false);
   }, [selectedType]);
 
   // Set initial type when dialog opens
@@ -125,8 +135,38 @@ export default function CreateFactSheetDialog({
       setEolProduct("");
       setEolCycle("");
       setEolDialogOpen(false);
+      setEolSuggestions([]);
+      setEolAutoSearchDone(false);
     }
   }, [open, initialType]);
+
+  // Auto-search EOL when name changes (debounced)
+  useEffect(() => {
+    if (!isEolEligible || !name.trim() || name.trim().length < 2) {
+      setEolSuggestions([]);
+      setEolAutoSearchDone(false);
+      return;
+    }
+    // Don't auto-search if already linked
+    if (eolProduct && eolCycle) return;
+
+    const timer = setTimeout(async () => {
+      setEolSearching(true);
+      try {
+        const results = await api.get<EolProductMatch[]>(
+          `/eol/products/fuzzy?search=${encodeURIComponent(name.trim())}&limit=5`
+        );
+        setEolSuggestions(results);
+        setEolAutoSearchDone(true);
+      } catch {
+        setEolSuggestions([]);
+        setEolAutoSearchDone(true);
+      } finally {
+        setEolSearching(false);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [name, isEolEligible, eolProduct, eolCycle]);
 
   // Fetch parent options when search query changes
   const fetchParentOptions = useCallback(
@@ -165,6 +205,12 @@ export default function CreateFactSheetDialog({
 
   const setAttr = (key: string, value: unknown) => {
     setAttributes((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSelectSuggestion = (productName: string) => {
+    setEolProduct(productName);
+    setEolCycle(""); // User still needs to pick a cycle
+    setEolDialogOpen(true);
   };
 
   const handleSubmit = async () => {
@@ -461,25 +507,23 @@ export default function CreateFactSheetDialog({
           sx={{ mb: 2 }}
         />
 
-        {/* Required fields from schema */}
-        {requiredFields.length > 0 && requiredFields.map((f) => renderField(f))}
-
-        {/* EOL link option for eligible types */}
-        {EOL_ELIGIBLE_TYPES.includes(selectedType) && (
+        {/* EOL section - below description, with auto-search */}
+        {isEolEligible && (
           <Box
             sx={{
-              mt: 1,
+              mt: 0,
+              mb: 2,
               p: 1.5,
               border: "1px dashed",
               borderColor: eolProduct ? "success.main" : "divider",
               borderRadius: 1,
-              bgcolor: eolProduct ? "success.main" : "transparent",
               ...(eolProduct
                 ? { bgcolor: "rgba(76, 175, 80, 0.04)" }
                 : {}),
             }}
           >
             {eolProduct && eolCycle ? (
+              /* Already linked */
               <Box
                 sx={{
                   display: "flex",
@@ -511,6 +555,7 @@ export default function CreateFactSheetDialog({
                     onClick={() => {
                       setEolProduct("");
                       setEolCycle("");
+                      setEolAutoSearchDone(false);
                     }}
                   >
                     Remove
@@ -518,29 +563,79 @@ export default function CreateFactSheetDialog({
                 </Box>
               </Box>
             ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <MaterialSymbol icon="update" size={18} color="#666" />
-                <Typography variant="body2" color="text.secondary">
-                  Track end-of-life status?
-                </Typography>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  sx={{ ml: "auto" }}
-                  onClick={() => setEolDialogOpen(true)}
+              <Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mb: eolSearching || (eolAutoSearchDone && eolSuggestions.length > 0) ? 1.5 : 0,
+                  }}
                 >
-                  Link EOL Data
-                </Button>
+                  <MaterialSymbol icon="update" size={18} color="#666" />
+                  <Typography variant="body2" color="text.secondary">
+                    End-of-Life Tracking
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    sx={{ ml: "auto" }}
+                    onClick={() => setEolDialogOpen(true)}
+                  >
+                    Manual Search
+                  </Button>
+                </Box>
+
+                {/* Auto-search loading */}
+                {eolSearching && (
+                  <Box sx={{ mt: 1 }}>
+                    <LinearProgress sx={{ mb: 0.5, borderRadius: 1 }} />
+                    <Typography variant="caption" color="text.secondary">
+                      Searching endoflife.date for "{name.trim()}"...
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Auto-search suggestions */}
+                {!eolSearching && eolAutoSearchDone && eolSuggestions.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                      Suggested matches from endoflife.date:
+                    </Typography>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {eolSuggestions.map((s) => (
+                        <Chip
+                          key={s.name}
+                          label={s.name}
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleSelectSuggestion(s.name)}
+                          icon={<MaterialSymbol icon="link" size={14} />}
+                          sx={{
+                            cursor: "pointer",
+                            borderColor: s.score >= 0.7 ? "success.main" : "divider",
+                            fontWeight: s.score >= 0.7 ? 600 : 400,
+                            "&:hover": { bgcolor: "action.hover" },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                {/* No matches found */}
+                {!eolSearching && eolAutoSearchDone && eolSuggestions.length === 0 && name.trim().length >= 2 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+                    No EOL matches found. Use "Manual Search" to look for variations.
+                  </Typography>
+                )}
               </Box>
             )}
           </Box>
         )}
+
+        {/* Required fields from schema */}
+        {requiredFields.length > 0 && requiredFields.map((f) => renderField(f))}
 
         {/* EOL picker dialog */}
         <EolLinkDialog
@@ -549,7 +644,9 @@ export default function CreateFactSheetDialog({
           onLink={(product, cycle) => {
             setEolProduct(product);
             setEolCycle(cycle);
+            setEolSuggestions([]);
           }}
+          initialProduct={eolProduct || undefined}
         />
       </DialogContent>
 

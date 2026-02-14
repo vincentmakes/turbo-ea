@@ -579,9 +579,10 @@ interface EolLinkDialogProps {
   open: boolean;
   onClose: () => void;
   onLink: (product: string, cycle: string) => void;
+  initialProduct?: string;
 }
 
-export function EolLinkDialog({ open, onClose, onLink }: EolLinkDialogProps) {
+export function EolLinkDialog({ open, onClose, onLink, initialProduct }: EolLinkDialogProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Link End-of-Life Data</DialogTitle>
@@ -596,6 +597,7 @@ export function EolLinkDialog({ open, onClose, onLink }: EolLinkDialogProps) {
             onClose();
           }}
           onCancel={onClose}
+          initialProduct={initialProduct}
         />
       </DialogContent>
       <DialogActions />

@@ -28,6 +28,7 @@ import SettingsAdmin from "@/features/admin/SettingsAdmin";
 import SurveysAdmin from "@/features/admin/SurveysAdmin";
 import SurveyBuilder from "@/features/admin/SurveyBuilder";
 import SurveyResults from "@/features/admin/SurveyResults";
+import EolAdmin from "@/features/admin/EolAdmin";
 import MySurveys from "@/features/surveys/MySurveys";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="/admin/tags" element={<TagsAdmin />} />
             <Route path="/admin/users" element={<UsersAdmin />} />
             <Route path="/admin/settings" element={<SettingsAdmin />} />
+            <Route path="/admin/eol" element={<EolAdmin />} />
             <Route path="/admin/surveys" element={<SurveysAdmin />} />
             <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
             <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />

@@ -64,6 +64,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { label: "Users", icon: "group", path: "/admin/users" },
   { label: "Surveys", icon: "assignment", path: "/admin/surveys" },
   { label: "Settings", icon: "settings", path: "/admin/settings" },
+  { label: "EOL Search", icon: "update", path: "/admin/eol" },
 ];
 
 interface Props {
