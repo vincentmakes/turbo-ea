@@ -472,7 +472,7 @@ export default function PortalViewer() {
               setSortDir(sd);
               setPage(1);
             }}
-            sx={{ minWidth: 160 }}
+            sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
           >
             <MenuItem value="name-asc">Name A-Z</MenuItem>
             <MenuItem value="name-desc">Name Z-A</MenuItem>
@@ -505,7 +505,7 @@ export default function PortalViewer() {
                     setSubtype(e.target.value);
                     setPage(1);
                   }}
-                  sx={{ minWidth: 160 }}
+                  sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
                 >
                   <MenuItem value="">All Subtypes</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
@@ -529,7 +529,7 @@ export default function PortalViewer() {
                   setSelectedTag(e.target.value);
                   setPage(1);
                 }}
-                sx={{ minWidth: 160 }}
+                sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
               >
                 <MenuItem value="">All</MenuItem>
                 {tg.tags.map((t) => (
