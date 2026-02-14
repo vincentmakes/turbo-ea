@@ -251,7 +251,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         <img
           src="/api/v1/settings/logo"
           alt="Turbo EA"
-          style={{ height: 32, objectFit: "contain" }}
+          style={{ height: 45, objectFit: "contain" }}
         />
       </Box>
       <Divider sx={{ borderColor: "rgba(255,255,255,0.1)" }} />
@@ -503,7 +503,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             <img
               src="/api/v1/settings/logo"
               alt="Turbo EA"
-              style={{ height: 32, objectFit: "contain" }}
+              style={{ height: 45, objectFit: "contain" }}
             />
           </Box>
 

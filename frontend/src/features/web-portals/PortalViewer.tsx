@@ -487,17 +487,19 @@ export default function PortalViewer() {
             </Box>
 
             {/* Right: app logo */}
-            <img
-              src="/api/v1/settings/logo"
-              alt=""
-              style={{
-                height: 28,
-                objectFit: "contain",
-                opacity: 0.85,
-                flexShrink: 0,
-                marginTop: 4,
-              }}
-            />
+            {(portal.card_config as Record<string, unknown>)?.show_logo !== false && (
+              <img
+                src="/api/v1/settings/logo"
+                alt=""
+                style={{
+                  height: 45,
+                  objectFit: "contain",
+                  opacity: 0.85,
+                  flexShrink: 0,
+                  marginTop: 4,
+                }}
+              />
+            )}
           </Box>
         </Box>
       </Box>
