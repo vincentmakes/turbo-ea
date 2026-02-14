@@ -221,6 +221,7 @@ export default function VendorField({
     <>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
         <Autocomplete
+          fullWidth
           freeSolo
           size={size}
           value={inputValue}
@@ -243,6 +244,10 @@ export default function VendorField({
           getOptionLabel={(opt) =>
             typeof opt === "string" ? opt : opt.inputValue ?? opt.name
           }
+          slotProps={{
+            popper: { sx: { minWidth: 360, maxWidth: "90vw" }, placement: "bottom-start" },
+            paper: { sx: { "& .MuiAutocomplete-option": { whiteSpace: "normal", wordBreak: "break-word" } } },
+          }}
           filterOptions={(opts, params) => {
             const filtered = filter(opts, params);
             const { inputValue: iv } = params;
