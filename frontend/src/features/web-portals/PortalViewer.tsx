@@ -535,7 +535,8 @@ export default function PortalViewer() {
               setSortDir(sd);
               setPage(1);
             }}
-            sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 180 }}
           >
             <MenuItem value="name-asc">Name A-Z</MenuItem>
             <MenuItem value="name-desc">Name Z-A</MenuItem>
@@ -553,6 +554,7 @@ export default function PortalViewer() {
               display: "flex",
               gap: 1.5,
               flexWrap: "wrap",
+              alignItems: "center",
               mt: 1.5,
               pb: 0.5,
             }}
@@ -568,7 +570,8 @@ export default function PortalViewer() {
                     setSubtype(e.target.value);
                     setPage(1);
                   }}
-                  sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 180 }}
                 >
                   <MenuItem value="">All Subtypes</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
@@ -593,7 +596,8 @@ export default function PortalViewer() {
                   }));
                   setPage(1);
                 }}
-                sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 180 }}
               >
                 <MenuItem value="">All</MenuItem>
                 {field.options!.map((opt) => (
@@ -621,7 +625,8 @@ export default function PortalViewer() {
                     }));
                     setPage(1);
                   }}
-                  sx={{ minWidth: 200, "& .MuiSelect-select": { pr: "32px !important" } }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 200 }}
                 >
                   <MenuItem value="">
                     All {rt.other_type_label}s
@@ -645,7 +650,6 @@ export default function PortalViewer() {
                   setRelationFilters({});
                   setPage(1);
                 }}
-                sx={{ alignSelf: "center" }}
               />
             )}
           </Box>
