@@ -673,8 +673,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <Popper
                   open={searchOpen}
                   anchorEl={searchAnchorRef.current}
-                  placement="bottom-start"
-                  style={{ zIndex: theme.zIndex.modal + 1, width: searchAnchorRef.current?.offsetWidth || 360 }}
+                  placement="bottom-end"
+                  style={{ zIndex: theme.zIndex.modal + 1, width: Math.max(440, searchAnchorRef.current?.offsetWidth || 440), maxWidth: "calc(100vw - 32px)" }}
                 >
                   <Paper
                     elevation={8}
@@ -712,8 +712,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography
                               variant="body2"
-                              noWrap
-                              sx={{ fontWeight: 500 }}
+                              sx={{ fontWeight: 500, wordBreak: "break-word" }}
                             >
                               {item.name}
                             </Typography>
