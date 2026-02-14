@@ -29,7 +29,6 @@ import SurveysAdmin from "@/features/admin/SurveysAdmin";
 import SurveyBuilder from "@/features/admin/SurveyBuilder";
 import SurveyResults from "@/features/admin/SurveyResults";
 import EolAdmin from "@/features/admin/EolAdmin";
-import MySurveys from "@/features/surveys/MySurveys";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
@@ -101,7 +100,7 @@ function AppRoutes() {
               <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
               <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
               <Route path="/todos" element={<TodosPage />} />
-              <Route path="/surveys" element={<MySurveys />} />
+              <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
               <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />
               <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
               <Route path="/admin/tags" element={<TagsAdmin />} />

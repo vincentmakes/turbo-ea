@@ -114,8 +114,8 @@ turbo-ea/
 │   │   │   ├── diagrams/             # DrawIO editor + sync panel + shapes
 │   │   │   ├── reports/              # 8 report types (see Reports section)
 │   │   │   ├── ea-delivery/          # SoAW editor + preview + DOCX export
-│   │   │   ├── todos/TodosPage.tsx
-│   │   │   ├── surveys/              # MySurveys + SurveyRespond pages
+│   │   │   ├── todos/TodosPage.tsx    # Combined Todos + Surveys page (tabbed)
+│   │   │   ├── surveys/              # SurveyRespond page
 │   │   │   ├── web-portals/          # PortalViewer (public portal rendering)
 │   │   │   └── admin/               # MetamodelAdmin, TagsAdmin, UsersAdmin,
 │   │   │                            # SettingsAdmin, EolAdmin, SurveysAdmin,
@@ -434,14 +434,13 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | `/ea-delivery/soaw/new` | `SoAWEditor` | Create new SoAW |
 | `/ea-delivery/soaw/:id` | `SoAWEditor` | Edit SoAW |
 | `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only SoAW preview |
-| `/todos` | `TodosPage` | Global todo list |
-| `/surveys` | `MySurveys` | List surveys assigned to current user |
+| `/todos` | `TodosPage` | Todos + Surveys combined page with tab switcher (`?tab=surveys`) |
 | `/surveys/:surveyId/respond/:factSheetId` | `SurveyRespond` | Respond to a survey for a specific fact sheet |
 | `/portal/:slug` | `PortalViewer` | Public portal view (no auth required) |
 | `/admin/metamodel` | `MetamodelAdmin` | Manage fact sheet types + relation types |
 | `/admin/tags` | `TagsAdmin` | Manage tag groups + tags |
 | `/admin/users` | `UsersAdmin` | Manage users (admin only) |
-| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP email, logo visibility toggle |
+| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP email configuration |
 | `/admin/eol` | `EolAdmin` | Mass search + link IT components to EOL products |
 | `/admin/surveys` | `SurveysAdmin` | Admin survey list |
 | `/admin/surveys/new` | `SurveyBuilder` | Create new data-maintenance survey |
