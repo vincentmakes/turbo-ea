@@ -17,6 +17,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
+import Divider from "@mui/material/Divider";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
@@ -406,26 +407,34 @@ export default function WebPortalsAdmin() {
               {error}
             </Alert>
           )}
-          <TextField
-            fullWidth
-            label="Portal Name"
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            sx={{ mt: 1 }}
-            placeholder="e.g. Application Catalog"
-          />
-          <TextField
-            fullWidth
-            label="URL Slug"
-            value={slug}
-            onChange={(e) => {
-              setSlug(e.target.value);
-              setSlugManual(true);
-            }}
-            sx={{ mt: 2 }}
-            helperText={`Portal will be accessible at /portal/${slug || "..."}`}
-            placeholder="e.g. application-catalog"
-          />
+
+          {/* ── Section: General ── */}
+          <Typography
+            variant="overline"
+            sx={{ display: "block", mt: 1, mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
+          >
+            General
+          </Typography>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Portal Name"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="e.g. Application Catalog"
+            />
+            <TextField
+              fullWidth
+              label="URL Slug"
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                setSlugManual(true);
+              }}
+              helperText={`/portal/${slug || "..."}`}
+              placeholder="e.g. application-catalog"
+            />
+          </Box>
           <TextField
             fullWidth
             label="Description"
@@ -436,6 +445,16 @@ export default function WebPortalsAdmin() {
             rows={2}
             placeholder="Optional description displayed at the top of the portal"
           />
+
+          <Divider sx={{ my: 3 }} />
+
+          {/* ── Section: Data Source ── */}
+          <Typography
+            variant="overline"
+            sx={{ display: "block", mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
+          >
+            Data Source
+          </Typography>
           <TextField
             fullWidth
             select
@@ -446,7 +465,6 @@ export default function WebPortalsAdmin() {
               setToggles({});
               setFilterSubtypes([]);
             }}
-            sx={{ mt: 2 }}
             helperText="Which type of fact sheets to display in this portal"
           >
             {visibleTypes.map((t) => (
@@ -489,14 +507,21 @@ export default function WebPortalsAdmin() {
           )}
 
           {factSheetType && (
-            <Box sx={{ mt: 3 }}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
-                Property Visibility
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
-                Control which properties appear on the summary card and in the
-                expanded detail view. Unconfigured properties use defaults.
-              </Typography>
+            <>
+            <Divider sx={{ my: 3 }} />
+
+            {/* ── Section: Display Configuration ── */}
+            <Typography
+              variant="overline"
+              sx={{ display: "block", mb: 0.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
+            >
+              Display Configuration
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+              Choose which properties appear on the summary card and the expanded
+              detail view. Visible select fields and relation types also become
+              filter dropdowns on the portal automatically.
+            </Typography>
               <Table size="small" sx={{ "& td, & th": { py: 0.5, px: 1 } }}>
                 <TableHead>
                   <TableRow>
@@ -691,9 +716,12 @@ export default function WebPortalsAdmin() {
                   })}
                 </TableBody>
               </Table>
-            </Box>
+            </>
           )}
 
+          <Divider sx={{ my: 3 }} />
+
+          {/* ── Section: Publishing ── */}
           <FormControlLabel
             control={
               <Switch
@@ -701,8 +729,16 @@ export default function WebPortalsAdmin() {
                 onChange={(e) => setIsPublished(e.target.checked)}
               />
             }
-            label="Published (publicly accessible)"
-            sx={{ mt: 2 }}
+            label={
+              <Box>
+                <Typography variant="body1" fontWeight={500}>
+                  Published
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Make this portal publicly accessible without authentication
+                </Typography>
+              </Box>
+            }
           />
         </DialogContent>
         <DialogActions>
