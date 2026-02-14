@@ -1,6 +1,7 @@
 /**
  * BpmReportPage — Wrapper page for BPM-specific reports.
- * Tabs: Value Stream Matrix, Capability×Process, Process×App, Dependencies, Element-App Map, Process Map
+ * Tabs: Value Stream Matrix, Process Map, Capability×Process, Process×App,
+ *       Dependencies, Element-App Map
  */
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +27,8 @@ import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useAuth } from "@/hooks/useAuth";
+import ProcessMapReport from "@/features/reports/ProcessMapReport";
 
 export default function BpmReportPage() {
   const [tab, setTab] = useState(0);
@@ -53,7 +56,7 @@ export default function BpmReportPage() {
       </Tabs>
 
       {tab === 0 && <ValueStreamMatrix />}
-      {tab === 1 && <ProcessMapEmbed />}
+      {tab === 1 && <ProcessMapReport />}
       {tab === 2 && <CapabilityProcessMatrix />}
       {tab === 3 && <ProcessAppMatrix />}
       {tab === 4 && <ProcessDependencies />}
@@ -71,6 +74,7 @@ interface VsmRef {
   name: string;
   subtype?: string;
   parent_id?: string | null;
+  sort_order?: number | null;
 }
 
 interface VsmProcess {
@@ -123,6 +127,22 @@ const SUBTYPE_LABELS: Record<string, string> = {
   variant: "Variant",
 };
 
+const CTX_SUBTYPE_LABELS: Record<string, string> = {
+  valueStream: "Value Streams",
+  customerJourney: "Customer Journeys",
+  process: "Processes",
+  businessProduct: "Business Products",
+  esgCapability: "ESG Capabilities",
+};
+
+const CTX_SUBTYPE_COLORS: Record<string, string> = {
+  valueStream: "#1565c0",
+  customerJourney: "#6a1b9a",
+  process: "#00695c",
+  businessProduct: "#e65100",
+  esgCapability: "#2e7d32",
+};
+
 function getProcessColor(proc: VsmProcess, colorBy: VsmColorBy): string {
   const val = (proc.attributes || {})[colorBy] as string | undefined;
   if (!val) return "#bdbdbd";
@@ -143,7 +163,6 @@ function flattenHierarchy(items: VsmRef[]): Array<VsmRef & { depth: number }> {
     const key = pid ?? "__root__";
     byParent.set(key, [...(byParent.get(key) || []), item]);
   }
-
   const result: Array<VsmRef & { depth: number }> = [];
   function walk(parentId: string | null, depth: number) {
     const children = byParent.get(parentId ?? "__root__") || [];
@@ -156,8 +175,64 @@ function flattenHierarchy(items: VsmRef[]): Array<VsmRef & { depth: number }> {
   return result;
 }
 
+/** Group contexts by subtype, preserving sort_order within each group */
+interface ContextGroup {
+  subtype: string;
+  label: string;
+  color: string;
+  contexts: VsmRef[];
+}
+
+function groupContextsBySubtype(contexts: VsmRef[]): ContextGroup[] {
+  const groups = new Map<string, VsmRef[]>();
+  for (const ctx of contexts) {
+    const st = ctx.subtype || "__other__";
+    groups.set(st, [...(groups.get(st) || []), ctx]);
+  }
+
+  // Sort each group by sort_order, then by name
+  for (const [, ctxs] of groups) {
+    ctxs.sort((a, b) => {
+      const oa = a.sort_order ?? 999;
+      const ob = b.sort_order ?? 999;
+      if (oa !== ob) return oa - ob;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  // Order groups: defined subtypes first, then __other__
+  const groupOrder = ["valueStream", "customerJourney", "process", "businessProduct", "esgCapability", "__other__"];
+  const result: ContextGroup[] = [];
+  for (const st of groupOrder) {
+    const ctxs = groups.get(st);
+    if (ctxs && ctxs.length > 0) {
+      result.push({
+        subtype: st,
+        label: CTX_SUBTYPE_LABELS[st] || "Other",
+        color: CTX_SUBTYPE_COLORS[st] || "#616161",
+        contexts: ctxs,
+      });
+    }
+  }
+  // Any subtypes not in groupOrder
+  for (const [st, ctxs] of groups) {
+    if (!groupOrder.includes(st) && ctxs.length > 0) {
+      result.push({
+        subtype: st,
+        label: st.charAt(0).toUpperCase() + st.slice(1),
+        color: "#616161",
+        contexts: ctxs,
+      });
+    }
+  }
+  return result;
+}
+
 function ValueStreamMatrix() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+
   const [data, setData] = useState<{
     organizations: VsmRef[];
     contexts: VsmRef[];
@@ -167,9 +242,10 @@ function ValueStreamMatrix() {
   const [loading, setLoading] = useState(true);
   const [colorBy, setColorBy] = useState<VsmColorBy>("processType");
   const [drawer, setDrawer] = useState<VsmProcess | null>(null);
-  const [ctxSubtype, setCtxSubtype] = useState<string>("__all__");
+  const [reordering, setReordering] = useState(false);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
+    setLoading(true);
     api
       .get<typeof data>("/reports/bpm/value-stream-matrix")
       .then(setData)
@@ -177,22 +253,7 @@ function ValueStreamMatrix() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Available context subtypes for filtering
-  const ctxSubtypes = useMemo(() => {
-    if (!data) return [];
-    const set = new Set<string>();
-    for (const c of data.contexts) {
-      if (c.subtype) set.add(c.subtype);
-    }
-    return Array.from(set).sort();
-  }, [data]);
-
-  // Filtered contexts (columns)
-  const filteredContexts = useMemo(() => {
-    if (!data) return [];
-    if (ctxSubtype === "__all__") return data.contexts;
-    return data.contexts.filter((c) => c.subtype === ctxSubtype);
-  }, [data, ctxSubtype]);
+  useEffect(() => { reload(); }, [reload]);
 
   // Flatten orgs respecting hierarchy
   const flatOrgs = useMemo(() => {
@@ -200,25 +261,34 @@ function ValueStreamMatrix() {
     return flattenHierarchy(data.organizations);
   }, [data]);
 
-  // Only show orgs and contexts that have at least one process
-  const { visibleOrgs, visibleContexts } = useMemo(() => {
-    if (!data) return { visibleOrgs: [] as typeof flatOrgs, visibleContexts: [] as VsmRef[] };
-    const cells = data.cells;
-    const ctxIds = new Set(filteredContexts.map((c) => c.id));
+  // Group contexts by subtype
+  const contextGroups = useMemo(() => {
+    if (!data) return [];
+    return groupContextsBySubtype(data.contexts);
+  }, [data]);
 
+  // Flat ordered list of all visible contexts
+  const allOrderedContexts = useMemo(
+    () => contextGroups.flatMap((g) => g.contexts),
+    [contextGroups],
+  );
+
+  // Only show orgs that have at least one process in any cell
+  const visibleOrgs = useMemo(() => {
+    if (!data) return [] as typeof flatOrgs;
+    const cells = data.cells;
+    const ctxIds = new Set(allOrderedContexts.map((c) => c.id));
     const orgHasData = new Set<string>();
-    const ctxHasData = new Set<string>();
 
     for (const [orgId, orgCells] of Object.entries(cells)) {
       for (const [cid, procs] of Object.entries(orgCells)) {
         if (procs.length > 0 && (ctxIds.has(cid) || cid === "__none__")) {
           orgHasData.add(orgId);
-          ctxHasData.add(cid);
         }
       }
     }
 
-    // Include ancestor orgs for indentation context
+    // Include ancestor orgs for hierarchy context
     const orgMap = new Map(flatOrgs.map((o) => [o.id, o]));
     const expandedOrgIds = new Set(orgHasData);
     for (const oid of orgHasData) {
@@ -228,16 +298,72 @@ function ValueStreamMatrix() {
         current = orgMap.get(current.parent_id);
       }
     }
+    return flatOrgs.filter((o) => expandedOrgIds.has(o.id));
+  }, [data, flatOrgs, allOrderedContexts]);
 
-    return {
-      visibleOrgs: flatOrgs.filter((o) => expandedOrgIds.has(o.id)),
-      visibleContexts: filteredContexts.filter((c) => ctxHasData.has(c.id)),
-    };
-  }, [data, filteredContexts, flatOrgs]);
+  // Filter groups to only those with cells
+  const visibleGroups = useMemo(() => {
+    if (!data) return [];
+    const ctxHasData = new Set<string>();
+    for (const orgCells of Object.values(data.cells)) {
+      for (const [cid, procs] of Object.entries(orgCells)) {
+        if (procs.length > 0) ctxHasData.add(cid);
+      }
+    }
+    return contextGroups
+      .map((g) => ({
+        ...g,
+        contexts: g.contexts.filter((c) => ctxHasData.has(c.id)),
+      }))
+      .filter((g) => g.contexts.length > 0);
+  }, [data, contextGroups]);
 
   const handleProcClick = useCallback((proc: VsmProcess) => {
     setDrawer(proc);
   }, []);
+
+  // Reorder: move a context left or right within its group
+  const handleReorder = useCallback(
+    async (ctxId: string, direction: "left" | "right") => {
+      if (!data || reordering) return;
+
+      // Find the group and current position
+      const group = contextGroups.find((g) => g.contexts.some((c) => c.id === ctxId));
+      if (!group) return;
+      const idx = group.contexts.findIndex((c) => c.id === ctxId);
+      if (idx < 0) return;
+      const swapIdx = direction === "left" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= group.contexts.length) return;
+
+      setReordering(true);
+      try {
+        // Swap sort_order values
+        const currentOrder = group.contexts[idx].sort_order ?? idx;
+        const swapOrder = group.contexts[swapIdx].sort_order ?? swapIdx;
+
+        await Promise.all([
+          api.patch(`/fact-sheets/${group.contexts[idx].id}`, {
+            attributes: {
+              ...(data.contexts.find((c) => c.id === group.contexts[idx].id) as any)?.attributes,
+              sortOrder: swapOrder,
+            },
+          }),
+          api.patch(`/fact-sheets/${group.contexts[swapIdx].id}`, {
+            attributes: {
+              ...(data.contexts.find((c) => c.id === group.contexts[swapIdx].id) as any)?.attributes,
+              sortOrder: currentOrder,
+            },
+          }),
+        ]);
+        reload();
+      } catch (e) {
+        console.error("Reorder failed", e);
+      } finally {
+        setReordering(false);
+      }
+    },
+    [data, contextGroups, reordering, reload],
+  );
 
   // Color legend
   const colorLegend = useMemo(() => {
@@ -248,13 +374,10 @@ function ValueStreamMatrix() {
 
   if (loading) return <LinearProgress />;
   if (!data)
-    return (
-      <Typography color="text.secondary">
-        Failed to load data.
-      </Typography>
-    );
+    return <Typography color="text.secondary">Failed to load data.</Typography>;
 
-  const hasData = visibleOrgs.length > 0 && visibleContexts.length > 0;
+  const hasData = visibleOrgs.length > 0 && visibleGroups.length > 0;
+  const totalVisibleCtx = visibleGroups.reduce((n, g) => n + g.contexts.length, 0);
 
   return (
     <>
@@ -272,22 +395,6 @@ function ValueStreamMatrix() {
             <MenuItem key={o.key} value={o.key}>{o.label}</MenuItem>
           ))}
         </TextField>
-
-        {ctxSubtypes.length > 1 && (
-          <TextField
-            select
-            size="small"
-            label="Context Type"
-            value={ctxSubtype}
-            onChange={(e) => setCtxSubtype(e.target.value)}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="__all__">All Types</MenuItem>
-            {ctxSubtypes.map((s) => (
-              <MenuItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, " ")}</MenuItem>
-            ))}
-          </TextField>
-        )}
 
         {/* Legend */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, ml: "auto", flexWrap: "wrap" }}>
@@ -322,53 +429,100 @@ function ValueStreamMatrix() {
         >
           <Table size="small" stickyHeader sx={{ tableLayout: "fixed" }}>
             <TableHead>
+              {/* Group header row */}
               <TableRow>
                 <TableCell
+                  rowSpan={2}
                   sx={{
                     fontWeight: 700,
                     minWidth: 200,
                     width: 200,
                     position: "sticky",
                     left: 0,
-                    zIndex: 3,
+                    zIndex: 4,
                     bgcolor: "background.paper",
                     borderRight: "2px solid #e0e0e0",
+                    borderBottom: "none",
+                    verticalAlign: "bottom",
                   }}
                 >
                   Organization
                 </TableCell>
-                {visibleContexts.map((ctx) => (
+                {visibleGroups.map((group) => (
                   <TableCell
-                    key={ctx.id}
+                    key={group.subtype}
+                    colSpan={group.contexts.length}
                     align="center"
                     sx={{
                       fontWeight: 700,
-                      minWidth: 160,
-                      width: 180,
-                      whiteSpace: "nowrap",
-                      bgcolor: "background.paper",
+                      bgcolor: group.color,
+                      color: "#fff",
+                      fontSize: "0.8rem",
+                      letterSpacing: 0.5,
+                      borderBottom: "none",
+                      py: 0.75,
+                      borderLeft: "2px solid #fff",
                     }}
                   >
-                    <Tooltip title={ctx.subtype ? `${ctx.subtype}: ${ctx.name}` : ctx.name}>
-                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, fontSize: "0.75rem" }} noWrap>
-                          {ctx.name}
-                        </Typography>
-                        {ctx.subtype && (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
-                            {ctx.subtype}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Tooltip>
+                    {group.label}
                   </TableCell>
                 ))}
               </TableRow>
+
+              {/* Individual context column headers */}
+              <TableRow>
+                {visibleGroups.map((group) =>
+                  group.contexts.map((ctx, ci) => (
+                    <TableCell
+                      key={ctx.id}
+                      align="center"
+                      sx={{
+                        fontWeight: 600,
+                        minWidth: 140,
+                        width: 160,
+                        bgcolor: "background.paper",
+                        borderBottom: `3px solid ${group.color}`,
+                        p: 0.5,
+                      }}
+                    >
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.25 }}>
+                        {/* Admin reorder arrows */}
+                        {isAdmin && (
+                          <Box sx={{ display: "flex", gap: 0 }}>
+                            <IconButton
+                              size="small"
+                              disabled={ci === 0 || reordering}
+                              onClick={() => handleReorder(ctx.id, "left")}
+                              sx={{ p: 0, opacity: ci === 0 ? 0.2 : 0.6, "&:hover": { opacity: 1 } }}
+                            >
+                              <MaterialSymbol icon="chevron_left" size={16} />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              disabled={ci === group.contexts.length - 1 || reordering}
+                              onClick={() => handleReorder(ctx.id, "right")}
+                              sx={{ p: 0, opacity: ci === group.contexts.length - 1 ? 0.2 : 0.6, "&:hover": { opacity: 1 } }}
+                            >
+                              <MaterialSymbol icon="chevron_right" size={16} />
+                            </IconButton>
+                          </Box>
+                        )}
+                        <Tooltip title={ctx.name}>
+                          <Typography variant="caption" sx={{ fontWeight: 600, fontSize: "0.72rem", lineHeight: 1.2 }} noWrap>
+                            {ctx.name}
+                          </Typography>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  )),
+                )}
+              </TableRow>
             </TableHead>
+
             <TableBody>
               {visibleOrgs.map((org) => {
                 const orgCells = data.cells[org.id] || {};
-                const hasAnyCells = visibleContexts.some(
+                const hasAnyCells = allOrderedContexts.some(
                   (ctx) => (orgCells[ctx.id] || []).length > 0,
                 );
                 return (
@@ -380,82 +534,110 @@ function ValueStreamMatrix() {
                         bgcolor: "background.paper",
                         zIndex: 1,
                         borderRight: "2px solid #e0e0e0",
-                        fontWeight: org.depth === 0 ? 700 : 400,
-                        pl: 2 + org.depth * 2,
+                        pl: 2 + org.depth * 1.5,
                         cursor: "pointer",
                         "&:hover": { color: "primary.main" },
                       }}
                       onClick={() => navigate(`/fact-sheets/${org.id}`)}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        {org.depth > 0 && (
-                          <Typography variant="caption" color="text.secondary" sx={{ userSelect: "none" }}>
-                            {"  ".repeat(org.depth)}
-                          </Typography>
-                        )}
-                        <Typography
-                          variant="body2"
-                          noWrap
-                          sx={{
-                            fontWeight: hasAnyCells ? 600 : 400,
-                            color: hasAnyCells ? "text.primary" : "text.secondary",
-                          }}
-                        >
-                          {org.name}
-                        </Typography>
-                        {org.subtype && (
-                          <Chip
-                            size="small"
-                            label={org.subtype}
-                            sx={{ height: 16, fontSize: "0.6rem", ml: 0.5, bgcolor: "#f0f0f0" }}
-                          />
-                        )}
-                      </Box>
+                      <Typography
+                        variant="body2"
+                        noWrap
+                        sx={{
+                          fontWeight: hasAnyCells ? 600 : 400,
+                          color: hasAnyCells ? "text.primary" : "text.secondary",
+                          fontSize: "0.8rem",
+                        }}
+                      >
+                        {org.name}
+                      </Typography>
                     </TableCell>
-                    {visibleContexts.map((ctx) => {
-                      const procs = orgCells[ctx.id] || [];
-                      return (
-                        <TableCell
-                          key={ctx.id}
-                          align="center"
-                          sx={{
-                            verticalAlign: "top",
-                            p: 0.5,
-                            bgcolor: procs.length > 0 ? "rgba(0,0,0,0.01)" : undefined,
-                          }}
-                        >
-                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, alignItems: "center" }}>
-                            {procs.map((proc) => (
-                              <Tooltip
-                                key={proc.id}
-                                title={`${proc.name} — ${getProcessColorLabel(proc, colorBy)}${proc.subtype ? ` (${SUBTYPE_LABELS[proc.subtype] || proc.subtype})` : ""}`}
-                              >
-                                <Chip
-                                  size="small"
-                                  label={proc.name}
-                                  onClick={() => handleProcClick(proc)}
-                                  sx={{
-                                    bgcolor: getProcessColor(proc, colorBy),
-                                    color: "#fff",
-                                    fontWeight: 500,
-                                    fontSize: "0.7rem",
-                                    maxWidth: 160,
-                                    cursor: "pointer",
-                                    "&:hover": { opacity: 0.85, boxShadow: 2 },
-                                  }}
-                                />
-                              </Tooltip>
-                            ))}
-                          </Box>
-                        </TableCell>
-                      );
-                    })}
+                    {visibleGroups.map((group) =>
+                      group.contexts.map((ctx) => {
+                        const procs = orgCells[ctx.id] || [];
+                        return (
+                          <TableCell
+                            key={ctx.id}
+                            sx={{
+                              verticalAlign: "top",
+                              p: 0.75,
+                              bgcolor: procs.length > 0 ? `${group.color}08` : undefined,
+                              borderLeft: "1px solid #f0f0f0",
+                            }}
+                          >
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                              {procs.map((proc) => (
+                                <Tooltip
+                                  key={proc.id}
+                                  title={
+                                    <Box>
+                                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{proc.name}</Typography>
+                                      <Typography variant="caption">
+                                        {getProcessColorLabel(proc, colorBy)}
+                                        {proc.subtype ? ` \u00B7 ${SUBTYPE_LABELS[proc.subtype] || proc.subtype}` : ""}
+                                      </Typography>
+                                    </Box>
+                                  }
+                                >
+                                  <Box
+                                    onClick={() => handleProcClick(proc)}
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 0.5,
+                                      px: 1,
+                                      py: 0.5,
+                                      borderRadius: 1,
+                                      bgcolor: getProcessColor(proc, colorBy),
+                                      color: "#fff",
+                                      cursor: "pointer",
+                                      transition: "box-shadow 0.15s, transform 0.15s",
+                                      "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="caption"
+                                      sx={{ fontWeight: 600, fontSize: "0.7rem", lineHeight: 1.2 }}
+                                      noWrap
+                                    >
+                                      {proc.name}
+                                    </Typography>
+                                  </Box>
+                                </Tooltip>
+                              ))}
+                            </Box>
+                          </TableCell>
+                        );
+                      }),
+                    )}
                   </TableRow>
                 );
               })}
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {/* Summary stats */}
+      {hasData && (
+        <Box sx={{ mt: 1.5, display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <Typography variant="caption" color="text.secondary">
+            {visibleOrgs.filter((o) => {
+              const orgCells = data.cells[o.id] || {};
+              return allOrderedContexts.some((ctx) => (orgCells[ctx.id] || []).length > 0);
+            }).length} organizations
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {totalVisibleCtx} contexts
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {Object.values(data.cells).reduce(
+              (sum, orgCells) =>
+                sum + Object.values(orgCells).reduce((s, p) => s + p.length, 0),
+              0,
+            )} process assignments
+          </Typography>
+        </Box>
       )}
 
       {/* Unassigned processes */}
@@ -465,7 +647,7 @@ function ValueStreamMatrix() {
             Unassigned Processes ({data.unassigned.length})
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
-            These processes are not linked to any Organization or Business Context.
+            Not linked to any Organization or Business Context.
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
             {data.unassigned.map((p) => (
@@ -500,7 +682,6 @@ function ValueStreamMatrix() {
               </IconButton>
             </Box>
 
-            {/* Metadata */}
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
               {drawer.subtype && SUBTYPE_LABELS[drawer.subtype] && (
                 <Chip size="small" label={SUBTYPE_LABELS[drawer.subtype]} variant="outlined" />
@@ -520,7 +701,6 @@ function ValueStreamMatrix() {
               })}
             </Box>
 
-            {/* Link to fact sheet */}
             <Chip
               size="small"
               icon={<MaterialSymbol icon="open_in_new" size={14} />}
@@ -535,31 +715,6 @@ function ValueStreamMatrix() {
         )}
       </Drawer>
     </>
-  );
-}
-
-/* ================================================================== */
-/*  Process Map (embedded link to /reports/process-map)                */
-/* ================================================================== */
-
-function ProcessMapEmbed() {
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ py: 4, textAlign: "center" }}>
-      <MaterialSymbol icon="account_tree" size={48} color="#e65100" />
-      <Typography variant="h6" sx={{ mt: 1, mb: 1 }}>Process Landscape Map</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 500, mx: "auto" }}>
-        Hierarchical view of the process landscape with heatmap metrics,
-        drill-down navigation, and related applications/data objects.
-      </Typography>
-      <Chip
-        label="Open Process Map"
-        icon={<MaterialSymbol icon="open_in_new" size={16} />}
-        onClick={() => navigate("/reports/process-map")}
-        color="primary"
-        sx={{ cursor: "pointer", fontWeight: 600 }}
-      />
-    </Box>
   );
 }
 
