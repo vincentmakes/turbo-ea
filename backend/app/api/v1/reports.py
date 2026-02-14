@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.models.event import Event
 
 router = APIRouter(prefix="/reports", tags=["reports"])
+
+log = logging.getLogger(__name__)
 
 
 @router.get("/dashboard")
@@ -612,4 +617,188 @@ async def data_quality(db: AsyncSession = Depends(get_db)):
         "stale": stale,
         "by_type": by_type,
         "worst_items": worst_items,
+    }
+
+
+# ---------------------------------------------------------------------------
+#  EOL Risk & Impact report
+# ---------------------------------------------------------------------------
+
+_EOL_BASE = "https://endoflife.date/api"
+
+
+def _eol_status(eol_val, support_val) -> str:
+    """Classify a cycle as 'eol', 'approaching', 'supported', or 'unknown'."""
+    now = datetime.now(timezone.utc).date()
+
+    # Check EOL first
+    if eol_val is True:
+        return "eol"
+    if isinstance(eol_val, str):
+        try:
+            eol_date = datetime.strptime(eol_val, "%Y-%m-%d").date()
+            if eol_date <= now:
+                return "eol"
+            six_months = now + timedelta(days=182)
+            if eol_date <= six_months:
+                return "approaching"
+        except ValueError:
+            pass
+
+    # If active support has ended
+    if isinstance(support_val, str):
+        try:
+            sup_date = datetime.strptime(support_val, "%Y-%m-%d").date()
+            if sup_date <= now:
+                return "approaching"
+        except ValueError:
+            pass
+
+    if eol_val is False:
+        return "supported"
+
+    return "supported" if eol_val is not None else "unknown"
+
+
+async def _fetch_product_cycles(
+    client: httpx.AsyncClient, product: str,
+) -> list[dict] | None:
+    """Fetch cycles for a single product, returning None on failure."""
+    try:
+        resp = await client.get(f"{_EOL_BASE}/{product}.json", timeout=10.0)
+        if resp.status_code == 200:
+            return resp.json()
+    except httpx.HTTPError:
+        log.warning("Failed to fetch EOL data for %s", product)
+    return None
+
+
+@router.get("/eol")
+async def eol_report(
+    db: AsyncSession = Depends(get_db),
+):
+    """End-of-Life risk & impact report.
+
+    Returns all Applications and IT Components with linked EOL data,
+    enriched with live cycle information from endoflife.date and
+    impact mapping (IT Component → related Applications).
+    """
+    # 1. Fetch Applications and ITComponents with eol_product set
+    result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.status == "ACTIVE",
+            FactSheet.type.in_(["Application", "ITComponent"]),
+        )
+    )
+    all_sheets = result.scalars().all()
+
+    eol_sheets = [
+        fs for fs in all_sheets
+        if (fs.attributes or {}).get("eol_product") and (fs.attributes or {}).get("eol_cycle")
+    ]
+
+    if not eol_sheets:
+        return {
+            "items": [],
+            "summary": {"eol": 0, "approaching": 0, "supported": 0, "impacted_apps": 0},
+        }
+
+    # 2. Batch-fetch unique products from endoflife.date
+    unique_products = {(fs.attributes or {})["eol_product"] for fs in eol_sheets}
+    product_cycles: dict[str, list[dict]] = {}
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        tasks = {
+            product: _fetch_product_cycles(client, product)
+            for product in unique_products
+        }
+        results = await asyncio.gather(*tasks.values())
+        for product, cycles in zip(tasks.keys(), results):
+            if cycles is not None:
+                product_cycles[product] = cycles
+
+    # 3. Get relations between ITComponent and Application for impact mapping
+    it_ids = [fs.id for fs in eol_sheets if fs.type == "ITComponent"]
+    app_map = {str(fs.id): fs for fs in all_sheets if fs.type == "Application"}
+    it_to_apps: dict[str, list[dict]] = {}
+
+    if it_ids:
+        rels_result = await db.execute(
+            select(Relation).where(
+                (Relation.source_id.in_(it_ids)) | (Relation.target_id.in_(it_ids))
+            )
+        )
+        rels = rels_result.scalars().all()
+        for r in rels:
+            sid, tid = str(r.source_id), str(r.target_id)
+            # ITComponent → Application relation in either direction
+            if sid in {str(i) for i in it_ids} and tid in app_map:
+                it_to_apps.setdefault(sid, []).append({
+                    "id": tid,
+                    "name": app_map[tid].name,
+                    "lifecycle": app_map[tid].lifecycle,
+                })
+            elif tid in {str(i) for i in it_ids} and sid in app_map:
+                it_to_apps.setdefault(tid, []).append({
+                    "id": sid,
+                    "name": app_map[sid].name,
+                    "lifecycle": app_map[sid].lifecycle,
+                })
+
+    # 4. Build response items
+    items = []
+    counts = {"eol": 0, "approaching": 0, "supported": 0}
+    impacted_app_ids: set[str] = set()
+
+    for fs in eol_sheets:
+        attrs = fs.attributes or {}
+        product = attrs["eol_product"]
+        cycle_key = str(attrs["eol_cycle"])
+
+        # Match cycle data
+        cycle_data = None
+        cycles = product_cycles.get(product, [])
+        for c in cycles:
+            if str(c.get("cycle")) == cycle_key:
+                cycle_data = c
+                break
+
+        status = "unknown"
+        if cycle_data:
+            status = _eol_status(cycle_data.get("eol"), cycle_data.get("support"))
+
+        if status in counts:
+            counts[status] += 1
+
+        # Impact: affected apps
+        affected_apps = it_to_apps.get(str(fs.id), [])
+        if status in ("eol", "approaching") and fs.type == "ITComponent":
+            for app in affected_apps:
+                impacted_app_ids.add(app["id"])
+
+        items.append({
+            "id": str(fs.id),
+            "name": fs.name,
+            "type": fs.type,
+            "subtype": fs.subtype,
+            "eol_product": product,
+            "eol_cycle": cycle_key,
+            "status": status,
+            "cycle_data": cycle_data,
+            "lifecycle": fs.lifecycle,
+            "affected_apps": affected_apps,
+        })
+
+    # Sort: EOL first, then approaching, then supported
+    status_order = {"eol": 0, "approaching": 1, "unknown": 2, "supported": 3}
+    items.sort(key=lambda x: (status_order.get(x["status"], 9), x["name"]))
+
+    return {
+        "items": items,
+        "summary": {
+            "eol": counts["eol"],
+            "approaching": counts["approaching"],
+            "supported": counts["supported"],
+            "impacted_apps": len(impacted_app_ids),
+        },
     }

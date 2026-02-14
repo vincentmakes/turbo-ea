@@ -14,6 +14,7 @@ import DependencyReport from "@/features/reports/DependencyReport";
 import CostReport from "@/features/reports/CostReport";
 import MatrixReport from "@/features/reports/MatrixReport";
 import DataQualityReport from "@/features/reports/DataQualityReport";
+import EolReport from "@/features/reports/EolReport";
 import DiagramsPage from "@/features/diagrams/DiagramsPage";
 import DiagramEditor from "@/features/diagrams/DiagramEditor";
 import TodosPage from "@/features/todos/TodosPage";
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/reports/cost" element={<CostReport />} />
             <Route path="/reports/matrix" element={<MatrixReport />} />
             <Route path="/reports/data-quality" element={<DataQualityReport />} />
+            <Route path="/reports/eol" element={<EolReport />} />
             <Route path="/diagrams" element={<DiagramsPage />} />
             <Route path="/diagrams/:id" element={<DiagramEditor />} />
             <Route path="/ea-delivery" element={<EADeliveryPage />} />
