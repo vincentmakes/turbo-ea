@@ -21,11 +21,13 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { EolLinkDialog } from "@/components/EolLinkSection";
+import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { FieldDef, FactSheet, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
+const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
 interface Props {
   open: boolean;
@@ -634,8 +636,20 @@ export default function CreateFactSheetDialog({
           </Box>
         )}
 
-        {/* Required fields from schema */}
-        {requiredFields.length > 0 && requiredFields.map((f) => renderField(f))}
+        {/* Vendor field for eligible types */}
+        {VENDOR_ELIGIBLE_TYPES.includes(selectedType) && (
+          <Box sx={{ mb: 2 }}>
+            <VendorField
+              value={(attributes.vendor as string) ?? ""}
+              onChange={(v) => setAttr("vendor", v)}
+              fsType={selectedType}
+              size="small"
+            />
+          </Box>
+        )}
+
+        {/* Required fields from schema (skip vendor since we render it above) */}
+        {requiredFields.length > 0 && requiredFields.filter((f) => f.key !== "vendor").map((f) => renderField(f))}
 
         {/* EOL picker dialog */}
         <EolLinkDialog

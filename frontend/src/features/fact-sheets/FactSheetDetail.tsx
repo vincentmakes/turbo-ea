@@ -32,6 +32,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import EolLinkSection from "@/components/EolLinkSection";
+import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import Dialog from "@mui/material/Dialog";
@@ -466,6 +467,8 @@ function LifecycleSection({
 }
 
 // ── Section: Type-specific attributes ───────────────────────────
+const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
+
 function AttributeSection({
   section,
   fs,
@@ -479,7 +482,6 @@ function AttributeSection({
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     fs.attributes || {}
   );
-
   useEffect(() => {
     setAttrs(fs.attributes || {});
   }, [fs.attributes]);
@@ -492,6 +494,9 @@ function AttributeSection({
   const setAttr = (key: string, value: unknown) => {
     setAttrs((prev) => ({ ...prev, [key]: value }));
   };
+
+  const isVendorField = (field: FieldDef) =>
+    field.key === "vendor" && VENDOR_ELIGIBLE_TYPES.includes(fs.type);
 
   // Count filled fields in this section
   const filled = section.fields.filter((f) => {
@@ -536,6 +541,15 @@ function AttributeSection({
                     <FieldValue field={field} value={attrs[field.key]} />
                     <Chip size="small" label="auto" sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
                   </Box>
+                ) : isVendorField(field) ? (
+                  <VendorField
+                    key={field.key}
+                    value={(attrs[field.key] as string) ?? ""}
+                    onChange={(v) => setAttr(field.key, v)}
+                    fsType={fs.type}
+                    fsId={fs.id}
+                    onRelationChange={() => {}}
+                  />
                 ) : (
                   <FieldEditor
                     key={field.key}
