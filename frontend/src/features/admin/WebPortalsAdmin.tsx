@@ -5,6 +5,7 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
+import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -16,10 +17,51 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Alert from "@mui/material/Alert";
 import Tooltip from "@mui/material/Tooltip";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import type { WebPortal } from "@/types";
+
+interface ToggleEntry {
+  card: boolean;
+  detail: boolean;
+}
+type Toggles = Record<string, ToggleEntry>;
+
+const BUILT_IN_PROPERTIES = [
+  { key: "description", label: "Description" },
+  { key: "lifecycle", label: "Lifecycle" },
+  { key: "tags", label: "Tags" },
+  { key: "subscribers", label: "Team / Subscribers" },
+  { key: "completion", label: "Completion" },
+  { key: "quality_seal", label: "Quality Seal" },
+  { key: "relations", label: "Related Items" },
+];
+
+const DEFAULT_CARD: Record<string, boolean> = {
+  description: true,
+  lifecycle: true,
+  tags: true,
+  subscribers: true,
+  completion: true,
+  quality_seal: false,
+  relations: false,
+};
+
+const DEFAULT_DETAIL: Record<string, boolean> = {
+  description: true,
+  lifecycle: true,
+  tags: true,
+  subscribers: true,
+  completion: true,
+  quality_seal: true,
+  relations: true,
+};
 
 function slugify(text: string): string {
   return text
@@ -43,7 +85,7 @@ export default function WebPortalsAdmin() {
   const [description, setDescription] = useState("");
   const [factSheetType, setFactSheetType] = useState("");
   const [isPublished, setIsPublished] = useState(false);
-  const [displayFields, setDisplayFields] = useState<string[]>([]);
+  const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
 
   const visibleTypes = types.filter((t) => !t.is_hidden);
@@ -68,7 +110,7 @@ export default function WebPortalsAdmin() {
     setDescription("");
     setFactSheetType("");
     setIsPublished(false);
-    setDisplayFields([]);
+    setToggles({});
     setFilterSubtypes([]);
     setError("");
     setEditingPortal(null);
@@ -87,7 +129,9 @@ export default function WebPortalsAdmin() {
     setDescription(portal.description || "");
     setFactSheetType(portal.fact_sheet_type);
     setIsPublished(portal.is_published);
-    setDisplayFields(portal.display_fields || []);
+    setToggles(
+      (portal.card_config as Record<string, unknown>)?.toggles as Toggles || {}
+    );
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
     );
@@ -108,16 +152,17 @@ export default function WebPortalsAdmin() {
 
   const handleSave = async () => {
     setError("");
+    const hasToggles = Object.keys(toggles).length > 0;
     const body = {
       name,
       slug,
       description: description || null,
       fact_sheet_type: factSheetType,
       is_published: isPublished,
-      display_fields: displayFields.length > 0 ? displayFields : null,
+      display_fields: null,
       filters:
         filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : null,
-      card_config: null,
+      card_config: hasToggles ? { toggles } : null,
     };
     try {
       if (editingPortal) {
@@ -334,7 +379,7 @@ export default function WebPortalsAdmin() {
       <Dialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
         <DialogTitle>
@@ -383,7 +428,7 @@ export default function WebPortalsAdmin() {
             value={factSheetType}
             onChange={(e) => {
               setFactSheetType(e.target.value);
-              setDisplayFields([]);
+              setToggles({});
               setFilterSubtypes([]);
             }}
             sx={{ mt: 2 }}
@@ -428,29 +473,133 @@ export default function WebPortalsAdmin() {
             </TextField>
           )}
 
-          {allFields.length > 0 && (
-            <TextField
-              fullWidth
-              select
-              label="Display Fields on Cards (optional)"
-              value={displayFields}
-              onChange={(e) =>
-                setDisplayFields(
-                  typeof e.target.value === "string"
-                    ? e.target.value.split(",")
-                    : (e.target.value as string[])
-                )
-              }
-              sx={{ mt: 2 }}
-              SelectProps={{ multiple: true }}
-              helperText="Select which fields to show on fact sheet cards. Leave empty to show all."
-            >
-              {allFields.map((f) => (
-                <MenuItem key={f.key} value={f.key}>
-                  {f.label}
-                </MenuItem>
-              ))}
-            </TextField>
+          {factSheetType && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+                Property Visibility
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                Control which properties appear on the summary card and in the
+                expanded detail view. Unconfigured properties use defaults.
+              </Typography>
+              <Table size="small" sx={{ "& td, & th": { py: 0.5, px: 1 } }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600, width: "50%" }}>Property</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>Summary Card</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 600 }}>Expanded Detail</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {BUILT_IN_PROPERTIES.map((prop) => {
+                    const t = toggles[prop.key];
+                    const cardChecked = t ? t.card : (DEFAULT_CARD[prop.key] ?? true);
+                    const detailChecked = t ? t.detail : (DEFAULT_DETAIL[prop.key] ?? true);
+                    return (
+                      <TableRow key={prop.key}>
+                        <TableCell>
+                          <Typography variant="body2">{prop.label}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            size="small"
+                            checked={cardChecked}
+                            onChange={(e) =>
+                              setToggles((prev) => ({
+                                ...prev,
+                                [prop.key]: {
+                                  card: e.target.checked,
+                                  detail: detailChecked,
+                                },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            size="small"
+                            checked={detailChecked}
+                            onChange={(e) =>
+                              setToggles((prev) => ({
+                                ...prev,
+                                [prop.key]: {
+                                  card: cardChecked,
+                                  detail: e.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+
+                  {allFields.length > 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        sx={{
+                          pt: 1.5,
+                          pb: 0.5,
+                          fontWeight: 600,
+                          fontSize: "0.75rem",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.5,
+                          color: "text.secondary",
+                          borderBottom: "none",
+                        }}
+                      >
+                        Custom Fields
+                      </TableCell>
+                    </TableRow>
+                  )}
+
+                  {allFields.map((field, idx) => {
+                    const fKey = `field:${field.key}`;
+                    const t = toggles[fKey];
+                    const cardChecked = t ? t.card : idx < 3;
+                    const detailChecked = t ? t.detail : true;
+                    return (
+                      <TableRow key={fKey}>
+                        <TableCell>
+                          <Typography variant="body2">{field.label}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            size="small"
+                            checked={cardChecked}
+                            onChange={(e) =>
+                              setToggles((prev) => ({
+                                ...prev,
+                                [fKey]: {
+                                  card: e.target.checked,
+                                  detail: detailChecked,
+                                },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            size="small"
+                            checked={detailChecked}
+                            onChange={(e) =>
+                              setToggles((prev) => ({
+                                ...prev,
+                                [fKey]: {
+                                  card: cardChecked,
+                                  detail: e.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
           )}
 
           <FormControlLabel
