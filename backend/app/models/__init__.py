@@ -16,6 +16,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import FactSheetTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
+from app.models.web_portal import WebPortal
 
 __all__ = [
     "Base",
@@ -39,4 +40,5 @@ __all__ = [
     "AppSettings",
     "Survey",
     "SurveyResponse",
+    "WebPortal",
 ]

@@ -1,0 +1,1053 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useParams } from "react-router-dom";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import CardActionArea from "@mui/material/CardActionArea";
+import Chip from "@mui/material/Chip";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import Pagination from "@mui/material/Pagination";
+import MenuItem from "@mui/material/MenuItem";
+import CircularProgress from "@mui/material/CircularProgress";
+import Collapse from "@mui/material/Collapse";
+import LinearProgress from "@mui/material/LinearProgress";
+import Divider from "@mui/material/Divider";
+import Tooltip from "@mui/material/Tooltip";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
+import type {
+  PublicPortal,
+  PortalFactSheet,
+  PortalFactSheetListResponse,
+} from "@/types";
+
+const BASE = "/api/v1";
+
+async function publicGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// Simple Material Symbol inline for the portal (no import needed for standalone)
+function Icon({
+  name,
+  size = 20,
+  color,
+}: {
+  name: string;
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <span
+      className="material-symbols-outlined"
+      style={{ fontSize: size, color, userSelect: "none" }}
+    >
+      {name}
+    </span>
+  );
+}
+
+function LifecycleBar({ lifecycle }: { lifecycle?: Record<string, string> }) {
+  if (!lifecycle) return null;
+  const phases = [
+    { key: "plan", label: "Plan", color: "#90caf9" },
+    { key: "phaseIn", label: "Phase In", color: "#66bb6a" },
+    { key: "active", label: "Active", color: "#4caf50" },
+    { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
+    { key: "endOfLife", label: "End of Life", color: "#f44336" },
+  ];
+  const filled = phases.filter((p) => lifecycle[p.key]);
+  if (filled.length === 0) return null;
+
+  // Determine current phase
+  const now = new Date().toISOString().slice(0, 10);
+  let currentPhase = filled[0].key;
+  for (const p of phases) {
+    if (lifecycle[p.key] && lifecycle[p.key] <= now) {
+      currentPhase = p.key;
+    }
+  }
+
+  return (
+    <Box sx={{ display: "flex", gap: 0.5, mt: 1 }}>
+      {phases.map((p) => {
+        const date = lifecycle[p.key];
+        const isCurrent = p.key === currentPhase;
+        return (
+          <Tooltip
+            key={p.key}
+            title={`${p.label}${date ? `: ${date}` : ""}`}
+          >
+            <Box
+              sx={{
+                flex: 1,
+                height: 6,
+                borderRadius: 3,
+                bgcolor: date
+                  ? isCurrent
+                    ? p.color
+                    : `${p.color}40`
+                  : "#e0e0e0",
+                transition: "background-color 0.2s",
+              }}
+            />
+          </Tooltip>
+        );
+      })}
+    </Box>
+  );
+}
+
+function FieldValue({
+  value,
+  field,
+}: {
+  value: unknown;
+  field?: { type: string; options?: { key: string; label: string; color?: string }[] };
+}) {
+  if (value === null || value === undefined || value === "") {
+    return (
+      <Typography variant="body2" color="text.disabled">
+        —
+      </Typography>
+    );
+  }
+  if (field?.type === "boolean") {
+    return (
+      <Icon
+        name={value ? "check_circle" : "cancel"}
+        size={18}
+        color={value ? "#4caf50" : "#bdbdbd"}
+      />
+    );
+  }
+  if (
+    field?.type === "single_select" &&
+    field.options
+  ) {
+    const opt = field.options.find((o) => o.key === value);
+    if (opt) {
+      return (
+        <Chip
+          label={opt.label}
+          size="small"
+          sx={{
+            height: 22,
+            fontSize: "0.7rem",
+            bgcolor: opt.color ? `${opt.color}20` : "action.selected",
+            color: opt.color || "text.primary",
+            fontWeight: 500,
+          }}
+        />
+      );
+    }
+  }
+  if (field?.type === "multiple_select" && Array.isArray(value) && field.options) {
+    return (
+      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+        {(value as string[]).map((v) => {
+          const opt = field.options!.find((o) => o.key === v);
+          return (
+            <Chip
+              key={v}
+              label={opt?.label || v}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: "0.65rem",
+                bgcolor: opt?.color ? `${opt.color}20` : "action.selected",
+                color: opt?.color || "text.primary",
+              }}
+            />
+          );
+        })}
+      </Box>
+    );
+  }
+  return (
+    <Typography variant="body2">
+      {String(value)}
+    </Typography>
+  );
+}
+
+export default function PortalViewer() {
+  const { slug } = useParams<{ slug: string }>();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const [portal, setPortal] = useState<PublicPortal | null>(null);
+  const [factSheets, setFactSheets] = useState<PortalFactSheet[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(24);
+  const [search, setSearch] = useState("");
+  const [subtype, setSubtype] = useState("");
+  const [selectedTag, setSelectedTag] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDir, setSortDir] = useState("asc");
+  const [loading, setLoading] = useState(true);
+  const [fsLoading, setFsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [selectedFs, setSelectedFs] = useState<PortalFactSheet | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load portal config
+  useEffect(() => {
+    if (!slug) return;
+    setLoading(true);
+    publicGet<PublicPortal>(`/web-portals/public/${slug}`)
+      .then(setPortal)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  // Load fact sheets
+  const loadFactSheets = useCallback(async () => {
+    if (!slug) return;
+    setFsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (subtype) params.set("subtype", subtype);
+      if (selectedTag) params.set("tag_ids", selectedTag);
+      params.set("page", String(page));
+      params.set("page_size", String(pageSize));
+      params.set("sort_by", sortBy);
+      params.set("sort_dir", sortDir);
+      const qs = params.toString();
+      const data = await publicGet<PortalFactSheetListResponse>(
+        `/web-portals/public/${slug}/fact-sheets?${qs}`
+      );
+      setFactSheets(data.items);
+      setTotal(data.total);
+    } catch {
+      // ignore
+    } finally {
+      setFsLoading(false);
+    }
+  }, [slug, search, subtype, selectedTag, page, pageSize, sortBy, sortDir]);
+
+  useEffect(() => {
+    if (portal) loadFactSheets();
+  }, [portal, loadFactSheets]);
+
+  // Debounced search
+  const handleSearchChange = (value: string) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
+      setSearch(value);
+      setPage(1);
+    }, 300);
+  };
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  const allFields =
+    portal?.type_info?.fields_schema?.flatMap((s) => s.fields) || [];
+  const displayFieldKeys = portal?.display_fields;
+  const visibleFields = displayFieldKeys?.length
+    ? allFields.filter((f) => displayFieldKeys.includes(f.key))
+    : allFields.slice(0, 4); // Show first 4 fields by default on cards
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          bgcolor: "#f5f7fa",
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !portal) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          bgcolor: "#f5f7fa",
+          gap: 2,
+        }}
+      >
+        <Icon name="error_outline" size={64} color="#bbb" />
+        <Typography variant="h5" color="text.secondary">
+          {error || "Portal not found"}
+        </Typography>
+        <Typography variant="body2" color="text.disabled">
+          This portal may not exist or may not be published yet.
+        </Typography>
+      </Box>
+    );
+  }
+
+  const typeColor = portal.type_info?.color || "#1976d2";
+
+  return (
+    <Box sx={{ minHeight: "100vh", bgcolor: "#f5f7fa" }}>
+      {/* Header */}
+      <Box
+        sx={{
+          bgcolor: typeColor,
+          color: "#fff",
+          py: { xs: 3, md: 5 },
+          px: { xs: 2, md: 4 },
+        }}
+      >
+        <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+            <Icon
+              name={portal.type_info?.icon || "language"}
+              size={32}
+              color="#fff"
+            />
+            <Typography variant="h4" fontWeight={700}>
+              {portal.name}
+            </Typography>
+          </Box>
+          {portal.description && (
+            <Typography variant="body1" sx={{ opacity: 0.9, maxWidth: 700 }}>
+              {portal.description}
+            </Typography>
+          )}
+          <Typography variant="body2" sx={{ mt: 1, opacity: 0.7 }}>
+            {total} {portal.type_info?.label || "items"}
+            {total !== 1 ? "s" : ""}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Search & Filters Bar */}
+      <Box
+        sx={{
+          position: "sticky",
+          top: 0,
+          zIndex: 10,
+          bgcolor: "#fff",
+          borderBottom: "1px solid #e0e0e0",
+          px: { xs: 2, md: 4 },
+          py: 1.5,
+        }}
+      >
+        <Box
+          sx={{
+            maxWidth: 1200,
+            mx: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            flexWrap: "wrap",
+          }}
+        >
+          <TextField
+            size="small"
+            placeholder={`Search ${portal.type_info?.label || "items"}...`}
+            defaultValue={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            sx={{ flex: 1, minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Icon name="search" size={20} color="#999" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <IconButton
+            size="small"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{
+              bgcolor: filtersOpen ? `${typeColor}15` : "transparent",
+              color: filtersOpen ? typeColor : "text.secondary",
+            }}
+          >
+            <Icon name="tune" size={22} />
+          </IconButton>
+
+          <TextField
+            select
+            size="small"
+            value={`${sortBy}-${sortDir}`}
+            onChange={(e) => {
+              const [sb, sd] = e.target.value.split("-");
+              setSortBy(sb);
+              setSortDir(sd);
+              setPage(1);
+            }}
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="name-asc">Name A-Z</MenuItem>
+            <MenuItem value="name-desc">Name Z-A</MenuItem>
+            <MenuItem value="updated_at-desc">Recently Updated</MenuItem>
+            <MenuItem value="completion-desc">Highest Completion</MenuItem>
+            <MenuItem value="completion-asc">Lowest Completion</MenuItem>
+          </TextField>
+        </Box>
+
+        {/* Expanded filters */}
+        <Collapse in={filtersOpen}>
+          <Box
+            sx={{
+              maxWidth: 1200,
+              mx: "auto",
+              display: "flex",
+              gap: 1.5,
+              flexWrap: "wrap",
+              mt: 1.5,
+              pb: 0.5,
+            }}
+          >
+            {portal.type_info?.subtypes && portal.type_info.subtypes.length > 0 && (
+              <TextField
+                select
+                size="small"
+                label="Subtype"
+                value={subtype}
+                onChange={(e) => {
+                  setSubtype(e.target.value);
+                  setPage(1);
+                }}
+                sx={{ minWidth: 160 }}
+              >
+                <MenuItem value="">All Subtypes</MenuItem>
+                {portal.type_info.subtypes.map((st) => (
+                  <MenuItem key={st.key} value={st.key}>
+                    {st.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+
+            {portal.tag_groups.map((tg) => (
+              <TextField
+                key={tg.id}
+                select
+                size="small"
+                label={tg.name}
+                value={
+                  tg.tags.find((t) => t.id === selectedTag) ? selectedTag : ""
+                }
+                onChange={(e) => {
+                  setSelectedTag(e.target.value);
+                  setPage(1);
+                }}
+                sx={{ minWidth: 160 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {tg.tags.map((t) => (
+                  <MenuItem key={t.id} value={t.id}>
+                    {t.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ))}
+
+            {(subtype || selectedTag) && (
+              <Chip
+                label="Clear Filters"
+                size="small"
+                onDelete={() => {
+                  setSubtype("");
+                  setSelectedTag("");
+                  setPage(1);
+                }}
+                sx={{ alignSelf: "center" }}
+              />
+            )}
+          </Box>
+        </Collapse>
+      </Box>
+
+      {/* Loading bar */}
+      {fsLoading && <LinearProgress sx={{ height: 2 }} />}
+
+      {/* Cards Grid */}
+      <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 3 }}>
+        {factSheets.length === 0 && !fsLoading && (
+          <Box sx={{ textAlign: "center", py: 8 }}>
+            <Icon name="search_off" size={48} color="#ccc" />
+            <Typography
+              variant="h6"
+              color="text.secondary"
+              sx={{ mt: 1 }}
+            >
+              No results found
+            </Typography>
+            <Typography variant="body2" color="text.disabled">
+              Try adjusting your search or filters.
+            </Typography>
+          </Box>
+        )}
+
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: {
+              xs: "1fr",
+              sm: "repeat(2, 1fr)",
+              md: "repeat(3, 1fr)",
+            },
+            gap: 2,
+          }}
+        >
+          {factSheets.map((fs) => (
+            <Card
+              key={fs.id}
+              sx={{
+                borderRadius: 2,
+                transition: "box-shadow 0.2s, transform 0.2s",
+                "&:hover": {
+                  boxShadow: 4,
+                  transform: "translateY(-2px)",
+                },
+              }}
+            >
+              <CardActionArea onClick={() => setSelectedFs(fs)}>
+                <CardContent sx={{ p: 2.5 }}>
+                  {/* Header */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 1.5,
+                      mb: 1.5,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1.5,
+                        bgcolor: `${typeColor}15`,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon
+                        name={portal.type_info?.icon || "description"}
+                        size={22}
+                        color={typeColor}
+                      />
+                    </Box>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight={600}
+                        sx={{
+                          lineHeight: 1.3,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }}
+                      >
+                        {fs.name}
+                      </Typography>
+                      {fs.subtype && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                        >
+                          {portal.type_info?.subtypes?.find(
+                            (st) => st.key === fs.subtype
+                          )?.label || fs.subtype}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+
+                  {/* Description preview */}
+                  {fs.description && (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 1.5,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        fontSize: "0.8rem",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {fs.description.replace(/<[^>]*>/g, "")}
+                    </Typography>
+                  )}
+
+                  {/* Key fields */}
+                  {visibleFields.length > 0 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 1,
+                        mb: 1,
+                      }}
+                    >
+                      {visibleFields.slice(0, 3).map((field) => {
+                        const val = fs.attributes?.[field.key];
+                        if (val === null || val === undefined || val === "")
+                          return null;
+                        return (
+                          <Box key={field.key} sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="caption"
+                              color="text.disabled"
+                              sx={{ fontSize: "0.6rem", textTransform: "uppercase", letterSpacing: 0.5 }}
+                            >
+                              {field.label}
+                            </Typography>
+                            <FieldValue value={val} field={field} />
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  )}
+
+                  {/* Lifecycle */}
+                  <LifecycleBar lifecycle={fs.lifecycle} />
+
+                  {/* Tags */}
+                  {fs.tags.length > 0 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 0.5,
+                        flexWrap: "wrap",
+                        mt: 1.5,
+                      }}
+                    >
+                      {fs.tags.slice(0, 4).map((tag) => (
+                        <Chip
+                          key={tag.id}
+                          label={tag.name}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: "0.65rem",
+                            bgcolor: tag.color
+                              ? `${tag.color}20`
+                              : "action.selected",
+                            color: tag.color || "text.secondary",
+                          }}
+                        />
+                      ))}
+                      {fs.tags.length > 4 && (
+                        <Chip
+                          label={`+${fs.tags.length - 4}`}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: "0.65rem",
+                          }}
+                        />
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Completion bar */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      mt: 1.5,
+                    }}
+                  >
+                    <LinearProgress
+                      variant="determinate"
+                      value={fs.completion}
+                      sx={{
+                        flex: 1,
+                        height: 4,
+                        borderRadius: 2,
+                        bgcolor: "#e0e0e0",
+                        "& .MuiLinearProgress-bar": {
+                          bgcolor:
+                            fs.completion >= 80
+                              ? "#4caf50"
+                              : fs.completion >= 50
+                                ? "#ff9800"
+                                : "#f44336",
+                          borderRadius: 2,
+                        },
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      sx={{ fontSize: "0.65rem", minWidth: 32 }}
+                    >
+                      {Math.round(fs.completion)}%
+                    </Typography>
+                  </Box>
+                </CardContent>
+              </CardActionArea>
+            </Card>
+          ))}
+        </Box>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={(_, p) => setPage(p)}
+              color="primary"
+              size={isMobile ? "small" : "medium"}
+            />
+          </Box>
+        )}
+      </Box>
+
+      {/* Detail Dialog */}
+      <Dialog
+        open={!!selectedFs}
+        onClose={() => setSelectedFs(null)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+      >
+        {selectedFs && (
+          <>
+            <DialogTitle
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 2,
+                pb: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                  bgcolor: `${typeColor}15`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  mt: 0.5,
+                }}
+              >
+                <Icon
+                  name={portal.type_info?.icon || "description"}
+                  size={28}
+                  color={typeColor}
+                />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="h5" fontWeight={700}>
+                  {selectedFs.name}
+                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    mt: 0.5,
+                  }}
+                >
+                  <Chip
+                    label={portal.type_info?.label || selectedFs.type}
+                    size="small"
+                    sx={{
+                      bgcolor: `${typeColor}15`,
+                      color: typeColor,
+                      fontWeight: 600,
+                    }}
+                  />
+                  {selectedFs.subtype && (
+                    <Chip
+                      label={
+                        portal.type_info?.subtypes?.find(
+                          (st) => st.key === selectedFs.subtype
+                        )?.label || selectedFs.subtype
+                      }
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                  <Chip
+                    label={`${Math.round(selectedFs.completion)}% complete`}
+                    size="small"
+                    sx={{
+                      bgcolor:
+                        selectedFs.completion >= 80
+                          ? "#e8f5e9"
+                          : selectedFs.completion >= 50
+                            ? "#fff3e0"
+                            : "#ffebee",
+                      color:
+                        selectedFs.completion >= 80
+                          ? "#2e7d32"
+                          : selectedFs.completion >= 50
+                            ? "#e65100"
+                            : "#c62828",
+                    }}
+                  />
+                </Box>
+              </Box>
+              <IconButton onClick={() => setSelectedFs(null)} sx={{ mt: -0.5 }}>
+                <Icon name="close" size={24} />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent dividers>
+              {/* Description */}
+              {selectedFs.description && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight={600}
+                    color="text.secondary"
+                    sx={{ mb: 0.5, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: 1 }}
+                  >
+                    Description
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}
+                    dangerouslySetInnerHTML={{
+                      __html: selectedFs.description,
+                    }}
+                  />
+                </Box>
+              )}
+
+              {/* Lifecycle */}
+              {selectedFs.lifecycle &&
+                Object.values(selectedFs.lifecycle).some(Boolean) && (
+                  <Box sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={600}
+                      color="text.secondary"
+                      sx={{ mb: 1, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: 1 }}
+                    >
+                      Lifecycle
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                      {[
+                        { key: "plan", label: "Plan" },
+                        { key: "phaseIn", label: "Phase In" },
+                        { key: "active", label: "Active" },
+                        { key: "phaseOut", label: "Phase Out" },
+                        { key: "endOfLife", label: "End of Life" },
+                      ].map((phase) => {
+                        const date = selectedFs.lifecycle?.[phase.key];
+                        if (!date) return null;
+                        return (
+                          <Box key={phase.key}>
+                            <Typography
+                              variant="caption"
+                              color="text.disabled"
+                              sx={{ fontSize: "0.65rem" }}
+                            >
+                              {phase.label}
+                            </Typography>
+                            <Typography variant="body2" fontWeight={500}>
+                              {date}
+                            </Typography>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                    <LifecycleBar lifecycle={selectedFs.lifecycle} />
+                  </Box>
+                )}
+
+              {/* Attributes */}
+              {portal.type_info?.fields_schema?.map((section) => {
+                const fieldsWithValues = section.fields.filter(
+                  (f) =>
+                    selectedFs.attributes?.[f.key] !== undefined &&
+                    selectedFs.attributes?.[f.key] !== null &&
+                    selectedFs.attributes?.[f.key] !== ""
+                );
+                if (fieldsWithValues.length === 0) return null;
+                return (
+                  <Box key={section.section} sx={{ mb: 3 }}>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={600}
+                      color="text.secondary"
+                      sx={{ mb: 1, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: 1 }}
+                    >
+                      {section.section}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: {
+                          xs: "1fr",
+                          sm: "1fr 1fr",
+                        },
+                        gap: 2,
+                      }}
+                    >
+                      {fieldsWithValues.map((field) => (
+                        <Box key={field.key}>
+                          <Typography
+                            variant="caption"
+                            color="text.disabled"
+                            sx={{ fontSize: "0.65rem" }}
+                          >
+                            {field.label}
+                          </Typography>
+                          <FieldValue
+                            value={selectedFs.attributes?.[field.key]}
+                            field={field}
+                          />
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                );
+              })}
+
+              {/* Tags */}
+              {selectedFs.tags.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight={600}
+                    color="text.secondary"
+                    sx={{ mb: 1, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: 1 }}
+                  >
+                    Tags
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+                    {selectedFs.tags.map((tag) => (
+                      <Chip
+                        key={tag.id}
+                        label={
+                          tag.group_name
+                            ? `${tag.group_name}: ${tag.name}`
+                            : tag.name
+                        }
+                        size="small"
+                        sx={{
+                          bgcolor: tag.color
+                            ? `${tag.color}20`
+                            : "action.selected",
+                          color: tag.color || "text.primary",
+                          fontWeight: 500,
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Relations */}
+              {selectedFs.relations.length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography
+                    variant="subtitle2"
+                    fontWeight={600}
+                    color="text.secondary"
+                    sx={{ mb: 1, textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: 1 }}
+                  >
+                    Related Items
+                  </Typography>
+                  {/* Group by relation type */}
+                  {(() => {
+                    const grouped: Record<
+                      string,
+                      typeof selectedFs.relations
+                    > = {};
+                    for (const rel of selectedFs.relations) {
+                      const rt = portal.relation_types.find(
+                        (r) => r.key === rel.type
+                      );
+                      const label =
+                        rel.direction === "outgoing"
+                          ? rt?.label || rel.type
+                          : rt?.reverse_label || rt?.label || rel.type;
+                      grouped[label] = grouped[label] || [];
+                      grouped[label].push(rel);
+                    }
+                    return Object.entries(grouped).map(([label, rels]) => (
+                      <Box key={label} sx={{ mb: 1.5 }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          fontWeight={600}
+                          sx={{ mb: 0.5, display: "block" }}
+                        >
+                          {label}
+                        </Typography>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 0.75,
+                          }}
+                        >
+                          {rels.map((rel, i) => (
+                            <Chip
+                              key={`${rel.related_id}-${i}`}
+                              label={rel.related_name}
+                              size="small"
+                              variant="outlined"
+                              sx={{ fontWeight: 500 }}
+                            />
+                          ))}
+                        </Box>
+                      </Box>
+                    ));
+                  })()}
+                </Box>
+              )}
+
+              {/* Last updated */}
+              {selectedFs.updated_at && (
+                <>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="caption" color="text.disabled">
+                    Last updated:{" "}
+                    {new Date(selectedFs.updated_at).toLocaleDateString(
+                      undefined,
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
+                  </Typography>
+                </>
+              )}
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
+    </Box>
+  );
+}

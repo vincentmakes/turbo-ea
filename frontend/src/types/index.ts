@@ -460,3 +460,87 @@ export interface DiagramSummary {
   created_at?: string;
   updated_at?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Web Portals
+// ---------------------------------------------------------------------------
+
+export interface WebPortal {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  fact_sheet_type: string;
+  filters?: Record<string, unknown>;
+  display_fields?: string[];
+  card_config?: Record<string, unknown>;
+  is_published: boolean;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PortalTypeInfo {
+  key: string;
+  label: string;
+  icon: string;
+  color: string;
+  fields_schema: SectionDef[];
+  subtypes?: SubtypeDef[];
+}
+
+export interface PortalRelationType {
+  key: string;
+  label: string;
+  reverse_label?: string;
+  source_type_key: string;
+  target_type_key: string;
+}
+
+export interface PortalTagGroup {
+  id: string;
+  name: string;
+  tags: { id: string; name: string; color?: string }[];
+}
+
+export interface PublicPortal {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  fact_sheet_type: string;
+  filters?: Record<string, unknown>;
+  display_fields?: string[];
+  card_config?: Record<string, unknown>;
+  type_info: PortalTypeInfo | null;
+  relation_types: PortalRelationType[];
+  tag_groups: PortalTagGroup[];
+}
+
+export interface PortalFactSheet {
+  id: string;
+  name: string;
+  type: string;
+  subtype?: string;
+  description?: string;
+  lifecycle?: Record<string, string>;
+  attributes?: Record<string, unknown>;
+  quality_seal: string;
+  completion: number;
+  tags: { id: string; name: string; color?: string; group_name?: string }[];
+  relations: {
+    type: string;
+    related_id: string;
+    related_name: string;
+    related_type: string;
+    direction: string;
+  }[];
+  updated_at?: string;
+}
+
+export interface PortalFactSheetListResponse {
+  items: PortalFactSheet[];
+  total: number;
+  page: number;
+  page_size: number;
+}
