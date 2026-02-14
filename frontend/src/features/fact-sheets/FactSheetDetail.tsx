@@ -473,10 +473,12 @@ function AttributeSection({
   section,
   fs,
   onSave,
+  onRelationChange,
 }: {
   section: { section: string; fields: FieldDef[] };
   fs: FactSheet;
   onSave: (u: Record<string, unknown>) => Promise<void>;
+  onRelationChange?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
@@ -548,7 +550,7 @@ function AttributeSection({
                     onChange={(v) => setAttr(field.key, v)}
                     fsType={fs.type}
                     fsId={fs.id}
-                    onRelationChange={() => {}}
+                    onRelationChange={onRelationChange}
                   />
                 ) : (
                   <FieldEditor
@@ -1022,7 +1024,7 @@ function HierarchySection({
 }
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
-function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
+function RelationsSection({ fsId, fsType, refreshKey = 0 }: { fsId: string; fsType: string; refreshKey?: number }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { relationTypes, getType } = useMetamodel();
   const navigate = useNavigate();
@@ -1044,7 +1046,7 @@ function RelationsSection({ fsId, fsType }: { fsId: string; fsType: string }) {
     api.get<Relation[]>(`/relations?fact_sheet_id=${fsId}`).then(setRelations).catch(() => {});
   }, [fsId]);
 
-  useEffect(load, [load]);
+  useEffect(load, [load, refreshKey]);
 
   const relevantRTs = relationTypes.filter(
     (rt) => rt.source_type_key === fsType || rt.target_type_key === fsType
@@ -1726,6 +1728,7 @@ export default function FactSheetDetail() {
   const [fs, setFs] = useState<FactSheet | null>(null);
   const [tab, setTab] = useState(0);
   const [error, setError] = useState("");
+  const [relRefresh, setRelRefresh] = useState(0);
   const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
     null
   );
@@ -1858,10 +1861,11 @@ export default function FactSheetDetail() {
             section={section}
             fs={fs}
             onSave={handleUpdate}
+            onRelationChange={() => setRelRefresh((n) => n + 1)}
           />
         ))}
         <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
-        <RelationsSection fsId={fs.id} fsType={fs.type} />
+        <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
       </Box>
 
       {/* ── Secondary tabs ── */}
