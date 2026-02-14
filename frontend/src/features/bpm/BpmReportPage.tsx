@@ -23,6 +23,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -184,6 +185,14 @@ function buildProcessTree(procs: VsmProcess[]): ProcessNode[] {
   return walk(null);
 }
 
+const DEPTH_OPTIONS = [
+  { value: 99, label: "All Levels" },
+  { value: 0, label: "Top Level Only" },
+  { value: 1, label: "2 Levels" },
+  { value: 2, label: "3 Levels" },
+  { value: 3, label: "4 Levels" },
+];
+
 const DEFAULT_COL_WIDTH = 240;
 const MIN_COL_WIDTH = 140;
 
@@ -201,7 +210,10 @@ function ValueStreamMatrix() {
   const [loading, setLoading] = useState(true);
   const [colorBy, setColorBy] = useState<VsmColorBy>("processType");
   const [showApps, setShowApps] = useState(false);
+  const [maxDepth, setMaxDepth] = useState(99);
   const [drawer, setDrawer] = useState<VsmProcess | null>(null);
+  const [drawerFs, setDrawerFs] = useState<Record<string, unknown> | null>(null);
+  const [drawerLoading, setDrawerLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
 
@@ -279,6 +291,13 @@ function ValueStreamMatrix() {
 
   const handleProcClick = useCallback((proc: VsmProcess) => {
     setDrawer(proc);
+    setDrawerFs(null);
+    setDrawerLoading(true);
+    api
+      .get<Record<string, unknown>>(`/fact-sheets/${proc.id}`)
+      .then(setDrawerFs)
+      .catch(console.error)
+      .finally(() => setDrawerLoading(false));
   }, []);
 
   const handleReorder = useCallback(
@@ -396,6 +415,19 @@ function ValueStreamMatrix() {
         >
           {VSM_COLOR_OPTIONS.map((o) => (
             <MenuItem key={o.key} value={o.key}>{o.label}</MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          select
+          size="small"
+          label="Depth"
+          value={maxDepth}
+          onChange={(e) => setMaxDepth(Number(e.target.value))}
+          sx={{ minWidth: 140 }}
+        >
+          {DEPTH_OPTIONS.map((o) => (
+            <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
           ))}
         </TextField>
 
@@ -590,6 +622,7 @@ function ValueStreamMatrix() {
                                   key={node.proc.id}
                                   node={node}
                                   depth={0}
+                                  maxDepth={maxDepth}
                                   colorBy={colorBy}
                                   showApps={showApps}
                                   onClick={handleProcClick}
@@ -651,17 +684,18 @@ function ValueStreamMatrix() {
         </Box>
       )}
 
-      {/* Detail drawer */}
+      {/* Fact Sheet Detail Drawer */}
       <Drawer
         anchor="right"
         open={!!drawer}
         onClose={() => setDrawer(null)}
-        PaperProps={{ sx: { width: { xs: "100%", sm: 460 } } }}
+        PaperProps={{ sx: { width: { xs: "100%", sm: 500 } } }}
       >
         {drawer && (
-          <Box sx={{ p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <MaterialSymbol icon="swap_horiz" size={24} color="#1565c0" />
+          <Box sx={{ p: 3, overflowY: "auto", height: "100%" }}>
+            {/* Header */}
+            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
+              <MaterialSymbol icon="swap_horiz" size={28} color="#1565c0" />
               <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, ml: 1 }}>
                 {drawer.name}
               </Typography>
@@ -670,6 +704,7 @@ function ValueStreamMatrix() {
               </IconButton>
             </Box>
 
+            {/* Attribute chips */}
             <Box sx={{ display: "flex", gap: 0.5, mb: 2, flexWrap: "wrap" }}>
               {drawer.subtype && SUBTYPE_LABELS[drawer.subtype] && (
                 <Chip size="small" label={SUBTYPE_LABELS[drawer.subtype]} variant="outlined" />
@@ -692,30 +727,101 @@ function ValueStreamMatrix() {
             <Chip
               size="small"
               icon={<MaterialSymbol icon="open_in_new" size={14} />}
-              label="Open Fact Sheet"
+              label="Open Full Fact Sheet"
               onClick={() => {
                 setDrawer(null);
                 navigate(`/fact-sheets/${drawer.id}`);
               }}
               color="primary"
-              sx={{ cursor: "pointer", mb: 3 }}
+              sx={{ cursor: "pointer", mb: 2 }}
             />
+
+            {drawerLoading && <LinearProgress sx={{ mb: 2 }} />}
+
+            {/* Description from loaded fact sheet */}
+            {drawerFs && (drawerFs.description as string) && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Description</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 2 }}>
+                  {drawerFs.description as string}
+                </Typography>
+              </>
+            )}
+
+            {/* Lifecycle from loaded fact sheet */}
+            {drawerFs && !!(drawerFs.lifecycle) && Object.keys(drawerFs.lifecycle as Record<string, string>).length > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Lifecycle</Typography>
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
+                  {Object.entries(drawerFs.lifecycle as Record<string, string>).map(([phase, date]) => (
+                    date && (
+                      <Chip
+                        key={phase}
+                        size="small"
+                        label={`${phase}: ${date}`}
+                        variant="outlined"
+                        sx={{ textTransform: "capitalize" }}
+                      />
+                    )
+                  ))}
+                </Box>
+              </>
+            )}
+
+            {/* Completion & Quality */}
+            {drawerFs && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Box sx={{ display: "flex", gap: 2, mb: 2, alignItems: "center" }}>
+                  {typeof drawerFs.completion === "number" && (
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary">Completion</Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <LinearProgress
+                          variant="determinate"
+                          value={drawerFs.completion as number}
+                          sx={{ flex: 1, height: 6, borderRadius: 3 }}
+                        />
+                        <Typography variant="caption" sx={{ fontWeight: 600, minWidth: 35 }}>
+                          {Math.round(drawerFs.completion as number)}%
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  {!!(drawerFs.quality_seal) && (
+                    <Chip
+                      size="small"
+                      label={drawerFs.quality_seal as string}
+                      color={
+                        drawerFs.quality_seal === "APPROVED" ? "success" :
+                        drawerFs.quality_seal === "REJECTED" ? "error" :
+                        drawerFs.quality_seal === "BROKEN" ? "warning" : "default"
+                      }
+                      variant="outlined"
+                    />
+                  )}
+                </Box>
+              </>
+            )}
 
             {/* Sub-processes */}
             {(() => {
               const children = getChildProcesses(drawer.id);
               if (children.length === 0) return null;
               return (
-                <Box sx={{ mb: 3 }}>
+                <>
+                  <Divider sx={{ my: 2 }} />
                   <Typography variant="subtitle2" sx={{ mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
                     <MaterialSymbol icon="account_tree" size={18} />
                     Sub-Processes ({children.length})
                   </Typography>
-                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
                     {children.map((child) => (
                       <Box
                         key={child.id}
-                        onClick={() => setDrawer(child)}
+                        onClick={() => handleProcClick(child)}
                         sx={{
                           display: "flex",
                           alignItems: "center",
@@ -740,18 +846,19 @@ function ValueStreamMatrix() {
                       </Box>
                     ))}
                   </Box>
-                </Box>
+                </>
               );
             })()}
 
             {/* Related Applications */}
             {drawer.apps && drawer.apps.length > 0 && (
-              <Box sx={{ mb: 3 }}>
+              <>
+                <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle2" sx={{ mb: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
                   <MaterialSymbol icon="apps" size={18} />
                   Applications ({drawer.apps.length})
                 </Typography>
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 2 }}>
                   {drawer.apps.map((app) => (
                     <Box
                       key={app.id}
@@ -783,7 +890,26 @@ function ValueStreamMatrix() {
                     </Box>
                   ))}
                 </Box>
-              </Box>
+              </>
+            )}
+
+            {/* Tags from loaded fact sheet */}
+            {drawerFs && Array.isArray(drawerFs.tags) && (drawerFs.tags as Array<{ id: string; name: string; color?: string }>).length > 0 && (
+              <>
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Tags</Typography>
+                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                  {(drawerFs.tags as Array<{ id: string; name: string; color?: string }>).map((tag) => (
+                    <Chip
+                      key={tag.id}
+                      size="small"
+                      label={tag.name}
+                      sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
+                      variant={tag.color ? "filled" : "outlined"}
+                    />
+                  ))}
+                </Box>
+              </>
             )}
           </Box>
         )}
@@ -792,22 +918,26 @@ function ValueStreamMatrix() {
   );
 }
 
-/** Recursive nested process card for cells */
+/** Recursive nested process card for cells with depth limiting */
 function ProcessNodeCard({
   node,
   depth,
+  maxDepth,
   colorBy,
   showApps,
   onClick,
 }: {
   node: ProcessNode;
   depth: number;
+  maxDepth: number;
   colorBy: VsmColorBy;
   showApps: boolean;
   onClick: (p: VsmProcess) => void;
 }) {
   const color = getProcessColor(node.proc, colorBy);
   const apps = node.proc.apps || [];
+  const hasChildren = node.children.length > 0;
+  const showChildren = hasChildren && depth < maxDepth;
 
   return (
     <Box sx={{ ml: depth * 1 }}>
@@ -823,6 +953,11 @@ function ProcessNodeCard({
             {apps.length > 0 && (
               <Typography variant="caption" sx={{ display: "block", mt: 0.25 }}>
                 {apps.length} application{apps.length > 1 ? "s" : ""}
+              </Typography>
+            )}
+            {hasChildren && !showChildren && (
+              <Typography variant="caption" sx={{ display: "block", mt: 0.25, fontStyle: "italic" }}>
+                {node.children.length} sub-process{node.children.length > 1 ? "es" : ""} (increase depth to show)
               </Typography>
             )}
           </Box>
@@ -845,8 +980,8 @@ function ProcessNodeCard({
             minHeight: 34,
           }}
         >
-          {node.children.length > 0 && (
-            <MaterialSymbol icon="subdirectory_arrow_right" size={14} />
+          {hasChildren && (
+            <MaterialSymbol icon={showChildren ? "subdirectory_arrow_right" : "more_horiz"} size={14} />
           )}
           <Typography
             variant="body2"
@@ -887,14 +1022,15 @@ function ProcessNodeCard({
           ))}
         </Box>
       )}
-      {/* Nested children */}
-      {node.children.length > 0 && (
+      {/* Nested children (respect depth limit) */}
+      {showChildren && (
         <Box sx={{ mt: 0.5, display: "flex", flexDirection: "column", gap: 0.5 }}>
           {node.children.map((child) => (
             <ProcessNodeCard
               key={child.proc.id}
               node={child}
               depth={depth + 1}
+              maxDepth={maxDepth}
               colorBy={colorBy}
               showApps={showApps}
               onClick={onClick}
