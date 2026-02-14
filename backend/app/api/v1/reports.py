@@ -673,17 +673,55 @@ async def _fetch_product_cycles(
     return None
 
 
+def _manual_eol_status(lifecycle: dict | None) -> str:
+    """Classify a fact sheet with manually maintained lifecycle dates."""
+    if not lifecycle:
+        return "unknown"
+
+    now = datetime.now(timezone.utc).date()
+    eol_str = lifecycle.get("endOfLife")
+    phase_out_str = lifecycle.get("phaseOut")
+
+    # Check endOfLife date
+    if isinstance(eol_str, str) and eol_str:
+        try:
+            eol_date = datetime.strptime(eol_str, "%Y-%m-%d").date()
+            if eol_date <= now:
+                return "eol"
+            six_months = now + timedelta(days=182)
+            if eol_date <= six_months:
+                return "approaching"
+        except ValueError:
+            pass
+
+    # Check phaseOut date (analogous to support ending)
+    if isinstance(phase_out_str, str) and phase_out_str:
+        try:
+            po_date = datetime.strptime(phase_out_str, "%Y-%m-%d").date()
+            if po_date <= now:
+                return "approaching"
+        except ValueError:
+            pass
+
+    return "supported"
+
+
 @router.get("/eol")
 async def eol_report(
     db: AsyncSession = Depends(get_db),
 ):
     """End-of-Life risk & impact report.
 
-    Returns all Applications and IT Components with linked EOL data,
-    enriched with live cycle information from endoflife.date and
-    impact mapping (IT Component → related Applications).
+    Returns all Applications and IT Components with linked EOL data
+    (from endoflife.date API) *or* manually maintained lifecycle dates,
+    enriched with live cycle information and impact mapping
+    (IT Component → related Applications).
+
+    Each item includes a ``source`` field: ``"api"`` for items linked
+    to endoflife.date, ``"manual"`` for items with only a hand-entered
+    ``endOfLife`` lifecycle date.
     """
-    # 1. Fetch Applications and ITComponents with eol_product set
+    # 1. Fetch all active Applications and ITComponents
     result = await db.execute(
         select(FactSheet).where(
             FactSheet.status == "ACTIVE",
@@ -692,33 +730,51 @@ async def eol_report(
     )
     all_sheets = result.scalars().all()
 
-    eol_sheets = [
-        fs for fs in all_sheets
-        if (fs.attributes or {}).get("eol_product") and (fs.attributes or {}).get("eol_cycle")
-    ]
+    # Split into API-linked and manually-maintained sets
+    api_sheets = []
+    manual_sheets = []
+    seen_ids: set[str] = set()
 
-    if not eol_sheets:
+    for fs in all_sheets:
+        attrs = fs.attributes or {}
+        has_api_link = bool(attrs.get("eol_product") and attrs.get("eol_cycle"))
+        lifecycle = fs.lifecycle or {}
+        has_manual_eol = bool(lifecycle.get("endOfLife"))
+
+        if has_api_link:
+            api_sheets.append(fs)
+            seen_ids.add(str(fs.id))
+        elif has_manual_eol:
+            manual_sheets.append(fs)
+            seen_ids.add(str(fs.id))
+
+    if not api_sheets and not manual_sheets:
         return {
             "items": [],
-            "summary": {"eol": 0, "approaching": 0, "supported": 0, "impacted_apps": 0},
+            "summary": {
+                "eol": 0, "approaching": 0, "supported": 0,
+                "impacted_apps": 0, "manual": 0,
+            },
         }
 
-    # 2. Batch-fetch unique products from endoflife.date
-    unique_products = {(fs.attributes or {})["eol_product"] for fs in eol_sheets}
+    # 2. Batch-fetch unique products from endoflife.date (for API-linked items)
+    unique_products = {(fs.attributes or {})["eol_product"] for fs in api_sheets}
     product_cycles: dict[str, list[dict]] = {}
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        tasks = {
-            product: _fetch_product_cycles(client, product)
-            for product in unique_products
-        }
-        results = await asyncio.gather(*tasks.values())
-        for product, cycles in zip(tasks.keys(), results):
-            if cycles is not None:
-                product_cycles[product] = cycles
+    if unique_products:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            tasks = {
+                product: _fetch_product_cycles(client, product)
+                for product in unique_products
+            }
+            results = await asyncio.gather(*tasks.values())
+            for product, cycles in zip(tasks.keys(), results):
+                if cycles is not None:
+                    product_cycles[product] = cycles
 
     # 3. Get relations between ITComponent and Application for impact mapping
-    it_ids = [fs.id for fs in eol_sheets if fs.type == "ITComponent"]
+    all_eol_sheets = api_sheets + manual_sheets
+    it_ids = [fs.id for fs in all_eol_sheets if fs.type == "ITComponent"]
     app_map = {str(fs.id): fs for fs in all_sheets if fs.type == "Application"}
     it_to_apps: dict[str, list[dict]] = {}
 
@@ -729,16 +785,17 @@ async def eol_report(
             )
         )
         rels = rels_result.scalars().all()
+        it_id_strs = {str(i) for i in it_ids}
         for r in rels:
             sid, tid = str(r.source_id), str(r.target_id)
             # ITComponent → Application relation in either direction
-            if sid in {str(i) for i in it_ids} and tid in app_map:
+            if sid in it_id_strs and tid in app_map:
                 it_to_apps.setdefault(sid, []).append({
                     "id": tid,
                     "name": app_map[tid].name,
                     "lifecycle": app_map[tid].lifecycle,
                 })
-            elif tid in {str(i) for i in it_ids} and sid in app_map:
+            elif tid in it_id_strs and sid in app_map:
                 it_to_apps.setdefault(tid, []).append({
                     "id": sid,
                     "name": app_map[sid].name,
@@ -748,9 +805,11 @@ async def eol_report(
     # 4. Build response items
     items = []
     counts = {"eol": 0, "approaching": 0, "supported": 0}
+    manual_count = 0
     impacted_app_ids: set[str] = set()
 
-    for fs in eol_sheets:
+    # 4a. API-linked items
+    for fs in api_sheets:
         attrs = fs.attributes or {}
         product = attrs["eol_product"]
         cycle_key = str(attrs["eol_cycle"])
@@ -784,8 +843,47 @@ async def eol_report(
             "eol_product": product,
             "eol_cycle": cycle_key,
             "status": status,
+            "source": "api",
             "cycle_data": cycle_data,
             "lifecycle": fs.lifecycle,
+            "affected_apps": affected_apps,
+        })
+
+    # 4b. Manually maintained items (lifecycle.endOfLife set, no API link)
+    for fs in manual_sheets:
+        lifecycle = fs.lifecycle or {}
+        status = _manual_eol_status(lifecycle)
+        manual_count += 1
+
+        if status in counts:
+            counts[status] += 1
+
+        # Impact: affected apps
+        affected_apps = it_to_apps.get(str(fs.id), [])
+        if status in ("eol", "approaching") and fs.type == "ITComponent":
+            for app in affected_apps:
+                impacted_app_ids.add(app["id"])
+
+        # Build synthetic cycle_data from lifecycle dates for timeline display
+        manual_cycle_data = {}
+        if lifecycle.get("active"):
+            manual_cycle_data["releaseDate"] = lifecycle["active"]
+        if lifecycle.get("phaseOut"):
+            manual_cycle_data["support"] = lifecycle["phaseOut"]
+        if lifecycle.get("endOfLife"):
+            manual_cycle_data["eol"] = lifecycle["endOfLife"]
+
+        items.append({
+            "id": str(fs.id),
+            "name": fs.name,
+            "type": fs.type,
+            "subtype": fs.subtype,
+            "eol_product": None,
+            "eol_cycle": None,
+            "status": status,
+            "source": "manual",
+            "cycle_data": manual_cycle_data if manual_cycle_data else None,
+            "lifecycle": lifecycle,
             "affected_apps": affected_apps,
         })
 
@@ -800,5 +898,6 @@ async def eol_report(
             "approaching": counts["approaching"],
             "supported": counts["supported"],
             "impacted_apps": len(impacted_app_ids),
+            "manual": manual_count,
         },
     }
