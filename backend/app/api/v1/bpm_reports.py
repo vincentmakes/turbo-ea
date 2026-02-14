@@ -579,12 +579,11 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
     cells: dict[str, dict[str, list]] = {}
     assigned_ids: set[str] = set()
 
+    # Pre-build proc_dict for every process so children can be inserted later
+    proc_dicts: dict[str, dict] = {}
     for p in processes:
         pid = str(p.id)
-        my_orgs = p_orgs.get(pid, set())
-        my_ctxs = p_ctxs.get(pid, set())
-
-        proc_dict = {
+        proc_dicts[pid] = {
             "id": pid,
             "name": p.name,
             "subtype": p.subtype,
@@ -594,19 +593,63 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
             "apps": p_apps.get(pid, []),
         }
 
+    # Build parent→children map for hierarchy propagation
+    children_of: dict[str | None, list[str]] = {}
+    for p in processes:
+        pid = str(p.id)
+        parent = str(p.parent_id) if p.parent_id else None
+        children_of.setdefault(parent, []).append(pid)
+
+    # Phase 1: Assign processes to cells based on their own direct relations
+    # Track which (org, ctx) pairs each process is assigned to
+    proc_cells: dict[str, set[tuple[str, str]]] = {}
+
+    for p in processes:
+        pid = str(p.id)
+        my_orgs = p_orgs.get(pid, set())
+        my_ctxs = p_ctxs.get(pid, set())
+
         if my_orgs and my_ctxs:
             assigned_ids.add(pid)
             for oid in my_orgs:
                 for cid in my_ctxs:
-                    cells.setdefault(oid, {}).setdefault(cid, []).append(proc_dict)
+                    cells.setdefault(oid, {}).setdefault(cid, []).append(proc_dicts[pid])
+                    proc_cells.setdefault(pid, set()).add((oid, cid))
         elif my_orgs and not my_ctxs:
             assigned_ids.add(pid)
             for oid in my_orgs:
-                cells.setdefault(oid, {}).setdefault("__none__", []).append(proc_dict)
+                cells.setdefault(oid, {}).setdefault("__none__", []).append(proc_dicts[pid])
+                proc_cells.setdefault(pid, set()).add((oid, "__none__"))
         elif my_ctxs and not my_orgs:
             assigned_ids.add(pid)
             for cid in my_ctxs:
-                cells.setdefault("__none__", {}).setdefault(cid, []).append(proc_dict)
+                cells.setdefault("__none__", {}).setdefault(cid, []).append(proc_dicts[pid])
+                proc_cells.setdefault(pid, set()).add(("__none__", cid))
+
+    # Phase 2: Propagate children into their parent's cells
+    # Walk the hierarchy top-down; children inherit parent cell assignments
+    # if they don't have their own direct relations placing them elsewhere.
+    def propagate_children(parent_pid: str):
+        parent_cell_set = proc_cells.get(parent_pid, set())
+        if not parent_cell_set:
+            return
+        for child_pid in children_of.get(parent_pid, []):
+            child_dict = proc_dicts.get(child_pid)
+            if not child_dict:
+                continue
+            child_own_cells = proc_cells.get(child_pid, set())
+            # Add child to parent's cells where child isn't already present
+            for oid, cid in parent_cell_set:
+                if (oid, cid) not in child_own_cells:
+                    cells.setdefault(oid, {}).setdefault(cid, []).append(child_dict)
+                    proc_cells.setdefault(child_pid, set()).add((oid, cid))
+                    assigned_ids.add(child_pid)
+            # Recurse to propagate to grandchildren
+            propagate_children(child_pid)
+
+    # Start propagation from root processes (those without a parent)
+    for root_pid in children_of.get(None, []):
+        propagate_children(root_pid)
 
     unassigned = [
         {
