@@ -61,7 +61,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
   { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
-  { label: "Surveys", icon: "assignment", path: "/surveys" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
@@ -231,8 +230,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   };
 
   const hasBadge = (label: string) =>
-    (label === "Todos" && badgeCounts.open_todos > 0) ||
-    (label === "Surveys" && badgeCounts.pending_surveys > 0);
+    label === "Todos" && (badgeCounts.open_todos > 0 || badgeCounts.pending_surveys > 0);
 
   // ── Mobile drawer ───────────────────────────────────────────────────────
 
