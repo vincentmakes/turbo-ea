@@ -474,7 +474,11 @@ async def process_map(db: AsyncSession = Depends(get_db)):
 
 @router.get("/value-stream-matrix")
 async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
-    """Value-stream × Organization matrix with processes at intersections."""
+    """Value-stream × Organization matrix with processes at intersections.
+
+    Only shows BusinessContext items with subtype 'valueStream' as columns.
+    Includes related apps and parent_id for nested process display.
+    """
     # All active BusinessProcesses
     proc_result = await db.execute(
         select(FactSheet).where(
@@ -497,20 +501,35 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
     )
     orgs = org_result.scalars().all()
 
-    # All BusinessContexts (columns) — with hierarchy data
+    # Value Stream contexts only (columns)
     ctx_result = await db.execute(
         select(FactSheet).where(
             FactSheet.type == "BusinessContext",
+            FactSheet.subtype == "valueStream",
             FactSheet.status == "ACTIVE",
         ).order_by(FactSheet.name)
     )
     contexts = ctx_result.scalars().all()
 
-    # Fetch relevant relations: process→org and process→ctx
+    # All Applications for linking
+    app_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Application",
+            FactSheet.status == "ACTIVE",
+        )
+    )
+    apps = app_result.scalars().all()
+    app_map = {a.id: a for a in apps}
+
+    # Fetch relevant relations
     proc_ids = list(proc_map.keys())
     rels_result = await db.execute(
         select(Relation).where(
-            Relation.type.in_(["relProcessToOrg", "relProcessToBizCtx"]),
+            Relation.type.in_([
+                "relProcessToOrg",
+                "relProcessToBizCtx",
+                "relProcessToApp",
+            ]),
             (Relation.source_id.in_(proc_ids)) | (Relation.target_id.in_(proc_ids)),
         )
     )
@@ -519,10 +538,12 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
     proc_id_set = set(str(p) for p in proc_ids)
     org_id_set = set(str(o.id) for o in orgs)
     ctx_id_set = set(str(c.id) for c in contexts)
+    app_id_set = set(str(a.id) for a in apps)
 
-    # Map process → set of org ids, process → set of ctx ids
+    # Map process → set of org ids, ctx ids, and app list
     p_orgs: dict[str, set[str]] = {}
     p_ctxs: dict[str, set[str]] = {}
+    p_apps: dict[str, list] = {}
 
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
@@ -540,6 +561,20 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
             elif tid in proc_id_set and sid in ctx_id_set:
                 p_ctxs.setdefault(tid, set()).add(sid)
 
+        elif rtype == "relProcessToApp":
+            if sid in proc_id_set and tid in app_id_set:
+                a = app_map.get(r.target_id)
+                if a:
+                    p_apps.setdefault(sid, []).append(
+                        {"id": tid, "name": a.name, "subtype": a.subtype}
+                    )
+            elif tid in proc_id_set and sid in app_id_set:
+                a = app_map.get(r.source_id)
+                if a:
+                    p_apps.setdefault(tid, []).append(
+                        {"id": sid, "name": a.name, "subtype": a.subtype}
+                    )
+
     # Build cells: { org_id: { ctx_id: [process_dicts] } }
     cells: dict[str, dict[str, list]] = {}
     assigned_ids: set[str] = set()
@@ -548,14 +583,15 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
         pid = str(p.id)
         my_orgs = p_orgs.get(pid, set())
         my_ctxs = p_ctxs.get(pid, set())
-        attrs = p.attributes or {}
 
         proc_dict = {
             "id": pid,
             "name": p.name,
             "subtype": p.subtype,
-            "attributes": attrs,
+            "parent_id": str(p.parent_id) if p.parent_id else None,
+            "attributes": p.attributes or {},
             "lifecycle": p.lifecycle or {},
+            "apps": p_apps.get(pid, []),
         }
 
         if my_orgs and my_ctxs:
@@ -564,12 +600,10 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
                 for cid in my_ctxs:
                     cells.setdefault(oid, {}).setdefault(cid, []).append(proc_dict)
         elif my_orgs and not my_ctxs:
-            # Has org but no context — show in a special "no context" column
             assigned_ids.add(pid)
             for oid in my_orgs:
                 cells.setdefault(oid, {}).setdefault("__none__", []).append(proc_dict)
         elif my_ctxs and not my_orgs:
-            # Has context but no org — show in a special "no org" row
             assigned_ids.add(pid)
             for cid in my_ctxs:
                 cells.setdefault("__none__", {}).setdefault(cid, []).append(proc_dict)
@@ -600,7 +634,9 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
             "name": c.name,
             "subtype": c.subtype,
             "parent_id": str(c.parent_id) if c.parent_id else None,
+            "attributes": attrs,
             "sort_order": attrs.get("sortOrder"),
+            "column_width": attrs.get("columnWidth"),
         }
 
     return {
