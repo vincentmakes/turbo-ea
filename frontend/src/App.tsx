@@ -31,6 +31,8 @@ import SurveyResults from "@/features/admin/SurveyResults";
 import EolAdmin from "@/features/admin/EolAdmin";
 import MySurveys from "@/features/surveys/MySurveys";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
+import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
+import PortalViewer from "@/features/web-portals/PortalViewer";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
@@ -48,7 +50,8 @@ const theme = createTheme({
   },
 });
 
-export default function App() {
+/** Inner component that handles authenticated vs public routes. */
+function AppRoutes() {
   const { user, loading, login, register, logout } = useAuth();
 
   if (loading) {
@@ -61,51 +64,70 @@ export default function App() {
 
   if (!user) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <LoginPage onLogin={login} onRegister={register} />
-      </ThemeProvider>
+      <Routes>
+        {/* Public portal route — accessible without login */}
+        <Route path="/portal/:slug" element={<PortalViewer />} />
+        {/* Everything else redirects to login */}
+        <Route path="*" element={<LoginPage onLogin={login} onRegister={register} />} />
+      </Routes>
     );
   }
 
   return (
+    <Routes>
+      {/* Public portal route — also accessible when logged in */}
+      <Route path="/portal/:slug" element={<PortalViewer />} />
+      {/* Authenticated routes */}
+      <Route
+        path="*"
+        element={
+          <AppLayout user={user} onLogout={logout}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/fact-sheets/:id" element={<FactSheetDetail />} />
+              <Route path="/reports/portfolio" element={<PortfolioReport />} />
+              <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
+              <Route path="/reports/lifecycle" element={<LifecycleReport />} />
+              <Route path="/reports/dependencies" element={<DependencyReport />} />
+              <Route path="/reports/cost" element={<CostReport />} />
+              <Route path="/reports/matrix" element={<MatrixReport />} />
+              <Route path="/reports/data-quality" element={<DataQualityReport />} />
+              <Route path="/reports/eol" element={<EolReport />} />
+              <Route path="/diagrams" element={<DiagramsPage />} />
+              <Route path="/diagrams/:id" element={<DiagramEditor />} />
+              <Route path="/ea-delivery" element={<EADeliveryPage />} />
+              <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
+              <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
+              <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
+              <Route path="/todos" element={<TodosPage />} />
+              <Route path="/surveys" element={<MySurveys />} />
+              <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />
+              <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
+              <Route path="/admin/tags" element={<TagsAdmin />} />
+              <Route path="/admin/users" element={<UsersAdmin />} />
+              <Route path="/admin/settings" element={<SettingsAdmin />} />
+              <Route path="/admin/eol" element={<EolAdmin />} />
+              <Route path="/admin/surveys" element={<SurveysAdmin />} />
+              <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
+              <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
+              <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
+              <Route path="/admin/web-portals" element={<WebPortalsAdmin />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </AppLayout>
+        }
+      />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <BrowserRouter>
-        <AppLayout user={user} onLogout={logout}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/fact-sheets/:id" element={<FactSheetDetail />} />
-            <Route path="/reports/portfolio" element={<PortfolioReport />} />
-            <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
-            <Route path="/reports/lifecycle" element={<LifecycleReport />} />
-            <Route path="/reports/dependencies" element={<DependencyReport />} />
-            <Route path="/reports/cost" element={<CostReport />} />
-            <Route path="/reports/matrix" element={<MatrixReport />} />
-            <Route path="/reports/data-quality" element={<DataQualityReport />} />
-            <Route path="/reports/eol" element={<EolReport />} />
-            <Route path="/diagrams" element={<DiagramsPage />} />
-            <Route path="/diagrams/:id" element={<DiagramEditor />} />
-            <Route path="/ea-delivery" element={<EADeliveryPage />} />
-            <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
-            <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
-            <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
-            <Route path="/todos" element={<TodosPage />} />
-            <Route path="/surveys" element={<MySurveys />} />
-            <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />
-            <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
-            <Route path="/admin/tags" element={<TagsAdmin />} />
-            <Route path="/admin/users" element={<UsersAdmin />} />
-            <Route path="/admin/settings" element={<SettingsAdmin />} />
-            <Route path="/admin/eol" element={<EolAdmin />} />
-            <Route path="/admin/surveys" element={<SurveysAdmin />} />
-            <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
-            <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
-            <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </AppLayout>
+        <AppRoutes />
       </BrowserRouter>
     </ThemeProvider>
   );

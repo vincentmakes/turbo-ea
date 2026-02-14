@@ -152,6 +152,28 @@ class EventResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WebPortalCreate(BaseModel):
+    name: str
+    slug: str
+    description: str | None = None
+    fact_sheet_type: str
+    filters: dict | None = None
+    display_fields: list | None = None
+    card_config: dict | None = None
+    is_published: bool = False
+
+
+class WebPortalUpdate(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+    description: str | None = None
+    fact_sheet_type: str | None = None
+    filters: dict | None = None
+    display_fields: list | None = None
+    card_config: dict | None = None
+    is_published: bool | None = None
+
+
 # Fix forward refs
 TagGroupResponse.model_rebuild()
 CommentResponse.model_rebuild()
