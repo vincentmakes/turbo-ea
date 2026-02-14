@@ -427,7 +427,7 @@ export default function PortalViewer() {
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "#f0f2f5" }}>
-      {/* Header — matches Turbo EA toolbar */}
+      {/* Header */}
       <Box
         sx={{
           bgcolor: TOOLBAR_COLOR,
@@ -438,41 +438,67 @@ export default function PortalViewer() {
       >
         <Box sx={{ maxWidth: 1200, mx: "auto" }}>
           <Box
-            sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}
+            sx={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 2,
+            }}
           >
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 1.5,
-                bgcolor: "rgba(255,255,255,0.12)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Icon
-                name={portal.type_info?.icon || "language"}
-                size={24}
-                color="#fff"
-              />
+            {/* Left: icon + title */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Box
+                sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}
+              >
+                <Box
+                  sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 1.5,
+                    bgcolor: "rgba(255,255,255,0.12)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon
+                    name={portal.type_info?.icon || "language"}
+                    size={24}
+                    color="#fff"
+                  />
+                </Box>
+                <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: -0.5 }}>
+                  {portal.name}
+                </Typography>
+              </Box>
+              {portal.description && (
+                <Typography
+                  variant="body1"
+                  sx={{ opacity: 0.8, maxWidth: 700, mt: 0.5, lineHeight: 1.6 }}
+                >
+                  {portal.description}
+                </Typography>
+              )}
+              <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
+                {total} {portal.type_info?.label || "item"}
+                {total !== 1 ? "s" : ""}
+              </Typography>
             </Box>
-            <Typography variant="h4" fontWeight={700} sx={{ letterSpacing: -0.5 }}>
-              {portal.name}
-            </Typography>
+
+            {/* Right: app logo */}
+            <img
+              src="/api/v1/settings/logo"
+              alt=""
+              style={{
+                height: 28,
+                objectFit: "contain",
+                opacity: 0.85,
+                flexShrink: 0,
+                marginTop: 4,
+              }}
+            />
           </Box>
-          {portal.description && (
-            <Typography
-              variant="body1"
-              sx={{ opacity: 0.8, maxWidth: 700, mt: 0.5, lineHeight: 1.6 }}
-            >
-              {portal.description}
-            </Typography>
-          )}
-          <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-            {total} {portal.type_info?.label || "item"}
-            {total !== 1 ? "s" : ""}
-          </Typography>
         </Box>
       </Box>
 
