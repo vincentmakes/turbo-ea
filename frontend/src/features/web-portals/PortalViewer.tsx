@@ -247,7 +247,7 @@ export default function PortalViewer() {
   const [pageSize] = useState(24);
   const [search, setSearch] = useState("");
   const [subtype, setSubtype] = useState("");
-  const [selectedTag, setSelectedTag] = useState("");
+  const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
   const [loading, setLoading] = useState(true);
@@ -273,7 +273,12 @@ export default function PortalViewer() {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (subtype) params.set("subtype", subtype);
-      if (selectedTag) params.set("tag_ids", selectedTag);
+      const activeAttrFilters = Object.fromEntries(
+        Object.entries(attrFilters).filter(([, v]) => v !== "")
+      );
+      if (Object.keys(activeAttrFilters).length > 0) {
+        params.set("attr_filters", JSON.stringify(activeAttrFilters));
+      }
       params.set("page", String(page));
       params.set("page_size", String(pageSize));
       params.set("sort_by", sortBy);
@@ -288,7 +293,7 @@ export default function PortalViewer() {
     } finally {
       setFsLoading(false);
     }
-  }, [slug, search, subtype, selectedTag, page, pageSize, sortBy, sortDir]);
+  }, [slug, search, subtype, attrFilters, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     if (portal) loadFactSheets();
@@ -319,6 +324,18 @@ export default function PortalViewer() {
 
   const show = (key: string, mode: "card" | "detail", fallback = true) =>
     isVisible(cardToggles, key, mode, fallback);
+
+  // Filterable fields: select-type fields that are visible on card or detail
+  const filterableFields = allFields.filter(
+    (f) =>
+      (f.type === "single_select" || f.type === "multiple_select") &&
+      f.options &&
+      f.options.length > 0 &&
+      (cardVisibleFields.includes(f) || detailVisibleFields.includes(f))
+  );
+
+  const hasActiveFilters =
+    subtype !== "" || Object.values(attrFilters).some((v) => v !== "");
 
   if (loading) {
     return (
@@ -516,37 +533,38 @@ export default function PortalViewer() {
                 </TextField>
               )}
 
-            {portal.tag_groups.map((tg) => (
+            {filterableFields.map((field) => (
               <TextField
-                key={tg.id}
+                key={field.key}
                 select
                 size="small"
-                label={tg.name}
-                value={
-                  tg.tags.find((t) => t.id === selectedTag) ? selectedTag : ""
-                }
+                label={field.label}
+                value={attrFilters[field.key] || ""}
                 onChange={(e) => {
-                  setSelectedTag(e.target.value);
+                  setAttrFilters((prev) => ({
+                    ...prev,
+                    [field.key]: e.target.value,
+                  }));
                   setPage(1);
                 }}
                 sx={{ minWidth: 180, "& .MuiSelect-select": { pr: "32px !important" } }}
               >
                 <MenuItem value="">All</MenuItem>
-                {tg.tags.map((t) => (
-                  <MenuItem key={t.id} value={t.id}>
-                    {t.name}
+                {field.options!.map((opt) => (
+                  <MenuItem key={opt.key} value={opt.key}>
+                    {opt.label}
                   </MenuItem>
                 ))}
               </TextField>
             ))}
 
-            {(subtype || selectedTag) && (
+            {hasActiveFilters && (
               <Chip
                 label="Clear Filters"
                 size="small"
                 onDelete={() => {
                   setSubtype("");
-                  setSelectedTag("");
+                  setAttrFilters({});
                   setPage(1);
                 }}
                 sx={{ alignSelf: "center" }}

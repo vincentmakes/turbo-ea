@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
+from sqlalchemy.types import Text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -266,6 +268,7 @@ async def get_public_portal_fact_sheets(
     tag_ids: str | None = Query(None),
     related_type: str | None = Query(None),
     related_id: str | None = Query(None),
+    attr_filters: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(24, ge=1, le=100),
     sort_by: str = Query("name"),
@@ -323,6 +326,20 @@ async def get_public_portal_fact_sheets(
             )
             q = q.where(FactSheet.id.in_(tagged_fs))
             count_q = count_q.where(FactSheet.id.in_(tagged_fs))
+
+    # Filter by attribute values (e.g. {"businessCriticality": "high"})
+    if attr_filters:
+        try:
+            parsed = json.loads(attr_filters)
+            if isinstance(parsed, dict):
+                for attr_key, attr_val in parsed.items():
+                    if not isinstance(attr_key, str) or not attr_key:
+                        continue
+                    cond = FactSheet.attributes[attr_key].astext.cast(Text) == str(attr_val)
+                    q = q.where(cond)
+                    count_q = count_q.where(cond)
+        except (json.JSONDecodeError, TypeError):
+            pass  # Ignore malformed attr_filters
 
     # Filter by relationship to a specific fact sheet
     if related_type and related_id:
