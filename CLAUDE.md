@@ -63,7 +63,12 @@ turbo-ea/
 │   │   │       ├── documents.py       # /fact-sheets/:id/documents (link storage)
 │   │   │       ├── bookmarks.py       # /bookmarks (saved inventory views)
 │   │   │       ├── events.py          # /events + /events/stream (SSE)
-│   │   │       └── users.py           # /users CRUD (admin only)
+│   │   │       ├── users.py           # /users CRUD (admin only)
+│   │   │       ├── settings.py        # /settings (logo, currency, SMTP, logo visibility)
+│   │   │       ├── surveys.py         # /surveys (data-maintenance surveys)
+│   │   │       ├── eol.py             # /eol (End-of-Life proxy for endoflife.date)
+│   │   │       ├── web_portals.py     # /web-portals (public portal management)
+│   │   │       └── notifications.py   # /notifications (user notifications)
 │   │   ├── core/
 │   │   │   └── security.py            # JWT creation/validation, bcrypt
 │   │   ├── models/                    # SQLAlchemy ORM models (see Database section)
@@ -71,7 +76,9 @@ turbo-ea/
 │   │   ├── services/
 │   │   │   ├── event_bus.py           # In-memory pub/sub + SSE streaming
 │   │   │   ├── seed.py                # Default LeanIX metamodel (13 types, 29 relations)
-│   │   │   └── seed_demo.py           # NexaTech Industries demo dataset
+│   │   │   ├── seed_demo.py           # NexaTech Industries demo dataset
+│   │   │   ├── notification_service.py # In-memory + DB notification management
+│   │   │   └── email_service.py       # SMTP-based email sending
 │   │   ├── config.py                  # Settings from env vars
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed)
@@ -87,23 +94,32 @@ turbo-ea/
 │   │   ├── hooks/
 │   │   │   ├── useAuth.ts             # Login/register/logout + token in localStorage
 │   │   │   ├── useMetamodel.ts        # Cached metamodel types + relation types
-│   │   │   └── useEventStream.ts      # SSE subscription hook
+│   │   │   ├── useEventStream.ts      # SSE subscription hook
+│   │   │   └── useCurrency.ts         # Global currency format + symbol cache
 │   │   ├── layouts/AppLayout.tsx       # Top nav bar + mobile drawer + routing
 │   │   ├── components/
 │   │   │   ├── CreateFactSheetDialog.tsx
 │   │   │   ├── LifecycleBadge.tsx
 │   │   │   ├── QualitySealBadge.tsx
-│   │   │   └── MaterialSymbol.tsx
+│   │   │   ├── MaterialSymbol.tsx
+│   │   │   ├── NotificationBell.tsx       # Navbar notification bell with unread count
+│   │   │   ├── NotificationPreferencesDialog.tsx
+│   │   │   ├── EolLinkSection.tsx         # EOL product linking UI
+│   │   │   └── VendorField.tsx            # Vendor autocomplete field
 │   │   ├── features/
 │   │   │   ├── auth/LoginPage.tsx
 │   │   │   ├── dashboard/Dashboard.tsx
 │   │   │   ├── inventory/             # AG Grid data table + Excel import/export
 │   │   │   ├── fact-sheets/FactSheetDetail.tsx
 │   │   │   ├── diagrams/             # DrawIO editor + sync panel + shapes
-│   │   │   ├── reports/              # 7 report types (see Reports section)
+│   │   │   ├── reports/              # 8 report types (see Reports section)
 │   │   │   ├── ea-delivery/          # SoAW editor + preview + DOCX export
 │   │   │   ├── todos/TodosPage.tsx
-│   │   │   └── admin/               # MetamodelAdmin, TagsAdmin, UsersAdmin
+│   │   │   ├── surveys/              # MySurveys + SurveyRespond pages
+│   │   │   ├── web-portals/          # PortalViewer (public portal rendering)
+│   │   │   └── admin/               # MetamodelAdmin, TagsAdmin, UsersAdmin,
+│   │   │                            # SettingsAdmin, EolAdmin, SurveysAdmin,
+│   │   │                            # SurveyBuilder, SurveyResults, WebPortalsAdmin
 │   │   ├── App.tsx                   # Routes + MUI theme
 │   │   └── main.tsx                  # React entry point
 │   ├── drawio-config/                # PreConfig.js, PostConfig.js (placeholders)
@@ -172,6 +188,11 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
 | `diagram_initiatives` | (association table) | M:N between diagrams and initiative fact sheets |
 | `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives, with JSONB sections |
+| `app_settings` | `AppSettings` | Singleton row (id='default'): email_settings (JSONB), general_settings (JSONB with currency, show_logo), custom_logo (LargeBinary), custom_logo_mime |
+| `surveys` | `Survey` | Admin-created data-maintenance surveys targeting fact sheet types with filters and field actions |
+| `survey_responses` | `SurveyResponse` | Individual response records (one per fact sheet + user pair per survey) |
+| `notifications` | `Notification` | Per-user notifications with types: todo_assigned, fact_sheet_updated, comment_added, quality_seal_changed, soaw_sign_requested, soaw_signed, subscription_update |
+| `web_portals` | `WebPortal` | Public web portals: configurable views of fact sheets with slug-based URLs, display fields, card config |
 
 ### Migrations
 
@@ -270,6 +291,74 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | PATCH | `/soaw/{id}` | Update sections, status, document_info |
 | DELETE | `/soaw/{id}` | Delete SoAW |
 
+### Surveys (`/surveys`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/surveys` | List surveys (admin) |
+| POST | `/surveys` | Create survey (admin) |
+| GET | `/surveys/my` | Get surveys assigned to current user |
+| GET | `/surveys/{id}` | Get survey detail |
+| PATCH | `/surveys/{id}` | Update survey (admin) |
+| DELETE | `/surveys/{id}` | Delete survey (admin) |
+| POST | `/surveys/{id}/preview` | Preview survey targets |
+| POST | `/surveys/{id}/send` | Send survey to targets (admin) |
+| POST | `/surveys/{id}/close` | Close survey (admin) |
+| GET | `/surveys/{id}/responses` | List survey responses |
+| POST | `/surveys/{id}/apply` | Apply selected responses to fact sheets (bulk update) |
+| GET | `/surveys/{id}/respond/{fs_id}` | Get survey response form for a fact sheet |
+| POST | `/surveys/{id}/respond/{fs_id}` | Submit survey response |
+
+### End-of-Life (`/eol`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/eol/products` | List all products from endoflife.date |
+| GET | `/eol/products/fuzzy` | Fuzzy search products (auto-complete) |
+| GET | `/eol/products/{product}` | Get release cycles for a product |
+| POST | `/eol/mass-search` | Mass search EOL candidates for multiple fact sheets |
+| POST | `/eol/mass-link` | Link fact sheets to EOL products/cycles |
+
+### Web Portals (`/web-portals`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/web-portals` | List portals (admin) |
+| POST | `/web-portals` | Create portal (admin) |
+| GET | `/web-portals/{id}` | Get portal detail (admin) |
+| PATCH | `/web-portals/{id}` | Update portal (admin) |
+| DELETE | `/web-portals/{id}` | Delete portal (admin) |
+| GET | `/web-portals/public/{slug}` | Get portal for public viewing (no auth) |
+| GET | `/web-portals/public/{slug}/relation-options` | Available relations for portal filtering (no auth) |
+| GET | `/web-portals/public/{slug}/fact-sheets` | Get fact sheets for portal with filters (no auth) |
+
+### Notifications (`/notifications`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/notifications` | List notifications for current user |
+| GET | `/notifications/unread-count` | Get count of unread notifications |
+| GET | `/notifications/badge-counts` | Get badge counts (open todos + pending surveys) |
+| PATCH | `/notifications/{id}/read` | Mark notification as read |
+| POST | `/notifications/mark-all-read` | Mark all notifications as read |
+
+### Settings (`/settings`)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/settings/email` | Admin | Get SMTP configuration |
+| PATCH | `/settings/email` | Admin | Update SMTP configuration |
+| POST | `/settings/email/test` | Admin | Send test email |
+| GET | `/settings/currency` | Public | Get global display currency |
+| PATCH | `/settings/currency` | Admin | Update currency |
+| GET | `/settings/logo-visibility` | Public | Get logo visibility flag |
+| PATCH | `/settings/logo-visibility` | Admin | Toggle logo visibility in navbar |
+| GET | `/settings/logo` | Public | Get current logo image (custom or default) |
+| GET | `/settings/favicon` | Public | Get favicon image |
+| GET | `/settings/logo/info` | Admin | Get logo metadata (has_custom_logo, mime_type) |
+| POST | `/settings/logo` | Admin | Upload custom logo (max 2 MB; PNG, JPEG, SVG, WebP, GIF) |
+| DELETE | `/settings/logo` | Admin | Reset to default logo |
+
 ### Other Endpoints
 
 | Method | Path | Description |
@@ -340,6 +429,7 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | `/reports/cost` | `CostReport` | Treemap + bar chart |
 | `/reports/matrix` | `MatrixReport` | Cross-reference grid |
 | `/reports/data-quality` | `DataQualityReport` | Completeness dashboard |
+| `/reports/eol` | `EolReport` | End-of-Life status report for IT components |
 | `/diagrams` | `DiagramsPage` | Diagram gallery with thumbnails |
 | `/diagrams/:id` | `DiagramEditor` | DrawIO iframe editor with fact sheet sidebar |
 | `/ea-delivery` | `EADeliveryPage` | SoAW document list |
@@ -347,9 +437,19 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | `/ea-delivery/soaw/:id` | `SoAWEditor` | Edit SoAW |
 | `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only SoAW preview |
 | `/todos` | `TodosPage` | Global todo list |
+| `/surveys` | `MySurveys` | List surveys assigned to current user |
+| `/surveys/:surveyId/respond/:factSheetId` | `SurveyRespond` | Respond to a survey for a specific fact sheet |
+| `/portal/:slug` | `PortalViewer` | Public portal view (no auth required) |
 | `/admin/metamodel` | `MetamodelAdmin` | Manage fact sheet types + relation types |
 | `/admin/tags` | `TagsAdmin` | Manage tag groups + tags |
 | `/admin/users` | `UsersAdmin` | Manage users (admin only) |
+| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP email, logo visibility toggle |
+| `/admin/eol` | `EolAdmin` | Mass search + link IT components to EOL products |
+| `/admin/surveys` | `SurveysAdmin` | Admin survey list |
+| `/admin/surveys/new` | `SurveyBuilder` | Create new data-maintenance survey |
+| `/admin/surveys/:id` | `SurveyBuilder` | Edit survey |
+| `/admin/surveys/:id/results` | `SurveyResults` | View survey responses, apply bulk changes |
+| `/admin/web-portals` | `WebPortalsAdmin` | Create and manage public web portals |
 
 ### Key Patterns
 
@@ -362,6 +462,12 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 **Real-time Updates** (`hooks/useEventStream.ts`): SSE connection to `/events/stream`. Components use this to refresh on external changes.
 
 **Completion Scoring**: Backend auto-computes `completion` (0-100%) based on `fields_schema` weights. Description and lifecycle each contribute weight 1. Quality seal auto-breaks to `BROKEN` when approved items are edited.
+
+**Currency** (`hooks/useCurrency.ts`): Module-level singleton cache. Fetches currency from `/settings/currency` once. Provides `fmt()` (full format), `fmtShort()` (compact), and `symbol` for consistent cost display.
+
+**Notifications**: `NotificationBell` component in the navbar shows unread count. Badge counts (open todos + pending surveys) refresh on SSE events and navigation. Backend `notification_service.py` handles persistence and mark-as-read.
+
+**Logo Visibility**: Configurable via admin settings (`/settings/logo-visibility`). When disabled, the navigation bar shows a text title instead of the logo image. Logo height is 45px.
 
 **Hierarchy**: Fact sheets with `has_hierarchy=true` support parent-child trees (parent_id). BusinessCapability enforces max depth of 5 levels with auto-computed `capabilityLevel` attribute.
 
@@ -413,7 +519,40 @@ Each type has a `fields_schema` (JSONB array of sections):
 
 ### Relation Types
 
-29 built-in relations with verb labels (e.g., "supports", "affects", "improves", "CRUD"), reverse labels, and n:m cardinality. Some have `attributes_schema` (e.g., `relAppToBC` has Functional Suitability + Support Type; `relAppToDataObj` has CRUD booleans).
+29 built-in relations (all `n:m` cardinality). Created by `seed.py`. Some have `attributes_schema` for additional per-relation data.
+
+| Key | Source | Label | Target | Reverse Label | Attributes |
+|-----|--------|-------|--------|---------------|------------|
+| `relObjectiveToBC` | Objective | improves | BusinessCapability | is improved by | - |
+| `relPlatformToObjective` | Platform | supports | Objective | is supported by | - |
+| `relPlatformToApp` | Platform | runs | Application | runs on | - |
+| `relPlatformToITC` | Platform | implements | ITComponent | is implemented by | - |
+| `relInitiativeToObjective` | Initiative | supports | Objective | is supported by | - |
+| `relInitiativeToPlatform` | Initiative | affects | Platform | is affected by | - |
+| `relInitiativeToBC` | Initiative | improves | BusinessCapability | is improved by | - |
+| `relInitiativeToApp` | Initiative | affects | Application | is affected by | - |
+| `relInitiativeToInterface` | Initiative | affects | Interface | is affected by | - |
+| `relInitiativeToDataObj` | Initiative | affects | DataObject | is affected by | - |
+| `relInitiativeToITC` | Initiative | affects | ITComponent | is affected by | - |
+| `relInitiativeToSystem` | Initiative | affects | System | is affected by | - |
+| `relOrgToObjective` | Organization | owns | Objective | is owned by | - |
+| `relOrgToInitiative` | Organization | owns | Initiative | is owned by | - |
+| `relOrgToBizCtx` | Organization | owns | BusinessContext | is owned by | - |
+| `relOrgToApp` | Organization | uses | Application | is used by | usageType (Owner/User/Stakeholder) |
+| `relOrgToITC` | Organization | owns | ITComponent | is owned by | - |
+| `relAppToBC` | Application | supports | BusinessCapability | is supported by | functionalSuitability, supportType |
+| `relAppToBizCtx` | Application | supports | BusinessContext | is supported by | - |
+| `relAppToInterface` | Application | provides / consumes | Interface | is provided / consumed by | - |
+| `relAppToDataObj` | Application | CRUD | DataObject | is used by | crudCreate, crudRead, crudUpdate, crudDelete (booleans) |
+| `relAppToITC` | Application | uses | ITComponent | is used by | technicalSuitability, costTotalAnnual |
+| `relAppToSystem` | Application | runs on | System | runs | - |
+| `relITCToTechCat` | ITComponent | belongs to | TechCategory | includes | resourceClassification |
+| `relITCToPlatform` | ITComponent | implements | Platform | is implemented by | - |
+| `relInterfaceToDataObj` | Interface | transfers | DataObject | is transferred by | - |
+| `relInterfaceToITC` | Interface | uses | ITComponent | is used by | - |
+| `relProviderToInitiative` | Provider | supports | Initiative | is supported by | - |
+| `relProviderToITC` | Provider | offers | ITComponent | is offered by | - |
+| `relBizCtxToBC` | BusinessContext | is associated with | BusinessCapability | is associated with | - |
 
 ---
 
@@ -469,6 +608,83 @@ Stored in the `statement_of_architecture_works` table with JSONB columns:
 
 ---
 
+## Surveys (Data-Maintenance Workflows)
+
+Admin-driven surveys for maintaining fact sheet data quality at scale.
+
+### Workflow
+1. **Admin creates** a survey targeting a fact sheet type, with optional tag/relation/attribute filters
+2. **Admin defines actions** per field: "maintain" (user edits the value) or "confirm" (user verifies current value)
+3. **Admin sends** the survey — targets are determined by fact sheet subscriptions (responsible, observer, etc.)
+4. **Users receive** notifications and respond via `/surveys/:surveyId/respond/:factSheetId`
+5. **Admin reviews** responses in `/admin/surveys/:id/results` and applies changes in bulk
+
+### Data Model
+- `surveys` table: title, description, target_type (fact sheet type key), filters (JSONB), actions (JSONB array), status (draft/sent/closed)
+- `survey_responses` table: survey_id, fact_sheet_id, user_id, responses (JSONB), submitted_at
+
+---
+
+## End-of-Life (EOL) Management
+
+Integration with the [endoflife.date](https://endoflife.date) API for tracking technology lifecycle status.
+
+### Features
+- **Fuzzy product search**: Auto-complete against 300+ products from endoflife.date
+- **Mass search**: Automatically match IT Component names against EOL products
+- **Mass link**: Bulk-link fact sheets to specific products and release cycles
+- **EOL Report** (`/reports/eol`): Visualize EOL risk across the IT landscape
+- **Admin page** (`/admin/eol`): Manage EOL product links
+
+### How It Works
+The backend proxies requests to `https://endoflife.date/api/` and caches responses. EOL data is stored on fact sheets as attributes (linked product, cycle, EOL date, support status).
+
+---
+
+## Web Portals (Public Views)
+
+Configurable, public-facing views of the EA landscape accessible without authentication.
+
+### Features
+- **Slug-based URLs**: Access via `/portal/:slug` (no login required)
+- **Configurable**: Choose which fact sheet type to display, which fields to show, card layout
+- **Relation filtering**: Visitors can filter by related fact sheets
+- **Admin management**: Create, edit, delete portals via `/admin/web-portals`
+
+### Data Model
+- `web_portals` table: name, slug (unique), fact_sheet_type, display_fields (JSONB), card_config (JSONB), filters (JSONB), is_published
+
+---
+
+## Notification System
+
+In-app and email notifications for users.
+
+### Notification Types
+`todo_assigned`, `fact_sheet_updated`, `comment_added`, `quality_seal_changed`, `soaw_sign_requested`, `soaw_signed`, `subscription_update`
+
+### Components
+- **Backend**: `notification_service.py` creates notifications on relevant events, persists to DB
+- **Email**: `email_service.py` sends SMTP emails when configured (admin settings)
+- **Frontend**: `NotificationBell` in navbar shows unread count, `NotificationPreferencesDialog` for per-type preferences
+- **Badge counts**: Open todos + pending surveys shown as dots on nav items
+
+---
+
+## Application Settings
+
+Singleton `app_settings` table (id='default') manages global configuration:
+
+| Setting | Storage | Description |
+|---------|---------|-------------|
+| SMTP/Email | `email_settings` (JSONB) | Host, port, user, password, TLS, from address, app base URL |
+| Currency | `general_settings.currency` | Display currency for all cost values (default: USD) |
+| Logo visibility | `general_settings.show_logo` | Toggle logo display in navbar (default: true) |
+| Custom logo | `custom_logo` (LargeBinary) | Custom logo image bytes (max 2 MB) |
+| Logo MIME | `custom_logo_mime` (Text) | MIME type of custom logo |
+
+---
+
 ## Event System
 
 ### Backend (`services/event_bus.py`)
@@ -476,7 +692,7 @@ In-memory pub/sub using `asyncio.Queue`. Events are:
 1. Persisted to the `events` table (audit trail)
 2. Broadcast to all SSE subscribers in real-time
 
-Event types: `fact_sheet.created`, `fact_sheet.updated`, `fact_sheet.archived`, `fact_sheet.quality_seal.*`, `relation.created`, `relation.deleted`, `comment.created`
+Event types: `fact_sheet.created`, `fact_sheet.updated`, `fact_sheet.archived`, `fact_sheet.quality_seal.*`, `relation.created`, `relation.deleted`, `comment.created`, `notification.created`, `todo.created`, `todo.updated`, `todo.deleted`, `survey.sent`, `survey.responded`
 
 ### Frontend (`hooks/useEventStream.ts`)
 `EventSource` connection to `/api/v1/events/stream`. Auto-reconnects on error.

@@ -66,6 +66,8 @@ export default function SettingsAdmin() {
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
   const [logoVersion, setLogoVersion] = useState(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [showLogo, setShowLogo] = useState(true);
+  const [savingLogoVisibility, setSavingLogoVisibility] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Currency state
@@ -87,8 +89,9 @@ export default function SettingsAdmin() {
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
       api.get<{ currency: string }>("/settings/currency"),
+      api.get<{ show_logo: boolean }>("/settings/logo-visibility"),
     ])
-      .then(([emailData, logoData, currencyData]) => {
+      .then(([emailData, logoData, currencyData, logoVisData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -99,6 +102,7 @@ export default function SettingsAdmin() {
         setConfigured(emailData.configured);
         setHasCustomLogo(logoData.has_custom_logo);
         setSelectedCurrency(currencyData.currency);
+        setShowLogo(logoVisData.show_logo);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -310,6 +314,36 @@ export default function SettingsAdmin() {
               </Button>
             )}
           </Box>
+        </Box>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box>
+            <Typography variant="body2" fontWeight={600}>
+              Show logo in navigation bar
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              When disabled, a text title will be shown instead of the logo image.
+            </Typography>
+          </Box>
+          <Switch
+            checked={showLogo}
+            disabled={savingLogoVisibility}
+            onChange={async (e) => {
+              const newVal = e.target.checked;
+              setSavingLogoVisibility(true);
+              try {
+                await api.patch("/settings/logo-visibility", { show_logo: newVal });
+                setShowLogo(newVal);
+                setSnack(newVal ? "Logo is now visible" : "Logo is now hidden");
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Failed to update");
+              } finally {
+                setSavingLogoVisibility(false);
+              }
+            }}
+          />
         </Box>
       </Paper>
 

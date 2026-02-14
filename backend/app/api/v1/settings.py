@@ -58,6 +58,10 @@ class CurrencyPayload(BaseModel):
     currency: str = "USD"
 
 
+class LogoVisibilityPayload(BaseModel):
+    show_logo: bool = True
+
+
 DEFAULT_CURRENCY = "USD"
 
 
@@ -200,6 +204,39 @@ async def update_currency(
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["currency"] = body.currency
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Logo visibility endpoint
+# ---------------------------------------------------------------------------
+
+@router.get("/logo-visibility")
+async def get_logo_visibility(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the logo should be displayed."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"show_logo": general.get("show_logo", True)}
+
+
+@router.patch("/logo-visibility")
+async def update_logo_visibility(
+    body: LogoVisibilityPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — toggle logo visibility in the navigation bar."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["show_logo"] = body.show_logo
     row.general_settings = general
     await db.commit()
 
