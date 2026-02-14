@@ -1,10 +1,10 @@
 /**
  * Smart vendor field that searches existing Provider fact sheets and
  * offers to link or create one. When a Provider is selected, the vendor
- * text attribute is updated and the Provider relation (discovered
- * dynamically from the metamodel) is created automatically.
+ * text attribute is updated and a relProviderToITC / relProviderToApp
+ * relation is created automatically.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Autocomplete, { createFilterOptions } from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -18,7 +18,6 @@ import DialogActions from "@mui/material/DialogActions";
 import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { useMetamodel } from "@/hooks/useMetamodel";
 import type { Relation } from "@/types";
 
 interface ProviderOption {
@@ -29,6 +28,11 @@ interface ProviderOption {
 }
 
 const filter = createFilterOptions<ProviderOption>();
+
+/** Only ITComponent has a built-in Provider relation type. */
+const RELATION_TYPE_MAP: Record<string, string> = {
+  ITComponent: "relProviderToITC",
+};
 
 interface VendorFieldProps {
   /** Current vendor text value */
@@ -56,7 +60,6 @@ export default function VendorField({
   label = "Vendor",
   onRelationChange,
 }: VendorFieldProps) {
-  const { relationTypes } = useMetamodel();
   const [inputValue, setInputValue] = useState(value || "");
   const [options, setOptions] = useState<ProviderOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,22 +68,6 @@ export default function VendorField({
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Dynamically find a Provider↔fsType relation type from the metamodel
-  const relType = useMemo(() => {
-    const rt = relationTypes.find(
-      (r) =>
-        (r.source_type_key === "Provider" && r.target_type_key === fsType) ||
-        (r.target_type_key === "Provider" && r.source_type_key === fsType)
-    );
-    return rt?.key ?? null;
-  }, [relationTypes, fsType]);
-
-  // Determine if Provider is the source side of the relation
-  const providerIsSource = useMemo(() => {
-    const rt = relationTypes.find((r) => r.key === relType);
-    return rt ? rt.source_type_key === "Provider" : true;
-  }, [relationTypes, relType]);
-
   // Sync input value when external value changes
   useEffect(() => {
     setInputValue(value || "");
@@ -88,7 +75,9 @@ export default function VendorField({
 
   // Check existing Provider relation on mount
   useEffect(() => {
-    if (!fsId || !relType) return;
+    if (!fsId) return;
+    const relType = RELATION_TYPE_MAP[fsType];
+    if (!relType) return;
 
     api
       .get<Relation[]>(`/relations?fact_sheet_id=${fsId}&type=${relType}`)
@@ -104,7 +93,7 @@ export default function VendorField({
         }
       })
       .catch(() => {});
-  }, [fsId, relType]);
+  }, [fsId, fsType]);
 
   // Search providers
   const searchProviders = useCallback(
@@ -178,6 +167,7 @@ export default function VendorField({
   };
 
   const linkProvider = async (providerId: string) => {
+    const relType = RELATION_TYPE_MAP[fsType];
     if (!relType || !fsId) return;
 
     try {
@@ -189,11 +179,11 @@ export default function VendorField({
         await api.delete(`/relations/${r.id}`);
       }
 
-      // Create new relation respecting the metamodel direction
+      // Create new relation (Provider is source, ITComponent/App is target)
       await api.post("/relations", {
         type: relType,
-        source_id: providerIsSource ? providerId : fsId,
-        target_id: providerIsSource ? fsId : providerId,
+        source_id: providerId,
+        target_id: fsId,
       });
 
       setLinkedProvider({ id: providerId, name: "" });
@@ -221,7 +211,6 @@ export default function VendorField({
     <>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
         <Autocomplete
-          fullWidth
           freeSolo
           size={size}
           value={inputValue}
@@ -244,10 +233,6 @@ export default function VendorField({
           getOptionLabel={(opt) =>
             typeof opt === "string" ? opt : opt.inputValue ?? opt.name
           }
-          slotProps={{
-            popper: { sx: { minWidth: 360, maxWidth: "90vw" }, placement: "bottom-start" },
-            paper: { sx: { "& .MuiAutocomplete-option": { whiteSpace: "normal", wordBreak: "break-word" } } },
-          }}
           filterOptions={(opts, params) => {
             const filtered = filter(opts, params);
             const { inputValue: iv } = params;
