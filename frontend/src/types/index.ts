@@ -550,3 +550,70 @@ export interface PortalFactSheetListResponse {
   page: number;
   page_size: number;
 }
+
+// ---------------------------------------------------------------------------
+// BPM — BPMN 2.0 Diagrams, Process Elements, Assessments
+// ---------------------------------------------------------------------------
+
+export interface ProcessDiagramData {
+  id: string;
+  process_id: string;
+  bpmn_xml: string;
+  svg_thumbnail?: string;
+  version: number;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface ProcessElement {
+  id: string;
+  process_id: string;
+  bpmn_element_id: string;
+  element_type: string;
+  name?: string;
+  documentation?: string;
+  lane_name?: string;
+  is_automated: boolean;
+  sequence_order: number;
+  application_id?: string;
+  application_name?: string;
+  data_object_id?: string;
+  data_object_name?: string;
+  it_component_id?: string;
+  it_component_name?: string;
+  custom_fields?: Record<string, unknown>;
+}
+
+export interface ProcessAssessment {
+  id: string;
+  process_id: string;
+  assessor_id: string;
+  assessor_name?: string;
+  assessment_date: string;
+  overall_score: number;
+  efficiency: number;
+  effectiveness: number;
+  compliance: number;
+  automation: number;
+  notes?: string;
+  action_items?: { title: string; description: string; due_date: string; status: string }[];
+  created_at?: string;
+}
+
+export interface BpmDashboardData {
+  total_processes: number;
+  by_process_type: Record<string, number>;
+  by_maturity: Record<string, number>;
+  by_automation: Record<string, number>;
+  by_risk: Record<string, number>;
+  top_risk_processes: { id: string; name: string; risk: string; maturity: string }[];
+  diagram_coverage: { with_diagram: number; total: number; percentage: number };
+}
+
+export interface BpmnTemplate {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  bpmn_xml?: string;
+}

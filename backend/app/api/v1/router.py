@@ -3,6 +3,9 @@ from fastapi import APIRouter
 from app.api.v1 import (
     auth,
     bookmarks,
+    bpm,
+    bpm_assessments,
+    bpm_reports,
     comments,
     diagrams,
     documents,
@@ -44,3 +47,6 @@ api_router.include_router(notifications.router)
 api_router.include_router(surveys.router)
 api_router.include_router(settings.router)
 api_router.include_router(web_portals.router)
+api_router.include_router(bpm.router)
+api_router.include_router(bpm_assessments.router)
+api_router.include_router(bpm_reports.router)
