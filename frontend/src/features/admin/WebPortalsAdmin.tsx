@@ -71,7 +71,7 @@ function slugify(text: string): string {
 }
 
 export default function WebPortalsAdmin() {
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const [portals, setPortals] = useState<WebPortal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<WebPortal | null>(null);
@@ -87,6 +87,7 @@ export default function WebPortalsAdmin() {
   const [isPublished, setIsPublished] = useState(false);
   const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
+  const [filterRelationTypes, setFilterRelationTypes] = useState<string[]>([]);
 
   const visibleTypes = types.filter((t) => !t.is_hidden);
 
@@ -112,6 +113,7 @@ export default function WebPortalsAdmin() {
     setIsPublished(false);
     setToggles({});
     setFilterSubtypes([]);
+    setFilterRelationTypes([]);
     setError("");
     setEditingPortal(null);
   };
@@ -135,6 +137,9 @@ export default function WebPortalsAdmin() {
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
     );
+    setFilterRelationTypes(
+      ((portal.filters as Record<string, unknown>)?.relation_types as string[]) || []
+    );
     setError("");
     setDialogOpen(true);
   };
@@ -150,9 +155,30 @@ export default function WebPortalsAdmin() {
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
+  // Relation types applicable to the selected fact sheet type
+  const applicableRelTypes = factSheetType
+    ? relationTypes.filter(
+        (r) =>
+          !r.is_hidden &&
+          (r.source_type_key === factSheetType ||
+            r.target_type_key === factSheetType)
+      )
+    : [];
+
+  const getOtherTypeLabel = (rt: { source_type_key: string; target_type_key: string }) => {
+    const otherKey =
+      rt.source_type_key === factSheetType
+        ? rt.target_type_key
+        : rt.source_type_key;
+    return types.find((t) => t.key === otherKey)?.label || otherKey;
+  };
+
   const handleSave = async () => {
     setError("");
     const hasToggles = Object.keys(toggles).length > 0;
+    const filters: Record<string, unknown> = {};
+    if (filterSubtypes.length > 0) filters.subtypes = filterSubtypes;
+    if (filterRelationTypes.length > 0) filters.relation_types = filterRelationTypes;
     const body = {
       name,
       slug,
@@ -160,8 +186,7 @@ export default function WebPortalsAdmin() {
       fact_sheet_type: factSheetType,
       is_published: isPublished,
       display_fields: null,
-      filters:
-        filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : null,
+      filters: Object.keys(filters).length > 0 ? filters : null,
       card_config: hasToggles ? { toggles } : null,
     };
     try {
@@ -430,6 +455,7 @@ export default function WebPortalsAdmin() {
               setFactSheetType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
+              setFilterRelationTypes([]);
             }}
             sx={{ mt: 2 }}
             helperText="Which type of fact sheets to display in this portal"
@@ -599,6 +625,52 @@ export default function WebPortalsAdmin() {
                   })}
                 </TableBody>
               </Table>
+            </Box>
+          )}
+
+          {applicableRelTypes.length > 0 && factSheetType && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 0.5 }}>
+                Relation Filters
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                Select which related fact sheet types to expose as filter
+                dropdowns on the portal. Only checked items will appear as
+                filters for visitors.
+              </Typography>
+              {applicableRelTypes.map((rt) => (
+                <FormControlLabel
+                  key={rt.key}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={filterRelationTypes.includes(rt.key)}
+                      onChange={(e) => {
+                        setFilterRelationTypes((prev) =>
+                          e.target.checked
+                            ? [...prev, rt.key]
+                            : prev.filter((k) => k !== rt.key)
+                        );
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">
+                      {getOtherTypeLabel(rt)}{" "}
+                      <Typography
+                        component="span"
+                        variant="caption"
+                        color="text.secondary"
+                      >
+                        ({rt.source_type_key === factSheetType
+                          ? rt.label
+                          : rt.reverse_label || rt.label})
+                      </Typography>
+                    </Typography>
+                  }
+                  sx={{ display: "flex", mr: 0, mb: 0.25 }}
+                />
+              ))}
             </Box>
           )}
 

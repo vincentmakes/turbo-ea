@@ -268,11 +268,18 @@ export default function PortalViewer() {
       .finally(() => setLoading(false));
   }, [slug]);
 
+  // Admin-selected relation types for filtering
+  const enabledRelTypeKeys = (portal?.filters as Record<string, unknown>)
+    ?.relation_types as string[] | undefined;
+  const visibleRelTypes = portal?.relation_types?.filter(
+    (rt) => enabledRelTypeKeys?.includes(rt.key)
+  ) || [];
+
   // Fetch relation options (fact sheets of each related type) for filter dropdowns
   useEffect(() => {
-    if (!slug || !portal?.relation_types?.length) return;
+    if (!slug || !visibleRelTypes.length) return;
     const seen = new Set<string>();
-    portal.relation_types.forEach((rt) => {
+    visibleRelTypes.forEach((rt) => {
       if (seen.has(rt.other_type_key)) return;
       seen.add(rt.other_type_key);
       publicGet<{ id: string; name: string }[]>(
@@ -281,7 +288,8 @@ export default function PortalViewer() {
         setRelationOptions((prev) => ({ ...prev, [rt.other_type_key]: opts }))
       );
     });
-  }, [slug, portal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, enabledRelTypeKeys?.join(",")]);
 
   const loadFactSheets = useCallback(async () => {
     if (!slug) return;
@@ -583,7 +591,7 @@ export default function PortalViewer() {
               </TextField>
             ))}
 
-            {portal.relation_types.map((rt) => {
+            {visibleRelTypes.map((rt) => {
               const opts = relationOptions[rt.other_type_key] || [];
               if (opts.length === 0) return null;
               return (
