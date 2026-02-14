@@ -31,6 +31,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import QualitySealBadge from "@/components/QualitySealBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
+import EolLinkSection from "@/components/EolLinkSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import Dialog from "@mui/material/Dialog";
@@ -1844,6 +1845,7 @@ export default function FactSheetDetail() {
             onSave={handleUpdate}
           />
         ))}
+        <EolLinkSection fs={fs} onSave={handleUpdate} />
         <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
         <RelationsSection fsId={fs.id} fsType={fs.type} />
       </Box>

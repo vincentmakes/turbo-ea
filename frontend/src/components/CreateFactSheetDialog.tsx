@@ -13,13 +13,17 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import IconButton from "@mui/material/IconButton";
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { EolLinkDialog } from "@/components/EolLinkSection";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FieldDef, FactSheet } from "@/types";
+import type { FieldDef, FactSheet, EolCycle } from "@/types";
+
+const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 
 interface Props {
   open: boolean;
@@ -31,6 +35,7 @@ interface Props {
     description?: string;
     parent_id?: string;
     attributes?: Record<string, unknown>;
+    lifecycle?: Record<string, string>;
   }) => Promise<void>;
   initialType?: string;
 }
@@ -59,6 +64,9 @@ export default function CreateFactSheetDialog({
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [eolProduct, setEolProduct] = useState("");
+  const [eolCycle, setEolCycle] = useState("");
+  const [eolDialogOpen, setEolDialogOpen] = useState(false);
 
   const typeConfig = useMemo(
     () => types.find((t) => t.key === selectedType),
@@ -90,6 +98,8 @@ export default function CreateFactSheetDialog({
     setParentOptions([]);
     setAttributes({});
     setError("");
+    setEolProduct("");
+    setEolCycle("");
   }, [selectedType]);
 
   // Set initial type when dialog opens
@@ -112,6 +122,9 @@ export default function CreateFactSheetDialog({
       setAttributes({});
       setLoading(false);
       setError("");
+      setEolProduct("");
+      setEolCycle("");
+      setEolDialogOpen(false);
     }
   }, [open, initialType]);
 
@@ -159,13 +172,44 @@ export default function CreateFactSheetDialog({
     setLoading(true);
     setError("");
     try {
+      const finalAttrs = { ...attributes };
+      if (eolProduct && eolCycle) {
+        finalAttrs.eol_product = eolProduct;
+        finalAttrs.eol_cycle = eolCycle;
+      }
+
+      // For ITComponent: sync lifecycle dates from EOL data
+      let lifecycle: Record<string, string> | undefined;
+      if (selectedType === "ITComponent" && eolProduct && eolCycle) {
+        try {
+          const cycles = await api.get<EolCycle[]>(
+            `/eol/products/${encodeURIComponent(eolProduct)}`
+          );
+          const match = cycles.find(
+            (c) => String(c.cycle) === String(eolCycle)
+          );
+          if (match) {
+            lifecycle = {};
+            if (match.releaseDate) lifecycle.active = match.releaseDate;
+            if (typeof match.support === "string")
+              lifecycle.phaseOut = match.support;
+            if (typeof match.eol === "string")
+              lifecycle.endOfLife = match.eol;
+          }
+        } catch {
+          // If fetching cycles fails, just create without lifecycle
+        }
+      }
+
       await onCreate({
         type: selectedType,
         subtype: subtype || undefined,
         name: name.trim(),
         description: description.trim() || undefined,
         parent_id: parentId || undefined,
-        attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+        attributes:
+          Object.keys(finalAttrs).length > 0 ? finalAttrs : undefined,
+        lifecycle,
       });
       onClose();
     } catch (err: unknown) {
@@ -419,6 +463,94 @@ export default function CreateFactSheetDialog({
 
         {/* Required fields from schema */}
         {requiredFields.length > 0 && requiredFields.map((f) => renderField(f))}
+
+        {/* EOL link option for eligible types */}
+        {EOL_ELIGIBLE_TYPES.includes(selectedType) && (
+          <Box
+            sx={{
+              mt: 1,
+              p: 1.5,
+              border: "1px dashed",
+              borderColor: eolProduct ? "success.main" : "divider",
+              borderRadius: 1,
+              bgcolor: eolProduct ? "success.main" : "transparent",
+              ...(eolProduct
+                ? { bgcolor: "rgba(76, 175, 80, 0.04)" }
+                : {}),
+            }}
+          >
+            {eolProduct && eolCycle ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <MaterialSymbol
+                  icon="check_circle"
+                  size={18}
+                  color="#4caf50"
+                />
+                <Typography variant="body2">
+                  Linked to{" "}
+                  <strong>
+                    {eolProduct} {eolCycle}
+                  </strong>
+                </Typography>
+                <Box sx={{ ml: "auto", display: "flex", gap: 0.5 }}>
+                  <Button
+                    size="small"
+                    onClick={() => setEolDialogOpen(true)}
+                  >
+                    Change
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    onClick={() => {
+                      setEolProduct("");
+                      setEolCycle("");
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </Box>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                }}
+              >
+                <MaterialSymbol icon="update" size={18} color="#666" />
+                <Typography variant="body2" color="text.secondary">
+                  Track end-of-life status?
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  sx={{ ml: "auto" }}
+                  onClick={() => setEolDialogOpen(true)}
+                >
+                  Link EOL Data
+                </Button>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* EOL picker dialog */}
+        <EolLinkDialog
+          open={eolDialogOpen}
+          onClose={() => setEolDialogOpen(false)}
+          onLink={(product, cycle) => {
+            setEolProduct(product);
+            setEolCycle(cycle);
+          }}
+        />
       </DialogContent>
 
       <DialogActions sx={{ px: 3, py: 1.5 }}>

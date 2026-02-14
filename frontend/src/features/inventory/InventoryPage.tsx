@@ -282,6 +282,7 @@ export default function InventoryPage() {
     description?: string;
     parent_id?: string;
     attributes?: Record<string, unknown>;
+    lifecycle?: Record<string, string>;
   }) => {
     await api.post("/fact-sheets", createData);
     loadData();
