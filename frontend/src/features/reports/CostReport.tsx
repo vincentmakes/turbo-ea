@@ -27,7 +27,6 @@ interface CostItem {
   id: string;
   name: string;
   cost: number;
-  group?: string;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
 }
@@ -102,7 +101,7 @@ const TreemapContent = ({
 
 export default function CostReport() {
   const navigate = useNavigate();
-  const { types, relationTypes, loading: ml } = useMetamodel();
+  const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
   const [fsType, setFsType] = useState("Application");
   const [costField, setCostField] = useState("totalAnnualCost");
@@ -115,26 +114,27 @@ export default function CostReport() {
   // Timeline slider
   const todayMs = useMemo(() => Date.now(), []);
   const [timelineDate, setTimelineDate] = useState(todayMs);
+  const [sliderTouched, setSliderTouched] = useState(false);
 
   const typeDef = useMemo(() => types.find((t) => t.key === fsType), [types, fsType]);
   const numFields = useMemo(() => (typeDef ? pickNumberFields(typeDef.fields_schema) : []), [typeDef]);
 
-  const relatedTypes = useMemo(() => {
-    const set = new Set<string>();
-    for (const r of relationTypes) {
-      if (r.source_type_key === fsType) set.add(r.target_type_key);
-      else if (r.target_type_key === fsType) set.add(r.source_type_key);
+  const groupableFields = useMemo(() => {
+    if (!typeDef) return [];
+    const out: FieldDef[] = [];
+    for (const s of typeDef.fields_schema) for (const f of s.fields) {
+      if (f.type === "single_select") out.push(f);
     }
-    return types.filter((t) => set.has(t.key));
-  }, [relationTypes, types, fsType]);
+    return out;
+  }, [typeDef]);
 
   useEffect(() => {
     const p = new URLSearchParams({ type: fsType, cost_field: costField });
-    if (groupBy) p.set("group_by", groupBy);
     api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
       setRawItems(r.items);
+      setSliderTouched(false);
     });
-  }, [fsType, costField, groupBy]);
+  }, [fsType, costField]);
 
   // Compute date range from lifecycle data
   const { dateRange, yearMarks } = useMemo(() => {
@@ -169,13 +169,31 @@ export default function CostReport() {
     return rawItems.some((item) => item.lifecycle && LIFECYCLE_PHASES.some((p) => item.lifecycle?.[p]));
   }, [rawItems]);
 
-  // Filter items by timeline date
+  // Filter items by timeline date and compute groups
   const { items, total } = useMemo(() => {
     if (!rawItems) return { items: [] as CostItem[], total: 0 };
     const filtered = rawItems.filter((item) => isItemAliveAtDate(item.lifecycle, timelineDate));
     const t = filtered.reduce((sum, item) => sum + item.cost, 0);
     return { items: filtered, total: t };
   }, [rawItems, timelineDate]);
+
+  const groupedField = useMemo(() => groupableFields.find((f) => f.key === groupBy), [groupableFields, groupBy]);
+
+  const groups = useMemo(() => {
+    if (!groupBy || !groupedField) return null;
+    const optionMap = new Map<string, string>();
+    for (const o of groupedField.options ?? []) optionMap.set(o.key, o.label);
+    const map = new Map<string, { label: string; items: CostItem[]; cost: number }>();
+    for (const item of items) {
+      const val = String((item.attributes as Record<string, unknown>)?.[groupBy] ?? "");
+      const label = optionMap.get(val) || val || "Unspecified";
+      const g = map.get(label) || { label, items: [], cost: 0 };
+      g.items.push(item);
+      g.cost += item.cost;
+      map.set(label, g);
+    }
+    return [...map.values()].sort((a, b) => b.cost - a.cost);
+  }, [items, groupBy, groupedField]);
 
   if (ml || rawItems === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -195,7 +213,6 @@ export default function CostReport() {
   const sorted = [...items].sort((a, b) => {
     const d = sortD === "asc" ? 1 : -1;
     if (sortK === "cost") return (a.cost - b.cost) * d;
-    if (sortK === "group") return (a.group ?? "").localeCompare(b.group ?? "") * d;
     return a.name.localeCompare(b.name) * d;
   });
 
@@ -230,10 +247,10 @@ export default function CostReport() {
             {numFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
           </TextField>
 
-          {view === "table" && (
+          {view === "table" && groupableFields.length > 0 && (
             <TextField select size="small" label="Group By" value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>
               <MenuItem value="">None</MenuItem>
-              {relatedTypes.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+              {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
 
@@ -248,7 +265,7 @@ export default function CostReport() {
                 min={dateRange.min}
                 max={dateRange.max}
                 step={86400000}
-                onChange={(_, v) => setTimelineDate(v as number)}
+                onChange={(_, v) => { setSliderTouched(true); setTimelineDate(v as number); }}
                 valueLabelDisplay="auto"
                 valueLabelFormat={fmtSliderDate}
                 marks={yearMarks}
@@ -293,7 +310,7 @@ export default function CostReport() {
                 data={treemapData}
                 dataKey="size"
                 stroke="#fff"
-                isAnimationActive={false}
+                isAnimationActive={!sliderTouched}
                 content={<TreemapContent x={0} y={0} width={0} height={0} name="" cost={0} index={0} costFmt={fmt} />}
               >
                 <RTooltip content={<Tip />} />
@@ -307,22 +324,51 @@ export default function CostReport() {
             <TableHead>
               <TableRow>
                 <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>Name</TableSortLabel></TableCell>
-                {groupBy && <TableCell><TableSortLabel active={sortK === "group"} direction={sortK === "group" ? sortD : "asc"} onClick={() => sort("group")}>Group</TableSortLabel></TableCell>}
                 <TableCell align="right"><TableSortLabel active={sortK === "cost"} direction={sortK === "cost" ? sortD : "asc"} onClick={() => sort("cost")}>Cost</TableSortLabel></TableCell>
                 <TableCell align="right">% of Total</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {sorted.map((d) => (
-                <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
-                  <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
-                  {groupBy && <TableCell>{d.group ?? "\u2014"}</TableCell>}
-                  <TableCell align="right">{fmt.format(d.cost)}</TableCell>
-                  <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
-                </TableRow>
-              ))}
+              {groups ? (
+                groups.map((g) => {
+                  const groupSorted = [...g.items].sort((a, b) => {
+                    const d = sortD === "asc" ? 1 : -1;
+                    if (sortK === "cost") return (a.cost - b.cost) * d;
+                    return a.name.localeCompare(b.name) * d;
+                  });
+                  return [
+                    <TableRow key={`grp-${g.label}`} sx={{ bgcolor: "#f0f4f8" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
+                        {g.label}
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                          ({g.items.length})
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(g.cost)}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600, color: "text.secondary" }}>
+                        {total > 0 ? `${((g.cost / total) * 100).toFixed(1)}%` : "\u2014"}
+                      </TableCell>
+                    </TableRow>,
+                    ...groupSorted.map((d) => (
+                      <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                        <TableCell sx={{ fontWeight: 500, pl: 4 }}>{d.name}</TableCell>
+                        <TableCell align="right">{fmt.format(d.cost)}</TableCell>
+                        <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
+                      </TableRow>
+                    )),
+                  ];
+                })
+              ) : (
+                sorted.map((d) => (
+                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                    <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
+                    <TableCell align="right">{fmt.format(d.cost)}</TableCell>
+                    <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
+                  </TableRow>
+                ))
+              )}
               <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                <TableCell sx={{ fontWeight: 700 }} colSpan={groupBy ? 2 : 1}>Total</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(total)}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>100%</TableCell>
               </TableRow>
