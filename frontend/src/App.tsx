@@ -34,7 +34,7 @@ import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
 import BpmDashboard from "@/features/bpm/BpmDashboard";
 import ProcessFlowEditorPage from "@/features/bpm/ProcessFlowEditorPage";
-import BpmReportPage from "@/features/bpm/BpmReportPage";
+
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
@@ -96,7 +96,6 @@ function AppRoutes() {
               <Route path="/reports/matrix" element={<MatrixReport />} />
               <Route path="/reports/data-quality" element={<DataQualityReport />} />
               <Route path="/reports/eol" element={<EolReport />} />
-              <Route path="/reports/bpm" element={<BpmReportPage />} />
               <Route path="/bpm" element={<BpmDashboard />} />
               <Route path="/bpm/processes/:id/flow" element={<ProcessFlowEditorPage />} />
               <Route path="/diagrams" element={<DiagramsPage />} />
