@@ -1167,7 +1167,7 @@ function DrawerFlow({
         if (diag?.bpmn_xml) setHasDiagram(true);
         if (!diag?.bpmn_xml) return null;
         // Try to get SVG thumbnail via the export endpoint for a clean image
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token");
         return fetch(`/api/v1/bpm/processes/${processId}/diagram/export/svg`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });

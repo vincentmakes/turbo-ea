@@ -24,7 +24,7 @@ _DEFAULT_FAVICON_PATH = Path(__file__).resolve().parent.parent.parent / "default
 _DEFAULT_LOGO_BYTES: bytes | None = None
 _DEFAULT_FAVICON_BYTES: bytes | None = None
 
-ALLOWED_LOGO_MIMES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"}
+ALLOWED_LOGO_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
 
 
@@ -393,7 +393,7 @@ async def upload_logo(
         raise HTTPException(
             400,
             f"Unsupported file type: {content_type}. "
-            "Allowed: PNG, JPEG, SVG, WebP, GIF.",
+            "Allowed: PNG, JPEG, WebP, GIF.",
         )
 
     data = await file.read()

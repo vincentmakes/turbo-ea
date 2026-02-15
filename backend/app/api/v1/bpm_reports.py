@@ -8,17 +8,19 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.fact_sheet import FactSheet
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.relation import Relation
+from app.models.user import User
 
 router = APIRouter(prefix="/reports/bpm", tags=["reports"])
 
 
 @router.get("/dashboard")
-async def bpm_dashboard(db: AsyncSession = Depends(get_db)):
+async def bpm_dashboard(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """BPM KPIs: counts, maturity distribution, automation levels, risk."""
     # All active BusinessProcess fact sheets
     result = await db.execute(
@@ -82,7 +84,7 @@ async def bpm_dashboard(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/capability-process-matrix")
-async def capability_process_matrix(db: AsyncSession = Depends(get_db)):
+async def capability_process_matrix(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Capability × Process cross-reference grid."""
     # Get all relProcessToBC relations
     result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
@@ -114,7 +116,7 @@ async def capability_process_matrix(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/process-application-matrix")
-async def process_application_matrix(db: AsyncSession = Depends(get_db)):
+async def process_application_matrix(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Process × Application cross-reference grid (process-level + element-level links)."""
     # Process-level relations
     rel_result = await db.execute(select(Relation).where(Relation.type == "relProcessToApp"))
@@ -170,7 +172,7 @@ async def process_application_matrix(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/process-dependencies")
-async def process_dependencies(db: AsyncSession = Depends(get_db)):
+async def process_dependencies(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Dependency graph data: nodes + edges for force-directed visualization."""
     result = await db.execute(select(Relation).where(Relation.type == "relProcessDependency"))
     rels = result.scalars().all()
@@ -212,6 +214,7 @@ async def capability_heatmap(
         description="Metric: process_count, maturity, strategicImportance",
     ),
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """Capability tree colored by a chosen metric."""
     # Load capabilities
@@ -263,7 +266,7 @@ async def capability_heatmap(
 
 
 @router.get("/element-application-map")
-async def element_application_map(db: AsyncSession = Depends(get_db)):
+async def element_application_map(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Which BPMN elements use which applications — grouped by application."""
     result = await db.execute(
         select(ProcessElement)
@@ -312,7 +315,7 @@ async def element_application_map(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/process-map")
-async def process_map(db: AsyncSession = Depends(get_db)):
+async def process_map(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Process landscape map: hierarchy + related apps, data objects, orgs, contexts."""
     # All active BusinessProcess fact sheets
     proc_result = await db.execute(
@@ -494,7 +497,7 @@ async def process_map(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/value-stream-matrix")
-async def value_stream_matrix(db: AsyncSession = Depends(get_db)):
+async def value_stream_matrix(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Value-stream × Organization matrix with processes at intersections.
 
     Only shows BusinessContext items with subtype 'valueStream' as columns.

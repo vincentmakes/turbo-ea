@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -184,7 +185,7 @@ export default function SoAWPreview() {
       <Box
         className="soaw-preview"
         sx={{ maxWidth: 800, mx: "auto", px: { xs: 1, sm: 0 } }}
-        dangerouslySetInnerHTML={{ __html: bodyHtml }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(bodyHtml) }}
       />
 
       {/* Signature Block */}

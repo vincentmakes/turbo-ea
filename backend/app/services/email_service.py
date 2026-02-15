@@ -5,6 +5,7 @@ If SMTP_HOST is not configured, emails are silently skipped.
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -71,13 +72,17 @@ async def send_notification_email(
 
     Returns True if the email was actually sent, False otherwise.
     """
+    # H7: Escape user-supplied content to prevent HTML injection
+    title = html.escape(title)
+    message = html.escape(message)
+
     base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
 
     link_html = ""
     if full_link:
         link_html = (
-            f"<a href='{full_link}' style='"
+            f"<a href='{html.escape(full_link)}' style='"
             "display: inline-block; margin-top: 12px; "
             "padding: 8px 16px; background: #1976d2; "
             "color: white; text-decoration: none; "

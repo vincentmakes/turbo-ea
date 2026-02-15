@@ -16,7 +16,7 @@ router = APIRouter(tags=["documents"])
 
 
 @router.get("/fact-sheets/{fs_id}/documents")
-async def list_documents(fs_id: str, db: AsyncSession = Depends(get_db)):
+async def list_documents(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     result = await db.execute(
         select(Document).where(Document.fact_sheet_id == uuid.UUID(fs_id))
     )

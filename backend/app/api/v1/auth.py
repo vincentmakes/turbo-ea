@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-import json
+import logging
 import secrets
-from base64 import urlsafe_b64decode
+from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from jwt import PyJWKClient
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.database import get_db
 from app.models.app_settings import AppSettings
@@ -19,6 +22,7 @@ from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -33,17 +37,29 @@ async def _get_sso_config(db: AsyncSession) -> dict:
     return general.get("sso", {})
 
 
-def _decode_jwt_payload(token: str) -> dict:
-    """Decode the payload from a JWT without signature verification.
-    Used for id_tokens received directly from Microsoft's token endpoint over TLS."""
-    parts = token.split(".")
-    if len(parts) != 3:
-        raise ValueError("Invalid JWT structure")
-    payload = parts[1]
-    # Add padding
-    padding = 4 - len(payload) % 4
-    payload += "=" * padding
-    return json.loads(urlsafe_b64decode(payload))
+# ── C5: Verify Microsoft id_token signature via JWKS ──
+
+_jwks_client: PyJWKClient | None = None
+
+
+def _get_jwks_client(tenant: str) -> PyJWKClient:
+    global _jwks_client
+    jwks_url = f"https://login.microsoftonline.com/{tenant}/discovery/v2.0/keys"
+    if _jwks_client is None:
+        _jwks_client = PyJWKClient(jwks_url, cache_keys=True)
+    return _jwks_client
+
+
+def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
+    jwks_client = _get_jwks_client(tenant)
+    signing_key = jwks_client.get_signing_key_from_jwt(token)
+    return jwt.decode(
+        token,
+        signing_key.key,
+        algorithms=["RS256"],
+        audience=client_id,
+        issuer=f"https://login.microsoftonline.com/{tenant}/v2.0",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -51,7 +67,8 @@ def _decode_jwt_payload(token: str) -> dict:
 # ---------------------------------------------------------------------------
 
 @router.post("/register", response_model=TokenResponse)
-async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/minute")
+async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Block registration when SSO is enabled
     sso_config = await _get_sso_config(db)
     if sso_config.get("enabled"):
@@ -62,17 +79,20 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
+
+    # ── M1: Use advisory lock to prevent race condition on first-user admin ──
+    await db.execute(text("SELECT pg_advisory_xact_lock(1)"))
+    count_result = await db.execute(select(func.count(User.id)))
+    user_count = count_result.scalar()
+    role = "admin" if user_count == 0 else "member"
+
     user = User(
         email=body.email,
         display_name=body.display_name,
         password_hash=hash_password(body.password),
-        role="admin",  # first user gets admin
+        role=role,
         auth_provider="local",
     )
-    # Check if any users exist — first user is admin
-    count = await db.execute(select(User).limit(1))
-    if count.scalar_one_or_none() is not None:
-        user.role = "member"
     db.add(user)
     await db.commit()
     await db.refresh(user)
@@ -80,7 +100,8 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user:
@@ -97,10 +118,27 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
                 "Password not set yet. Check your email for the setup link.",
             )
         raise HTTPException(401, "Invalid credentials")
+
+    # ── M5: Account lockout check ──
+    if user.locked_until and user.locked_until > datetime.now(timezone.utc):
+        raise HTTPException(423, "Account temporarily locked. Try again later.")
+
     if not verify_password(body.password, user.password_hash):
+        user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        if user.failed_login_attempts >= 5:
+            user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            logger.warning("Account locked due to repeated failed logins: %s", user.email)
+        await db.commit()
         raise HTTPException(401, "Invalid credentials")
+
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
+
+    # Reset failed attempts on successful login
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    await db.commit()
+
     return TokenResponse(access_token=create_access_token(user.id, user.role))
 
 
@@ -115,12 +153,24 @@ async def me(user: User = Depends(get_current_user)):
     )
 
 
+# ── H3: Token refresh endpoint ──
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Issue a new short-lived access token. Re-reads role and active status from DB."""
+    if not user.is_active:
+        raise HTTPException(403, "Account disabled")
+    return TokenResponse(access_token=create_access_token(user.id, user.role))
+
+
 # ---------------------------------------------------------------------------
 # SSO / Entra ID endpoints
 # ---------------------------------------------------------------------------
 
 @router.get("/sso/config")
-async def sso_config(db: AsyncSession = Depends(get_db)):
+async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns SSO configuration needed by the frontend to
     build the Microsoft authorization URL. No secrets are exposed."""
     sso = await _get_sso_config(db)
@@ -146,17 +196,11 @@ class SsoCallbackRequest(BaseModel):
 
 
 @router.post("/sso/callback", response_model=TokenResponse)
-async def sso_callback(body: SsoCallbackRequest, db: AsyncSession = Depends(get_db)):
-    """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT.
-
-    Flow:
-    1. Frontend redirects user to Microsoft's authorization endpoint
-    2. Microsoft redirects back to the frontend with an authorization code
-    3. Frontend sends the code + redirect_uri here
-    4. We exchange the code at Microsoft's token endpoint for an id_token
-    5. We extract user claims (email, name, oid) from the id_token
-    6. We create or find the local user and return our JWT
-    """
+@limiter.limit("20/minute")
+async def sso_callback(
+    request: Request, body: SsoCallbackRequest, db: AsyncSession = Depends(get_db)
+):
+    """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT."""
     sso = await _get_sso_config(db)
     if not sso.get("enabled"):
         raise HTTPException(400, "SSO is not enabled")
@@ -186,22 +230,25 @@ async def sso_callback(body: SsoCallbackRequest, db: AsyncSession = Depends(get_
         )
 
     if token_response.status_code != 200:
+        # ── H8: Don't leak error details to the client ──
         error_data = token_response.json() if token_response.headers.get(
             "content-type", ""
         ).startswith("application/json") else {}
         error_desc = error_data.get("error_description", "Token exchange failed")
-        raise HTTPException(401, f"SSO authentication failed: {error_desc}")
+        logger.error("SSO token exchange failed: %s", error_desc)
+        raise HTTPException(401, "SSO authentication failed. Please try again.")
 
     tokens = token_response.json()
     id_token = tokens.get("id_token")
     if not id_token:
         raise HTTPException(401, "No id_token received from Microsoft")
 
-    # Decode the id_token payload (trusted because received over TLS from Microsoft)
+    # ── C5: Verify the id_token signature ──
     try:
-        claims = _decode_jwt_payload(id_token)
+        claims = _verify_id_token(id_token, client_id, tenant)
     except Exception:
-        raise HTTPException(401, "Failed to decode id_token")
+        logger.exception("Failed to verify SSO id_token")
+        raise HTTPException(401, "Failed to verify SSO token")
 
     # Extract user info from claims
     sso_subject_id = claims.get("oid") or claims.get("sub")
@@ -229,19 +276,21 @@ async def sso_callback(body: SsoCallbackRequest, db: AsyncSession = Depends(get_
             raise HTTPException(403, "Account disabled")
         return TokenResponse(access_token=create_access_token(user.id, user.role))
 
-    # Check if a local user with the same email exists — merge/link account
+    # ── M11: Don't auto-merge local accounts with SSO ──
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
 
     if user:
-        # Link existing local account to SSO
+        if user.auth_provider == "local":
+            raise HTTPException(
+                409,
+                "A local account with this email already exists. "
+                "Contact an administrator to link your SSO account."
+            )
+        # Already an SSO user with a different subject ID — link
         user.sso_subject_id = sso_subject_id
-        # Keep password if set (user can still login with password)
-        if not user.password_hash:
-            user.auth_provider = "sso"
         if display_name and not user.display_name:
             user.display_name = display_name
-        # Clear setup token if present (SSO login counts as activation)
         user.password_setup_token = None
         await db.commit()
         if not user.is_active:
@@ -301,8 +350,12 @@ async def set_password(
     body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
 ):
     """Set a password for an invited user using a one-time setup token."""
-    if len(body.password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    from app.schemas.auth import _validate_password_strength
+
+    try:
+        _validate_password_strength(body.password)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
 
     result = await db.execute(
         select(User).where(User.password_setup_token == body.token)

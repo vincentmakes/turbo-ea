@@ -5,7 +5,7 @@ export function useEventStream(onEvent: (event: Record<string, unknown>) => void
   cbRef.current = onEvent;
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     if (!token) return;
 
     const es = new EventSource("/api/v1/events/stream");

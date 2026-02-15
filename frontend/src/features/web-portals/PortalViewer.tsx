@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -1210,7 +1211,7 @@ export default function PortalViewer() {
                       color: "#333",
                     }}
                     dangerouslySetInnerHTML={{
-                      __html: selectedFs.description,
+                      __html: DOMPurify.sanitize(selectedFs.description || ""),
                     }}
                   />
                 </Box>

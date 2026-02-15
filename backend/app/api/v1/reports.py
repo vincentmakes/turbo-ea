@@ -9,11 +9,13 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.user import User
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -43,7 +45,7 @@ def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
 
 
 @router.get("/dashboard")
-async def dashboard(db: AsyncSession = Depends(get_db)):
+async def dashboard(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     # Count by type
     type_counts = await db.execute(
         select(FactSheet.type, func.count(FactSheet.id))
@@ -128,6 +130,7 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
 @router.get("/landscape")
 async def landscape(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str = Query("Application"),
     group_by: str = Query("BusinessCapability"),
 ):
@@ -188,6 +191,7 @@ async def landscape(
 @router.get("/portfolio")
 async def portfolio(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str = Query("Application"),
     x_axis: str = Query("functionalFit"),
     y_axis: str = Query("technicalFit"),
@@ -217,6 +221,7 @@ async def portfolio(
 @router.get("/matrix")
 async def matrix(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     row_type: str = Query("Application"),
     col_type: str = Query("BusinessCapability"),
 ):
@@ -262,6 +267,7 @@ async def matrix(
 @router.get("/roadmap")
 async def roadmap(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str | None = Query(None),
 ):
     """Roadmap: lifecycle timeline data."""
@@ -289,6 +295,7 @@ async def roadmap(
 @router.get("/cost")
 async def cost_report(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str = Query("Application"),
 ):
     """Cost aggregation report."""
@@ -310,6 +317,7 @@ async def cost_report(
 @router.get("/cost-treemap")
 async def cost_treemap(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str = Query("Application"),
     cost_field: str = Query("totalAnnualCost"),
     group_by: str | None = Query(None),
@@ -381,6 +389,7 @@ async def cost_treemap(
 @router.get("/capability-heatmap")
 async def capability_heatmap(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     metric: str = Query("app_count"),
 ):
     """Business capability heatmap data with hierarchy."""
@@ -485,6 +494,7 @@ async def capability_heatmap(
 @router.get("/dependencies")
 async def dependencies(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
@@ -593,7 +603,7 @@ async def dependencies(
 
 
 @router.get("/data-quality")
-async def data_quality(db: AsyncSession = Depends(get_db)):
+async def data_quality(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Data quality & completeness dashboard."""
     result = await db.execute(
         select(FactSheet).where(FactSheet.status == "ACTIVE")
@@ -763,6 +773,7 @@ def _manual_eol_status(lifecycle: dict | None) -> str:
 @router.get("/eol")
 async def eol_report(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
 ):
     """End-of-Life risk & impact report.
 

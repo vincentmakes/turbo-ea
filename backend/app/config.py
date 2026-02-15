@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 
 
+_DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
+
+
 class Settings:
     PROJECT_NAME: str = "Turbo EA"
     API_V1_PREFIX: str = "/api/v1"
@@ -18,7 +21,14 @@ class Settings:
     SEED_BPM: bool = os.getenv("SEED_BPM", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+
+    ALLOWED_ORIGINS: list[str] = [
+        o.strip()
+        for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8920").split(",")
+    ]
 
     # Email / SMTP (optional — if not configured, email notifications are skipped)
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")

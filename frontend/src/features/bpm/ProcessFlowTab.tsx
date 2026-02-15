@@ -8,6 +8,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -922,7 +923,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     ) : d.svg_thumbnail ? (
                       <Box
                         sx={{ border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "#fafafa", p: 2, textAlign: "center" }}
-                        dangerouslySetInnerHTML={{ __html: d.svg_thumbnail }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(d.svg_thumbnail || "") }}
                       />
                     ) : (
                       <Typography color="text.secondary" sx={{ textAlign: "center", py: 2 }}>

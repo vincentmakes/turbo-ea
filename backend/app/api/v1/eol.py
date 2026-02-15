@@ -239,6 +239,9 @@ async def get_product_cycles(
     _user=Depends(get_current_user),
 ):
     """Return all release cycles for a given product."""
+    # M6: SSRF prevention — only allow alphanumeric, hyphens, and dots
+    if not re.match(r"^[a-zA-Z0-9._-]+$", product):
+        raise HTTPException(status_code=400, detail="Invalid product name")
     client = await _get_client()
     try:
         resp = await client.get(f"{EOL_BASE}/{product}.json")

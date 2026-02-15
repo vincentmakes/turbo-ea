@@ -430,7 +430,10 @@ async def get_public_portal_fact_sheets(
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
 
-    # Sorting
+    # Sorting — H9: whitelist sort columns
+    _allowed_sorts = {"name", "type", "status", "quality_seal", "completion", "created_at", "updated_at", "subtype"}
+    if sort_by not in _allowed_sorts:
+        sort_by = "name"
     sort_col = getattr(FactSheet, sort_by, FactSheet.name)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
     q = q.offset((page - 1) * page_size).limit(page_size)
