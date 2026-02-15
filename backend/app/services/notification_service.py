@@ -46,7 +46,13 @@ async def create_notification(
 
     # Don't notify the actor about their own action, except for types where
     # the actor is performing a batch/admin action (surveys, todo assignments).
-    allow_self_types = {"survey_request", "todo_assigned"}
+    allow_self_types = {
+        "survey_request",
+        "todo_assigned",
+        "process_flow_approval_requested",
+        "process_flow_approved",
+        "process_flow_rejected",
+    }
     if actor_id and actor_id == user_id and notif_type not in allow_self_types:
         return None
 
