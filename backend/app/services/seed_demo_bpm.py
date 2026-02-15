@@ -22,7 +22,7 @@ from app.models.relation import Relation
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.process_assessment import ProcessAssessment
-from app.services.seed import TYPES as _META_TYPES
+from app.services.seed import RELATIONS as _META_RELATIONS, TYPES as _META_TYPES
 
 # ---------------------------------------------------------------------------
 # UUID registry – deterministic refs for cross-linking
@@ -96,7 +96,7 @@ PROCESSES = [
         desc="Receive customer orders via portal/EDI, validate pricing, inventory availability, and credit.",
         attrs={"processType": "core", "maturity": "optimized", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "daily",
-               "responsibleOrg": "Sales & Marketing", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_credit_check", "Credit Check",
@@ -104,7 +104,7 @@ PROCESSES = [
         desc="Automated and manual credit scoring for new and existing customers before order confirmation.",
         attrs={"processType": "core", "maturity": "measured", "automationLevel": "fullyAutomated",
                "riskLevel": "medium", "frequency": "daily",
-               "responsibleOrg": "Finance & Controlling", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2012-01-01"}),
 
     _fs("bp_fulfillment", "Order Fulfillment & Shipping",
@@ -112,7 +112,7 @@ PROCESSES = [
         desc="Pick, pack, and ship sensors and gateways from Stuttgart warehouse to global customers.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "daily",
-               "responsibleOrg": "Supply Chain & Logistics", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2008-01-01"}),
 
     _fs("bp_invoicing", "Invoicing & Payment Collection",
@@ -120,7 +120,7 @@ PROCESSES = [
         desc="Generate invoices, process customer payments, and manage collections for overdue accounts.",
         attrs={"processType": "core", "maturity": "optimized", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "daily",
-               "responsibleOrg": "Finance & Controlling", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     # ── Core > New Product Introduction (Group) ───────────────────
@@ -136,7 +136,7 @@ PROCESSES = [
         desc="Evaluate new product ideas against market demand, technology readiness, and investment case.",
         attrs={"processType": "core", "maturity": "defined", "automationLevel": "manual",
                "riskLevel": "high", "frequency": "quarterly",
-               "responsibleOrg": "R&D", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2012-01-01"}),
 
     _fs("bp_design_review", "Design Review & Gate Approval",
@@ -144,7 +144,7 @@ PROCESSES = [
         desc="Formal multi-discipline review at each development phase gate (concept, design, validation, production).",
         attrs={"processType": "core", "maturity": "optimized", "automationLevel": "manual",
                "riskLevel": "medium", "frequency": "monthly",
-               "responsibleOrg": "Engineering Division", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_proto_validation", "Prototyping & Validation",
@@ -152,7 +152,7 @@ PROCESSES = [
         desc="Build prototypes, run EVT/DVT/PVT test campaigns, and validate against product requirements.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "high", "frequency": "monthly",
-               "responsibleOrg": "Engineering Division", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_prod_transfer", "Production Transfer",
@@ -160,7 +160,7 @@ PROCESSES = [
         desc="Transfer validated design to manufacturing: BOM release, tooling, line setup, pilot run.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "high", "frequency": "quarterly",
-               "responsibleOrg": "Manufacturing Division", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2012-01-01"}),
 
     # ── Core > Manufacturing Execution (Group) ────────────────────
@@ -176,7 +176,7 @@ PROCESSES = [
         desc="Surface-mount technology: solder paste printing, component placement, and reflow soldering.",
         attrs={"processType": "core", "maturity": "optimized", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "continuous",
-               "responsibleOrg": "Production – Sensors", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2008-01-01"}),
 
     _fs("bp_final_assembly", "Final Assembly & Integration",
@@ -184,7 +184,7 @@ PROCESSES = [
         desc="Assemble tested PCBAs into enclosures, install connectors, flash firmware, and label.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "continuous",
-               "responsibleOrg": "Production – Actuators", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2008-01-01"}),
 
     _fs("bp_quality_inspection", "Quality Inspection & Testing",
@@ -192,7 +192,7 @@ PROCESSES = [
         desc="Automated optical, electrical, and functional testing on every production unit with SPC analysis.",
         attrs={"processType": "core", "maturity": "measured", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "continuous",
-               "responsibleOrg": "Quality Engineering", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     # ── Core > Customer Service (Group) ───────────────────────────
@@ -208,7 +208,7 @@ PROCESSES = [
         desc="Receive, triage, diagnose, and resolve customer-reported issues for deployed sensors and gateways.",
         attrs={"processType": "core", "maturity": "defined", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "daily",
-               "responsibleOrg": "Customer Support", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2012-01-01"}),
 
     _fs("bp_field_service", "Field Service Dispatch",
@@ -216,7 +216,7 @@ PROCESSES = [
         desc="Dispatch field technicians for on-site installation, repair, and preventive maintenance visits.",
         attrs={"processType": "core", "maturity": "initial", "automationLevel": "manual",
                "riskLevel": "high", "frequency": "weekly",
-               "responsibleOrg": "Customer Support", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2015-01-01"}),
 
     _fs("bp_warranty_claim", "Warranty Claim Processing",
@@ -224,7 +224,7 @@ PROCESSES = [
         desc="Validate warranty entitlements, authorize replacements or repairs, and track claim financials.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "weekly",
-               "responsibleOrg": "Customer Support", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2014-01-01"}),
 
     # ── Support > Procure to Pay (Group) ──────────────────────────
@@ -240,7 +240,7 @@ PROCESSES = [
         desc="Create, approve, and route purchase requisitions for electronic components and raw materials.",
         attrs={"processType": "support", "maturity": "optimized", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "daily",
-               "responsibleOrg": "Supply Chain & Logistics", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_po_creation", "Purchase Order Management",
@@ -248,7 +248,7 @@ PROCESSES = [
         desc="Create POs from approved requisitions, manage supplier confirmations and delivery tracking.",
         attrs={"processType": "support", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "low", "frequency": "daily",
-               "responsibleOrg": "Supply Chain & Logistics", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_goods_receipt", "Goods Receipt & Inspection",
@@ -256,7 +256,7 @@ PROCESSES = [
         desc="Receive incoming shipments, verify quantities against POs, run incoming quality inspection.",
         attrs={"processType": "support", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "daily",
-               "responsibleOrg": "Supply Chain & Logistics", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_invoice_verification", "Invoice Verification & Payment",
@@ -264,7 +264,7 @@ PROCESSES = [
         desc="Three-way match (PO, goods receipt, invoice), approve, and schedule supplier payments.",
         attrs={"processType": "support", "maturity": "optimized", "automationLevel": "fullyAutomated",
                "riskLevel": "low", "frequency": "daily",
-               "responsibleOrg": "Finance & Controlling", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2012-01-01"}),
 
     # ── Support > Hire to Retire (Group) ──────────────────────────
@@ -280,7 +280,7 @@ PROCESSES = [
         desc="Post positions, screen candidates, conduct interviews, and extend offers for engineering talent.",
         attrs={"processType": "support", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "low", "frequency": "weekly",
-               "responsibleOrg": "Human Resources", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2008-01-01"}),
 
     _fs("bp_onboarding", "Employee Onboarding",
@@ -288,7 +288,7 @@ PROCESSES = [
         desc="IT equipment provisioning, system access setup, safety training, and first-week orientation.",
         attrs={"processType": "support", "maturity": "defined", "automationLevel": "partiallyAutomated",
                "riskLevel": "low", "frequency": "weekly",
-               "responsibleOrg": "Human Resources", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2012-01-01"}),
 
     # ── Support > IT Service Management (Group) ───────────────────
@@ -304,7 +304,7 @@ PROCESSES = [
         desc="Log, classify, prioritize, and resolve IT incidents within SLA targets.",
         attrs={"processType": "support", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "medium", "frequency": "continuous",
-               "responsibleOrg": "IT Operations", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2012-01-01"}),
 
     _fs("bp_change_mgmt", "IT Change Management",
@@ -312,7 +312,7 @@ PROCESSES = [
         desc="Request, evaluate, approve, and implement changes to production IT systems.",
         attrs={"processType": "support", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "high", "frequency": "weekly",
-               "responsibleOrg": "IT Operations", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2014-01-01"}),
 
     # ── Support > Engineering Change Management ───────────────────
@@ -321,7 +321,7 @@ PROCESSES = [
         desc="Controlled process for evaluating, approving, and implementing design and BOM changes.",
         attrs={"processType": "support", "maturity": "optimized", "automationLevel": "partiallyAutomated",
                "riskLevel": "high", "frequency": "weekly",
-               "responsibleOrg": "Engineering Division", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     # ── Management > Strategic Planning ───────────────────────────
@@ -330,7 +330,7 @@ PROCESSES = [
         desc="Annual strategic planning cycle: market analysis, portfolio review, and investment decisions.",
         attrs={"processType": "management", "maturity": "defined", "automationLevel": "manual",
                "riskLevel": "low", "frequency": "quarterly",
-               "responsibleOrg": "Corporate", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"active": "2005-03-15"}),
 
     _fs("bp_budget_planning", "Budget Planning & Forecasting",
@@ -338,7 +338,7 @@ PROCESSES = [
         desc="Annual budget creation, quarterly rolling forecasts, and variance analysis.",
         attrs={"processType": "management", "maturity": "managed", "automationLevel": "partiallyAutomated",
                "riskLevel": "low", "frequency": "monthly",
-               "responsibleOrg": "Finance & Controlling", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2008-01-01"}),
 
     _fs("bp_regulatory_submission", "Regulatory Submission",
@@ -346,7 +346,7 @@ PROCESSES = [
         desc="Prepare and submit CE, UL, and IEC certification documentation for new and changed products.",
         attrs={"processType": "management", "maturity": "managed", "automationLevel": "manual",
                "riskLevel": "high", "frequency": "monthly",
-               "responsibleOrg": "Legal & Compliance", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     _fs("bp_internal_audit", "Internal Audit",
@@ -354,7 +354,7 @@ PROCESSES = [
         desc="Plan and execute internal quality and compliance audits per ISO 9001 and IEC 62443 requirements.",
         attrs={"processType": "management", "maturity": "defined", "automationLevel": "manual",
                "riskLevel": "medium", "frequency": "quarterly",
-               "responsibleOrg": "Legal & Compliance", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2010-01-01"}),
 
     # ── Core > IoT Device Lifecycle (Group) ───────────────────────
@@ -370,7 +370,7 @@ PROCESSES = [
         desc="Register new devices, provision certificates, configure connectivity, and validate first telemetry.",
         attrs={"processType": "core", "maturity": "managed", "automationLevel": "fullyAutomated",
                "riskLevel": "medium", "frequency": "daily",
-               "responsibleOrg": "R&D", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2021-01-01"}),
 
     _fs("bp_ota_update", "OTA Firmware Update",
@@ -378,7 +378,7 @@ PROCESSES = [
         desc="Prepare, test, stage, and roll out over-the-air firmware updates to deployed device fleets.",
         attrs={"processType": "core", "maturity": "defined", "automationLevel": "fullyAutomated",
                "riskLevel": "critical", "frequency": "monthly",
-               "responsibleOrg": "Firmware & Embedded", "regulatoryRelevance": True},
+               "regulatoryRelevance": True},
         lifecycle={"active": "2022-01-01"}),
 
     _fs("bp_anomaly_response", "Anomaly Detection & Response",
@@ -386,7 +386,7 @@ PROCESSES = [
         desc="Detect anomalous sensor readings via ML, triage alerts, and trigger corrective actions.",
         attrs={"processType": "core", "maturity": "initial", "automationLevel": "partiallyAutomated",
                "riskLevel": "high", "frequency": "continuous",
-               "responsibleOrg": "R&D", "regulatoryRelevance": False},
+               "regulatoryRelevance": False},
         lifecycle={"phaseIn": "2025-01-01", "active": "2025-09-01"}),
 
     # Variants (different customer-segment flavors of OTC)
@@ -821,10 +821,17 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
         return {"skipped": True, "reason": "BusinessProcess fact sheets already exist"}
 
     # Build lookup: existing fact sheet name → id  (for cross-type relations)
-    existing_result = await db.execute(select(FactSheet.id, FactSheet.name))
-    name_to_id: dict[str, uuid.UUID] = {}
+    # Use (name, type) tuple to avoid collisions when the same name exists
+    # in multiple types (e.g. "ServiceNow" as Application AND Provider).
+    existing_result = await db.execute(select(FactSheet.id, FactSheet.name, FactSheet.type))
+    name_type_to_id: dict[tuple[str, str], uuid.UUID] = {}
+    name_to_id: dict[str, uuid.UUID] = {}  # fallback
     for row in existing_result.all():
+        name_type_to_id[(row.name, row.type)] = row.id
         name_to_id[row.name] = row.id
+
+    # Build relation type key → target_type_key mapping for type-aware resolution
+    _rel_target_type = {r["key"]: r["target_type_key"] for r in _META_RELATIONS}
 
     # Compute completion scores
     type_schemas = {t["key"]: t.get("fields_schema", []) for t in _META_TYPES}
@@ -852,7 +859,14 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
         if tgt_ref_or_name.startswith("bp_"):
             tgt_id = _refs.get(tgt_ref_or_name)
         else:
-            tgt_id = name_to_id.get(tgt_ref_or_name)
+            # Prefer type-aware lookup to avoid collisions (e.g. "ServiceNow"
+            # exists as both Application and Provider)
+            expected_type = _rel_target_type.get(rel_type)
+            tgt_id = (
+                name_type_to_id.get((tgt_ref_or_name, expected_type))
+                if expected_type
+                else None
+            ) or name_to_id.get(tgt_ref_or_name)
 
         if not tgt_id:
             continue

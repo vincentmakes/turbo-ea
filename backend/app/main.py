@@ -108,6 +108,30 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
 
+    # Ensure a demo admin user exists before BPM seed (needed for assessments).
+    # Created here so that seed_bpm_demo_data can find an admin user for
+    # assessor_id.  If a real admin already exists (e.g. user registered
+    # before a SEED_BPM=true restart), this is a no-op.
+    if settings.SEED_DEMO or settings.SEED_BPM:
+        from app.models.user import User
+        from app.core.security import hash_password
+
+        async with async_session() as db:
+            admin_exists = await db.execute(
+                _sel(User.id).where(User.role == "admin").limit(1)
+            )
+            if admin_exists.scalar_one_or_none() is None:
+                demo_admin = User(
+                    email="admin@turboea.demo",
+                    display_name="Demo Admin",
+                    password_hash=hash_password("TurboEA!2025"),
+                    role="admin",
+                    is_active=True,
+                )
+                db.add(demo_admin)
+                await db.commit()
+                print("[seed] Created demo admin user (admin@turboea.demo)")
+
     # Seed BPM demo data: runs with SEED_DEMO (full install) or SEED_BPM (incremental)
     if settings.SEED_DEMO or settings.SEED_BPM:
         from app.services.seed_demo_bpm import seed_bpm_demo_data
