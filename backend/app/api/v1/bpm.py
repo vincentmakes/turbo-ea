@@ -380,7 +380,7 @@ async def get_template(
     # Return BPMN XML from bundled templates
     import pathlib
 
-    template_dir = pathlib.Path(__file__).resolve().parent.parent.parent / "bpmn_templates"
+    template_dir = pathlib.Path(__file__).resolve().parent.parent.parent.parent / "bpmn_templates"
     template_file = template_dir / f"{template_key}.bpmn"
     if template_file.exists():
         bpmn_xml = template_file.read_text()
