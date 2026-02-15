@@ -146,9 +146,10 @@ export default function InventoryPage() {
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
 
-  // Relation cell popover state
-  const [relEditAnchor, setRelEditAnchor] = useState<HTMLElement | null>(null);
+  // Relation cell dialog state
+  const [relEditOpen, setRelEditOpen] = useState(false);
   const [relEditFsId, setRelEditFsId] = useState("");
+  const [relEditFsName, setRelEditFsName] = useState("");
   const [relEditRelType, setRelEditRelType] = useState<RelationType | null>(null);
 
   // React to ?create=true search param
@@ -581,8 +582,9 @@ export default function InventoryPage() {
                 onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                   e.stopPropagation();
                   e.preventDefault();
-                  setRelEditAnchor(e.currentTarget as HTMLElement);
+                  setRelEditOpen(true);
                   setRelEditFsId(p.data.id);
+                  setRelEditFsName(p.data.name);
                   setRelEditRelType(relTypeRef);
                 }}
                 sx={{
@@ -971,9 +973,10 @@ export default function InventoryPage() {
 
       {relEditRelType && (
         <RelationCellPopover
-          anchorEl={relEditAnchor}
-          onClose={() => { setRelEditAnchor(null); setRelEditFsId(""); setRelEditRelType(null); }}
+          open={relEditOpen}
+          onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelType(null); }}
           factSheetId={relEditFsId}
+          factSheetName={relEditFsName}
           relationType={relEditRelType}
           selectedType={selectedType}
           onRelationsChanged={fetchRelations}
