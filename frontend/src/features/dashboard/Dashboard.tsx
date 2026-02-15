@@ -203,8 +203,9 @@ export default function Dashboard() {
                       name="Count"
                       radius={[0, 4, 4, 0]}
                       cursor="pointer"
-                      onClick={(entry: { key?: string }) => {
-                        if (entry?.key) navigate(`/inventory?type=${entry.key}`);
+                      onClick={(_data, _idx) => {
+                        const key = typeChartData[_idx]?.key;
+                        if (key) navigate(`/inventory?type=${key}`);
                       }}
                     >
                       {typeChartData.map((d, i) => (
@@ -238,7 +239,7 @@ export default function Dashboard() {
                       innerRadius={50}
                       outerRadius={90}
                       paddingAngle={2}
-                      label={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}
+                      label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
                     >
                       {sealChartData.map((d, i) => (
                         <Cell key={i} fill={d.color} />
