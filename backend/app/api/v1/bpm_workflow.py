@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -219,8 +219,30 @@ async def create_draft(
         if not bpmn_xml:
             bpmn_xml = base_version.bpmn_xml
             svg_thumbnail = svg_thumbnail or base_version.svg_thumbnail
-        # Clone draft element links from base version
+        # Clone draft element links from base version.
+        # If the base is published/archived, its draft_element_links is likely empty
+        # because links were consumed on publish. In that case, pull from the
+        # actual ProcessElement records (the published element table).
         draft_links_clone = base_version.draft_element_links
+        if not draft_links_clone:
+            existing_elems = await db.execute(
+                select(ProcessElement).where(ProcessElement.process_id == pid)
+            )
+            links_from_elements: dict = {}
+            for elem in existing_elems.scalars().all():
+                link: dict = {}
+                if elem.application_id:
+                    link["application_id"] = str(elem.application_id)
+                if elem.data_object_id:
+                    link["data_object_id"] = str(elem.data_object_id)
+                if elem.it_component_id:
+                    link["it_component_id"] = str(elem.it_component_id)
+                if elem.custom_fields:
+                    link["custom_fields"] = elem.custom_fields
+                if link:
+                    links_from_elements[elem.bpmn_element_id] = link
+            if links_from_elements:
+                draft_links_clone = links_from_elements
 
     # Determine next revision number
     latest = await db.execute(
@@ -787,7 +809,7 @@ async def update_draft_element_link(
     process_id: str,
     version_id: str,
     bpmn_element_id: str,
-    body: dict,
+    body: dict = Body(...),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
