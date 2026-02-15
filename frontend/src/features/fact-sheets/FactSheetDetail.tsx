@@ -1737,6 +1737,7 @@ export default function FactSheetDetail() {
 
   useEffect(() => {
     if (!id) return;
+    setTab(0);
     api
       .get<FactSheet>(`/fact-sheets/${id}`)
       .then(setFs)
@@ -1852,60 +1853,77 @@ export default function FactSheetDetail() {
         </Menu>
       </Box>
 
-      {/* ── Sections ── */}
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 3 }}>
-        <DescriptionSection fs={fs} onSave={handleUpdate} />
-        <EolLinkSection fs={fs} onSave={handleUpdate} />
-        <LifecycleSection fs={fs} onSave={handleUpdate} />
-        {typeConfig?.fields_schema.map((section) => (
-          <AttributeSection
-            key={section.section}
-            section={section}
-            fs={fs}
-            onSave={handleUpdate}
-            onRelationChange={() => setRelRefresh((n) => n + 1)}
-          />
-        ))}
-        <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
-        <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
-      </Box>
+      {/* ── Top-level tabs ── */}
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
+      >
+        <Tab label="Fact Sheet" />
+        {fs.type === "BusinessProcess" && <Tab label="Process Flow" />}
+        {fs.type === "BusinessProcess" && <Tab label="Assessments" />}
+        <Tab label="Comments" />
+        <Tab label="Todos" />
+        <Tab label="Subscriptions" />
+        <Tab label="History" />
+      </Tabs>
 
-      {/* ── Secondary tabs ── */}
-      <Card>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          variant={isMobile ? "scrollable" : "standard"}
-          scrollButtons={isMobile ? "auto" : false}
-          sx={{ borderBottom: 1, borderColor: "divider", px: { xs: 0, sm: 2 } }}
-        >
-          {fs.type === "BusinessProcess" && <Tab label="Process Flow" />}
-          {fs.type === "BusinessProcess" && <Tab label="Assessments" />}
-          <Tab label="Comments" />
-          <Tab label="Todos" />
-          <Tab label="Subscriptions" />
-          <Tab label="History" />
-        </Tabs>
-        <CardContent>
-          {fs.type === "BusinessProcess" ? (
-            <>
-              {tab === 0 && <ProcessFlowTab processId={fs.id} />}
-              {tab === 1 && <ProcessAssessmentPanel processId={fs.id} />}
-              {tab === 2 && <CommentsTab fsId={fs.id} />}
-              {tab === 3 && <TodosTab fsId={fs.id} />}
-              {tab === 4 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
-              {tab === 5 && <HistoryTab fsId={fs.id} />}
-            </>
-          ) : (
-            <>
-              {tab === 0 && <CommentsTab fsId={fs.id} />}
-              {tab === 1 && <TodosTab fsId={fs.id} />}
-              {tab === 2 && <SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />}
-              {tab === 3 && <HistoryTab fsId={fs.id} />}
-            </>
+      {/* ── Tab content ── */}
+      {fs.type === "BusinessProcess" ? (
+        <>
+          {tab === 0 && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <DescriptionSection fs={fs} onSave={handleUpdate} />
+              <EolLinkSection fs={fs} onSave={handleUpdate} />
+              <LifecycleSection fs={fs} onSave={handleUpdate} />
+              {typeConfig?.fields_schema.map((section) => (
+                <AttributeSection
+                  key={section.section}
+                  section={section}
+                  fs={fs}
+                  onSave={handleUpdate}
+                  onRelationChange={() => setRelRefresh((n) => n + 1)}
+                />
+              ))}
+              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
+              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
+            </Box>
           )}
-        </CardContent>
-      </Card>
+          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} /></CardContent></Card>}
+          {tab === 2 && <Card><CardContent><ProcessAssessmentPanel processId={fs.id} /></CardContent></Card>}
+          {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 4 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 5 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} /></CardContent></Card>}
+          {tab === 6 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
+        </>
+      ) : (
+        <>
+          {tab === 0 && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <DescriptionSection fs={fs} onSave={handleUpdate} />
+              <EolLinkSection fs={fs} onSave={handleUpdate} />
+              <LifecycleSection fs={fs} onSave={handleUpdate} />
+              {typeConfig?.fields_schema.map((section) => (
+                <AttributeSection
+                  key={section.section}
+                  section={section}
+                  fs={fs}
+                  onSave={handleUpdate}
+                  onRelationChange={() => setRelRefresh((n) => n + 1)}
+                />
+              ))}
+              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
+              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
+            </Box>
+          )}
+          {tab === 1 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 2 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 3 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} /></CardContent></Card>}
+          {tab === 4 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
+        </>
+      )}
     </Box>
   );
 }
