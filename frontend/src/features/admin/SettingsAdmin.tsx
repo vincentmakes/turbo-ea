@@ -15,6 +15,7 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMetamodel } from "@/hooks/useMetamodel";
 
 const CURRENCIES = [
   { code: "USD", label: "US Dollar ($)" },
@@ -67,6 +68,9 @@ export default function SettingsAdmin() {
   const [logoVersion, setLogoVersion] = useState(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Metamodel cache (invalidated when BPM toggle changes type visibility)
+  const { invalidateCache: invalidateMetamodel } = useMetamodel();
 
   // Currency state
   const { currency: currentCurrency, invalidate: invalidateCurrency } = useCurrency();
@@ -198,6 +202,7 @@ export default function SettingsAdmin() {
     try {
       await api.patch("/settings/bpm-enabled", { enabled });
       setBpmEnabled(enabled);
+      invalidateMetamodel();
       setSnack(enabled ? "BPM module enabled" : "BPM module disabled");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update BPM setting");

@@ -9,10 +9,14 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import or_
+
 from app.api.deps import get_current_user
 from app.config import settings as app_config
 from app.database import get_db
 from app.models.app_settings import AppSettings
+from app.models.fact_sheet_type import FactSheetType
+from app.models.relation_type import RelationType
 from app.models.user import User
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -235,13 +239,40 @@ async def update_bpm_enabled(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Admin endpoint — enable or disable the BPM module."""
+    """Admin endpoint — enable or disable the BPM module.
+
+    Also toggles is_hidden on the BusinessProcess fact sheet type and all
+    relation types that touch BusinessProcess, so that fact sheets, relations,
+    and reports are properly hidden/shown across the entire platform.
+    """
     _require_admin(user)
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
     general["bpmEnabled"] = body.enabled
     row.general_settings = general
+
+    # Toggle is_hidden on the BusinessProcess fact sheet type
+    hide = not body.enabled
+    fst_result = await db.execute(
+        select(FactSheetType).where(FactSheetType.key == "BusinessProcess")
+    )
+    fst = fst_result.scalar_one_or_none()
+    if fst:
+        fst.is_hidden = hide
+
+    # Toggle is_hidden on all relation types connected to BusinessProcess
+    rt_result = await db.execute(
+        select(RelationType).where(
+            or_(
+                RelationType.source_type_key == "BusinessProcess",
+                RelationType.target_type_key == "BusinessProcess",
+            )
+        )
+    )
+    for rt in rt_result.scalars().all():
+        rt.is_hidden = hide
+
     await db.commit()
 
     return {"ok": True}
