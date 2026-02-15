@@ -187,6 +187,45 @@ async def save_diagram(
     return {"version": new_version, "element_count": len(extracted)}
 
 
+@router.delete("/processes/{process_id}/diagram")
+async def delete_diagram(
+    process_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete all diagram versions and extracted elements for a process (admin only)."""
+    if current_user.role != "admin":
+        raise HTTPException(403, "Admin only")
+
+    pid = uuid.UUID(process_id)
+    process = await _get_process_or_404(db, pid)
+
+    # Delete all extracted elements
+    elements = await db.execute(
+        select(ProcessElement).where(ProcessElement.process_id == pid)
+    )
+    for elem in elements.scalars().all():
+        await db.delete(elem)
+
+    # Delete all diagram versions
+    diagrams = await db.execute(
+        select(ProcessDiagram).where(ProcessDiagram.process_id == pid)
+    )
+    for diag in diagrams.scalars().all():
+        await db.delete(diag)
+
+    await event_bus.publish(
+        "process_diagram.deleted",
+        {"process_name": process.name},
+        db=db,
+        fact_sheet_id=pid,
+        user_id=current_user.id,
+    )
+
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/processes/{process_id}/diagram/versions")
 async def list_diagram_versions(
     process_id: str,

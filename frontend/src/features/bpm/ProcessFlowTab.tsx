@@ -6,6 +6,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogActions from "@mui/material/DialogActions";
 import Typography from "@mui/material/Typography";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -22,6 +27,7 @@ import BpmnViewer from "./BpmnViewer";
 import ElementLinker from "./ElementLinker";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
+import { useAuth } from "@/hooks/useAuth";
 import type { ProcessDiagramData, ProcessElement } from "@/types";
 
 interface Props {
@@ -30,12 +36,15 @@ interface Props {
 
 export default function ProcessFlowTab({ processId }: Props) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [diagram, setDiagram] = useState<ProcessDiagramData | null>(null);
   const [elements, setElements] = useState<ProcessElement[]>([]);
   const [loading, setLoading] = useState(true);
   const [linkElement, setLinkElement] = useState<ProcessElement | null>(null);
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
   const [selectedBpmnId, setSelectedBpmnId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -158,7 +167,48 @@ export default function ProcessFlowTab({ processId }: Props) {
         </Button>
         <Box sx={{ flex: 1 }} />
         <Chip label={`v${diagram.version}`} size="small" variant="outlined" />
+        {isAdmin && (
+          <Button
+            variant="outlined"
+            size="small"
+            color="error"
+            startIcon={<MaterialSymbol icon="delete" />}
+            onClick={() => setConfirmDelete(true)}
+          >
+            Delete Diagram
+          </Button>
+        )}
       </Box>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+        <DialogTitle>Delete Process Diagram?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently delete all diagram versions and extracted process elements.
+            You will be able to start fresh from a template.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={async () => {
+              try {
+                await api.delete(`/bpm/processes/${processId}/diagram`);
+                setConfirmDelete(false);
+                setDiagram(null);
+                setElements([]);
+              } catch (err) {
+                console.error("Failed to delete diagram:", err);
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* BPMN Diagram (read-only) */}
       <BpmnViewer
