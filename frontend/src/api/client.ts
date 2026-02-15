@@ -92,4 +92,6 @@ export const auth = {
     }>("/auth/sso/config"),
   ssoCallback: (code: string, redirect_uri: string) =>
     api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),
+  setPassword: (token: string, password: string) =>
+    api.post<{ access_token: string }>("/auth/set-password", { token, password }),
 };

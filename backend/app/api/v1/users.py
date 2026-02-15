@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.api.v1.auth import _get_sso_config, generate_setup_token
 from app.core.security import hash_password
 from app.database import get_db
 from app.models.sso_invitation import SsoInvitation
@@ -19,8 +20,9 @@ router = APIRouter(prefix="/users", tags=["users"])
 class UserCreate(BaseModel):
     email: EmailStr
     display_name: str
-    password: str
+    password: str | None = None
     role: str = "member"
+    send_email: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -39,6 +41,8 @@ def _user_response(u: User) -> dict:
         "role": u.role,
         "is_active": u.is_active,
         "auth_provider": u.auth_provider or "local",
+        "has_password": bool(u.password_hash),
+        "pending_setup": bool(u.password_setup_token),
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
 
@@ -74,19 +78,93 @@ async def create_user(
     if body.role not in ("admin", "bpm_admin", "member", "viewer"):
         raise HTTPException(400, "Role must be admin, bpm_admin, member, or viewer")
 
-    existing = await db.execute(select(User).where(User.email == body.email))
+    email = body.email.lower().strip()
+
+    existing = await db.execute(select(User).where(User.email == email))
     if existing.scalar_one_or_none():
         raise HTTPException(409, "A user with this email already exists")
 
+    # Also check if an SSO invitation already exists for this email
+    existing_inv = await db.execute(
+        select(SsoInvitation).where(SsoInvitation.email == email)
+    )
+    if existing_inv.scalar_one_or_none():
+        raise HTTPException(409, "An invitation for this email already exists")
+
+    setup_token = None
+    pw_hash = None
+    if body.password:
+        pw_hash = hash_password(body.password)
+    else:
+        setup_token = generate_setup_token()
+
     u = User(
-        email=body.email,
+        email=email,
         display_name=body.display_name,
-        password_hash=hash_password(body.password),
+        password_hash=pw_hash,
         role=body.role,
+        password_setup_token=setup_token,
     )
     db.add(u)
+
+    # Also create an SSO invitation so SSO login gives the right role
+    sso_inv = SsoInvitation(
+        email=email,
+        role=body.role,
+        invited_by=current_user.id,
+    )
+    db.add(sso_inv)
+
     await db.commit()
     await db.refresh(u)
+
+    # Send invitation email if requested
+    if body.send_email:
+        try:
+            from app.services.email_service import send_notification_email
+
+            sso_cfg = await _get_sso_config(db)
+            sso_enabled = sso_cfg.get("enabled", False)
+
+            if setup_token and not sso_enabled:
+                # SSO disabled + no password: send password setup link
+                await send_notification_email(
+                    to=email,
+                    title="You've been invited to Turbo EA",
+                    message=(
+                        "You have been invited to join Turbo EA. "
+                        "Click the button below to set your password "
+                        "and get started."
+                    ),
+                    link=f"/auth/set-password?token={setup_token}",
+                )
+            elif sso_enabled:
+                # SSO enabled: tell them to sign in with Microsoft
+                await send_notification_email(
+                    to=email,
+                    title="You've been invited to Turbo EA",
+                    message=(
+                        "You have been invited to join Turbo EA. "
+                        "Click the button below to sign in with your "
+                        "Microsoft account."
+                    ),
+                    link="/",
+                )
+            else:
+                # Password was set: tell them to sign in
+                await send_notification_email(
+                    to=email,
+                    title="You've been invited to Turbo EA",
+                    message=(
+                        "You have been invited to join Turbo EA. "
+                        "A password has been set for your account. "
+                        "Click the button below to sign in."
+                    ),
+                    link="/",
+                )
+        except Exception:
+            pass  # Email sending is best-effort
+
     return _user_response(u)
 
 
@@ -217,68 +295,13 @@ async def list_invitations(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Admin only — list all pending SSO invitations."""
+    """Admin only — list all pending invitations."""
     if current_user.role != "admin":
         raise HTTPException(403, "Admin only")
-    result = await db.execute(select(SsoInvitation).order_by(SsoInvitation.email))
-    return [_invitation_response(inv) for inv in result.scalars().all()]
-
-
-@router.post("/invitations", status_code=201)
-async def create_invitation(
-    body: InvitationCreate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Admin only — invite a user by email with a pre-assigned role.
-    When the user logs in via SSO, they will receive this role instead of the default 'viewer'.
-    Optionally sends an invitation email if SMTP is configured."""
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
-
-    if body.role not in ("admin", "bpm_admin", "member", "viewer"):
-        raise HTTPException(400, "Role must be admin, bpm_admin, member, or viewer")
-
-    email = body.email.lower().strip()
-
-    # Check if user already exists
-    existing_user = await db.execute(select(User).where(User.email == email))
-    if existing_user.scalar_one_or_none():
-        raise HTTPException(409, "A user with this email already exists")
-
-    # Check if invitation already exists
-    existing_inv = await db.execute(select(SsoInvitation).where(SsoInvitation.email == email))
-    if existing_inv.scalar_one_or_none():
-        raise HTTPException(409, "An invitation for this email already exists")
-
-    inv = SsoInvitation(
-        email=email,
-        role=body.role,
-        invited_by=current_user.id,
+    result = await db.execute(
+        select(SsoInvitation).order_by(SsoInvitation.email)
     )
-    db.add(inv)
-    await db.commit()
-    await db.refresh(inv)
-
-    # Optionally send invitation email
-    if body.send_email:
-        try:
-            from app.services.email_service import send_notification_email
-
-            await send_notification_email(
-                to=email,
-                title="You've been invited to Turbo EA",
-                message=(
-                    f"You have been invited to join Turbo EA with the role of "
-                    f'"{body.role}". Click the button below to sign in with your '
-                    f"Microsoft account."
-                ),
-                link="/",
-            )
-        except Exception:
-            pass  # Email sending is best-effort
-
-    return _invitation_response(inv)
+    return [_invitation_response(inv) for inv in result.scalars().all()]
 
 
 @router.delete("/invitations/{invitation_id}", status_code=204)

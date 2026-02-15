@@ -5,6 +5,8 @@ export interface User {
   role: string;
   is_active: boolean;
   auth_provider?: string;
+  has_password?: boolean;
+  pending_setup?: boolean;
   created_at?: string;
 }
 
