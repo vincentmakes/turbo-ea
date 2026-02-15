@@ -60,6 +60,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { label: "BPM", icon: "route", path: "/bpm" },
+  { label: "Processes", icon: "account_tree", path: "/process-navigator" },
   { label: "Diagrams", icon: "schema", path: "/diagrams" },
   { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
   { label: "Todos", icon: "checklist", path: "/todos" },
