@@ -77,6 +77,27 @@ def upgrade() -> None:
             ),
         )
 
+    # Migrate existing process_diagrams into process_flow_versions as drafts.
+    # Only run if the process_flow_versions table is empty (idempotent).
+    if inspector.has_table("process_diagrams"):
+        count = conn.execute(
+            sa.text("SELECT COUNT(*) FROM process_flow_versions")
+        ).scalar()
+        if count == 0:
+            conn.execute(
+                sa.text(
+                    """
+                    INSERT INTO process_flow_versions
+                        (id, process_id, status, revision, bpmn_xml,
+                         svg_thumbnail, created_by, created_at, updated_at)
+                    SELECT
+                        gen_random_uuid(), process_id, 'draft', version, bpmn_xml,
+                        svg_thumbnail, created_by, created_at, updated_at
+                    FROM process_diagrams
+                    """
+                )
+            )
+
 
 def downgrade() -> None:
     op.drop_table("process_flow_versions")
