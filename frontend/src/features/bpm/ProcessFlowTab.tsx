@@ -6,7 +6,7 @@
  *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/process_owner/responsible/observer.
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -35,6 +35,10 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Autocomplete from "@mui/material/Autocomplete";
+import Collapse from "@mui/material/Collapse";
+import Snackbar from "@mui/material/Snackbar";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
@@ -44,6 +48,12 @@ import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from 
 interface Props {
   processId: string;
   processName?: string;
+  initialSubTab?: number;
+}
+
+interface FsOption {
+  id: string;
+  name: string;
 }
 
 const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" | "error"> = {
@@ -53,9 +63,9 @@ const STATUS_COLORS: Record<string, "success" | "warning" | "info" | "default" |
   archived: "info",
 };
 
-export default function ProcessFlowTab({ processId, processName }: Props) {
+export default function ProcessFlowTab({ processId, processName, initialSubTab }: Props) {
   const navigate = useNavigate();
-  const [subTab, setSubTab] = useState(0);
+  const [subTab, setSubTab] = useState(initialSubTab ?? 0);
 
   // Permissions
   const [perms, setPerms] = useState<ProcessFlowPermissions>({
@@ -78,6 +88,17 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
 
   // Process elements (steps / lanes table for published view)
   const [elements, setElements] = useState<ProcessElement[]>([]);
+
+  // Draft preview state
+  const [expandedDraft, setExpandedDraft] = useState<string | null>(null);
+  const [draftDetails, setDraftDetails] = useState<Record<string, ProcessFlowVersion>>({});
+
+  // Element editing state
+  const [editingCell, setEditingCell] = useState<{ elementId: string; field: string } | null>(null);
+  const [fsOptions, setFsOptions] = useState<FsOption[]>([]);
+  const [fsLoading, setFsLoading] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [snack, setSnack] = useState("");
 
   // Dialog states
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
@@ -146,6 +167,42 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
     if (subTab === 1) loadDrafts();
     if (subTab === 2) loadArchived();
   }, [subTab, loadDrafts, loadArchived]);
+
+  // ── Fact sheet search for element editing ─────────────────────────────
+
+  const searchFactSheets = (query: string, type: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (!query || query.length < 2) {
+      setFsOptions([]);
+      return;
+    }
+    setFsLoading(true);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await api.get<{ items: FsOption[] }>(
+          `/fact-sheets?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
+        );
+        setFsOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
+      } catch {
+        setFsOptions([]);
+      } finally {
+        setFsLoading(false);
+      }
+    }, 300);
+  };
+
+  const handleElementUpdate = async (elementId: string, updates: Record<string, unknown>) => {
+    try {
+      await api.put(`/bpm/processes/${processId}/elements/${elementId}`, updates);
+      const elemData = await api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]);
+      setElements(elemData);
+      setSnack("Element updated");
+    } catch {
+      setSnack("Failed to update element");
+    }
+    setEditingCell(null);
+    setFsOptions([]);
+  };
 
   // ── Actions ──────────────────────────────────────────────────────────
 
@@ -231,6 +288,24 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
       setFullScreenOpen(true);
     } catch (err) {
       console.error("Failed to load version:", err);
+    }
+  };
+
+  const toggleDraftPreview = async (draftId: string) => {
+    if (expandedDraft === draftId) {
+      setExpandedDraft(null);
+      return;
+    }
+    setExpandedDraft(draftId);
+    if (!draftDetails[draftId]) {
+      try {
+        const data = await api.get<ProcessFlowVersion>(
+          `/bpm/processes/${processId}/flow/versions/${draftId}`
+        );
+        setDraftDetails((prev) => ({ ...prev, [draftId]: data }));
+      } catch (err) {
+        console.error("Failed to load draft detail:", err);
+      }
     }
   };
 
@@ -332,6 +407,165 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
     printWindow.document.close();
   };
 
+  // ── Element editable cell renderers ────────────────────────────────
+
+  const renderEditableCell = (
+    element: ProcessElement,
+    field: "application" | "data_object" | "it_component",
+    fsType: string,
+  ) => {
+    const nameField = `${field}_name` as keyof ProcessElement;
+    const currentName = element[nameField] as string | undefined;
+    const isEditing = editingCell?.elementId === element.id && editingCell?.field === field;
+
+    if (isEditing) {
+      return (
+        <Autocomplete
+          size="small"
+          options={fsOptions}
+          getOptionLabel={(o) => o.name}
+          loading={fsLoading}
+          onInputChange={(_, val) => searchFactSheets(val, fsType)}
+          onChange={(_, val) => {
+            handleElementUpdate(element.id, { [`${field}_id`]: val?.id || "" });
+          }}
+          onBlur={() => { setEditingCell(null); setFsOptions([]); }}
+          openOnFocus
+          autoFocus
+          sx={{ minWidth: 160 }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              placeholder={`Search ${fsType}...`}
+              variant="standard"
+              autoFocus
+            />
+          )}
+        />
+      );
+    }
+
+    return (
+      <Box
+        onClick={() => { setEditingCell({ elementId: element.id, field }); setFsOptions([]); }}
+        sx={{ cursor: "pointer", minHeight: 24, display: "flex", alignItems: "center", "&:hover": { bgcolor: "action.hover", borderRadius: 0.5 }, px: 0.5 }}
+      >
+        {currentName ? (
+          <Chip
+            label={currentName}
+            size="small"
+            color={field === "application" ? "primary" : field === "data_object" ? "secondary" : "default"}
+            onDelete={() => handleElementUpdate(element.id, { [`${field}_id`]: "" })}
+          />
+        ) : (
+          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>Click to link</Typography>
+        )}
+      </Box>
+    );
+  };
+
+  const renderTCodeCell = (element: ProcessElement) => {
+    const currentTCode = (element.custom_fields?.tcode as string) || "";
+    const isEditing = editingCell?.elementId === element.id && editingCell?.field === "tcode";
+
+    if (isEditing) {
+      return (
+        <TextField
+          size="small"
+          variant="standard"
+          defaultValue={currentTCode}
+          placeholder="e.g. SE16"
+          autoFocus
+          onBlur={(e) => {
+            const val = e.target.value.trim();
+            handleElementUpdate(element.id, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              const val = (e.target as HTMLInputElement).value.trim();
+              handleElementUpdate(element.id, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
+            }
+            if (e.key === "Escape") setEditingCell(null);
+          }}
+          sx={{ minWidth: 80 }}
+        />
+      );
+    }
+
+    return (
+      <Box
+        onClick={() => setEditingCell({ elementId: element.id, field: "tcode" })}
+        sx={{ cursor: "pointer", minHeight: 24, display: "flex", alignItems: "center", "&:hover": { bgcolor: "action.hover", borderRadius: 0.5 }, px: 0.5 }}
+      >
+        {currentTCode ? (
+          <Chip label={currentTCode} size="small" variant="outlined" />
+        ) : (
+          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>{"\u2014"}</Typography>
+        )}
+      </Box>
+    );
+  };
+
+  const renderElementsTable = () => {
+    const namedElements = elements.filter((e) => e.name);
+    if (namedElements.length === 0) return null;
+
+    return (
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+          Process Steps &amp; Elements
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Click on Application, Data Object, IT Component, or TCode cells to edit. Automation is auto-determined from the BPMN element type.
+        </Typography>
+        <TableContainer component={Paper} variant="outlined">
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Lane</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  <Tooltip title="Auto-determined from BPMN element type (serviceTask, scriptTask, businessRuleTask = Yes)">
+                    <span>Automated</span>
+                  </Tooltip>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>TCode</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Application</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Data Object</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>IT Component</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {namedElements.map((e, idx) => (
+                <TableRow key={e.id} hover>
+                  <TableCell>{idx + 1}</TableCell>
+                  <TableCell>{e.name}</TableCell>
+                  <TableCell>
+                    <Chip label={e.element_type} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell>{e.lane_name || "\u2014"}</TableCell>
+                  <TableCell>
+                    {e.is_automated ? (
+                      <Chip label="Yes" size="small" color="success" />
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">No</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{renderTCodeCell(e)}</TableCell>
+                  <TableCell>{renderEditableCell(e, "application", "Application")}</TableCell>
+                  <TableCell>{renderEditableCell(e, "data_object", "DataObject")}</TableCell>
+                  <TableCell>{renderEditableCell(e, "it_component", "ITComponent")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  };
+
   // ── Published Tab ────────────────────────────────────────────────────
 
   const renderPublished = () => {
@@ -362,7 +596,7 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
               <Button
                 variant="outlined"
                 startIcon={<MaterialSymbol icon="edit" />}
-                onClick={() => navigate(`/bpm/processes/${processId}/flow`)}
+                onClick={() => navigate(`/bpm/processes/${processId}/flow?returnSubTab=0`)}
               >
                 Open Editor
               </Button>
@@ -435,66 +669,8 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
           />
         )}
 
-        {/* Process Elements Table (steps, lanes, automation) */}
-        {elements.length > 0 && (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-              Process Steps &amp; Elements
-            </Typography>
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Lane</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Automated</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Application</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Data Object</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>IT Component</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {elements
-                    .filter((e) => e.name)
-                    .map((e, idx) => (
-                      <TableRow key={e.id} hover>
-                        <TableCell>{idx + 1}</TableCell>
-                        <TableCell>{e.name}</TableCell>
-                        <TableCell>
-                          <Chip label={e.element_type} size="small" variant="outlined" />
-                        </TableCell>
-                        <TableCell>{e.lane_name || "\u2014"}</TableCell>
-                        <TableCell>
-                          {e.is_automated ? (
-                            <Chip label="Yes" size="small" color="success" />
-                          ) : (
-                            <Typography variant="body2" color="text.secondary">\u2014</Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {e.application_name ? (
-                            <Chip label={e.application_name} size="small" color="primary" />
-                          ) : "\u2014"}
-                        </TableCell>
-                        <TableCell>
-                          {e.data_object_name ? (
-                            <Chip label={e.data_object_name} size="small" color="secondary" />
-                          ) : "\u2014"}
-                        </TableCell>
-                        <TableCell>
-                          {e.it_component_name ? (
-                            <Chip label={e.it_component_name} size="small" />
-                          ) : "\u2014"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Box>
-        )}
+        {/* Editable process elements table */}
+        {renderElementsTable()}
       </Box>
     );
   };
@@ -538,10 +714,10 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
             <Typography color="text.secondary">No draft process flows.</Typography>
           </Box>
         ) : (
-          <List>
+          <List disablePadding>
             {drafts.map((d) => (
               <Paper key={d.id} variant="outlined" sx={{ mb: 1 }}>
-                <ListItemButton onClick={() => loadVersionDetail(d.id)}>
+                <ListItemButton onClick={() => toggleDraftPreview(d.id)}>
                   <ListItemIcon>
                     <MaterialSymbol
                       icon={d.status === "pending" ? "hourglass_top" : "edit_note"}
@@ -572,81 +748,114 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
                       </>
                     }
                   />
-                  <Box
-                    sx={{ display: "flex", gap: 0.5 }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {d.status === "draft" && perms.can_edit_draft && (
-                      <>
-                        <Tooltip title="Edit in BPMN editor">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() =>
-                              navigate(
-                                `/bpm/processes/${processId}/flow?versionId=${d.id}`
-                              )
-                            }
-                          >
-                            Edit
-                          </Button>
-                        </Tooltip>
-                        <Tooltip title="Submit for approval">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() =>
-                              setConfirmAction({ type: "submit", version: d })
-                            }
-                          >
-                            Submit
-                          </Button>
-                        </Tooltip>
-                        <Tooltip title="Delete draft">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            onClick={() =>
-                              setConfirmAction({ type: "delete", version: d })
-                            }
-                          >
-                            Delete
-                          </Button>
-                        </Tooltip>
-                      </>
-                    )}
-                    {d.status === "pending" && perms.can_approve && (
-                      <>
-                        <Tooltip title="Approve and publish">
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            onClick={() =>
-                              setConfirmAction({ type: "approve", version: d })
-                            }
-                          >
-                            Approve
-                          </Button>
-                        </Tooltip>
-                        <Tooltip title="Reject and return to draft">
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            onClick={() =>
-                              setConfirmAction({ type: "reject", version: d })
-                            }
-                          >
-                            Reject
-                          </Button>
-                        </Tooltip>
-                      </>
+                  <MaterialSymbol
+                    icon={expandedDraft === d.id ? "expand_less" : "expand_more"}
+                    size={20}
+                    color="#999"
+                  />
+                </ListItemButton>
+
+                {/* Action buttons */}
+                <Box sx={{ display: "flex", gap: 0.5, px: 2, pb: 1 }}>
+                  {d.status === "draft" && perms.can_edit_draft && (
+                    <>
+                      <Tooltip title="Edit in BPMN editor">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<MaterialSymbol icon="edit" size={16} />}
+                          onClick={() =>
+                            navigate(
+                              `/bpm/processes/${processId}/flow?versionId=${d.id}&returnSubTab=1`
+                            )
+                          }
+                        >
+                          Edit
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="Submit for approval">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() =>
+                            setConfirmAction({ type: "submit", version: d })
+                          }
+                        >
+                          Submit
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="Delete draft">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() =>
+                            setConfirmAction({ type: "delete", version: d })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </Tooltip>
+                    </>
+                  )}
+                  {d.status === "pending" && perms.can_approve && (
+                    <>
+                      <Tooltip title="Approve and publish">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() =>
+                            setConfirmAction({ type: "approve", version: d })
+                          }
+                        >
+                          Approve
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="Reject and return to draft">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() =>
+                            setConfirmAction({ type: "reject", version: d })
+                          }
+                        >
+                          Reject
+                        </Button>
+                      </Tooltip>
+                    </>
+                  )}
+                  <Tooltip title="View full screen">
+                    <IconButton size="small" onClick={() => loadVersionDetail(d.id)}>
+                      <MaterialSymbol icon="fullscreen" size={18} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                {/* Collapsible BPMN preview */}
+                <Collapse in={expandedDraft === d.id} timeout="auto">
+                  <Box sx={{ px: 2, pb: 2 }}>
+                    {draftDetails[d.id]?.bpmn_xml ? (
+                      <BpmnViewer
+                        bpmnXml={draftDetails[d.id].bpmn_xml!}
+                        elements={[]}
+                        onElementClick={() => {}}
+                        height={300}
+                      />
+                    ) : d.svg_thumbnail ? (
+                      <Box
+                        sx={{ border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "#fafafa", p: 2, textAlign: "center" }}
+                        dangerouslySetInnerHTML={{ __html: d.svg_thumbnail }}
+                      />
+                    ) : (
+                      <Typography color="text.secondary" sx={{ textAlign: "center", py: 2 }}>
+                        Loading preview...
+                      </Typography>
                     )}
                   </Box>
-                </ListItemButton>
+                </Collapse>
               </Paper>
             ))}
           </List>
@@ -876,6 +1085,12 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
 
       {renderFullScreenDialog()}
       {renderConfirmDialog()}
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={3000}
+        onClose={() => setSnack("")}
+        message={snack}
+      />
     </Box>
   );
 }

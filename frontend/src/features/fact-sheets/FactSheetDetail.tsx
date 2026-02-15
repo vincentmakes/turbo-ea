@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
@@ -1724,11 +1724,13 @@ function HistoryTab({ fsId }: { fsId: string }) {
 export default function FactSheetDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
   const [fs, setFs] = useState<FactSheet | null>(null);
   const [tab, setTab] = useState(0);
+  const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
   const [relRefresh, setRelRefresh] = useState(0);
   const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
@@ -1737,12 +1739,26 @@ export default function FactSheetDetail() {
 
   useEffect(() => {
     if (!id) return;
-    setTab(0);
+    // Read tab from URL search params (e.g. ?tab=1&subtab=1)
+    const urlTab = searchParams.get("tab");
+    const urlSubTab = searchParams.get("subtab");
+    if (urlTab) {
+      setTab(parseInt(urlTab, 10) || 0);
+      // Clear the query params so they don't persist on navigation
+      setSearchParams({}, { replace: true });
+    } else {
+      setTab(0);
+    }
+    if (urlSubTab) {
+      setInitialSubTab(parseInt(urlSubTab, 10) || 0);
+    } else {
+      setInitialSubTab(undefined);
+    }
     api
       .get<FactSheet>(`/fact-sheets/${id}`)
       .then(setFs)
       .catch((e) => setError(e.message));
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!fs)
@@ -1891,7 +1907,7 @@ export default function FactSheetDetail() {
               <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
             </Box>
           )}
-          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} processName={fs.name} /></CardContent></Card>}
+          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} processName={fs.name} initialSubTab={initialSubTab} /></CardContent></Card>}
           {tab === 2 && <Card><CardContent><ProcessAssessmentPanel processId={fs.id} /></CardContent></Card>}
           {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
           {tab === 4 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
