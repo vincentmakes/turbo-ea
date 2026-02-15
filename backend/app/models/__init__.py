@@ -15,6 +15,7 @@ from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.soaw import SoAW
+from app.models.sso_invitation import SsoInvitation
 from app.models.subscription import Subscription
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import FactSheetTag, Tag, TagGroup
@@ -48,5 +49,6 @@ __all__ = [
     "ProcessElement",
     "ProcessAssessment",
     "ProcessFlowVersion",
+    "SsoInvitation",
     "WebPortal",
 ]

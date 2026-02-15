@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import TextField from "@mui/material/TextField";
@@ -7,7 +7,10 @@ import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
+import Divider from "@mui/material/Divider";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { auth } from "@/api/client";
+import type { SsoConfig } from "@/types";
 
 interface Props {
   onLogin: (email: string, password: string) => Promise<void>;
@@ -21,6 +24,13 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(null);
+
+  useEffect(() => {
+    auth.ssoConfig().then(setSsoConfig).catch(() => {});
+  }, []);
+
+  const ssoEnabled = ssoConfig?.enabled === true;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +47,21 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSsoLogin = () => {
+    if (!ssoConfig?.client_id || !ssoConfig.authorization_endpoint) return;
+
+    const redirectUri = `${window.location.origin}/auth/callback`;
+    const params = new URLSearchParams({
+      client_id: ssoConfig.client_id,
+      response_type: "code",
+      redirect_uri: redirectUri,
+      scope: "openid email profile",
+      response_mode: "query",
+    });
+
+    window.location.href = `${ssoConfig.authorization_endpoint}?${params.toString()}`;
   };
 
   return (
@@ -60,10 +85,46 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           </Typography>
         </Box>
 
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 2 }}>
-          <Tab label="Login" />
-          <Tab label="Register" />
-        </Tabs>
+        {/* SSO Login Button */}
+        {ssoEnabled && (
+          <>
+            <Button
+              fullWidth
+              variant="contained"
+              size="large"
+              onClick={handleSsoLogin}
+              startIcon={
+                <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+                  <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                  <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                  <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                  <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                </svg>
+              }
+              sx={{
+                mb: 2,
+                bgcolor: "#fff",
+                color: "#333",
+                textTransform: "none",
+                fontWeight: 600,
+                "&:hover": { bgcolor: "#f5f5f5" },
+              }}
+            >
+              Sign in with Microsoft
+            </Button>
+            <Divider sx={{ my: 2, color: "text.secondary", fontSize: 13 }}>
+              or sign in with email
+            </Divider>
+          </>
+        )}
+
+        {/* Only show Login tab when SSO is enabled (no registration allowed) */}
+        {!ssoEnabled && (
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 2 }}>
+            <Tab label="Login" />
+            <Tab label="Register" />
+          </Tabs>
+        )}
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -81,7 +142,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             required
             sx={{ mb: 2 }}
           />
-          {tab === 1 && (
+          {tab === 1 && !ssoEnabled && (
             <TextField
               fullWidth
               label="Display Name"
@@ -107,7 +168,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             disabled={loading}
             size="large"
           >
-            {loading ? "..." : tab === 0 ? "Login" : "Register"}
+            {loading ? "..." : tab === 0 || ssoEnabled ? "Login" : "Register"}
           </Button>
         </form>
       </Card>

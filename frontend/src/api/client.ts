@@ -83,4 +83,13 @@ export const auth = {
   register: (email: string, display_name: string, password: string) =>
     api.post<{ access_token: string }>("/auth/register", { email, display_name, password }),
   me: () => api.get<{ id: string; email: string; display_name: string; role: string }>("/auth/me"),
+  ssoConfig: () =>
+    api.get<{
+      enabled: boolean;
+      client_id?: string;
+      tenant_id?: string;
+      authorization_endpoint?: string;
+    }>("/auth/sso/config"),
+  ssoCallback: (code: string, redirect_uri: string) =>
+    api.post<{ access_token: string }>("/auth/sso/callback", { code, redirect_uri }),
 };

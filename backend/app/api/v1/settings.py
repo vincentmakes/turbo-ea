@@ -6,10 +6,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from sqlalchemy import or_
 
 from app.api.deps import get_current_user
 from app.config import settings as app_config
@@ -60,6 +58,13 @@ class EmailSettingsPayload(BaseModel):
 
 class CurrencyPayload(BaseModel):
     currency: str = "USD"
+
+
+class SsoSettingsPayload(BaseModel):
+    enabled: bool = False
+    client_id: str = ""
+    client_secret: str = ""
+    tenant_id: str = "organizations"  # "organizations" for multi-tenant, or a specific tenant ID
 
 
 DEFAULT_CURRENCY = "USD"
@@ -417,3 +422,63 @@ async def reset_logo(
     await db.commit()
 
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# SSO / Entra ID endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/sso")
+async def get_sso_settings(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — get SSO configuration."""
+    _require_admin(user)
+    row = await _get_or_create_row(db)
+    await db.commit()
+    general = row.general_settings or {}
+    sso = general.get("sso", {})
+    return {
+        "enabled": sso.get("enabled", False),
+        "client_id": sso.get("client_id", ""),
+        "client_secret": "••••••••" if sso.get("client_secret") else "",
+        "tenant_id": sso.get("tenant_id", "organizations"),
+    }
+
+
+@router.patch("/sso")
+async def update_sso_settings(
+    body: SsoSettingsPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — update SSO configuration."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    sso = dict(general.get("sso", {}))
+
+    payload = body.model_dump()
+
+    # Only overwrite client_secret if the caller sends a real value
+    if payload.get("client_secret") in ("", "••••••••"):
+        payload.pop("client_secret", None)
+
+    sso.update(payload)
+    general["sso"] = sso
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.get("/sso/status")
+async def get_sso_status(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether SSO is enabled (no secrets exposed)."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    sso = general.get("sso", {})
+    return {"enabled": sso.get("enabled", False)}

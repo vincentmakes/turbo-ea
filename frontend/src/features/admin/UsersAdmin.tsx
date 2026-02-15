@@ -21,10 +21,12 @@ import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Checkbox from "@mui/material/Checkbox";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import { api } from "@/api/client";
-import type { User } from "@/types";
+import type { User, SsoInvitation } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 type Role = "admin" | "bpm_admin" | "member" | "viewer";
@@ -43,6 +45,18 @@ const EMPTY_FORM: UserFormState = {
   role: "member",
 };
 
+interface InviteFormState {
+  email: string;
+  role: Role;
+  send_email: boolean;
+}
+
+const EMPTY_INVITE: InviteFormState = {
+  email: "",
+  role: "viewer",
+  send_email: false,
+};
+
 export default function UsersAdmin() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,6 +69,14 @@ export default function UsersAdmin() {
   const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // SSO invitation state
+  const [invitations, setInvitations] = useState<SsoInvitation[]>([]);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState<InviteFormState>(EMPTY_INVITE);
+  const [inviteFormError, setInviteFormError] = useState<string | null>(null);
+  const [inviteSubmitting, setInviteSubmitting] = useState(false);
+  const [ssoEnabled, setSsoEnabled] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -69,9 +91,29 @@ export default function UsersAdmin() {
     }
   }, []);
 
+  const fetchInvitations = useCallback(async () => {
+    try {
+      const data = await api.get<SsoInvitation[]>("/users/invitations");
+      setInvitations(data);
+    } catch {
+      // Silently fail — invitations are supplementary
+    }
+  }, []);
+
+  const fetchSsoStatus = useCallback(async () => {
+    try {
+      const data = await api.get<{ enabled: boolean }>("/settings/sso/status");
+      setSsoEnabled(data.enabled);
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchInvitations();
+    fetchSsoStatus();
+  }, [fetchUsers, fetchInvitations, fetchSsoStatus]);
 
   // --- Inline role update ---
   const updateRole = async (userId: string, role: string) => {
@@ -196,7 +238,51 @@ export default function UsersAdmin() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  // --- SSO Invitation handlers ---
+  const openInvite = () => {
+    setInviteForm(EMPTY_INVITE);
+    setInviteFormError(null);
+    setInviteOpen(true);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteForm.email.trim()) {
+      setInviteFormError("Email is required.");
+      return;
+    }
+    try {
+      setInviteSubmitting(true);
+      setInviteFormError(null);
+      const created = await api.post<SsoInvitation>("/users/invitations", {
+        email: inviteForm.email.trim(),
+        role: inviteForm.role,
+        send_email: inviteForm.send_email,
+      });
+      setInvitations((prev) => [...prev, created]);
+      setInviteOpen(false);
+    } catch (err) {
+      setInviteFormError(
+        err instanceof Error ? err.message : "Failed to create invitation"
+      );
+    } finally {
+      setInviteSubmitting(false);
+    }
+  };
+
+  const handleDeleteInvitation = async (inv: SsoInvitation) => {
+    try {
+      await api.delete(`/users/invitations/${inv.id}`);
+      setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to delete invitation"
+      );
+    }
+  };
+
   // --- Shared dialog form ---
+  const isEditingSsoUser = editingUser?.auth_provider === "sso";
+
   const renderFormFields = (isEdit: boolean) => (
     <Stack spacing={2.5} sx={{ mt: 1 }}>
       <TextField
@@ -217,15 +303,22 @@ export default function UsersAdmin() {
         required
         size="small"
       />
-      <TextField
-        label={isEdit ? "Password (leave blank to keep current)" : "Password"}
-        type="password"
-        value={form.password}
-        onChange={(e) => updateField("password", e.target.value)}
-        fullWidth
-        required={!isEdit}
-        size="small"
-      />
+      {!isEditingSsoUser && (
+        <TextField
+          label={isEdit ? "Password (leave blank to keep current)" : "Password"}
+          type="password"
+          value={form.password}
+          onChange={(e) => updateField("password", e.target.value)}
+          fullWidth
+          required={!isEdit}
+          size="small"
+        />
+      )}
+      {isEditingSsoUser && (
+        <Alert severity="info" variant="outlined">
+          This user authenticates via SSO. Password cannot be set.
+        </Alert>
+      )}
       <FormControl fullWidth size="small">
         <InputLabel>Role</InputLabel>
         <Select
@@ -257,13 +350,24 @@ export default function UsersAdmin() {
         <Typography variant="h5" fontWeight={600}>
           User Management
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<MaterialSymbol icon="person_add" size={20} />}
-          onClick={openCreate}
-        >
-          Create User
-        </Button>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          {ssoEnabled && (
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="mail" size={20} />}
+              onClick={openInvite}
+            >
+              Invite via SSO
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="person_add" size={20} />}
+            onClick={openCreate}
+          >
+            Create User
+          </Button>
+        </Box>
       </Box>
 
       {/* Error banner */}
@@ -281,6 +385,7 @@ export default function UsersAdmin() {
               <TableCell>Name</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Role</TableCell>
+              <TableCell>Auth</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -288,7 +393,7 @@ export default function UsersAdmin() {
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     Loading users...
                   </Typography>
@@ -297,7 +402,7 @@ export default function UsersAdmin() {
             )}
             {!loading && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     No users found.
                   </Typography>
@@ -320,6 +425,14 @@ export default function UsersAdmin() {
                       <MenuItem value="member">Member</MenuItem>
                       <MenuItem value="viewer">Viewer</MenuItem>
                     </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={u.auth_provider === "sso" ? "SSO" : "Local"}
+                      color={u.auth_provider === "sso" ? "info" : "default"}
+                      variant="outlined"
+                    />
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -366,6 +479,57 @@ export default function UsersAdmin() {
         </Table>
       </TableContainer>
 
+      {/* Pending SSO Invitations */}
+      {ssoEnabled && invitations.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+            Pending SSO Invitations
+          </Typography>
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Pre-assigned Role</TableCell>
+                  <TableCell>Invited</TableCell>
+                  <TableCell align="right">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {invitations.map((inv) => (
+                  <TableRow key={inv.id} hover>
+                    <TableCell>{inv.email}</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={inv.role}
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {inv.created_at
+                        ? new Date(inv.created_at).toLocaleDateString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Tooltip title="Revoke invitation">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteInvitation(inv)}
+                        >
+                          <MaterialSymbol icon="delete" size={20} />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+
       {/* Create User Dialog */}
       <Dialog
         open={createOpen}
@@ -408,6 +572,87 @@ export default function UsersAdmin() {
             disabled={submitting}
           >
             {submitting ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SSO Invite Dialog */}
+      <Dialog
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Invite User via SSO</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <Alert severity="info" variant="outlined">
+              Invite a user by their email address. When they sign in with
+              Microsoft for the first time, they will be assigned the role
+              you select below instead of the default Viewer role.
+            </Alert>
+            <TextField
+              label="Email"
+              type="email"
+              value={inviteForm.email}
+              onChange={(e) =>
+                setInviteForm((p) => ({ ...p, email: e.target.value }))
+              }
+              fullWidth
+              required
+              autoFocus
+              size="small"
+            />
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                label="Role"
+                value={inviteForm.role}
+                onChange={(e) =>
+                  setInviteForm((p) => ({
+                    ...p,
+                    role: e.target.value as Role,
+                  }))
+                }
+              >
+                <MenuItem value="admin">Admin</MenuItem>
+                <MenuItem value="bpm_admin">BPM Admin</MenuItem>
+                <MenuItem value="member">Member</MenuItem>
+                <MenuItem value="viewer">Viewer</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={inviteForm.send_email}
+                  onChange={(e) =>
+                    setInviteForm((p) => ({
+                      ...p,
+                      send_email: e.target.checked,
+                    }))
+                  }
+                />
+              }
+              label="Send invitation email"
+            />
+            {inviteFormError && (
+              <Alert severity="error">{inviteFormError}</Alert>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setInviteOpen(false)}
+            disabled={inviteSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleInvite}
+            disabled={inviteSubmitting}
+          >
+            {inviteSubmitting ? "Inviting..." : "Send Invitation"}
           </Button>
         </DialogActions>
       </Dialog>

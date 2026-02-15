@@ -56,6 +56,13 @@ interface LogoInfo {
   mime_type: string;
 }
 
+interface SsoSettings {
+  enabled: boolean;
+  client_id: string;
+  client_secret: string;
+  tenant_id: string;
+}
+
 export default function SettingsAdmin() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -81,6 +88,13 @@ export default function SettingsAdmin() {
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
 
+  // SSO state
+  const [ssoEnabled, setSsoEnabled] = useState(false);
+  const [ssoClientId, setSsoClientId] = useState("");
+  const [ssoClientSecret, setSsoClientSecret] = useState("");
+  const [ssoTenantId, setSsoTenantId] = useState("organizations");
+  const [savingSso, setSavingSso] = useState(false);
+
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -96,8 +110,9 @@ export default function SettingsAdmin() {
       api.get<LogoInfo>("/settings/logo/info"),
       api.get<{ currency: string }>("/settings/currency"),
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
+      api.get<SsoSettings>("/settings/sso"),
     ])
-      .then(([emailData, logoData, currencyData, bpmData]) => {
+      .then(([emailData, logoData, currencyData, bpmData, ssoData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -109,6 +124,10 @@ export default function SettingsAdmin() {
         setHasCustomLogo(logoData.has_custom_logo);
         setSelectedCurrency(currencyData.currency);
         setBpmEnabled(bpmData.enabled);
+        setSsoEnabled(ssoData.enabled);
+        setSsoClientId(ssoData.client_id);
+        setSsoClientSecret(ssoData.client_secret);
+        setSsoTenantId(ssoData.tenant_id);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -208,6 +227,24 @@ export default function SettingsAdmin() {
       setError(e instanceof Error ? e.message : "Failed to update BPM setting");
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handleSsoSave = async () => {
+    setSavingSso(true);
+    setError("");
+    try {
+      await api.patch("/settings/sso", {
+        enabled: ssoEnabled,
+        client_id: ssoClientId,
+        client_secret: ssoClientSecret,
+        tenant_id: ssoTenantId,
+      });
+      setSnack("SSO settings saved");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save SSO settings");
+    } finally {
+      setSavingSso(false);
     }
   };
 
@@ -367,6 +404,93 @@ export default function SettingsAdmin() {
           }
           label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
         />
+      </Paper>
+
+      {/* SSO / Entra ID Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="shield_person" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            SSO / Microsoft Entra ID
+          </Typography>
+          <Chip
+            label={ssoEnabled ? "Enabled" : "Disabled"}
+            size="small"
+            color={ssoEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Enable Single Sign-On with Microsoft Entra ID (Azure AD). When enabled,
+          users can sign in with their Microsoft account. New SSO users are
+          automatically assigned the Viewer role unless pre-invited with a
+          specific role. Manual registration is disabled when SSO is active.
+        </Typography>
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={ssoEnabled}
+              onChange={(e) => setSsoEnabled(e.target.checked)}
+            />
+          }
+          label={ssoEnabled ? "SSO is enabled" : "SSO is disabled"}
+          sx={{ mb: 2 }}
+        />
+
+        {ssoEnabled && (
+          <>
+            <TextField
+              label="Client ID (Application ID)"
+              fullWidth
+              value={ssoClientId}
+              onChange={(e) => setSsoClientId(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              helperText="From your Azure App Registration"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Client Secret"
+              fullWidth
+              type="password"
+              value={ssoClientSecret}
+              onChange={(e) => setSsoClientSecret(e.target.value)}
+              helperText="From your Azure App Registration > Certificates & secrets"
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              label="Tenant ID"
+              fullWidth
+              value={ssoTenantId}
+              onChange={(e) => setSsoTenantId(e.target.value)}
+              placeholder="organizations"
+              helperText={
+                'Use "organizations" for multi-tenant (any Azure AD), or a specific tenant ID to restrict access.'
+              }
+              sx={{ mb: 2 }}
+            />
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                <strong>Redirect URI</strong>: Configure this in your Azure App
+                Registration under Authentication:{" "}
+                <code>{window.location.origin}/auth/callback</code>
+              </Typography>
+            </Alert>
+          </>
+        )}
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleSsoSave}
+            disabled={savingSso}
+          >
+            {savingSso ? "Saving..." : "Save"}
+          </Button>
+        </Box>
       </Paper>
 
       {/* Currency Settings */}
