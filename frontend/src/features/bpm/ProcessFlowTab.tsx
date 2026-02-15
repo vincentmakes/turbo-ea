@@ -100,6 +100,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [snack, setSnack] = useState("");
 
+  // Draft elements (pre-linking before publish)
+  const [draftElements, setDraftElements] = useState<Record<string, ProcessElement[]>>({});
+  const [draftElementsLoading, setDraftElementsLoading] = useState<Record<string, boolean>>({});
+
   // Dialog states
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<ProcessFlowVersion | null>(null);
@@ -291,6 +295,36 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     }
   };
 
+  const loadDraftElements = async (draftId: string) => {
+    setDraftElementsLoading((prev) => ({ ...prev, [draftId]: true }));
+    try {
+      const elems = await api.get<ProcessElement[]>(
+        `/bpm/processes/${processId}/flow/versions/${draftId}/draft-elements`
+      );
+      setDraftElements((prev) => ({ ...prev, [draftId]: elems }));
+    } catch {
+      setDraftElements((prev) => ({ ...prev, [draftId]: [] }));
+    } finally {
+      setDraftElementsLoading((prev) => ({ ...prev, [draftId]: false }));
+    }
+  };
+
+  const handleDraftElementUpdate = async (draftId: string, bpmnElementId: string, updates: Record<string, unknown>) => {
+    try {
+      await api.put(
+        `/bpm/processes/${processId}/flow/versions/${draftId}/draft-elements/${encodeURIComponent(bpmnElementId)}`,
+        updates
+      );
+      // Reload draft elements to get resolved names
+      await loadDraftElements(draftId);
+      setSnack("Draft element link updated");
+    } catch {
+      setSnack("Failed to update draft element link");
+    }
+    setEditingCell(null);
+    setFsOptions([]);
+  };
+
   const toggleDraftPreview = async (draftId: string) => {
     if (expandedDraft === draftId) {
       setExpandedDraft(null);
@@ -306,6 +340,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       } catch (err) {
         console.error("Failed to load draft detail:", err);
       }
+    }
+    // Load draft elements
+    if (!draftElements[draftId]) {
+      loadDraftElements(draftId);
     }
   };
 
@@ -409,14 +447,29 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Element editable cell renderers ────────────────────────────────
 
+  const linkCellSx = {
+    cursor: "pointer",
+    minHeight: 32,
+    height: 32,
+    display: "flex",
+    alignItems: "center",
+    borderRadius: 1,
+    border: "1px dashed transparent",
+    px: 0.5,
+    transition: "all 0.15s ease",
+    "&:hover": { borderColor: "primary.light", bgcolor: "action.hover" },
+  };
+
   const renderEditableCell = (
     element: ProcessElement,
     field: "application" | "data_object" | "it_component",
     fsType: string,
+    onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    elementId: string,
   ) => {
     const nameField = `${field}_name` as keyof ProcessElement;
     const currentName = element[nameField] as string | undefined;
-    const isEditing = editingCell?.elementId === element.id && editingCell?.field === field;
+    const isEditing = editingCell?.elementId === elementId && editingCell?.field === field;
 
     if (isEditing) {
       return (
@@ -427,7 +480,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           loading={fsLoading}
           onInputChange={(_, val) => searchFactSheets(val, fsType)}
           onChange={(_, val) => {
-            handleElementUpdate(element.id, { [`${field}_id`]: val?.id || "" });
+            onUpdate(elementId, { [`${field}_id`]: val?.id || "" });
           }}
           onBlur={() => { setEditingCell(null); setFsOptions([]); }}
           openOnFocus
@@ -437,8 +490,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             <TextField
               {...params}
               placeholder={`Search ${fsType}...`}
-              variant="standard"
+              variant="outlined"
+              size="small"
               autoFocus
+              sx={{ "& .MuiOutlinedInput-root": { height: 32 } }}
             />
           )}
         />
@@ -447,76 +502,93 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     return (
       <Box
-        onClick={() => { setEditingCell({ elementId: element.id, field }); setFsOptions([]); }}
-        sx={{ cursor: "pointer", minHeight: 24, display: "flex", alignItems: "center", "&:hover": { bgcolor: "action.hover", borderRadius: 0.5 }, px: 0.5 }}
+        onClick={() => { setEditingCell({ elementId, field }); setFsOptions([]); }}
+        sx={linkCellSx}
       >
         {currentName ? (
           <Chip
             label={currentName}
             size="small"
             color={field === "application" ? "primary" : field === "data_object" ? "secondary" : "default"}
-            onDelete={() => handleElementUpdate(element.id, { [`${field}_id`]: "" })}
+            onDelete={() => onUpdate(elementId, { [`${field}_id`]: "" })}
+            sx={{ maxWidth: 160 }}
           />
         ) : (
-          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>Click to link</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <MaterialSymbol icon="add_link" size={14} color="#bbb" />
+            <Typography variant="caption" color="text.disabled">Link {fsType}</Typography>
+          </Box>
         )}
       </Box>
     );
   };
 
-  const renderTCodeCell = (element: ProcessElement) => {
+  const renderTCodeCell = (
+    element: ProcessElement,
+    onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    elementId: string,
+  ) => {
     const currentTCode = (element.custom_fields?.tcode as string) || "";
-    const isEditing = editingCell?.elementId === element.id && editingCell?.field === "tcode";
+    const isEditing = editingCell?.elementId === elementId && editingCell?.field === "tcode";
 
     if (isEditing) {
       return (
         <TextField
           size="small"
-          variant="standard"
+          variant="outlined"
           defaultValue={currentTCode}
           placeholder="e.g. SE16"
           autoFocus
           onBlur={(e) => {
             const val = e.target.value.trim();
-            handleElementUpdate(element.id, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
+            onUpdate(elementId, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               const val = (e.target as HTMLInputElement).value.trim();
-              handleElementUpdate(element.id, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
+              onUpdate(elementId, { custom_fields: { ...element.custom_fields, tcode: val || undefined } });
             }
             if (e.key === "Escape") setEditingCell(null);
           }}
-          sx={{ minWidth: 80 }}
+          sx={{ minWidth: 80, "& .MuiOutlinedInput-root": { height: 32 } }}
         />
       );
     }
 
     return (
       <Box
-        onClick={() => setEditingCell({ elementId: element.id, field: "tcode" })}
-        sx={{ cursor: "pointer", minHeight: 24, display: "flex", alignItems: "center", "&:hover": { bgcolor: "action.hover", borderRadius: 0.5 }, px: 0.5 }}
+        onClick={() => setEditingCell({ elementId, field: "tcode" })}
+        sx={linkCellSx}
       >
         {currentTCode ? (
           <Chip label={currentTCode} size="small" variant="outlined" />
         ) : (
-          <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>{"\u2014"}</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <MaterialSymbol icon="edit" size={14} color="#bbb" />
+            <Typography variant="caption" color="text.disabled">Add</Typography>
+          </Box>
         )}
       </Box>
     );
   };
 
-  const renderElementsTable = () => {
-    const namedElements = elements.filter((e) => e.name);
+  const renderElementsTable = (
+    elems: ProcessElement[],
+    onUpdate: (id: string, updates: Record<string, unknown>) => void,
+    idField: "id" | "bpmn_element_id" = "id",
+    title = "Process Steps & Elements",
+    subtitle = "Click on Application, Data Object, IT Component, or TCode cells to edit. Automation is auto-determined from the BPMN element type.",
+  ) => {
+    const namedElements = elems.filter((e) => e.name);
     if (namedElements.length === 0) return null;
 
     return (
-      <Box sx={{ mt: 3 }}>
-        <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-          Process Steps &amp; Elements
+      <Box sx={{ mt: 2 }}>
+        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+          {title}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Click on Application, Data Object, IT Component, or TCode cells to edit. Automation is auto-determined from the BPMN element type.
+        <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
+          {subtitle}
         </Typography>
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
@@ -538,27 +610,30 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
               </TableRow>
             </TableHead>
             <TableBody>
-              {namedElements.map((e, idx) => (
-                <TableRow key={e.id} hover>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell>{e.name}</TableCell>
-                  <TableCell>
-                    <Chip label={e.element_type} size="small" variant="outlined" />
-                  </TableCell>
-                  <TableCell>{e.lane_name || "\u2014"}</TableCell>
-                  <TableCell>
-                    {e.is_automated ? (
-                      <Chip label="Yes" size="small" color="success" />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">No</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>{renderTCodeCell(e)}</TableCell>
-                  <TableCell>{renderEditableCell(e, "application", "Application")}</TableCell>
-                  <TableCell>{renderEditableCell(e, "data_object", "DataObject")}</TableCell>
-                  <TableCell>{renderEditableCell(e, "it_component", "ITComponent")}</TableCell>
-                </TableRow>
-              ))}
+              {namedElements.map((e, idx) => {
+                const elemKey = e[idField] as string;
+                return (
+                  <TableRow key={elemKey} hover>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell>{e.name}</TableCell>
+                    <TableCell>
+                      <Chip label={e.element_type} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>{e.lane_name || "\u2014"}</TableCell>
+                    <TableCell>
+                      {e.is_automated ? (
+                        <Chip label="Yes" size="small" color="success" />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">No</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>{renderTCodeCell(e, onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderEditableCell(e, "application", "Application", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderEditableCell(e, "data_object", "DataObject", onUpdate, elemKey)}</TableCell>
+                    <TableCell>{renderEditableCell(e, "it_component", "ITComponent", onUpdate, elemKey)}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -670,7 +745,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         )}
 
         {/* Editable process elements table */}
-        {renderElementsTable()}
+        {renderElementsTable(elements, handleElementUpdate)}
       </Box>
     );
   };
@@ -834,7 +909,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   </Tooltip>
                 </Box>
 
-                {/* Collapsible BPMN preview */}
+                {/* Collapsible BPMN preview + draft elements table */}
                 <Collapse in={expandedDraft === d.id} timeout="auto">
                   <Box sx={{ px: 2, pb: 2 }}>
                     {draftDetails[d.id]?.bpmn_xml ? (
@@ -854,6 +929,23 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                         Loading preview...
                       </Typography>
                     )}
+
+                    {/* Draft element pre-linking table */}
+                    {draftElementsLoading[d.id] ? (
+                      <Typography color="text.secondary" sx={{ mt: 2 }}>Loading elements...</Typography>
+                    ) : draftElements[d.id] && draftElements[d.id].length > 0 ? (
+                      renderElementsTable(
+                        draftElements[d.id],
+                        (bpmnElemId, updates) => handleDraftElementUpdate(d.id, bpmnElemId, updates),
+                        "bpmn_element_id",
+                        "Pre-link Elements",
+                        "Pre-link applications, data objects, IT components, and TCodes before publishing. These links will be applied when this version is approved.",
+                      )
+                    ) : draftElements[d.id] ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                        No named elements found in this draft.
+                      </Typography>
+                    ) : null}
                   </Box>
                 </Collapse>
               </Paper>

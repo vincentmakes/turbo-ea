@@ -640,6 +640,12 @@ export interface ProcessFlowVersion {
   approved_at?: string;
   archived_at?: string;
   based_on_id?: string;
+  draft_element_links?: Record<string, {
+    application_id?: string;
+    data_object_id?: string;
+    it_component_id?: string;
+    custom_fields?: Record<string, unknown>;
+  }>;
 }
 
 export interface ProcessFlowPermissions {
