@@ -187,8 +187,8 @@ section {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-weight: 800;
+  font-size: 1.5rem;
 }
 
 .nav-logo-img {
@@ -607,6 +607,96 @@ section {
   font-size: 0.9rem;
   color: var(--text-secondary);
   line-height: 1.65;
+}
+
+/* --- BPM Solution --- */
+.bpm {
+  background: var(--bg-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.bpm::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 500px;
+  background: radial-gradient(ellipse, rgba(51, 204, 88, 0.06) 0%, rgba(15, 126, 181, 0.04) 40%, transparent 70%);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+.section-tag-bpm {
+  color: var(--accent-green);
+  background: rgba(51, 204, 88, 0.1);
+  border-color: rgba(51, 204, 88, 0.2);
+}
+
+.bpm-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 64px;
+}
+
+.bpm-feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  transition: all var(--transition-base);
+}
+
+.bpm-feature-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(51, 204, 88, 0.2);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.bpm-feature-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(51, 204, 88, 0.1);
+  color: var(--accent-green);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.bpm-feature-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.bpm-feature-card p {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.bpm-screenshots-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 32px;
+  color: var(--text-secondary);
+}
+
+.bpm-screenshots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.bpm-screenshots-grid .screenshot-card-large {
+  grid-column: 1 / -1;
 }
 
 /* --- Architecture --- */
@@ -1279,8 +1369,12 @@ section {
 }
 
 .footer-brand-text {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: 800;
+  font-size: 1.3rem;
+  background: var(--gradient-hero);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .footer-links {
@@ -1347,6 +1441,18 @@ section {
   }
 
   .screenshot-card-large {
+    grid-column: auto;
+  }
+
+  .bpm-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .bpm-screenshots-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bpm-screenshots-grid .screenshot-card-large {
     grid-column: auto;
   }
 }
@@ -1424,6 +1530,10 @@ section {
   }
 
   .integrations-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bpm-features {
     grid-template-columns: 1fr;
   }
 
