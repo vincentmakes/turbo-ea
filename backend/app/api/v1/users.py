@@ -69,8 +69,8 @@ async def create_user(
     if current_user.role != "admin":
         raise HTTPException(403, "Admin only")
 
-    if body.role not in ("admin", "member", "viewer"):
-        raise HTTPException(400, "Role must be admin, member, or viewer")
+    if body.role not in ("admin", "bpm_admin", "member", "viewer"):
+        raise HTTPException(400, "Role must be admin, bpm_admin, member, or viewer")
 
     existing = await db.execute(select(User).where(User.email == body.email))
     if existing.scalar_one_or_none():

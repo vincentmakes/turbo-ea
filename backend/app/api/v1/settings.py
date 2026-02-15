@@ -214,6 +214,39 @@ class BpmRowOrderPayload(BaseModel):
     row_order: list[str]
 
 
+class BpmEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/bpm-enabled")
+async def get_bpm_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the BPM module is enabled."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("bpmEnabled", True)}
+
+
+@router.patch("/bpm-enabled")
+async def update_bpm_enabled(
+    body: BpmEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the BPM module."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["bpmEnabled"] = body.enabled
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
 @router.get("/bpm-row-order")
 async def get_bpm_row_order(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the configured BPM process type row order."""

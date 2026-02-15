@@ -11,6 +11,7 @@ from app.models.notification import Notification
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
+from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.soaw import SoAW
@@ -46,5 +47,6 @@ __all__ = [
     "ProcessDiagram",
     "ProcessElement",
     "ProcessAssessment",
+    "ProcessFlowVersion",
     "WebPortal",
 ]

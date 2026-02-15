@@ -193,9 +193,9 @@ async def delete_diagram(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete all diagram versions and extracted elements for a process (admin only)."""
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    """Delete all diagram versions and extracted elements for a process (admin or bpm_admin)."""
+    if current_user.role not in ("admin", "bpm_admin"):
+        raise HTTPException(403, "Admin or BPM Admin required")
 
     pid = uuid.UUID(process_id)
     process = await _get_process_or_404(db, pid)

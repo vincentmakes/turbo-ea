@@ -6,6 +6,7 @@ from app.api.v1 import (
     bpm,
     bpm_assessments,
     bpm_reports,
+    bpm_workflow,
     comments,
     diagrams,
     documents,
@@ -50,3 +51,4 @@ api_router.include_router(web_portals.router)
 api_router.include_router(bpm.router)
 api_router.include_router(bpm_assessments.router)
 api_router.include_router(bpm_reports.router)
+api_router.include_router(bpm_workflow.router)

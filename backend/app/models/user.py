@@ -34,7 +34,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(200), nullable=False)
-    role: Mapped[str] = mapped_column(String(20), default="member")  # admin/member/viewer
+    role: Mapped[str] = mapped_column(String(20), default="member")  # admin/bpm_admin/member/viewer
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notification_preferences: Mapped[dict | None] = mapped_column(
         JSONB, default=lambda: DEFAULT_NOTIFICATION_PREFERENCES.copy()

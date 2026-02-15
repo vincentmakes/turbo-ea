@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
 import AppBar from "@mui/material/AppBar";
@@ -32,6 +32,7 @@ import NotificationPreferencesDialog from "@/components/NotificationPreferencesD
 import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import type { BadgeCounts } from "@/types";
 
 interface NavItem {
@@ -94,6 +95,16 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
   const { getType } = useMetamodel();
+  const { bpmEnabled } = useBpmEnabled();
+
+  // Filter nav items based on BPM enabled state
+  const navItems = useMemo(() => {
+    if (bpmEnabled) return NAV_ITEMS;
+    return NAV_ITEMS.filter((item) => item.label !== "BPM");
+  }, [bpmEnabled]);
+
+  // Also filter admin items — show BPM reports only when enabled
+  const adminItems = useMemo(() => ADMIN_ITEMS, []);
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
@@ -337,7 +348,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       </Box>
 
       <List sx={{ px: 1 }}>
-        {NAV_ITEMS.map((item) =>
+        {navItems.map((item) =>
           item.children ? (
             <Box key={item.label}>
               <ListItemButton
@@ -404,7 +415,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           onClick={() => setDrawerAdminOpen((p) => !p)}
           sx={{
             borderRadius: 1,
-            color: isGroupActive(ADMIN_ITEMS as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)",
+            color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)",
           }}
         >
           <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
@@ -419,7 +430,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         </ListItemButton>
         <Collapse in={drawerAdminOpen}>
           <List disablePadding sx={{ pl: 2 }}>
-            {ADMIN_ITEMS.map((item) => (
+            {adminItems.map((item) => (
               <ListItemButton
                 key={item.path}
                 selected={isActive(item.path)}
@@ -508,7 +519,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* Desktop / tablet nav items */}
           {!isMobile &&
-            NAV_ITEMS.map((item) =>
+            navItems.map((item) =>
               item.children ? (
                 isCompact ? (
                   <Tooltip key={item.label} title={item.label}>
@@ -570,7 +581,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <Tooltip title="Admin">
                 <IconButton
                   size="small"
-                  sx={{ color: isGroupActive(ADMIN_ITEMS as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)" }}
+                  sx={{ color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)" }}
                   onClick={(e) => setAdminMenu(e.currentTarget)}
                 >
                   <MaterialSymbol icon="admin_panel_settings" size={20} />
@@ -581,7 +592,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 size="small"
                 startIcon={<MaterialSymbol icon="admin_panel_settings" size={18} />}
                 endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                sx={navBtnSx(isGroupActive(ADMIN_ITEMS as { path: string }[]))}
+                sx={navBtnSx(isGroupActive(adminItems as { path: string }[]))}
                 onClick={(e) => setAdminMenu(e.currentTarget)}
               >
                 Admin
@@ -594,7 +605,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             open={!!reportsMenu}
             onClose={() => setReportsMenu(null)}
           >
-            {NAV_ITEMS.find((n) => n.children)?.children?.map((child) => (
+            {navItems.find((n) => n.children)?.children?.map((child) => (
               <MenuItem
                 key={child.path}
                 selected={isActive(child.path)}
@@ -617,7 +628,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             open={!!adminMenu}
             onClose={() => setAdminMenu(null)}
           >
-            {ADMIN_ITEMS.map((item) => (
+            {adminItems.map((item) => (
               <MenuItem
                 key={item.path}
                 selected={isActive(item.path)}
