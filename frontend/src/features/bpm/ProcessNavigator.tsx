@@ -41,6 +41,7 @@ import Skeleton from "@mui/material/Skeleton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMetamodel } from "@/hooks/useMetamodel";
 
 /* ================================================================== */
 /*  Types                                                              */
@@ -1199,6 +1200,8 @@ function DrawerData({
 function ProcessDrawer({
   node,
   overlay,
+  typeIcon,
+  typeColor,
   fmtCost,
   onClose,
   onNavigate,
@@ -1207,6 +1210,8 @@ function ProcessDrawer({
 }: {
   node: ProcNode;
   overlay: ColorOverlay;
+  typeIcon: string;
+  typeColor: string;
   fmtCost: (v: number) => string;
   onClose: () => void;
   onNavigate: (path: string) => void;
@@ -1214,7 +1219,6 @@ function ProcessDrawer({
   onDrill: (id: string) => void;
 }) {
   const [tab, setTab] = useState(0);
-  const color = getCardColor(node, overlay);
 
   // Reset tab when node changes
   useEffect(() => {
@@ -1229,12 +1233,25 @@ function ProcessDrawer({
           px: 2.5,
           pt: 2,
           pb: 1,
-          bgcolor: color,
+          bgcolor: typeColor,
           color: "#fff",
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <MaterialSymbol icon="swap_horiz" size={24} color="#fff" />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              bgcolor: "rgba(255,255,255,0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <MaterialSymbol icon={typeIcon} size={22} color="#fff" />
+          </Box>
           <Typography variant="h6" sx={{ fontWeight: 700, flex: 1, fontSize: "1.1rem" }} noWrap>
             {node.name}
           </Typography>
@@ -1579,7 +1596,13 @@ export default function ProcessNavigator() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { fmtShort } = useCurrency();
+  const { getType } = useMetamodel();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Metamodel type info for BusinessProcess
+  const processType = getType("BusinessProcess");
+  const typeIcon = processType?.icon ?? "route";
+  const typeColor = processType?.color ?? "#e65100";
 
   // ── Data ──
   const [data, setData] = useState<ProcItem[] | null>(null);
@@ -1964,25 +1987,22 @@ export default function ProcessNavigator() {
                     ) : (
                       <Box
                         sx={{
-                          display: "grid",
-                          gridTemplateColumns: {
-                            xs: "1fr",
-                            sm: "repeat(2, 1fr)",
-                            md: "repeat(auto-fill, minmax(220px, 1fr))",
-                          },
+                          display: "flex",
+                          flexWrap: "wrap",
                           gap: 1.5,
                         }}
                       >
                         {nodes.map((node) => (
-                          <HouseCard
-                            key={node.id}
-                            node={node}
-                            displayLevel={displayLevel}
-                            overlay={overlay}
-                            search={search}
-                            onOpen={handleOpenDrawer}
-                            onDrill={handleDrill}
-                          />
+                          <Box key={node.id} sx={{ flex: "1 1 260px", maxWidth: 400 }}>
+                            <HouseCard
+                              node={node}
+                              displayLevel={displayLevel}
+                              overlay={overlay}
+                              search={search}
+                              onOpen={handleOpenDrawer}
+                              onDrill={handleDrill}
+                            />
+                          </Box>
                         ))}
                       </Box>
                     )}
@@ -2013,6 +2033,8 @@ export default function ProcessNavigator() {
           <ProcessDrawer
             node={drawerNode}
             overlay={overlay}
+            typeIcon={typeIcon}
+            typeColor={typeColor}
             fmtCost={fmtShort}
             onClose={() => setDrawerNode(null)}
             onNavigate={handleNavigate}
