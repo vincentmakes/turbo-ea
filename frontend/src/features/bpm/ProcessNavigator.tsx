@@ -1987,22 +1987,21 @@ export default function ProcessNavigator() {
                     ) : (
                       <Box
                         sx={{
-                          display: "flex",
-                          flexWrap: "wrap",
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
                           gap: 1.5,
                         }}
                       >
                         {nodes.map((node) => (
-                          <Box key={node.id} sx={{ flex: "1 1 260px", maxWidth: 400 }}>
-                            <HouseCard
-                              node={node}
-                              displayLevel={displayLevel}
-                              overlay={overlay}
-                              search={search}
-                              onOpen={handleOpenDrawer}
-                              onDrill={handleDrill}
-                            />
-                          </Box>
+                          <HouseCard
+                            key={node.id}
+                            node={node}
+                            displayLevel={displayLevel}
+                            overlay={overlay}
+                            search={search}
+                            onOpen={handleOpenDrawer}
+                            onDrill={handleDrill}
+                          />
                         ))}
                       </Box>
                     )}
