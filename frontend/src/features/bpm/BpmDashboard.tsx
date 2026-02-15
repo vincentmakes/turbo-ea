@@ -28,6 +28,7 @@ import {
 } from "recharts";
 import type { BpmDashboardData } from "@/types";
 import ProcessNavigator from "./ProcessNavigator";
+import BpmReportsContent from "./BpmReportPage";
 
 const COLORS = ["#1976d2", "#607d8b", "#9c27b0", "#4caf50", "#ff9800", "#f44336"];
 
@@ -244,14 +245,16 @@ const BPM_TAB_PARAM = "tab";
 export default function BpmDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get(BPM_TAB_PARAM);
-  const tabIndex = tabParam === "dashboard" ? 1 : 0;
+  const tabIndex = tabParam === "dashboard" ? 1 : tabParam === "reports" ? 2 : 0;
 
   const handleTabChange = (_: unknown, newValue: number) => {
     const params = new URLSearchParams(searchParams);
     if (newValue === 0) {
       params.delete(BPM_TAB_PARAM);
-    } else {
+    } else if (newValue === 1) {
       params.set(BPM_TAB_PARAM, "dashboard");
+    } else {
+      params.set(BPM_TAB_PARAM, "reports");
     }
     setSearchParams(params, { replace: true });
   };
@@ -279,12 +282,19 @@ export default function BpmDashboard() {
             iconPosition="start"
             sx={{ minHeight: 42, textTransform: "none" }}
           />
+          <Tab
+            label="Reports"
+            icon={<MaterialSymbol icon="analytics" size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 42, textTransform: "none" }}
+          />
         </Tabs>
       </Box>
 
       {/* Tab content */}
       {tabIndex === 0 && <ProcessNavigator />}
       {tabIndex === 1 && <BpmDashboardContent />}
+      {tabIndex === 2 && <BpmReportsContent />}
     </Box>
   );
 }

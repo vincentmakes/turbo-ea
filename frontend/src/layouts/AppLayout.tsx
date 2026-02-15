@@ -56,7 +56,6 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Matrix", icon: "table_chart", path: "/reports/matrix" },
       { label: "Data Quality", icon: "verified", path: "/reports/data-quality" },
       { label: "End of Life", icon: "update", path: "/reports/eol" },
-      { label: "BPM Reports", icon: "route", path: "/reports/bpm" },
     ],
   },
   { label: "BPM", icon: "route", path: "/bpm" },
