@@ -353,6 +353,8 @@ function HouseCard({
     !search || node.name.toLowerCase().includes(search.toLowerCase());
   const opacity = search && !matchesSearch ? 0.3 : 1;
 
+  // A card is nested if rowType is a parent UUID (not a process-type row name)
+  const isNested = rowType ? !["management", "core", "support"].includes(rowType) : false;
   const canDrag = isAdmin && dragRef && onDragDrop && rowType;
   const dragHandleActive = useRef(false);
   const [hovered, setHovered] = useState(false);
@@ -507,7 +509,7 @@ function HouseCard({
             </Tooltip>
           )}
           <Box sx={{ flex: 1 }} />
-          {childCount > 0 && (
+          {childCount > 0 && !isNested && (
             <Tooltip title={`${childCount} sub-process(es) — click to drill down`}>
               <Chip
                 size="small"
@@ -586,21 +588,23 @@ function HouseCard({
             ml: 0.5,
           }}
         />
-        <Tooltip title="Drill down into this process">
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
-            sx={{
-              p: 0.25,
-              ml: 0.25,
-              color: "#fff",
-              opacity: 0.7,
-              "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
-            }}
-          >
-            <MaterialSymbol icon="zoom_in" size={18} />
-          </IconButton>
-        </Tooltip>
+        {!isNested && (
+          <Tooltip title="Drill down into this process">
+            <IconButton
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+              sx={{
+                p: 0.25,
+                ml: 0.25,
+                color: "#fff",
+                opacity: 0.7,
+                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+              }}
+            >
+              <MaterialSymbol icon="zoom_in" size={18} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
       <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
         {node.children.map((ch) => (
