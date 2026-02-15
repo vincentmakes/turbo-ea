@@ -219,6 +219,8 @@ export interface DashboardData {
   by_type: Record<string, number>;
   avg_completion: number;
   quality_seals: Record<string, number>;
+  completion_distribution: Record<string, number>;
+  lifecycle_distribution: Record<string, number>;
   recent_events: EventEntry[];
 }
 

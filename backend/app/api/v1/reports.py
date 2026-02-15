@@ -20,6 +20,28 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 log = logging.getLogger(__name__)
 
 
+def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
+    """Determine which lifecycle phase a fact sheet is currently in based on dates."""
+    if not lifecycle:
+        return None
+    phases = ["endOfLife", "phaseOut", "active", "phaseIn", "plan"]
+    today = datetime.now(timezone.utc).date()
+    for phase in phases:
+        date_str = lifecycle.get(phase)
+        if date_str:
+            try:
+                d = datetime.fromisoformat(date_str).date() if "T" in str(date_str) else datetime.strptime(str(date_str), "%Y-%m-%d").date()
+                if d <= today:
+                    return phase
+            except (ValueError, TypeError):
+                continue
+    # If all dates are in the future, return the earliest set phase
+    for phase in ["plan", "phaseIn", "active", "phaseOut", "endOfLife"]:
+        if lifecycle.get(phase):
+            return phase
+    return None
+
+
 @router.get("/dashboard")
 async def dashboard(db: AsyncSession = Depends(get_db)):
     # Count by type
@@ -47,6 +69,36 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
     )
     seals = {row[0]: row[1] for row in seal_counts.all()}
 
+    # Completion distribution (buckets)
+    completion_dist = {"0-25": 0, "25-50": 0, "50-75": 0, "75-100": 0}
+    comp_result = await db.execute(
+        select(FactSheet.completion).where(FactSheet.status == "ACTIVE")
+    )
+    for (comp_val,) in comp_result.all():
+        v = comp_val or 0
+        if v < 25:
+            completion_dist["0-25"] += 1
+        elif v < 50:
+            completion_dist["25-50"] += 1
+        elif v < 75:
+            completion_dist["50-75"] += 1
+        else:
+            completion_dist["75-100"] += 1
+
+    # Lifecycle phase distribution
+    lifecycle_result = await db.execute(
+        select(FactSheet.lifecycle).where(FactSheet.status == "ACTIVE")
+    )
+    lifecycle_dist: dict[str, int] = {
+        "plan": 0, "phaseIn": 0, "active": 0, "phaseOut": 0, "endOfLife": 0, "none": 0,
+    }
+    for (lc,) in lifecycle_result.all():
+        phase = _current_lifecycle_phase(lc)
+        if phase and phase in lifecycle_dist:
+            lifecycle_dist[phase] += 1
+        else:
+            lifecycle_dist["none"] += 1
+
     # Recent events
     events_result = await db.execute(
         select(Event).order_by(Event.created_at.desc()).limit(20)
@@ -67,6 +119,8 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
         "by_type": by_type,
         "avg_completion": round(avg_completion, 1),
         "quality_seals": seals,
+        "completion_distribution": completion_dist,
+        "lifecycle_distribution": lifecycle_dist,
         "recent_events": recent_events,
     }
 
