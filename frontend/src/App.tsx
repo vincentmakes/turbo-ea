@@ -32,6 +32,7 @@ import EolAdmin from "@/features/admin/EolAdmin";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
+import SsoCallback from "@/features/auth/SsoCallback";
 import BpmDashboard from "@/features/bpm/BpmDashboard";
 import ProcessFlowEditorPage from "@/features/bpm/ProcessFlowEditorPage";
 
@@ -54,7 +55,7 @@ const theme = createTheme({
 
 /** Inner component that handles authenticated vs public routes. */
 function AppRoutes() {
-  const { user, loading, login, register, logout } = useAuth();
+  const { user, loading, login, register, ssoCallback, logout } = useAuth();
 
   if (loading) {
     return (
@@ -69,6 +70,8 @@ function AppRoutes() {
       <Routes>
         {/* Public portal route — accessible without login */}
         <Route path="/portal/:slug" element={<PortalViewer />} />
+        {/* SSO callback route */}
+        <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
         {/* Everything else redirects to login */}
         <Route path="*" element={<LoginPage onLogin={login} onRegister={register} />} />
       </Routes>

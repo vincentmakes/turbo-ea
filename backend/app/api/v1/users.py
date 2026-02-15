@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.core.security import hash_password
 from app.database import get_db
+from app.models.sso_invitation import SsoInvitation
 from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -37,6 +38,7 @@ def _user_response(u: User) -> dict:
         "display_name": u.display_name,
         "role": u.role,
         "is_active": u.is_active,
+        "auth_provider": u.auth_provider or "local",
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
 
@@ -122,6 +124,9 @@ async def update_user(
             raise HTTPException(409, "A user with this email already exists")
 
     if "password" in data:
+        # Block password changes for SSO users
+        if u.auth_provider == "sso":
+            raise HTTPException(400, "Cannot set password for SSO users")
         u.password_hash = hash_password(data.pop("password"))
 
     for field, value in data.items():
@@ -185,3 +190,113 @@ async def update_notification_preferences(
     current_user.notification_preferences = prefs
     await db.commit()
     return prefs
+
+
+# ---------------------------------------------------------------------------
+# SSO Invitations
+# ---------------------------------------------------------------------------
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    role: str = "viewer"
+    send_email: bool = False
+
+
+def _invitation_response(inv: SsoInvitation) -> dict:
+    return {
+        "id": str(inv.id),
+        "email": inv.email,
+        "role": inv.role,
+        "invited_by": str(inv.invited_by) if inv.invited_by else None,
+        "created_at": inv.created_at.isoformat() if inv.created_at else None,
+    }
+
+
+@router.get("/invitations")
+async def list_invitations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — list all pending SSO invitations."""
+    if current_user.role != "admin":
+        raise HTTPException(403, "Admin only")
+    result = await db.execute(select(SsoInvitation).order_by(SsoInvitation.email))
+    return [_invitation_response(inv) for inv in result.scalars().all()]
+
+
+@router.post("/invitations", status_code=201)
+async def create_invitation(
+    body: InvitationCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — invite a user by email with a pre-assigned role.
+    When the user logs in via SSO, they will receive this role instead of the default 'viewer'.
+    Optionally sends an invitation email if SMTP is configured."""
+    if current_user.role != "admin":
+        raise HTTPException(403, "Admin only")
+
+    if body.role not in ("admin", "bpm_admin", "member", "viewer"):
+        raise HTTPException(400, "Role must be admin, bpm_admin, member, or viewer")
+
+    email = body.email.lower().strip()
+
+    # Check if user already exists
+    existing_user = await db.execute(select(User).where(User.email == email))
+    if existing_user.scalar_one_or_none():
+        raise HTTPException(409, "A user with this email already exists")
+
+    # Check if invitation already exists
+    existing_inv = await db.execute(select(SsoInvitation).where(SsoInvitation.email == email))
+    if existing_inv.scalar_one_or_none():
+        raise HTTPException(409, "An invitation for this email already exists")
+
+    inv = SsoInvitation(
+        email=email,
+        role=body.role,
+        invited_by=current_user.id,
+    )
+    db.add(inv)
+    await db.commit()
+    await db.refresh(inv)
+
+    # Optionally send invitation email
+    if body.send_email:
+        try:
+            from app.services.email_service import send_notification_email
+
+            await send_notification_email(
+                to=email,
+                title="You've been invited to Turbo EA",
+                message=(
+                    f"You have been invited to join Turbo EA with the role of "
+                    f'"{body.role}". Click the button below to sign in with your '
+                    f"Microsoft account."
+                ),
+                link="/",
+            )
+        except Exception:
+            pass  # Email sending is best-effort
+
+    return _invitation_response(inv)
+
+
+@router.delete("/invitations/{invitation_id}", status_code=204)
+async def delete_invitation(
+    invitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — delete/revoke a pending SSO invitation."""
+    if current_user.role != "admin":
+        raise HTTPException(403, "Admin only")
+
+    result = await db.execute(
+        select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invitation not found")
+
+    await db.delete(inv)
+    await db.commit()

@@ -4,6 +4,22 @@ export interface User {
   display_name: string;
   role: string;
   is_active: boolean;
+  auth_provider?: string;
+  created_at?: string;
+}
+
+export interface SsoConfig {
+  enabled: boolean;
+  client_id?: string;
+  tenant_id?: string;
+  authorization_endpoint?: string;
+}
+
+export interface SsoInvitation {
+  id: string;
+  email: string;
+  role: string;
+  invited_by?: string;
   created_at?: string;
 }
 
