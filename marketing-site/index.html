@@ -84,6 +84,19 @@
         </div>
       </div>
     </div>
+    <!-- Hero product screenshot -->
+    <div class="container hero-screenshot-wrap fade-in">
+      <div class="hero-screenshot">
+        <!-- SCREENSHOT: Replace src with your main product screenshot (e.g. dashboard or inventory) -->
+        <div class="screenshot-placeholder screenshot-placeholder-hero" data-screenshot="hero-product">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+          <span>dashboard.png</span>
+          <small>Main product screenshot &mdash; recommended 1200 &times; 700</small>
+        </div>
+        <!-- To use a real screenshot, replace the placeholder above with:
+        <img src="assets/screenshots/dashboard.png" alt="Turbo EA Dashboard" class="screenshot-img"> -->
+      </div>
+    </div>
     <div class="hero-scroll-indicator">
       <div class="hero-scroll-line"></div>
     </div>
@@ -236,6 +249,59 @@
     </div>
   </section>
 
+  <!-- Product Screenshots -->
+  <section class="screenshots-showcase">
+    <div class="container">
+      <div class="section-header fade-in">
+        <span class="section-tag">See It In Action</span>
+        <h2 class="section-title">A look inside Turbo EA</h2>
+        <p class="section-desc">Screenshots from the actual product. Inventory tables, fact sheet details, diagram editor, and more.</p>
+      </div>
+      <div class="screenshots-grid fade-in">
+        <div class="screenshot-card screenshot-card-large">
+          <div class="screenshot-placeholder" data-screenshot="inventory">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>inventory.png</span>
+            <small>Inventory page with AG Grid &mdash; recommended 1100 &times; 600</small>
+          </div>
+          <div class="screenshot-card-label">Inventory &amp; Data Tables</div>
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-placeholder" data-screenshot="fact-sheet-detail">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>fact-sheet-detail.png</span>
+            <small>Fact sheet detail view &mdash; recommended 540 &times; 400</small>
+          </div>
+          <div class="screenshot-card-label">Fact Sheet Detail</div>
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-placeholder" data-screenshot="diagram-editor">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>diagram-editor.png</span>
+            <small>DrawIO diagram editor &mdash; recommended 540 &times; 400</small>
+          </div>
+          <div class="screenshot-card-label">Diagram Editor</div>
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-placeholder" data-screenshot="metamodel-admin">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>metamodel-admin.png</span>
+            <small>Admin metamodel config &mdash; recommended 540 &times; 400</small>
+          </div>
+          <div class="screenshot-card-label">Metamodel Admin</div>
+        </div>
+        <div class="screenshot-card">
+          <div class="screenshot-placeholder" data-screenshot="web-portal">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>web-portal.png</span>
+            <small>Public web portal &mdash; recommended 540 &times; 400</small>
+          </div>
+          <div class="screenshot-card-label">Web Portal</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Architecture -->
   <section class="architecture" id="architecture">
     <div class="container">
@@ -348,18 +414,15 @@
         </div>
         <div class="reports-content fade-in">
           <div class="report-panel active" data-report="portfolio">
-            <div class="report-visual report-visual-portfolio">
-              <div class="bubble-chart">
-                <div class="bubble" style="--x: 20%; --y: 30%; --size: 80px; --color: #0f7eb5" data-label="SAP ERP"></div>
-                <div class="bubble" style="--x: 55%; --y: 20%; --size: 60px; --color: #33cc58" data-label="Salesforce"></div>
-                <div class="bubble" style="--x: 75%; --y: 55%; --size: 50px; --color: #774fcc" data-label="Jira"></div>
-                <div class="bubble" style="--x: 35%; --y: 65%; --size: 70px; --color: #ffa31f" data-label="ServiceNow"></div>
-                <div class="bubble" style="--x: 60%; --y: 75%; --size: 40px; --color: #c7527d" data-label="Slack"></div>
-                <div class="bubble" style="--x: 85%; --y: 25%; --size: 55px; --color: #02afa4" data-label="AWS"></div>
-                <div class="bubble" style="--x: 15%; --y: 70%; --size: 45px; --color: #d29270" data-label="Azure"></div>
-                <div class="bubble-axis-x">Business Criticality &rarr;</div>
-                <div class="bubble-axis-y">&uarr; Functional Fit</div>
+            <div class="report-visual">
+              <!-- SCREENSHOT: Replace src with your portfolio report screenshot -->
+              <div class="screenshot-placeholder" data-screenshot="portfolio-report">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>portfolio-report.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
+              <!-- To use a real screenshot, replace the placeholder above with:
+              <img src="assets/screenshots/portfolio-report.png" alt="Portfolio Report" class="screenshot-img"> -->
             </div>
             <div class="report-info">
               <h3>Portfolio Report</h3>
@@ -367,32 +430,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="capability">
-            <div class="report-visual report-visual-capability">
-              <div class="cap-grid">
-                <div class="cap-cell cap-l1">
-                  <span class="cap-label">Customer Mgmt</span>
-                  <div class="cap-children">
-                    <div class="cap-cell cap-l2 cap-hot"><span>CRM</span><small>4 apps</small></div>
-                    <div class="cap-cell cap-l2 cap-warm"><span>Support</span><small>2 apps</small></div>
-                    <div class="cap-cell cap-l2 cap-cool"><span>Analytics</span><small>1 app</small></div>
-                  </div>
-                </div>
-                <div class="cap-cell cap-l1">
-                  <span class="cap-label">Finance</span>
-                  <div class="cap-children">
-                    <div class="cap-cell cap-l2 cap-warm"><span>Accounting</span><small>3 apps</small></div>
-                    <div class="cap-cell cap-l2 cap-hot"><span>Billing</span><small>5 apps</small></div>
-                    <div class="cap-cell cap-l2 cap-cold"><span>Treasury</span><small>0 apps</small></div>
-                  </div>
-                </div>
-                <div class="cap-cell cap-l1">
-                  <span class="cap-label">Operations</span>
-                  <div class="cap-children">
-                    <div class="cap-cell cap-l2 cap-cool"><span>Logistics</span><small>1 app</small></div>
-                    <div class="cap-cell cap-l2 cap-warm"><span>Procurement</span><small>2 apps</small></div>
-                    <div class="cap-cell cap-l2 cap-warm"><span>Inventory</span><small>3 apps</small></div>
-                  </div>
-                </div>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="capability-heatmap">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>capability-heatmap.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -401,38 +443,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="lifecycle">
-            <div class="report-visual report-visual-lifecycle">
-              <div class="timeline">
-                <div class="timeline-row">
-                  <span class="timeline-label">SAP ERP</span>
-                  <div class="timeline-bar">
-                    <div class="timeline-segment phase-active" style="left: 0%; width: 40%">Active</div>
-                    <div class="timeline-segment phase-phaseout" style="left: 40%; width: 30%">Phase Out</div>
-                    <div class="timeline-segment phase-eol" style="left: 70%; width: 30%">End of Life</div>
-                  </div>
-                </div>
-                <div class="timeline-row">
-                  <span class="timeline-label">Salesforce</span>
-                  <div class="timeline-bar">
-                    <div class="timeline-segment phase-plan" style="left: 0%; width: 15%">Plan</div>
-                    <div class="timeline-segment phase-active" style="left: 15%; width: 85%">Active</div>
-                  </div>
-                </div>
-                <div class="timeline-row">
-                  <span class="timeline-label">Legacy CRM</span>
-                  <div class="timeline-bar">
-                    <div class="timeline-segment phase-active" style="left: 0%; width: 20%">Active</div>
-                    <div class="timeline-segment phase-phaseout" style="left: 20%; width: 25%">Phase Out</div>
-                    <div class="timeline-segment phase-eol" style="left: 45%; width: 55%">End of Life</div>
-                  </div>
-                </div>
-                <div class="timeline-row">
-                  <span class="timeline-label">Cloud Platform</span>
-                  <div class="timeline-bar">
-                    <div class="timeline-segment phase-plan" style="left: 0%; width: 25%">Plan</div>
-                    <div class="timeline-segment phase-active" style="left: 25%; width: 75%">Active</div>
-                  </div>
-                </div>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="lifecycle-roadmap">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>lifecycle-roadmap.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -441,34 +456,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="dependencies">
-            <div class="report-visual report-visual-deps">
-              <div class="dep-graph">
-                <div class="dep-node" style="--nx: 50%; --ny: 20%; --nc: #0f7eb5" data-label="ERP">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <div class="dep-node" style="--nx: 25%; --ny: 45%; --nc: #33cc58" data-label="CRM">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <div class="dep-node" style="--nx: 75%; --ny: 45%; --nc: #774fcc" data-label="DWH">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <div class="dep-node" style="--nx: 15%; --ny: 75%; --nc: #ffa31f" data-label="Web">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <div class="dep-node" style="--nx: 50%; --ny: 75%; --nc: #c7527d" data-label="API GW">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <div class="dep-node" style="--nx: 85%; --ny: 75%; --nc: #02afa4" data-label="ML Svc">
-                  <div class="dep-node-inner"></div>
-                </div>
-                <svg class="dep-edges" viewBox="0 0 400 300">
-                  <line x1="200" y1="70" x2="100" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                  <line x1="200" y1="70" x2="300" y2="140" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                  <line x1="100" y1="140" x2="60" y2="230" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                  <line x1="100" y1="140" x2="200" y2="230" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                  <line x1="300" y1="140" x2="200" y2="230" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                  <line x1="300" y1="140" x2="340" y2="230" stroke="rgba(255,255,255,0.15)" stroke-width="1.5"/>
-                </svg>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="dependency-graph">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>dependency-graph.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -477,14 +469,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="cost">
-            <div class="report-visual report-visual-cost">
-              <div class="treemap">
-                <div class="treemap-cell" style="flex: 4; --tm-color: #0f7eb5"><span>SAP ERP</span><small>$480K</small></div>
-                <div class="treemap-cell" style="flex: 3; --tm-color: #33cc58"><span>Salesforce</span><small>$320K</small></div>
-                <div class="treemap-cell" style="flex: 2; --tm-color: #774fcc"><span>AWS</span><small>$240K</small></div>
-                <div class="treemap-cell" style="flex: 2; --tm-color: #ffa31f"><span>ServiceNow</span><small>$180K</small></div>
-                <div class="treemap-cell" style="flex: 1.5; --tm-color: #c7527d"><span>Jira</span><small>$95K</small></div>
-                <div class="treemap-cell" style="flex: 1; --tm-color: #02afa4"><span>Slack</span><small>$60K</small></div>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="cost-treemap">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>cost-treemap.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -493,33 +482,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="matrix">
-            <div class="report-visual report-visual-matrix">
-              <div class="matrix-grid">
-                <div class="matrix-corner"></div>
-                <div class="matrix-col-header">CRM</div>
-                <div class="matrix-col-header">ERP</div>
-                <div class="matrix-col-header">DWH</div>
-                <div class="matrix-col-header">Web</div>
-                <div class="matrix-row-header">Sales</div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-row-header">Finance</div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-row-header">HR</div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-row-header">Ops</div>
-                <div class="matrix-cell"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell matrix-filled"></div>
-                <div class="matrix-cell matrix-filled"></div>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="matrix-report">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>matrix-report.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -528,43 +495,11 @@
             </div>
           </div>
           <div class="report-panel" data-report="quality">
-            <div class="report-visual report-visual-quality">
-              <div class="quality-bars">
-                <div class="quality-row">
-                  <span class="quality-label">Application</span>
-                  <div class="quality-bar-track">
-                    <div class="quality-bar-fill" style="width: 78%; --qb-color: #33cc58"></div>
-                  </div>
-                  <span class="quality-pct">78%</span>
-                </div>
-                <div class="quality-row">
-                  <span class="quality-label">IT Component</span>
-                  <div class="quality-bar-track">
-                    <div class="quality-bar-fill" style="width: 62%; --qb-color: #ffa31f"></div>
-                  </div>
-                  <span class="quality-pct">62%</span>
-                </div>
-                <div class="quality-row">
-                  <span class="quality-label">Business Capability</span>
-                  <div class="quality-bar-track">
-                    <div class="quality-bar-fill" style="width: 91%; --qb-color: #0f7eb5"></div>
-                  </div>
-                  <span class="quality-pct">91%</span>
-                </div>
-                <div class="quality-row">
-                  <span class="quality-label">Interface</span>
-                  <div class="quality-bar-track">
-                    <div class="quality-bar-fill" style="width: 45%; --qb-color: #c7527d"></div>
-                  </div>
-                  <span class="quality-pct">45%</span>
-                </div>
-                <div class="quality-row">
-                  <span class="quality-label">Data Object</span>
-                  <div class="quality-bar-track">
-                    <div class="quality-bar-fill" style="width: 55%; --qb-color: #774fcc"></div>
-                  </div>
-                  <span class="quality-pct">55%</span>
-                </div>
+            <div class="report-visual">
+              <div class="screenshot-placeholder" data-screenshot="data-quality">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="2" width="20" height="20" rx="2"/><circle cx="8" cy="8" r="2"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>data-quality.png</span>
+                <small>Replace with screenshot &mdash; recommended 800 &times; 500</small>
               </div>
             </div>
             <div class="report-info">
@@ -730,74 +665,71 @@
     </div>
   </section>
 
-  <!-- Comparison -->
-  <section class="comparison">
+  <!-- Highlights -->
+  <section class="highlights">
     <div class="container">
       <div class="section-header fade-in">
-        <span class="section-tag">Comparison</span>
-        <h2 class="section-title">How Turbo EA stacks up</h2>
+        <span class="section-tag">Why Turbo EA</span>
+        <h2 class="section-title">Built different</h2>
+        <p class="section-desc">Enterprise-grade EA management without the enterprise pricing or vendor lock-in.</p>
       </div>
-      <div class="comparison-table-wrap fade-in">
-        <table class="comparison-table">
-          <thead>
-            <tr>
-              <th>Capability</th>
-              <th class="highlight-col">Turbo EA</th>
-              <th>LeanIX</th>
-              <th>Ardoq</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Self-hosted deployment</td>
-              <td class="highlight-col"><span class="check-yes">Yes</span></td>
-              <td><span class="check-no">No</span></td>
-              <td><span class="check-no">No</span></td>
-            </tr>
-            <tr>
-              <td>Configurable metamodel</td>
-              <td class="highlight-col"><span class="check-yes">Full</span></td>
-              <td><span class="check-partial">Limited</span></td>
-              <td><span class="check-yes">Yes</span></td>
-            </tr>
-            <tr>
-              <td>Per-user pricing</td>
-              <td class="highlight-col"><span class="check-yes">Free</span></td>
-              <td><span class="check-no">$$$</span></td>
-              <td><span class="check-no">$$$</span></td>
-            </tr>
-            <tr>
-              <td>Integrated diagrams</td>
-              <td class="highlight-col"><span class="check-yes">DrawIO</span></td>
-              <td><span class="check-partial">Basic</span></td>
-              <td><span class="check-yes">Built-in</span></td>
-            </tr>
-            <tr>
-              <td>TOGAF SoAW</td>
-              <td class="highlight-col"><span class="check-yes">Yes</span></td>
-              <td><span class="check-no">No</span></td>
-              <td><span class="check-no">No</span></td>
-            </tr>
-            <tr>
-              <td>EOL tracking</td>
-              <td class="highlight-col"><span class="check-yes">Built-in</span></td>
-              <td><span class="check-no">No</span></td>
-              <td><span class="check-no">No</span></td>
-            </tr>
-            <tr>
-              <td>Data sovereignty</td>
-              <td class="highlight-col"><span class="check-yes">100%</span></td>
-              <td><span class="check-no">Cloud</span></td>
-              <td><span class="check-no">Cloud</span></td>
-            </tr>
-            <tr>
-              <td>Open source</td>
-              <td class="highlight-col"><span class="check-yes">Yes</span></td>
-              <td><span class="check-no">No</span></td>
-              <td><span class="check-no">No</span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="highlights-grid fade-in">
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Self-Hosted</h3>
+          <p>Runs on your infrastructure. Your data never leaves your network. Air-gap compatible.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <h3>Fully Configurable</h3>
+          <p>Metamodel is 100% admin-configurable. Types, fields, subtypes, and relations are all data.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Unlimited Users</h3>
+          <p>No per-seat licensing. Add your entire organization without worrying about subscription costs.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+          </div>
+          <h3>Integrated Diagrams</h3>
+          <p>Self-hosted DrawIO with fact-sheet-aware shapes. Bi-directional sync with the repository.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <h3>TOGAF-Ready</h3>
+          <p>Statement of Architecture Work editor with rich text, version history, sign-offs, and DOCX export.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <h3>EOL Tracking</h3>
+          <p>Built-in endoflife.date integration. Auto-match technologies and monitor support status.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+          </div>
+          <h3>10+ Reports</h3>
+          <p>Portfolio, capability heatmap, lifecycle, dependencies, cost treemap, matrix, data quality, and more.</p>
+        </div>
+        <div class="highlight-item">
+          <div class="highlight-icon-wrap">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          </div>
+          <h3>Open Source</h3>
+          <p>Full source code. Extend, customize, and contribute. No vendor lock-in, ever.</p>
+        </div>
       </div>
     </div>
   </section>

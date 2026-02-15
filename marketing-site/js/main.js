@@ -122,29 +122,6 @@
     });
   });
 
-  // --- Animated quality bars on scroll ---
-  const qualityBars = document.querySelectorAll('.quality-bar-fill');
-  const qualityObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const fill = entry.target;
-          const targetWidth = fill.style.width;
-          fill.style.width = '0%';
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              fill.style.width = targetWidth;
-            });
-          });
-          qualityObserver.unobserve(fill);
-        }
-      });
-    },
-    { threshold: 0.5 }
-  );
-
-  qualityBars.forEach((bar) => qualityObserver.observe(bar));
-
   // --- Terminal typing animation ---
   const terminalLines = document.querySelectorAll('.terminal-line');
   let terminalAnimated = false;
