@@ -29,11 +29,17 @@ import Tooltip from "@mui/material/Tooltip";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
 import IconButton from "@mui/material/IconButton";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import BpmnViewer from "./BpmnViewer";
 import BpmnTemplateChooser from "./BpmnTemplateChooser";
 import { api } from "@/api/client";
-import type { ProcessFlowVersion, ProcessFlowPermissions } from "@/types";
+import type { ProcessFlowVersion, ProcessFlowPermissions, ProcessElement } from "@/types";
 
 interface Props {
   processId: string;
@@ -70,6 +76,9 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
   const [archived, setArchived] = useState<ProcessFlowVersion[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
 
+  // Process elements (steps / lanes table for published view)
+  const [elements, setElements] = useState<ProcessElement[]>([]);
+
   // Dialog states
   const [showTemplateChooser, setShowTemplateChooser] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<ProcessFlowVersion | null>(null);
@@ -80,16 +89,18 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
   } | null>(null);
   const [actionError, setActionError] = useState("");
 
-  // Load permissions and published version
+  // Load permissions, published version, and elements
   const loadInitial = useCallback(async () => {
     setLoadingPub(true);
     try {
-      const [permsData, pubData] = await Promise.all([
+      const [permsData, pubData, elemData] = await Promise.all([
         api.get<ProcessFlowPermissions>(`/bpm/processes/${processId}/flow/permissions`),
         api.get<ProcessFlowVersion | null>(`/bpm/processes/${processId}/flow/published`),
+        api.get<ProcessElement[]>(`/bpm/processes/${processId}/elements`).catch(() => [] as ProcessElement[]),
       ]);
       setPerms(permsData);
       setPublished(pubData);
+      setElements(elemData);
     } catch {
       setPublished(null);
     } finally {
@@ -418,10 +429,71 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
         {published.bpmn_xml && (
           <BpmnViewer
             bpmnXml={published.bpmn_xml}
-            elements={[]}
+            elements={elements}
             onElementClick={() => {}}
             height={400}
           />
+        )}
+
+        {/* Process Elements Table (steps, lanes, automation) */}
+        {elements.length > 0 && (
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+              Process Steps &amp; Elements
+            </Typography>
+            <TableContainer component={Paper} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Lane</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Automated</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Application</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Data Object</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>IT Component</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {elements
+                    .filter((e) => e.name)
+                    .map((e, idx) => (
+                      <TableRow key={e.id} hover>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell>{e.name}</TableCell>
+                        <TableCell>
+                          <Chip label={e.element_type} size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell>{e.lane_name || "\u2014"}</TableCell>
+                        <TableCell>
+                          {e.is_automated ? (
+                            <Chip label="Yes" size="small" color="success" />
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">\u2014</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {e.application_name ? (
+                            <Chip label={e.application_name} size="small" color="primary" />
+                          ) : "\u2014"}
+                        </TableCell>
+                        <TableCell>
+                          {e.data_object_name ? (
+                            <Chip label={e.data_object_name} size="small" color="secondary" />
+                          ) : "\u2014"}
+                        </TableCell>
+                        <TableCell>
+                          {e.it_component_name ? (
+                            <Chip label={e.it_component_name} size="small" />
+                          ) : "\u2014"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         )}
       </Box>
     );

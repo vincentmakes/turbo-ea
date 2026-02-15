@@ -51,7 +51,8 @@ def parse_bpmn_xml(bpmn_xml: str) -> list[ExtractedElement]:
     lane_map: dict[str, str] = {}  # element_id → lane_name
     for lane in root.iter(f"{{{BPMN_NS}}}lane"):
         lane_name = lane.get("name", "")
-        for flow_node_ref in lane.iter(f"{{{BPMN_NS}}}flowNodeRef"):
+        # Use findall for direct children only (iter would recurse into nested laneSets)
+        for flow_node_ref in lane.findall(f"{{{BPMN_NS}}}flowNodeRef"):
             if flow_node_ref.text:
                 lane_map[flow_node_ref.text.strip()] = lane_name
 
