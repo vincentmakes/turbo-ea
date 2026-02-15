@@ -16,6 +16,7 @@ from app.models.process_element import ProcessElement
 from app.models.user import User
 from app.schemas.bpm import DiagramSave, ElementUpdate
 from app.services.bpmn_parser import parse_bpmn_xml
+from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
@@ -391,6 +392,20 @@ async def update_element(
         elem.it_component_id = uuid.UUID(body.it_component_id) if body.it_component_id else None
     if body.custom_fields is not None:
         elem.custom_fields = body.custom_fields
+
+    # Sync newly linked fact sheets → relations table (additive only)
+    link_ids: dict[str, set[uuid.UUID]] = {
+        "application_id": set(),
+        "data_object_id": set(),
+        "it_component_id": set(),
+    }
+    if elem.application_id:
+        link_ids["application_id"].add(elem.application_id)
+    if elem.data_object_id:
+        link_ids["data_object_id"].add(elem.data_object_id)
+    if elem.it_component_id:
+        link_ids["it_component_id"].add(elem.it_component_id)
+    await sync_element_relations(db, pid, link_ids)
 
     await db.commit()
     await db.refresh(elem)
