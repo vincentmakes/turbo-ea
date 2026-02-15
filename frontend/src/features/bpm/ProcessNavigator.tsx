@@ -533,39 +533,9 @@ function HouseCard({
     );
   }
 
-  // Container card with nested children
+  // Container card with nested children (no drag — use row chevrons to reorder containers)
   return (
     <Box
-      draggable={!!canDrag}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onDragStart={canDrag ? (e) => {
-        if (!dragHandleActive.current) { e.preventDefault(); return; }
-        dragRef.current = { id: node.id, rowType: rowType! };
-        e.dataTransfer.effectAllowed = "move";
-        (e.currentTarget as HTMLElement).style.opacity = "0.4";
-      } : undefined}
-      onDragEnd={canDrag ? (e) => {
-        (e.currentTarget as HTMLElement).style.opacity = "";
-        dragRef.current = null;
-        dragHandleActive.current = false;
-      } : undefined}
-      onDragOver={canDrag ? (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        (e.currentTarget as HTMLElement).style.outline = "2px solid " + color;
-      } : undefined}
-      onDragLeave={canDrag ? (e) => {
-        (e.currentTarget as HTMLElement).style.outline = "";
-      } : undefined}
-      onDrop={canDrag ? (e) => {
-        e.preventDefault();
-        (e.currentTarget as HTMLElement).style.outline = "";
-        if (dragRef.current && dragRef.current.rowType === rowType) {
-          onDragDrop!(dragRef.current.id, node.id, rowType!);
-        }
-        dragRef.current = null;
-      } : undefined}
       sx={{
         border: "1px solid #d0d0d0",
         borderRadius: 2,
@@ -593,31 +563,6 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
-        {canDrag && (
-          <Box
-            onMouseDown={() => { dragHandleActive.current = true; }}
-            onMouseUp={() => { dragHandleActive.current = false; }}
-            sx={{
-              opacity: hovered ? 1 : 0,
-              transition: "opacity 0.15s",
-              cursor: "grab",
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              p: 0.25,
-              ml: -0.5,
-              borderRadius: 0.5,
-              zIndex: 2,
-              position: "relative",
-              bgcolor: "rgba(255,255,255,0.25)",
-              "&:hover": { bgcolor: "rgba(255,255,255,0.5)" },
-              "&:active": { cursor: "grabbing" },
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MaterialSymbol icon="drag_indicator" size={16} />
-          </Box>
-        )}
         <Typography
           variant="body2"
           sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
@@ -650,8 +595,12 @@ function HouseCard({
               displayLevel={displayLevel}
               overlay={overlay}
               search={search}
+              isAdmin={isAdmin}
+              rowType={node.id}
               onOpen={onOpen}
               onDrill={onDrill}
+              dragRef={dragRef}
+              onDragDrop={onDragDrop}
             />
           </Box>
         ))}
@@ -1911,10 +1860,13 @@ export default function ProcessNavigator() {
     async (dragId: string, dropId: string, rowType: string) => {
       if (!data || reordering || dragId === dropId) return;
 
-      // Get siblings in same row
+      // rowType is either a process-type row ("management"/"core"/"support")
+      // or a parent node ID (for leaf cards inside a container).
+      const isProcessRow = ["management", "core", "support"].includes(rowType);
       const siblings = data
-        .filter((d) => !d.parent_id
-          && ((d.attributes?.processType as string) || "core") === rowType)
+        .filter((d) => isProcessRow
+          ? (!d.parent_id && ((d.attributes?.processType as string) || "core") === rowType)
+          : d.parent_id === rowType)
         .sort((a, b) => {
           const oa = (a.attributes?.sortOrder as number) ?? 999;
           const ob = (b.attributes?.sortOrder as number) ?? 999;
