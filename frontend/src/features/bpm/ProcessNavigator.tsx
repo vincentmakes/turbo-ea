@@ -354,12 +354,14 @@ function HouseCard({
   const opacity = search && !matchesSearch ? 0.3 : 1;
 
   const canDrag = isAdmin && dragRef && onDragDrop && rowType;
+  const dragHandleActive = useRef(false);
 
   if (isLeaf) {
     return (
       <Box
         draggable={!!canDrag}
         onDragStart={canDrag ? (e) => {
+          if (!dragHandleActive.current) { e.preventDefault(); return; }
           dragRef.current = { id: node.id, rowType: rowType! };
           e.dataTransfer.effectAllowed = "move";
           (e.currentTarget as HTMLElement).style.opacity = "0.4";
@@ -367,6 +369,7 @@ function HouseCard({
         onDragEnd={canDrag ? (e) => {
           (e.currentTarget as HTMLElement).style.opacity = "";
           dragRef.current = null;
+          dragHandleActive.current = false;
         } : undefined}
         onDragOver={canDrag ? (e) => {
           e.preventDefault();
@@ -390,10 +393,11 @@ function HouseCard({
           borderRadius: 2,
           overflow: "hidden",
           bgcolor: "#fff",
-          cursor: canDrag ? "grab" : "pointer",
+          cursor: "pointer",
           transition: "all 0.2s",
           opacity,
           "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
+          "&:hover .drag-handle": { opacity: 1 },
         }}
         onClick={() => onOpen(node)}
         tabIndex={0}
@@ -414,6 +418,26 @@ function HouseCard({
             gap: 0.5,
           }}
         >
+          {canDrag && (
+            <Box
+              className="drag-handle"
+              onMouseDown={() => { dragHandleActive.current = true; }}
+              onMouseUp={() => { dragHandleActive.current = false; }}
+              sx={{
+                opacity: 0,
+                transition: "opacity 0.15s",
+                cursor: "grab",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                mr: 0.25,
+                "&:active": { cursor: "grabbing" },
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MaterialSymbol icon="drag_indicator" size={16} />
+            </Box>
+          )}
           <Typography
             variant="body2"
             sx={{
