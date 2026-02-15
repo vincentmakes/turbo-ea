@@ -57,7 +57,6 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
 
       const modeler = new BpmnJS({
         container: containerRef.current,
-        keyboard: { bindTo: document },
       });
 
       modelerRef.current = modeler;
