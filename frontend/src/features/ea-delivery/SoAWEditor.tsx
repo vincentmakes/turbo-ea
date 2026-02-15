@@ -489,7 +489,7 @@ export default function SoAWEditor() {
         {compact ? (
           <Tooltip title="Export PDF">
             <IconButton
-              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber)}
+              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
             >
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -499,12 +499,12 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber)}
+            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
           >
             PDF
           </Button>
         )}
-        {compact ? (
+        {!isSigned && (compact ? (
           <Tooltip title="Export Word">
             <IconButton
               onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
@@ -521,7 +521,7 @@ export default function SoAWEditor() {
           >
             Word
           </Button>
-        )}
+        ))}
         {!isSigned && (
           <Button
             variant="contained"

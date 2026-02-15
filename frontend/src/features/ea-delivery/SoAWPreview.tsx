@@ -104,7 +104,7 @@ export default function SoAWPreview() {
   const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
 
   const handleExportPdf = () =>
-    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
+    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
 
   return (
     <>
