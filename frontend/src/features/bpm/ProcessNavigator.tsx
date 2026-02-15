@@ -586,6 +586,21 @@ function HouseCard({
             ml: 0.5,
           }}
         />
+        <Tooltip title="Drill down into this process">
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
+            sx={{
+              p: 0.25,
+              ml: 0.25,
+              color: "#fff",
+              opacity: 0.7,
+              "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.2)" },
+            }}
+          >
+            <MaterialSymbol icon="zoom_in" size={18} />
+          </IconButton>
+        </Tooltip>
       </Box>
       <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
         {node.children.map((ch) => (
