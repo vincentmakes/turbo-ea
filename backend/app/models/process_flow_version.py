@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -64,6 +64,12 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     based_on_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("process_flow_versions.id"), nullable=True
     )
+
+    # Draft-stage element links: pre-linked EA references before publishing.
+    # Dict keyed by bpmn_element_id:
+    #   {"Task_1": {"application_id": "uuid", "data_object_id": "uuid",
+    #               "it_component_id": "uuid", "custom_fields": {"tcode": "SE16"}}}
+    draft_element_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
     process = relationship("FactSheet", lazy="selectin")
     creator = relationship("User", foreign_keys=[created_by], lazy="selectin")

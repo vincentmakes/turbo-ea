@@ -101,6 +101,7 @@ def _version_response(v: ProcessFlowVersion) -> dict:
         "approved_at": v.approved_at.isoformat() if v.approved_at else None,
         "archived_at": v.archived_at.isoformat() if v.archived_at else None,
         "based_on_id": str(v.based_on_id) if v.based_on_id else None,
+        "draft_element_links": v.draft_element_links,
     }
 
 
@@ -109,6 +110,25 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
     resp = _version_response(v)
     resp.pop("bpmn_xml", None)
     return resp
+
+
+def _apply_draft_link(
+    elem: ProcessElement, link: dict, valid_fs_ids: set[str]
+) -> None:
+    """Apply draft element link data to a ProcessElement, skipping stale references."""
+    for attr, key in (
+        ("application_id", "application_id"),
+        ("data_object_id", "data_object_id"),
+        ("it_component_id", "it_component_id"),
+    ):
+        val = link.get(key)
+        if val and val in valid_fs_ids:
+            setattr(elem, attr, uuid.UUID(val))
+        elif val:
+            # Fact sheet no longer valid — leave empty
+            setattr(elem, attr, None)
+    if "custom_fields" in link:
+        elem.custom_fields = {**(elem.custom_fields or {}), **link["custom_fields"]}
 
 
 # ── Published (latest) ──────────────────────────────────────────────────
@@ -182,6 +202,7 @@ async def create_draft(
     bpmn_xml = body.bpmn_xml
     svg_thumbnail = body.svg_thumbnail
     based_on_id = None
+    draft_links_clone = None
 
     if body.based_on_id:
         based_on_id = uuid.UUID(body.based_on_id)
@@ -194,10 +215,12 @@ async def create_draft(
         base_version = base.scalar_one_or_none()
         if not base_version:
             raise HTTPException(404, "Base version not found")
-        # Clone XML if not provided
+        # Clone XML and draft links if not provided
         if not bpmn_xml:
             bpmn_xml = base_version.bpmn_xml
             svg_thumbnail = svg_thumbnail or base_version.svg_thumbnail
+        # Clone draft element links from base version
+        draft_links_clone = base_version.draft_element_links
 
     # Determine next revision number
     latest = await db.execute(
@@ -217,6 +240,7 @@ async def create_draft(
         svg_thumbnail=svg_thumbnail,
         created_by=user.id,
         based_on_id=based_on_id,
+        draft_element_links=draft_links_clone,
     )
     db.add(version)
     await db.commit()
@@ -455,8 +479,43 @@ async def approve_version(
     version.approved_at = now
 
     # Extract process elements from BPMN XML for the elements table
+    stale_link_warnings: list[str] = []
     if version.bpmn_xml:
         extracted = parse_bpmn_xml(version.bpmn_xml)
+        draft_links = version.draft_element_links or {}
+
+        # Validate draft-linked fact sheets still exist
+        linked_fs_ids: set[str] = set()
+        for link_data in draft_links.values():
+            for key in ("application_id", "data_object_id", "it_component_id"):
+                val = link_data.get(key)
+                if val:
+                    linked_fs_ids.add(val)
+
+        valid_fs_ids: set[str] = set()
+        if linked_fs_ids:
+            fs_result = await db.execute(
+                select(FactSheet.id, FactSheet.name, FactSheet.status).where(
+                    FactSheet.id.in_([uuid.UUID(fid) for fid in linked_fs_ids])
+                )
+            )
+            fs_name_map: dict[str, str] = {}
+            for row in fs_result.all():
+                fid_str = str(row[0])
+                fs_name_map[fid_str] = row[1]
+                if row[2] == "ACTIVE":
+                    valid_fs_ids.add(fid_str)
+                else:
+                    stale_link_warnings.append(
+                        f"{row[1]} ({fid_str[:8]}...) is no longer active"
+                    )
+            # Check for deleted (not found) fact sheets
+            for fid in linked_fs_ids:
+                if fid not in fs_name_map:
+                    stale_link_warnings.append(
+                        f"Linked fact sheet {fid[:8]}... no longer exists"
+                    )
+
         # Load existing elements to preserve EA links (application, data_object, it_component)
         existing_elements = await db.execute(
             select(ProcessElement).where(ProcessElement.process_id == pid)
@@ -468,6 +527,7 @@ async def approve_version(
             if old_id not in new_bpmn_ids:
                 await db.delete(old_elem)
         for ext in extracted:
+            draft_link = draft_links.get(ext.bpmn_element_id, {})
             if ext.bpmn_element_id in old_by_bpmn_id:
                 old = old_by_bpmn_id[ext.bpmn_element_id]
                 old.element_type = ext.element_type
@@ -476,19 +536,24 @@ async def approve_version(
                 old.lane_name = ext.lane_name
                 old.is_automated = ext.is_automated
                 old.sequence_order = ext.sequence_order
+                # Apply draft links (only if the linked FS is still valid)
+                if draft_link:
+                    _apply_draft_link(old, draft_link, valid_fs_ids)
             else:
-                db.add(
-                    ProcessElement(
-                        process_id=pid,
-                        bpmn_element_id=ext.bpmn_element_id,
-                        element_type=ext.element_type,
-                        name=ext.name,
-                        documentation=ext.documentation,
-                        lane_name=ext.lane_name,
-                        is_automated=ext.is_automated,
-                        sequence_order=ext.sequence_order,
-                    )
+                elem = ProcessElement(
+                    process_id=pid,
+                    bpmn_element_id=ext.bpmn_element_id,
+                    element_type=ext.element_type,
+                    name=ext.name,
+                    documentation=ext.documentation,
+                    lane_name=ext.lane_name,
+                    is_automated=ext.is_automated,
+                    sequence_order=ext.sequence_order,
                 )
+                # Apply draft links for new elements
+                if draft_link:
+                    _apply_draft_link(elem, draft_link, valid_fs_ids)
+                db.add(elem)
 
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
@@ -504,12 +569,18 @@ async def approve_version(
 
     # Notify the submitter
     if version.submitted_by:
+        msg = f"{user.display_name} approved revision {version.revision}."
+        if stale_link_warnings:
+            msg += (
+                " Warning: some pre-linked elements were skipped because they no longer exist or are inactive: "
+                + "; ".join(stale_link_warnings[:5])
+            )
         await notification_service.create_notification(
             db,
             user_id=version.submitted_by,
             notif_type="process_flow_approved",
             title=f"Process flow approved for {process.name}",
-            message=f"{user.display_name} approved revision {version.revision}.",
+            message=msg,
             link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=published",
             fact_sheet_id=pid,
             actor_id=user.id,
@@ -630,6 +701,140 @@ async def list_archived(
         .order_by(ProcessFlowVersion.revision.desc())
     )
     return [_version_summary(v) for v in result.scalars().all()]
+
+
+# ── Draft element pre-linking ─────────────────────────────────────────
+
+
+@router.get("/processes/{process_id}/flow/versions/{version_id}/draft-elements")
+async def get_draft_elements(
+    process_id: str,
+    version_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Parse BPMN XML from a draft/pending version and return extracted elements
+    merged with any saved draft_element_links (pre-linked EA references)."""
+    pid = uuid.UUID(process_id)
+    vid = uuid.UUID(version_id)
+    await _get_process_or_404(db, pid)
+    sub_roles = await _user_subscription_roles(db, pid, user.id)
+    if not _can_view_drafts(user, sub_roles):
+        raise HTTPException(403, "Insufficient permissions")
+
+    result = await db.execute(
+        select(ProcessFlowVersion).where(
+            ProcessFlowVersion.id == vid,
+            ProcessFlowVersion.process_id == pid,
+        )
+    )
+    version = result.scalar_one_or_none()
+    if not version:
+        raise HTTPException(404, "Version not found")
+
+    if not version.bpmn_xml:
+        return []
+
+    extracted = parse_bpmn_xml(version.bpmn_xml)
+    links = version.draft_element_links or {}
+
+    # Collect all linked fact sheet IDs to resolve names in one query
+    fs_ids: set[str] = set()
+    for link_data in links.values():
+        for key in ("application_id", "data_object_id", "it_component_id"):
+            val = link_data.get(key)
+            if val:
+                fs_ids.add(val)
+
+    # Resolve names
+    name_map: dict[str, str] = {}
+    if fs_ids:
+        fs_result = await db.execute(
+            select(FactSheet.id, FactSheet.name).where(
+                FactSheet.id.in_([uuid.UUID(fid) for fid in fs_ids])
+            )
+        )
+        for row in fs_result.all():
+            name_map[str(row[0])] = row[1]
+
+    elements = []
+    for ext in extracted:
+        link = links.get(ext.bpmn_element_id, {})
+        app_id = link.get("application_id")
+        do_id = link.get("data_object_id")
+        itc_id = link.get("it_component_id")
+        elements.append({
+            "bpmn_element_id": ext.bpmn_element_id,
+            "element_type": ext.element_type,
+            "name": ext.name,
+            "documentation": ext.documentation,
+            "lane_name": ext.lane_name,
+            "is_automated": ext.is_automated,
+            "sequence_order": ext.sequence_order,
+            "application_id": app_id,
+            "application_name": name_map.get(app_id, "") if app_id else None,
+            "data_object_id": do_id,
+            "data_object_name": name_map.get(do_id, "") if do_id else None,
+            "it_component_id": itc_id,
+            "it_component_name": name_map.get(itc_id, "") if itc_id else None,
+            "custom_fields": link.get("custom_fields"),
+        })
+    return elements
+
+
+@router.put("/processes/{process_id}/flow/versions/{version_id}/draft-elements/{bpmn_element_id}")
+async def update_draft_element_link(
+    process_id: str,
+    version_id: str,
+    bpmn_element_id: str,
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update a single draft element link (pre-link EA references before publishing)."""
+    pid = uuid.UUID(process_id)
+    vid = uuid.UUID(version_id)
+    await _get_process_or_404(db, pid)
+    sub_roles = await _user_subscription_roles(db, pid, user.id)
+    if not _can_edit_draft(user, sub_roles):
+        raise HTTPException(403, "Insufficient permissions")
+
+    result = await db.execute(
+        select(ProcessFlowVersion).where(
+            ProcessFlowVersion.id == vid,
+            ProcessFlowVersion.process_id == pid,
+        )
+    )
+    version = result.scalar_one_or_none()
+    if not version:
+        raise HTTPException(404, "Version not found")
+    if version.status not in ("draft", "pending"):
+        raise HTTPException(400, "Element links can only be edited on draft or pending versions")
+
+    links = dict(version.draft_element_links or {})
+    existing = links.get(bpmn_element_id, {})
+
+    # Merge updates into existing link
+    for key in ("application_id", "data_object_id", "it_component_id", "custom_fields"):
+        if key in body:
+            val = body[key]
+            if val == "" or val is None:
+                existing.pop(key, None)
+            else:
+                existing[key] = val
+
+    if existing:
+        links[bpmn_element_id] = existing
+    else:
+        links.pop(bpmn_element_id, None)
+
+    version.draft_element_links = links
+    # Force SQLAlchemy to detect the JSONB change
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(version, "draft_element_links")
+
+    await db.commit()
+    return {"status": "updated", "bpmn_element_id": bpmn_element_id}
 
 
 # ── Permission check endpoint (for frontend) ───────────────────────────
