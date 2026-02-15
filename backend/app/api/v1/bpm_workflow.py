@@ -14,6 +14,7 @@ from app.database import get_db
 from app.models.fact_sheet import FactSheet
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.subscription import Subscription
+from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
 from app.services import notification_service
@@ -355,7 +356,7 @@ async def submit_for_approval(
     version.submitted_by = user.id
     version.submitted_at = datetime.now(timezone.utc)
 
-    # Notify process owners
+    # Notify process owners and create approval todos
     owner_subs = await db.execute(
         select(Subscription).where(
             Subscription.fact_sheet_id == pid,
@@ -373,6 +374,17 @@ async def submit_for_approval(
             fact_sheet_id=pid,
             actor_id=user.id,
         )
+        # Create a system todo for the process owner to review
+        todo = Todo(
+            fact_sheet_id=pid,
+            description=f"Review and approve process flow revision {version.revision} for {process.name}",
+            status="open",
+            link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
+            is_system=True,
+            assigned_to=sub.user_id,
+            created_by=user.id,
+        )
+        db.add(todo)
 
     await event_bus.publish(
         "process_flow.submitted",
@@ -440,6 +452,18 @@ async def approve_version(
     version.approved_by = user.id
     version.approved_at = now
 
+    # Auto-complete system approval todos for this process
+    approval_todos = await db.execute(
+        select(Todo).where(
+            Todo.fact_sheet_id == pid,
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.like(f"Review and approve process flow revision {version.revision}%"),
+        )
+    )
+    for t in approval_todos.scalars().all():
+        t.status = "done"
+
     # Notify the submitter
     if version.submitted_by:
         await notification_service.create_notification(
@@ -500,6 +524,18 @@ async def reject_version(
     version.status = "draft"
     version.submitted_by = None
     version.submitted_at = None
+
+    # Auto-complete system approval todos for this process
+    approval_todos = await db.execute(
+        select(Todo).where(
+            Todo.fact_sheet_id == pid,
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.like(f"Review and approve process flow revision {version.revision}%"),
+        )
+    )
+    for t in approval_todos.scalars().all():
+        t.status = "done"
 
     # Notify the original creator
     if version.created_by:

@@ -1891,7 +1891,7 @@ export default function FactSheetDetail() {
               <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
             </Box>
           )}
-          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} /></CardContent></Card>}
+          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} processName={fs.name} /></CardContent></Card>}
           {tab === 2 && <Card><CardContent><ProcessAssessmentPanel processId={fs.id} /></CardContent></Card>}
           {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
           {tab === 4 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
