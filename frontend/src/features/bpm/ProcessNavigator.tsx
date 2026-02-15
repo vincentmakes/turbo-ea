@@ -631,6 +631,18 @@ function HouseCard({
             {subtypeLabel}
           </Typography>
         )}
+        {(hasDiagram || hasElements) && (
+          <Tooltip title={hasDiagram ? `Has process flow (${node.element_count ?? 0} elements)` : `${node.element_count} BPMN elements`}>
+            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85 }}>
+              <MaterialSymbol icon="schema" size={16} />
+              {hasElements && (
+                <Typography variant="caption" sx={{ fontSize: "0.6rem", color: "#fff", fontWeight: 600, lineHeight: 1 }}>
+                  {node.element_count}
+                </Typography>
+              )}
+            </Box>
+          </Tooltip>
+        )}
         <Chip
           size="small"
           label={childCount}
@@ -2332,7 +2344,7 @@ export default function ProcessNavigator() {
                         <Box
                           sx={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))",
                             gap: 1.5,
                           }}
                         >
