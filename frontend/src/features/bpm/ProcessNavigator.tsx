@@ -434,8 +434,10 @@ function HouseCard({
                 p: 0.25,
                 ml: -0.5,
                 borderRadius: 0.5,
-                bgcolor: "rgba(255,255,255,0.2)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.4)" },
+                zIndex: 2,
+                position: "relative",
+                bgcolor: "rgba(255,255,255,0.25)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.5)" },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
@@ -531,9 +533,23 @@ function HouseCard({
     );
   }
 
-  // Container card with nested children — drop target only, not draggable
+  // Container card with nested children
   return (
     <Box
+      draggable={!!canDrag}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onDragStart={canDrag ? (e) => {
+        if (!dragHandleActive.current) { e.preventDefault(); return; }
+        dragRef.current = { id: node.id, rowType: rowType! };
+        e.dataTransfer.effectAllowed = "move";
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      } : undefined}
+      onDragEnd={canDrag ? (e) => {
+        (e.currentTarget as HTMLElement).style.opacity = "";
+        dragRef.current = null;
+        dragHandleActive.current = false;
+      } : undefined}
       onDragOver={canDrag ? (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -577,6 +593,31 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
+        {canDrag && (
+          <Box
+            onMouseDown={() => { dragHandleActive.current = true; }}
+            onMouseUp={() => { dragHandleActive.current = false; }}
+            sx={{
+              opacity: hovered ? 1 : 0,
+              transition: "opacity 0.15s",
+              cursor: "grab",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              p: 0.25,
+              ml: -0.5,
+              borderRadius: 0.5,
+              zIndex: 2,
+              position: "relative",
+              bgcolor: "rgba(255,255,255,0.25)",
+              "&:hover": { bgcolor: "rgba(255,255,255,0.5)" },
+              "&:active": { cursor: "grabbing" },
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MaterialSymbol icon="drag_indicator" size={16} />
+          </Box>
+        )}
         <Typography
           variant="body2"
           sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
