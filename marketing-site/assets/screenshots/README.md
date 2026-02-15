@@ -13,11 +13,11 @@ Drop your screenshots here. The HTML references the following filenames:
 - `web-portal.png` — Public web portal view (540x400)
 
 ## BPM Solution
+- `bpm-process-navigator.png` — Process navigator (1100x600)
 - `bpmn-editor.png` — BPMN 2.0 process editor (1100x600)
 - `bpmn-viewer.png` — Process viewer with EA overlays (540x400)
 - `process-element-linker.png` — Link BPMN elements to EA fact sheets (540x400)
 - `process-assessment.png` — Process assessment scores (540x400)
-- `bpm-dashboard.png` — BPM dashboard & KPIs (540x400)
 - `bpm-capability-heatmap.png` — Process-capability heatmap (540x400)
 
 ## Reports (tabbed showcase)
