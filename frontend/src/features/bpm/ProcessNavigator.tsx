@@ -535,9 +535,39 @@ function HouseCard({
     );
   }
 
-  // Container card with nested children (no drag — use row chevrons to reorder containers)
+  // Container card with nested children.
+  // Top-level containers use row chevrons; nested containers are draggable.
+  const nestedDrag = isNested && canDrag;
   return (
     <Box
+      draggable={!!nestedDrag}
+      onDragStart={nestedDrag ? (e) => {
+        if (!dragHandleActive.current) { e.preventDefault(); return; }
+        dragRef!.current = { id: node.id, rowType: rowType! };
+        e.dataTransfer.effectAllowed = "move";
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      } : undefined}
+      onDragEnd={nestedDrag ? (e) => {
+        (e.currentTarget as HTMLElement).style.opacity = "";
+        dragRef!.current = null;
+        dragHandleActive.current = false;
+      } : undefined}
+      onDragOver={nestedDrag ? (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        (e.currentTarget as HTMLElement).style.outline = "2px solid " + color;
+      } : undefined}
+      onDragLeave={nestedDrag ? (e) => {
+        (e.currentTarget as HTMLElement).style.outline = "";
+      } : undefined}
+      onDrop={nestedDrag ? (e) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).style.outline = "";
+        if (dragRef!.current && dragRef!.current.rowType === rowType) {
+          onDragDrop!(dragRef!.current.id, node.id, rowType!);
+        }
+        dragRef!.current = null;
+      } : undefined}
       sx={{
         border: "1px solid #d0d0d0",
         borderRadius: 2,
@@ -565,6 +595,31 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
+        {nestedDrag && (
+          <Box
+            onMouseDown={() => { dragHandleActive.current = true; }}
+            onMouseUp={() => { dragHandleActive.current = false; }}
+            sx={{
+              opacity: 0.5,
+              transition: "opacity 0.15s",
+              cursor: "grab",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              p: 0.25,
+              ml: -0.5,
+              borderRadius: 0.5,
+              zIndex: 2,
+              position: "relative",
+              bgcolor: "rgba(255,255,255,0.25)",
+              "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
+              "&:active": { cursor: "grabbing" },
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MaterialSymbol icon="drag_indicator" size={16} />
+          </Box>
+        )}
         <Typography
           variant="body2"
           sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
