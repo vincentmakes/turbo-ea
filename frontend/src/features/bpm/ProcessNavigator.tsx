@@ -502,19 +502,9 @@ function HouseCard({
     );
   }
 
-  // Container card with nested children
+  // Container card with nested children — drop target only, not draggable
   return (
     <Box
-      draggable={!!canDrag}
-      onDragStart={canDrag ? (e) => {
-        dragRef.current = { id: node.id, rowType: rowType! };
-        e.dataTransfer.effectAllowed = "move";
-        (e.currentTarget as HTMLElement).style.opacity = "0.4";
-      } : undefined}
-      onDragEnd={canDrag ? (e) => {
-        (e.currentTarget as HTMLElement).style.opacity = "";
-        dragRef.current = null;
-      } : undefined}
       onDragOver={canDrag ? (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -538,7 +528,6 @@ function HouseCard({
         bgcolor: "#fff",
         opacity,
         transition: "opacity 0.2s",
-        cursor: canDrag ? "grab" : "default",
       }}
     >
       <Box
@@ -559,9 +548,6 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
-        {canDrag && (
-          <MaterialSymbol icon="drag_indicator" size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
-        )}
         <Typography
           variant="body2"
           sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
