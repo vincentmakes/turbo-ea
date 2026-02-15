@@ -27,6 +27,7 @@ import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
 import { exportToExcel } from "./excelExport";
+import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type { FactSheet, FactSheetListResponse, FieldDef, Relation, RelationType } from "@/types";
@@ -145,6 +146,11 @@ export default function InventoryPage() {
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
 
+  // Relation cell popover state
+  const [relEditAnchor, setRelEditAnchor] = useState<HTMLElement | null>(null);
+  const [relEditFsId, setRelEditFsId] = useState("");
+  const [relEditRelType, setRelEditRelType] = useState<RelationType | null>(null);
+
   // React to ?create=true search param
   useEffect(() => {
     if (searchParams.get("create") === "true") {
@@ -188,37 +194,39 @@ export default function InventoryPage() {
     loadData();
   }, [loadData]);
 
-  // Fetch relations for each relevant relation type when data changes
+  // Fetch and index relations for each relevant relation type
+  const fetchRelations = useCallback(async () => {
+    if (!selectedType || relevantRelTypes.length === 0) {
+      setRelationsMap(new Map());
+      return;
+    }
+
+    const newMap = new Map<string, Map<string, string[]>>();
+    const results = await Promise.all(
+      relevantRelTypes.map((rt) =>
+        api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
+      )
+    );
+
+    for (let i = 0; i < relevantRelTypes.length; i++) {
+      const rt = relevantRelTypes[i];
+      const rels = results[i];
+      newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
+    }
+    setRelationsMap(newMap);
+  }, [selectedType, relevantRelTypes]);
+
+  // Fetch relations when data or relevant types change
   useEffect(() => {
-    if (!selectedType || relevantRelTypes.length === 0 || data.length === 0) {
+    if (data.length === 0) {
       setRelationsMap(new Map());
       return;
     }
 
     let cancelled = false;
-
-    (async () => {
-      const newMap = new Map<string, Map<string, string[]>>();
-      const results = await Promise.all(
-        relevantRelTypes.map((rt) =>
-          api.get<Relation[]>(`/relations?type=${rt.key}`).catch(() => [] as Relation[])
-        )
-      );
-
-      if (cancelled) return;
-
-      for (let i = 0; i < relevantRelTypes.length; i++) {
-        const rt = relevantRelTypes[i];
-        const rels = results[i];
-        newMap.set(rt.key, buildRelationIndex(rels, rt, selectedType));
-      }
-      setRelationsMap(newMap);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedType, relevantRelTypes, data]);
+    fetchRelations().then(() => { if (cancelled) return; });
+    return () => { cancelled = true; };
+  }, [fetchRelations, data]);
 
   // Pre-computed hierarchy display paths (id → "Parent / Child").
   // Built once from raw API data; completely detached from the mutable row objects
@@ -555,6 +563,7 @@ export default function InventoryPage() {
       const otherType = types.find((t) => t.key === otherTypeKey);
       const headerName = otherType?.label || otherTypeKey;
       const index = relationsMap.get(rt.key);
+      const relTypeRef = rt;
 
       cols.push({
         field: `rel_${rt.key}`,
@@ -565,7 +574,44 @@ export default function InventoryPage() {
           const names = index.get(p.data?.id);
           return names ? names.join("; ") : "";
         },
-        cellRenderer: (p: { value: string }) => {
+        cellRenderer: (p: { value: string; data: FactSheet }) => {
+          if (gridEditMode) {
+            return (
+              <Box
+                onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  setRelEditAnchor(e.currentTarget as HTMLElement);
+                  setRelEditFsId(p.data.id);
+                  setRelEditRelType(relTypeRef);
+                }}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  width: "100%",
+                  height: "100%",
+                  "&:hover": { bgcolor: "action.hover" },
+                  borderRadius: 0.5,
+                  px: 0.5,
+                }}
+              >
+                {otherType && (
+                  <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} />
+                )}
+                <Typography
+                  variant="body2"
+                  sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
+                  title={p.value}
+                >
+                  {p.value || <span style={{ color: "#999" }}>Click to edit</span>}
+                </Typography>
+                <MaterialSymbol icon="edit" size={14} color="#999" />
+              </Box>
+            );
+          }
           if (!p.value) return "";
           return (
             <Box
@@ -922,6 +968,17 @@ export default function InventoryPage() {
         allTypes={types}
         preSelectedType={selectedType || undefined}
       />
+
+      {relEditRelType && (
+        <RelationCellPopover
+          anchorEl={relEditAnchor}
+          onClose={() => { setRelEditAnchor(null); setRelEditFsId(""); setRelEditRelType(null); }}
+          factSheetId={relEditFsId}
+          relationType={relEditRelType}
+          selectedType={selectedType}
+          onRelationsChanged={fetchRelations}
+        />
+      )}
     </Box>
   );
 }
