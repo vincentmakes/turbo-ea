@@ -434,6 +434,25 @@ async def process_map(db: AsyncSession = Depends(get_db)):
             elif tid in proc_id_set and sid in ctx_id_set:
                 proc_ctxs[tid].add(sid)
 
+    # Fetch diagram coverage and element counts per process
+    from sqlalchemy import func as sa_func
+
+    diag_result = await db.execute(
+        select(
+            ProcessDiagram.process_id,
+            sa_func.max(ProcessDiagram.version).label("latest_version"),
+        ).group_by(ProcessDiagram.process_id)
+    )
+    diag_map = {str(row.process_id): row.latest_version for row in diag_result}
+
+    elem_result = await db.execute(
+        select(
+            ProcessElement.process_id,
+            sa_func.count(ProcessElement.id).label("cnt"),
+        ).group_by(ProcessElement.process_id)
+    )
+    elem_count_map = {str(row.process_id): row.cnt for row in elem_result}
+
     items = []
     for p in processes:
         pid = str(p.id)
@@ -460,6 +479,8 @@ async def process_map(db: AsyncSession = Depends(get_db)):
             "data_objects": proc_data.get(pid, []),
             "org_ids": sorted(proc_orgs.get(pid, set())),
             "ctx_ids": sorted(proc_ctxs.get(pid, set())),
+            "has_diagram": pid in diag_map,
+            "element_count": elem_count_map.get(pid, 0),
         })
 
     organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
