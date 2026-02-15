@@ -38,6 +38,9 @@ class User(Base, UUIDMixin, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auth_provider: Mapped[str] = mapped_column(String(20), default="local")  # local/sso
     sso_subject_id: Mapped[str | None] = mapped_column(String(256), nullable=True, unique=True)
+    password_setup_token: Mapped[str | None] = mapped_column(
+        String(128), nullable=True, unique=True
+    )
     notification_preferences: Mapped[dict | None] = mapped_column(
         JSONB, default=lambda: DEFAULT_NOTIFICATION_PREFERENCES.copy()
     )

@@ -38,6 +38,12 @@ def upgrade() -> None:
             sa.Column("sso_subject_id", sa.String(256), nullable=True, unique=True),
         )
 
+    if "password_setup_token" not in existing_columns:
+        op.add_column(
+            "users",
+            sa.Column("password_setup_token", sa.String(128), nullable=True, unique=True),
+        )
+
     # Make password_hash nullable (SSO users don't have passwords)
     op.alter_column("users", "password_hash", existing_type=sa.String(200), nullable=True)
 
@@ -69,6 +75,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table("sso_invitations")
+    op.drop_column("users", "password_setup_token")
     op.drop_column("users", "sso_subject_id")
     op.drop_column("users", "auth_provider")
     op.alter_column("users", "password_hash", existing_type=sa.String(200), nullable=False)

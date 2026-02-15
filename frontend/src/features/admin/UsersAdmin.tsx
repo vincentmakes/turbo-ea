@@ -31,51 +31,54 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 
 type Role = "admin" | "bpm_admin" | "member" | "viewer";
 
-interface UserFormState {
+interface InviteFormState {
   email: string;
   display_name: string;
   password: string;
-  role: Role;
-}
-
-const EMPTY_FORM: UserFormState = {
-  email: "",
-  display_name: "",
-  password: "",
-  role: "member",
-};
-
-interface InviteFormState {
-  email: string;
   role: Role;
   send_email: boolean;
 }
 
 const EMPTY_INVITE: InviteFormState = {
   email: "",
-  role: "viewer",
-  send_email: false,
+  display_name: "",
+  password: "",
+  role: "member",
+  send_email: true,
 };
+
+interface EditFormState {
+  email: string;
+  display_name: string;
+  password: string;
+  role: Role;
+}
 
 export default function UsersAdmin() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Dialog state
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [form, setForm] = useState<UserFormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  // SSO invitation state
-  const [invitations, setInvitations] = useState<SsoInvitation[]>([]);
+  // Invite dialog state
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteForm, setInviteForm] = useState<InviteFormState>(EMPTY_INVITE);
-  const [inviteFormError, setInviteFormError] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
+
+  // Edit dialog state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState<EditFormState>({
+    email: "",
+    display_name: "",
+    password: "",
+    role: "member",
+  });
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Pending invitations
+  const [invitations, setInvitations] = useState<SsoInvitation[]>([]);
   const [ssoEnabled, setSsoEnabled] = useState(false);
 
   const fetchUsers = useCallback(async () => {
@@ -157,66 +160,71 @@ export default function UsersAdmin() {
     }
   };
 
-  // --- Create dialog ---
-  const openCreate = () => {
-    setForm(EMPTY_FORM);
-    setFormError(null);
-    setCreateOpen(true);
+  // --- Invite dialog ---
+  const openInvite = () => {
+    setInviteForm(EMPTY_INVITE);
+    setInviteError(null);
+    setInviteOpen(true);
   };
 
-  const handleCreate = async () => {
-    if (!form.email.trim() || !form.display_name.trim() || !form.password) {
-      setFormError("Email, display name, and password are required.");
+  const handleInvite = async () => {
+    if (!inviteForm.email.trim() || !inviteForm.display_name.trim()) {
+      setInviteError("Email and display name are required.");
       return;
     }
     try {
-      setSubmitting(true);
-      setFormError(null);
+      setInviteSubmitting(true);
+      setInviteError(null);
       const created = await api.post<User>("/users", {
-        email: form.email.trim(),
-        display_name: form.display_name.trim(),
-        password: form.password,
-        role: form.role,
+        email: inviteForm.email.trim(),
+        display_name: inviteForm.display_name.trim(),
+        password: inviteForm.password || null,
+        role: inviteForm.role,
+        send_email: inviteForm.send_email,
       });
       setUsers((prev) => [...prev, created]);
-      setCreateOpen(false);
+      setInviteOpen(false);
+      // Refresh invitations since one was created alongside the user
+      fetchInvitations();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to create user");
+      setInviteError(
+        err instanceof Error ? err.message : "Failed to invite user"
+      );
     } finally {
-      setSubmitting(false);
+      setInviteSubmitting(false);
     }
   };
 
   // --- Edit dialog ---
   const openEdit = (user: User) => {
     setEditingUser(user);
-    setForm({
+    setEditForm({
       email: user.email,
       display_name: user.display_name,
       password: "",
       role: user.role as Role,
     });
-    setFormError(null);
+    setEditError(null);
     setEditOpen(true);
   };
 
   const handleEdit = async () => {
     if (!editingUser) return;
-    if (!form.email.trim() || !form.display_name.trim()) {
-      setFormError("Email and display name are required.");
+    if (!editForm.email.trim() || !editForm.display_name.trim()) {
+      setEditError("Email and display name are required.");
       return;
     }
     const payload: Record<string, string> = {
-      email: form.email.trim(),
-      display_name: form.display_name.trim(),
-      role: form.role,
+      email: editForm.email.trim(),
+      display_name: editForm.display_name.trim(),
+      role: editForm.role,
     };
-    if (form.password) {
-      payload.password = form.password;
+    if (editForm.password) {
+      payload.password = editForm.password;
     }
     try {
-      setSubmitting(true);
-      setFormError(null);
+      setEditSubmitting(true);
+      setEditError(null);
       const updated = await api.patch<User>(
         `/users/${editingUser.id}`,
         payload
@@ -227,48 +235,15 @@ export default function UsersAdmin() {
       setEditOpen(false);
       setEditingUser(null);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to update user");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // --- Form field handler ---
-  const updateField = (field: keyof UserFormState, value: string) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  // --- SSO Invitation handlers ---
-  const openInvite = () => {
-    setInviteForm(EMPTY_INVITE);
-    setInviteFormError(null);
-    setInviteOpen(true);
-  };
-
-  const handleInvite = async () => {
-    if (!inviteForm.email.trim()) {
-      setInviteFormError("Email is required.");
-      return;
-    }
-    try {
-      setInviteSubmitting(true);
-      setInviteFormError(null);
-      const created = await api.post<SsoInvitation>("/users/invitations", {
-        email: inviteForm.email.trim(),
-        role: inviteForm.role,
-        send_email: inviteForm.send_email,
-      });
-      setInvitations((prev) => [...prev, created]);
-      setInviteOpen(false);
-    } catch (err) {
-      setInviteFormError(
-        err instanceof Error ? err.message : "Failed to create invitation"
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update user"
       );
     } finally {
-      setInviteSubmitting(false);
+      setEditSubmitting(false);
     }
   };
 
+  // --- Delete invitation ---
   const handleDeleteInvitation = async (inv: SsoInvitation) => {
     try {
       await api.delete(`/users/invitations/${inv.id}`);
@@ -280,61 +255,25 @@ export default function UsersAdmin() {
     }
   };
 
-  // --- Shared dialog form ---
   const isEditingSsoUser = editingUser?.auth_provider === "sso";
 
-  const renderFormFields = (isEdit: boolean) => (
-    <Stack spacing={2.5} sx={{ mt: 1 }}>
-      <TextField
-        label="Display Name"
-        value={form.display_name}
-        onChange={(e) => updateField("display_name", e.target.value)}
-        fullWidth
-        required
-        autoFocus={!isEdit}
-        size="small"
-      />
-      <TextField
-        label="Email"
-        type="email"
-        value={form.email}
-        onChange={(e) => updateField("email", e.target.value)}
-        fullWidth
-        required
-        size="small"
-      />
-      {!isEditingSsoUser && (
-        <TextField
-          label={isEdit ? "Password (leave blank to keep current)" : "Password"}
-          type="password"
-          value={form.password}
-          onChange={(e) => updateField("password", e.target.value)}
-          fullWidth
-          required={!isEdit}
-          size="small"
-        />
-      )}
-      {isEditingSsoUser && (
-        <Alert severity="info" variant="outlined">
-          This user authenticates via SSO. Password cannot be set.
-        </Alert>
-      )}
-      <FormControl fullWidth size="small">
-        <InputLabel>Role</InputLabel>
-        <Select
-          label="Role"
-          value={form.role}
-          onChange={(e) => updateField("role", e.target.value)}
-        >
-          <MenuItem value="admin">Admin</MenuItem>
-          <MenuItem value="bpm_admin">BPM Admin</MenuItem>
-          <MenuItem value="member">Member</MenuItem>
-          <MenuItem value="viewer">Viewer</MenuItem>
-        </Select>
-      </FormControl>
-      {formError && <Alert severity="error">{formError}</Alert>}
-    </Stack>
-  );
+  // Helper to get auth status chip
+  const getAuthChip = (u: User) => {
+    if (u.auth_provider === "sso") {
+      if (u.has_password) {
+        return (
+          <Chip size="small" label="SSO + Password" color="info" variant="outlined" />
+        );
+      }
+      return <Chip size="small" label="SSO" color="info" variant="outlined" />;
+    }
+    if (u.pending_setup) {
+      return (
+        <Chip size="small" label="Pending Setup" color="warning" variant="outlined" />
+      );
+    }
+    return <Chip size="small" label="Local" color="default" variant="outlined" />;
+  };
 
   return (
     <Box>
@@ -350,24 +289,13 @@ export default function UsersAdmin() {
         <Typography variant="h5" fontWeight={600}>
           User Management
         </Typography>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          {ssoEnabled && (
-            <Button
-              variant="outlined"
-              startIcon={<MaterialSymbol icon="mail" size={20} />}
-              onClick={openInvite}
-            >
-              Invite via SSO
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<MaterialSymbol icon="person_add" size={20} />}
-            onClick={openCreate}
-          >
-            Create User
-          </Button>
-        </Box>
+        <Button
+          variant="contained"
+          startIcon={<MaterialSymbol icon="person_add" size={20} />}
+          onClick={openInvite}
+        >
+          Invite User
+        </Button>
       </Box>
 
       {/* Error banner */}
@@ -422,18 +350,12 @@ export default function UsersAdmin() {
                       sx={{ minWidth: 110 }}
                     >
                       <MenuItem value="admin">Admin</MenuItem>
+                      <MenuItem value="bpm_admin">BPM Admin</MenuItem>
                       <MenuItem value="member">Member</MenuItem>
                       <MenuItem value="viewer">Viewer</MenuItem>
                     </Select>
                   </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={u.auth_provider === "sso" ? "SSO" : "Local"}
-                      color={u.auth_provider === "sso" ? "info" : "default"}
-                      variant="outlined"
-                    />
-                  </TableCell>
+                  <TableCell>{getAuthChip(u)}</TableCell>
                   <TableCell>
                     <Chip
                       size="small"
@@ -479,11 +401,11 @@ export default function UsersAdmin() {
         </Table>
       </TableContainer>
 
-      {/* Pending SSO Invitations */}
-      {ssoEnabled && invitations.length > 0 && (
+      {/* Pending Invitations */}
+      {invitations.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-            Pending SSO Invitations
+            Pending Invitations
           </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
@@ -530,67 +452,39 @@ export default function UsersAdmin() {
         </Box>
       )}
 
-      {/* Create User Dialog */}
-      <Dialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Create User</DialogTitle>
-        <DialogContent>{renderFormFields(false)}</DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setCreateOpen(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={submitting}
-          >
-            {submitting ? "Creating..." : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Edit User Dialog */}
-      <Dialog
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>Edit User</DialogTitle>
-        <DialogContent>{renderFormFields(true)}</DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditOpen(false)} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleEdit}
-            disabled={submitting}
-          >
-            {submitting ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* SSO Invite Dialog */}
+      {/* Invite User Dialog */}
       <Dialog
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Invite User via SSO</DialogTitle>
+        <DialogTitle>Invite User</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
-            <Alert severity="info" variant="outlined">
-              Invite a user by their email address. When they sign in with
-              Microsoft for the first time, they will be assigned the role
-              you select below instead of the default Viewer role.
-            </Alert>
+            {ssoEnabled && (
+              <Alert severity="info" variant="outlined">
+                SSO is enabled. If no password is defined, the user will need to
+                sign in with Microsoft.
+              </Alert>
+            )}
+            {!ssoEnabled && (
+              <Alert severity="info" variant="outlined">
+                If no password is defined, the user will receive an email with a
+                link to set their password.
+              </Alert>
+            )}
+            <TextField
+              label="Display Name"
+              value={inviteForm.display_name}
+              onChange={(e) =>
+                setInviteForm((p) => ({ ...p, display_name: e.target.value }))
+              }
+              fullWidth
+              required
+              autoFocus
+              size="small"
+            />
             <TextField
               label="Email"
               type="email"
@@ -600,8 +494,22 @@ export default function UsersAdmin() {
               }
               fullWidth
               required
-              autoFocus
               size="small"
+            />
+            <TextField
+              label="Password (optional)"
+              type="password"
+              value={inviteForm.password}
+              onChange={(e) =>
+                setInviteForm((p) => ({ ...p, password: e.target.value }))
+              }
+              fullWidth
+              size="small"
+              helperText={
+                ssoEnabled
+                  ? "If set, the user can also sign in with this password instead of SSO."
+                  : "Leave blank to send a password setup link via email."
+              }
             />
             <FormControl fullWidth size="small">
               <InputLabel>Role</InputLabel>
@@ -635,9 +543,7 @@ export default function UsersAdmin() {
               }
               label="Send invitation email"
             />
-            {inviteFormError && (
-              <Alert severity="error">{inviteFormError}</Alert>
-            )}
+            {inviteError && <Alert severity="error">{inviteError}</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -652,7 +558,90 @@ export default function UsersAdmin() {
             onClick={handleInvite}
             disabled={inviteSubmitting}
           >
-            {inviteSubmitting ? "Inviting..." : "Send Invitation"}
+            {inviteSubmitting ? "Inviting..." : "Invite User"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Edit User</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <TextField
+              label="Display Name"
+              value={editForm.display_name}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, display_name: e.target.value }))
+              }
+              fullWidth
+              required
+              size="small"
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={editForm.email}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, email: e.target.value }))
+              }
+              fullWidth
+              required
+              size="small"
+            />
+            {!isEditingSsoUser && (
+              <TextField
+                label="Password (leave blank to keep current)"
+                type="password"
+                value={editForm.password}
+                onChange={(e) =>
+                  setEditForm((p) => ({ ...p, password: e.target.value }))
+                }
+                fullWidth
+                size="small"
+              />
+            )}
+            {isEditingSsoUser && (
+              <Alert severity="info" variant="outlined">
+                This user authenticates via SSO. Password cannot be changed.
+              </Alert>
+            )}
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                label="Role"
+                value={editForm.role}
+                onChange={(e) =>
+                  setEditForm((p) => ({
+                    ...p,
+                    role: e.target.value as Role,
+                  }))
+                }
+              >
+                <MenuItem value="admin">Admin</MenuItem>
+                <MenuItem value="bpm_admin">BPM Admin</MenuItem>
+                <MenuItem value="member">Member</MenuItem>
+                <MenuItem value="viewer">Viewer</MenuItem>
+              </Select>
+            </FormControl>
+            {editError && <Alert severity="error">{editError}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditOpen(false)} disabled={editSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleEdit}
+            disabled={editSubmitting}
+          >
+            {editSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>

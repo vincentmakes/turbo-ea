@@ -44,10 +44,16 @@ export function useAuth() {
     await loadUser();
   };
 
+  const setPassword = async (token: string, password: string) => {
+    const { access_token } = await auth.setPassword(token, password);
+    localStorage.setItem("token", access_token);
+    await loadUser();
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
   };
 
-  return { user, loading, login, register, ssoCallback, logout };
+  return { user, loading, login, register, ssoCallback, setPassword, logout };
 }

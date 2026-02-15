@@ -33,6 +33,7 @@ import SurveyRespond from "@/features/surveys/SurveyRespond";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
 import SsoCallback from "@/features/auth/SsoCallback";
+import SetPasswordPage from "@/features/auth/SetPasswordPage";
 import BpmDashboard from "@/features/bpm/BpmDashboard";
 import ProcessFlowEditorPage from "@/features/bpm/ProcessFlowEditorPage";
 
@@ -55,7 +56,7 @@ const theme = createTheme({
 
 /** Inner component that handles authenticated vs public routes. */
 function AppRoutes() {
-  const { user, loading, login, register, ssoCallback, logout } = useAuth();
+  const { user, loading, login, register, ssoCallback, setPassword, logout } = useAuth();
 
   if (loading) {
     return (
@@ -72,6 +73,8 @@ function AppRoutes() {
         <Route path="/portal/:slug" element={<PortalViewer />} />
         {/* SSO callback route */}
         <Route path="/auth/callback" element={<SsoCallback onSsoCallback={ssoCallback} />} />
+        {/* Password setup route (for invited users) */}
+        <Route path="/auth/set-password" element={<SetPasswordPage onSetPassword={setPassword} />} />
         {/* Everything else redirects to login */}
         <Route path="*" element={<LoginPage onLogin={login} onRegister={register} />} />
       </Routes>

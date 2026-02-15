@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 from base64 import urlsafe_b64decode
 
 import httpx
@@ -89,7 +90,14 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(
             403, "This account uses SSO authentication. Please sign in with Microsoft."
         )
-    if not user.password_hash or not verify_password(body.password, user.password_hash):
+    if not user.password_hash:
+        if user.password_setup_token:
+            raise HTTPException(
+                403,
+                "Password not set yet. Check your email for the setup link.",
+            )
+        raise HTTPException(401, "Invalid credentials")
+    if not verify_password(body.password, user.password_hash):
         raise HTTPException(401, "Invalid credentials")
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
@@ -226,12 +234,15 @@ async def sso_callback(body: SsoCallbackRequest, db: AsyncSession = Depends(get_
     user = result.scalar_one_or_none()
 
     if user:
-        # Link existing local account to SSO — becomes SSO-only
-        user.auth_provider = "sso"
+        # Link existing local account to SSO
         user.sso_subject_id = sso_subject_id
-        user.password_hash = None  # Remove password, SSO-only from now on
+        # Keep password if set (user can still login with password)
+        if not user.password_hash:
+            user.auth_provider = "sso"
         if display_name and not user.display_name:
             user.display_name = display_name
+        # Clear setup token if present (SSO login counts as activation)
+        user.password_setup_token = None
         await db.commit()
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
@@ -262,3 +273,53 @@ async def sso_callback(body: SsoCallbackRequest, db: AsyncSession = Depends(get_
     await db.refresh(user)
 
     return TokenResponse(access_token=create_access_token(user.id, user.role))
+
+
+# ---------------------------------------------------------------------------
+# Password setup endpoints (for invited users without a password)
+# ---------------------------------------------------------------------------
+
+class SetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+@router.get("/validate-setup-token")
+async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
+    """Check if a password-setup token is valid. Returns the user's email."""
+    result = await db.execute(
+        select(User).where(User.password_setup_token == token)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Invalid or expired setup token")
+    return {"email": user.email, "display_name": user.display_name}
+
+
+@router.post("/set-password", response_model=TokenResponse)
+async def set_password(
+    body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
+):
+    """Set a password for an invited user using a one-time setup token."""
+    if len(body.password) < 6:
+        raise HTTPException(400, "Password must be at least 6 characters")
+
+    result = await db.execute(
+        select(User).where(User.password_setup_token == body.token)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(404, "Invalid or expired setup token")
+
+    user.password_hash = hash_password(body.password)
+    user.password_setup_token = None
+    if user.auth_provider != "sso":
+        user.auth_provider = "local"
+    await db.commit()
+
+    return TokenResponse(access_token=create_access_token(user.id, user.role))
+
+
+def generate_setup_token() -> str:
+    """Generate a cryptographically secure setup token."""
+    return secrets.token_urlsafe(48)
