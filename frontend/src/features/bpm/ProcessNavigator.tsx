@@ -1701,8 +1701,8 @@ export default function ProcessNavigator() {
 
   const handleNavigate = useCallback(
     (path: string) => {
-      setDrawerNode(null);
-      // Check if it's a full path or just an ID
+      // Navigate first — don't clear drawer state before navigating,
+      // because the URL sync effect would override the navigation.
       if (path.startsWith("/")) {
         navigate(path);
       } else {
@@ -1984,27 +1984,60 @@ export default function ProcessNavigator() {
                           No {PROCESS_TYPE_ROW_LABELS[rowType].toLowerCase()} defined
                         </Typography>
                       </Box>
-                    ) : (
-                      <Box
-                        sx={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                          gap: 1.5,
-                        }}
-                      >
-                        {nodes.map((node) => (
-                          <HouseCard
-                            key={node.id}
-                            node={node}
-                            displayLevel={displayLevel}
-                            overlay={overlay}
-                            search={search}
-                            onOpen={handleOpenDrawer}
-                            onDrill={handleDrill}
-                          />
-                        ))}
-                      </Box>
-                    )}
+                    ) : (() => {
+                      // Check if nodes will render as containers (expanded with children)
+                      // or as compact leaf cards. This determines the grid layout.
+                      const allLeaves = nodes.every(
+                        (n) => n.level >= displayLevel || n.children.length === 0,
+                      );
+                      return allLeaves ? (
+                        // Leaf cards: multi-column grid filling the row
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                            gap: 1.5,
+                          }}
+                        >
+                          {nodes.map((node) => (
+                            <HouseCard
+                              key={node.id}
+                              node={node}
+                              displayLevel={displayLevel}
+                              overlay={overlay}
+                              search={search}
+                              onOpen={handleOpenDrawer}
+                              onDrill={handleDrill}
+                            />
+                          ))}
+                        </Box>
+                      ) : (
+                        // Container cards: 2-column layout on wide screens
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                              xs: "1fr",
+                              md: nodes.length === 1 ? "1fr" : "1fr 1fr",
+                              lg: nodes.length <= 2 ? "repeat(" + nodes.length + ", 1fr)" : "1fr 1fr 1fr",
+                            },
+                            gap: 1.5,
+                          }}
+                        >
+                          {nodes.map((node) => (
+                            <HouseCard
+                              key={node.id}
+                              node={node}
+                              displayLevel={displayLevel}
+                              overlay={overlay}
+                              search={search}
+                              onOpen={handleOpenDrawer}
+                              onDrill={handleDrill}
+                            />
+                          ))}
+                        </Box>
+                      );
+                    })()}
                   </Box>
                 );
               })}
