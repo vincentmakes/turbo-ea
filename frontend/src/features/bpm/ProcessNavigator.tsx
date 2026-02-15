@@ -42,7 +42,6 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -161,7 +160,6 @@ const SUBTYPE_LABELS: Record<string, string> = {
   variant: "Variant",
 };
 
-const PROCESS_TYPE_ROWS = ["management", "core", "support"] as const;
 const PROCESS_TYPE_ROW_LABELS: Record<string, string> = {
   management: "Management Processes",
   core: "Core Processes",
@@ -326,22 +324,22 @@ function HouseCard({
   overlay,
   search,
   isAdmin,
-  siblingIndex,
-  siblingCount,
+  rowType,
   onOpen,
   onDrill,
-  onReorder,
+  dragRef,
+  onDragDrop,
 }: {
   node: ProcNode;
   displayLevel: number;
   overlay: ColorOverlay;
   search: string;
   isAdmin?: boolean;
-  siblingIndex?: number;
-  siblingCount?: number;
+  rowType?: string;
   onOpen: (n: ProcNode) => void;
   onDrill: (id: string) => void;
-  onReorder?: (id: string, direction: "left" | "right") => void;
+  dragRef?: React.MutableRefObject<{ id: string; rowType: string } | null>;
+  onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
@@ -355,20 +353,47 @@ function HouseCard({
     !search || node.name.toLowerCase().includes(search.toLowerCase());
   const opacity = search && !matchesSearch ? 0.3 : 1;
 
+  const canDrag = isAdmin && dragRef && onDragDrop && rowType;
+
   if (isLeaf) {
     return (
       <Box
+        draggable={!!canDrag}
+        onDragStart={canDrag ? (e) => {
+          dragRef.current = { id: node.id, rowType: rowType! };
+          e.dataTransfer.effectAllowed = "move";
+          (e.currentTarget as HTMLElement).style.opacity = "0.4";
+        } : undefined}
+        onDragEnd={canDrag ? (e) => {
+          (e.currentTarget as HTMLElement).style.opacity = "";
+          dragRef.current = null;
+        } : undefined}
+        onDragOver={canDrag ? (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+          (e.currentTarget as HTMLElement).style.outline = "2px solid " + color;
+        } : undefined}
+        onDragLeave={canDrag ? (e) => {
+          (e.currentTarget as HTMLElement).style.outline = "";
+        } : undefined}
+        onDrop={canDrag ? (e) => {
+          e.preventDefault();
+          (e.currentTarget as HTMLElement).style.outline = "";
+          if (dragRef.current && dragRef.current.rowType === rowType) {
+            onDragDrop(dragRef.current.id, node.id, rowType!);
+          }
+          dragRef.current = null;
+        } : undefined}
         sx={{
           border: "1px solid",
           borderColor: matchesSearch && search ? color : "#e0e0e0",
           borderRadius: 2,
           overflow: "hidden",
           bgcolor: "#fff",
-          cursor: "pointer",
+          cursor: canDrag ? "grab" : "pointer",
           transition: "all 0.2s",
           opacity,
           "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
-          "&:hover .reorder-arrows": { opacity: 1 },
         }}
         onClick={() => onOpen(node)}
         tabIndex={0}
@@ -380,7 +405,8 @@ function HouseCard({
         <Box
           sx={{
             px: 1.5,
-            py: 1,
+            py: 0.75,
+            minHeight: 38,
             bgcolor: color,
             color: "#fff",
             display: "flex",
@@ -388,38 +414,18 @@ function HouseCard({
             gap: 0.5,
           }}
         >
-          {isAdmin && onReorder && (siblingCount ?? 0) > 1 && (
-            <Box
-              className="reorder-arrows"
-              sx={{
-                display: "flex",
-                opacity: 0,
-                transition: "opacity 0.15s",
-                mr: 0.25,
-                flexShrink: 0,
-              }}
-            >
-              <IconButton
-                size="small"
-                disabled={(siblingIndex ?? 0) === 0}
-                onClick={(e) => { e.stopPropagation(); onReorder(node.id, "left"); }}
-                sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
-              >
-                <MaterialSymbol icon="chevron_left" size={14} />
-              </IconButton>
-              <IconButton
-                size="small"
-                disabled={(siblingIndex ?? 0) >= (siblingCount ?? 1) - 1}
-                onClick={(e) => { e.stopPropagation(); onReorder(node.id, "right"); }}
-                sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
-              >
-                <MaterialSymbol icon="chevron_right" size={14} />
-              </IconButton>
-            </Box>
-          )}
           <Typography
             variant="body2"
-            sx={{ fontWeight: 600, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.82rem",
+              flex: 1,
+              lineHeight: 1.3,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
           >
             {node.name}
           </Typography>
@@ -499,6 +505,32 @@ function HouseCard({
   // Container card with nested children
   return (
     <Box
+      draggable={!!canDrag}
+      onDragStart={canDrag ? (e) => {
+        dragRef.current = { id: node.id, rowType: rowType! };
+        e.dataTransfer.effectAllowed = "move";
+        (e.currentTarget as HTMLElement).style.opacity = "0.4";
+      } : undefined}
+      onDragEnd={canDrag ? (e) => {
+        (e.currentTarget as HTMLElement).style.opacity = "";
+        dragRef.current = null;
+      } : undefined}
+      onDragOver={canDrag ? (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        (e.currentTarget as HTMLElement).style.outline = "2px solid " + color;
+      } : undefined}
+      onDragLeave={canDrag ? (e) => {
+        (e.currentTarget as HTMLElement).style.outline = "";
+      } : undefined}
+      onDrop={canDrag ? (e) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement).style.outline = "";
+        if (dragRef.current && dragRef.current.rowType === rowType) {
+          onDragDrop!(dragRef.current.id, node.id, rowType!);
+        }
+        dragRef.current = null;
+      } : undefined}
       sx={{
         border: "1px solid #d0d0d0",
         borderRadius: 2,
@@ -506,7 +538,7 @@ function HouseCard({
         bgcolor: "#fff",
         opacity,
         transition: "opacity 0.2s",
-        "&:hover .reorder-arrows": { opacity: 1 },
+        cursor: canDrag ? "grab" : "default",
       }}
     >
       <Box
@@ -527,34 +559,8 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
-        {isAdmin && onReorder && (siblingCount ?? 0) > 1 && (
-          <Box
-            className="reorder-arrows"
-            sx={{
-              display: "flex",
-              opacity: 0,
-              transition: "opacity 0.15s",
-              mr: 0.25,
-              flexShrink: 0,
-            }}
-          >
-            <IconButton
-              size="small"
-              disabled={(siblingIndex ?? 0) === 0}
-              onClick={(e) => { e.stopPropagation(); onReorder(node.id, "left"); }}
-              sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
-            >
-              <MaterialSymbol icon="chevron_left" size={14} />
-            </IconButton>
-            <IconButton
-              size="small"
-              disabled={(siblingIndex ?? 0) >= (siblingCount ?? 1) - 1}
-              onClick={(e) => { e.stopPropagation(); onReorder(node.id, "right"); }}
-              sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
-            >
-              <MaterialSymbol icon="chevron_right" size={14} />
-            </IconButton>
-          </Box>
+        {canDrag && (
+          <MaterialSymbol icon="drag_indicator" size={16} style={{ opacity: 0.6, flexShrink: 0 }} />
         )}
         <Typography
           variant="body2"
@@ -581,19 +587,15 @@ function HouseCard({
         />
       </Box>
       <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
-        {node.children.map((ch, idx) => (
+        {node.children.map((ch) => (
           <Box key={ch.id}>
             <HouseCard
               node={ch}
               displayLevel={displayLevel}
               overlay={overlay}
               search={search}
-              isAdmin={isAdmin}
-              siblingIndex={idx}
-              siblingCount={node.children.length}
               onOpen={onOpen}
               onDrill={onDrill}
-              onReorder={onReorder}
             />
           </Box>
         ))}
@@ -609,14 +611,12 @@ function HouseCard({
 function DrawerOverview({
   node,
   overlay,
-  fmtCost,
   onNavigate,
   onSwitchNode,
   onDrill,
 }: {
   node: ProcNode;
   overlay: ColorOverlay;
-  fmtCost: (v: number) => string;
   onNavigate: (id: string) => void;
   onSwitchNode: (n: ProcNode) => void;
   onDrill: (id: string) => void;
@@ -664,10 +664,6 @@ function DrawerOverview({
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepDataObjects.size}</Typography>
           <Typography variant="caption" color="text.secondary">Data Objects</Typography>
-        </Box>
-        <Box sx={{ textAlign: "center", minWidth: 70 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{fmtCost(node.deepCost)}</Typography>
-          <Typography variant="caption" color="text.secondary">Cost</Typography>
         </Box>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.element_count ?? 0}</Typography>
@@ -1309,7 +1305,6 @@ function ProcessDrawer({
   overlay,
   typeIcon,
   typeColor,
-  fmtCost,
   onClose,
   onNavigate,
   onSwitchNode,
@@ -1319,7 +1314,6 @@ function ProcessDrawer({
   overlay: ColorOverlay;
   typeIcon: string;
   typeColor: string;
-  fmtCost: (v: number) => string;
   onClose: () => void;
   onNavigate: (path: string) => void;
   onSwitchNode: (n: ProcNode) => void;
@@ -1406,7 +1400,6 @@ function ProcessDrawer({
           <DrawerOverview
             node={node}
             overlay={overlay}
-            fmtCost={fmtCost}
             onNavigate={onNavigate}
             onSwitchNode={onSwitchNode}
             onDrill={onDrill}
@@ -1702,7 +1695,6 @@ function OverlayLegend({ overlay }: { overlay: ColorOverlay }) {
 export default function ProcessNavigator() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { fmtShort } = useCurrency();
   const { getType } = useMetamodel();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -1718,6 +1710,7 @@ export default function ProcessNavigator() {
   const [organizations, setOrganizations] = useState<RefItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reordering, setReordering] = useState(false);
+  const [rowOrder, setRowOrder] = useState<string[]>(["management", "core", "support"]);
 
   // ── URL-synced state ──
   const viewParam = (searchParams.get("view") as ViewMode) || "house";
@@ -1737,13 +1730,16 @@ export default function ProcessNavigator() {
 
   // ── Load data ──
   const loadData = useCallback(() => {
-    api
-      .get<{ items: ProcItem[]; organizations: RefItem[]; business_contexts: RefItem[] }>(
+    Promise.all([
+      api.get<{ items: ProcItem[]; organizations: RefItem[]; business_contexts: RefItem[] }>(
         "/reports/bpm/process-map",
-      )
-      .then((r) => {
+      ),
+      api.get<{ row_order: string[] }>("/settings/bpm-row-order").catch(() => ({ row_order: ["management", "core", "support"] })),
+    ])
+      .then(([r, rowOrderRes]) => {
         setData(r.items);
         setOrganizations(r.organizations ?? []);
+        if (rowOrderRes.row_order?.length) setRowOrder(rowOrderRes.row_order);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -1853,19 +1849,16 @@ export default function ProcessNavigator() {
     setDrawerNode(n);
   }, []);
 
-  // ── Reorder handler (admin only) ──
-  const handleReorder = useCallback(
-    async (nodeId: string, direction: "left" | "right") => {
-      if (!data || reordering) return;
-      // Find the node and its siblings (same parent & same processType row)
-      const item = data.find((d) => d.id === nodeId);
-      if (!item) return;
+  // ── Drag-and-drop reorder for cards (admin only) ──
+  const dragRef = useRef<{ id: string; rowType: string } | null>(null);
+  const handleDragDrop = useCallback(
+    async (dragId: string, dropId: string, rowType: string) => {
+      if (!data || reordering || dragId === dropId) return;
 
-      // Get siblings: same parent_id, same processType
-      const pType = (item.attributes?.processType as string) || "core";
+      // Get siblings in same row
       const siblings = data
-        .filter((d) => d.parent_id === item.parent_id
-          && ((d.attributes?.processType as string) || "core") === pType)
+        .filter((d) => !d.parent_id
+          && ((d.attributes?.processType as string) || "core") === rowType)
         .sort((a, b) => {
           const oa = (a.attributes?.sortOrder as number) ?? 999;
           const ob = (b.attributes?.sortOrder as number) ?? 999;
@@ -1873,30 +1866,50 @@ export default function ProcessNavigator() {
           return a.name.localeCompare(b.name);
         });
 
-      const idx = siblings.findIndex((s) => s.id === nodeId);
-      const swapIdx = direction === "left" ? idx - 1 : idx + 1;
-      if (idx < 0 || swapIdx < 0 || swapIdx >= siblings.length) return;
+      const fromIdx = siblings.findIndex((s) => s.id === dragId);
+      const toIdx = siblings.findIndex((s) => s.id === dropId);
+      if (fromIdx < 0 || toIdx < 0) return;
+
+      const reordered = [...siblings];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
 
       setReordering(true);
       try {
-        const currentOrder = (siblings[idx].attributes?.sortOrder as number) ?? idx;
-        const swapOrder = (siblings[swapIdx].attributes?.sortOrder as number) ?? swapIdx;
-        await Promise.all([
-          api.patch(`/fact-sheets/${siblings[idx].id}`, {
-            attributes: { ...(siblings[idx].attributes || {}), sortOrder: swapOrder },
-          }),
-          api.patch(`/fact-sheets/${siblings[swapIdx].id}`, {
-            attributes: { ...(siblings[swapIdx].attributes || {}), sortOrder: currentOrder },
-          }),
-        ]);
+        await Promise.all(
+          reordered.map((s, i) =>
+            api.patch(`/fact-sheets/${s.id}`, {
+              attributes: { ...(s.attributes || {}), sortOrder: i },
+            }),
+          ),
+        );
         loadData();
       } catch (e) {
-        console.error("Reorder failed", e);
+        console.error("Drag reorder failed", e);
       } finally {
         setReordering(false);
       }
     },
     [data, reordering, loadData],
+  );
+
+  // ── Row reorder (admin) ──
+  const handleMoveRow = useCallback(
+    async (rowType: string, direction: "up" | "down") => {
+      const idx = rowOrder.indexOf(rowType);
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= rowOrder.length) return;
+      const newOrder = [...rowOrder];
+      [newOrder[idx], newOrder[swapIdx]] = [newOrder[swapIdx], newOrder[idx]];
+      setRowOrder(newOrder);
+      // Persist to backend
+      try {
+        await api.patch("/settings/bpm-row-order", { row_order: newOrder });
+      } catch (e) {
+        console.error("Failed to save row order", e);
+      }
+    },
+    [rowOrder],
   );
 
   // ── Process House: group roots by processType ──
@@ -2151,7 +2164,7 @@ export default function ProcessNavigator() {
             </Box>
           ) : (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
-              {PROCESS_TYPE_ROWS.map((rowType) => {
+              {rowOrder.map((rowType, rowIdx) => {
                 const nodes = houseRows[rowType] || [];
                 if (nodes.length === 0 && search) return null;
                 return (
@@ -2189,6 +2202,26 @@ export default function ProcessNavigator() {
                       <Typography variant="caption" color="text.secondary">
                         ({nodes.length})
                       </Typography>
+                      {isAdmin && rowOrder.length > 1 && (
+                        <Box sx={{ display: "flex", ml: 0.5 }}>
+                          <IconButton
+                            size="small"
+                            disabled={rowIdx === 0}
+                            onClick={() => handleMoveRow(rowType, "up")}
+                            sx={{ p: 0.25 }}
+                          >
+                            <MaterialSymbol icon="arrow_upward" size={14} />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            disabled={rowIdx === rowOrder.length - 1}
+                            onClick={() => handleMoveRow(rowType, "down")}
+                            sx={{ p: 0.25 }}
+                          >
+                            <MaterialSymbol icon="arrow_downward" size={14} />
+                          </IconButton>
+                        </Box>
+                      )}
                     </Box>
 
                     {/* Cards grid */}
@@ -2217,11 +2250,11 @@ export default function ProcessNavigator() {
                         <Box
                           sx={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
                             gap: 1.5,
                           }}
                         >
-                          {nodes.map((node, idx) => (
+                          {nodes.map((node) => (
                             <HouseCard
                               key={node.id}
                               node={node}
@@ -2229,11 +2262,11 @@ export default function ProcessNavigator() {
                               overlay={overlay}
                               search={search}
                               isAdmin={isAdmin}
-                              siblingIndex={idx}
-                              siblingCount={nodes.length}
+                              rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
-                              onReorder={handleReorder}
+                              dragRef={dragRef}
+                              onDragDrop={handleDragDrop}
                             />
                           ))}
                         </Box>
@@ -2250,7 +2283,7 @@ export default function ProcessNavigator() {
                             gap: 1.5,
                           }}
                         >
-                          {nodes.map((node, idx) => (
+                          {nodes.map((node) => (
                             <HouseCard
                               key={node.id}
                               node={node}
@@ -2258,11 +2291,11 @@ export default function ProcessNavigator() {
                               overlay={overlay}
                               search={search}
                               isAdmin={isAdmin}
-                              siblingIndex={idx}
-                              siblingCount={nodes.length}
+                              rowType={rowType}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
-                              onReorder={handleReorder}
+                              dragRef={dragRef}
+                              onDragDrop={handleDragDrop}
                             />
                           ))}
                         </Box>
@@ -2297,7 +2330,6 @@ export default function ProcessNavigator() {
             overlay={overlay}
             typeIcon={typeIcon}
             typeColor={typeColor}
-            fmtCost={fmtShort}
             onClose={() => setDrawerNode(null)}
             onNavigate={handleNavigate}
             onSwitchNode={handleSwitchNode}

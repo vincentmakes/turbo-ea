@@ -207,6 +207,43 @@ async def update_currency(
 
 
 # ---------------------------------------------------------------------------
+# BPM row-order endpoint
+# ---------------------------------------------------------------------------
+
+class BpmRowOrderPayload(BaseModel):
+    row_order: list[str]
+
+
+@router.get("/bpm-row-order")
+async def get_bpm_row_order(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the configured BPM process type row order."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"row_order": general.get("bpmRowOrder", ["management", "core", "support"])}
+
+
+@router.patch("/bpm-row-order")
+async def update_bpm_row_order(
+    body: BpmRowOrderPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set BPM process type row display order."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["bpmRowOrder"] = body.row_order
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Logo endpoints
 # ---------------------------------------------------------------------------
 

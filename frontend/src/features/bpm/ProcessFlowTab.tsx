@@ -70,8 +70,26 @@ export default function ProcessFlowTab({ processId }: Props) {
 
   const handleTemplateSelected = async (bpmnXml: string) => {
     try {
+      // Generate SVG thumbnail using a hidden bpmn-js viewer
+      let svgThumbnail: string | undefined;
+      try {
+        const NavigatedViewer = (await import("bpmn-js/lib/NavigatedViewer")).default;
+        const el = document.createElement("div");
+        el.style.cssText = "position:absolute;left:-9999px;width:1200px;height:800px";
+        document.body.appendChild(el);
+        const viewer = new NavigatedViewer({ container: el });
+        await viewer.importXML(bpmnXml);
+        const result = await (viewer as any).saveSVG();
+        svgThumbnail = result.svg;
+        viewer.destroy();
+        document.body.removeChild(el);
+      } catch {
+        // SVG generation optional
+      }
+
       await api.put(`/bpm/processes/${processId}/diagram`, {
         bpmn_xml: bpmnXml,
+        svg_thumbnail: svgThumbnail,
       });
       setShowTemplateChooser(false);
       loadData();
