@@ -427,7 +427,7 @@ function HouseCard({
               onMouseDown={() => { dragHandleActive.current = true; }}
               onMouseUp={() => { dragHandleActive.current = false; }}
               sx={{
-                opacity: hovered ? 1 : 0,
+                opacity: isNested ? 0.5 : (hovered ? 1 : 0),
                 transition: "opacity 0.15s",
                 cursor: "grab",
                 flexShrink: 0,
@@ -439,7 +439,7 @@ function HouseCard({
                 zIndex: 2,
                 position: "relative",
                 bgcolor: "rgba(255,255,255,0.25)",
-                "&:hover": { bgcolor: "rgba(255,255,255,0.5)" },
+                "&:hover": { opacity: 1, bgcolor: "rgba(255,255,255,0.5)" },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
