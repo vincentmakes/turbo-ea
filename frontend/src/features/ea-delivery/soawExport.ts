@@ -19,7 +19,7 @@ import {
   TOGAF_PHASES,
   type TemplateSectionDef,
 } from "./soawTemplate";
-import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData } from "@/types";
+import type { SoAWDocumentInfo, SoAWVersionEntry, SoAWSectionData, SoAWSignatory } from "@/types";
 
 // ─── constants (matching PDF styles) ─────────────────────────────────────────
 
@@ -547,7 +547,28 @@ export const PREVIEW_CSS = `
   .soaw-preview .part-header { font-size: 18pt; color: #1976d2; margin-top: 36px; border-bottom: 2px solid #e0e0e0; padding-bottom: 6px; }
   .soaw-preview .preamble { color: #666; font-style: italic; margin-bottom: 8px; }
   .soaw-preview .custom-badge { display: inline-block; background: #1976d2; color: #fff; font-size: 9pt; padding: 1px 8px; border-radius: 3px; margin-right: 8px; }
-  @media print { body { margin: 20px; } .no-print { display: none !important; } }
+  .soaw-signatures { margin-top: 36px; border-top: 2px solid #e0e0e0; padding-top: 16px; }
+  .soaw-signatures h2 { display: flex; align-items: center; gap: 8px; }
+  .soaw-signatures .sig-badge { display: inline-block; font-size: 9pt; padding: 2px 10px; border-radius: 3px; font-weight: 600; }
+  .soaw-signatures .sig-badge.signed { background: #e8f5e9; color: #2e7d32; }
+  .soaw-signatures .sig-badge.fully-signed { background: #2e7d32; color: #fff; }
+  .soaw-signatures .sig-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .soaw-signatures .sig-card { padding: 12px; border: 1px solid #ccc; border-radius: 4px; }
+  .soaw-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9; }
+  .soaw-signatures .sig-card.pending { border-color: #ccc; background: #fafafa; }
+  .soaw-signatures .sig-card .sig-status { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-weight: 700; font-size: 10pt; }
+  .soaw-signatures .sig-card .sig-status.approved { color: #2e7d32; }
+  .soaw-signatures .sig-card .sig-status.pending { color: #ed6c02; }
+  .soaw-signatures .sig-card .sig-name { font-weight: 600; font-size: 10pt; }
+  .soaw-signatures .sig-card .sig-detail { font-size: 9pt; color: #666; }
+  @media print {
+    body { margin: 20px; }
+    .no-print { display: none !important; }
+    .soaw-signatures .sig-grid { grid-template-columns: 1fr 1fr; }
+    .soaw-signatures .sig-card.approved { border-color: #66bb6a; background: #f1f8e9 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { @bottom-center { content: element(soaw-footer); } margin-bottom: 60px; }
+    .soaw-print-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 8pt; color: #888; border-top: 1px solid #ccc; padding-top: 4px; }
+  }
 `;
 
 /** Check if a section has meaningful content worth rendering. */
@@ -575,6 +596,8 @@ export function buildPreviewBody(
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
   revisionNumber?: number,
+  signatories?: SoAWSignatory[],
+  _signedAt?: string | null,
 ): string {
   let html = "";
 
@@ -667,6 +690,26 @@ export function buildPreviewBody(
     }
   }
 
+  // Signature block (for PDF/print)
+  if (signatories && signatories.length > 0) {
+    const allSigned = signatories.every((s) => s.status === "signed");
+    html += `<div class="soaw-signatures">`;
+    html += `<h2>Signatures`;
+    if (allSigned) html += ` <span class="sig-badge fully-signed">Fully Signed</span>`;
+    html += `</h2>`;
+    html += `<div class="sig-grid">`;
+    for (const sig of signatories) {
+      const isSig = sig.status === "signed";
+      html += `<div class="sig-card ${isSig ? "approved" : "pending"}">`;
+      html += `<div class="sig-status ${isSig ? "approved" : "pending"}">${isSig ? "&#10003; Approved" : "&#9711; Pending"}</div>`;
+      html += `<div class="sig-name">${sig.display_name}</div>`;
+      if (sig.email) html += `<div class="sig-detail">${sig.email}</div>`;
+      if (isSig && sig.signed_at) html += `<div class="sig-detail">Signed: ${new Date(sig.signed_at).toLocaleString()}</div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
+
   return html;
 }
 
@@ -679,6 +722,8 @@ export function exportToPdf(
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
   revisionNumber?: number,
+  signatories?: SoAWSignatory[],
+  signedAt?: string | null,
 ) {
   const w = window.open("", "_blank");
   if (!w) {
@@ -686,10 +731,24 @@ export function exportToPdf(
     return;
   }
 
-  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber);
+  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt);
+
+  // Build footer for signed documents
+  let footerHtml = "";
+  if (signatories && signatories.length > 0) {
+    const approver = signatories.find((s) => s.status === "signed");
+    const approvalDate = signedAt ? new Date(signedAt).toLocaleDateString() : (approver?.signed_at ? new Date(approver.signed_at).toLocaleDateString() : "");
+    const printDate = new Date().toLocaleDateString();
+    const parts: string[] = [];
+    if (approver) parts.push(`Approved by: ${approver.display_name}`);
+    if (approvalDate) parts.push(`Date of approval: ${approvalDate}`);
+    parts.push(`Printed: ${printDate}`);
+    footerHtml = `<div class="soaw-print-footer">${parts.join("  &middot;  ")}</div>`;
+  }
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
 <title>${name || "SoAW"}</title>
-<style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}</body></html>`;
+<style>${PREVIEW_CSS}</style></head><body class="soaw-preview">${body}${footerHtml}</body></html>`;
 
   w.document.write(html);
   w.document.close();
