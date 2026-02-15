@@ -193,8 +193,8 @@ const DEPTH_OPTIONS = [
   { value: 3, label: "4 Levels" },
 ];
 
-const DEFAULT_COL_WIDTH = 240;
-const MIN_COL_WIDTH = 140;
+const DEFAULT_COL_WIDTH = 320;
+const MIN_COL_WIDTH = 180;
 
 function ValueStreamMatrix() {
   const navigate = useNavigate();
@@ -503,7 +503,7 @@ function ValueStreamMatrix() {
                         color: "#fff",
                         py: 1.5,
                         px: 1.5,
-                        position: "relative",
+                        zIndex: 3,
                         borderLeft: ci > 0 ? "1px solid rgba(255,255,255,0.25)" : undefined,
                         userSelect: "none",
                       }}
@@ -577,7 +577,7 @@ function ValueStreamMatrix() {
                         position: "sticky",
                         left: 0,
                         bgcolor: "background.paper",
-                        zIndex: 1,
+                        zIndex: 2,
                         borderRight: "2px solid #e0e0e0",
                         pl: 2 + org.depth * 1.5,
                         cursor: "pointer",
@@ -918,7 +918,9 @@ function ValueStreamMatrix() {
   );
 }
 
-/** Recursive nested process card for cells with depth limiting */
+/** Recursive nested process block for cells — mirrors Process Map visual style.
+ *  Container processes render as bordered boxes with children inside.
+ *  Leaf processes render as simple colored cards. */
 function ProcessNodeCard({
   node,
   depth,
@@ -938,96 +940,153 @@ function ProcessNodeCard({
   const apps = node.proc.apps || [];
   const hasChildren = node.children.length > 0;
   const showChildren = hasChildren && depth < maxDepth;
+  const subtypeLabel = node.proc.subtype ? (SUBTYPE_LABELS[node.proc.subtype] || node.proc.subtype) : "";
 
-  return (
-    <Box sx={{ ml: depth * 1 }}>
-      <Tooltip
-        title={
-          <Box>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>{node.proc.name}</Typography>
-            {node.proc.subtype && (
-              <Typography variant="caption">
-                {SUBTYPE_LABELS[node.proc.subtype] || node.proc.subtype}
-              </Typography>
-            )}
-            {apps.length > 0 && (
-              <Typography variant="caption" sx={{ display: "block", mt: 0.25 }}>
-                {apps.length} application{apps.length > 1 ? "s" : ""}
-              </Typography>
-            )}
-            {hasChildren && !showChildren && (
-              <Typography variant="caption" sx={{ display: "block", mt: 0.25, fontStyle: "italic" }}>
-                {node.children.length} sub-process{node.children.length > 1 ? "es" : ""} (increase depth to show)
-              </Typography>
-            )}
-          </Box>
-        }
+  // Leaf card (no children to show)
+  if (!showChildren) {
+    return (
+      <Box
+        sx={{
+          border: "1px solid #e0e0e0",
+          borderRadius: 1.5,
+          overflow: "hidden",
+          bgcolor: "#fff",
+          cursor: "pointer",
+          transition: "box-shadow 0.2s",
+          "&:hover": { boxShadow: 3 },
+        }}
+        onClick={() => onClick(node.proc)}
       >
+        {/* Colored header */}
         <Box
-          onClick={() => onClick(node.proc)}
           sx={{
+            px: 1.25,
+            py: 0.75,
+            bgcolor: color,
+            color: "#fff",
             display: "flex",
             alignItems: "center",
             gap: 0.5,
-            px: 1.5,
-            py: 0.75,
-            borderRadius: 1,
-            bgcolor: color,
-            color: "#fff",
-            cursor: "pointer",
-            transition: "box-shadow 0.15s, transform 0.15s",
-            "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
-            minHeight: 34,
           }}
         >
-          {hasChildren && (
-            <MaterialSymbol icon={showChildren ? "subdirectory_arrow_right" : "more_horiz"} size={14} />
-          )}
           <Typography
             variant="body2"
-            sx={{ fontWeight: 600, fontSize: "0.82rem", lineHeight: 1.3, flex: 1 }}
+            sx={{ fontWeight: 600, fontSize: "0.8rem", lineHeight: 1.3, flex: 1 }}
             noWrap
           >
             {node.proc.name}
           </Typography>
-          {apps.length > 0 && (
-            <Box sx={{ display: "flex", alignItems: "center", opacity: 0.85 }}>
-              <MaterialSymbol icon="apps" size={12} />
-              <Typography variant="caption" sx={{ fontSize: "0.65rem", ml: 0.25 }}>
-                {apps.length}
-              </Typography>
-            </Box>
+          {subtypeLabel && (
+            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0 }}>
+              {subtypeLabel}
+            </Typography>
           )}
         </Box>
-      </Tooltip>
-      {/* Inline apps */}
-      {showApps && apps.length > 0 && (
-        <Box sx={{ ml: 1.5, mt: 0.25, mb: 0.25 }}>
-          {apps.map((app) => (
-            <Typography
-              key={app.id}
-              variant="caption"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.25,
-                fontSize: "0.7rem",
-                color: "text.secondary",
-                lineHeight: 1.7,
-              }}
-            >
-              <MaterialSymbol icon="apps" size={10} color="#0f7eb5" />
-              {app.name}
+        {/* Apps section */}
+        {showApps && apps.length > 0 && (
+          <Box sx={{ px: 1, py: 0.5, display: "flex", flexWrap: "wrap", gap: 0.25 }}>
+            {apps.map((app) => (
+              <Box key={app.id} sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+                <MaterialSymbol icon="apps" size={10} color="#0f7eb5" />
+                <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
+                  {app.name}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+        {/* Hidden children indicator */}
+        {hasChildren && (
+          <Box
+            sx={{
+              px: 1,
+              py: 0.25,
+              borderTop: "1px dashed #e0e0e0",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              bgcolor: "#fafafa",
+            }}
+          >
+            <MaterialSymbol icon="more_horiz" size={12} color="#999" />
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem" }}>
+              {node.children.length} sub-process{node.children.length > 1 ? "es" : ""}
             </Typography>
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
+  // Container card (has children to display inside)
+  return (
+    <Box
+      sx={{
+        border: "1px solid #d0d0d0",
+        borderRadius: 1.5,
+        overflow: "hidden",
+        bgcolor: "#fff",
+      }}
+    >
+      {/* Colored header */}
+      <Box
+        sx={{
+          px: 1.25,
+          py: 0.75,
+          bgcolor: color,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          gap: 0.5,
+          cursor: "pointer",
+          borderBottom: "1px solid #d0d0d0",
+          "&:hover": { opacity: 0.9 },
+        }}
+        onClick={() => onClick(node.proc)}
+      >
+        <Typography
+          variant="body2"
+          sx={{ fontWeight: 700, fontSize: "0.8rem", lineHeight: 1.3, flex: 1 }}
+          noWrap
+        >
+          {node.proc.name}
+        </Typography>
+        {subtypeLabel && (
+          <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0 }}>
+            {subtypeLabel}
+          </Typography>
+        )}
+        <Chip
+          size="small"
+          label={`${node.children.length}`}
+          sx={{
+            height: 18,
+            minWidth: 18,
+            fontSize: "0.6rem",
+            bgcolor: "rgba(255,255,255,0.25)",
+            color: "#fff",
+            "& .MuiChip-label": { px: 0.5 },
+          }}
+        />
+      </Box>
+      {/* Apps section */}
+      {showApps && apps.length > 0 && (
+        <Box sx={{ px: 1, py: 0.5, display: "flex", flexWrap: "wrap", gap: 0.25, borderBottom: "1px solid #eee" }}>
+          {apps.map((app) => (
+            <Box key={app.id} sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+              <MaterialSymbol icon="apps" size={10} color="#0f7eb5" />
+              <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
+                {app.name}
+              </Typography>
+            </Box>
           ))}
         </Box>
       )}
-      {/* Nested children (respect depth limit) */}
-      {showChildren && (
-        <Box sx={{ mt: 0.5, display: "flex", flexDirection: "column", gap: 0.5 }}>
-          {node.children.map((child) => (
+      {/* Children rendered INSIDE this container — nested block pattern */}
+      <Box sx={{ p: 0.75, display: "flex", flexWrap: "wrap", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
+        {node.children.map((child) => (
+          <Box key={child.proc.id} sx={{ flex: "1 1 140px", minWidth: 120, maxWidth: 300 }}>
             <ProcessNodeCard
-              key={child.proc.id}
               node={child}
               depth={depth + 1}
               maxDepth={maxDepth}
@@ -1035,9 +1094,9 @@ function ProcessNodeCard({
               showApps={showApps}
               onClick={onClick}
             />
-          ))}
-        </Box>
-      )}
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }
