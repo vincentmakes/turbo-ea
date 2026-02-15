@@ -27,7 +27,7 @@ import { api } from "@/api/client";
 import type { User } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
-type Role = "admin" | "member" | "viewer";
+type Role = "admin" | "bpm_admin" | "member" | "viewer";
 
 interface UserFormState {
   email: string;
@@ -234,6 +234,7 @@ export default function UsersAdmin() {
           onChange={(e) => updateField("role", e.target.value)}
         >
           <MenuItem value="admin">Admin</MenuItem>
+          <MenuItem value="bpm_admin">BPM Admin</MenuItem>
           <MenuItem value="member">Member</MenuItem>
           <MenuItem value="viewer">Viewer</MenuItem>
         </Select>

@@ -73,6 +73,10 @@ export default function SettingsAdmin() {
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [savingCurrency, setSavingCurrency] = useState(false);
 
+  // BPM toggle state
+  const [bpmEnabled, setBpmEnabled] = useState(true);
+  const [savingBpm, setSavingBpm] = useState(false);
+
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -87,8 +91,9 @@ export default function SettingsAdmin() {
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
       api.get<{ currency: string }>("/settings/currency"),
+      api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
     ])
-      .then(([emailData, logoData, currencyData]) => {
+      .then(([emailData, logoData, currencyData, bpmData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -99,6 +104,7 @@ export default function SettingsAdmin() {
         setConfigured(emailData.configured);
         setHasCustomLogo(logoData.has_custom_logo);
         setSelectedCurrency(currencyData.currency);
+        setBpmEnabled(bpmData.enabled);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -183,6 +189,20 @@ export default function SettingsAdmin() {
       setError(err instanceof Error ? err.message : "Failed to reset logo");
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleBpmToggle = async (enabled: boolean) => {
+    setSavingBpm(true);
+    setError("");
+    try {
+      await api.patch("/settings/bpm-enabled", { enabled });
+      setBpmEnabled(enabled);
+      setSnack(enabled ? "BPM module enabled" : "BPM module disabled");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update BPM setting");
+    } finally {
+      setSavingBpm(false);
     }
   };
 
@@ -311,6 +331,37 @@ export default function SettingsAdmin() {
             )}
           </Box>
         </Box>
+      </Paper>
+
+      {/* BPM Module Toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="route" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            BPM Module
+          </Typography>
+          <Chip
+            label={bpmEnabled ? "Enabled" : "Disabled"}
+            size="small"
+            color={bpmEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Enable or disable the Business Process Management module. When
+          disabled, the BPM navigation item, BusinessProcess fact sheets,
+          their relationships, and BPM reports will be hidden from all users.
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={bpmEnabled}
+              onChange={(e) => handleBpmToggle(e.target.checked)}
+              disabled={savingBpm}
+            />
+          }
+          label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
+        />
       </Paper>
 
       {/* Currency Settings */}

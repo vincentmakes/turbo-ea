@@ -37,3 +37,15 @@ async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)
         return await get_current_user(request, db)
     except HTTPException:
         return None
+
+
+def require_admin(user: User) -> None:
+    """Raise 403 unless user is a site admin."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+
+
+def require_bpm_admin(user: User) -> None:
+    """Raise 403 unless user is admin or bpm_admin."""
+    if user.role not in ("admin", "bpm_admin"):
+        raise HTTPException(status_code=403, detail="Admin or BPM Admin required")

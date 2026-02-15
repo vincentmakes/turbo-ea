@@ -617,3 +617,33 @@ export interface BpmnTemplate {
   category: string;
   bpmn_xml?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Process Flow Versions (draft / published / archived workflow)
+// ---------------------------------------------------------------------------
+
+export interface ProcessFlowVersion {
+  id: string;
+  process_id: string;
+  status: "draft" | "pending" | "published" | "archived";
+  revision: number;
+  bpmn_xml?: string;
+  svg_thumbnail?: string;
+  created_by?: string;
+  created_by_name?: string;
+  created_at?: string;
+  submitted_by?: string;
+  submitted_by_name?: string;
+  submitted_at?: string;
+  approved_by?: string;
+  approved_by_name?: string;
+  approved_at?: string;
+  archived_at?: string;
+  based_on_id?: string;
+}
+
+export interface ProcessFlowPermissions {
+  can_view_drafts: boolean;
+  can_edit_draft: boolean;
+  can_approve: boolean;
+}

@@ -38,3 +38,21 @@ class ProcessAssessmentUpdate(BaseModel):
     automation: int | None = None
     notes: str | None = None
     action_items: list[dict] | None = None
+
+
+# ── Process flow version (draft/published/archived workflow) ──────
+
+
+class ProcessFlowVersionCreate(BaseModel):
+    """Create a new draft process flow."""
+
+    bpmn_xml: str
+    svg_thumbnail: str | None = None
+    based_on_id: str | None = None  # UUID of version to clone from
+
+
+class ProcessFlowVersionUpdate(BaseModel):
+    """Update an existing draft process flow."""
+
+    bpmn_xml: str | None = None
+    svg_thumbnail: str | None = None
