@@ -6,6 +6,9 @@
  *
  * Features: auto-save (5s debounce), undo/redo, zoom, fit, keyboard shortcuts,
  * export (SVG, PNG, BPMN XML), import BPMN, template chooser.
+ *
+ * When `versionId` is provided, loads from and saves to the draft version endpoint.
+ * Otherwise falls back to the legacy ProcessDiagram endpoint.
  */
 import { useRef, useEffect, useState, useCallback } from "react";
 import Box from "@mui/material/Box";
@@ -21,7 +24,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { ProcessDiagramData, BpmnTemplate } from "@/types";
+import type { ProcessDiagramData, ProcessFlowVersion, BpmnTemplate } from "@/types";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -30,12 +33,13 @@ import "bpmn-js/dist/assets/bpmn-font/css/bpmn-embedded.css";
 
 interface Props {
   processId: string;
+  versionId?: string;
   initialXml?: string;
   onSaved?: (version: number) => void;
   onBack?: () => void;
 }
 
-export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: Props) {
+export default function BpmnModeler({ processId, versionId, initialXml, onSaved, onBack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const modelerRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
@@ -44,6 +48,10 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
   const [snack, setSnack] = useState<{ msg: string; severity: "success" | "error" } | null>(null);
   const [mode, setMode] = useState<"simple" | "full">("full");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track which version we're editing (stable ref for save callback)
+  const versionIdRef = useRef(versionId);
+  versionIdRef.current = versionId;
 
   // Load bpmn-js dynamically (it's a CommonJS module)
   useEffect(() => {
@@ -61,8 +69,21 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
 
       modelerRef.current = modeler;
 
-      // Load diagram
+      // Load diagram — prefer draft version, fall back to legacy endpoint
       let xml = initialXml;
+      if (!xml && versionId) {
+        try {
+          const data = await api.get<ProcessFlowVersion>(
+            `/bpm/processes/${processId}/flow/versions/${versionId}`
+          );
+          if (data && data.bpmn_xml) {
+            xml = data.bpmn_xml;
+            setVersion(data.revision);
+          }
+        } catch {
+          // Version not found
+        }
+      }
       if (!xml) {
         try {
           const data = await api.get<ProcessDiagramData | null>(`/bpm/processes/${processId}/diagram`);
@@ -118,7 +139,7 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processId]);
+  }, [processId, versionId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -149,14 +170,26 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
         // SVG export optional
       }
 
-      const result = await api.put<{ version: number; element_count: number }>(`/bpm/processes/${processId}/diagram`, {
-        bpmn_xml: xml,
-        svg_thumbnail: svgThumbnail,
-      });
-      setVersion(result.version);
-      setDirty(false);
-      setSnack({ msg: `Saved v${result.version} (${result.element_count} elements)`, severity: "success" });
-      onSaved?.(result.version);
+      const vid = versionIdRef.current;
+      if (vid) {
+        // Save to draft version endpoint
+        await api.patch(`/bpm/processes/${processId}/flow/versions/${vid}`, {
+          bpmn_xml: xml,
+          svg_thumbnail: svgThumbnail,
+        });
+        setDirty(false);
+        setSnack({ msg: "Draft saved", severity: "success" });
+      } else {
+        // Legacy: save to old diagram endpoint
+        const result = await api.put<{ version: number; element_count: number }>(`/bpm/processes/${processId}/diagram`, {
+          bpmn_xml: xml,
+          svg_thumbnail: svgThumbnail,
+        });
+        setVersion(result.version);
+        setDirty(false);
+        setSnack({ msg: `Saved v${result.version} (${result.element_count} elements)`, severity: "success" });
+        onSaved?.(result.version);
+      }
     } catch (err) {
       setSnack({ msg: "Save failed", severity: "error" });
     } finally {
@@ -255,7 +288,8 @@ export default function BpmnModeler({ processId, initialXml, onSaved, onBack }: 
           {saving ? "Saving..." : "Save"}
         </Button>
 
-        {version && <Chip label={`v${version}`} size="small" variant="outlined" />}
+        {versionId && <Chip label="Draft" size="small" color="warning" variant="outlined" />}
+        {version && !versionId && <Chip label={`v${version}`} size="small" variant="outlined" />}
         {dirty && <Chip label="Unsaved" size="small" color="warning" variant="outlined" />}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />

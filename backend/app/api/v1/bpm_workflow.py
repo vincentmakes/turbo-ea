@@ -12,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.fact_sheet import FactSheet
+from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.subscription import Subscription
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
 from app.services import notification_service
+from app.services.bpmn_parser import parse_bpmn_xml
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
@@ -451,6 +453,42 @@ async def approve_version(
     version.status = "published"
     version.approved_by = user.id
     version.approved_at = now
+
+    # Extract process elements from BPMN XML for the elements table
+    if version.bpmn_xml:
+        extracted = parse_bpmn_xml(version.bpmn_xml)
+        # Load existing elements to preserve EA links (application, data_object, it_component)
+        existing_elements = await db.execute(
+            select(ProcessElement).where(ProcessElement.process_id == pid)
+        )
+        old_by_bpmn_id = {e.bpmn_element_id: e for e in existing_elements.scalars().all()}
+        # Upsert: keep EA links for elements that still exist, remove deleted ones
+        new_bpmn_ids = {e.bpmn_element_id for e in extracted}
+        for old_id, old_elem in old_by_bpmn_id.items():
+            if old_id not in new_bpmn_ids:
+                await db.delete(old_elem)
+        for ext in extracted:
+            if ext.bpmn_element_id in old_by_bpmn_id:
+                old = old_by_bpmn_id[ext.bpmn_element_id]
+                old.element_type = ext.element_type
+                old.name = ext.name
+                old.documentation = ext.documentation
+                old.lane_name = ext.lane_name
+                old.is_automated = ext.is_automated
+                old.sequence_order = ext.sequence_order
+            else:
+                db.add(
+                    ProcessElement(
+                        process_id=pid,
+                        bpmn_element_id=ext.bpmn_element_id,
+                        element_type=ext.element_type,
+                        name=ext.name,
+                        documentation=ext.documentation,
+                        lane_name=ext.lane_name,
+                        is_automated=ext.is_automated,
+                        sequence_order=ext.sequence_order,
+                    )
+                )
 
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
