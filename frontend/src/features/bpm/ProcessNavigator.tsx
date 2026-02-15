@@ -355,11 +355,14 @@ function HouseCard({
 
   const canDrag = isAdmin && dragRef && onDragDrop && rowType;
   const dragHandleActive = useRef(false);
+  const [hovered, setHovered] = useState(false);
 
   if (isLeaf) {
     return (
       <Box
         draggable={!!canDrag}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         onDragStart={canDrag ? (e) => {
           if (!dragHandleActive.current) { e.preventDefault(); return; }
           dragRef.current = { id: node.id, rowType: rowType! };
@@ -397,7 +400,6 @@ function HouseCard({
           transition: "all 0.2s",
           opacity,
           "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
-          "&:hover .drag-handle": { opacity: 1 },
         }}
         onClick={() => onOpen(node)}
         tabIndex={0}
@@ -420,17 +422,20 @@ function HouseCard({
         >
           {canDrag && (
             <Box
-              className="drag-handle"
               onMouseDown={() => { dragHandleActive.current = true; }}
               onMouseUp={() => { dragHandleActive.current = false; }}
               sx={{
-                opacity: 0,
+                opacity: hovered ? 1 : 0,
                 transition: "opacity 0.15s",
                 cursor: "grab",
                 flexShrink: 0,
                 display: "flex",
                 alignItems: "center",
-                mr: 0.25,
+                p: 0.25,
+                ml: -0.5,
+                borderRadius: 0.5,
+                bgcolor: "rgba(255,255,255,0.2)",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.4)" },
                 "&:active": { cursor: "grabbing" },
               }}
               onClick={(e) => e.stopPropagation()}
