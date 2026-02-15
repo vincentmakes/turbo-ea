@@ -1,9 +1,10 @@
 /**
- * BpmDashboard — Landing page for BPM module.
- * Shows KPIs, charts, and quick links to processes.
+ * BpmDashboard — Tabbed landing page for BPM module.
+ * Tab 0: Process Navigator (Process House)
+ * Tab 1: Dashboard KPIs, charts, and quick links to processes.
  */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -16,6 +17,8 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Chip from "@mui/material/Chip";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -24,6 +27,7 @@ import {
   Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import type { BpmDashboardData } from "@/types";
+import ProcessNavigator from "./ProcessNavigator";
 
 const COLORS = ["#1976d2", "#607d8b", "#9c27b0", "#4caf50", "#ff9800", "#f44336"];
 
@@ -42,7 +46,8 @@ const RISK_COLORS: Record<string, string> = {
   critical: "#b71c1c",
 };
 
-export default function BpmDashboard() {
+/* ── Dashboard content (tab 1) ── */
+function BpmDashboardContent() {
   const navigate = useNavigate();
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,11 +74,7 @@ export default function BpmDashboard() {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3, alignItems: "center" }}>
-        <Typography variant="h5">
-          <MaterialSymbol icon="route" style={{ marginRight: 8, verticalAlign: "middle" }} />
-          Business Process Management
-        </Typography>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
         <Button
           variant="outlined"
           onClick={() => navigate("/inventory?type=BusinessProcess")}
@@ -233,6 +234,57 @@ export default function BpmDashboard() {
           </CardContent>
         </Card>
       )}
+    </Box>
+  );
+}
+
+/* ── Tabbed shell ── */
+const BPM_TAB_PARAM = "tab";
+
+export default function BpmDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get(BPM_TAB_PARAM);
+  const tabIndex = tabParam === "dashboard" ? 1 : 0;
+
+  const handleTabChange = (_: unknown, newValue: number) => {
+    const params = new URLSearchParams(searchParams);
+    if (newValue === 0) {
+      params.delete(BPM_TAB_PARAM);
+    } else {
+      params.set(BPM_TAB_PARAM, "dashboard");
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  return (
+    <Box>
+      {/* Header + tabs */}
+      <Box sx={{ px: { xs: 2, md: 3 }, pt: { xs: 2, md: 2.5 }, borderBottom: 1, borderColor: "divider" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+          <MaterialSymbol icon="route" size={28} color="#1976d2" />
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            Business Process Management
+          </Typography>
+        </Box>
+        <Tabs value={tabIndex} onChange={handleTabChange}>
+          <Tab
+            label="Process Navigator"
+            icon={<MaterialSymbol icon="account_tree" size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 42, textTransform: "none" }}
+          />
+          <Tab
+            label="Dashboard"
+            icon={<MaterialSymbol icon="dashboard" size={18} />}
+            iconPosition="start"
+            sx={{ minHeight: 42, textTransform: "none" }}
+          />
+        </Tabs>
+      </Box>
+
+      {/* Tab content */}
+      {tabIndex === 0 && <ProcessNavigator />}
+      {tabIndex === 1 && <BpmDashboardContent />}
     </Box>
   );
 }

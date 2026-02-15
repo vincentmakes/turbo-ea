@@ -27,7 +27,6 @@ import LinearProgress from "@mui/material/LinearProgress";
 import CircularProgress from "@mui/material/CircularProgress";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
-import Badge from "@mui/material/Badge";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -367,7 +366,7 @@ function HouseCard({
             color: "#fff",
             display: "flex",
             alignItems: "center",
-            gap: 0.5,
+            gap: 1,
           }}
         >
           <Typography
@@ -378,7 +377,7 @@ function HouseCard({
             {node.name}
           </Typography>
           {subtypeLabel && (
-            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0 }}>
+            <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
               {subtypeLabel}
             </Typography>
           )}
@@ -391,7 +390,7 @@ function HouseCard({
             py: 0.5,
             display: "flex",
             alignItems: "center",
-            gap: 0.5,
+            gap: 0.75,
             bgcolor: "#fafafa",
             borderTop: "1px solid #f0f0f0",
           }}
@@ -470,7 +469,7 @@ function HouseCard({
           color: "#fff",
           display: "flex",
           alignItems: "center",
-          gap: 0.5,
+          gap: 1,
           cursor: "pointer",
           "&:hover": { opacity: 0.9 },
         }}
@@ -488,27 +487,26 @@ function HouseCard({
           {node.name}
         </Typography>
         {subtypeLabel && (
-          <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ opacity: 0.85, fontSize: "0.6rem", flexShrink: 0, ml: 0.5 }}>
             {subtypeLabel}
           </Typography>
         )}
-        <Badge badgeContent={childCount} color="default" max={99}
+        <Chip
+          size="small"
+          label={childCount}
           sx={{
-            "& .MuiBadge-badge": {
-              bgcolor: "rgba(255,255,255,0.25)",
-              color: "#fff",
-              fontSize: "0.6rem",
-              height: 18,
-              minWidth: 18,
-            },
+            height: 20,
+            fontSize: "0.65rem",
+            fontWeight: 600,
+            bgcolor: "rgba(255,255,255,0.25)",
+            color: "#fff",
+            ml: 0.5,
           }}
-        >
-          <Box sx={{ width: 4 }} />
-        </Badge>
+        />
       </Box>
-      <Box sx={{ p: 0.75, display: "flex", flexWrap: "wrap", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
+      <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
         {node.children.map((ch) => (
-          <Box key={ch.id} sx={{ flex: "1 1 160px", minWidth: 140, maxWidth: 320 }}>
+          <Box key={ch.id}>
             <HouseCard
               node={ch}
               displayLevel={displayLevel}
@@ -996,7 +994,7 @@ function DrawerFlow({
 
     // Fetch SVG thumbnail
     const token = localStorage.getItem("token");
-    fetch(`/api/v1/bpm/processes/${processId}/diagram/svg`, {
+    fetch(`/api/v1/bpm/processes/${processId}/diagram/export/svg`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((r) => {
@@ -1630,13 +1628,15 @@ export default function ProcessNavigator() {
     };
   }, [fullTree, zoomNodeId]);
 
-  // ── Open drawer from URL param ──
+  // ── Open drawer from URL param (initial mount only) ──
+  const initialDrawerApplied = useRef(false);
   useEffect(() => {
-    if (drawerParam && fullTree.length > 0 && !drawerNode) {
+    if (!initialDrawerApplied.current && drawerParam && fullTree.length > 0) {
       const node = findNode(fullTree, drawerParam);
       if (node) setDrawerNode(node);
+      initialDrawerApplied.current = true;
     }
-  }, [drawerParam, fullTree, drawerNode]);
+  }, [drawerParam, fullTree]);
 
   // ── Sync state → URL ──
   useEffect(() => {
@@ -1752,15 +1752,10 @@ export default function ProcessNavigator() {
     );
 
   return (
-    <Box ref={containerRef} sx={{ p: { xs: 2, md: 3 }, maxWidth: 1400, mx: "auto" }}>
-      {/* ── Title Row ── */}
+    <Box ref={containerRef} sx={{ p: { xs: 2, md: 3 } }}>
+      {/* ── View mode toggle ── */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
-        <MaterialSymbol icon="account_tree" size={28} color="#e65100" />
-        <Typography variant="h5" sx={{ fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
-          Process Navigator
-        </Typography>
-
-        {/* View mode toggle */}
+        <Box sx={{ flex: 1 }} />
         <ToggleButtonGroup
           value={viewMode}
           exclusive
@@ -1972,15 +1967,8 @@ export default function ProcessNavigator() {
                           display: "grid",
                           gridTemplateColumns: {
                             xs: "1fr",
-                            sm: "1fr 1fr",
-                            md:
-                              rowType === "core"
-                                ? "1fr 1fr 1fr"
-                                : "1fr 1fr 1fr 1fr",
-                            lg:
-                              rowType === "core"
-                                ? "1fr 1fr 1fr 1fr"
-                                : "1fr 1fr 1fr 1fr 1fr",
+                            sm: "repeat(2, 1fr)",
+                            md: "repeat(auto-fill, minmax(220px, 1fr))",
                           },
                           gap: 1.5,
                         }}
