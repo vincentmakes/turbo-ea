@@ -6,7 +6,7 @@
  *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/process_owner/responsible/observer.
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -79,9 +79,6 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
     version: ProcessFlowVersion;
   } | null>(null);
   const [actionError, setActionError] = useState("");
-
-  // Ref for the full-screen BPMN container (used for SVG extraction in print)
-  const fullScreenBpmnRef = useRef<HTMLDivElement>(null);
 
   // Load permissions and published version
   const loadInitial = useCallback(async () => {
@@ -419,41 +416,12 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
 
         {/* Read-only BPMN viewer */}
         {published.bpmn_xml && (
-          <Box sx={{ position: "relative" }}>
-            <BpmnViewer
-              bpmnXml={published.bpmn_xml}
-              elements={[]}
-              onElementClick={() => {}}
-              height={400}
-            />
-            {/* Watermark overlay */}
-            <Box
-              sx={{
-                position: "absolute",
-                top: 8,
-                right: 8,
-                bgcolor: "rgba(76,175,80,0.1)",
-                border: "1px solid #4caf50",
-                borderRadius: 1,
-                px: 1.5,
-                py: 0.5,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                pointerEvents: "none",
-              }}
-            >
-              <MaterialSymbol icon="verified" size={16} color="#4caf50" />
-              <Typography
-                variant="caption"
-                sx={{ color: "#4caf50", fontWeight: 600 }}
-              >
-                Rev {published.revision} &middot; Approved by{" "}
-                {published.approved_by_name || "\u2014"} on{" "}
-                {formatDate(published.approved_at)}
-              </Typography>
-            </Box>
-          </Box>
+          <BpmnViewer
+            bpmnXml={published.bpmn_xml}
+            elements={[]}
+            onElementClick={() => {}}
+            height={400}
+          />
         )}
       </Box>
     );
@@ -672,16 +640,6 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
 
   // ── Full-screen version viewer dialog ──────────────────────────────
 
-  const buildWatermarkText = (v: ProcessFlowVersion) => {
-    if (v.status === "published" || v.status === "archived") {
-      return `Rev ${v.revision} \u2014 Approved by ${v.approved_by_name || "\u2014"} on ${formatDate(v.approved_at)}`;
-    }
-    if (v.status === "pending") {
-      return `Rev ${v.revision} \u2014 Pending approval (submitted by ${v.submitted_by_name || "\u2014"})`;
-    }
-    return `Rev ${v.revision} \u2014 Draft`;
-  };
-
   const renderFullScreenDialog = () => (
     <Dialog
       open={fullScreenOpen}
@@ -746,51 +704,15 @@ export default function ProcessFlowTab({ processId, processName }: Props) {
               </Alert>
             )}
 
-            {/* BPMN Viewer with watermark overlay */}
+            {/* BPMN Viewer — fills remaining viewport height */}
             {viewingVersion.bpmn_xml && (
-              <Box sx={{ flex: 1, position: "relative", minHeight: 0 }} ref={fullScreenBpmnRef}>
+              <Box sx={{ flex: 1, minHeight: 0 }}>
                 <BpmnViewer
                   bpmnXml={viewingVersion.bpmn_xml}
                   elements={[]}
                   onElementClick={() => {}}
-                  height="100%"
+                  height="calc(100vh - 116px)"
                 />
-                {/* Corner watermark */}
-                {(viewingVersion.status === "published" || viewingVersion.status === "archived") && (
-                  <Box
-                    sx={{
-                      position: "absolute",
-                      top: 12,
-                      right: 12,
-                      bgcolor: viewingVersion.status === "published"
-                        ? "rgba(76,175,80,0.1)"
-                        : "rgba(33,150,243,0.1)",
-                      border: `1px solid ${viewingVersion.status === "published" ? "#4caf50" : "#2196f3"}`,
-                      borderRadius: 1,
-                      px: 2,
-                      py: 0.75,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 0.75,
-                      pointerEvents: "none",
-                    }}
-                  >
-                    <MaterialSymbol
-                      icon="verified"
-                      size={18}
-                      color={viewingVersion.status === "published" ? "#4caf50" : "#2196f3"}
-                    />
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: viewingVersion.status === "published" ? "#4caf50" : "#2196f3",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {buildWatermarkText(viewingVersion)}
-                    </Typography>
-                  </Box>
-                )}
               </Box>
             )}
           </DialogContent>
