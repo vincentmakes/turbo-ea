@@ -20,6 +20,7 @@ from app.models.user import User
 from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
 from app.services import notification_service
 from app.services.bpmn_parser import parse_bpmn_xml
+from app.services.element_relation_sync import sync_element_relations
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
@@ -576,6 +577,25 @@ async def approve_version(
                 if draft_link:
                     _apply_draft_link(elem, draft_link, valid_fs_ids)
                 db.add(elem)
+
+        # Sync element EA links → relations table (additive only)
+        await db.flush()  # ensure new ProcessElements get their FK values
+        all_elements = await db.execute(
+            select(ProcessElement).where(ProcessElement.process_id == pid)
+        )
+        link_ids: dict[str, set[uuid.UUID]] = {
+            "application_id": set(),
+            "data_object_id": set(),
+            "it_component_id": set(),
+        }
+        for el in all_elements.scalars().all():
+            if el.application_id:
+                link_ids["application_id"].add(el.application_id)
+            if el.data_object_id:
+                link_ids["data_object_id"].add(el.data_object_id)
+            if el.it_component_id:
+                link_ids["it_component_id"].add(el.it_component_id)
+        await sync_element_relations(db, pid, link_ids)
 
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
