@@ -38,10 +38,13 @@ import Slider from "@mui/material/Slider";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Skeleton from "@mui/material/Skeleton";
+import Autocomplete from "@mui/material/Autocomplete";
+import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useAuth } from "@/hooks/useAuth";
 
 /* ================================================================== */
 /*  Types                                                              */
@@ -221,14 +224,20 @@ function buildTree(items: ProcItem[]): ProcNode[] {
     }
   }
 
+  function sortNodes(a: ProcNode, b: ProcNode) {
+    const oa = (a.attributes?.sortOrder as number) ?? 999;
+    const ob = (b.attributes?.sortOrder as number) ?? 999;
+    if (oa !== ob) return oa - ob;
+    return a.name.localeCompare(b.name);
+  }
   function setLevel(nodes: ProcNode[], lvl: number) {
     for (const n of nodes) {
       n.level = lvl;
-      n.children.sort((a, b) => a.name.localeCompare(b.name));
+      n.children.sort(sortNodes);
       setLevel(n.children, lvl + 1);
     }
   }
-  roots.sort((a, b) => a.name.localeCompare(b.name));
+  roots.sort(sortNodes);
   setLevel(roots, 1);
 
   function propagate(n: ProcNode) {
@@ -316,15 +325,23 @@ function HouseCard({
   displayLevel,
   overlay,
   search,
+  isAdmin,
+  siblingIndex,
+  siblingCount,
   onOpen,
   onDrill,
+  onReorder,
 }: {
   node: ProcNode;
   displayLevel: number;
   overlay: ColorOverlay;
   search: string;
+  isAdmin?: boolean;
+  siblingIndex?: number;
+  siblingCount?: number;
   onOpen: (n: ProcNode) => void;
   onDrill: (id: string) => void;
+  onReorder?: (id: string, direction: "left" | "right") => void;
 }) {
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
@@ -351,6 +368,7 @@ function HouseCard({
           transition: "all 0.2s",
           opacity,
           "&:hover": { boxShadow: 3, transform: "translateY(-1px)" },
+          "&:hover .reorder-arrows": { opacity: 1 },
         }}
         onClick={() => onOpen(node)}
         tabIndex={0}
@@ -367,13 +385,41 @@ function HouseCard({
             color: "#fff",
             display: "flex",
             alignItems: "center",
-            gap: 1,
+            gap: 0.5,
           }}
         >
+          {isAdmin && onReorder && (siblingCount ?? 0) > 1 && (
+            <Box
+              className="reorder-arrows"
+              sx={{
+                display: "flex",
+                opacity: 0,
+                transition: "opacity 0.15s",
+                mr: 0.25,
+                flexShrink: 0,
+              }}
+            >
+              <IconButton
+                size="small"
+                disabled={(siblingIndex ?? 0) === 0}
+                onClick={(e) => { e.stopPropagation(); onReorder(node.id, "left"); }}
+                sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
+              >
+                <MaterialSymbol icon="chevron_left" size={14} />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={(siblingIndex ?? 0) >= (siblingCount ?? 1) - 1}
+                onClick={(e) => { e.stopPropagation(); onReorder(node.id, "right"); }}
+                sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
+              >
+                <MaterialSymbol icon="chevron_right" size={14} />
+              </IconButton>
+            </Box>
+          )}
           <Typography
             variant="body2"
             sx={{ fontWeight: 600, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
-            noWrap
           >
             {node.name}
           </Typography>
@@ -460,6 +506,7 @@ function HouseCard({
         bgcolor: "#fff",
         opacity,
         transition: "opacity 0.2s",
+        "&:hover .reorder-arrows": { opacity: 1 },
       }}
     >
       <Box
@@ -470,7 +517,7 @@ function HouseCard({
           color: "#fff",
           display: "flex",
           alignItems: "center",
-          gap: 1,
+          gap: 0.5,
           cursor: "pointer",
           "&:hover": { opacity: 0.9 },
         }}
@@ -480,10 +527,38 @@ function HouseCard({
           if (e.key === "Enter") onOpen(node);
         }}
       >
+        {isAdmin && onReorder && (siblingCount ?? 0) > 1 && (
+          <Box
+            className="reorder-arrows"
+            sx={{
+              display: "flex",
+              opacity: 0,
+              transition: "opacity 0.15s",
+              mr: 0.25,
+              flexShrink: 0,
+            }}
+          >
+            <IconButton
+              size="small"
+              disabled={(siblingIndex ?? 0) === 0}
+              onClick={(e) => { e.stopPropagation(); onReorder(node.id, "left"); }}
+              sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
+            >
+              <MaterialSymbol icon="chevron_left" size={14} />
+            </IconButton>
+            <IconButton
+              size="small"
+              disabled={(siblingIndex ?? 0) >= (siblingCount ?? 1) - 1}
+              onClick={(e) => { e.stopPropagation(); onReorder(node.id, "right"); }}
+              sx={{ p: 0, color: "#fff", "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" } }}
+            >
+              <MaterialSymbol icon="chevron_right" size={14} />
+            </IconButton>
+          </Box>
+        )}
         <Typography
           variant="body2"
           sx={{ fontWeight: 700, fontSize: "0.82rem", flex: 1, lineHeight: 1.3 }}
-          noWrap
         >
           {node.name}
         </Typography>
@@ -505,16 +580,20 @@ function HouseCard({
           }}
         />
       </Box>
-      <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
-        {node.children.map((ch) => (
+      <Box sx={{ p: 0.75, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 0.75, bgcolor: "rgba(0,0,0,0.02)" }}>
+        {node.children.map((ch, idx) => (
           <Box key={ch.id}>
             <HouseCard
               node={ch}
               displayLevel={displayLevel}
               overlay={overlay}
               search={search}
+              isAdmin={isAdmin}
+              siblingIndex={idx}
+              siblingCount={node.children.length}
               onOpen={onOpen}
               onDrill={onDrill}
+              onReorder={onReorder}
             />
           </Box>
         ))}
@@ -986,24 +1065,34 @@ function DrawerFlow({
 }) {
   const [svgUrl, setSvgUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [hasDiagram, setHasDiagram] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    setError(false);
+    setHasDiagram(false);
     setSvgUrl(null);
 
-    // Fetch SVG thumbnail
-    const token = localStorage.getItem("token");
-    fetch(`/api/v1/bpm/processes/${processId}/diagram/export/svg`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
+    // First check if a diagram exists at all, then try SVG
+    api.get<{ bpmn_xml?: string; svg_thumbnail?: string; version?: number } | null>(
+      `/bpm/processes/${processId}/diagram`,
+    )
+      .then((diag) => {
+        if (diag?.bpmn_xml) setHasDiagram(true);
+        if (!diag?.bpmn_xml) return null;
+        // Try to get SVG thumbnail via the export endpoint for a clean image
+        const token = localStorage.getItem("token");
+        return fetch(`/api/v1/bpm/processes/${processId}/diagram/export/svg`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+      })
       .then((r) => {
-        if (!r.ok) throw new Error("No SVG");
+        if (!r || !r.ok) throw new Error("No SVG");
         return r.blob();
       })
       .then((blob) => setSvgUrl(URL.createObjectURL(blob)))
-      .catch(() => setError(true))
+      .catch(() => {
+        // SVG may not be available, that's fine if diagram exists
+      })
       .finally(() => setLoading(false));
 
     return () => {
@@ -1019,7 +1108,7 @@ function DrawerFlow({
       </Box>
     );
 
-  if (error || !svgUrl)
+  if (!hasDiagram && !svgUrl)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="schema" size={40} color="#ccc" />
@@ -1030,6 +1119,24 @@ function DrawerFlow({
           size="small"
           icon={<MaterialSymbol icon="add" size={14} />}
           label="Create Flow Diagram"
+          onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
+          color="primary"
+          sx={{ mt: 1, cursor: "pointer" }}
+        />
+      </Box>
+    );
+
+  if (hasDiagram && !svgUrl)
+    return (
+      <Box sx={{ py: 4, textAlign: "center" }}>
+        <MaterialSymbol icon="schema" size={40} color="#7b1fa2" />
+        <Typography color="text.secondary" sx={{ mt: 1 }}>
+          Diagram exists but preview is not available.
+        </Typography>
+        <Chip
+          size="small"
+          icon={<MaterialSymbol icon="open_in_new" size={14} />}
+          label="Open Flow Editor"
           onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
           color="primary"
           sx={{ mt: 1, cursor: "pointer" }}
@@ -1052,7 +1159,7 @@ function DrawerFlow({
         onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
       >
         <img
-          src={svgUrl}
+          src={svgUrl!}
           alt="BPMN diagram"
           style={{ width: "100%", height: "auto", display: "block" }}
         />
@@ -1597,6 +1704,8 @@ export default function ProcessNavigator() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { fmtShort } = useCurrency();
   const { getType } = useMetamodel();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Metamodel type info for BusinessProcess
@@ -1606,7 +1715,9 @@ export default function ProcessNavigator() {
 
   // ── Data ──
   const [data, setData] = useState<ProcItem[] | null>(null);
+  const [organizations, setOrganizations] = useState<RefItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reordering, setReordering] = useState(false);
 
   // ── URL-synced state ──
   const viewParam = (searchParams.get("view") as ViewMode) || "house";
@@ -1622,34 +1733,60 @@ export default function ProcessNavigator() {
   const [overlay, setOverlay] = useState<ColorOverlay>(overlayParam);
   const [zoomNodeId, setZoomNodeId] = useState<string | null>(zoomParam);
   const [drawerNode, setDrawerNode] = useState<ProcNode | null>(null);
+  const [orgFilter, setOrgFilter] = useState<RefItem[]>([]);
 
   // ── Load data ──
-  useEffect(() => {
+  const loadData = useCallback(() => {
     api
       .get<{ items: ProcItem[]; organizations: RefItem[]; business_contexts: RefItem[] }>(
         "/reports/bpm/process-map",
       )
-      .then((r) => setData(r.items))
+      .then((r) => {
+        setData(r.items);
+        setOrganizations(r.organizations ?? []);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // ── Build tree ──
   const fullTree = useMemo(() => (data ? buildTree(data) : []), [data]);
   const maxLvl = useMemo(() => getMaxLevel(fullTree), [fullTree]);
   const allFlat = useMemo(() => flatCollect(fullTree), [fullTree]);
 
+  // ── Organization filter ──
+  const orgFilterIds = useMemo(() => new Set(orgFilter.map((o) => o.id)), [orgFilter]);
+
+  const filteredTree = useMemo(() => {
+    if (orgFilterIds.size === 0) return fullTree;
+    // A process matches if it or any descendant is linked to a selected org
+    function nodeMatchesOrg(n: ProcNode): boolean {
+      if (n.org_ids.some((oid) => orgFilterIds.has(oid))) return true;
+      return n.children.some(nodeMatchesOrg);
+    }
+    function filterChildren(nodes: ProcNode[]): ProcNode[] {
+      return nodes
+        .filter(nodeMatchesOrg)
+        .map((n) => ({ ...n, children: filterChildren(n.children) }));
+    }
+    return filterChildren(fullTree);
+  }, [fullTree, orgFilterIds]);
+
   // ── Zoom / breadcrumbs ──
   const { displayTree, breadcrumbs } = useMemo(() => {
-    if (!zoomNodeId) return { displayTree: fullTree, breadcrumbs: [] as ProcNode[] };
-    const ancestors = getAncestors(fullTree, zoomNodeId);
-    const zoomNode = findNode(fullTree, zoomNodeId);
-    if (!zoomNode) return { displayTree: fullTree, breadcrumbs: [] as ProcNode[] };
+    if (!zoomNodeId) return { displayTree: filteredTree, breadcrumbs: [] as ProcNode[] };
+    const ancestors = getAncestors(filteredTree, zoomNodeId);
+    const zoomNode = findNode(filteredTree, zoomNodeId);
+    if (!zoomNode) return { displayTree: filteredTree, breadcrumbs: [] as ProcNode[] };
     return {
       displayTree: zoomNode.children.length > 0 ? zoomNode.children : [zoomNode],
       breadcrumbs: ancestors,
     };
-  }, [fullTree, zoomNodeId]);
+  }, [filteredTree, zoomNodeId]);
 
   // ── Open drawer from URL param (initial mount only) ──
   const initialDrawerApplied = useRef(false);
@@ -1715,6 +1852,52 @@ export default function ProcessNavigator() {
   const handleSwitchNode = useCallback((n: ProcNode) => {
     setDrawerNode(n);
   }, []);
+
+  // ── Reorder handler (admin only) ──
+  const handleReorder = useCallback(
+    async (nodeId: string, direction: "left" | "right") => {
+      if (!data || reordering) return;
+      // Find the node and its siblings (same parent & same processType row)
+      const item = data.find((d) => d.id === nodeId);
+      if (!item) return;
+
+      // Get siblings: same parent_id, same processType
+      const pType = (item.attributes?.processType as string) || "core";
+      const siblings = data
+        .filter((d) => d.parent_id === item.parent_id
+          && ((d.attributes?.processType as string) || "core") === pType)
+        .sort((a, b) => {
+          const oa = (a.attributes?.sortOrder as number) ?? 999;
+          const ob = (b.attributes?.sortOrder as number) ?? 999;
+          if (oa !== ob) return oa - ob;
+          return a.name.localeCompare(b.name);
+        });
+
+      const idx = siblings.findIndex((s) => s.id === nodeId);
+      const swapIdx = direction === "left" ? idx - 1 : idx + 1;
+      if (idx < 0 || swapIdx < 0 || swapIdx >= siblings.length) return;
+
+      setReordering(true);
+      try {
+        const currentOrder = (siblings[idx].attributes?.sortOrder as number) ?? idx;
+        const swapOrder = (siblings[swapIdx].attributes?.sortOrder as number) ?? swapIdx;
+        await Promise.all([
+          api.patch(`/fact-sheets/${siblings[idx].id}`, {
+            attributes: { ...(siblings[idx].attributes || {}), sortOrder: swapOrder },
+          }),
+          api.patch(`/fact-sheets/${siblings[swapIdx].id}`, {
+            attributes: { ...(siblings[swapIdx].attributes || {}), sortOrder: currentOrder },
+          }),
+        ]);
+        loadData();
+      } catch (e) {
+        console.error("Reorder failed", e);
+      } finally {
+        setReordering(false);
+      }
+    },
+    [data, reordering, loadData],
+  );
 
   // ── Process House: group roots by processType ──
   const houseRows = useMemo(() => {
@@ -1872,11 +2055,50 @@ export default function ProcessNavigator() {
             />
           )}
 
+          {/* Organization filter */}
+          {organizations.length > 0 && (
+            <Autocomplete
+              multiple
+              size="small"
+              options={organizations}
+              getOptionLabel={(o) => o.name}
+              value={orgFilter}
+              onChange={(_, v) => setOrgFilter(v)}
+              disableCloseOnSelect
+              renderOption={(props, option, { selected }) => (
+                <li {...props} key={option.id}>
+                  <Checkbox size="small" checked={selected} sx={{ mr: 0.5, p: 0 }} />
+                  <Typography variant="body2" noWrap>{option.name}</Typography>
+                </li>
+              )}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder={orgFilter.length === 0 ? "Filter by Organization..." : ""}
+                  InputProps={{
+                    ...params.InputProps,
+                    startAdornment: (
+                      <>
+                        <InputAdornment position="start">
+                          <MaterialSymbol icon="corporate_fare" size={16} color="#999" />
+                        </InputAdornment>
+                        {params.InputProps.startAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              sx={{ minWidth: 200, maxWidth: 350, flex: "1 1 200px" }}
+            />
+          )}
+
           {/* Summary */}
           <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
             {search
               ? `${matchCount} of ${totalProcesses} processes`
-              : `${totalProcesses} processes`}
+              : orgFilter.length > 0
+                ? `${allFlat.length} total, showing filtered`
+                : `${totalProcesses} processes`}
           </Typography>
         </Box>
       )}
@@ -1995,19 +2217,23 @@ export default function ProcessNavigator() {
                         <Box
                           sx={{
                             display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
                             gap: 1.5,
                           }}
                         >
-                          {nodes.map((node) => (
+                          {nodes.map((node, idx) => (
                             <HouseCard
                               key={node.id}
                               node={node}
                               displayLevel={displayLevel}
                               overlay={overlay}
                               search={search}
+                              isAdmin={isAdmin}
+                              siblingIndex={idx}
+                              siblingCount={nodes.length}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onReorder={handleReorder}
                             />
                           ))}
                         </Box>
@@ -2024,15 +2250,19 @@ export default function ProcessNavigator() {
                             gap: 1.5,
                           }}
                         >
-                          {nodes.map((node) => (
+                          {nodes.map((node, idx) => (
                             <HouseCard
                               key={node.id}
                               node={node}
                               displayLevel={displayLevel}
                               overlay={overlay}
                               search={search}
+                              isAdmin={isAdmin}
+                              siblingIndex={idx}
+                              siblingCount={nodes.length}
                               onOpen={handleOpenDrawer}
                               onDrill={handleDrill}
+                              onReorder={handleReorder}
                             />
                           ))}
                         </Box>
