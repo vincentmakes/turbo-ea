@@ -16,6 +16,7 @@ from app.models.process_flow_version import ProcessFlowVersion
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
+from app.services import notification_service
 from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
@@ -355,8 +356,6 @@ async def submit_for_approval(
     version.submitted_at = datetime.now(timezone.utc)
 
     # Notify process owners
-    from app.services.notification_service import notification_service
-
     owner_subs = await db.execute(
         select(Subscription).where(
             Subscription.fact_sheet_id == pid,
@@ -364,14 +363,15 @@ async def submit_for_approval(
         )
     )
     for sub in owner_subs.scalars().all():
-        await notification_service.create(
+        await notification_service.create_notification(
             db,
             user_id=sub.user_id,
-            notification_type="process_flow_approval_requested",
+            notif_type="process_flow_approval_requested",
             title=f"Process flow approval requested for {process.name}",
             message=f"{user.display_name} submitted revision {version.revision} for approval.",
             link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
             fact_sheet_id=pid,
+            actor_id=user.id,
         )
 
     await event_bus.publish(
@@ -442,16 +442,15 @@ async def approve_version(
 
     # Notify the submitter
     if version.submitted_by:
-        from app.services.notification_service import notification_service
-
-        await notification_service.create(
+        await notification_service.create_notification(
             db,
             user_id=version.submitted_by,
-            notification_type="process_flow_approved",
+            notif_type="process_flow_approved",
             title=f"Process flow approved for {process.name}",
             message=f"{user.display_name} approved revision {version.revision}.",
             link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=published",
             fact_sheet_id=pid,
+            actor_id=user.id,
         )
 
     await event_bus.publish(
@@ -504,16 +503,15 @@ async def reject_version(
 
     # Notify the original creator
     if version.created_by:
-        from app.services.notification_service import notification_service
-
-        await notification_service.create(
+        await notification_service.create_notification(
             db,
             user_id=version.created_by,
-            notification_type="process_flow_rejected",
+            notif_type="process_flow_rejected",
             title=f"Process flow rejected for {process.name}",
             message=f"{user.display_name} rejected revision {version.revision}. Please revise.",
             link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
             fact_sheet_id=pid,
+            actor_id=user.id,
         )
 
     await event_bus.publish(
