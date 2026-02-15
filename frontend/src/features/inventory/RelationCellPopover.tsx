@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import Popover from "@mui/material/Popover";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -15,9 +17,10 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import type { Relation, RelationType } from "@/types";
 
 interface RelationCellPopoverProps {
-  anchorEl: HTMLElement | null;
+  open: boolean;
   onClose: () => void;
   factSheetId: string;
+  factSheetName: string;
   relationType: RelationType;
   selectedType: string;
   onRelationsChanged: () => void;
@@ -30,15 +33,15 @@ interface SearchResult {
 }
 
 export default function RelationCellPopover({
-  anchorEl,
+  open,
   onClose,
   factSheetId,
+  factSheetName,
   relationType,
   selectedType,
   onRelationsChanged,
 }: RelationCellPopoverProps) {
   const { getType } = useMetamodel();
-  const open = Boolean(anchorEl);
 
   const isSource = relationType.source_type_key === selectedType;
   const targetTypeKey = isSource ? relationType.target_type_key : relationType.source_type_key;
@@ -170,138 +173,142 @@ export default function RelationCellPopover({
   const otherType = getType(targetTypeKey);
 
   return (
-    <Popover
-      open={open}
-      anchorEl={anchorEl}
-      onClose={onClose}
-      anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-      transformOrigin={{ vertical: "top", horizontal: "left" }}
-      slotProps={{ paper: { sx: { width: 360, maxHeight: 480, p: 2 } } }}
-    >
-      {/* Header */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pb: 1 }}>
         {otherType && (
-          <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
+          <Box sx={{ width: 14, height: 14, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
         )}
-        <Typography variant="subtitle2" fontWeight={600} sx={{ flex: 1 }}>
-          {verb} &rarr; {otherType?.label || targetTypeKey}
-        </Typography>
-        <IconButton size="small" onClick={onClose} sx={{ ml: "auto" }}>
-          <MaterialSymbol icon="close" size={18} />
-        </IconButton>
-      </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 1, py: 0 }} onClose={() => setError("")}>{error}</Alert>}
-
-      {/* Current relations */}
-      {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-          <CircularProgress size={24} />
-        </Box>
-      ) : (
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1.5, minHeight: 28 }}>
-          {relations.length === 0 && (
-            <Typography variant="body2" color="text.secondary">No relations yet</Typography>
-          )}
-          {relations.map((r) => {
-            const other = isSource ? r.target : r.source;
-            return (
-              <Chip
-                key={r.id}
-                size="small"
-                label={other?.name || "Unknown"}
-                onDelete={() => handleDelete(r.id)}
-                icon={otherType ? <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} /> : undefined}
-                sx={{ maxWidth: "100%" }}
-              />
-            );
-          })}
-        </Box>
-      )}
-
-      {/* Add section */}
-      {!createMode ? (
-        <>
-          <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
-            <Autocomplete
-              size="small"
-              fullWidth
-              options={searchResults}
-              getOptionLabel={(opt) => opt.name}
-              value={selectedTarget}
-              onChange={(_, val) => setSelectedTarget(val)}
-              inputValue={targetSearch}
-              onInputChange={(_, val) => setTargetSearch(val)}
-              renderOption={(props, opt) => {
-                const tConf = getType(opt.type);
-                return (
-                  <li {...props} key={opt.id}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
-                      <Typography variant="body2">{opt.name}</Typography>
-                    </Box>
-                  </li>
-                );
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  placeholder={`Search ${targetTypeConfig?.label || targetTypeKey}...`}
-                />
-              )}
-              noOptionsText={targetSearch ? "No results" : "Type to search..."}
-              filterOptions={(x) => x}
-            />
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleAdd}
-              disabled={!selectedTarget || adding}
-              sx={{ textTransform: "none", whiteSpace: "nowrap", minWidth: 56, height: 40 }}
-            >
-              {adding ? <CircularProgress size={18} color="inherit" /> : "Add"}
-            </Button>
-          </Box>
-          <Button
-            size="small"
-            sx={{ mt: 0.5, textTransform: "none" }}
-            startIcon={<MaterialSymbol icon="add" size={16} />}
-            onClick={() => { setCreateMode(true); setCreateName(targetSearch); }}
-          >
-            Create new {targetTypeConfig?.label || targetTypeKey}
-          </Button>
-        </>
-      ) : (
-        <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
-          <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
-            Create new {targetTypeConfig?.label || targetTypeKey}
+        <Typography variant="h6" component="span" sx={{ flex: 1 }}>
+          {factSheetName}
+          <Typography component="span" variant="body1" color="text.secondary" sx={{ mx: 1 }}>
+            {verb} &rarr;
           </Typography>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Name"
-            value={createName}
-            onChange={(e) => setCreateName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
-            autoFocus
-            sx={{ mb: 1 }}
-          />
-          <Box sx={{ display: "flex", gap: 1 }}>
+          {otherType?.label || targetTypeKey}
+        </Typography>
+        <IconButton size="small" onClick={onClose} edge="end">
+          <MaterialSymbol icon="close" size={20} />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent>
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+
+        {/* Current relations */}
+        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
+          Current relations
+        </Typography>
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2.5, minHeight: 32 }}>
+            {relations.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                No relations yet
+              </Typography>
+            )}
+            {relations.map((r) => {
+              const other = isSource ? r.target : r.source;
+              return (
+                <Chip
+                  key={r.id}
+                  label={other?.name || "Unknown"}
+                  onDelete={() => handleDelete(r.id)}
+                  icon={otherType ? <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} /> : undefined}
+                  sx={{ maxWidth: "100%" }}
+                />
+              );
+            })}
+          </Box>
+        )}
+
+        {/* Add section */}
+        <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
+          Add relation
+        </Typography>
+        {!createMode ? (
+          <>
+            <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+              <Autocomplete
+                size="small"
+                fullWidth
+                options={searchResults}
+                getOptionLabel={(opt) => opt.name}
+                value={selectedTarget}
+                onChange={(_, val) => setSelectedTarget(val)}
+                inputValue={targetSearch}
+                onInputChange={(_, val) => setTargetSearch(val)}
+                renderOption={(props, opt) => {
+                  const tConf = getType(opt.type);
+                  return (
+                    <li {...props} key={opt.id}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        {tConf && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: tConf.color }} />}
+                        <Typography variant="body2">{opt.name}</Typography>
+                      </Box>
+                    </li>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder={`Search ${targetTypeConfig?.label || targetTypeKey}...`}
+                  />
+                )}
+                noOptionsText={targetSearch ? "No results" : "Type to search..."}
+                filterOptions={(x) => x}
+              />
+              <Button
+                variant="contained"
+                size="small"
+                onClick={handleAdd}
+                disabled={!selectedTarget || adding}
+                sx={{ textTransform: "none", whiteSpace: "nowrap", minWidth: 56, height: 40 }}
+              >
+                {adding ? <CircularProgress size={18} color="inherit" /> : "Add"}
+              </Button>
+            </Box>
             <Button
               size="small"
-              variant="contained"
-              onClick={handleQuickCreate}
-              disabled={!createName.trim() || createLoading}
-              sx={{ textTransform: "none" }}
+              sx={{ mt: 0.5, textTransform: "none" }}
+              startIcon={<MaterialSymbol icon="add" size={16} />}
+              onClick={() => { setCreateMode(true); setCreateName(targetSearch); }}
             >
-              {createLoading ? <CircularProgress size={16} color="inherit" /> : "Create & Add"}
+              Create new {targetTypeConfig?.label || targetTypeKey}
             </Button>
-            <Button size="small" onClick={() => setCreateMode(false)} sx={{ textTransform: "none" }}>
-              Back
-            </Button>
+          </>
+        ) : (
+          <Box sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
+            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              Create new {targetTypeConfig?.label || targetTypeKey}
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
+              autoFocus
+              sx={{ mb: 1 }}
+            />
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={handleQuickCreate}
+                disabled={!createName.trim() || createLoading}
+                sx={{ textTransform: "none" }}
+              >
+                {createLoading ? <CircularProgress size={16} color="inherit" /> : "Create & Add"}
+              </Button>
+              <Button size="small" onClick={() => setCreateMode(false)} sx={{ textTransform: "none" }}>
+                Back
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      )}
-    </Popover>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
