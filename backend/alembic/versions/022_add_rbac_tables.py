@@ -135,11 +135,13 @@ def upgrade() -> None:
         )
 
     log.info("Step 2: Seed system/default roles")
-    # 2. Seed system/default roles (parameterized to avoid text() parsing issues)
+    # 2. Seed system/default roles
+    # Note: id column needs gen_random_uuid() because create_all uses Python-side
+    # default (uuid.uuid4), not server_default, so the DB column has no default.
     _role_insert = sa.text(
-        "INSERT INTO roles (key, label, description, is_system, is_default, "
+        "INSERT INTO roles (id, key, label, description, is_system, is_default, "
         "is_archived, color, permissions, sort_order) "
-        "VALUES (:key, :label, :description, :is_system, :is_default, "
+        "VALUES (gen_random_uuid(), :key, :label, :description, :is_system, :is_default, "
         ":is_archived, :color, CAST(:permissions AS jsonb), :sort_order) "
         "ON CONFLICT (key) DO NOTHING"
     )
@@ -206,8 +208,8 @@ def upgrade() -> None:
             # Use INSERT ... ON CONFLICT to handle duplicates
             conn.execute(sa.text(
                 "INSERT INTO subscription_role_definitions "
-                "(fact_sheet_type_key, key, label, permissions, sort_order) "
-                "VALUES (:type_key, :key, :label, CAST(:perms AS jsonb), :sort_order) "
+                "(id, fact_sheet_type_key, key, label, permissions, sort_order) "
+                "VALUES (gen_random_uuid(), :type_key, :key, :label, CAST(:perms AS jsonb), :sort_order) "
                 "ON CONFLICT (fact_sheet_type_key, key) DO NOTHING"
             ), {
                 "type_key": type_key,
@@ -220,8 +222,8 @@ def upgrade() -> None:
     log.info("Step 5: Add FK from users.role to roles.key")
     # First, ensure all existing user role values exist in the roles table
     conn.execute(sa.text(
-        "INSERT INTO roles (key, label, permissions, sort_order) "
-        "SELECT DISTINCT u.role, u.role, CAST(:empty AS jsonb), 99 "
+        "INSERT INTO roles (id, key, label, permissions, sort_order) "
+        "SELECT gen_random_uuid(), u.role, u.role, CAST(:empty AS jsonb), 99 "
         "FROM users u "
         "WHERE u.role NOT IN (SELECT key FROM roles) "
         "ON CONFLICT (key) DO NOTHING"
