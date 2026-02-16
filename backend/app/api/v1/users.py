@@ -35,6 +35,17 @@ class UserUpdate(BaseModel):
     password: str | None = None
 
 
+class NotificationPreferencesUpdate(BaseModel):
+    in_app: dict[str, bool] | None = None
+    email: dict[str, bool] | None = None
+
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    role: str = "viewer"
+    send_email: bool = False
+
+
 def _user_response(u: User) -> dict:
     return {
         "id": str(u.id),
@@ -49,11 +60,87 @@ def _user_response(u: User) -> dict:
     }
 
 
+def _invitation_response(inv: SsoInvitation) -> dict:
+    return {
+        "id": str(inv.id),
+        "email": inv.email,
+        "role": inv.role,
+        "invited_by": str(inv.invited_by) if inv.invited_by else None,
+        "created_at": inv.created_at.isoformat() if inv.created_at else None,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Fixed-path routes MUST be declared before /{user_id} to avoid shadowing
+# ---------------------------------------------------------------------------
+
 @router.get("")
 async def list_users(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(User).order_by(User.display_name))
     return [_user_response(u) for u in result.scalars().all()]
 
+
+@router.get("/invitations")
+async def list_invitations(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — list all pending invitations."""
+    await PermissionService.require_permission(db, current_user, "admin.users")
+    result = await db.execute(
+        select(SsoInvitation).order_by(SsoInvitation.email)
+    )
+    return [_invitation_response(inv) for inv in result.scalars().all()]
+
+
+@router.delete("/invitations/{invitation_id}", status_code=204)
+async def delete_invitation(
+    invitation_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — delete/revoke a pending SSO invitation."""
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    result = await db.execute(
+        select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))
+    )
+    inv = result.scalar_one_or_none()
+    if not inv:
+        raise HTTPException(404, "Invitation not found")
+
+    await db.delete(inv)
+    await db.commit()
+
+
+@router.get("/me/notification-preferences")
+async def get_notification_preferences(
+    current_user: User = Depends(get_current_user),
+):
+    return current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
+
+
+@router.patch("/me/notification-preferences")
+async def update_notification_preferences(
+    body: NotificationPreferencesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    prefs = dict(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
+
+    if body.in_app is not None:
+        prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
+    if body.email is not None:
+        prefs["email"] = {**prefs.get("email", {}), **body.email}
+
+    current_user.notification_preferences = prefs
+    await db.commit()
+    return prefs
+
+
+# ---------------------------------------------------------------------------
+# Parameterized routes — /{user_id} catch-all comes after fixed paths
+# ---------------------------------------------------------------------------
 
 @router.get("/{user_id}")
 async def get_user(
@@ -246,91 +333,4 @@ async def delete_user(
 
     # Soft-delete: deactivate rather than hard-delete to preserve audit trail
     u.is_active = False
-    await db.commit()
-
-
-# ---------------------------------------------------------------------------
-# Notification preferences
-# ---------------------------------------------------------------------------
-
-class NotificationPreferencesUpdate(BaseModel):
-    in_app: dict[str, bool] | None = None
-    email: dict[str, bool] | None = None
-
-
-@router.get("/me/notification-preferences")
-async def get_notification_preferences(
-    current_user: User = Depends(get_current_user),
-):
-    return current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES
-
-
-@router.patch("/me/notification-preferences")
-async def update_notification_preferences(
-    body: NotificationPreferencesUpdate,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    prefs = dict(current_user.notification_preferences or DEFAULT_NOTIFICATION_PREFERENCES)
-
-    if body.in_app is not None:
-        prefs["in_app"] = {**prefs.get("in_app", {}), **body.in_app}
-    if body.email is not None:
-        prefs["email"] = {**prefs.get("email", {}), **body.email}
-
-    current_user.notification_preferences = prefs
-    await db.commit()
-    return prefs
-
-
-# ---------------------------------------------------------------------------
-# SSO Invitations
-# ---------------------------------------------------------------------------
-
-class InvitationCreate(BaseModel):
-    email: EmailStr
-    role: str = "viewer"
-    send_email: bool = False
-
-
-def _invitation_response(inv: SsoInvitation) -> dict:
-    return {
-        "id": str(inv.id),
-        "email": inv.email,
-        "role": inv.role,
-        "invited_by": str(inv.invited_by) if inv.invited_by else None,
-        "created_at": inv.created_at.isoformat() if inv.created_at else None,
-    }
-
-
-@router.get("/invitations")
-async def list_invitations(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Admin only — list all pending invitations."""
-    await PermissionService.require_permission(db, current_user, "admin.users")
-    result = await db.execute(
-        select(SsoInvitation).order_by(SsoInvitation.email)
-    )
-    return [_invitation_response(inv) for inv in result.scalars().all()]
-
-
-@router.delete("/invitations/{invitation_id}", status_code=204)
-async def delete_invitation(
-    invitation_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Admin only — delete/revoke a pending SSO invitation."""
-    await PermissionService.require_permission(db, current_user, "admin.users")
-
-    result = await db.execute(
-        select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))
-    )
-    inv = result.scalar_one_or_none()
-    if not inv:
-        raise HTTPException(404, "Invitation not found")
-
-    await db.delete(inv)
     await db.commit()
