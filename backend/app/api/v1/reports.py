@@ -13,6 +13,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
+from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.user import User
@@ -220,6 +221,163 @@ async def portfolio(
             "lifecycle": fs.lifecycle,
         })
     return {"items": items, "x_axis": x_axis, "y_axis": y_axis}
+
+
+@router.get("/app-portfolio")
+async def app_portfolio(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Application portfolio report: all applications with relations for
+    flexible client-side grouping by any attribute or related fact sheet type."""
+    await PermissionService.require_permission(db, user, "reports.portfolio")
+
+    # 1. Get all active applications
+    apps_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Application", FactSheet.status == "ACTIVE"
+        )
+    )
+    apps = apps_result.scalars().all()
+    app_ids = [a.id for a in apps]
+    app_id_set = {str(a.id) for a in apps}
+
+    # 2. Get all relations touching applications
+    rels_result = await db.execute(
+        select(Relation).where(
+            (Relation.source_id.in_(app_ids)) | (Relation.target_id.in_(app_ids))
+        )
+    )
+    rels = rels_result.scalars().all()
+
+    # Collect all related fact sheet IDs
+    related_ids: set[str] = set()
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in app_id_set:
+            related_ids.add(tid)
+        else:
+            related_ids.add(sid)
+    related_ids -= app_id_set
+
+    # 3. Fetch related fact sheets in bulk
+    related_map: dict[str, dict] = {}
+    if related_ids:
+        rel_result = await db.execute(
+            select(FactSheet).where(
+                FactSheet.id.in_(list(related_ids)),
+                FactSheet.status == "ACTIVE",
+            )
+        )
+        for fs in rel_result.scalars().all():
+            related_map[str(fs.id)] = {
+                "id": str(fs.id),
+                "name": fs.name,
+                "type": fs.type,
+            }
+
+    # 4. Build app -> relations lookup
+    app_relations: dict[str, list[dict]] = {str(a.id): [] for a in apps}
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in app_id_set and tid in related_map:
+            app_relations[sid].append({
+                "relation_type": r.type,
+                "related_id": tid,
+                "related_name": related_map[tid]["name"],
+                "related_type": related_map[tid]["type"],
+            })
+        elif tid in app_id_set and sid in related_map:
+            app_relations[tid].append({
+                "relation_type": r.type,
+                "related_id": sid,
+                "related_name": related_map[sid]["name"],
+                "related_type": related_map[sid]["type"],
+            })
+
+    # 5. Get relation types for label resolution
+    rt_result = await db.execute(
+        select(RelationType).where(RelationType.is_hidden.is_(False))
+    )
+    relation_types_list = rt_result.scalars().all()
+    rel_type_defs = []
+    seen_other_types: set[str] = set()
+    for rt in relation_types_list:
+        other = None
+        if rt.source_type_key == "Application":
+            other = rt.target_type_key
+        elif rt.target_type_key == "Application":
+            other = rt.source_type_key
+        if other and other not in seen_other_types:
+            seen_other_types.add(other)
+            rel_type_defs.append({
+                "key": rt.key,
+                "label": rt.label,
+                "reverse_label": rt.reverse_label,
+                "source_type_key": rt.source_type_key,
+                "target_type_key": rt.target_type_key,
+                "other_type_key": other,
+            })
+
+    # 6. Get the Application type schema for field definitions
+    type_result = await db.execute(
+        select(FactSheetType).where(FactSheetType.key == "Application")
+    )
+    app_type = type_result.scalar_one_or_none()
+    fields_schema = app_type.fields_schema if app_type else []
+
+    # 7. Get all organizations for org filter options
+    orgs_result = await db.execute(
+        select(FactSheet).where(
+            FactSheet.type == "Organization", FactSheet.status == "ACTIVE"
+        ).order_by(FactSheet.name)
+    )
+    orgs = orgs_result.scalars().all()
+
+    # Build org mapping from relations
+    org_ids = {str(o.id) for o in orgs}
+    app_orgs: dict[str, set[str]] = {}
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in org_ids and tid in app_id_set:
+            app_orgs.setdefault(tid, set()).add(sid)
+        elif tid in org_ids and sid in app_id_set:
+            app_orgs.setdefault(sid, set()).add(tid)
+
+    # 8. Build response items
+    items = []
+    for a in apps:
+        aid = str(a.id)
+        items.append({
+            "id": aid,
+            "name": a.name,
+            "subtype": a.subtype,
+            "attributes": a.attributes,
+            "lifecycle": a.lifecycle,
+            "relations": app_relations.get(aid, []),
+            "org_ids": sorted(app_orgs.get(aid, set())),
+        })
+
+    # 9. Collect groupable related types (types that have at least 1 linked app)
+    groupable_types: dict[str, list[dict]] = {}
+    for fs_data in related_map.values():
+        ft = fs_data["type"]
+        if ft not in groupable_types:
+            groupable_types[ft] = []
+        groupable_types[ft].append(fs_data)
+    # Sort members within each type
+    for members in groupable_types.values():
+        members.sort(key=lambda x: x["name"])
+
+    organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
+
+    return {
+        "items": items,
+        "fields_schema": fields_schema,
+        "relation_types": rel_type_defs,
+        "groupable_types": groupable_types,
+        "organizations": organizations,
+    }
 
 
 @router.get("/matrix")
