@@ -74,3 +74,6 @@ uploads/
 
 # Alembic
 alembic/versions/__pycache__/
+
+#Archived Plans
+archive/
