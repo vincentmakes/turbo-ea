@@ -128,7 +128,7 @@ export default function TimelineSlider({
         />
 
         {/* Year tick marks + labels */}
-        <Box sx={{ position: "relative", width: "100%", height: 18, mt: -0.5 }}>
+        <Box sx={{ position: "relative", width: "100%", height: 22, mt: "2px" }}>
           {thinned.map((m) => (
             <Box
               key={m.value}
@@ -145,20 +145,20 @@ export default function TimelineSlider({
             >
               <Box
                 sx={{
-                  width: 1,
-                  height: 6,
-                  bgcolor: `${primary}40`,
-                  borderRadius: 0.5,
+                  width: 1.5,
+                  height: m.showLabel ? 10 : 6,
+                  bgcolor: `${primary}66`,
                 }}
               />
               {m.showLabel && (
                 <Typography
                   variant="caption"
                   sx={{
-                    fontSize: "0.62rem",
-                    color: `${primary}99`,
+                    fontSize: "0.65rem",
+                    fontWeight: 500,
+                    color: `${primary}BB`,
                     lineHeight: 1,
-                    mt: "1px",
+                    mt: "2px",
                     userSelect: "none",
                   }}
                 >
