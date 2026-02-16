@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -1438,8 +1438,8 @@ interface GraphProps {
   onNodeClick: (key: string) => void;
 }
 
-function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
-  const visibleTypes = types.filter((t) => !t.is_hidden);
+const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
+  const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
 
   /* --- Build layers --- */
   const layers = useMemo(() => {
@@ -1850,7 +1850,7 @@ function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
       </svg>
     </Box>
   );
-}
+});
 
 /* ================================================================== */
 /*  Main Component                                                     */
@@ -1999,10 +1999,10 @@ export default function MetamodelAdmin() {
     setCreateRelOpen(true);
   };
 
-  const handleNodeClick = (key: string) => {
+  const handleNodeClick = useCallback((key: string) => {
     setSelectedTypeKey(key);
     setDrawerOpen(true);
-  };
+  }, []);
 
   const resolveType = (key: string) => types.find((t) => t.key === key);
 
