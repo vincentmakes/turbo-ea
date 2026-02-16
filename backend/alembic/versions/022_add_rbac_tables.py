@@ -135,20 +135,31 @@ def upgrade() -> None:
         )
 
     log.info("Step 2: Seed system/default roles")
-    # 2. Seed system/default roles
-    op.execute(f"""
-        INSERT INTO roles (key, label, description, is_system, is_default, is_archived, color, permissions, sort_order)
-        VALUES
-        ('admin', 'Administrator', 'Full access to all features', true, false, false, '#d32f2f',
-         '{ADMIN_PERMS}'::jsonb, 0),
-        ('bpm_admin', 'BPM Administrator', 'Full access to BPM and inventory features', false, false, false, '#7B1FA2',
-         '{BPM_ADMIN_PERMS}'::jsonb, 1),
-        ('member', 'Member', 'Standard user with edit access', false, true, false, '#1976d2',
-         '{MEMBER_PERMS}'::jsonb, 2),
-        ('viewer', 'Viewer', 'Read-only access', false, false, false, '#757575',
-         '{VIEWER_PERMS}'::jsonb, 3)
-        ON CONFLICT (key) DO NOTHING;
-    """)
+    # 2. Seed system/default roles (parameterized to avoid text() parsing issues)
+    _role_insert = sa.text(
+        "INSERT INTO roles (key, label, description, is_system, is_default, "
+        "is_archived, color, permissions, sort_order) "
+        "VALUES (:key, :label, :description, :is_system, :is_default, "
+        ":is_archived, :color, CAST(:permissions AS jsonb), :sort_order) "
+        "ON CONFLICT (key) DO NOTHING"
+    )
+    for rdata in [
+        {"key": "admin", "label": "Administrator", "description": "Full access to all features",
+         "is_system": True, "is_default": False, "is_archived": False,
+         "color": "#d32f2f", "permissions": ADMIN_PERMS, "sort_order": 0},
+        {"key": "bpm_admin", "label": "BPM Administrator",
+         "description": "Full access to BPM and inventory features",
+         "is_system": False, "is_default": False, "is_archived": False,
+         "color": "#7B1FA2", "permissions": BPM_ADMIN_PERMS, "sort_order": 1},
+        {"key": "member", "label": "Member", "description": "Standard user with edit access",
+         "is_system": False, "is_default": True, "is_archived": False,
+         "color": "#1976d2", "permissions": MEMBER_PERMS, "sort_order": 2},
+        {"key": "viewer", "label": "Viewer", "description": "Read-only access",
+         "is_system": False, "is_default": False, "is_archived": False,
+         "color": "#757575", "permissions": VIEWER_PERMS, "sort_order": 3},
+    ]:
+        log.info("  Inserting role: %s", rdata["key"])
+        conn.execute(_role_insert, rdata)
 
     log.info("Step 3: Create subscription_role_definitions table")
     # 3. Create subscription_role_definitions table
@@ -208,13 +219,13 @@ def upgrade() -> None:
 
     log.info("Step 5: Add FK from users.role to roles.key")
     # First, ensure all existing user role values exist in the roles table
-    conn.execute(sa.text("""
-        INSERT INTO roles (key, label, permissions, sort_order)
-        SELECT DISTINCT u.role, u.role, '{}'::jsonb, 99
-        FROM users u
-        WHERE u.role NOT IN (SELECT key FROM roles)
-        ON CONFLICT (key) DO NOTHING
-    """))
+    conn.execute(sa.text(
+        "INSERT INTO roles (key, label, permissions, sort_order) "
+        "SELECT DISTINCT u.role, u.role, CAST(:empty AS jsonb), 99 "
+        "FROM users u "
+        "WHERE u.role NOT IN (SELECT key FROM roles) "
+        "ON CONFLICT (key) DO NOTHING"
+    ), {"empty": "{}"})
 
     log.info("Step 6: Create FK constraint")
     # Now add the foreign key constraint
