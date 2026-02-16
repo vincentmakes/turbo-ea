@@ -1517,6 +1517,7 @@ interface GraphProps {
 
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   /* ================================================================ */
   /*  Build layers                                                     */
@@ -1831,7 +1832,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
         }
       }
 
-      return { key: r.key, d, label: r.label, labelX, labelY };
+      return { key: r.key, d, label: r.label, labelX, labelY, srcType: r.source_type_key, tgtType: r.target_type_key };
     });
 
     // -- Resolve label overlaps --
@@ -1959,10 +1960,10 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
         style={{ display: "block", minWidth: svgDimensions.svgW }}
       >
         <style>{`
-          .mm-edge:hover > path { stroke: #e67700; stroke-width: 2; }
-          .mm-edge:hover > path[marker-end] { marker-end: url(#mm-arrow-hover); }
-          .mm-edge:hover .mm-edge-label rect { fill: #e67700; fill-opacity: 1; stroke: #c45d00; }
-          .mm-edge:hover .mm-edge-label text { fill: #fff; font-weight: 600; }
+          .mm-edge:hover > path, .mm-edge-hl > path { stroke: #e67700; stroke-width: 2; }
+          .mm-edge:hover > path[marker-end], .mm-edge-hl > path[marker-end] { marker-end: url(#mm-arrow-hover); }
+          .mm-edge:hover .mm-edge-label rect, .mm-edge-hl .mm-edge-label rect { fill: #e67700; fill-opacity: 1; stroke: #c45d00; }
+          .mm-edge:hover .mm-edge-label text, .mm-edge-hl .mm-edge-label text { fill: #fff; font-weight: 600; }
         `}</style>
         <defs>
           <marker
@@ -2031,7 +2032,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
 
         {/* ---- Edges ---- */}
         {edges.map((e) => (
-          <g key={e.key} className="mm-edge">
+          <g key={e.key} className={`mm-edge${hoveredNode && (e.srcType === hoveredNode || e.tgtType === hoveredNode) ? " mm-edge-hl" : ""}`}>
             <path
               d={e.d}
               fill="none"
@@ -2081,6 +2082,8 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
               key={t.key}
               style={{ cursor: "pointer" }}
               onClick={() => onNodeClick(t.key)}
+              onMouseEnter={() => setHoveredNode(t.key)}
+              onMouseLeave={() => setHoveredNode(null)}
             >
               <rect
                 x={pos.x}
