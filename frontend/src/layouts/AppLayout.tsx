@@ -650,7 +650,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           {/* Search (hidden on mobile — available in drawer) */}
           {!isMobile && (
             <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
-              <Box sx={{ position: "relative" }} ref={searchAnchorRef}>
+              <Box sx={{ position: "relative", flexShrink: 1, minWidth: 0 }} ref={searchAnchorRef}>
                 <TextField
                   size="small"
                   placeholder="Search fact sheets..."
@@ -661,8 +661,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     if (searchResults.length > 0) setSearchOpen(true);
                   }}
                   sx={{
-                    maxWidth: isCondensed ? 200 : 360,
-                    minWidth: isCondensed ? 140 : 180,
+                    width: isCondensed ? 200 : 360,
+                    maxWidth: "100%",
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
                     "& .MuiOutlinedInput-notchedOutline": { border: "none" },
@@ -788,7 +788,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 variant="contained"
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
-                sx={{ ml: 1.5, px: 2, textTransform: "none" }}
+                sx={{ ml: 1.5, px: 2, textTransform: "none", flexShrink: 0 }}
                 onClick={() => navigate("/inventory?create=true")}
               >
                 Create
@@ -801,7 +801,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* User menu */}
           <IconButton
-            sx={{ ml: isMobile ? 0 : 1, color: "#fff" }}
+            sx={{ ml: isMobile ? 0 : 1, color: "#fff", flexShrink: 0 }}
             onClick={(e) => setUserMenu(e.currentTarget)}
           >
             <MaterialSymbol icon="account_circle" size={28} />
