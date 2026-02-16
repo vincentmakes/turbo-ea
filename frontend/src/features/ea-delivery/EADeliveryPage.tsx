@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -34,7 +34,6 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
-import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
@@ -460,11 +459,17 @@ export default function EADeliveryPage() {
 
   // ── list view renderer ────────────────────────────────────────────────
 
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const toggleRow = (id: string) =>
+    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+
   const renderListView = () => {
-    const initDiagramCount = (id: string) =>
-      diagrams.filter((d) => d.initiative_ids.includes(id)).length;
-    const initSoawCount = (id: string) =>
-      soaws.filter((s) => s.initiative_id === id).length;
+    const getInitDiagrams = (id: string) =>
+      diagrams.filter((d) => d.initiative_ids.includes(id));
+    const getInitSoaws = (id: string) =>
+      soaws.filter((s) => s.initiative_id === id);
+
+    const totalCols = 9;
 
     return (
       <TableContainer component={Paper} variant="outlined">
@@ -477,7 +482,6 @@ export default function EADeliveryPage() {
               <TableCell sx={{ fontWeight: 600 }}>Business Value</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Effort</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Timeline</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Completion</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Artefacts</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Related Elements</TableCell>
               <TableCell sx={{ fontWeight: 600, width: 80 }}>Actions</TableCell>
@@ -486,7 +490,7 @@ export default function EADeliveryPage() {
           <TableBody>
             {filteredInitiatives.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
+                <TableCell colSpan={totalCols} sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
                   No initiatives match the current filters.
                 </TableCell>
               </TableRow>
@@ -498,207 +502,233 @@ export default function EADeliveryPage() {
               const effort = attrs.effort as string | undefined;
               const startDate = attrs.startDate as string | undefined;
               const endDate = attrs.endDate as string | undefined;
-              const dCount = initDiagramCount(init.id);
-              const sCount = initSoawCount(init.id);
+              const initDiagrams = getInitDiagrams(init.id);
+              const initSoaws = getInitSoaws(init.id);
+              const dCount = initDiagrams.length;
+              const sCount = initSoaws.length;
+              const artefactCount = dCount + sCount;
               const relatedGroups = getRelatedSummary(init.id);
+              const isRowOpen = expandedRows[init.id] ?? false;
 
               return (
-                <TableRow
-                  key={init.id}
-                  hover
-                  sx={{
-                    cursor: "pointer",
-                    opacity: init.status === "ARCHIVED" ? 0.6 : 1,
-                    "&:hover": { bgcolor: "action.hover" },
-                  }}
-                  onClick={() => navigate(`/fact-sheets/${init.id}`)}
-                >
-                  {/* Name */}
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <MaterialSymbol icon="rocket_launch" size={18} color="#33cc58" />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {init.name}
-                      </Typography>
-                      {init.status === "ARCHIVED" && (
-                        <Chip label="Archived" size="small" variant="outlined" color="default" sx={{ height: 20, fontSize: "0.7rem" }} />
-                      )}
-                    </Box>
-                  </TableCell>
+                <React.Fragment key={init.id}>
+                  <TableRow
+                    hover
+                    sx={{
+                      cursor: "pointer",
+                      opacity: init.status === "ARCHIVED" ? 0.6 : 1,
+                      "&:hover": { bgcolor: "action.hover" },
+                      // Remove bottom border when expanded so the sub-row connects visually
+                      ...(isRowOpen && { "& > td": { borderBottom: "none" } }),
+                    }}
+                    onClick={() => navigate(`/fact-sheets/${init.id}`)}
+                  >
+                    {/* Name */}
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <MaterialSymbol icon="rocket_launch" size={18} color="#33cc58" />
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {init.name}
+                        </Typography>
+                        {init.status === "ARCHIVED" && (
+                          <Chip label="Archived" size="small" variant="outlined" color="default" sx={{ height: 20, fontSize: "0.7rem" }} />
+                        )}
+                      </Box>
+                    </TableCell>
 
-                  {/* Subtype */}
-                  <TableCell>
-                    {init.subtype ? (
-                      <Chip label={init.subtype} size="small" sx={{ textTransform: "capitalize" }} />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Initiative Status */}
-                  <TableCell>
-                    {initStatus ? (
-                      <Chip
-                        label={INITIATIVE_STATUS_LABELS[initStatus] ?? initStatus}
-                        size="small"
-                        sx={{
-                          bgcolor: INITIATIVE_STATUS_COLORS[initStatus] ?? "#9e9e9e",
-                          color: "#fff",
-                          fontWeight: 500,
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Business Value */}
-                  <TableCell>
-                    {businessValue ? (
-                      <Chip
-                        label={businessValue.charAt(0).toUpperCase() + businessValue.slice(1)}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          borderColor:
-                            businessValue === "high" ? "#2e7d32" :
-                            businessValue === "medium" ? "#ff9800" : "#9e9e9e",
-                          color:
-                            businessValue === "high" ? "#2e7d32" :
-                            businessValue === "medium" ? "#ff9800" : "#9e9e9e",
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Effort */}
-                  <TableCell>
-                    {effort ? (
-                      <Chip
-                        label={effort.charAt(0).toUpperCase() + effort.slice(1)}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          borderColor:
-                            effort === "high" ? "#d32f2f" :
-                            effort === "medium" ? "#ff9800" : "#4caf50",
-                          color:
-                            effort === "high" ? "#d32f2f" :
-                            effort === "medium" ? "#ff9800" : "#4caf50",
-                        }}
-                      />
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Timeline */}
-                  <TableCell>
-                    {startDate || endDate ? (
-                      <Typography variant="body2" sx={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-                        {startDate ? new Date(startDate).toLocaleDateString() : "?"}{" "}
-                        {" - "}
-                        {endDate ? new Date(endDate).toLocaleDateString() : "?"}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">-</Typography>
-                    )}
-                  </TableCell>
-
-                  {/* Completion */}
-                  <TableCell>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 80 }}>
-                      <LinearProgress
-                        variant="determinate"
-                        value={init.completion}
-                        sx={{ flex: 1, height: 6, borderRadius: 3 }}
-                      />
-                      <Typography variant="body2" sx={{ fontSize: "0.75rem", minWidth: 32, textAlign: "right" }}>
-                        {Math.round(init.completion)}%
-                      </Typography>
-                    </Box>
-                  </TableCell>
-
-                  {/* Artefacts */}
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                      {sCount > 0 && (
-                        <Chip
-                          icon={<MaterialSymbol icon="description" size={14} />}
-                          label={`${sCount} SoAW`}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 22, fontSize: "0.75rem" }}
-                        />
-                      )}
-                      {dCount > 0 && (
-                        <Chip
-                          icon={<MaterialSymbol icon="schema" size={14} />}
-                          label={`${dCount} Diagram${dCount > 1 ? "s" : ""}`}
-                          size="small"
-                          variant="outlined"
-                          color="info"
-                          sx={{ height: 22, fontSize: "0.75rem" }}
-                        />
-                      )}
-                      {sCount === 0 && dCount === 0 && (
+                    {/* Subtype */}
+                    <TableCell>
+                      {init.subtype ? (
+                        <Chip label={init.subtype} size="small" sx={{ textTransform: "capitalize" }} />
+                      ) : (
                         <Typography variant="body2" color="text.secondary">-</Typography>
                       )}
-                    </Box>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* Related Elements */}
-                  <TableCell>
-                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", maxWidth: 280 }}>
-                      {relatedGroups.length > 0 ? (
-                        relatedGroups.map(({ type, names }) => (
-                          <Tooltip key={type} title={names.join(", ")}>
-                            <Chip
-                              label={`${names.length} ${getTypeLabel(type)}`}
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: "0.75rem",
-                                bgcolor: getTypeColor(type) + "18",
-                                color: getTypeColor(type),
-                                borderColor: getTypeColor(type) + "40",
-                                border: "1px solid",
-                              }}
-                            />
-                          </Tooltip>
-                        ))
+                    {/* Initiative Status */}
+                    <TableCell>
+                      {initStatus ? (
+                        <Chip
+                          label={INITIATIVE_STATUS_LABELS[initStatus] ?? initStatus}
+                          size="small"
+                          sx={{
+                            bgcolor: INITIATIVE_STATUS_COLORS[initStatus] ?? "#9e9e9e",
+                            color: "#fff",
+                            fontWeight: 500,
+                          }}
+                        />
                       ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          {relations.length > 0 ? "-" : "..."}
-                        </Typography>
+                        <Typography variant="body2" color="text.secondary">-</Typography>
                       )}
-                    </Box>
-                  </TableCell>
+                    </TableCell>
 
-                  {/* Actions */}
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Box sx={{ display: "flex" }}>
-                      <Tooltip title="Create SoAW">
-                        <IconButton
+                    {/* Business Value */}
+                    <TableCell>
+                      {businessValue ? (
+                        <Chip
+                          label={businessValue.charAt(0).toUpperCase() + businessValue.slice(1)}
                           size="small"
-                          onClick={() => handleCreateForInitiative(init.id)}
-                        >
-                          <MaterialSymbol icon="add_circle_outline" size={18} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Link diagrams">
-                        <IconButton
+                          variant="outlined"
+                          sx={{
+                            borderColor:
+                              businessValue === "high" ? "#2e7d32" :
+                              businessValue === "medium" ? "#ff9800" : "#9e9e9e",
+                            color:
+                              businessValue === "high" ? "#2e7d32" :
+                              businessValue === "medium" ? "#ff9800" : "#9e9e9e",
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+
+                    {/* Effort */}
+                    <TableCell>
+                      {effort ? (
+                        <Chip
+                          label={effort.charAt(0).toUpperCase() + effort.slice(1)}
                           size="small"
-                          onClick={() => openLinkDialog(init.id)}
-                        >
-                          <MaterialSymbol icon="link" size={18} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+                          variant="outlined"
+                          sx={{
+                            borderColor:
+                              effort === "high" ? "#d32f2f" :
+                              effort === "medium" ? "#ff9800" : "#4caf50",
+                            color:
+                              effort === "high" ? "#d32f2f" :
+                              effort === "medium" ? "#ff9800" : "#4caf50",
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+
+                    {/* Timeline */}
+                    <TableCell>
+                      {startDate || endDate ? (
+                        <Typography variant="body2" sx={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+                          {startDate ? new Date(startDate).toLocaleDateString() : "?"}{" "}
+                          {" - "}
+                          {endDate ? new Date(endDate).toLocaleDateString() : "?"}
+                        </Typography>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">-</Typography>
+                      )}
+                    </TableCell>
+
+                    {/* Artefacts — clickable to expand sub-row */}
+                    <TableCell
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (artefactCount > 0) toggleRow(init.id);
+                      }}
+                      sx={artefactCount > 0 ? {
+                        cursor: "pointer",
+                        "&:hover": { bgcolor: "action.selected" },
+                        borderRadius: 1,
+                      } : undefined}
+                    >
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        {artefactCount > 0 && (
+                          <MaterialSymbol
+                            icon={isRowOpen ? "expand_more" : "chevron_right"}
+                            size={16}
+                          />
+                        )}
+                        {sCount > 0 && (
+                          <Chip
+                            icon={<MaterialSymbol icon="description" size={14} />}
+                            label={`${sCount} SoAW`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        )}
+                        {dCount > 0 && (
+                          <Chip
+                            icon={<MaterialSymbol icon="schema" size={14} />}
+                            label={`${dCount} Diagram${dCount > 1 ? "s" : ""}`}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                            sx={{ height: 22, fontSize: "0.75rem" }}
+                          />
+                        )}
+                        {artefactCount === 0 && (
+                          <Typography variant="body2" color="text.secondary">-</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+
+                    {/* Related Elements */}
+                    <TableCell>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", maxWidth: 280 }}>
+                        {relatedGroups.length > 0 ? (
+                          relatedGroups.map(({ type, names }) => (
+                            <Tooltip key={type} title={names.join(", ")}>
+                              <Chip
+                                label={`${names.length} ${getTypeLabel(type)}`}
+                                size="small"
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.75rem",
+                                  bgcolor: getTypeColor(type) + "18",
+                                  color: getTypeColor(type),
+                                  borderColor: getTypeColor(type) + "40",
+                                  border: "1px solid",
+                                }}
+                              />
+                            </Tooltip>
+                          ))
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            {relations.length > 0 ? "-" : "..."}
+                          </Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Box sx={{ display: "flex" }}>
+                        <Tooltip title="Create SoAW">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleCreateForInitiative(init.id)}
+                          >
+                            <MaterialSymbol icon="add_circle_outline" size={18} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Link diagrams">
+                          <IconButton
+                            size="small"
+                            onClick={() => openLinkDialog(init.id)}
+                          >
+                            <MaterialSymbol icon="link" size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+
+                  {/* Expandable artefact sub-row */}
+                  {artefactCount > 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={totalCols}
+                        sx={{ py: 0, bgcolor: isRowOpen ? "grey.50" : "transparent" }}
+                      >
+                        <Collapse in={isRowOpen} timeout="auto" unmountOnExit>
+                          <Box sx={{ py: 1.5, px: 1 }}>
+                            {initDiagrams.map((d) => renderDiagramCard(d, init.id))}
+                            {initSoaws.map(renderSoawCard)}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               );
             })}
           </TableBody>
