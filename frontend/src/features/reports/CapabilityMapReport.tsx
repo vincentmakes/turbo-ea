@@ -770,7 +770,7 @@ export default function CapabilityMapReport() {
   const handleAppClick = useCallback(
     (id: string) => {
       setDrawer(null);
-      navigate(`/fact-sheets/${id}`);
+      navigate(`/cards/${id}`);
     },
     [navigate],
   );

@@ -26,7 +26,7 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheetType, Bookmark, FieldDef, RelationType } from "@/types";
+import type { CardType, Bookmark, FieldDef, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -35,13 +35,13 @@ import type { FactSheetType, Bookmark, FieldDef, RelationType } from "@/types";
 export interface Filters {
   types: string[];
   search: string;
-  qualitySeals: string[];
+  approvalStatuss: string[];
   attributes: Record<string, string>; // key → value (single_select only for now)
-  relations: Record<string, string>; // relTypeKey → related fact sheet name
+  relations: Record<string, string>; // relTypeKey → related card name
 }
 
 interface Props {
-  types: FactSheetType[];
+  types: CardType[];
   filters: Filters;
   onFiltersChange: (f: Filters) => void;
   collapsed: boolean;
@@ -135,10 +135,10 @@ export default function InventoryFilterSidebar({
   };
 
   const toggleSeal = (key: string) => {
-    const next = filters.qualitySeals.includes(key)
-      ? filters.qualitySeals.filter((s) => s !== key)
-      : [...filters.qualitySeals, key];
-    onFiltersChange({ ...filters, qualitySeals: next });
+    const next = filters.approvalStatuss.includes(key)
+      ? filters.approvalStatuss.filter((s) => s !== key)
+      : [...filters.approvalStatuss, key];
+    onFiltersChange({ ...filters, approvalStatuss: next });
   };
 
   const setAttr = (key: string, value: string) => {
@@ -174,12 +174,12 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", qualitySeals: [], attributes: {}, relations: {} });
+    onFiltersChange({ types: [], search: "", approvalStatuss: [], attributes: {}, relations: {} });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
-    filters.qualitySeals.length +
+    filters.approvalStatuss.length +
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length;
 
@@ -189,11 +189,11 @@ export default function InventoryFilterSidebar({
     if (!viewName.trim()) return;
     const payload = {
       name: viewName.trim(),
-      fact_sheet_type: filters.types.length === 1 ? filters.types[0] : undefined,
+      card_type: filters.types.length === 1 ? filters.types[0] : undefined,
       filters: {
         types: filters.types,
         search: filters.search,
-        qualitySeals: filters.qualitySeals,
+        approvalStatuss: filters.approvalStatuss,
         attributes: filters.attributes,
       },
     };
@@ -214,7 +214,7 @@ export default function InventoryFilterSidebar({
       onFiltersChange({
         types: f.types || [],
         search: f.search || "",
-        qualitySeals: f.qualitySeals || [],
+        approvalStatuss: f.approvalStatuss || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
       });
@@ -342,7 +342,7 @@ export default function InventoryFilterSidebar({
                 <TextField
                   size="small"
                   fullWidth
-                  placeholder="Search fact sheets..."
+                  placeholder="Search cards..."
                   value={filters.search}
                   onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                   sx={{ mb: 2 }}
@@ -370,7 +370,7 @@ export default function InventoryFilterSidebar({
                 />
               </Collapse>
 
-              {/* Fact Sheet Types */}
+              {/* Card Types */}
               <SectionHeader
                 label="Types"
                 icon="category"
@@ -411,13 +411,13 @@ export default function InventoryFilterSidebar({
                 </List>
               </Collapse>
 
-              {/* Quality Seals */}
+              {/* Approval Statuss */}
               <SectionHeader
-                label="Quality Seal"
+                label="Approval Status"
                 icon="verified"
                 expanded={expandedSections.seals}
                 onToggle={() => toggleSection("seals")}
-                count={filters.qualitySeals.length}
+                count={filters.approvalStatuss.length}
               />
               <Collapse in={expandedSections.seals}>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
@@ -427,9 +427,9 @@ export default function InventoryFilterSidebar({
                       label={s.label}
                       size="small"
                       onClick={() => toggleSeal(s.key)}
-                      variant={filters.qualitySeals.includes(s.key) ? "filled" : "outlined"}
+                      variant={filters.approvalStatuss.includes(s.key) ? "filled" : "outlined"}
                       sx={
-                        filters.qualitySeals.includes(s.key)
+                        filters.approvalStatuss.includes(s.key)
                           ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
                           : { borderColor: s.color, color: s.color }
                       }

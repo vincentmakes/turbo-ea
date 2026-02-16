@@ -10,27 +10,27 @@ APP_PERMISSIONS: dict[str, dict] = {
     "inventory": {
         "label": "Inventory",
         "permissions": {
-            "inventory.view": "View fact sheet lists and detail pages",
-            "inventory.create": "Create new fact sheets",
-            "inventory.edit": "Edit any fact sheet (overrides subscription-level)",
-            "inventory.delete": "Delete or archive fact sheets",
+            "inventory.view": "View card lists and detail pages",
+            "inventory.create": "Create new cards",
+            "inventory.edit": "Edit any card (overrides stakeholder-level)",
+            "inventory.delete": "Delete or archive cards",
             "inventory.export": "Export CSV or Excel data",
-            "inventory.quality_seal": "Approve, reject, or reset quality seal on any fact sheet",
-            "inventory.bulk_edit": "Bulk update multiple fact sheets",
+            "inventory.approval_status": "Approve, reject, or reset quality seal on any card",
+            "inventory.bulk_edit": "Bulk update multiple cards",
         },
     },
     "relations": {
         "label": "Relations",
         "permissions": {
-            "relations.view": "View relations between fact sheets",
+            "relations.view": "View relations between cards",
             "relations.manage": "Create, edit, and delete relations",
         },
     },
-    "subscriptions": {
-        "label": "Subscriptions",
+    "stakeholders": {
+        "label": "Stakeholders",
         "permissions": {
-            "subscriptions.view": "View who is subscribed to a fact sheet",
-            "subscriptions.manage": "Add or remove subscriptions on any fact sheet",
+            "stakeholders.view": "View who is assigned to a card",
+            "stakeholders.manage": "Add or remove stakeholders on any card",
         },
     },
     "comments": {
@@ -45,7 +45,7 @@ APP_PERMISSIONS: dict[str, dict] = {
         "label": "Documents",
         "permissions": {
             "documents.view": "View document links",
-            "documents.manage": "Add or remove documents on any fact sheet",
+            "documents.manage": "Add or remove documents on any card",
         },
     },
     "diagrams": {
@@ -104,7 +104,7 @@ APP_PERMISSIONS: dict[str, dict] = {
         "label": "End of Life",
         "permissions": {
             "eol.view": "View EOL data",
-            "eol.manage": "Run EOL searches, link EOL data to fact sheets",
+            "eol.manage": "Run EOL searches, link EOL data to cards",
         },
     },
     "web_portals": {
@@ -125,7 +125,7 @@ APP_PERMISSIONS: dict[str, dict] = {
         "permissions": {
             "admin.users": "Manage users (create, edit roles, deactivate)",
             "admin.roles": "Manage role definitions and permissions",
-            "admin.metamodel": "Manage fact sheet types, fields, and relation types",
+            "admin.metamodel": "Manage card types, fields, and relation types",
             "admin.settings": "Manage app settings (email, logo, SSO)",
             "admin.events": "View audit trail and event stream",
         },
@@ -138,19 +138,19 @@ for group in APP_PERMISSIONS.values():
     ALL_APP_PERMISSION_KEYS.update(group["permissions"].keys())
 
 # ---------------------------------------------------------------------------
-# Fact-sheet-level permissions (stored in subscription_role_definitions.permissions)
+# Card-level permissions (stored in subscription_role_definitions.permissions)
 # ---------------------------------------------------------------------------
 
 FS_PERMISSIONS: dict[str, str] = {
-    "fs.view": "View this fact sheet's detail page",
-    "fs.edit": "Edit this fact sheet's fields, name, description, lifecycle",
-    "fs.delete": "Delete or archive this fact sheet",
-    "fs.quality_seal": "Approve, reject, or reset quality seal",
-    "fs.manage_subscriptions": "Add or remove other users' subscriptions",
-    "fs.manage_relations": "Add or remove relations on this fact sheet",
+    "fs.view": "View this card's detail page",
+    "fs.edit": "Edit this card's fields, name, description, lifecycle",
+    "fs.delete": "Delete or archive this card",
+    "fs.approval_status": "Approve, reject, or reset quality seal",
+    "card.manage_stakeholders": "Add or remove other users' stakeholder assignments",
+    "fs.manage_relations": "Add or remove relations on this card",
     "fs.manage_documents": "Add or remove document links",
     "fs.manage_comments": "Delete any comment (not just own)",
-    "fs.create_comments": "Post comments on this fact sheet",
+    "fs.create_comments": "Post comments on this card",
     "fs.bpm_edit": "Edit BPM diagram and elements (process types only)",
     "fs.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
     "fs.bpm_approve": "Approve or reject submitted BPMN flow versions",
@@ -159,15 +159,15 @@ FS_PERMISSIONS: dict[str, str] = {
 ALL_FS_PERMISSION_KEYS: set[str] = set(FS_PERMISSIONS.keys())
 
 # ---------------------------------------------------------------------------
-# Mapping: app-level permission → fact-sheet-level equivalent
+# Mapping: app-level permission → card-level equivalent
 # When checking a FS action, the app-level perm also grants access.
 # ---------------------------------------------------------------------------
 
 APP_TO_FS_PERMISSION_MAP: dict[str, str] = {
     "inventory.edit": "fs.edit",
     "inventory.delete": "fs.delete",
-    "inventory.quality_seal": "fs.quality_seal",
-    "subscriptions.manage": "fs.manage_subscriptions",
+    "inventory.approval_status": "fs.approval_status",
+    "stakeholders.manage": "card.manage_stakeholders",
     "relations.manage": "fs.manage_relations",
     "documents.manage": "fs.manage_documents",
     "comments.manage": "fs.manage_comments",
@@ -192,12 +192,12 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "inventory.edit": True,
     "inventory.delete": True,
     "inventory.export": True,
-    "inventory.quality_seal": True,
+    "inventory.approval_status": True,
     "inventory.bulk_edit": True,
     "relations.view": True,
     "relations.manage": True,
-    "subscriptions.view": True,
-    "subscriptions.manage": True,
+    "stakeholders.view": True,
+    "stakeholders.manage": True,
     "comments.view": True,
     "comments.create": True,
     "documents.view": True,
@@ -236,12 +236,12 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "inventory.edit": True,
     "inventory.delete": True,
     "inventory.export": True,
-    "inventory.quality_seal": True,
+    "inventory.approval_status": True,
     "inventory.bulk_edit": True,
     "relations.view": True,
     "relations.manage": True,
-    "subscriptions.view": True,
-    "subscriptions.manage": True,
+    "stakeholders.view": True,
+    "stakeholders.manage": True,
     "comments.view": True,
     "comments.create": True,
     "documents.view": True,
@@ -281,12 +281,12 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "inventory.edit": False,
     "inventory.delete": False,
     "inventory.export": True,
-    "inventory.quality_seal": False,
+    "inventory.approval_status": False,
     "inventory.bulk_edit": False,
     "relations.view": True,
     "relations.manage": False,
-    "subscriptions.view": True,
-    "subscriptions.manage": False,
+    "stakeholders.view": True,
+    "stakeholders.manage": False,
     "comments.view": True,
     "comments.create": False,
     "comments.manage": False,
@@ -329,8 +329,8 @@ RESPONSIBLE_FS_PERMISSIONS: dict[str, bool] = {
     "fs.view": True,
     "fs.edit": True,
     "fs.delete": True,
-    "fs.quality_seal": True,
-    "fs.manage_subscriptions": True,
+    "fs.approval_status": True,
+    "card.manage_stakeholders": True,
     "fs.manage_relations": True,
     "fs.manage_documents": True,
     "fs.manage_comments": True,
@@ -344,8 +344,8 @@ OBSERVER_FS_PERMISSIONS: dict[str, bool] = {
     "fs.view": True,
     "fs.edit": False,
     "fs.delete": False,
-    "fs.quality_seal": False,
-    "fs.manage_subscriptions": False,
+    "fs.approval_status": False,
+    "card.manage_stakeholders": False,
     "fs.manage_relations": False,
     "fs.manage_documents": False,
     "fs.manage_comments": False,
@@ -359,8 +359,8 @@ PROCESS_OWNER_FS_PERMISSIONS: dict[str, bool] = {
     "fs.view": True,
     "fs.edit": True,
     "fs.delete": False,
-    "fs.quality_seal": True,
-    "fs.manage_subscriptions": True,
+    "fs.approval_status": True,
+    "card.manage_stakeholders": True,
     "fs.manage_relations": True,
     "fs.manage_documents": True,
     "fs.manage_comments": False,
@@ -374,8 +374,8 @@ TECH_APP_OWNER_FS_PERMISSIONS: dict[str, bool] = {
     "fs.view": True,
     "fs.edit": True,
     "fs.delete": False,
-    "fs.quality_seal": False,
-    "fs.manage_subscriptions": False,
+    "fs.approval_status": False,
+    "card.manage_stakeholders": False,
     "fs.manage_relations": True,
     "fs.manage_documents": True,
     "fs.manage_comments": False,
@@ -389,8 +389,8 @@ BIZ_APP_OWNER_FS_PERMISSIONS: dict[str, bool] = {
     "fs.view": True,
     "fs.edit": True,
     "fs.delete": False,
-    "fs.quality_seal": False,
-    "fs.manage_subscriptions": False,
+    "fs.approval_status": False,
+    "card.manage_stakeholders": False,
     "fs.manage_relations": True,
     "fs.manage_documents": True,
     "fs.manage_comments": False,
@@ -400,7 +400,7 @@ BIZ_APP_OWNER_FS_PERMISSIONS: dict[str, bool] = {
     "fs.bpm_approve": False,
 }
 
-# Map subscription role key → default permissions
+# Map stakeholder role key → default permissions
 DEFAULT_FS_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "responsible": RESPONSIBLE_FS_PERMISSIONS,
     "observer": OBSERVER_FS_PERMISSIONS,

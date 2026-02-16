@@ -11,7 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
-import Card from "@mui/material/Card";
+import MuiCard from "@mui/material/Card";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Autocomplete from "@mui/material/Autocomplete";
@@ -32,9 +32,9 @@ import type {
   SurveyField,
   SurveyTargetFilters,
   SurveyPreviewResult,
-  FactSheet,
+  Card,
   TagGroup,
-  SubscriptionRoleDef,
+  StakeholderRoleDef,
 } from "@/types";
 
 const STEPS = ["Basics", "Target", "Fields", "Preview & Send"];
@@ -60,12 +60,12 @@ export default function SurveyBuilder() {
   const [targetTypeKey, setTargetTypeKey] = useState("");
   const [targetRoles, setTargetRoles] = useState<string[]>([]);
   const [relatedIds, setRelatedIds] = useState<string[]>([]);
-  const [relatedItems, setRelatedItems] = useState<FactSheet[]>([]);
+  const [relatedItems, setRelatedItems] = useState<Card[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [relatedSearch, setRelatedSearch] = useState("");
-  const [relatedOptions, setRelatedOptions] = useState<FactSheet[]>([]);
+  const [relatedOptions, setRelatedOptions] = useState<Card[]>([]);
   const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
-  const [roles, setRoles] = useState<SubscriptionRoleDef[]>([]);
+  const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [attributeFilters, setAttributeFilters] = useState<
     { key: string; op: string; value: string }[]
   >([]);
@@ -105,10 +105,10 @@ export default function SurveyBuilder() {
   // Load tag groups and roles
   useEffect(() => {
     api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => {});
-    api.get<SubscriptionRoleDef[]>("/subscription-roles").then(setRoles).catch(() => {});
+    api.get<StakeholderRoleDef[]>("/stakeholder-roles").then(setRoles).catch(() => {});
   }, []);
 
-  // Search fact sheets for related filter
+  // Search cards for related filter
   useEffect(() => {
     if (!relatedSearch || relatedSearch.length < 2) {
       setRelatedOptions([]);
@@ -116,8 +116,8 @@ export default function SurveyBuilder() {
     }
     const t = setTimeout(async () => {
       try {
-        const res = await api.get<{ items: FactSheet[] }>(
-          `/fact-sheets?search=${encodeURIComponent(relatedSearch)}&page_size=20`,
+        const res = await api.get<{ items: Card[] }>(
+          `/cards?search=${encodeURIComponent(relatedSearch)}&page_size=20`,
         );
         setRelatedOptions(res.items);
       } catch {
@@ -277,11 +277,11 @@ export default function SurveyBuilder() {
       return;
     }
     if (activeStep === 1 && !targetTypeKey) {
-      setError("Please select a target fact sheet type");
+      setError("Please select a target card type");
       return;
     }
     if (activeStep === 1 && targetRoles.length === 0) {
-      setError("Please select at least one subscription role");
+      setError("Please select at least one stakeholder role");
       return;
     }
     if (activeStep === 2 && selectedFields.length === 0) {
@@ -355,7 +355,7 @@ export default function SurveyBuilder() {
 
       {/* Step 1: Basics */}
       {activeStep === 0 && (
-        <Card sx={{ p: 3 }}>
+        <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
             Survey Details
           </Typography>
@@ -386,19 +386,19 @@ export default function SurveyBuilder() {
             onChange={(e) => setMessage(e.target.value)}
             helperText="This message will be shown to targeted users when they open the survey"
           />
-        </Card>
+        </MuiCard>
       )}
 
       {/* Step 2: Target */}
       {activeStep === 1 && (
-        <Card sx={{ p: 3 }}>
+        <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Target Fact Sheets
+            Target Cards
           </Typography>
 
           <TextField
             select
-            label="Fact Sheet Type"
+            label="Card Type"
             fullWidth
             value={targetTypeKey}
             onChange={(e) => {
@@ -423,10 +423,10 @@ export default function SurveyBuilder() {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Filter by Related Fact Sheets (optional)
+            Filter by Related Cards (optional)
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target fact sheets that are related to specific items (e.g., all Applications related to the Sales organization)
+            Only target cards that are related to specific items (e.g., all Applications related to the Sales organization)
           </Typography>
           <Autocomplete
             multiple
@@ -444,7 +444,7 @@ export default function SurveyBuilder() {
               setRelatedIds(vals.map((v) => v.id));
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Search fact sheets..." size="small" />
+              <TextField {...params} label="Search cards..." size="small" />
             )}
             renderTags={(vals, getTagProps) =>
               vals.map((v, i) => (
@@ -485,7 +485,7 @@ export default function SurveyBuilder() {
             Filter by Attributes (optional)
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Only target fact sheets where specific attributes match a condition (e.g., cost greater than 10000, TIME rating is missing)
+            Only target cards where specific attributes match a condition (e.g., cost greater than 10000, TIME rating is missing)
           </Typography>
 
           {attributeFilters.map((af, idx) => {
@@ -571,10 +571,10 @@ export default function SurveyBuilder() {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Target Subscription Roles
+            Target Stakeholder Roles
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Which roles should receive the survey for each matched fact sheet?
+            Which roles should receive the survey for each matched card?
           </Typography>
           {roles.map((role) => (
             <FormControlLabel
@@ -603,21 +603,21 @@ export default function SurveyBuilder() {
               }
             />
           ))}
-        </Card>
+        </MuiCard>
       )}
 
       {/* Step 3: Fields */}
       {activeStep === 2 && (
-        <Card sx={{ p: 3 }}>
+        <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
             Select Fields
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Choose which fields respondents should maintain or confirm for each {selectedType?.label || "fact sheet"}.
+            Choose which fields respondents should maintain or confirm for each {selectedType?.label || "card"}.
           </Typography>
 
           {!selectedType && (
-            <Alert severity="warning">Please select a fact sheet type first.</Alert>
+            <Alert severity="warning">Please select a card type first.</Alert>
           )}
 
           {selectedType && allFields.length === 0 && (
@@ -689,12 +689,12 @@ export default function SurveyBuilder() {
               {selectedFields.filter((f) => f.action === "confirm").length} confirm)
             </Typography>
           )}
-        </Card>
+        </MuiCard>
       )}
 
       {/* Step 4: Preview & Send */}
       {activeStep === 3 && (
-        <Card sx={{ p: 3 }}>
+        <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
             Preview & Send
           </Typography>
@@ -708,35 +708,35 @@ export default function SurveyBuilder() {
           {!previewing && preview && (
             <>
               <Box sx={{ display: "flex", gap: 3, mb: 3 }}>
-                <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
+                <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
-                    {preview.total_fact_sheets}
+                    {preview.total_cards}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Fact Sheets
+                    Cards
                   </Typography>
-                </Card>
-                <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
+                </MuiCard>
+                <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
                     {preview.total_users}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Users to Notify
                   </Typography>
-                </Card>
-                <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
+                </MuiCard>
+                <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
                   <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2" }}>
                     {selectedFields.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     Fields
                   </Typography>
-                </Card>
+                </MuiCard>
               </Box>
 
-              {preview.total_fact_sheets === 0 && (
+              {preview.total_cards === 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  No fact sheets matched your filters, or no subscribers were found with the selected roles.
+                  No cards matched your filters, or no subscribers were found with the selected roles.
                   Go back and adjust your targeting criteria.
                 </Alert>
               )}
@@ -750,14 +750,14 @@ export default function SurveyBuilder() {
                     <Table size="small" stickyHeader>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Fact Sheet</TableCell>
+                          <TableCell>Card</TableCell>
                           <TableCell>Users</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {preview.targets.map((t) => (
-                          <TableRow key={t.fact_sheet_id}>
-                            <TableCell>{t.fact_sheet_name}</TableCell>
+                          <TableRow key={t.card_id}>
+                            <TableCell>{t.card_name}</TableCell>
                             <TableCell>
                               {t.users.map((u) => (
                                 <Chip
@@ -780,11 +780,11 @@ export default function SurveyBuilder() {
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Message Preview
               </Typography>
-              <Card variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "grey.50" }}>
+              <MuiCard variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "grey.50" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                   {message || "(No message set)"}
                 </Typography>
-              </Card>
+              </MuiCard>
 
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Fields
@@ -810,7 +810,7 @@ export default function SurveyBuilder() {
               </Button>
             </Box>
           )}
-        </Card>
+        </MuiCard>
       )}
 
       {/* Navigation buttons */}
@@ -850,7 +850,7 @@ export default function SurveyBuilder() {
               disabled={
                 sending ||
                 !preview ||
-                preview.total_fact_sheets === 0
+                preview.total_cards === 0
               }
               startIcon={<MaterialSymbol icon="send" size={18} />}
               sx={{ textTransform: "none" }}

@@ -218,7 +218,7 @@ async def request_signatures(
     # Create a todo for each signatory
     for sig in signatories:
         todo = Todo(
-            fact_sheet_id=s.initiative_id,
+            card_id=s.initiative_id,
             description=f'Sign SoAW: "{s.name}"',
             assigned_to=uuid.UUID(sig["user_id"]),
             created_by=user.id,

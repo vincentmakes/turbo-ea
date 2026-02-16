@@ -17,7 +17,7 @@ class ProcessAssessment(Base, UUIDMixin, TimestampMixin):
 
     process_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="CASCADE"),
+        ForeignKey("cards.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -36,4 +36,4 @@ class ProcessAssessment(Base, UUIDMixin, TimestampMixin):
     action_items: Mapped[list | None] = mapped_column(JSONB, default=list)
 
     assessor = relationship("User", lazy="selectin")
-    process = relationship("FactSheet", lazy="selectin")
+    process = relationship("Card", lazy="selectin")

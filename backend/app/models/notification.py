@@ -18,9 +18,9 @@ class Notification(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     type: Mapped[str] = mapped_column(String(50), nullable=False)
-    # Types: todo_assigned, fact_sheet_updated, comment_added,
-    #        quality_seal_changed, soaw_sign_requested, soaw_signed,
-    #        subscription_update
+    # Types: todo_assigned, card_updated, comment_added,
+    #        approval_status_changed, soaw_sign_requested, soaw_signed,
+    #        stakeholder_update
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -29,9 +29,9 @@ class Notification(Base, UUIDMixin, TimestampMixin):
     is_emailed: Mapped[bool] = mapped_column(Boolean, default=False)
     data: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
-    # Optional link to a fact sheet for context
-    fact_sheet_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="SET NULL"), nullable=True
+    # Optional link to a card for context
+    card_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), nullable=True
     )
     # Who triggered the notification (optional)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(

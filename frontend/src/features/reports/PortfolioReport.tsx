@@ -710,7 +710,7 @@ export default function PortfolioReport() {
   const handleAppClick = useCallback(
     (id: string) => {
       setDrawer(null);
-      navigate(`/fact-sheets/${id}`);
+      navigate(`/cards/${id}`);
     },
     [navigate],
   );
@@ -1200,7 +1200,7 @@ export default function PortfolioReport() {
                     key={app.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/fact-sheets/${app.id}`)}
+                    onClick={() => navigate(`/cards/${app.id}`)}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>
                       {app.name}

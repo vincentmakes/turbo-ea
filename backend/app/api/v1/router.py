@@ -12,7 +12,7 @@ from app.api.v1 import (
     documents,
     eol,
     events,
-    fact_sheets,
+    cards,
     metamodel,
     notifications,
     relations,
@@ -20,8 +20,8 @@ from app.api.v1 import (
     roles,
     settings,
     soaw,
-    subscription_roles,
-    subscriptions,
+    stakeholder_roles,
+    stakeholders,
     surveys,
     tags,
     todos,
@@ -32,9 +32,9 @@ from app.api.v1 import (
 api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(metamodel.router)
-api_router.include_router(fact_sheets.router)
+api_router.include_router(cards.router)
 api_router.include_router(relations.router)
-api_router.include_router(subscriptions.router)
+api_router.include_router(stakeholders.router)
 api_router.include_router(comments.router)
 api_router.include_router(todos.router)
 api_router.include_router(tags.router)
@@ -55,4 +55,4 @@ api_router.include_router(bpm_assessments.router)
 api_router.include_router(bpm_reports.router)
 api_router.include_router(bpm_workflow.router)
 api_router.include_router(roles.router)
-api_router.include_router(subscription_roles.router)
+api_router.include_router(stakeholder_roles.router)

@@ -10,11 +10,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, UUIDMixin
 
 
-class Subscription(Base, UUIDMixin):
-    __tablename__ = "subscriptions"
+class Stakeholder(Base, UUIDMixin):
+    __tablename__ = "stakeholders"
 
-    fact_sheet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), nullable=False, index=True
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
@@ -22,5 +22,5 @@ class Subscription(Base, UUIDMixin):
     role: Mapped[str] = mapped_column(String(50), nullable=False)  # responsible/observer/technical_application_owner/business_application_owner
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    fact_sheet = relationship("FactSheet", back_populates="subscriptions")
+    card = relationship("Card", back_populates="stakeholders")
     user = relationship("User", lazy="selectin")

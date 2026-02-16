@@ -18,7 +18,7 @@ class RelationUpdate(BaseModel):
     description: str | None = None
 
 
-class FactSheetRef(BaseModel):
+class CardRef(BaseModel):
     id: str
     type: str
     name: str
@@ -31,8 +31,8 @@ class RelationResponse(BaseModel):
     type: str
     source_id: str
     target_id: str
-    source: FactSheetRef | None = None
-    target: FactSheetRef | None = None
+    source: CardRef | None = None
+    target: CardRef | None = None
     attributes: dict | None = None
     description: str | None = None
     created_at: datetime | None = None

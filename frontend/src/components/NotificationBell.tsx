@@ -20,9 +20,9 @@ import type { Notification, NotificationListResponse } from "@/types";
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   todo_assigned: { icon: "assignment_ind", color: "#1976d2" },
-  fact_sheet_updated: { icon: "edit_note", color: "#ed6c02" },
+  card_updated: { icon: "edit_note", color: "#ed6c02" },
   comment_added: { icon: "comment", color: "#2e7d32" },
-  quality_seal_changed: { icon: "verified", color: "#9c27b0" },
+  approval_status_changed: { icon: "verified", color: "#9c27b0" },
   soaw_sign_requested: { icon: "draw", color: "#d32f2f" },
   soaw_signed: { icon: "task_alt", color: "#2e7d32" },
   survey_request: { icon: "assignment", color: "#0288d1" },
@@ -89,7 +89,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               const newNotif: Notification = {
                 id: String(data.id ?? ""),
                 user_id: String(data.user_id ?? ""),
-                type: (String(data.type ?? "fact_sheet_updated")) as Notification["type"],
+                type: (String(data.type ?? "card_updated")) as Notification["type"],
                 title: String(data.title ?? ""),
                 message: String(data.message ?? ""),
                 link: data.link ? String(data.link) : undefined,

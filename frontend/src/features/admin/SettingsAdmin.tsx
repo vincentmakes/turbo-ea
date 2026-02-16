@@ -545,7 +545,7 @@ export default function SettingsAdmin() {
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Enable or disable the Business Process Management module. When
-          disabled, the BPM navigation item, BusinessProcess fact sheets,
+          disabled, the BPM navigation item, BusinessProcess cards,
           their relationships, and BPM reports will be hidden from all users.
         </Typography>
         <FormControlLabel
@@ -701,7 +701,7 @@ export default function SettingsAdmin() {
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Choose the currency used to display all cost values across reports,
-          dashboards, and fact sheet details.
+          dashboards, and card details.
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>

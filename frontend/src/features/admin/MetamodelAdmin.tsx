@@ -36,12 +36,12 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
-  FactSheetType as FSType,
+  CardType as FSType,
   RelationType as RType,
   FieldDef,
   FieldOption,
   SectionDef,
-  SubscriptionRoleDefinitionFull,
+  StakeholderRoleDefinitionFull,
 } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -272,16 +272,16 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
 }
 
 /* ------------------------------------------------------------------ */
-/*  Subscription Role Panel                                            */
+/*  Stakeholder Role Panel                                            */
 /* ------------------------------------------------------------------ */
 
-interface SubscriptionRolePanelProps {
+interface StakeholderRolePanelProps {
   typeKey: string;
   onError: (msg: string) => void;
 }
 
-function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps) {
-  const [roles, setRoles] = useState<SubscriptionRoleDefinitionFull[]>([]);
+function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
+  const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
   const [permissionsSchema, setPermissionsSchema] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
@@ -311,18 +311,18 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
   /* --- Fetch roles + permissions schema --- */
   const fetchRoles = useCallback(async () => {
     try {
-      const data = await api.get<SubscriptionRoleDefinitionFull[]>(
-        `/metamodel/types/${typeKey}/subscription-roles`,
+      const data = await api.get<StakeholderRoleDefinitionFull[]>(
+        `/metamodel/types/${typeKey}/stakeholder-roles`,
       );
       setRoles(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to fetch subscription roles");
+      onError(e instanceof Error ? e.message : "Failed to fetch stakeholder roles");
     }
   }, [typeKey, onError]);
 
   const fetchPermissionsSchema = useCallback(async () => {
     try {
-      const data = await api.get<Record<string, string>>("/subscription-roles/permissions-schema");
+      const data = await api.get<Record<string, string>>("/stakeholder-roles/permissions-schema");
       setPermissionsSchema(data);
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Failed to fetch permissions schema");
@@ -349,7 +349,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
     if (!createForm.key || !createForm.label) return;
     setCreateSaving(true);
     try {
-      await api.post(`/metamodel/types/${typeKey}/subscription-roles`, {
+      await api.post(`/metamodel/types/${typeKey}/stakeholder-roles`, {
         key: createForm.key,
         label: createForm.label,
         description: createForm.description || undefined,
@@ -367,7 +367,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
   };
 
   /* --- Edit role --- */
-  const startEdit = (role: SubscriptionRoleDefinitionFull) => {
+  const startEdit = (role: StakeholderRoleDefinitionFull) => {
     setEditRoleKey(role.key);
     setEditForm({
       label: role.label,
@@ -382,7 +382,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
     if (!editRoleKey) return;
     setEditSaving(true);
     try {
-      await api.patch(`/metamodel/types/${typeKey}/subscription-roles/${editRoleKey}`, {
+      await api.patch(`/metamodel/types/${typeKey}/stakeholder-roles/${editRoleKey}`, {
         label: editForm.label,
         description: editForm.description || undefined,
         color: editForm.color,
@@ -404,7 +404,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
   /* --- Archive / Restore --- */
   const handleArchive = async (roleKey: string) => {
     try {
-      await api.post(`/metamodel/types/${typeKey}/subscription-roles/${roleKey}/archive`);
+      await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/archive`);
       await fetchRoles();
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Failed to archive role");
@@ -413,7 +413,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
 
   const handleRestore = async (roleKey: string) => {
     try {
-      await api.post(`/metamodel/types/${typeKey}/subscription-roles/${roleKey}/restore`);
+      await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/restore`);
       await fetchRoles();
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Failed to restore role");
@@ -472,7 +472,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
       {/* Header row */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Subscription Roles
+          Stakeholder Roles
         </Typography>
         <FormControlLabel
           control={
@@ -490,7 +490,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
       {/* Role list */}
       {displayRoles.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {showArchived ? "No subscription roles defined." : "No active subscription roles. Create one below."}
+          {showArchived ? "No stakeholder roles defined." : "No active stakeholder roles. Create one below."}
         </Typography>
       )}
 
@@ -529,10 +529,10 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
                 {role.is_archived && (
                   <Chip size="small" label="Archived" sx={{ height: 20, fontSize: 11 }} />
                 )}
-                {typeof role.subscription_count === "number" && (
+                {typeof role.stakeholder_count === "number" && (
                   <Chip
                     size="small"
-                    label={`${role.subscription_count} sub${role.subscription_count !== 1 ? "s" : ""}`}
+                    label={`${role.stakeholder_count} sub${role.stakeholder_count !== 1 ? "s" : ""}`}
                     variant="outlined"
                     sx={{ height: 20, fontSize: 11 }}
                   />
@@ -677,7 +677,7 @@ function SubscriptionRolePanel({ typeKey, onError }: SubscriptionRolePanelProps)
         <Card variant="outlined" sx={{ mt: 1, mb: 2, borderStyle: "dashed" }}>
           <CardContent sx={{ py: 2, "&:last-child": { pb: 2 } }}>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
-              New Subscription Role
+              New Stakeholder Role
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               <TextField
@@ -792,7 +792,7 @@ function TypeDetailDrawer({
   onRefresh,
   onCreateRelation,
 }: TypeDrawerProps) {
-  const fsType = types.find((t) => t.key === typeKey) || null;
+  const cardTypeKey = types.find((t) => t.key === typeKey) || null;
 
   /* --- Editable header state --- */
   const [label, setLabel] = useState("");
@@ -821,30 +821,30 @@ function TypeDetailDrawer({
 
   /* Initialise local state from the type whenever the drawer opens or the type changes */
   useEffect(() => {
-    if (fsType) {
-      setLabel(fsType.label);
-      setDescription(fsType.description || "");
-      setCategory(fsType.category || "");
-      setColor(fsType.color);
-      setIcon(fsType.icon);
-      setHasHierarchy(fsType.has_hierarchy);
+    if (cardTypeKey) {
+      setLabel(cardTypeKey.label);
+      setDescription(cardTypeKey.description || "");
+      setCategory(cardTypeKey.category || "");
+      setColor(cardTypeKey.color);
+      setIcon(cardTypeKey.icon);
+      setHasHierarchy(cardTypeKey.has_hierarchy);
       setError(null);
       setAddSubOpen(false);
       setAddSectionOpen(false);
     }
-  }, [fsType]);
+  }, [cardTypeKey]);
 
-  if (!fsType) return null;
+  if (!cardTypeKey) return null;
 
   const connectedRelations = relationTypes.filter(
-    (r) => r.source_type_key === fsType.key || r.target_type_key === fsType.key,
+    (r) => r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key,
   );
 
   /* --- Save header --- */
   const handleSaveHeader = async () => {
     setSaving(true);
     try {
-      await api.patch(`/metamodel/types/${fsType.key}`, {
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
         description: description || undefined,
         category,
@@ -866,10 +866,10 @@ function TypeDetailDrawer({
     if (!newSubKey || !newSubLabel) return;
     try {
       const updated = [
-        ...(fsType.subtypes || []),
+        ...(cardTypeKey.subtypes || []),
         { key: newSubKey, label: newSubLabel },
       ];
-      await api.patch(`/metamodel/types/${fsType.key}`, { subtypes: updated });
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
       onRefresh();
       setNewSubKey("");
       setNewSubLabel("");
@@ -881,8 +881,8 @@ function TypeDetailDrawer({
 
   const handleRemoveSubtype = async (subKey: string) => {
     try {
-      const updated = (fsType.subtypes || []).filter((s) => s.key !== subKey);
-      await api.patch(`/metamodel/types/${fsType.key}`, { subtypes: updated });
+      const updated = (cardTypeKey.subtypes || []).filter((s) => s.key !== subKey);
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
       onRefresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to remove subtype");
@@ -900,13 +900,13 @@ function TypeDetailDrawer({
   const openEditField = (sectionIdx: number, fieldIdx: number) => {
     setEditingSectionIdx(sectionIdx);
     setEditingFieldIdx(fieldIdx);
-    setEditingField({ ...fsType.fields_schema[sectionIdx].fields[fieldIdx] });
+    setEditingField({ ...cardTypeKey.fields_schema[sectionIdx].fields[fieldIdx] });
     setFieldDialogOpen(true);
   };
 
   const handleSaveField = async (field: FieldDef) => {
     try {
-      const schema: SectionDef[] = fsType.fields_schema.map((s) => ({
+      const schema: SectionDef[] = cardTypeKey.fields_schema.map((s) => ({
         ...s,
         fields: [...s.fields],
       }));
@@ -915,7 +915,7 @@ function TypeDetailDrawer({
       } else {
         schema[editingSectionIdx].fields.push(field);
       }
-      await api.patch(`/metamodel/types/${fsType.key}`, {
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         fields_schema: schema,
       });
       onRefresh();
@@ -927,12 +927,12 @@ function TypeDetailDrawer({
 
   const handleDeleteField = async (sectionIdx: number, fieldIdx: number) => {
     try {
-      const schema: SectionDef[] = fsType.fields_schema.map((s) => ({
+      const schema: SectionDef[] = cardTypeKey.fields_schema.map((s) => ({
         ...s,
         fields: [...s.fields],
       }));
       schema[sectionIdx].fields.splice(fieldIdx, 1);
-      await api.patch(`/metamodel/types/${fsType.key}`, {
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         fields_schema: schema,
       });
       onRefresh();
@@ -945,10 +945,10 @@ function TypeDetailDrawer({
     if (!newSectionName) return;
     try {
       const schema: SectionDef[] = [
-        ...fsType.fields_schema,
+        ...cardTypeKey.fields_schema,
         { section: newSectionName, fields: [] },
       ];
-      await api.patch(`/metamodel/types/${fsType.key}`, {
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         fields_schema: schema,
       });
       onRefresh();
@@ -962,7 +962,7 @@ function TypeDetailDrawer({
   /* --- Hide / Unhide --- */
   const handleToggleHidden = async () => {
     try {
-      await api.patch(`/metamodel/types/${fsType.key}`, { is_hidden: !fsType.is_hidden });
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { is_hidden: !cardTypeKey.is_hidden });
       onRefresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to update visibility");
@@ -1004,20 +1004,20 @@ function TypeDetailDrawer({
             </Box>
             <Box>
               <Typography variant="h6" fontWeight={700} lineHeight={1.2}>
-                {label || fsType.label}
+                {label || cardTypeKey.label}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {fsType.key}
+                {cardTypeKey.key}
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-            <Tooltip title={fsType.is_hidden ? "Unhide type" : "Hide type"}>
+            <Tooltip title={cardTypeKey.is_hidden ? "Unhide type" : "Hide type"}>
               <IconButton size="small" onClick={handleToggleHidden}>
                 <MaterialSymbol
-                  icon={fsType.is_hidden ? "visibility_off" : "visibility"}
+                  icon={cardTypeKey.is_hidden ? "visibility_off" : "visibility"}
                   size={20}
-                  color={fsType.is_hidden ? "#f57c00" : "#999"}
+                  color={cardTypeKey.is_hidden ? "#f57c00" : "#999"}
                 />
               </IconButton>
             </Tooltip>
@@ -1128,7 +1128,7 @@ function TypeDetailDrawer({
           Subtypes
         </Typography>
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
-          {(fsType.subtypes || []).map((s) => (
+          {(cardTypeKey.subtypes || []).map((s) => (
             <Chip
               key={s.key}
               label={`${s.label} (${s.key})`}
@@ -1137,7 +1137,7 @@ function TypeDetailDrawer({
               size="small"
             />
           ))}
-          {(!fsType.subtypes || fsType.subtypes.length === 0) && (
+          {(!cardTypeKey.subtypes || cardTypeKey.subtypes.length === 0) && (
             <Typography variant="body2" color="text.secondary">
               No subtypes defined
             </Typography>
@@ -1193,9 +1193,9 @@ function TypeDetailDrawer({
 
         <Divider sx={{ mb: 2 }} />
 
-        {/* ---------- Subscription Roles ---------- */}
-        <SubscriptionRolePanel
-          typeKey={fsType.key}
+        {/* ---------- Stakeholder Roles ---------- */}
+        <StakeholderRolePanel
+          typeKey={cardTypeKey.key}
           onError={(msg) => setError(msg)}
         />
 
@@ -1205,7 +1205,7 @@ function TypeDetailDrawer({
         <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
           Fields
         </Typography>
-        {fsType.fields_schema.map((section, si) => (
+        {cardTypeKey.fields_schema.map((section, si) => (
           <Accordion
             key={si}
             defaultExpanded
@@ -1292,7 +1292,7 @@ function TypeDetailDrawer({
             </AccordionDetails>
           </Accordion>
         ))}
-        {fsType.fields_schema.length === 0 && (
+        {cardTypeKey.fields_schema.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             No field sections yet.
           </Typography>
@@ -1345,7 +1345,7 @@ function TypeDetailDrawer({
         </Typography>
         <List dense disablePadding>
           {connectedRelations.map((r) => {
-            const isSource = r.source_type_key === fsType.key;
+            const isSource = r.source_type_key === cardTypeKey.key;
             const otherKey = isSource
               ? r.target_type_key
               : r.source_type_key;
@@ -1420,7 +1420,7 @@ function TypeDetailDrawer({
         <Button
           size="small"
           startIcon={<MaterialSymbol icon="add" size={16} />}
-          onClick={() => onCreateRelation(fsType.key)}
+          onClick={() => onCreateRelation(cardTypeKey.key)}
         >
           Add Relation
         </Button>
@@ -1937,7 +1937,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
         <Typography color="text.secondary">
-          No visible types to display. Create some fact sheet types first.
+          No visible types to display. Create some card types first.
         </Typography>
       </Box>
     );
@@ -2285,13 +2285,13 @@ export default function MetamodelAdmin() {
       </Typography>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab label="Fact Sheet Types" />
+        <Tab label="Card Types" />
         <Tab label="Relation Types" />
         <Tab label="Metamodel Graph" />
       </Tabs>
 
       {/* ============================================================ */}
-      {/*  TAB 0 -- Fact Sheet Types                                   */}
+      {/*  TAB 0 -- Card Types                                   */}
       {/* ============================================================ */}
       {tab === 0 && (
         <Box>
@@ -2468,7 +2468,7 @@ export default function MetamodelAdmin() {
               color="text.secondary"
               sx={{ mt: 2, textAlign: "center" }}
             >
-              No fact sheet types found.
+              No card types found.
             </Typography>
           )}
         </Box>
@@ -2673,7 +2673,7 @@ export default function MetamodelAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Create Fact Sheet Type</DialogTitle>
+        <DialogTitle>Create Card Type</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth

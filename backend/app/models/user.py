@@ -11,18 +11,18 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 DEFAULT_NOTIFICATION_PREFERENCES = {
     "in_app": {
         "todo_assigned": True,
-        "fact_sheet_updated": True,
+        "card_updated": True,
         "comment_added": True,
-        "quality_seal_changed": True,
+        "approval_status_changed": True,
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,
     },
     "email": {
         "todo_assigned": True,
-        "fact_sheet_updated": False,
+        "card_updated": False,
         "comment_added": False,
-        "quality_seal_changed": False,
+        "approval_status_changed": False,
         "soaw_sign_requested": True,
         "soaw_signed": True,
         "survey_request": True,

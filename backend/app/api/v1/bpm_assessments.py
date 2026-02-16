@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.process_assessment import ProcessAssessment
 from app.models.user import User
 from app.schemas.bpm import ProcessAssessmentCreate, ProcessAssessmentUpdate
@@ -19,18 +19,18 @@ from app.services.permission_service import PermissionService
 router = APIRouter(prefix="/bpm", tags=["bpm"])
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> FactSheet:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.id == process_id,
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.id == process_id,
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
         )
     )
-    fs = result.scalar_one_or_none()
-    if not fs:
+    card = result.scalar_one_or_none()
+    if not card:
         raise HTTPException(404, "Business process not found")
-    return fs
+    return card
 
 
 def _clamp_score(v: int) -> int:

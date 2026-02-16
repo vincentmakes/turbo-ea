@@ -11,10 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
-from app.models.subscription import Subscription
+from app.models.stakeholder import Stakeholder
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.bpm import ProcessFlowVersionCreate, ProcessFlowVersionUpdate
@@ -30,28 +30,28 @@ router = APIRouter(prefix="/bpm", tags=["bpm-workflow"])
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> FactSheet:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.id == process_id,
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.id == process_id,
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
         )
     )
-    fs = result.scalar_one_or_none()
-    if not fs:
+    card = result.scalar_one_or_none()
+    if not card:
         raise HTTPException(404, "Business process not found")
-    return fs
+    return card
 
 
-async def _user_subscription_roles(
+async def _user_stakeholder_roles(
     db: AsyncSession, process_id: uuid.UUID, user_id: uuid.UUID
 ) -> set[str]:
-    """Return the set of subscription roles a user holds on a fact sheet."""
+    """Return the set of subscription roles a user holds on a card."""
     result = await db.execute(
-        select(Subscription.role).where(
-            Subscription.fact_sheet_id == process_id,
-            Subscription.user_id == user_id,
+        select(Stakeholder.role).where(
+            Stakeholder.card_id == process_id,
+            Stakeholder.user_id == user_id,
         )
     )
     return {r for (r,) in result.all()}
@@ -60,21 +60,21 @@ async def _user_subscription_roles(
 async def _can_view_drafts(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if a user can see draft / archived tabs via PermissionService."""
     return await PermissionService.check_permission(
-        db, user, "bpm.view", process_id, "fs.view"
+        db, user, "bpm.view", process_id, "card.view"
     )
 
 
 async def _can_edit_draft(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if a user can create / edit drafts via PermissionService."""
     return await PermissionService.check_permission(
-        db, user, "bpm.edit", process_id, "fs.edit"
+        db, user, "bpm.edit", process_id, "card.edit"
     )
 
 
 async def _is_process_owner(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if user can approve (process owner) via PermissionService."""
     return await PermissionService.check_permission(
-        db, user, "bpm.edit", process_id, "fs.quality_seal"
+        db, user, "bpm.edit", process_id, "card.approval_status"
     )
 
 
@@ -109,7 +109,7 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
 
 
 def _apply_draft_link(
-    elem: ProcessElement, link: dict, valid_fs_ids: set[str]
+    elem: ProcessElement, link: dict, valid_card_ids: set[str]
 ) -> None:
     """Apply draft element link data to a ProcessElement, skipping stale references."""
     for attr, key in (
@@ -118,10 +118,10 @@ def _apply_draft_link(
         ("it_component_id", "it_component_id"),
     ):
         val = link.get(key)
-        if val and val in valid_fs_ids:
+        if val and val in valid_card_ids:
             setattr(elem, attr, uuid.UUID(val))
         elif val:
-            # Fact sheet no longer valid — leave empty
+            # Card no longer valid — leave empty
             setattr(elem, attr, None)
     if "custom_fields" in link:
         elem.custom_fields = {**(elem.custom_fields or {}), **link["custom_fields"]}
@@ -397,9 +397,9 @@ async def submit_for_approval(
 
     # Notify process owners and create approval todos
     owner_subs = await db.execute(
-        select(Subscription).where(
-            Subscription.fact_sheet_id == pid,
-            Subscription.role == "process_owner",
+        select(Stakeholder).where(
+            Stakeholder.card_id == pid,
+            Stakeholder.role == "process_owner",
         )
     )
     for sub in owner_subs.scalars().all():
@@ -409,16 +409,16 @@ async def submit_for_approval(
             notif_type="process_flow_approval_requested",
             title=f"Process flow approval requested for {process.name}",
             message=f"{user.display_name} submitted revision {version.revision} for approval.",
-            link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
-            fact_sheet_id=pid,
+            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            card_id=pid,
             actor_id=user.id,
         )
         # Create a system todo for the process owner to review
         todo = Todo(
-            fact_sheet_id=pid,
+            card_id=pid,
             description=f"Review and approve process flow revision {version.revision} for {process.name}",
             status="open",
-            link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
+            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
             is_system=True,
             assigned_to=sub.user_id,
             created_by=user.id,
@@ -433,7 +433,7 @@ async def submit_for_approval(
             "submitted_by": user.display_name,
         },
         db=db,
-        fact_sheet_id=pid,
+        card_id=pid,
         user_id=user.id,
     )
 
@@ -496,36 +496,36 @@ async def approve_version(
         extracted = parse_bpmn_xml(version.bpmn_xml)
         draft_links = version.draft_element_links or {}
 
-        # Validate draft-linked fact sheets still exist
-        linked_fs_ids: set[str] = set()
+        # Validate draft-linked cards still exist
+        linked_card_ids: set[str] = set()
         for link_data in draft_links.values():
             for key in ("application_id", "data_object_id", "it_component_id"):
                 val = link_data.get(key)
                 if val:
-                    linked_fs_ids.add(val)
+                    linked_card_ids.add(val)
 
-        valid_fs_ids: set[str] = set()
-        if linked_fs_ids:
-            fs_result = await db.execute(
-                select(FactSheet.id, FactSheet.name, FactSheet.status).where(
-                    FactSheet.id.in_([uuid.UUID(fid) for fid in linked_fs_ids])
+        valid_card_ids: set[str] = set()
+        if linked_card_ids:
+            card_result = await db.execute(
+                select(Card.id, Card.name, Card.status).where(
+                    Card.id.in_([uuid.UUID(fid) for fid in linked_card_ids])
                 )
             )
             fs_name_map: dict[str, str] = {}
-            for row in fs_result.all():
+            for row in card_result.all():
                 fid_str = str(row[0])
                 fs_name_map[fid_str] = row[1]
                 if row[2] == "ACTIVE":
-                    valid_fs_ids.add(fid_str)
+                    valid_card_ids.add(fid_str)
                 else:
                     stale_link_warnings.append(
                         f"{row[1]} ({fid_str[:8]}...) is no longer active"
                     )
-            # Check for deleted (not found) fact sheets
-            for fid in linked_fs_ids:
+            # Check for deleted (not found) cards
+            for fid in linked_card_ids:
                 if fid not in fs_name_map:
                     stale_link_warnings.append(
-                        f"Linked fact sheet {fid[:8]}... no longer exists"
+                        f"Linked card {fid[:8]}... no longer exists"
                     )
 
         # Load existing elements to preserve EA links (application, data_object, it_component)
@@ -550,7 +550,7 @@ async def approve_version(
                 old.sequence_order = ext.sequence_order
                 # Apply draft links (only if the linked FS is still valid)
                 if draft_link:
-                    _apply_draft_link(old, draft_link, valid_fs_ids)
+                    _apply_draft_link(old, draft_link, valid_card_ids)
             else:
                 elem = ProcessElement(
                     process_id=pid,
@@ -564,7 +564,7 @@ async def approve_version(
                 )
                 # Apply draft links for new elements
                 if draft_link:
-                    _apply_draft_link(elem, draft_link, valid_fs_ids)
+                    _apply_draft_link(elem, draft_link, valid_card_ids)
                 db.add(elem)
 
         # Sync element EA links → relations table (additive only)
@@ -589,7 +589,7 @@ async def approve_version(
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
         select(Todo).where(
-            Todo.fact_sheet_id == pid,
+            Todo.card_id == pid,
             Todo.is_system == True,  # noqa: E712
             Todo.status == "open",
             Todo.description.like(f"Review and approve process flow revision {version.revision}%"),
@@ -612,8 +612,8 @@ async def approve_version(
             notif_type="process_flow_approved",
             title=f"Process flow approved for {process.name}",
             message=msg,
-            link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=published",
-            fact_sheet_id=pid,
+            link=f"/cards/{process_id}?tab=process-flow&subtab=published",
+            card_id=pid,
             actor_id=user.id,
         )
 
@@ -625,7 +625,7 @@ async def approve_version(
             "approved_by": user.display_name,
         },
         db=db,
-        fact_sheet_id=pid,
+        card_id=pid,
         user_id=user.id,
     )
 
@@ -667,7 +667,7 @@ async def reject_version(
     # Auto-complete system approval todos for this process
     approval_todos = await db.execute(
         select(Todo).where(
-            Todo.fact_sheet_id == pid,
+            Todo.card_id == pid,
             Todo.is_system == True,  # noqa: E712
             Todo.status == "open",
             Todo.description.like(f"Review and approve process flow revision {version.revision}%"),
@@ -684,8 +684,8 @@ async def reject_version(
             notif_type="process_flow_rejected",
             title=f"Process flow rejected for {process.name}",
             message=f"{user.display_name} rejected revision {version.revision}. Please revise.",
-            link=f"/fact-sheets/{process_id}?tab=process-flow&subtab=drafts",
-            fact_sheet_id=pid,
+            link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
+            card_id=pid,
             actor_id=user.id,
         )
 
@@ -697,7 +697,7 @@ async def reject_version(
             "rejected_by": user.display_name,
         },
         db=db,
-        fact_sheet_id=pid,
+        card_id=pid,
         user_id=user.id,
     )
 
@@ -766,23 +766,23 @@ async def get_draft_elements(
     extracted = parse_bpmn_xml(version.bpmn_xml)
     links = version.draft_element_links or {}
 
-    # Collect all linked fact sheet IDs to resolve names in one query
-    fs_ids: set[str] = set()
+    # Collect all linked card IDs to resolve names in one query
+    card_ids: set[str] = set()
     for link_data in links.values():
         for key in ("application_id", "data_object_id", "it_component_id"):
             val = link_data.get(key)
             if val:
-                fs_ids.add(val)
+                card_ids.add(val)
 
     # Resolve names
     name_map: dict[str, str] = {}
-    if fs_ids:
-        fs_result = await db.execute(
-            select(FactSheet.id, FactSheet.name).where(
-                FactSheet.id.in_([uuid.UUID(fid) for fid in fs_ids])
+    if card_ids:
+        card_result = await db.execute(
+            select(Card.id, Card.name).where(
+                Card.id.in_([uuid.UUID(fid) for fid in card_ids])
             )
         )
-        for row in fs_result.all():
+        for row in card_result.all():
             name_map[str(row[0])] = row[1]
 
     elements = []

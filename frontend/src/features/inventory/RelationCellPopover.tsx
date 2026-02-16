@@ -19,8 +19,8 @@ import type { Relation, RelationType } from "@/types";
 interface RelationCellPopoverProps {
   open: boolean;
   onClose: () => void;
-  factSheetId: string;
-  factSheetName: string;
+  cardId: string;
+  cardName: string;
   relationType: RelationType;
   selectedType: string;
   onRelationsChanged: () => void;
@@ -35,8 +35,8 @@ interface SearchResult {
 export default function RelationCellPopover({
   open,
   onClose,
-  factSheetId,
-  factSheetName,
+  cardId,
+  cardName,
   relationType,
   selectedType,
   onRelationsChanged,
@@ -63,18 +63,18 @@ export default function RelationCellPopover({
   const [createName, setCreateName] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
 
-  // Load relations for this fact sheet + type
+  // Load relations for this card + type
   const loadRelations = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await api.get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}&type=${relationType.key}`);
+      const all = await api.get<Relation[]>(`/relations?card_id=${cardId}&type=${relationType.key}`);
       setRelations(all);
     } catch {
       setRelations([]);
     } finally {
       setLoading(false);
     }
-  }, [factSheetId, relationType.key]);
+  }, [cardId, relationType.key]);
 
   useEffect(() => {
     if (open) {
@@ -88,7 +88,7 @@ export default function RelationCellPopover({
     }
   }, [open, loadRelations]);
 
-  // Search for target fact sheets
+  // Search for target cards
   useEffect(() => {
     if (!open || targetSearch.length < 1) {
       setSearchResults([]);
@@ -97,20 +97,20 @@ export default function RelationCellPopover({
     const timer = setTimeout(() => {
       api
         .get<{ items: SearchResult[] }>(
-          `/fact-sheets?type=${targetTypeKey}&search=${encodeURIComponent(targetSearch)}&page_size=20`
+          `/cards?type=${targetTypeKey}&search=${encodeURIComponent(targetSearch)}&page_size=20`
         )
         .then((res) => {
-          // Exclude current fact sheet and already-related fact sheets
+          // Exclude current card and already-related cards
           const existingIds = new Set(
             relations.map((r) => (isSource ? r.target_id : r.source_id))
           );
-          existingIds.add(factSheetId);
+          existingIds.add(cardId);
           setSearchResults(res.items.filter((item) => !existingIds.has(item.id)));
         })
         .catch(() => {});
     }, 250);
     return () => clearTimeout(timer);
-  }, [targetTypeKey, targetSearch, open, factSheetId, relations, isSource]);
+  }, [targetTypeKey, targetSearch, open, cardId, relations, isSource]);
 
   const handleAdd = async () => {
     if (!selectedTarget) return;
@@ -119,8 +119,8 @@ export default function RelationCellPopover({
     try {
       await api.post("/relations", {
         type: relationType.key,
-        source_id: isSource ? factSheetId : selectedTarget.id,
-        target_id: isSource ? selectedTarget.id : factSheetId,
+        source_id: isSource ? cardId : selectedTarget.id,
+        target_id: isSource ? selectedTarget.id : cardId,
       });
       await loadRelations();
       onRelationsChanged();
@@ -149,15 +149,15 @@ export default function RelationCellPopover({
     setCreateLoading(true);
     setError("");
     try {
-      const created = await api.post<SearchResult>("/fact-sheets", {
+      const created = await api.post<SearchResult>("/cards", {
         type: targetTypeKey,
         name: createName.trim(),
       });
       // Immediately create the relation
       await api.post("/relations", {
         type: relationType.key,
-        source_id: isSource ? factSheetId : created.id,
-        target_id: isSource ? created.id : factSheetId,
+        source_id: isSource ? cardId : created.id,
+        target_id: isSource ? created.id : cardId,
       });
       await loadRelations();
       onRelationsChanged();
@@ -179,7 +179,7 @@ export default function RelationCellPopover({
           <Box sx={{ width: 14, height: 14, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
         )}
         <Typography variant="h6" component="span" sx={{ flex: 1 }}>
-          {factSheetName}
+          {cardName}
           <Typography component="span" variant="body1" color="text.secondary" sx={{ mx: 1 }}>
             {verb} &rarr;
           </Typography>

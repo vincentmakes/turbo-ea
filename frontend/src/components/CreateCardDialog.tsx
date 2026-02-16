@@ -24,7 +24,7 @@ import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FieldDef, FactSheet, EolCycle, EolProductMatch } from "@/types";
+import type { FieldDef, Card, EolCycle, EolProductMatch } from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
@@ -49,7 +49,7 @@ interface ParentOption {
   name: string;
 }
 
-export default function CreateFactSheetDialog({
+export default function CreateCardDialog({
   open,
   onClose,
   onCreate,
@@ -181,11 +181,11 @@ export default function CreateFactSheetDialog({
           search: query,
           page_size: "20",
         });
-        const res = await api.get<{ items: FactSheet[] }>(
-          `/fact-sheets?${params.toString()}`,
+        const res = await api.get<{ items: Card[] }>(
+          `/cards?${params.toString()}`,
         );
         setParentOptions(
-          res.items.map((fs) => ({ id: fs.id, name: fs.name })),
+          res.items.map((card) => ({ id: card.id, name: card.name })),
         );
       } catch {
         setParentOptions([]);
@@ -262,7 +262,7 @@ export default function CreateFactSheetDialog({
       onClose();
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to create fact sheet";
+        err instanceof Error ? err.message : "Failed to create card";
       setError(message);
     } finally {
       setLoading(false);
@@ -381,7 +381,7 @@ export default function CreateFactSheetDialog({
           pb: 1,
         }}
       >
-        Create Fact Sheet
+        Create Card
         <IconButton
           aria-label="close"
           onClick={onClose}
@@ -642,7 +642,7 @@ export default function CreateFactSheetDialog({
             <VendorField
               value={(attributes.vendor as string) ?? ""}
               onChange={(v) => setAttr("vendor", v)}
-              fsType={selectedType}
+              cardTypeKey={selectedType}
               size="small"
             />
           </Box>

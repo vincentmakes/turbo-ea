@@ -26,8 +26,8 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import type {
   PublicPortal,
-  PortalFactSheet,
-  PortalFactSheetListResponse,
+  PortalCard,
+  PortalCardListResponse,
 } from "@/types";
 
 const BASE = "/api/v1";
@@ -44,8 +44,8 @@ const DEFAULT_CARD: Record<string, boolean> = {
   lifecycle: true,
   tags: true,
   subscribers: true,
-  completion: true,
-  quality_seal: false,
+  data_quality: true,
+  approval_status: false,
 };
 
 const DEFAULT_DETAIL: Record<string, boolean> = {
@@ -53,8 +53,8 @@ const DEFAULT_DETAIL: Record<string, boolean> = {
   lifecycle: true,
   tags: true,
   subscribers: true,
-  completion: true,
-  quality_seal: true,
+  data_quality: true,
+  approval_status: true,
 };
 
 function isVisible(
@@ -240,7 +240,7 @@ export default function PortalViewer() {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const [portal, setPortal] = useState<PublicPortal | null>(null);
-  const [factSheets, setFactSheets] = useState<PortalFactSheet[]>([]);
+  const [cards, setCards] = useState<PortalCard[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(24);
@@ -254,7 +254,7 @@ export default function PortalViewer() {
   const [loading, setLoading] = useState(true);
   const [fsLoading, setFsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedFs, setSelectedFs] = useState<PortalFactSheet | null>(null);
+  const [selectedFs, setSelectedFs] = useState<PortalCard | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -289,7 +289,7 @@ export default function PortalViewer() {
   // Stable key for effect dependency
   const visibleRelKeysStr = visibleRelTypes.map((r) => r.key).join(",");
 
-  // Fetch relation options (fact sheets of each related type) for filter dropdowns
+  // Fetch relation options (cards of each related type) for filter dropdowns
   useEffect(() => {
     if (!slug || !visibleRelTypes.length) return;
     const seen = new Set<string>();
@@ -305,7 +305,7 @@ export default function PortalViewer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, visibleRelKeysStr]);
 
-  const loadFactSheets = useCallback(async () => {
+  const loadCards = useCallback(async () => {
     if (!slug) return;
     setFsLoading(true);
     try {
@@ -328,10 +328,10 @@ export default function PortalViewer() {
       params.set("page_size", String(pageSize));
       params.set("sort_by", sortBy);
       params.set("sort_dir", sortDir);
-      const data = await publicGet<PortalFactSheetListResponse>(
-        `/web-portals/public/${slug}/fact-sheets?${params.toString()}`
+      const data = await publicGet<PortalCardListResponse>(
+        `/web-portals/public/${slug}/cards?${params.toString()}`
       );
-      setFactSheets(data.items);
+      setCards(data.items);
       setTotal(data.total);
     } catch {
       // ignore
@@ -341,8 +341,8 @@ export default function PortalViewer() {
   }, [slug, search, subtype, attrFilters, relationFilters, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
-    if (portal) loadFactSheets();
-  }, [portal, loadFactSheets]);
+    if (portal) loadCards();
+  }, [portal, loadCards]);
 
   const handleSearchChange = (value: string) => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -570,8 +570,8 @@ export default function PortalViewer() {
             <MenuItem value="name-asc">Name A-Z</MenuItem>
             <MenuItem value="name-desc">Name Z-A</MenuItem>
             <MenuItem value="updated_at-desc">Recently Updated</MenuItem>
-            <MenuItem value="completion-desc">Highest Completion</MenuItem>
-            <MenuItem value="completion-asc">Lowest Completion</MenuItem>
+            <MenuItem value="data_quality-desc">Highest Data Quality</MenuItem>
+            <MenuItem value="data_quality-asc">Lowest Data Quality</MenuItem>
           </TextField>
         </Box>
 
@@ -689,7 +689,7 @@ export default function PortalViewer() {
 
       {/* Cards Grid */}
       <Box sx={{ maxWidth: 1200, mx: "auto", px: { xs: 2, md: 4 }, py: 3 }}>
-        {factSheets.length === 0 && !fsLoading && (
+        {cards.length === 0 && !fsLoading && (
           <Box sx={{ textAlign: "center", py: 8 }}>
             <Icon name="search_off" size={48} color="#ccc" />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
@@ -712,9 +712,9 @@ export default function PortalViewer() {
             gap: 2.5,
           }}
         >
-          {factSheets.map((fs) => (
+          {cards.map((card) => (
             <Card
-              key={fs.id}
+              key={card.id}
               sx={{
                 borderRadius: 2.5,
                 border: "1px solid #e0e0e0",
@@ -727,7 +727,7 @@ export default function PortalViewer() {
               }}
               variant="outlined"
             >
-              <CardActionArea onClick={() => setSelectedFs(fs)}>
+              <CardActionArea onClick={() => setSelectedFs(card)}>
                 {/* Colored top stripe */}
                 <Box sx={{ height: 4, bgcolor: typeColor }} />
                 <CardContent sx={{ p: 2.5, pt: 2 }}>
@@ -773,23 +773,23 @@ export default function PortalViewer() {
                           overflow: "hidden",
                         }}
                       >
-                        {fs.name}
+                        {card.name}
                       </Typography>
-                      {fs.subtype && (
+                      {card.subtype && (
                         <Typography
                           variant="caption"
                           sx={{ color: "#666", fontSize: "0.75rem" }}
                         >
                           {portal.type_info?.subtypes?.find(
-                            (st) => st.key === fs.subtype
-                          )?.label || fs.subtype}
+                            (st) => st.key === card.subtype
+                          )?.label || card.subtype}
                         </Typography>
                       )}
                     </Box>
                   </Box>
 
                   {/* Description preview */}
-                  {show("description", "card") && fs.description && (
+                  {show("description", "card") && card.description && (
                     <Typography
                       variant="body2"
                       sx={{
@@ -803,7 +803,7 @@ export default function PortalViewer() {
                         color: "#555",
                       }}
                     >
-                      {fs.description.replace(/<[^>]*>/g, "")}
+                      {card.description.replace(/<[^>]*>/g, "")}
                     </Typography>
                   )}
 
@@ -818,7 +818,7 @@ export default function PortalViewer() {
                       }}
                     >
                       {cardVisibleFields.slice(0, 3).map((field) => {
-                        const val = fs.attributes?.[field.key];
+                        const val = card.attributes?.[field.key];
                         if (val === null || val === undefined || val === "")
                           return null;
                         return (
@@ -846,13 +846,13 @@ export default function PortalViewer() {
 
                   {/* Lifecycle */}
                   {show("lifecycle", "card") && (
-                    <LifecycleBar lifecycle={fs.lifecycle} />
+                    <LifecycleBar lifecycle={card.lifecycle} />
                   )}
 
-                  {/* Quality Seal */}
-                  {show("quality_seal", "card", false) && fs.quality_seal && fs.quality_seal !== "DRAFT" && (
+                  {/* Approval Status */}
+                  {show("approval_status", "card", false) && card.approval_status && card.approval_status !== "DRAFT" && (
                     <Chip
-                      label={fs.quality_seal}
+                      label={card.approval_status}
                       size="small"
                       sx={{
                         mt: 1,
@@ -861,15 +861,15 @@ export default function PortalViewer() {
                         fontWeight: 600,
                         px: 0.5,
                         bgcolor:
-                          fs.quality_seal === "APPROVED"
+                          card.approval_status === "APPROVED"
                             ? "#e8f5e9"
-                            : fs.quality_seal === "REJECTED"
+                            : card.approval_status === "REJECTED"
                               ? "#ffebee"
                               : "#fff3e0",
                         color:
-                          fs.quality_seal === "APPROVED"
+                          card.approval_status === "APPROVED"
                             ? "#2e7d32"
-                            : fs.quality_seal === "REJECTED"
+                            : card.approval_status === "REJECTED"
                               ? "#c62828"
                               : "#e65100",
                       }}
@@ -877,7 +877,7 @@ export default function PortalViewer() {
                   )}
 
                   {/* Tags */}
-                  {show("tags", "card") && fs.tags.length > 0 && (
+                  {show("tags", "card") && card.tags.length > 0 && (
                     <Box
                       sx={{
                         display: "flex",
@@ -886,7 +886,7 @@ export default function PortalViewer() {
                         mt: 1.5,
                       }}
                     >
-                      {fs.tags.slice(0, 4).map((tag) => (
+                      {card.tags.slice(0, 4).map((tag) => (
                         <Chip
                           key={tag.id}
                           label={tag.name}
@@ -903,9 +903,9 @@ export default function PortalViewer() {
                           }}
                         />
                       ))}
-                      {fs.tags.length > 4 && (
+                      {card.tags.length > 4 && (
                         <Chip
-                          label={`+${fs.tags.length - 4}`}
+                          label={`+${card.tags.length - 4}`}
                           size="small"
                           sx={{ height: 24, fontSize: "0.73rem" }}
                         />
@@ -914,9 +914,9 @@ export default function PortalViewer() {
                   )}
 
                   {/* Card-level relations */}
-                  {cardRelTypes.length > 0 && fs.relations.length > 0 && (() => {
+                  {cardRelTypes.length > 0 && card.relations.length > 0 && (() => {
                     const cardRelKeys = new Set(cardRelTypes.map((r) => r.key));
-                    const visible = fs.relations.filter((r) => cardRelKeys.has(r.type));
+                    const visible = card.relations.filter((r) => cardRelKeys.has(r.type));
                     if (visible.length === 0) return null;
                     return (
                       <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mt: 1.5 }}>
@@ -940,8 +940,8 @@ export default function PortalViewer() {
                     );
                   })()}
 
-                  {/* Bottom row: subscribers + completion */}
-                  {(show("subscribers", "card") || show("completion", "card")) && (
+                  {/* Bottom row: subscribers + data_quality */}
+                  {(show("subscribers", "card") || show("data_quality", "card")) && (
                   <Box
                     sx={{
                       display: "flex",
@@ -953,9 +953,9 @@ export default function PortalViewer() {
                     }}
                   >
                     {/* Subscribers */}
-                    {show("subscribers", "card") && fs.subscriptions && fs.subscriptions.length > 0 && (
+                    {show("subscribers", "card") && card.stakeholders && card.stakeholders.length > 0 && (
                       <Tooltip
-                        title={fs.subscriptions
+                        title={card.stakeholders
                           .map(
                             (s) =>
                               `${s.display_name} (${ROLE_LABELS[s.role] || s.role})`
@@ -974,7 +974,7 @@ export default function PortalViewer() {
                             },
                           }}
                         >
-                          {fs.subscriptions.map((s, i) => (
+                          {card.stakeholders.map((s, i) => (
                             <Avatar
                               key={i}
                               sx={{
@@ -994,11 +994,11 @@ export default function PortalViewer() {
                     <Box sx={{ flex: 1 }} />
 
                     {/* Completion */}
-                    {show("completion", "card") && (
+                    {show("data_quality", "card") && (
                     <>
                     <LinearProgress
                       variant="determinate"
-                      value={fs.completion}
+                      value={card.data_quality}
                       sx={{
                         width: 60,
                         height: 4,
@@ -1006,9 +1006,9 @@ export default function PortalViewer() {
                         bgcolor: "#eee",
                         "& .MuiLinearProgress-bar": {
                           bgcolor:
-                            fs.completion >= 80
+                            card.data_quality >= 80
                               ? "#4caf50"
-                              : fs.completion >= 50
+                              : card.data_quality >= 50
                                 ? "#ff9800"
                                 : "#ef5350",
                           borderRadius: 2,
@@ -1025,7 +1025,7 @@ export default function PortalViewer() {
                         textAlign: "right",
                       }}
                     >
-                      {Math.round(fs.completion)}%
+                      {Math.round(card.data_quality)}%
                     </Typography>
                     </>
                     )}
@@ -1132,33 +1132,33 @@ export default function PortalViewer() {
                       sx={{ height: 28, fontSize: "0.8rem", px: 0.75 }}
                     />
                   )}
-                  {show("completion", "detail") && (
+                  {show("data_quality", "detail") && (
                   <Chip
-                    label={`${Math.round(selectedFs.completion)}% complete`}
+                    label={`${Math.round(selectedFs.data_quality)}% complete`}
                     size="small"
                     sx={{
                       height: 28,
                       fontSize: "0.8rem",
                       px: 0.75,
                       bgcolor:
-                        selectedFs.completion >= 80
+                        selectedFs.data_quality >= 80
                           ? "#e8f5e9"
-                          : selectedFs.completion >= 50
+                          : selectedFs.data_quality >= 50
                             ? "#fff3e0"
                             : "#ffebee",
                       color:
-                        selectedFs.completion >= 80
+                        selectedFs.data_quality >= 80
                           ? "#2e7d32"
-                          : selectedFs.completion >= 50
+                          : selectedFs.data_quality >= 50
                             ? "#e65100"
                             : "#c62828",
                       fontWeight: 600,
                     }}
                   />
                   )}
-                  {show("quality_seal", "detail") && selectedFs.quality_seal && selectedFs.quality_seal !== "DRAFT" && (
+                  {show("approval_status", "detail") && selectedFs.approval_status && selectedFs.approval_status !== "DRAFT" && (
                   <Chip
-                    label={selectedFs.quality_seal}
+                    label={selectedFs.approval_status}
                     size="small"
                     sx={{
                       height: 28,
@@ -1166,15 +1166,15 @@ export default function PortalViewer() {
                       px: 0.75,
                       fontWeight: 600,
                       bgcolor:
-                        selectedFs.quality_seal === "APPROVED"
+                        selectedFs.approval_status === "APPROVED"
                           ? "#e8f5e9"
-                          : selectedFs.quality_seal === "REJECTED"
+                          : selectedFs.approval_status === "REJECTED"
                             ? "#ffebee"
                             : "#fff3e0",
                       color:
-                        selectedFs.quality_seal === "APPROVED"
+                        selectedFs.approval_status === "APPROVED"
                           ? "#2e7d32"
-                          : selectedFs.quality_seal === "REJECTED"
+                          : selectedFs.approval_status === "REJECTED"
                             ? "#c62828"
                             : "#e65100",
                     }}
@@ -1320,8 +1320,8 @@ export default function PortalViewer() {
               })}
 
               {/* Subscribers */}
-              {show("subscribers", "detail") && selectedFs.subscriptions &&
-                selectedFs.subscriptions.length > 0 && (
+              {show("subscribers", "detail") && selectedFs.stakeholders &&
+                selectedFs.stakeholders.length > 0 && (
                   <Box sx={{ mb: 3 }}>
                     <Typography
                       variant="subtitle2"
@@ -1339,7 +1339,7 @@ export default function PortalViewer() {
                     <Box
                       sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}
                     >
-                      {selectedFs.subscriptions.map((sub, i) => (
+                      {selectedFs.stakeholders.map((sub, i) => (
                         <Box
                           key={i}
                           sx={{

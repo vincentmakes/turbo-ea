@@ -13,7 +13,7 @@ from app.api.deps import get_current_user
 from app.config import settings as app_config
 from app.database import get_db
 from app.models.app_settings import AppSettings
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.user import User
 from app.services.permission_service import PermissionService
@@ -242,8 +242,8 @@ async def update_bpm_enabled(
 ):
     """Admin endpoint — enable or disable the BPM module.
 
-    Also toggles is_hidden on the BusinessProcess fact sheet type and all
-    relation types that touch BusinessProcess, so that fact sheets, relations,
+    Also toggles is_hidden on the BusinessProcess card type and all
+    relation types that touch BusinessProcess, so that cards, relations,
     and reports are properly hidden/shown across the entire platform.
     """
     await PermissionService.require_permission(db, user, "admin.settings")
@@ -253,10 +253,10 @@ async def update_bpm_enabled(
     general["bpmEnabled"] = body.enabled
     row.general_settings = general
 
-    # Toggle is_hidden on the BusinessProcess fact sheet type
+    # Toggle is_hidden on the BusinessProcess card type
     hide = not body.enabled
     fst_result = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == "BusinessProcess")
+        select(CardType).where(CardType.key == "BusinessProcess")
     )
     fst = fst_result.scalar_one_or_none()
     if fst:

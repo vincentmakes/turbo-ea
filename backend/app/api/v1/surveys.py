@@ -11,12 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
-from app.models.subscription import Subscription
+from app.models.stakeholder import Stakeholder
 from app.models.survey import Survey, SurveyResponse
-from app.models.tag import FactSheetTag
+from app.models.tag import CardTag
 from app.models.user import User
 from app.services import notification_service
 from app.services.permission_service import PermissionService
@@ -85,9 +85,9 @@ def _response_to_dict(r: SurveyResponse) -> dict:
     return {
         "id": str(r.id),
         "survey_id": str(r.survey_id),
-        "fact_sheet_id": str(r.fact_sheet_id),
-        "fact_sheet_name": r.fact_sheet.name if r.fact_sheet else None,
-        "fact_sheet_type": r.fact_sheet.type if r.fact_sheet else None,
+        "card_id": str(r.card_id),
+        "card_name": r.card.name if r.card else None,
+        "card_type": r.card.type if r.card else None,
         "user_id": str(r.user_id),
         "user_display_name": r.user.display_name if r.user else None,
         "user_email": r.user.email if r.user else None,
@@ -103,30 +103,30 @@ def _response_to_dict(r: SurveyResponse) -> dict:
 async def _resolve_targets(
     db: AsyncSession, survey: Survey
 ) -> list[dict]:
-    """Resolve survey filters into a list of {fact_sheet, users} dicts."""
+    """Resolve survey filters into a list of {card, users} dicts."""
     filters = survey.target_filters or {}
     roles = survey.target_roles or []
 
-    # Start with all active fact sheets of the target type
-    q = select(FactSheet).where(
-        FactSheet.type == survey.target_type_key,
-        FactSheet.status == "ACTIVE",
+    # Start with all active cards of the target type
+    q = select(Card).where(
+        Card.type == survey.target_type_key,
+        Card.status == "ACTIVE",
     )
 
     # Tag filter
     tag_ids = filters.get("tag_ids") or []
     if tag_ids:
         tag_uuids = [uuid.UUID(t) for t in tag_ids]
-        tagged_fs = select(FactSheetTag.fact_sheet_id).where(
-            FactSheetTag.tag_id.in_(tag_uuids)
+        tagged_fs = select(CardTag.card_id).where(
+            CardTag.tag_id.in_(tag_uuids)
         )
-        q = q.where(FactSheet.id.in_(tagged_fs))
+        q = q.where(Card.id.in_(tagged_fs))
 
-    # Related fact sheet filter
+    # Related card filter
     related_ids = filters.get("related_ids") or []
     if related_ids:
         related_uuids = [uuid.UUID(r) for r in related_ids]
-        # Find fact sheets related to any of these IDs (as source or target)
+        # Find cards related to any of these IDs (as source or target)
         related_fs = select(Relation.source_id).where(
             Relation.target_id.in_(related_uuids)
         ).union(
@@ -134,7 +134,7 @@ async def _resolve_targets(
                 Relation.source_id.in_(related_uuids)
             )
         )
-        q = q.where(FactSheet.id.in_(related_fs))
+        q = q.where(Card.id.in_(related_fs))
 
     # Attribute filters
     attr_filters = filters.get("attribute_filters") or []
@@ -146,17 +146,17 @@ async def _resolve_targets(
         if not key:
             continue
 
-        col = FactSheet.attributes[key].astext
+        col = Card.attributes[key].astext
 
         if op == "is_empty":
             # NULL or missing key in JSONB, or empty string
             q = q.where(
-                (FactSheet.attributes[key] == None)  # noqa: E711
+                (Card.attributes[key] == None)  # noqa: E711
                 | (col == "")
             )
         elif op == "is_not_empty":
             q = q.where(
-                FactSheet.attributes[key] != None,  # noqa: E711
+                Card.attributes[key] != None,  # noqa: E711
                 col != "",
             )
         elif value is not None:
@@ -167,7 +167,7 @@ async def _resolve_targets(
                 q = q.where(col != str_val)
             elif op in ("gt", "lt", "gte", "lte"):
                 # Cast to numeric for comparisons
-                num_col = FactSheet.attributes[key].astext.cast(
+                num_col = Card.attributes[key].astext.cast(
                     sqlalchemy.Numeric
                 )
                 try:
@@ -186,36 +186,36 @@ async def _resolve_targets(
                 q = q.where(col.ilike(f"%{str_val}%"))
 
     result = await db.execute(q)
-    fact_sheets = result.scalars().all()
+    cards = result.scalars().all()
 
-    if not fact_sheets:
+    if not cards:
         return []
 
-    # Find subscribers for these fact sheets with matching roles
-    fs_ids = [fs.id for fs in fact_sheets]
-    sub_q = select(Subscription).where(Subscription.fact_sheet_id.in_(fs_ids))
+    # Find subscribers for these cards with matching roles
+    card_ids = [card.id for card in cards]
+    sub_q = select(Stakeholder).where(Stakeholder.card_id.in_(card_ids))
     if roles:
-        sub_q = sub_q.where(Subscription.role.in_(roles))
+        sub_q = sub_q.where(Stakeholder.role.in_(roles))
 
     sub_result = await db.execute(sub_q)
     subs = sub_result.scalars().all()
 
-    # Group subscribers by fact sheet
-    fs_map = {fs.id: fs for fs in fact_sheets}
+    # Group subscribers by card
+    card_map = {card.id: card for card in cards}
     targets: dict[uuid.UUID, dict] = {}
     for sub in subs:
-        if sub.fact_sheet_id not in targets:
-            fs = fs_map[sub.fact_sheet_id]
-            targets[sub.fact_sheet_id] = {
-                "fact_sheet_id": str(fs.id),
-                "fact_sheet_name": fs.name,
-                "fact_sheet_type": fs.type,
+        if sub.card_id not in targets:
+            card = card_map[sub.card_id]
+            targets[sub.card_id] = {
+                "card_id": str(card.id),
+                "card_name": card.name,
+                "card_type": card.type,
                 "users": [],
             }
         # Avoid duplicate users
-        user_ids = {u["user_id"] for u in targets[sub.fact_sheet_id]["users"]}
+        user_ids = {u["user_id"] for u in targets[sub.card_id]["users"]}
         if str(sub.user_id) not in user_ids and sub.user:
-            targets[sub.fact_sheet_id]["users"].append({
+            targets[sub.card_id]["users"].append({
                 "user_id": str(sub.user_id),
                 "display_name": sub.user.display_name,
                 "email": sub.user.email,
@@ -286,10 +286,10 @@ async def create_survey(
 
     # Validate target type exists
     type_result = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == body.target_type_key)
+        select(CardType).where(CardType.key == body.target_type_key)
     )
     if not type_result.scalar_one_or_none():
-        raise HTTPException(400, f"Unknown fact sheet type: {body.target_type_key}")
+        raise HTTPException(400, f"Unknown card type: {body.target_type_key}")
 
     survey = Survey(
         name=body.name,
@@ -342,8 +342,8 @@ async def my_surveys(
         survey_map[sid]["pending_count"] += 1
         survey_map[sid]["items"].append({
             "response_id": str(r.id),
-            "fact_sheet_id": str(r.fact_sheet_id),
-            "fact_sheet_name": r.fact_sheet.name if r.fact_sheet else None,
+            "card_id": str(r.card_id),
+            "card_name": r.card.name if r.card else None,
         })
 
     return list(survey_map.values())
@@ -433,10 +433,10 @@ async def preview_survey(
         raise HTTPException(404, "Survey not found")
 
     targets = await _resolve_targets(db, survey)
-    total_fact_sheets = len(targets)
+    total_cards = len(targets)
     total_users = sum(len(t["users"]) for t in targets)
     return {
-        "total_fact_sheets": total_fact_sheets,
+        "total_cards": total_cards,
         "total_users": total_users,
         "targets": targets,
     }
@@ -468,18 +468,18 @@ async def send_survey(
         raise HTTPException(
             400,
             "No targets matched the survey filters. "
-            "Check that fact sheets have subscribers with the selected roles.",
+            "Check that cards have subscribers with the selected roles.",
         )
 
     # Create response records
     created = 0
     for target in targets:
-        fs_id = uuid.UUID(target["fact_sheet_id"])
+        card_id = uuid.UUID(target["card_id"])
         for u in target["users"]:
             u_id = uuid.UUID(u["user_id"])
             resp = SurveyResponse(
                 survey_id=survey.id,
-                fact_sheet_id=fs_id,
+                card_id=card_id,
                 user_id=u_id,
             )
             db.add(resp)
@@ -492,8 +492,8 @@ async def send_survey(
                 notif_type="survey_request",
                 title=f"Survey: {survey.name}",
                 message=survey.message or "You have been asked to review data for a survey.",
-                link=f"/surveys/{survey.id}/respond/{fs_id}",
-                data={"survey_id": str(survey.id), "fact_sheet_id": str(fs_id)},
+                link=f"/surveys/{survey.id}/respond/{card_id}",
+                data={"survey_id": str(survey.id), "card_id": str(card_id)},
                 actor_id=user.id,
             )
 
@@ -560,7 +560,7 @@ async def apply_responses(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Apply selected survey responses to fact sheets (admin only)."""
+    """Apply selected survey responses to cards (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
@@ -590,18 +590,18 @@ async def apply_responses(
             errors.append({"response_id": rid_str, "error": "Already applied"})
             continue
 
-        # Load the fact sheet
-        fs_result = await db.execute(
-            select(FactSheet).where(FactSheet.id == resp.fact_sheet_id)
+        # Load the card
+        card_result = await db.execute(
+            select(Card).where(Card.id == resp.card_id)
         )
-        fs = fs_result.scalar_one_or_none()
-        if not fs:
-            errors.append({"response_id": rid_str, "error": "Fact sheet not found"})
+        card = card_result.scalar_one_or_none()
+        if not card:
+            errors.append({"response_id": rid_str, "error": "Card not found"})
             continue
 
         # Apply changes from response
         field_responses = resp.responses or {}
-        attrs = dict(fs.attributes or {})
+        attrs = dict(card.attributes or {})
         changed = False
 
         for field_key, field_data in field_responses.items():
@@ -616,8 +616,8 @@ async def apply_responses(
                 changed = True
 
         if changed:
-            fs.attributes = attrs
-            fs.updated_by = user.id
+            card.attributes = attrs
+            card.updated_by = user.id
 
         resp.applied = True
         resp.applied_at = datetime.now(timezone.utc)
@@ -630,19 +630,19 @@ async def apply_responses(
 # ── Respondent endpoints ──────────────────────────────────────────────────────
 
 
-@router.get("/{survey_id}/respond/{fs_id}")
+@router.get("/{survey_id}/respond/{card_id}")
 async def get_response_form(
     survey_id: str,
-    fs_id: str,
+    card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Get the response form data for a fact sheet in a survey."""
+    """Get the response form data for a card in a survey."""
     await PermissionService.require_permission(db, user, "surveys.respond")
     resp_result = await db.execute(
         select(SurveyResponse).where(
             SurveyResponse.survey_id == uuid.UUID(survey_id),
-            SurveyResponse.fact_sheet_id == uuid.UUID(fs_id),
+            SurveyResponse.card_id == uuid.UUID(card_id),
             SurveyResponse.user_id == user.id,
         )
     )
@@ -659,14 +659,14 @@ async def get_response_form(
     if survey.status != "active":
         raise HTTPException(400, "This survey is no longer active")
 
-    # Load fact sheet
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
-    fs = fs_result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
+    # Load card
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    card = card_result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
 
     # Build current values for each survey field
-    attrs = fs.attributes or {}
+    attrs = card.attributes or {}
     fields_with_values = []
     for field_def in (survey.fields or []):
         current_value = attrs.get(field_def["key"])
@@ -683,31 +683,31 @@ async def get_response_form(
             "name": survey.name,
             "message": survey.message,
         },
-        "fact_sheet": {
-            "id": str(fs.id),
-            "name": fs.name,
-            "type": fs.type,
-            "subtype": fs.subtype,
+        "card": {
+            "id": str(card.id),
+            "name": card.name,
+            "type": card.type,
+            "subtype": card.subtype,
         },
         "fields": fields_with_values,
         "existing_responses": resp.responses or {},
     }
 
 
-@router.post("/{survey_id}/respond/{fs_id}")
+@router.post("/{survey_id}/respond/{card_id}")
 async def submit_response(
     survey_id: str,
-    fs_id: str,
+    card_id: str,
     body: SubmitResponse,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Submit a survey response for a fact sheet."""
+    """Submit a survey response for a card."""
     await PermissionService.require_permission(db, user, "surveys.respond")
     resp_result = await db.execute(
         select(SurveyResponse).where(
             SurveyResponse.survey_id == uuid.UUID(survey_id),
-            SurveyResponse.fact_sheet_id == uuid.UUID(fs_id),
+            SurveyResponse.card_id == uuid.UUID(card_id),
             SurveyResponse.user_id == user.id,
         )
     )
@@ -721,13 +721,13 @@ async def submit_response(
     if not survey or survey.status != "active":
         raise HTTPException(400, "This survey is no longer active")
 
-    # Load fact sheet for current values
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
-    fs = fs_result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
+    # Load card for current values
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    card = card_result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
 
-    attrs = fs.attributes or {}
+    attrs = card.attributes or {}
 
     # Build full response data with current values
     full_responses = {}

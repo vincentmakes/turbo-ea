@@ -1,5 +1,5 @@
 /**
- * ProcessFlowTab — Rendered inside FactSheetDetail for BusinessProcess.
+ * ProcessFlowTab — Rendered inside CardDetail for BusinessProcess.
  *
  * Three sub-tabs:
  *   Published — The current approved process flow (read-only, watermark + seal).
@@ -175,7 +175,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Fact sheet search for element editing ─────────────────────────────
 
-  const searchFactSheets = (query: string, type: string) => {
+  const searchCards = (query: string, type: string) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!query || query.length < 2) {
       setFsOptions([]);
@@ -185,7 +185,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get<{ items: FsOption[] }>(
-          `/fact-sheets?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
+          `/cards?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
         );
         setFsOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
       } catch {
@@ -464,7 +464,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const renderEditableCell = (
     element: ProcessElement,
     field: "application" | "data_object" | "it_component",
-    fsType: string,
+    cardTypeKey: string,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
     elementId: string,
   ) => {
@@ -479,7 +479,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           options={fsOptions}
           getOptionLabel={(o) => o.name}
           loading={fsLoading}
-          onInputChange={(_, val) => searchFactSheets(val, fsType)}
+          onInputChange={(_, val) => searchCards(val, cardTypeKey)}
           onChange={(_, val) => {
             onUpdate(elementId, { [`${field}_id`]: val?.id || "" });
           }}
@@ -490,7 +490,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder={`Search ${fsType}...`}
+              placeholder={`Search ${cardTypeKey}...`}
               variant="outlined"
               size="small"
               autoFocus
@@ -517,7 +517,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">Link {fsType}</Typography>
+            <Typography variant="caption" color="text.disabled">Link {cardTypeKey}</Typography>
           </Box>
         )}
       </Box>

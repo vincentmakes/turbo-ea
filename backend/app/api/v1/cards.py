@@ -12,29 +12,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.event import Event
-from app.models.fact_sheet import FactSheet
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.user import User
-from app.schemas.fact_sheet import (
-    FactSheetBulkUpdate,
-    FactSheetCreate,
-    FactSheetListResponse,
-    FactSheetResponse,
-    FactSheetUpdate,
-    SubscriptionRef,
+from app.schemas.card import (
+    CardBulkUpdate,
+    CardCreate,
+    CardListResponse,
+    CardResponse,
+    CardUpdate,
+    StakeholderRef,
     TagRef,
 )
 from app.services import notification_service
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
-router = APIRouter(prefix="/fact-sheets", tags=["fact-sheets"])
+router = APIRouter(prefix="/cards", tags=["cards"])
 
 
-async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
-    """Calculate completion score from fields_schema weights."""
+async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
+    """Calculate data quality score from fields_schema weights."""
     result = await db.execute(
-        select(FactSheetType.fields_schema).where(FactSheetType.key == fs.type)
+        select(CardType.fields_schema).where(CardType.key == card.type)
     )
     schema = result.scalar_one_or_none()
     if not schema:
@@ -42,7 +42,7 @@ async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
 
     total_weight = 0.0
     filled_weight = 0.0
-    attrs = fs.attributes or {}
+    attrs = card.attributes or {}
 
     for section in schema:
         for field in section.get("fields", []):
@@ -56,11 +56,11 @@ async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
 
     # Also count description (weight 1) and lifecycle having at least one date (weight 1)
     total_weight += 1  # description
-    if fs.description and fs.description.strip():
+    if card.description and card.description.strip():
         filled_weight += 1
 
     total_weight += 1  # lifecycle
-    lc = fs.lifecycle or {}
+    lc = card.lifecycle or {}
     if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
         filled_weight += 1
 
@@ -69,10 +69,10 @@ async def _calc_completion(db: AsyncSession, fs: FactSheet) -> float:
     return round((filled_weight / total_weight) * 100, 1)
 
 
-async def _max_descendant_depth(db: AsyncSession, fs_id: uuid.UUID) -> int:
-    """Return the maximum depth of the subtree rooted at fs_id (0 if no children)."""
+async def _max_descendant_depth(db: AsyncSession, card_id: uuid.UUID) -> int:
+    """Return the maximum depth of the subtree rooted at card_id (0 if no children)."""
     children_result = await db.execute(
-        select(FactSheet.id).where(FactSheet.parent_id == fs_id, FactSheet.status == "ACTIVE")
+        select(Card.id).where(Card.parent_id == card_id, Card.status == "ACTIVE")
     )
     child_ids = [row[0] for row in children_result.all()]
     if not child_ids:
@@ -84,9 +84,9 @@ async def _max_descendant_depth(db: AsyncSession, fs_id: uuid.UUID) -> int:
     return max_depth
 
 
-async def _check_hierarchy_depth(db: AsyncSession, fs: FactSheet, new_parent_id: uuid.UUID | None) -> None:
+async def _check_hierarchy_depth(db: AsyncSession, card: Card, new_parent_id: uuid.UUID | None) -> None:
     """Raise HTTPException if setting new_parent_id would push any descendant beyond level 5."""
-    if fs.type != "BusinessCapability":
+    if card.type != "BusinessCapability":
         return
     if new_parent_id is None:
         return  # removing parent always safe
@@ -94,18 +94,18 @@ async def _check_hierarchy_depth(db: AsyncSession, fs: FactSheet, new_parent_id:
     # Compute ancestor depth from new parent
     ancestor_depth = 0
     current_id = new_parent_id
-    seen: set[uuid.UUID] = {fs.id}
+    seen: set[uuid.UUID] = {card.id}
     while current_id and current_id not in seen:
         seen.add(current_id)
         ancestor_depth += 1
-        res = await db.execute(select(FactSheet.parent_id).where(FactSheet.id == current_id))
+        res = await db.execute(select(Card.parent_id).where(Card.id == current_id))
         row = res.first()
         current_id = row[0] if row else None
 
-    # fs itself would be at level = ancestor_depth + 1
+    # card itself would be at level = ancestor_depth + 1
     own_level = ancestor_depth + 1
     # deepest descendant would be at own_level + max_descendant_depth
-    desc_depth = await _max_descendant_depth(db, fs.id)
+    desc_depth = await _max_descendant_depth(db, card.id)
     deepest = own_level + desc_depth
 
     if deepest > 5:
@@ -116,129 +116,129 @@ async def _check_hierarchy_depth(db: AsyncSession, fs: FactSheet, new_parent_id:
         )
 
 
-async def _sync_capability_level(db: AsyncSession, fs: FactSheet) -> None:
+async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
     """Auto-compute capabilityLevel for BusinessCapability based on parent depth, then cascade to children."""
-    if fs.type != "BusinessCapability":
+    if card.type != "BusinessCapability":
         return
 
     # Walk up to compute depth
     depth = 0
-    current_id = fs.parent_id
-    seen: set[uuid.UUID] = {fs.id}
+    current_id = card.parent_id
+    seen: set[uuid.UUID] = {card.id}
     while current_id and current_id not in seen:
         seen.add(current_id)
         depth += 1
-        res = await db.execute(select(FactSheet.parent_id).where(FactSheet.id == current_id))
+        res = await db.execute(select(Card.parent_id).where(Card.id == current_id))
         row = res.first()
         current_id = row[0] if row else None
 
     level_key = f"L{min(depth + 1, 5)}"
-    attrs = dict(fs.attributes or {})
+    attrs = dict(card.attributes or {})
     if attrs.get("capabilityLevel") != level_key:
         attrs["capabilityLevel"] = level_key
-        fs.attributes = attrs
+        card.attributes = attrs
 
     # Cascade to direct children
     children_result = await db.execute(
-        select(FactSheet).where(FactSheet.parent_id == fs.id, FactSheet.status == "ACTIVE")
+        select(Card).where(Card.parent_id == card.id, Card.status == "ACTIVE")
     )
     for child in children_result.scalars().all():
         await _sync_capability_level(db, child)
 
 
-def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
+def _card_to_response(card: Card) -> CardResponse:
     tags = []
-    for t in (fs.tags or []):
+    for t in (card.tags or []):
         tags.append(TagRef(
             id=str(t.id), name=t.name, color=t.color,
             group_name=t.group.name if t.group else None,
         ))
     subs = []
-    for s in (fs.subscriptions or []):
-        subs.append(SubscriptionRef(
+    for s in (card.stakeholders or []):
+        subs.append(StakeholderRef(
             id=str(s.id), user_id=str(s.user_id), role=s.role,
             user_display_name=s.user.display_name if s.user else None,
             user_email=s.user.email if s.user else None,
         ))
-    return FactSheetResponse(
-        id=str(fs.id),
-        type=fs.type,
-        subtype=fs.subtype,
-        name=fs.name,
-        description=fs.description,
-        parent_id=str(fs.parent_id) if fs.parent_id else None,
-        lifecycle=fs.lifecycle,
-        attributes=fs.attributes,
-        status=fs.status,
-        quality_seal=fs.quality_seal,
-        completion=fs.completion,
-        external_id=fs.external_id,
-        alias=fs.alias,
-        created_by=str(fs.created_by) if fs.created_by else None,
-        updated_by=str(fs.updated_by) if fs.updated_by else None,
-        created_at=fs.created_at,
-        updated_at=fs.updated_at,
+    return CardResponse(
+        id=str(card.id),
+        type=card.type,
+        subtype=card.subtype,
+        name=card.name,
+        description=card.description,
+        parent_id=str(card.parent_id) if card.parent_id else None,
+        lifecycle=card.lifecycle,
+        attributes=card.attributes,
+        status=card.status,
+        approval_status=card.approval_status,
+        data_quality=card.data_quality,
+        external_id=card.external_id,
+        alias=card.alias,
+        created_by=str(card.created_by) if card.created_by else None,
+        updated_by=str(card.updated_by) if card.updated_by else None,
+        created_at=card.created_at,
+        updated_at=card.updated_at,
         tags=tags,
         subscriptions=subs,
     )
 
 
-_ALLOWED_SORT_COLUMNS = {"name", "type", "status", "quality_seal", "completion", "created_at", "updated_at", "subtype"}
+_ALLOWED_SORT_COLUMNS = {"name", "type", "status", "approval_status", "data_quality", "created_at", "updated_at", "subtype"}
 
 
-@router.get("", response_model=FactSheetListResponse)
-async def list_fact_sheets(
+@router.get("", response_model=CardListResponse)
+async def list_cards(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     type: str | None = Query(None),
     status: str | None = Query(None, alias="status"),
     search: str | None = Query(None),
     parent_id: str | None = Query(None),
-    quality_seal: str | None = Query(None),
+    approval_status: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
 ):
     await PermissionService.require_permission(db, user, "inventory.view")
-    q = select(FactSheet)
-    count_q = select(func.count(FactSheet.id))
+    q = select(Card)
+    count_q = select(func.count(Card.id))
 
-    # Exclude fact sheets whose type is hidden
-    hidden_types_sq = select(FactSheetType.key).where(FactSheetType.is_hidden == True)  # noqa: E712
-    q = q.where(FactSheet.type.not_in(hidden_types_sq))
-    count_q = count_q.where(FactSheet.type.not_in(hidden_types_sq))
+    # Exclude cards whose type is hidden
+    hidden_types_sq = select(CardType.key).where(CardType.is_hidden == True)  # noqa: E712
+    q = q.where(Card.type.not_in(hidden_types_sq))
+    count_q = count_q.where(Card.type.not_in(hidden_types_sq))
 
     if type:
-        q = q.where(FactSheet.type == type)
-        count_q = count_q.where(FactSheet.type == type)
+        q = q.where(Card.type == type)
+        count_q = count_q.where(Card.type == type)
     if status:
         statuses = [s.strip() for s in status.split(",") if s.strip()]
         if len(statuses) == 1:
-            q = q.where(FactSheet.status == statuses[0])
-            count_q = count_q.where(FactSheet.status == statuses[0])
+            q = q.where(Card.status == statuses[0])
+            count_q = count_q.where(Card.status == statuses[0])
         else:
-            q = q.where(FactSheet.status.in_(statuses))
-            count_q = count_q.where(FactSheet.status.in_(statuses))
+            q = q.where(Card.status.in_(statuses))
+            count_q = count_q.where(Card.status.in_(statuses))
     else:
-        q = q.where(FactSheet.status == "ACTIVE")
-        count_q = count_q.where(FactSheet.status == "ACTIVE")
+        q = q.where(Card.status == "ACTIVE")
+        count_q = count_q.where(Card.status == "ACTIVE")
     if search:
         like = f"%{search}%"
-        q = q.where(or_(FactSheet.name.ilike(like), FactSheet.description.ilike(like)))
-        count_q = count_q.where(or_(FactSheet.name.ilike(like), FactSheet.description.ilike(like)))
+        q = q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
+        count_q = count_q.where(or_(Card.name.ilike(like), Card.description.ilike(like)))
     if parent_id:
-        q = q.where(FactSheet.parent_id == uuid.UUID(parent_id))
-        count_q = count_q.where(FactSheet.parent_id == uuid.UUID(parent_id))
-    if quality_seal:
-        seals = [s.strip() for s in quality_seal.split(",") if s.strip()]
-        q = q.where(FactSheet.quality_seal.in_(seals))
-        count_q = count_q.where(FactSheet.quality_seal.in_(seals))
+        q = q.where(Card.parent_id == uuid.UUID(parent_id))
+        count_q = count_q.where(Card.parent_id == uuid.UUID(parent_id))
+    if approval_status:
+        seals = [s.strip() for s in approval_status.split(",") if s.strip()]
+        q = q.where(Card.approval_status.in_(seals))
+        count_q = count_q.where(Card.approval_status.in_(seals))
 
     # Sorting — H9: whitelist sort columns
     if sort_by not in _ALLOWED_SORT_COLUMNS:
         sort_by = "name"
-    sort_col = getattr(FactSheet, sort_by, FactSheet.name)
+    sort_col = getattr(Card, sort_by, Card.name)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
     q = q.offset((page - 1) * page_size).limit(page_size)
 
@@ -246,19 +246,19 @@ async def list_fact_sheets(
     total = total_result.scalar() or 0
 
     result = await db.execute(q)
-    items = [_fs_to_response(fs) for fs in result.scalars().all()]
+    items = [_card_to_response(card) for card in result.scalars().all()]
 
-    return FactSheetListResponse(items=items, total=total, page=page, page_size=page_size)
+    return CardListResponse(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.post("", response_model=FactSheetResponse, status_code=201)
-async def create_fact_sheet(
-    body: FactSheetCreate,
+@router.post("", response_model=CardResponse, status_code=201)
+async def create_card(
+    body: CardCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "inventory.create")
-    fs = FactSheet(
+    card = Card(
         type=body.type,
         subtype=body.subtype,
         name=body.name,
@@ -268,58 +268,58 @@ async def create_fact_sheet(
         attributes=body.attributes or {},
         external_id=body.external_id,
         alias=body.alias,
-        quality_seal="DRAFT",
+        approval_status="DRAFT",
         created_by=user.id,
         updated_by=user.id,
     )
-    db.add(fs)
+    db.add(card)
     await db.flush()
 
     # Guard: hierarchy depth limit for BusinessCapability
-    if fs.parent_id:
-        await _check_hierarchy_depth(db, fs, fs.parent_id)
+    if card.parent_id:
+        await _check_hierarchy_depth(db, card, card.parent_id)
 
     # Auto-set capability level for BusinessCapability
-    await _sync_capability_level(db, fs)
+    await _sync_capability_level(db, card)
 
-    # Compute completion score
-    fs.completion = await _calc_completion(db, fs)
+    # Compute data quality score
+    card.data_quality = await _calc_data_quality(db, card)
 
     await event_bus.publish(
-        "fact_sheet.created",
-        {"id": str(fs.id), "type": fs.type, "name": fs.name},
-        db=db, fact_sheet_id=fs.id, user_id=user.id,
+        "card.created",
+        {"id": str(card.id), "type": card.type, "name": card.name},
+        db=db, card_id=card.id, user_id=user.id,
     )
     await db.commit()
-    await db.refresh(fs)
-    return _fs_to_response(fs)
+    await db.refresh(card)
+    return _card_to_response(card)
 
 
-@router.get("/{fs_id}", response_model=FactSheetResponse)
-async def get_fact_sheet(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
-    fs = result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
-    return _fs_to_response(fs)
+@router.get("/{card_id}", response_model=CardResponse)
+async def get_card(card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+    result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+    return _card_to_response(card)
 
 
-@router.get("/{fs_id}/hierarchy")
-async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+@router.get("/{card_id}/hierarchy")
+async def get_hierarchy(card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Return ancestors (root→parent), children, and computed level."""
-    uid = uuid.UUID(fs_id)
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uid))
-    fs = result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
+    uid = uuid.UUID(card_id)
+    result = await db.execute(select(Card).where(Card.id == uid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
 
     # Walk up parent chain to collect ancestors
     ancestors: list[dict] = []
-    current = fs
+    current = card
     seen: set[uuid.UUID] = {uid}
     while current.parent_id and current.parent_id not in seen:
         seen.add(current.parent_id)
-        res = await db.execute(select(FactSheet).where(FactSheet.id == current.parent_id))
+        res = await db.execute(select(Card).where(Card.id == current.parent_id))
         parent = res.scalar_one_or_none()
         if not parent:
             break
@@ -329,9 +329,9 @@ async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db), _user: U
 
     # Direct children
     children_result = await db.execute(
-        select(FactSheet)
-        .where(FactSheet.parent_id == uid, FactSheet.status == "ACTIVE")
-        .order_by(FactSheet.name)
+        select(Card)
+        .where(Card.parent_id == uid, Card.status == "ACTIVE")
+        .order_by(Card.name)
     )
     children = [
         {"id": str(c.id), "name": c.name, "type": c.type}
@@ -345,122 +345,122 @@ async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db), _user: U
     }
 
 
-@router.patch("/{fs_id}", response_model=FactSheetResponse)
-async def update_fact_sheet(
-    fs_id: str,
-    body: FactSheetUpdate,
+@router.patch("/{card_id}", response_model=CardResponse)
+async def update_card(
+    card_id: str,
+    body: CardUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    fs_uuid = uuid.UUID(fs_id)
-    if not await PermissionService.check_permission(db, user, "inventory.edit", fs_uuid, "fs.edit"):
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(db, user, "inventory.edit", card_uuid, "card.edit"):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
-    fs = result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
 
     updates = body.model_dump(exclude_unset=True)
 
     # Guard: hierarchy depth limit before applying parent change
     if "parent_id" in updates:
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
-        if new_pid != fs.parent_id:
-            await _check_hierarchy_depth(db, fs, new_pid)
+        if new_pid != card.parent_id:
+            await _check_hierarchy_depth(db, card, new_pid)
 
     changes = {}
     for field, value in updates.items():
         if field == "parent_id" and value is not None:
             value = uuid.UUID(value)
-        old = getattr(fs, field)
+        old = getattr(card, field)
         if old != value:
             changes[field] = {"old": old, "new": value}
-            setattr(fs, field, value)
+            setattr(card, field, value)
 
     if changes:
-        fs.updated_by = user.id
+        card.updated_by = user.id
         # Break quality seal on edit (attribute/lifecycle changes break it)
-        if fs.quality_seal == "APPROVED":
+        if card.approval_status == "APPROVED":
             seal_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
             if seal_breaking & changes.keys():
-                fs.quality_seal = "BROKEN"
+                card.approval_status = "BROKEN"
 
         # Auto-sync capability level when parent changes or level is missing
         if "parent_id" in changes or (
-            fs.type == "BusinessCapability"
-            and not (fs.attributes or {}).get("capabilityLevel")
+            card.type == "BusinessCapability"
+            and not (card.attributes or {}).get("capabilityLevel")
         ):
-            await _sync_capability_level(db, fs)
+            await _sync_capability_level(db, card)
 
         # Recalculate completion
-        fs.completion = await _calc_completion(db, fs)
+        card.data_quality = await _calc_data_quality(db, card)
 
         await event_bus.publish(
-            "fact_sheet.updated",
-            {"id": str(fs.id), "changes": {k: str(v) for k, v in changes.items()}},
-            db=db, fact_sheet_id=fs.id, user_id=user.id,
+            "card.updated",
+            {"id": str(card.id), "changes": {k: str(v) for k, v in changes.items()}},
+            db=db, card_id=card.id, user_id=user.id,
         )
 
         # Notify subscribers about the update
         changed_fields = ", ".join(changes.keys())
         await notification_service.create_notifications_for_subscribers(
             db,
-            fact_sheet_id=fs.id,
-            notif_type="fact_sheet_updated",
-            title=f"{fs.name} Updated",
-            message=f'{user.display_name} updated "{fs.name}" ({changed_fields})',
-            link=f"/fact-sheets/{fs.id}",
+            card_id=card.id,
+            notif_type="card_updated",
+            title=f"{card.name} Updated",
+            message=f'{user.display_name} updated "{card.name}" ({changed_fields})',
+            link=f"/cards/{card.id}",
             data={"changes": list(changes.keys())},
         )
 
         await db.commit()
-        await db.refresh(fs)
+        await db.refresh(card)
 
-    return _fs_to_response(fs)
+    return _card_to_response(card)
 
 
-@router.delete("/{fs_id}", status_code=204)
-async def archive_fact_sheet(
-    fs_id: str,
+@router.delete("/{card_id}", status_code=204)
+async def archive_card(
+    card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    fs_uuid = uuid.UUID(fs_id)
-    if not await PermissionService.check_permission(db, user, "inventory.delete", fs_uuid, "fs.delete"):
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(db, user, "inventory.delete", card_uuid, "card.delete"):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
-    fs = result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
-    fs.status = "ARCHIVED"
-    fs.updated_by = user.id
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+    card.status = "ARCHIVED"
+    card.updated_by = user.id
     await event_bus.publish(
-        "fact_sheet.archived",
-        {"id": str(fs.id), "type": fs.type, "name": fs.name},
-        db=db, fact_sheet_id=fs.id, user_id=user.id,
+        "card.archived",
+        {"id": str(card.id), "type": card.type, "name": card.name},
+        db=db, card_id=card.id, user_id=user.id,
     )
     await db.commit()
 
 
-@router.patch("/bulk", response_model=list[FactSheetResponse])
+@router.patch("/bulk", response_model=list[CardResponse])
 async def bulk_update(
-    body: FactSheetBulkUpdate,
+    body: CardBulkUpdate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "inventory.bulk_edit")
     uuids = [uuid.UUID(i) for i in body.ids]
-    result = await db.execute(select(FactSheet).where(FactSheet.id.in_(uuids)))
+    result = await db.execute(select(Card).where(Card.id.in_(uuids)))
     sheets = result.scalars().all()
     updates = body.updates.model_dump(exclude_unset=True)
-    for fs in sheets:
+    for card in sheets:
         for field, value in updates.items():
             if field == "parent_id" and value is not None:
                 value = uuid.UUID(value)
-            setattr(fs, field, value)
-        fs.updated_by = user.id
+            setattr(card, field, value)
+        card.updated_by = user.id
     await db.commit()
-    return [_fs_to_response(fs) for fs in sheets]
+    return [_card_to_response(card) for card in sheets]
 
 
 @router.post("/fix-hierarchy-names")
@@ -472,30 +472,30 @@ async def fix_hierarchy_names(
     """One-time cleanup: strip accumulated hierarchy prefixes from names.
 
     A UI bug caused hierarchy paths like "Parent / Child" to be persisted as
-    the fact sheet name.  This endpoint detects and fixes those entries by
-    keeping only the last " / "-separated segment for any fact sheet that has
+    the card name.  This endpoint detects and fixes those entries by
+    keeping only the last " / "-separated segment for any card that has
     a parent_id.
     """
     result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.parent_id.isnot(None),
-            FactSheet.name.contains(" / "),
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.parent_id.isnot(None),
+            Card.name.contains(" / "),
+            Card.status == "ACTIVE",
         )
     )
     fixed: list[dict] = []
-    for fs in result.scalars().all():
-        leaf_name = fs.name.rsplit(" / ", 1)[-1]
-        if leaf_name != fs.name:
-            fixed.append({"id": str(fs.id), "old_name": fs.name, "new_name": leaf_name})
-            fs.name = leaf_name
+    for card in result.scalars().all():
+        leaf_name = card.name.rsplit(" / ", 1)[-1]
+        if leaf_name != card.name:
+            fixed.append({"id": str(card.id), "old_name": card.name, "new_name": leaf_name})
+            card.name = leaf_name
     await db.commit()
     return {"fixed": len(fixed), "details": fixed}
 
 
-@router.get("/{fs_id}/history")
+@router.get("/{card_id}/history")
 async def get_history(
-    fs_id: str,
+    card_id: str,
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
@@ -503,7 +503,7 @@ async def get_history(
 ):
     q = (
         select(Event)
-        .where(Event.fact_sheet_id == uuid.UUID(fs_id))
+        .where(Event.card_id == uuid.UUID(card_id))
         .order_by(Event.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -523,58 +523,58 @@ async def get_history(
     ]
 
 
-@router.post("/{fs_id}/quality-seal")
-async def update_quality_seal(
-    fs_id: str,
+@router.post("/{card_id}/approval-status")
+async def update_approval_status(
+    card_id: str,
     action: str = Query(..., pattern="^(approve|reject|reset)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    fs_uuid = uuid.UUID(fs_id)
-    if not await PermissionService.check_permission(db, user, "inventory.quality_seal", fs_uuid, "fs.quality_seal"):
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(db, user, "inventory.approval_status", card_uuid, "card.approval_status"):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
-    fs = result.scalar_one_or_none()
-    if not fs:
-        raise HTTPException(404, "Fact sheet not found")
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
     seal_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
-    fs.quality_seal = seal_map[action]
+    card.approval_status = seal_map[action]
     await event_bus.publish(
-        f"fact_sheet.quality_seal.{action}",
-        {"id": str(fs.id), "seal": fs.quality_seal},
-        db=db, fact_sheet_id=fs.id, user_id=user.id,
+        f"card.approval_status.{action}",
+        {"id": str(card.id), "seal": card.approval_status},
+        db=db, card_id=card.id, user_id=user.id,
     )
 
     # Notify subscribers about quality seal change
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
     await notification_service.create_notifications_for_subscribers(
         db,
-        fact_sheet_id=fs.id,
-        notif_type="quality_seal_changed",
+        card_id=card.id,
+        notif_type="approval_status_changed",
         title=f"Quality Seal {action_label[action].title()}",
-        message=f'{user.display_name} {action_label[action]} the quality seal on "{fs.name}"',
-        link=f"/fact-sheets/{fs_id}",
-        data={"seal": fs.quality_seal, "action": action},
+        message=f'{user.display_name} {action_label[action]} the quality seal on "{card.name}"',
+        link=f"/cards/{card_id}",
+        data={"seal": card.approval_status, "action": action},
         actor_id=user.id,
     )
 
     await db.commit()
-    return {"quality_seal": fs.quality_seal}
+    return {"approval_status": card.approval_status}
 
 
-@router.get("/{fs_id}/my-permissions")
+@router.get("/{card_id}/my-permissions")
 async def my_permissions(
-    fs_id: str,
+    card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Return the current user's effective permissions on a specific fact sheet."""
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    """Return the current user's effective permissions on a specific card."""
+    result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
     if not result.scalar_one_or_none():
-        raise HTTPException(404, "Fact sheet not found")
+        raise HTTPException(404, "Card not found")
 
     return await PermissionService.get_effective_fs_permissions(
-        db, user, uuid.UUID(fs_id)
+        db, user, uuid.UUID(card_id)
     )
 
 
@@ -585,23 +585,23 @@ async def export_csv(
     type: str | None = Query(None),
 ):
     await PermissionService.require_permission(db, user, "inventory.export")
-    q = select(FactSheet).where(FactSheet.status == "ACTIVE")
+    q = select(Card).where(Card.status == "ACTIVE")
     if type:
-        q = q.where(FactSheet.type == type)
+        q = q.where(Card.type == type)
     result = await db.execute(q)
     sheets = result.scalars().all()
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id", "type", "name", "description", "status", "lifecycle", "attributes"])
-    for fs in sheets:
+    for card in sheets:
         writer.writerow([
-            str(fs.id), fs.type, fs.name, fs.description or "",
-            fs.status, str(fs.lifecycle), str(fs.attributes),
+            str(card.id), card.type, card.name, card.description or "",
+            card.status, str(card.lifecycle), str(card.attributes),
         ])
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=fact_sheets.csv"},
+        headers={"Content-Disposition": "attachment; filename=cards.csv"},
     )

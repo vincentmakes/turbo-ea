@@ -5,7 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class SubscriptionCreate(BaseModel):
+class StakeholderCreate(BaseModel):
     user_id: str
     role: str  # responsible/accountable/observer
 
@@ -21,7 +21,7 @@ class CommentUpdate(BaseModel):
 
 class CommentResponse(BaseModel):
     id: str
-    fact_sheet_id: str
+    card_id: str
     user_id: str
     user_display_name: str | None = None
     content: str
@@ -48,7 +48,7 @@ class TodoUpdate(BaseModel):
 
 class TodoResponse(BaseModel):
     id: str
-    fact_sheet_id: str | None = None
+    card_id: str | None = None
     description: str
     status: str
     assigned_to: str | None = None
@@ -68,7 +68,7 @@ class DocumentCreate(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: str
-    fact_sheet_id: str
+    card_id: str
     name: str
     url: str | None = None
     type: str
@@ -111,7 +111,7 @@ class TagResponse(BaseModel):
 
 class BookmarkCreate(BaseModel):
     name: str
-    fact_sheet_type: str | None = None
+    card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
     sort: dict | None = None
@@ -120,7 +120,7 @@ class BookmarkCreate(BaseModel):
 
 class BookmarkUpdate(BaseModel):
     name: str | None = None
-    fact_sheet_type: str | None = None
+    card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
     sort: dict | None = None
@@ -130,7 +130,7 @@ class BookmarkUpdate(BaseModel):
 class BookmarkResponse(BaseModel):
     id: str
     name: str
-    fact_sheet_type: str | None = None
+    card_type: str | None = None
     filters: dict | None = None
     columns: list | None = None
     sort: dict | None = None
@@ -142,7 +142,7 @@ class BookmarkResponse(BaseModel):
 
 class EventResponse(BaseModel):
     id: str
-    fact_sheet_id: str | None = None
+    card_id: str | None = None
     user_id: str | None = None
     user_display_name: str | None = None
     event_type: str
@@ -156,7 +156,7 @@ class WebPortalCreate(BaseModel):
     name: str
     slug: str
     description: str | None = None
-    fact_sheet_type: str
+    card_type: str
     filters: dict | None = None
     display_fields: list | None = None
     card_config: dict | None = None
@@ -167,7 +167,7 @@ class WebPortalUpdate(BaseModel):
     name: str | None = None
     slug: str | None = None
     description: str | None = None
-    fact_sheet_type: str | None = None
+    card_type: str | None = None
     filters: dict | None = None
     display_fields: list | None = None
     card_config: dict | None = None

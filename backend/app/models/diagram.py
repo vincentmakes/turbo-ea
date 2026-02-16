@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDMixin, TimestampMixin
 
-# Many-to-many: diagrams <-> initiatives (fact_sheets)
+# Many-to-many: diagrams <-> initiatives (cards)
 diagram_initiatives = Table(
     "diagram_initiatives",
     Base.metadata,
@@ -21,7 +21,7 @@ diagram_initiatives = Table(
     Column(
         "initiative_id",
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="CASCADE"),
+        ForeignKey("cards.id", ondelete="CASCADE"),
         primary_key=True,
     ),
 )

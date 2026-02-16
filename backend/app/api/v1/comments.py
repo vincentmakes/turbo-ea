@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.comment import Comment
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.user import User
 from app.schemas.common import CommentCreate, CommentUpdate
 from app.services import notification_service
@@ -19,16 +19,16 @@ from app.services.permission_service import PermissionService
 router = APIRouter(tags=["comments"])
 
 
-@router.get("/fact-sheets/{fs_id}/comments")
+@router.get("/cards/{card_id}/comments")
 async def list_comments(
-    fs_id: str,
+    card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "comments.view")
     result = await db.execute(
         select(Comment)
-        .where(Comment.fact_sheet_id == uuid.UUID(fs_id), Comment.parent_id.is_(None))
+        .where(Comment.card_id == uuid.UUID(card_id), Comment.parent_id.is_(None))
         .order_by(Comment.created_at.desc())
     )
     comments = result.scalars().all()
@@ -38,7 +38,7 @@ async def list_comments(
 def _comment_to_dict(c: Comment) -> dict:
     return {
         "id": str(c.id),
-        "fact_sheet_id": str(c.fact_sheet_id),
+        "card_id": str(c.card_id),
         "user_id": str(c.user_id),
         "user_display_name": c.user.display_name if c.user else None,
         "content": c.content,
@@ -49,20 +49,20 @@ def _comment_to_dict(c: Comment) -> dict:
     }
 
 
-@router.post("/fact-sheets/{fs_id}/comments", status_code=201)
+@router.post("/cards/{card_id}/comments", status_code=201)
 async def create_comment(
-    fs_id: str,
+    card_id: str,
     body: CommentCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    fs_uuid = uuid.UUID(fs_id)
+    card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(
-        db, user, "comments.create", fs_uuid, "fs.create_comments"
+        db, user, "comments.create", card_uuid, "card.create_comments"
     ):
         raise HTTPException(403, "Not enough permissions")
     comment = Comment(
-        fact_sheet_id=fs_uuid,
+        card_id=card_uuid,
         user_id=user.id,
         content=body.content,
         parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
@@ -72,20 +72,20 @@ async def create_comment(
     await event_bus.publish(
         "comment.created",
         {"id": str(comment.id), "content": comment.content[:100]},
-        db=db, fact_sheet_id=uuid.UUID(fs_id), user_id=user.id,
+        db=db, card_id=uuid.UUID(card_id), user_id=user.id,
     )
 
-    # Notify subscribers of the fact sheet
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
-    fs = fs_result.scalar_one_or_none()
-    fs_name = fs.name if fs else "Unknown"
+    # Notify subscribers of the card
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    card = card_result.scalar_one_or_none()
+    fs_name = card.name if card else "Unknown"
     await notification_service.create_notifications_for_subscribers(
         db,
-        fact_sheet_id=uuid.UUID(fs_id),
+        card_id=uuid.UUID(card_id),
         notif_type="comment_added",
         title="New Comment",
         message=f'{user.display_name} commented on "{fs_name}": {comment.content[:80]}',
-        link=f"/fact-sheets/{fs_id}",
+        link=f"/cards/{card_id}",
         data={"comment_id": str(comment.id)},
         actor_id=user.id,
     )
@@ -109,7 +109,7 @@ async def update_comment(
     # Allow own comment edit, or require manage permission
     if comment.user_id != user.id:
         if not await PermissionService.check_permission(
-            db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"
+            db, user, "comments.manage", comment.card_id, "card.manage_comments"
         ):
             raise HTTPException(403, "Not enough permissions")
     comment.content = body.content
@@ -131,7 +131,7 @@ async def delete_comment(
     # Allow own comment delete, or require manage permission
     if comment.user_id != user.id:
         if not await PermissionService.check_permission(
-            db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"
+            db, user, "comments.manage", comment.card_id, "card.manage_comments"
         ):
             raise HTTPException(403, "Not enough permissions")
     await db.delete(comment)

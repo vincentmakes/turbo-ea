@@ -31,7 +31,7 @@ interface Props {
 }
 
 /**
- * Dialog shown when the user draws an edge between two fact-sheet cells.
+ * Dialog shown when the user draws an edge between two card cells.
  * Lists the valid relation types from the metamodel and lets the user pick one.
  * Supports both directions: source→target and target→source.
  */
@@ -80,7 +80,7 @@ export default function RelationPickerDialog({
 
         {matches.length === 0 ? (
           <Typography variant="body2" color="text.disabled" sx={{ px: 2, py: 2 }}>
-            No valid relation types exist between these two fact sheet types in the metamodel.
+            No valid relation types exist between these two card types in the metamodel.
           </Typography>
         ) : (
           <List dense disablePadding>

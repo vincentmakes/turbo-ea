@@ -16,7 +16,7 @@ const SEAL_CONFIG: Record<
   REJECTED: { label: "Rejected", color: "error", icon: "cancel" },
 };
 
-export default function QualitySealBadge({ seal, size = "small" }: Props) {
+export default function ApprovalStatusBadge({ seal, size = "small" }: Props) {
   const cfg = SEAL_CONFIG[seal];
   if (!cfg) return null;
   return (

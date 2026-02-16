@@ -25,7 +25,7 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
 
     process_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="CASCADE"),
+        ForeignKey("cards.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -71,7 +71,7 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     #               "it_component_id": "uuid", "custom_fields": {"tcode": "SE16"}}}
     draft_element_links: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
-    process = relationship("FactSheet", lazy="selectin")
+    process = relationship("Card", lazy="selectin")
     creator = relationship("User", foreign_keys=[created_by], lazy="selectin")
     submitter = relationship("User", foreign_keys=[submitted_by], lazy="selectin")
     approver = relationship("User", foreign_keys=[approved_by], lazy="selectin")

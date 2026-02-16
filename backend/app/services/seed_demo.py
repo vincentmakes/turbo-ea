@@ -5,10 +5,10 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.services.seed import TYPES as _META_TYPES
 from app.models.relation import Relation
-from app.models.tag import TagGroup, Tag, FactSheetTag
+from app.models.tag import TagGroup, Tag, CardTag
 
 # ---------------------------------------------------------------------------
 # UUID registry – deterministic refs for cross-linking
@@ -31,7 +31,7 @@ def _fs(
 ):
     d: dict = dict(
         id=_id(ref), type=type_, name=name, status=status,
-        quality_seal=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
+        approval_status=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
     )
     if parent:
         d["parent_id"] = _id(parent)
@@ -1705,7 +1705,7 @@ RELATIONS = [
 
 
 # ===================================================================
-# TAG GROUPS  (with inline tag definitions and fact-sheet assignments)
+# TAG GROUPS  (with inline tag definitions and card assignments)
 # ===================================================================
 def _tg(name, mode="multi", restrict=None, tags=None, desc=None):
     return {"id": uuid.uuid4(), "name": name, "mode": mode, "description": desc,
@@ -1961,8 +1961,8 @@ _ENRICHMENTS: dict[str, dict] = {
 # ===================================================================
 # SEED FUNCTION  (called from main.py or CLI)
 # ===================================================================
-def _compute_completion(d: dict, type_schemas: dict[str, list]) -> float:
-    """Compute completion score for a fact-sheet dict using the same logic as the API."""
+def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
+    """Compute data quality score for a card dict using the same logic as the API."""
     schema = type_schemas.get(d["type"], [])
     total_weight = 0.0
     filled_weight = 0.0
@@ -1992,9 +1992,9 @@ def _compute_completion(d: dict, type_schemas: dict[str, list]) -> float:
 
 async def seed_demo_data(db: AsyncSession) -> dict:
     """Insert full demo dataset. Returns counts. Safe to re-run (skips if data exists)."""
-    result = await db.execute(select(FactSheet.id).limit(1))
+    result = await db.execute(select(Card.id).limit(1))
     if result.scalar_one_or_none() is not None:
-        return {"skipped": True, "reason": "fact sheets already exist"}
+        return {"skipped": True, "reason": "cards already exist"}
 
     all_fs = (
         ORGANIZATIONS + BUSINESS_CAPABILITIES + BUSINESS_CONTEXTS
@@ -2016,14 +2016,14 @@ async def seed_demo_data(db: AsyncSession) -> dict:
             if "lifecycle" in extra and not any(d.get("lifecycle", {}).values()):
                 d["lifecycle"] = extra["lifecycle"]
 
-    # Compute completion scores using the metamodel type schemas
+    # Compute data quality scores using the metamodel type schemas
     type_schemas = {t["key"]: t.get("fields_schema", []) for t in _META_TYPES}
     for d in all_fs:
-        d["completion"] = _compute_completion(d, type_schemas)
+        d["data_quality"] = _compute_data_quality(d, type_schemas)
 
-    # Insert fact sheets (parents first – lists are ordered that way)
+    # Insert cards (parents first – lists are ordered that way)
     for d in all_fs:
-        db.add(FactSheet(**d))
+        db.add(Card(**d))
     await db.flush()
 
     # Insert relations
@@ -2051,12 +2051,12 @@ async def seed_demo_data(db: AsyncSession) -> dict:
     for tg_def in TAG_GROUPS:
         for t in tg_def.get("tags", []):
             for ref in t.get("assign_to", []):
-                db.add(FactSheetTag(fact_sheet_id=_id(ref), tag_id=t["id"]))
+                db.add(CardTag(card_id=_id(ref), tag_id=t["id"]))
     await db.flush()
 
     await db.commit()
     return {
-        "fact_sheets": len(all_fs),
+        "cards": len(all_fs),
         "relations": len(RELATIONS),
         "tag_groups": len(TAG_GROUPS),
     }

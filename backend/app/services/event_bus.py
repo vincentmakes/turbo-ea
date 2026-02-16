@@ -20,12 +20,12 @@ class EventBus:
         event_type: str,
         data: dict[str, Any],
         db: AsyncSession | None = None,
-        fact_sheet_id: uuid.UUID | None = None,
+        card_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
     ) -> None:
         if db:
             event = Event(
-                fact_sheet_id=fact_sheet_id,
+                card_id=card_id,
                 user_id=user_id,
                 event_type=event_type,
                 data=data,
@@ -36,7 +36,7 @@ class EventBus:
         message = {
             "event": event_type,
             "data": data,
-            "fact_sheet_id": str(fact_sheet_id) if fact_sheet_id else None,
+            "card_id": str(card_id) if card_id else None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         dead: list[asyncio.Queue] = []

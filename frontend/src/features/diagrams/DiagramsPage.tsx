@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import Card from "@mui/material/Card";
+import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardActionArea from "@mui/material/CardActionArea";
 import Button from "@mui/material/Button";
@@ -34,7 +34,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheet } from "@/types";
+import type { Card } from "@/types";
 
 interface DiagramSummary {
   id: string;
@@ -43,7 +43,7 @@ interface DiagramSummary {
   type: string;
   initiative_ids: string[];
   thumbnail?: string;
-  fact_sheet_count?: number;
+  card_count?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -58,7 +58,7 @@ export default function DiagramsPage() {
   );
 
   // Initiatives for linking
-  const [initiatives, setInitiatives] = useState<FactSheet[]>([]);
+  const [initiatives, setInitiatives] = useState<Card[]>([]);
 
   // Create dialog
   const [createOpen, setCreateOpen] = useState(false);
@@ -89,7 +89,7 @@ export default function DiagramsPage() {
   useEffect(() => {
     loadDiagrams();
     api
-      .get<{ items: FactSheet[] }>("/fact-sheets?type=Initiative&page_size=500")
+      .get<{ items: Card[] }>("/cards?type=Initiative&page_size=500")
       .then((res) => setInitiatives(res.items))
       .catch(() => {});
   }, [loadDiagrams]);
@@ -207,7 +207,7 @@ export default function DiagramsPage() {
         <Grid container spacing={2}>
           {diagrams.map((d) => (
             <Grid item xs={12} sm={6} md={4} key={d.id}>
-              <Card sx={{ position: "relative" }}>
+              <MuiCard sx={{ position: "relative" }}>
                 <CardActionArea onClick={() => navigate(`/diagrams/${d.id}`)}>
                   {/* Thumbnail */}
                   {d.thumbnail ? (
@@ -299,10 +299,10 @@ export default function DiagramsPage() {
                       }}
                     >
                       <Chip size="small" label={typeLabel(d.type)} />
-                      {!!d.fact_sheet_count && (
+                      {!!d.card_count && (
                         <Chip
                           size="small"
-                          label={`${d.fact_sheet_count} fact sheet${d.fact_sheet_count > 1 ? "s" : ""}`}
+                          label={`${d.card_count} card${d.card_count > 1 ? "s" : ""}`}
                           variant="outlined"
                         />
                       )}
@@ -342,7 +342,7 @@ export default function DiagramsPage() {
                 >
                   <MaterialSymbol icon="more_vert" size={18} />
                 </IconButton>
-              </Card>
+              </MuiCard>
             </Grid>
           ))}
           {diagrams.length === 0 && (
@@ -369,7 +369,7 @@ export default function DiagramsPage() {
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Type</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 180 }}>Initiatives</TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 100 }} align="center">
-                  Fact Sheets
+                  Cards
                 </TableCell>
                 <TableCell sx={{ fontWeight: 600, width: 120 }}>Updated</TableCell>
                 <TableCell sx={{ width: 48 }} />
@@ -421,7 +421,7 @@ export default function DiagramsPage() {
                     )}
                   </TableCell>
                   <TableCell align="center">
-                    {d.fact_sheet_count || 0}
+                    {d.card_count || 0}
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption" color="text.secondary">

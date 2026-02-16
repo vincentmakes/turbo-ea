@@ -94,14 +94,14 @@ export default function Dashboard() {
 
   const sealChartData = useMemo(() => {
     if (!data) return [];
-    return Object.entries(data.quality_seals)
+    return Object.entries(data.approval_statuss)
       .filter(([, v]) => v > 0)
       .map(([k, v]) => ({ name: SEAL_LABELS[k] || k, value: v, color: SEAL_COLORS[k] || "#999", key: k }));
   }, [data]);
 
-  const completionChartData = useMemo(() => {
+  const data_qualityChartData = useMemo(() => {
     if (!data) return [];
-    return Object.entries(data.completion_distribution).map(([k, v]) => ({
+    return Object.entries(data.data_quality_distribution).map(([k, v]) => ({
       name: COMPLETION_LABELS[k] || k,
       count: v,
       color: COMPLETION_COLORS[k] || "#999",
@@ -136,9 +136,9 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
-                <Typography variant="subtitle2" color="text.secondary">Total Fact Sheets</Typography>
+                <Typography variant="subtitle2" color="text.secondary">Total Cards</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.total_fact_sheets}</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.total_cards}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -149,7 +149,7 @@ export default function Dashboard() {
                 <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
                 <Typography variant="subtitle2" color="text.secondary">Avg Completion</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.avg_completion}%</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.avg_data_quality}%</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -160,7 +160,7 @@ export default function Dashboard() {
                 <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
                 <Typography variant="subtitle2" color="text.secondary">Approved Seals</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.quality_seals["APPROVED"] || 0}</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.approval_statuss["APPROVED"] || 0}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -171,7 +171,7 @@ export default function Dashboard() {
                 <MaterialSymbol icon="warning" size={24} color="#f57c00" />
                 <Typography variant="subtitle2" color="text.secondary">Broken Seals</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.quality_seals["BROKEN"] || 0}</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.approval_statuss["BROKEN"] || 0}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -183,7 +183,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Fact Sheets by Type
+                Cards by Type
               </Typography>
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
@@ -215,7 +215,7 @@ export default function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <Typography variant="body2" color="text.secondary">No fact sheets yet</Typography>
+                <Typography variant="body2" color="text.secondary">No cards yet</Typography>
               )}
             </CardContent>
           </Card>
@@ -225,7 +225,7 @@ export default function Dashboard() {
           <Card sx={{ height: "100%" }}>
             <CardContent>
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-                Quality Seal Distribution
+                Approval Status Distribution
               </Typography>
               {sealChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
@@ -243,7 +243,7 @@ export default function Dashboard() {
                       label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
                       onClick={(_data, idx) => {
                         const seal = sealChartData[idx]?.key;
-                        if (seal) navigate(`/inventory?quality_seal=${seal}`);
+                        if (seal) navigate(`/inventory?approval_status=${seal}`);
                       }}
                     >
                       {sealChartData.map((d, i) => (
@@ -271,19 +271,19 @@ export default function Dashboard() {
                 Completion Distribution
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={completionChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
+                <BarChart data={data_qualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} />
                   <RTooltip />
                   <Bar
                     dataKey="count"
-                    name="Fact Sheets"
+                    name="Cards"
                     radius={[4, 4, 0, 0]}
                     cursor="pointer"
                     onClick={() => navigate("/reports/data-quality")}
                   >
-                    {completionChartData.map((d, i) => (
+                    {data_qualityChartData.map((d, i) => (
                       <Cell key={i} fill={d.color} />
                     ))}
                   </Bar>
@@ -307,7 +307,7 @@ export default function Dashboard() {
                   <RTooltip />
                   <Bar
                     dataKey="count"
-                    name="Fact Sheets"
+                    name="Cards"
                     radius={[4, 4, 0, 0]}
                     cursor="pointer"
                     onClick={() => navigate("/reports/lifecycle")}
@@ -323,7 +323,7 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* -------- Row 4: Fact Sheet type list + Recent Activity -------- */}
+      {/* -------- Row 4: Card type list + Recent Activity -------- */}
       <Grid container spacing={2}>
         <Grid item xs={12} md={5}>
           <Card>

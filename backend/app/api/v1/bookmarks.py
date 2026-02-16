@@ -29,7 +29,7 @@ async def list_bookmarks(
         {
             "id": str(b.id),
             "name": b.name,
-            "fact_sheet_type": b.fact_sheet_type,
+            "card_type": b.card_type,
             "filters": b.filters,
             "columns": b.columns,
             "sort": b.sort,
@@ -50,7 +50,7 @@ async def create_bookmark(
     bm = Bookmark(
         user_id=user.id,
         name=body.name,
-        fact_sheet_type=body.fact_sheet_type,
+        card_type=body.card_type,
         filters=body.filters,
         columns=body.columns,
         sort=body.sort,
@@ -83,7 +83,7 @@ async def update_bookmark(
     return {
         "id": str(bm.id),
         "name": bm.name,
-        "fact_sheet_type": bm.fact_sheet_type,
+        "card_type": bm.card_type,
         "filters": bm.filters,
         "columns": bm.columns,
         "sort": bm.sort,

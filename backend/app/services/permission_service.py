@@ -10,10 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.permissions import FS_TO_APP_PERMISSION_MAP
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.role import Role
-from app.models.subscription import Subscription
-from app.models.subscription_role_definition import SubscriptionRoleDefinition
+from app.models.stakeholder import Stakeholder
+from app.models.subscription_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 
 
@@ -24,7 +24,7 @@ class PermissionService:
     _role_cache: dict[str, tuple[dict, float]] = {}
     CACHE_TTL = 300  # 5 minutes
 
-    # Subscription role cache: (type_key, role_key) → (permissions_dict, timestamp)
+    # Stakeholder role cache: (type_key, role_key) → (permissions_dict, timestamp)
     _srd_cache: dict[tuple[str, str], tuple[dict | None, float]] = {}
 
     @staticmethod
@@ -65,17 +65,17 @@ class PermissionService:
 
     @staticmethod
     async def has_fs_permission(
-        db: AsyncSession, user: User, fact_sheet_id: UUID, permission: str
+        db: AsyncSession, user: User, card_id: UUID, permission: str
     ) -> bool:
-        """Check if user has permission on a specific fact sheet via subscription."""
+        """Check if user has permission on a specific card via subscription."""
         subs = await db.execute(
-            select(Subscription.role).where(
-                Subscription.fact_sheet_id == fact_sheet_id,
-                Subscription.user_id == user.id,
+            select(Stakeholder.role).where(
+                Stakeholder.card_id == card_id,
+                Stakeholder.user_id == user.id,
             )
         )
         fs_type_result = await db.execute(
-            select(FactSheet.type).where(FactSheet.id == fact_sheet_id)
+            select(Card.type).where(Card.id == card_id)
         )
         type_key = fs_type_result.scalar_one_or_none()
         if not type_key:
@@ -90,10 +90,10 @@ class PermissionService:
                 perms = cached[0]
             else:
                 srd = await db.execute(
-                    select(SubscriptionRoleDefinition.permissions).where(
-                        SubscriptionRoleDefinition.fact_sheet_type_key == type_key,
-                        SubscriptionRoleDefinition.key == sub_role,
-                        SubscriptionRoleDefinition.is_archived == False,  # noqa: E712
+                    select(StakeholderRoleDefinition.permissions).where(
+                        StakeholderRoleDefinition.card_type_key == type_key,
+                        StakeholderRoleDefinition.key == sub_role,
+                        StakeholderRoleDefinition.is_archived == False,  # noqa: E712
                     )
                 )
                 perms = srd.scalar_one_or_none()
@@ -108,15 +108,15 @@ class PermissionService:
         db: AsyncSession,
         user: User,
         app_permission: str,
-        fact_sheet_id: UUID | None = None,
+        card_id: UUID | None = None,
         fs_permission: str | None = None,
     ) -> bool:
-        """Combined check: returns True if app-level OR fact-sheet-level grants access."""
+        """Combined check: returns True if app-level OR card-level grants access."""
         if await PermissionService.has_app_permission(db, user, app_permission):
             return True
-        if fact_sheet_id and fs_permission:
+        if card_id and fs_permission:
             return await PermissionService.has_fs_permission(
-                db, user, fact_sheet_id, fs_permission
+                db, user, card_id, fs_permission
             )
         return False
 
@@ -125,38 +125,38 @@ class PermissionService:
         db: AsyncSession,
         user: User,
         app_permission: str,
-        fact_sheet_id: UUID | None = None,
+        card_id: UUID | None = None,
         fs_permission: str | None = None,
     ) -> None:
         """Raise 403 if permission check fails."""
         if not await PermissionService.check_permission(
-            db, user, app_permission, fact_sheet_id, fs_permission
+            db, user, app_permission, card_id, fs_permission
         ):
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
     async def get_effective_fs_permissions(
-        db: AsyncSession, user: User, fact_sheet_id: UUID
+        db: AsyncSession, user: User, card_id: UUID
     ) -> dict:
-        """Return the user's effective permissions on a specific fact sheet.
+        """Return the user's effective permissions on a specific card.
 
-        Returns a dict with app_level, subscription_roles, fs_level, and effective keys.
+        Returns a dict with app_level, stakeholder_roles, fs_level, and effective keys.
         """
         # Get user's app-level permissions
         role_data = await PermissionService.load_role(db, user.role)
         app_perms = role_data.get("permissions", {}) if role_data else {}
 
-        # Get fact sheet type
+        # Get card type
         fs_type_result = await db.execute(
-            select(FactSheet.type).where(FactSheet.id == fact_sheet_id)
+            select(Card.type).where(Card.id == card_id)
         )
         type_key = fs_type_result.scalar_one_or_none()
 
         # Get user subscriptions on this FS
         subs = await db.execute(
-            select(Subscription.role).where(
-                Subscription.fact_sheet_id == fact_sheet_id,
-                Subscription.user_id == user.id,
+            select(Stakeholder.role).where(
+                Stakeholder.card_id == card_id,
+                Stakeholder.user_id == user.id,
             )
         )
         sub_roles = [r for (r,) in subs.all()]
@@ -166,10 +166,10 @@ class PermissionService:
         if type_key:
             for sub_role in sub_roles:
                 srd = await db.execute(
-                    select(SubscriptionRoleDefinition.permissions).where(
-                        SubscriptionRoleDefinition.fact_sheet_type_key == type_key,
-                        SubscriptionRoleDefinition.key == sub_role,
-                        SubscriptionRoleDefinition.is_archived == False,  # noqa: E712
+                    select(StakeholderRoleDefinition.permissions).where(
+                        StakeholderRoleDefinition.card_type_key == type_key,
+                        StakeholderRoleDefinition.key == sub_role,
+                        StakeholderRoleDefinition.is_archived == False,  # noqa: E712
                     )
                 )
                 perms = srd.scalar_one_or_none()
@@ -181,23 +181,23 @@ class PermissionService:
         # Compute effective permissions (union of app-level and FS-level)
         is_admin = app_perms.get("*", False)
         effective = {
-            "can_view": is_admin or app_perms.get("inventory.view", False) or fs_level.get("fs.view", False),
-            "can_edit": is_admin or app_perms.get("inventory.edit", False) or fs_level.get("fs.edit", False),
-            "can_delete": is_admin or app_perms.get("inventory.delete", False) or fs_level.get("fs.delete", False),
-            "can_quality_seal": is_admin or app_perms.get("inventory.quality_seal", False) or fs_level.get("fs.quality_seal", False),
-            "can_manage_subscriptions": is_admin or app_perms.get("subscriptions.manage", False) or fs_level.get("fs.manage_subscriptions", False),
-            "can_manage_relations": is_admin or app_perms.get("relations.manage", False) or fs_level.get("fs.manage_relations", False),
-            "can_manage_documents": is_admin or app_perms.get("documents.manage", False) or fs_level.get("fs.manage_documents", False),
-            "can_manage_comments": is_admin or app_perms.get("comments.manage", False) or fs_level.get("fs.manage_comments", False),
-            "can_create_comments": is_admin or app_perms.get("comments.create", False) or fs_level.get("fs.create_comments", False),
-            "can_bpm_edit": is_admin or app_perms.get("bpm.edit", False) or fs_level.get("fs.bpm_edit", False),
-            "can_bpm_manage_drafts": is_admin or app_perms.get("bpm.manage_drafts", False) or fs_level.get("fs.bpm_manage_drafts", False),
-            "can_bpm_approve": is_admin or app_perms.get("bpm.approve_flows", False) or fs_level.get("fs.bpm_approve", False),
+            "can_view": is_admin or app_perms.get("inventory.view", False) or fs_level.get("card.view", False),
+            "can_edit": is_admin or app_perms.get("inventory.edit", False) or fs_level.get("card.edit", False),
+            "can_delete": is_admin or app_perms.get("inventory.delete", False) or fs_level.get("card.delete", False),
+            "can_approval_status": is_admin or app_perms.get("inventory.approval_status", False) or fs_level.get("card.approval_status", False),
+            "can_manage_stakeholders": is_admin or app_perms.get("stakeholders.manage", False) or fs_level.get("card.manage_stakeholders", False),
+            "can_manage_relations": is_admin or app_perms.get("relations.manage", False) or fs_level.get("card.manage_relations", False),
+            "can_manage_documents": is_admin or app_perms.get("documents.manage", False) or fs_level.get("card.manage_documents", False),
+            "can_manage_comments": is_admin or app_perms.get("comments.manage", False) or fs_level.get("card.manage_comments", False),
+            "can_create_comments": is_admin or app_perms.get("comments.create", False) or fs_level.get("card.create_comments", False),
+            "can_bpm_edit": is_admin or app_perms.get("bpm.edit", False) or fs_level.get("card.bpm_edit", False),
+            "can_bpm_manage_drafts": is_admin or app_perms.get("bpm.manage_drafts", False) or fs_level.get("card.bpm_manage_drafts", False),
+            "can_bpm_approve": is_admin or app_perms.get("bpm.approve_flows", False) or fs_level.get("card.bpm_approve", False),
         }
 
         return {
             "app_level": {k: v for k, v in app_perms.items() if k != "*"} if not is_admin else {"*": True},
-            "subscription_roles": sub_roles,
+            "stakeholder_roles": sub_roles,
             "fs_level": fs_level,
             "effective": effective,
         }

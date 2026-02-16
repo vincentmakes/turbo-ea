@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { FactSheet, FactSheetType, FieldDef } from "@/types";
+import type { Card, CardType, FieldDef } from "@/types";
 import { api } from "@/api/client";
 
 // ---- Public types --------------------------------------------------------
@@ -23,8 +23,8 @@ export interface ParsedRow {
   data: Record<string, unknown>;
   /** Raw parent_id from the file (UUID of existing or of another row in the file) */
   parentId?: string;
-  /** Original fact sheet when updating an existing record */
-  existing?: FactSheet;
+  /** Original card when updating an existing record */
+  existing?: Card;
 }
 
 export interface ImportReport {
@@ -59,7 +59,7 @@ function str(v: unknown): string {
 
 function fieldDefsForType(
   type: string,
-  allTypes: FactSheetType[],
+  allTypes: CardType[],
 ): FieldDef[] {
   const t = allTypes.find((x) => x.key === type);
   if (!t) return [];
@@ -118,8 +118,8 @@ export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
 
 export function validateImport(
   rows: Record<string, unknown>[],
-  existingFactSheets: FactSheet[],
-  allTypes: FactSheetType[],
+  existingCards: Card[],
+  allTypes: CardType[],
   preSelectedType?: string,
 ): ImportReport {
   const errors: ImportError[] = [];
@@ -157,7 +157,7 @@ export function validateImport(
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
     "id", "type", "name", "description", "subtype", "parent_id",
-    "external_id", "alias", "quality_seal",
+    "external_id", "alias", "approval_status",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
   // Build set of all known attribute columns across all types
@@ -175,10 +175,10 @@ export function validateImport(
     }
   }
 
-  // Index existing fact sheets by id for fast lookup
-  const existingById = new Map<string, FactSheet>();
-  for (const fs of existingFactSheets) {
-    existingById.set(fs.id, fs);
+  // Index existing cards by id for fast lookup
+  const existingById = new Map<string, Card>();
+  for (const card of existingCards) {
+    existingById.set(card.id, card);
   }
 
   // Track seen IDs to detect duplicates within the file
@@ -212,7 +212,7 @@ export function validateImport(
     const parentId = str(raw["parent_id"]);
     const externalId = str(raw["external_id"]);
     const alias = str(raw["alias"] ?? raw["Alias"]);
-    const qualitySeal = str(raw["quality_seal"]).toUpperCase();
+    const approvalStatus = str(raw["approval_status"]).toUpperCase();
 
     // Rule 2: name required
     if (!name) {
@@ -231,7 +231,7 @@ export function validateImport(
     }
 
     // Rule 5: if id present, must be valid UUID
-    let matchedExisting: FactSheet | undefined;
+    let matchedExisting: Card | undefined;
     if (id) {
       if (!UUID_RE.test(id)) {
         errors.push({
@@ -260,7 +260,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "id",
-          message: `Row ${rowNum}: no existing fact sheet with id "${id}"`,
+          message: `Row ${rowNum}: no existing card with id "${id}"`,
         });
         continue;
       }
@@ -291,7 +291,7 @@ export function validateImport(
         errors.push({
           row: rowNum,
           column: "parent_id",
-          message: `Row ${rowNum}: parent_id "${parentId}" not found — must reference an existing fact sheet or another row in this file`,
+          message: `Row ${rowNum}: parent_id "${parentId}" not found — must reference an existing card or another row in this file`,
         });
         continue;
       }
@@ -306,12 +306,12 @@ export function validateImport(
       }
     }
 
-    // Rule 9: quality_seal validation
-    if (qualitySeal && !VALID_SEALS.has(qualitySeal)) {
+    // Rule 9: approval_status validation
+    if (approvalStatus && !VALID_SEALS.has(approvalStatus)) {
       errors.push({
         row: rowNum,
-        column: "quality_seal",
-        message: `Row ${rowNum}: invalid quality_seal "${qualitySeal}" (valid: DRAFT, APPROVED, BROKEN, REJECTED)`,
+        column: "approval_status",
+        message: `Row ${rowNum}: invalid approval_status "${approvalStatus}" (valid: DRAFT, APPROVED, BROKEN, REJECTED)`,
       });
       continue;
     }
@@ -510,7 +510,7 @@ export async function executeImport(
         payload.parent_id = idMapping.get(row.parentId);
       }
 
-      const result = await api.post<{ id: string }>("/fact-sheets", payload);
+      const result = await api.post<{ id: string }>("/cards", payload);
 
       // Track the mapping from file id → server id
       if (row.id && result.id) {
@@ -554,7 +554,7 @@ export async function executeImport(
       }
 
       if (Object.keys(patch).length > 0) {
-        await api.patch(`/fact-sheets/${row.id}`, patch);
+        await api.patch(`/cards/${row.id}`, patch);
       }
       updated++;
     } catch (e) {

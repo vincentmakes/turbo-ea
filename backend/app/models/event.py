@@ -13,8 +13,8 @@ from app.models.base import Base, UUIDMixin
 class Event(Base, UUIDMixin):
     __tablename__ = "events"
 
-    fact_sheet_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="SET NULL"), index=True
+    card_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL"), index=True
     )
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.user import User
@@ -64,18 +64,18 @@ TEMPLATES = [
 ]
 
 
-async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> FactSheet:
+async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
     result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.id == process_id,
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.id == process_id,
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
         )
     )
-    fs = result.scalar_one_or_none()
-    if not fs:
+    card = result.scalar_one_or_none()
+    if not card:
         raise HTTPException(404, "Business process not found")
-    return fs
+    return card
 
 
 # ── Diagram endpoints ────────────────────────────────────────────────────
@@ -183,7 +183,7 @@ async def save_diagram(
         "process_diagram.saved",
         {"process_name": process.name, "version": new_version, "element_count": len(extracted)},
         db=db,
-        fact_sheet_id=pid,
+        card_id=pid,
         user_id=current_user.id,
     )
 
@@ -221,7 +221,7 @@ async def delete_diagram(
         "process_diagram.deleted",
         {"process_name": process.name},
         db=db,
-        fact_sheet_id=pid,
+        card_id=pid,
         user_id=current_user.id,
     )
 
@@ -401,7 +401,7 @@ async def update_element(
     if body.custom_fields is not None:
         elem.custom_fields = body.custom_fields
 
-    # Sync newly linked fact sheets → relations table (additive only)
+    # Sync newly linked cards → relations table (additive only)
     link_ids: dict[str, set[uuid.UUID]] = {
         "application_id": set(),
         "data_object_id": set(),

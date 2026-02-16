@@ -44,7 +44,7 @@ interface FieldResponse {
 }
 
 export default function SurveyRespond() {
-  const { surveyId, factSheetId } = useParams<{ surveyId: string; factSheetId: string }>();
+  const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
   const navigate = useNavigate();
 
   const [form, setForm] = useState<SurveyRespondForm | null>(null);
@@ -57,11 +57,11 @@ export default function SurveyRespond() {
   const [fieldResponses, setFieldResponses] = useState<Record<string, FieldResponse>>({});
 
   useEffect(() => {
-    if (!surveyId || !factSheetId) return;
+    if (!surveyId || !cardId) return;
     const load = async () => {
       try {
         const data = await api.get<SurveyRespondForm>(
-          `/surveys/${surveyId}/respond/${factSheetId}`,
+          `/surveys/${surveyId}/respond/${cardId}`,
         );
         setForm(data);
 
@@ -95,7 +95,7 @@ export default function SurveyRespond() {
       }
     };
     load();
-  }, [surveyId, factSheetId]);
+  }, [surveyId, cardId]);
 
   const setConfirmed = (key: string, confirmed: boolean) => {
     setFieldResponses((prev) => ({
@@ -112,11 +112,11 @@ export default function SurveyRespond() {
   };
 
   const handleSubmit = async () => {
-    if (!surveyId || !factSheetId) return;
+    if (!surveyId || !cardId) return;
     setSubmitting(true);
     setError("");
     try {
-      await api.post(`/surveys/${surveyId}/respond/${factSheetId}`, {
+      await api.post(`/surveys/${surveyId}/respond/${cardId}`, {
         responses: fieldResponses,
       });
       setSubmitted(true);
@@ -244,7 +244,7 @@ export default function SurveyRespond() {
           Response Submitted
         </Typography>
         <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          Thank you for completing the survey for <strong>{form.fact_sheet.name}</strong>.
+          Thank you for completing the survey for <strong>{form.card.name}</strong>.
         </Typography>
         <Button variant="outlined" onClick={() => navigate("/surveys")}>
           Back to My Surveys
@@ -271,10 +271,10 @@ export default function SurveyRespond() {
       {/* Fact sheet info */}
       <Card variant="outlined" sx={{ p: 2, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
-        <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.fact_sheet.name}</Typography>
-        <Chip label={form.fact_sheet.type} size="small" variant="outlined" />
-        {form.fact_sheet.subtype && (
-          <Chip label={form.fact_sheet.subtype} size="small" />
+        <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>
+        <Chip label={form.card.type} size="small" variant="outlined" />
+        {form.card.subtype && (
+          <Chip label={form.card.subtype} size="small" />
         )}
       </Card>
 

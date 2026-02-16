@@ -50,8 +50,8 @@ function computeEolStatus(cycle: EolCycle): {
 interface CyclePickerProps {
   open: boolean;
   onClose: () => void;
-  factSheetId: string;
-  factSheetName: string;
+  cardId: string;
+  cardName: string;
   product: string;
   onSelect: (fsId: string, product: string, cycle: string) => void;
 }
@@ -59,8 +59,8 @@ interface CyclePickerProps {
 function CyclePickerDialog({
   open,
   onClose,
-  factSheetId,
-  factSheetName,
+  cardId,
+  cardName,
   product,
   onSelect,
 }: CyclePickerProps) {
@@ -84,7 +84,7 @@ function CyclePickerDialog({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Select Version for {factSheetName}
+        Select Version for {cardName}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
@@ -156,7 +156,7 @@ function CyclePickerDialog({
           variant="contained"
           disabled={!selectedCycle}
           onClick={() => {
-            onSelect(factSheetId, product, selectedCycle);
+            onSelect(cardId, product, selectedCycle);
             onClose();
           }}
         >
@@ -228,7 +228,7 @@ export default function EolAdmin() {
     const links = Object.entries(selections)
       .filter(([, sel]) => sel !== null)
       .map(([fsId, sel]) => ({
-        fact_sheet_id: fsId,
+        card_id: fsId,
         eol_product: sel!.product,
         eol_cycle: sel!.cycle,
       }));
@@ -281,10 +281,10 @@ export default function EolAdmin() {
         <CardContent>
           <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
             <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Fact Sheet Type</InputLabel>
+              <InputLabel>Card Type</InputLabel>
               <Select
                 value={typeKey}
-                label="Fact Sheet Type"
+                label="Card Type"
                 onChange={(e) =>
                   setTypeKey(e.target.value as "Application" | "ITComponent")
                 }
@@ -347,7 +347,7 @@ export default function EolAdmin() {
 
       {saveResult && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveResult(null)}>
-          Successfully linked {saveResult.count} fact sheet(s) to EOL data.
+          Successfully linked {saveResult.count} card(s) to EOL data.
         </Alert>
       )}
 
@@ -401,12 +401,12 @@ export default function EolAdmin() {
 
       {/* Results list */}
       {filteredResults.map((r) => {
-        const selection = selections[r.fact_sheet_id];
+        const selection = selections[r.card_id];
         const isAlreadyLinked = !!r.current_eol_product;
 
         return (
           <Card
-            key={r.fact_sheet_id}
+            key={r.card_id}
             sx={{
               mb: 1.5,
               borderLeft: 4,
@@ -431,10 +431,10 @@ export default function EolAdmin() {
                 {/* Fact sheet info */}
                 <Box sx={{ minWidth: 200, flex: "0 0 auto" }}>
                   <Typography variant="subtitle2" fontWeight={600}>
-                    {r.fact_sheet_name}
+                    {r.card_name}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {r.fact_sheet_type}
+                    {r.card_type}
                   </Typography>
                   {isAlreadyLinked && (
                     <Box sx={{ mt: 0.5, display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -468,7 +468,7 @@ export default function EolAdmin() {
                       </Typography>
                       <IconButton
                         size="small"
-                        onClick={() => handleRemoveSelection(r.fact_sheet_id)}
+                        onClick={() => handleRemoveSelection(r.card_id)}
                         sx={{ ml: "auto" }}
                       >
                         <MaterialSymbol icon="close" size={16} />
@@ -495,8 +495,8 @@ export default function EolAdmin() {
                               variant="outlined"
                               onClick={() =>
                                 openCyclePicker(
-                                  r.fact_sheet_id,
-                                  r.fact_sheet_name,
+                                  r.card_id,
+                                  r.card_name,
                                   c.eol_product
                                 )
                               }
@@ -559,7 +559,7 @@ export default function EolAdmin() {
         >
           <MaterialSymbol icon="link" size={20} color="#1976d2" />
           <Typography variant="body2" fontWeight={600}>
-            {selectedCount} fact sheet(s) selected for EOL linking
+            {selectedCount} card(s) selected for EOL linking
           </Typography>
           <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
             <Button
@@ -591,8 +591,8 @@ export default function EolAdmin() {
       <CyclePickerDialog
         open={cyclePickerOpen}
         onClose={() => setCyclePickerOpen(false)}
-        factSheetId={cyclePickerFsId}
-        factSheetName={cyclePickerFsName}
+        cardId={cyclePickerFsId}
+        cardName={cyclePickerFsName}
         product={cyclePickerProduct}
         onSelect={handleCycleSelected}
       />

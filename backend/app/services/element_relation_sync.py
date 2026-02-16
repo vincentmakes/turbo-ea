@@ -32,13 +32,13 @@ async def sync_element_relations(
     process_id: uuid.UUID,
     linked_ids: dict[str, set[uuid.UUID]],
 ) -> int:
-    """Ensure relations exist between a BusinessProcess and linked fact sheets.
+    """Ensure relations exist between a BusinessProcess and linked cards.
 
     Args:
         db: Async database session (caller is responsible for commit).
-        process_id: The BusinessProcess fact sheet UUID.
+        process_id: The BusinessProcess card UUID.
         linked_ids: Dict mapping element FK field name to a set of target
-                    fact sheet UUIDs.  e.g.
+                    card UUIDs.  e.g.
                     {"application_id": {uuid1, uuid2}, "data_object_id": {uuid3}}
 
     Returns:

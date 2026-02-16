@@ -11,7 +11,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 class ProcessElement(Base, UUIDMixin, TimestampMixin):
     """An extracted BPMN element (task, subprocess, gateway, event) that can be linked
-    to EA fact sheets (applications, data objects, etc.).
+    to EA cards (applications, data objects, etc.).
 
     Auto-populated from BPMN XML on each diagram save. The bpmn_element_id is the
     id attribute from the BPMN XML, used to correlate back to the diagram.
@@ -21,7 +21,7 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
 
     process_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="CASCADE"),
+        ForeignKey("cards.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -36,20 +36,20 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
     # EA cross-references (optional, set by user via UI)
     application_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="SET NULL"),
+        ForeignKey("cards.id", ondelete="SET NULL"),
     )
     data_object_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="SET NULL"),
+        ForeignKey("cards.id", ondelete="SET NULL"),
     )
     it_component_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="SET NULL"),
+        ForeignKey("cards.id", ondelete="SET NULL"),
     )
 
     custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
-    process = relationship("FactSheet", foreign_keys=[process_id], lazy="selectin")
-    application = relationship("FactSheet", foreign_keys=[application_id], lazy="selectin")
-    data_object = relationship("FactSheet", foreign_keys=[data_object_id], lazy="selectin")
-    it_component = relationship("FactSheet", foreign_keys=[it_component_id], lazy="selectin")
+    process = relationship("Card", foreign_keys=[process_id], lazy="selectin")
+    application = relationship("Card", foreign_keys=[application_id], lazy="selectin")
+    data_object = relationship("Card", foreign_keys=[data_object_id], lazy="selectin")
+    it_component = relationship("Card", foreign_keys=[it_component_id], lazy="selectin")

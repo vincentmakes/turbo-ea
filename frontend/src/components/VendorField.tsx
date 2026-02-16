@@ -1,5 +1,5 @@
 /**
- * Smart vendor field that searches existing Provider fact sheets and
+ * Smart vendor field that searches existing Provider cards and
  * offers to link or create one. When a Provider is selected, the vendor
  * text attribute is updated and the Provider relation (discovered
  * dynamically from the metamodel) is created automatically.
@@ -36,7 +36,7 @@ interface VendorFieldProps {
   /** Called when vendor text changes */
   onChange: (value: string | undefined) => void;
   /** Fact sheet type (ITComponent or Application) */
-  fsType: string;
+  cardTypeKey: string;
   /** Fact sheet ID — if provided, relations are managed automatically */
   fsId?: string;
   /** Size variant */
@@ -50,7 +50,7 @@ interface VendorFieldProps {
 export default function VendorField({
   value,
   onChange,
-  fsType,
+  cardTypeKey,
   fsId,
   size = "small",
   label = "Vendor",
@@ -65,15 +65,15 @@ export default function VendorField({
   const [pendingProvider, setPendingProvider] = useState<ProviderOption | null>(null);
   const [creating, setCreating] = useState(false);
 
-  // Dynamically find a Provider↔fsType relation type from the metamodel
+  // Dynamically find a Provider↔cardTypeKey relation type from the metamodel
   const relType = useMemo(() => {
     const rt = relationTypes.find(
       (r) =>
-        (r.source_type_key === "Provider" && r.target_type_key === fsType) ||
-        (r.target_type_key === "Provider" && r.source_type_key === fsType)
+        (r.source_type_key === "Provider" && r.target_type_key === cardTypeKey) ||
+        (r.target_type_key === "Provider" && r.source_type_key === cardTypeKey)
     );
     return rt?.key ?? null;
-  }, [relationTypes, fsType]);
+  }, [relationTypes, cardTypeKey]);
 
   // Determine if Provider is the source side of the relation
   const providerIsSource = useMemo(() => {
@@ -91,9 +91,9 @@ export default function VendorField({
     if (!fsId || !relType) return;
 
     api
-      .get<Relation[]>(`/relations?fact_sheet_id=${fsId}&type=${relType}`)
+      .get<Relation[]>(`/relations?card_id=${fsId}&type=${relType}`)
       .then((rels) => {
-        // Find the Provider linked to this fact sheet
+        // Find the Provider linked to this card
         for (const r of rels) {
           const isTarget = r.target_id === fsId;
           const provider = isTarget ? r.source : r.target;
@@ -116,7 +116,7 @@ export default function VendorField({
       setLoading(true);
       try {
         const res = await api.get<{ items: { id: string; name: string }[] }>(
-          `/fact-sheets?type=Provider&search=${encodeURIComponent(query)}&page_size=10`
+          `/cards?type=Provider&search=${encodeURIComponent(query)}&page_size=10`
         );
         setOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
       } catch {
@@ -136,7 +136,7 @@ export default function VendorField({
 
   const handleSelect = async (provider: ProviderOption) => {
     if (provider.isNew) {
-      // Create new Provider fact sheet
+      // Create new Provider card
       setPendingProvider(provider);
       setConfirmOpen(true);
       return;
@@ -146,7 +146,7 @@ export default function VendorField({
     onChange(provider.name);
     setInputValue(provider.name);
 
-    // Create relation if we have a fact sheet ID
+    // Create relation if we have a card ID
     if (fsId) {
       await linkProvider(provider.id);
     }
@@ -156,7 +156,7 @@ export default function VendorField({
     if (!pendingProvider?.inputValue) return;
     setCreating(true);
     try {
-      const newFs = await api.post<{ id: string; name: string }>("/fact-sheets", {
+      const newFs = await api.post<{ id: string; name: string }>("/cards", {
         type: "Provider",
         name: pendingProvider.inputValue,
       });
@@ -183,7 +183,7 @@ export default function VendorField({
     try {
       // Remove existing provider relations first
       const existing = await api.get<Relation[]>(
-        `/relations?fact_sheet_id=${fsId}&type=${relType}`
+        `/relations?card_id=${fsId}&type=${relType}`
       );
       for (const r of existing) {
         await api.delete(`/relations/${r.id}`);
@@ -200,7 +200,7 @@ export default function VendorField({
 
       // Refresh to get the name
       const rels = await api.get<Relation[]>(
-        `/relations?fact_sheet_id=${fsId}&type=${relType}`
+        `/relations?card_id=${fsId}&type=${relType}`
       );
       for (const r of rels) {
         const isTarget = r.target_id === fsId;
@@ -316,7 +316,7 @@ export default function VendorField({
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             No existing Provider matches "{pendingProvider?.inputValue}".
-            Create a new Provider fact sheet and link it?
+            Create a new Provider card and link it?
           </Typography>
         </DialogContent>
         <DialogActions>

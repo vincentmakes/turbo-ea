@@ -24,19 +24,19 @@ interface TypeStat {
   complete: number;
   partial: number;
   minimal: number;
-  avg_completion: number;
+  avg_data_quality: number;
 }
 
 interface WorstItem {
   id: string;
   name: string;
   type: string;
-  completion: number;
+  data_quality: number;
   updated_at: string | null;
 }
 
 interface DQData {
-  overall_completion: number;
+  overall_data_quality: number;
   total_items: number;
   with_lifecycle: number;
   orphaned: number;
@@ -51,13 +51,13 @@ const QUALITY_COLORS = {
   minimal: "#f44336",
 };
 
-function completionColor(v: number): string {
+function data_qualityColor(v: number): string {
   if (v >= 80) return "#4caf50";
   if (v >= 40) return "#ff9800";
   return "#f44336";
 }
 
-function completionLabel(v: number): string {
+function data_qualityLabel(v: number): string {
   if (v >= 80) return "Complete";
   if (v >= 40) return "Partial";
   return "Minimal";
@@ -87,15 +87,15 @@ export default function DataQualityReport() {
     Complete: t.complete,
     Partial: t.partial,
     Minimal: t.minimal,
-    avg: t.avg_completion,
+    avg: t.avg_data_quality,
     total: t.total,
   }));
 
   // Alerts
   const alerts: { severity: "error" | "warning" | "info"; msg: string }[] = [];
-  if (data.orphaned > 5) alerts.push({ severity: "warning", msg: `${data.orphaned} fact sheets have no relations (orphaned). Consider linking them to related items.` });
-  if (data.stale > 5) alerts.push({ severity: "warning", msg: `${data.stale} fact sheets haven't been updated in 90+ days. Review for accuracy.` });
-  if (data.overall_completion < 50) alerts.push({ severity: "error", msg: `Overall data quality is ${data.overall_completion}%. Focus on improving completeness.` });
+  if (data.orphaned > 5) alerts.push({ severity: "warning", msg: `${data.orphaned} cards have no relations (orphaned). Consider linking them to related items.` });
+  if (data.stale > 5) alerts.push({ severity: "warning", msg: `${data.stale} cards haven't been updated in 90+ days. Review for accuracy.` });
+  if (data.overall_data_quality < 50) alerts.push({ severity: "error", msg: `Overall data quality is ${data.overall_data_quality}%. Focus on improving completeness.` });
 
   const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) => {
     if (!active || !payload) return null;
@@ -137,10 +137,10 @@ export default function DataQualityReport() {
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
         <MetricCard
           label="Overall Quality"
-          value={`${data.overall_completion}%`}
+          value={`${data.overall_data_quality}%`}
           icon="speed"
-          iconColor={completionColor(data.overall_completion)}
-          color={completionColor(data.overall_completion)}
+          iconColor={data_qualityColor(data.overall_data_quality)}
+          color={data_qualityColor(data.overall_data_quality)}
         />
         <MetricCard
           label="Total Items"
@@ -191,7 +191,7 @@ export default function DataQualityReport() {
             </ResponsiveContainer>
           </Paper>
 
-          {/* Per-type completion bars */}
+          {/* Per-type data quality bars */}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
               Average Completion by Type
@@ -207,21 +207,21 @@ export default function DataQualityReport() {
                         <Chip size="small" label={`${t.total} items`} variant="outlined" sx={{ height: 20, fontSize: 10 }} />
                         <Typography
                           variant="caption"
-                          sx={{ fontWeight: 700, color: completionColor(t.avg_completion), minWidth: 36, textAlign: "right" }}
+                          sx={{ fontWeight: 700, color: data_qualityColor(t.avg_data_quality), minWidth: 36, textAlign: "right" }}
                         >
-                          {t.avg_completion}%
+                          {t.avg_data_quality}%
                         </Typography>
                       </Box>
                     </Box>
                     <LinearProgress
                       variant="determinate"
-                      value={t.avg_completion}
+                      value={t.avg_data_quality}
                       sx={{
                         height: 8,
                         borderRadius: 4,
                         bgcolor: "#f0f0f0",
                         "& .MuiLinearProgress-bar": {
-                          bgcolor: completionColor(t.avg_completion),
+                          bgcolor: data_qualityColor(t.avg_data_quality),
                           borderRadius: 4,
                         },
                       }}
@@ -261,9 +261,9 @@ export default function DataQualityReport() {
                     <TableCell align="right">
                       <Chip
                         size="small"
-                        label={`${t.avg_completion}%`}
+                        label={`${t.avg_data_quality}%`}
                         sx={{
-                          bgcolor: completionColor(t.avg_completion),
+                          bgcolor: data_qualityColor(t.avg_data_quality),
                           color: "#fff",
                           fontWeight: 700,
                           height: 22,
@@ -298,7 +298,7 @@ export default function DataQualityReport() {
                     key={item.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                    onClick={() => navigate(`/cards/${item.id}`)}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>{item.name}</TableCell>
                     <TableCell>
@@ -308,29 +308,29 @@ export default function DataQualityReport() {
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "flex-end" }}>
                         <LinearProgress
                           variant="determinate"
-                          value={item.completion}
+                          value={item.data_quality}
                           sx={{
                             width: 60,
                             height: 6,
                             borderRadius: 3,
                             bgcolor: "#f0f0f0",
                             "& .MuiLinearProgress-bar": {
-                              bgcolor: completionColor(item.completion),
+                              bgcolor: data_qualityColor(item.data_quality),
                               borderRadius: 3,
                             },
                           }}
                         />
                         <Typography variant="caption" sx={{ fontWeight: 600, minWidth: 30, textAlign: "right" }}>
-                          {item.completion}%
+                          {item.data_quality}%
                         </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
                         size="small"
-                        label={completionLabel(item.completion)}
+                        label={data_qualityLabel(item.data_quality)}
                         sx={{
-                          bgcolor: completionColor(item.completion),
+                          bgcolor: data_qualityColor(item.data_quality),
                           color: "#fff",
                           height: 20,
                           fontSize: 10,

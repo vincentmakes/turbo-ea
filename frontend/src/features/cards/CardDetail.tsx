@@ -5,7 +5,7 @@ import Typography from "@mui/material/Typography";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
-import Card from "@mui/material/Card";
+import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
@@ -29,7 +29,7 @@ import Menu from "@mui/material/Menu";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import QualitySealBadge from "@/components/QualitySealBadge";
+import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import EolLinkSection from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
@@ -43,17 +43,17 @@ import Autocomplete from "@mui/material/Autocomplete";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
 import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
 import type {
-  FactSheet,
+  Card,
   Relation,
   Comment as CommentType,
   Todo,
   EventEntry,
   FieldDef,
-  SubscriptionRef,
-  SubscriptionRoleDef,
+  StakeholderRef,
+  StakeholderRoleDef,
   User,
   HierarchyData,
-  FactSheetEffectivePermissions,
+  CardEffectivePermissions,
 } from "@/types";
 
 // ── Completion Ring ─────────────────────────────────────────────
@@ -246,22 +246,22 @@ function FieldEditor({
 
 // ── Section: Description ────────────────────────────────────────
 function DescriptionSection({
-  fs,
+  card,
   onSave,
   canEdit = true,
 }: {
-  fs: FactSheet;
+  card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(fs.name);
-  const [description, setDescription] = useState(fs.description || "");
+  const [name, setName] = useState(card.name);
+  const [description, setDescription] = useState(card.description || "");
 
   useEffect(() => {
-    setName(fs.name);
-    setDescription(fs.description || "");
-  }, [fs.name, fs.description]);
+    setName(card.name);
+    setDescription(card.description || "");
+  }, [card.name, card.description]);
 
   const save = async () => {
     await onSave({ name, description });
@@ -312,8 +312,8 @@ function DescriptionSection({
               <Button
                 size="small"
                 onClick={() => {
-                  setName(fs.name);
-                  setDescription(fs.description || "");
+                  setName(card.name);
+                  setDescription(card.description || "");
                   setEditing(false);
                 }}
               >
@@ -326,7 +326,7 @@ function DescriptionSection({
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap">
-            {fs.description || "No description provided."}
+            {card.description || "No description provided."}
           </Typography>
         )}
       </AccordionDetails>
@@ -336,22 +336,22 @@ function DescriptionSection({
 
 // ── Section: Lifecycle ──────────────────────────────────────────
 function LifecycleSection({
-  fs,
+  card,
   onSave,
   canEdit = true,
 }: {
-  fs: FactSheet;
+  card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
-    fs.lifecycle || {}
+    card.lifecycle || {}
   );
 
   useEffect(() => {
-    setLifecycle(fs.lifecycle || {});
-  }, [fs.lifecycle]);
+    setLifecycle(card.lifecycle || {});
+  }, [card.lifecycle]);
 
   const save = async () => {
     await onSave({ lifecycle });
@@ -456,7 +456,7 @@ function LifecycleSection({
               <Button
                 size="small"
                 onClick={() => {
-                  setLifecycle(fs.lifecycle || {});
+                  setLifecycle(card.lifecycle || {});
                   setEditing(false);
                 }}
               >
@@ -478,24 +478,24 @@ const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
 
 function AttributeSection({
   section,
-  fs,
+  card,
   onSave,
   onRelationChange,
   canEdit = true,
 }: {
   section: { section: string; fields: FieldDef[] };
-  fs: FactSheet;
+  card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
   canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
-    fs.attributes || {}
+    card.attributes || {}
   );
   useEffect(() => {
-    setAttrs(fs.attributes || {});
-  }, [fs.attributes]);
+    setAttrs(card.attributes || {});
+  }, [card.attributes]);
 
   const save = async () => {
     await onSave({ attributes: attrs });
@@ -507,11 +507,11 @@ function AttributeSection({
   };
 
   const isVendorField = (field: FieldDef) =>
-    field.key === "vendor" && VENDOR_ELIGIBLE_TYPES.includes(fs.type);
+    field.key === "vendor" && VENDOR_ELIGIBLE_TYPES.includes(card.type);
 
   // Count filled fields in this section
   const filled = section.fields.filter((f) => {
-    const v = (fs.attributes || {})[f.key];
+    const v = (card.attributes || {})[f.key];
     return v != null && v !== "" && v !== false;
   }).length;
 
@@ -557,8 +557,8 @@ function AttributeSection({
                     key={field.key}
                     value={(attrs[field.key] as string) ?? ""}
                     onChange={(v) => setAttr(field.key, v)}
-                    fsType={fs.type}
-                    fsId={fs.id}
+                    cardTypeKey={card.type}
+                    fsId={card.id}
                     onRelationChange={onRelationChange}
                   />
                 ) : (
@@ -575,7 +575,7 @@ function AttributeSection({
               <Button
                 size="small"
                 onClick={() => {
-                  setAttrs(fs.attributes || {});
+                  setAttrs(card.attributes || {});
                   setEditing(false);
                 }}
               >
@@ -606,7 +606,7 @@ function AttributeSection({
                 </Typography>
                 <FieldValue
                   field={field}
-                  value={(fs.attributes || {})[field.key]}
+                  value={(card.attributes || {})[field.key]}
                 />
               </Box>
             ))}
@@ -621,17 +621,17 @@ function AttributeSection({
 const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
 
 function HierarchySection({
-  fs,
+  card,
   onUpdate,
   canEdit = true,
 }: {
-  fs: FactSheet;
+  card: Card;
   onUpdate: () => void;
   canEdit?: boolean;
 }) {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
-  const typeConfig = getType(fs.type);
+  const typeConfig = getType(card.type);
   const [hierarchy, setHierarchy] = useState<HierarchyData | null>(null);
 
   // Parent picker state
@@ -653,8 +653,8 @@ function HierarchySection({
   const [hierarchyError, setHierarchyError] = useState("");
 
   const loadHierarchy = useCallback(() => {
-    api.get<HierarchyData>(`/fact-sheets/${fs.id}/hierarchy`).then(setHierarchy).catch(() => {});
-  }, [fs.id]);
+    api.get<HierarchyData>(`/cards/${card.id}/hierarchy`).then(setHierarchy).catch(() => {});
+  }, [card.id]);
 
   useEffect(loadHierarchy, [loadHierarchy]);
 
@@ -664,16 +664,16 @@ function HierarchySection({
     const timer = setTimeout(() => {
       api
         .get<{ items: { id: string; name: string }[] }>(
-          `/fact-sheets?type=${fs.type}&search=${encodeURIComponent(parentSearch)}&page_size=20`
+          `/cards?type=${card.type}&search=${encodeURIComponent(parentSearch)}&page_size=20`
         )
         .then((res) => {
           const childIds = new Set(hierarchy?.children.map((c) => c.id) || []);
-          setParentOptions(res.items.filter((item) => item.id !== fs.id && !childIds.has(item.id)));
+          setParentOptions(res.items.filter((item) => item.id !== card.id && !childIds.has(item.id)));
         })
         .catch(() => {});
     }, 250);
     return () => clearTimeout(timer);
-  }, [pickingParent, parentSearch, fs.id, fs.type, hierarchy]);
+  }, [pickingParent, parentSearch, card.id, card.type, hierarchy]);
 
   // Search children (same type, exclude self)
   useEffect(() => {
@@ -681,22 +681,22 @@ function HierarchySection({
     const timer = setTimeout(() => {
       api
         .get<{ items: { id: string; name: string }[] }>(
-          `/fact-sheets?type=${fs.type}&search=${encodeURIComponent(childSearch)}&page_size=20`
+          `/cards?type=${card.type}&search=${encodeURIComponent(childSearch)}&page_size=20`
         )
         .then((res) => {
           const ancestorIds = new Set(hierarchy?.ancestors.map((a) => a.id) || []);
-          setChildOptions(res.items.filter((item) => item.id !== fs.id && !ancestorIds.has(item.id)));
+          setChildOptions(res.items.filter((item) => item.id !== card.id && !ancestorIds.has(item.id)));
         })
         .catch(() => {});
     }, 250);
     return () => clearTimeout(timer);
-  }, [addChildOpen, childSearch, fs.id, fs.type, hierarchy]);
+  }, [addChildOpen, childSearch, card.id, card.type, hierarchy]);
 
   const handleSetParent = async () => {
     if (!selectedParent) return;
     try {
       setHierarchyError("");
-      await api.patch(`/fact-sheets/${fs.id}`, { parent_id: selectedParent.id });
+      await api.patch(`/cards/${card.id}`, { parent_id: selectedParent.id });
       setPickingParent(false);
       setSelectedParent(null);
       setParentSearch("");
@@ -708,7 +708,7 @@ function HierarchySection({
   };
 
   const handleRemoveParent = async () => {
-    await api.patch(`/fact-sheets/${fs.id}`, { parent_id: null });
+    await api.patch(`/cards/${card.id}`, { parent_id: null });
     loadHierarchy();
     onUpdate();
   };
@@ -717,7 +717,7 @@ function HierarchySection({
     if (!selectedChild) return;
     try {
       setHierarchyError("");
-      await api.patch(`/fact-sheets/${selectedChild.id}`, { parent_id: fs.id });
+      await api.patch(`/cards/${selectedChild.id}`, { parent_id: card.id });
       setAddChildOpen(false);
       setSelectedChild(null);
       setChildSearch("");
@@ -728,7 +728,7 @@ function HierarchySection({
   };
 
   const handleRemoveChild = async (childId: string) => {
-    await api.patch(`/fact-sheets/${childId}`, { parent_id: null });
+    await api.patch(`/cards/${childId}`, { parent_id: null });
     loadHierarchy();
   };
 
@@ -737,14 +737,14 @@ function HierarchySection({
     setCreateLoading(true);
     setHierarchyError("");
     try {
-      const created = await api.post<{ id: string; name: string }>("/fact-sheets", {
-        type: fs.type,
+      const created = await api.post<{ id: string; name: string }>("/cards", {
+        type: card.type,
         name: createName.trim(),
-        ...(createMode === "child" ? { parent_id: fs.id } : {}),
+        ...(createMode === "child" ? { parent_id: card.id } : {}),
       });
       if (createMode === "parent") {
-        // Set the newly created fact sheet as parent
-        await api.patch(`/fact-sheets/${fs.id}`, { parent_id: created.id });
+        // Set the newly created card as parent
+        await api.patch(`/cards/${card.id}`, { parent_id: created.id });
         onUpdate();
       }
       setCreateMode(null);
@@ -802,7 +802,7 @@ function HierarchySection({
                         <Chip
                           size="small"
                           label={ancestor.name}
-                          onClick={() => navigate(`/fact-sheets/${ancestor.id}`)}
+                          onClick={() => navigate(`/cards/${ancestor.id}`)}
                           sx={{ cursor: "pointer", borderColor: aColor, color: aColor, fontWeight: 500 }}
                           variant="outlined"
                         />
@@ -812,7 +812,7 @@ function HierarchySection({
                   })}
                   <Chip
                     size="small"
-                    label={fs.name}
+                    label={card.name}
                     sx={{ bgcolor: levelColor, color: "#fff", fontWeight: 600 }}
                   />
                 </Box>
@@ -831,7 +831,7 @@ function HierarchySection({
                   <Chip
                     size="small"
                     label={hierarchy.ancestors[hierarchy.ancestors.length - 1].name}
-                    onClick={() => navigate(`/fact-sheets/${hierarchy.ancestors[hierarchy.ancestors.length - 1].id}`)}
+                    onClick={() => navigate(`/cards/${hierarchy.ancestors[hierarchy.ancestors.length - 1].id}`)}
                     sx={{ cursor: "pointer" }}
                     icon={<MaterialSymbol icon={typeConfig?.icon || "category"} size={16} />}
                   />
@@ -882,7 +882,7 @@ function HierarchySection({
                       inputValue={parentSearch}
                       onInputChange={(_, val) => setParentSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || fs.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || card.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
                       )}
                       noOptionsText={parentSearch ? "No results found" : "Type to search..."}
                       filterOptions={(x) => x}
@@ -893,13 +893,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("parent"); setCreateName(parentSearch); }}
                     >
-                      Create new {typeConfig?.label || fs.type}
+                      Create new {typeConfig?.label || card.type}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Create new {typeConfig?.label || fs.type} as parent
+                      Create new {typeConfig?.label || card.type} as parent
                     </Typography>
                     <TextField
                       fullWidth size="small" label="Name" value={createName}
@@ -949,7 +949,7 @@ function HierarchySection({
                     >
                       <Box
                         component="div"
-                        onClick={() => navigate(`/fact-sheets/${child.id}`)}
+                        onClick={() => navigate(`/cards/${child.id}`)}
                         sx={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 1, "&:hover": { textDecoration: "underline" } }}
                       >
                         <MaterialSymbol icon={typeConfig?.icon || "category"} size={16} color={typeConfig?.color} />
@@ -994,7 +994,7 @@ function HierarchySection({
                       inputValue={childSearch}
                       onInputChange={(_, val) => setChildSearch(val)}
                       renderInput={(params) => (
-                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || fs.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
+                        <TextField {...params} size="small" label={`Search ${typeConfig?.label || card.type}`} placeholder="Type to search..." sx={{ mt: 1 }} />
                       )}
                       noOptionsText={childSearch ? "No results found" : "Type to search..."}
                       filterOptions={(x) => x}
@@ -1005,13 +1005,13 @@ function HierarchySection({
                       startIcon={<MaterialSymbol icon="add" size={16} />}
                       onClick={() => { setCreateMode("child"); setCreateName(childSearch); }}
                     >
-                      Create new {typeConfig?.label || fs.type}
+                      Create new {typeConfig?.label || card.type}
                     </Button>
                   </>
                 ) : (
                   <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
                     <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                      Create new {typeConfig?.label || fs.type} as child
+                      Create new {typeConfig?.label || card.type} as child
                     </Typography>
                     <TextField
                       fullWidth size="small" label="Name" value={createName}
@@ -1045,7 +1045,7 @@ function HierarchySection({
 }
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
-function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = true }: { fsId: string; fsType: string; refreshKey?: number; canManageRelations?: boolean }) {
+function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { relationTypes, getType } = useMetamodel();
   const navigate = useNavigate();
@@ -1064,23 +1064,23 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
   const [createLoading, setCreateLoading] = useState(false);
 
   const load = useCallback(() => {
-    api.get<Relation[]>(`/relations?fact_sheet_id=${fsId}`).then(setRelations).catch(() => {});
+    api.get<Relation[]>(`/relations?card_id=${fsId}`).then(setRelations).catch(() => {});
   }, [fsId]);
 
   useEffect(load, [load, refreshKey]);
 
   const relevantRTs = relationTypes.filter(
-    (rt) => rt.source_type_key === fsType || rt.target_type_key === fsType
+    (rt) => rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey
   );
 
   const selectedRT = relationTypes.find((rt) => rt.key === addRelType);
-  const isSource = selectedRT ? selectedRT.source_type_key === fsType : true;
+  const isSource = selectedRT ? selectedRT.source_type_key === cardTypeKey : true;
   const targetTypeKey = selectedRT
     ? (isSource ? selectedRT.target_type_key : selectedRT.source_type_key)
     : "";
   const targetTypeConfig = getType(targetTypeKey);
 
-  // Search for target fact sheets when user types
+  // Search for target cards when user types
   useEffect(() => {
     if (!targetTypeKey || targetSearch.length < 1) {
       setSearchResults([]);
@@ -1089,7 +1089,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
     const timer = setTimeout(() => {
       api
         .get<{ items: { id: string; name: string; type: string }[] }>(
-          `/fact-sheets?type=${targetTypeKey}&search=${encodeURIComponent(targetSearch)}&page_size=20`
+          `/cards?type=${targetTypeKey}&search=${encodeURIComponent(targetSearch)}&page_size=20`
         )
         .then((res) => setSearchResults(res.items.filter((item) => item.id !== fsId)))
         .catch(() => {});
@@ -1121,12 +1121,12 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
     load();
   };
 
-  // Create a new fact sheet and immediately select it as the relation target
+  // Create a new card and immediately select it as the relation target
   const handleQuickCreate = async () => {
     if (!createName.trim() || !targetTypeKey) return;
     setCreateLoading(true);
     try {
-      const created = await api.post<{ id: string; name: string; type: string }>("/fact-sheets", {
+      const created = await api.post<{ id: string; name: string; type: string }>("/cards", {
         type: targetTypeKey,
         name: createName.trim(),
       });
@@ -1134,7 +1134,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
       setCreateOpen(false);
       setCreateName("");
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Failed to create fact sheet");
+      setAddError(e instanceof Error ? e.message : "Failed to create card");
     } finally {
       setCreateLoading(false);
     }
@@ -1143,7 +1143,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
   // Group relations by relation type – only show types that have relations
   const grouped = relevantRTs
     .map((rt) => {
-      const rtIsSource = rt.source_type_key === fsType;
+      const rtIsSource = rt.source_type_key === cardTypeKey;
       const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
       const otherTypeKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
       const otherType = getType(otherTypeKey);
@@ -1205,7 +1205,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
                   >
                     <Box
                       component="div"
-                      onClick={() => other && navigate(`/fact-sheets/${other.id}`)}
+                      onClick={() => other && navigate(`/cards/${other.id}`)}
                       sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
                     >
                       <ListItemText primary={other?.name || "Unknown"} secondary={other?.type} />
@@ -1231,7 +1231,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
               onChange={(e) => { setAddRelType(e.target.value); setSelectedTarget(null); setTargetSearch(""); setCreateOpen(false); }}
             >
               {relevantRTs.map((rt) => {
-                const rtIsSource = rt.source_type_key === fsType;
+                const rtIsSource = rt.source_type_key === cardTypeKey;
                 const verb = rtIsSource ? rt.label : (rt.reverse_label || rt.label);
                 const otherKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
                 const other = getType(otherKey);
@@ -1339,7 +1339,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
 
   const load = useCallback(() => {
     api
-      .get<CommentType[]>(`/fact-sheets/${fsId}/comments`)
+      .get<CommentType[]>(`/cards/${fsId}/comments`)
       .then(setComments)
       .catch(() => {});
   }, [fsId]);
@@ -1347,7 +1347,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
 
   const handleAdd = async () => {
     if (!newComment.trim()) return;
-    await api.post(`/fact-sheets/${fsId}/comments`, { content: newComment });
+    await api.post(`/cards/${fsId}/comments`, { content: newComment });
     setNewComment("");
     load();
   };
@@ -1379,7 +1379,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
         </Typography>
       )}
       {comments.map((c) => (
-        <Card key={c.id} sx={{ mb: 1 }}>
+        <MuiCard key={c.id} sx={{ mb: 1 }}>
           <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
             <Box
               sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}
@@ -1393,7 +1393,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
             </Box>
             <Typography variant="body2">{c.content}</Typography>
           </CardContent>
-        </Card>
+        </MuiCard>
       ))}
     </Box>
   );
@@ -1411,7 +1411,7 @@ function TodosTab({ fsId }: { fsId: string }) {
 
   const load = useCallback(() => {
     api
-      .get<Todo[]>(`/fact-sheets/${fsId}/todos`)
+      .get<Todo[]>(`/cards/${fsId}/todos`)
       .then(setTodos)
       .catch(() => {});
   }, [fsId]);
@@ -1428,7 +1428,7 @@ function TodosTab({ fsId }: { fsId: string }) {
       const payload: Record<string, unknown> = { description: newDesc };
       if (newAssignee) payload.assigned_to = newAssignee;
       if (newDueDate) payload.due_date = newDueDate;
-      await api.post(`/fact-sheets/${fsId}/todos`, payload);
+      await api.post(`/cards/${fsId}/todos`, payload);
       setNewDesc("");
       setNewAssignee("");
       setNewDueDate("");
@@ -1572,29 +1572,29 @@ function TodosTab({ fsId }: { fsId: string }) {
   );
 }
 
-// ── Tab: Subscriptions ──────────────────────────────────────────
-function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs: FactSheet; onRefresh: () => void; canManageSubscriptions?: boolean }) {
-  const [subs, setSubs] = useState<SubscriptionRef[]>([]);
-  const [roles, setRoles] = useState<SubscriptionRoleDef[]>([]);
+// ── Tab: Stakeholders ──────────────────────────────────────────
+function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { card: Card; onRefresh: () => void; canManageStakeholders?: boolean }) {
+  const [subs, setSubs] = useState<StakeholderRef[]>([]);
+  const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [addRole, setAddRole] = useState("");
   const [addUserId, setAddUserId] = useState("");
 
   const load = useCallback(() => {
-    api.get<SubscriptionRef[]>(`/fact-sheets/${fs.id}/subscriptions`).then(setSubs).catch(() => {});
-  }, [fs.id]);
+    api.get<StakeholderRef[]>(`/cards/${card.id}/stakeholders`).then(setSubs).catch(() => {});
+  }, [card.id]);
 
   useEffect(() => {
     load();
-    api.get<SubscriptionRoleDef[]>(`/subscription-roles?type_key=${fs.type}`).then(setRoles).catch(() => {});
+    api.get<StakeholderRoleDef[]>(`/stakeholder-roles?type_key=${card.type}`).then(setRoles).catch(() => {});
     api.get<User[]>("/users").then(setUsers).catch(() => {});
-  }, [load, fs.type]);
+  }, [load, card.type]);
 
   const handleAdd = async () => {
     if (!addRole || !addUserId) return;
     try {
-      await api.post(`/fact-sheets/${fs.id}/subscriptions`, {
+      await api.post(`/cards/${card.id}/stakeholders`, {
         user_id: addUserId,
         role: addRole,
       });
@@ -1609,7 +1609,7 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
   };
 
   const handleDelete = async (subId: string) => {
-    await api.delete(`/subscriptions/${subId}`);
+    await api.delete(`/stakeholders/${subId}`);
     load();
     onRefresh();
   };
@@ -1622,7 +1622,7 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
 
   return (
     <Box>
-      {canManageSubscriptions && (
+      {canManageStakeholders && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
           <Button
             size="small"
@@ -1630,12 +1630,12 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
             startIcon={<MaterialSymbol icon="person_add" size={16} />}
             onClick={() => setAddOpen(true)}
           >
-            Add Subscription
+            Add Stakeholder
           </Button>
         </Box>
       )}
       {grouped.map(({ role, items }) => (
-        <Card key={role.key} sx={{ mb: 2 }}>
+        <MuiCard key={role.key} sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
               {role.label}
@@ -1650,7 +1650,7 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
                   <ListItem
                     key={s.id}
                     secondaryAction={
-                      canManageSubscriptions ? (
+                      canManageStakeholders ? (
                         <IconButton size="small" onClick={() => handleDelete(s.id)}>
                           <MaterialSymbol icon="close" size={16} />
                         </IconButton>
@@ -1667,14 +1667,14 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
               </List>
             )}
           </CardContent>
-        </Card>
+        </MuiCard>
       ))}
-      {/* Add subscription inline */}
+      {/* Add stakeholder inline */}
       {addOpen && (
-        <Card sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}>
+        <MuiCard sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}>
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-              Add Subscription
+              Add Stakeholder
             </Typography>
             <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
               <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -1701,7 +1701,7 @@ function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs
               </Button>
             </Box>
           </CardContent>
-        </Card>
+        </MuiCard>
       )}
     </Box>
   );
@@ -1712,7 +1712,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
     api
-      .get<EventEntry[]>(`/fact-sheets/${fsId}/history`)
+      .get<EventEntry[]>(`/cards/${fsId}/history`)
       .then(setEvents)
       .catch(() => {});
   }, [fsId]);
@@ -1725,7 +1725,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
         </Typography>
       )}
       {events.map((e) => (
-        <Card key={e.id} sx={{ mb: 1 }}>
+        <MuiCard key={e.id} sx={{ mb: 1 }}>
           <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Chip size="small" label={e.event_type} />
@@ -1743,19 +1743,19 @@ function HistoryTab({ fsId }: { fsId: string }) {
               </Typography>
             </Box>
           </CardContent>
-        </Card>
+        </MuiCard>
       ))}
     </Box>
   );
 }
 
 // ── Default permissions (allow everything until loaded) ─────────
-const DEFAULT_PERMISSIONS: FactSheetEffectivePermissions["effective"] = {
+const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_view: true,
   can_edit: true,
   can_delete: true,
-  can_quality_seal: true,
-  can_manage_subscriptions: true,
+  can_approval_status: true,
+  can_manage_stakeholders: true,
   can_manage_relations: true,
   can_manage_documents: true,
   can_manage_comments: true,
@@ -1766,14 +1766,14 @@ const DEFAULT_PERMISSIONS: FactSheetEffectivePermissions["effective"] = {
 };
 
 // ── Main Detail Page ────────────────────────────────────────────
-export default function FactSheetDetail() {
+export default function CardDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
-  const [fs, setFs] = useState<FactSheet | null>(null);
+  const [card, setCard] = useState<Card | null>(null);
   const [tab, setTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
@@ -1781,14 +1781,14 @@ export default function FactSheetDetail() {
   const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
     null
   );
-  const [perms, setPerms] = useState<FactSheetEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
+  const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
 
-  // Fetch effective permissions for this fact sheet
+  // Fetch effective permissions for this card
   useEffect(() => {
     if (!id) return;
     setPerms(DEFAULT_PERMISSIONS);
     api
-      .get<FactSheetEffectivePermissions>(`/fact-sheets/${id}/my-permissions`)
+      .get<CardEffectivePermissions>(`/cards/${id}/my-permissions`)
       .then((res) => setPerms(res.effective))
       .catch(() => {}); // keep defaults on error
   }, [id]);
@@ -1811,36 +1811,36 @@ export default function FactSheetDetail() {
       setInitialSubTab(undefined);
     }
     api
-      .get<FactSheet>(`/fact-sheets/${id}`)
-      .then(setFs)
+      .get<Card>(`/cards/${id}`)
+      .then(setCard)
       .catch((e) => setError(e.message));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!fs)
+  if (!card)
     return (
       <Box sx={{ p: 4 }}>
         <LinearProgress />
       </Box>
     );
 
-  const typeConfig = getType(fs.type);
+  const typeConfig = getType(card.type);
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
-    const updated = await api.patch<FactSheet>(`/fact-sheets/${fs.id}`, updates);
-    setFs(updated);
+    const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
+    setCard(updated);
   };
 
   const handleSealAction = async (action: string) => {
     setSealMenuAnchor(null);
-    await api.post(`/fact-sheets/${fs.id}/quality-seal?action=${action}`);
+    await api.post(`/cards/${card.id}/approval-status?action=${action}`);
     const newSeal =
       action === "approve"
         ? "APPROVED"
         : action === "reject"
           ? "REJECTED"
           : "DRAFT";
-    setFs({ ...fs, quality_seal: newSeal });
+    setCard({ ...card, approval_status: newSeal });
   };
 
   return (
@@ -1871,23 +1871,23 @@ export default function FactSheetDetail() {
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700} noWrap>
-            {fs.name}
+            {card.name}
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              {typeConfig?.label || fs.type}
+              {typeConfig?.label || card.type}
             </Typography>
-            {fs.subtype && (
-              <Chip size="small" label={fs.subtype} variant="outlined" sx={{ height: 20 }} />
+            {card.subtype && (
+              <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />
             )}
           </Box>
         </Box>
         {/* Badges — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <CompletionRing value={fs.completion} />
-          <LifecycleBadge lifecycle={fs.lifecycle} />
-          <QualitySealBadge seal={fs.quality_seal} />
-          {perms.can_quality_seal && (
+          <CompletionRing value={card.data_quality} />
+          <LifecycleBadge lifecycle={card.lifecycle} />
+          <ApprovalStatusBadge seal={card.approval_status} />
+          {perms.can_approval_status && (
             <Button
               size="small"
               variant="outlined"
@@ -1898,7 +1898,7 @@ export default function FactSheetDetail() {
             </Button>
           )}
         </Box>
-        {perms.can_quality_seal && (
+        {perms.can_approval_status && (
           <Menu
             anchorEl={sealMenuAnchor}
             open={!!sealMenuAnchor}
@@ -1906,21 +1906,21 @@ export default function FactSheetDetail() {
           >
             <MenuItem
               onClick={() => handleSealAction("approve")}
-              disabled={fs.quality_seal === "APPROVED"}
+              disabled={card.approval_status === "APPROVED"}
             >
               <MaterialSymbol icon="verified" size={18} color="#4caf50" />
               <Typography sx={{ ml: 1 }}>Approve</Typography>
             </MenuItem>
             <MenuItem
               onClick={() => handleSealAction("reject")}
-              disabled={fs.quality_seal === "REJECTED"}
+              disabled={card.approval_status === "REJECTED"}
             >
               <MaterialSymbol icon="cancel" size={18} color="#f44336" />
               <Typography sx={{ ml: 1 }}>Reject</Typography>
             </MenuItem>
             <MenuItem
               onClick={() => handleSealAction("reset")}
-              disabled={fs.quality_seal === "DRAFT"}
+              disabled={card.approval_status === "DRAFT"}
             >
               <MaterialSymbol icon="restart_alt" size={18} color="#666" />
               <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
@@ -1937,69 +1937,69 @@ export default function FactSheetDetail() {
         scrollButtons="auto"
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        <Tab label="Fact Sheet" />
-        {fs.type === "BusinessProcess" && <Tab label="Process Flow" />}
-        {fs.type === "BusinessProcess" && <Tab label="Assessments" />}
+        <Tab label="Card" />
+        {card.type === "BusinessProcess" && <Tab label="Process Flow" />}
+        {card.type === "BusinessProcess" && <Tab label="Assessments" />}
         <Tab label="Comments" />
         <Tab label="Todos" />
-        <Tab label="Subscriptions" />
+        <Tab label="Stakeholders" />
         <Tab label="History" />
       </Tabs>
 
       {/* ── Tab content ── */}
-      {fs.type === "BusinessProcess" ? (
+      {card.type === "BusinessProcess" ? (
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection fs={fs} onSave={handleUpdate} />
-              <LifecycleSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <EolLinkSection card={card} onSave={handleUpdate} />
+              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
                 <AttributeSection
                   key={section.section}
                   section={section}
-                  fs={fs}
+                  card={card}
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
                   canEdit={perms.can_edit}
                 />
               ))}
-              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
             </Box>
           )}
-          {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} processName={fs.name} initialSubTab={initialSubTab} /></CardContent></Card>}
-          {tab === 2 && <Card><CardContent><ProcessAssessmentPanel processId={fs.id} /></CardContent></Card>}
-          {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></Card>}
-          {tab === 4 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
-          {tab === 5 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canManageSubscriptions={perms.can_manage_subscriptions} /></CardContent></Card>}
-          {tab === 6 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 1 && <MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard>}
+          {tab === 2 && <MuiCard><CardContent><ProcessAssessmentPanel processId={card.id} /></CardContent></MuiCard>}
+          {tab === 3 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
+          {tab === 4 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 5 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
+          {tab === 6 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
         </>
       ) : (
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection fs={fs} onSave={handleUpdate} />
-              <LifecycleSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <EolLinkSection card={card} onSave={handleUpdate} />
+              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
                 <AttributeSection
                   key={section.section}
                   section={section}
-                  fs={fs}
+                  card={card}
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
                   canEdit={perms.can_edit}
                 />
               ))}
-              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
             </Box>
           )}
-          {tab === 1 && <Card><CardContent><CommentsTab fsId={fs.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></Card>}
-          {tab === 2 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
-          {tab === 3 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canManageSubscriptions={perms.can_manage_subscriptions} /></CardContent></Card>}
-          {tab === 4 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 1 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
+          {tab === 2 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 3 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
+          {tab === 4 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
         </>
       )}
     </Box>

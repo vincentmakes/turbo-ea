@@ -22,12 +22,12 @@ import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheet, EolProduct, EolCycle } from "@/types";
+import type { Card, EolProduct, EolCycle } from "@/types";
 
 const EOL_TYPES = ["Application", "ITComponent"];
 
-function isEolEligible(fsType: string): boolean {
-  return EOL_TYPES.includes(fsType);
+function isEolEligible(cardTypeKey: string): boolean {
+  return EOL_TYPES.includes(cardTypeKey);
 }
 
 /** Parse an EOL date-or-boolean field into a readable label + color. */
@@ -370,16 +370,16 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
   );
 }
 
-// ── Main EolLinkSection (for FactSheetDetail) ───────────────────
+// ── Main EolLinkSection (for CardDetail) ───────────────────
 
 interface EolLinkSectionProps {
-  fs: FactSheet;
+  card: Card;
   onSave: (updates: Record<string, unknown>) => Promise<void>;
 }
 
-export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
-  const eolProduct = (fs.attributes?.eol_product as string) || "";
-  const eolCycle = (fs.attributes?.eol_cycle as string) || "";
+export default function EolLinkSection({ card, onSave }: EolLinkSectionProps) {
+  const eolProduct = (card.attributes?.eol_product as string) || "";
+  const eolCycle = (card.attributes?.eol_cycle as string) || "";
   const isLinked = !!(eolProduct && eolCycle);
 
   const [cycleData, setCycleData] = useState<EolCycle | null>(null);
@@ -413,20 +413,20 @@ export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
     fetchCycleData();
   }, [fetchCycleData]);
 
-  if (!isEolEligible(fs.type)) return null;
+  if (!isEolEligible(card.type)) return null;
 
   const handleLink = async (product: string, cycle: string) => {
     // Build the attributes update
     const updates: Record<string, unknown> = {
       attributes: {
-        ...(fs.attributes || {}),
+        ...(card.attributes || {}),
         eol_product: product,
         eol_cycle: cycle,
       },
     };
 
     // For ITComponent: sync lifecycle dates from EOL data
-    if (fs.type === "ITComponent") {
+    if (card.type === "ITComponent") {
       try {
         const cycles = await api.get<EolCycle[]>(
           `/eol/products/${encodeURIComponent(product)}`
@@ -434,7 +434,7 @@ export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
         const match = cycles.find((c) => String(c.cycle) === String(cycle));
         if (match) {
           const lifecycle: Record<string, string> = {
-            ...(fs.lifecycle || {}),
+            ...(card.lifecycle || {}),
           };
           if (match.releaseDate) lifecycle.active = match.releaseDate;
           if (typeof match.support === "string")
@@ -452,7 +452,7 @@ export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
   };
 
   const handleUnlink = async () => {
-    const newAttrs = { ...(fs.attributes || {}) };
+    const newAttrs = { ...(card.attributes || {}) };
     delete newAttrs.eol_product;
     delete newAttrs.eol_cycle;
     await onSave({ attributes: newAttrs });
@@ -555,9 +555,9 @@ export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
         ) : linking || !isLinked ? (
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Link this {fs.type === "ITComponent" ? "IT component" : "application"} to
+              Link this {card.type === "ITComponent" ? "IT component" : "application"} to
               a product on endoflife.date to track its support lifecycle.
-              {fs.type === "ITComponent"
+              {card.type === "ITComponent"
                 ? " Lifecycle dates will be synced automatically."
                 : ""}
             </Typography>
@@ -573,7 +573,7 @@ export default function EolLinkSection({ fs, onSave }: EolLinkSectionProps) {
   );
 }
 
-// ── EOL Picker Dialog (for CreateFactSheetDialog) ───────────────
+// ── EOL Picker Dialog (for CreateCardDialog) ───────────────
 
 interface EolLinkDialogProps {
   open: boolean;

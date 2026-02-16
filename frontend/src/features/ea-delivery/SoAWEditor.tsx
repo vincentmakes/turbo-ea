@@ -44,7 +44,7 @@ import {
 } from "./soawTemplate";
 import { exportToDocx, exportToPdf } from "./soawExport";
 import { api } from "@/api/client";
-import type { FactSheet, SoAW, SoAWSectionData, SoAWSignatory, User } from "@/types";
+import type { Card, SoAW, SoAWSectionData, SoAWSignatory, User } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
@@ -89,7 +89,7 @@ export default function SoAWEditor() {
   >([]);
 
   // UI state
-  const [initiatives, setInitiatives] = useState<FactSheet[]>([]);
+  const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [loading, setLoading] = useState(!!id);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -120,8 +120,8 @@ export default function SoAWEditor() {
   useEffect(() => {
     const loadInitiatives = async () => {
       try {
-        const res = await api.get<{ items: FactSheet[] }>(
-          "/fact-sheets?type=Initiative&page_size=500",
+        const res = await api.get<{ items: Card[] }>(
+          "/cards?type=Initiative&page_size=500",
         );
         setInitiatives(res.items);
       } catch {

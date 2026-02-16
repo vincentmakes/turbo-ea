@@ -127,7 +127,7 @@ async def lifespan(app: FastAPI):
         async with async_session() as db:
             result = await seed_demo_data(db)
             if not result.get("skipped"):
-                print(f"[seed_demo] Seeded {result['fact_sheets']} fact sheets, "
+                print(f"[seed_demo] Seeded {result['cards']} cards, "
                       f"{result['relations']} relations, {result['tag_groups']} tag groups")
             else:
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
@@ -160,7 +160,7 @@ async def lifespan(app: FastAPI):
         async with async_session() as db:
             result = await seed_bpm_demo_data(db)
             if not result.get("skipped"):
-                print(f"[seed_bpm] Seeded {result['fact_sheets']} processes, "
+                print(f"[seed_bpm] Seeded {result['cards']} processes, "
                       f"{result['relations']} relations, {result['diagrams']} diagrams, "
                       f"{result['elements']} elements, {result['assessments']} assessments")
             else:

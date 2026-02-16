@@ -1,16 +1,16 @@
 import { useState, useCallback, useMemo } from "react";
 import { api } from "@/api/client";
-import type { User, FactSheetEffectivePermissions } from "@/types";
+import type { User, CardEffectivePermissions } from "@/types";
 
 /**
- * Hook for checking user permissions at both app-level and fact-sheet-level.
+ * Hook for checking user permissions at both app-level and card-level.
  *
  * App-level permissions come from the user's role (loaded via /auth/me).
- * Fact-sheet-level permissions are loaded on demand via /fact-sheets/:id/my-permissions.
+ * Fact-sheet-level permissions are loaded on demand via /cards/:id/my-permissions.
  */
 export function usePermissions(user: User | null) {
   const [fsPermissions, setFsPermissions] = useState<
-    Record<string, FactSheetEffectivePermissions>
+    Record<string, CardEffectivePermissions>
   >({});
 
   const permissions = useMemo(
@@ -37,15 +37,15 @@ export function usePermissions(user: User | null) {
   const isAdmin = useMemo(() => !!permissions["*"], [permissions]);
 
   /**
-   * Load effective permissions for a specific fact sheet.
-   * Results are cached per fact sheet ID.
+   * Load effective permissions for a specific card.
+   * Results are cached per card ID.
    */
   const loadFsPermissions = useCallback(
     async (fsId: string) => {
       if (fsPermissions[fsId]) return;
       try {
-        const perms = await api.get<FactSheetEffectivePermissions>(
-          `/fact-sheets/${fsId}/my-permissions`
+        const perms = await api.get<CardEffectivePermissions>(
+          `/cards/${fsId}/my-permissions`
         );
         setFsPermissions((prev) => ({ ...prev, [fsId]: perms }));
       } catch {
@@ -56,7 +56,7 @@ export function usePermissions(user: User | null) {
   );
 
   /**
-   * Check if user can perform an action on a specific fact sheet.
+   * Check if user can perform an action on a specific card.
    * Checks both app-level and FS-level permissions.
    */
   const canOnFs = useCallback(
@@ -70,7 +70,7 @@ export function usePermissions(user: User | null) {
   );
 
   /**
-   * Invalidate cached FS permissions (e.g. after a subscription change).
+   * Invalidate cached FS permissions (e.g. after a stakeholder change).
    */
   const invalidateFsPermissions = useCallback((fsId?: string) => {
     if (fsId) {

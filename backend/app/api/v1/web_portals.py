@@ -11,12 +11,12 @@ from sqlalchemy.types import Text
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.models.subscription import Subscription
-from app.models.tag import FactSheetTag, Tag, TagGroup
+from app.models.stakeholder import Stakeholder
+from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
@@ -33,7 +33,7 @@ def _portal_to_dict(p: WebPortal) -> dict:
         "name": p.name,
         "slug": p.slug,
         "description": p.description,
-        "fact_sheet_type": p.fact_sheet_type,
+        "card_type": p.card_type,
         "filters": p.filters,
         "display_fields": p.display_fields,
         "card_config": p.card_config,
@@ -77,18 +77,18 @@ async def create_portal(
     )
     if existing.scalar_one_or_none():
         raise HTTPException(400, "A portal with this slug already exists")
-    # Validate fact sheet type exists
+    # Validate card type exists
     fst = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == body.fact_sheet_type)
+        select(CardType).where(CardType.key == body.card_type)
     )
     if not fst.scalar_one_or_none():
-        raise HTTPException(400, f"Fact sheet type '{body.fact_sheet_type}' not found")
+        raise HTTPException(400, f"Card type '{body.card_type}' not found")
 
     portal = WebPortal(
         name=body.name,
         slug=body.slug,
         description=body.description,
-        fact_sheet_type=body.fact_sheet_type,
+        card_type=body.card_type,
         filters=body.filters,
         display_fields=body.display_fields,
         card_config=body.card_config,
@@ -191,7 +191,7 @@ async def get_public_portal(
 
     # Also return the type metadata so frontend can render properly
     fst_result = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == portal.fact_sheet_type)
+        select(CardType).where(CardType.key == portal.card_type)
     )
     fst = fst_result.scalar_one_or_none()
 
@@ -206,12 +206,12 @@ async def get_public_portal(
             "subtypes": fst.subtypes,
         }
 
-    # Fetch available relation types for this fact sheet type (for filter options)
+    # Fetch available relation types for this card type (for filter options)
     rel_types_result = await db.execute(
         select(RelationType).where(
             or_(
-                RelationType.source_type_key == portal.fact_sheet_type,
-                RelationType.target_type_key == portal.fact_sheet_type,
+                RelationType.source_type_key == portal.card_type,
+                RelationType.target_type_key == portal.card_type,
             ),
             RelationType.is_hidden == False,  # noqa: E712
         )
@@ -221,16 +221,16 @@ async def get_public_portal(
     # Collect all related type keys to batch-fetch their labels
     related_type_keys = set()
     for rt in rel_types_raw:
-        if rt.source_type_key != portal.fact_sheet_type:
+        if rt.source_type_key != portal.card_type:
             related_type_keys.add(rt.source_type_key)
-        if rt.target_type_key != portal.fact_sheet_type:
+        if rt.target_type_key != portal.card_type:
             related_type_keys.add(rt.target_type_key)
 
     type_labels: dict[str, str] = {}
     if related_type_keys:
         labels_result = await db.execute(
-            select(FactSheetType.key, FactSheetType.label).where(
-                FactSheetType.key.in_(related_type_keys)
+            select(CardType.key, CardType.label).where(
+                CardType.key.in_(related_type_keys)
             )
         )
         type_labels = {row.key: row.label for row in labels_result.all()}
@@ -239,7 +239,7 @@ async def get_public_portal(
     for rt in rel_types_raw:
         other_type = (
             rt.target_type_key
-            if rt.source_type_key == portal.fact_sheet_type
+            if rt.source_type_key == portal.card_type
             else rt.source_type_key
         )
         rel_types.append({
@@ -275,7 +275,7 @@ async def get_public_portal(
         "name": portal.name,
         "slug": portal.slug,
         "description": portal.description,
-        "fact_sheet_type": portal.fact_sheet_type,
+        "card_type": portal.card_type,
         "filters": portal.filters,
         "display_fields": portal.display_fields,
         "card_config": portal.card_config,
@@ -291,7 +291,7 @@ async def get_public_portal_relation_options(
     type_key: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return fact sheet name/id pairs for a given type, for filter dropdowns."""
+    """Return card name/id pairs for a given type, for filter dropdowns."""
     result = await db.execute(
         select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
     )
@@ -299,19 +299,19 @@ async def get_public_portal_relation_options(
     if not portal:
         raise HTTPException(404, "Portal not found")
 
-    fs_result = await db.execute(
-        select(FactSheet.id, FactSheet.name)
-        .where(FactSheet.type == type_key, FactSheet.status == "ACTIVE")
-        .order_by(FactSheet.name)
+    card_result = await db.execute(
+        select(Card.id, Card.name)
+        .where(Card.type == type_key, Card.status == "ACTIVE")
+        .order_by(Card.name)
     )
     return [
         {"id": str(row.id), "name": row.name}
-        for row in fs_result.all()
+        for row in card_result.all()
     ]
 
 
-@router.get("/public/{slug}/fact-sheets")
-async def get_public_portal_fact_sheets(
+@router.get("/public/{slug}/cards")
+async def get_public_portal_cards(
     slug: str,
     search: str | None = Query(None),
     subtype: str | None = Query(None),
@@ -326,7 +326,7 @@ async def get_public_portal_fact_sheets(
     sort_dir: str = Query("asc"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Public endpoint: returns fact sheets for a published portal with optional filtering."""
+    """Public endpoint: returns cards for a published portal with optional filtering."""
     result = await db.execute(
         select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
     )
@@ -334,49 +334,49 @@ async def get_public_portal_fact_sheets(
     if not portal:
         raise HTTPException(404, "Portal not found")
 
-    q = select(FactSheet).where(
-        FactSheet.type == portal.fact_sheet_type,
-        FactSheet.status == "ACTIVE",
+    q = select(Card).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
     )
-    count_q = select(func.count(FactSheet.id)).where(
-        FactSheet.type == portal.fact_sheet_type,
-        FactSheet.status == "ACTIVE",
+    count_q = select(func.count(Card.id)).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
     )
 
     # Apply portal-level preset filters
     portal_filters = portal.filters or {}
     if portal_filters.get("subtypes"):
-        q = q.where(FactSheet.subtype.in_(portal_filters["subtypes"]))
-        count_q = count_q.where(FactSheet.subtype.in_(portal_filters["subtypes"]))
-    if portal_filters.get("quality_seals"):
-        q = q.where(FactSheet.quality_seal.in_(portal_filters["quality_seals"]))
-        count_q = count_q.where(FactSheet.quality_seal.in_(portal_filters["quality_seals"]))
+        q = q.where(Card.subtype.in_(portal_filters["subtypes"]))
+        count_q = count_q.where(Card.subtype.in_(portal_filters["subtypes"]))
+    if portal_filters.get("approval_statuss"):
+        q = q.where(Card.approval_status.in_(portal_filters["approval_statuss"]))
+        count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuss"]))
 
     # Apply user-supplied search
     if search:
         like = f"%{search}%"
         q = q.where(
-            or_(FactSheet.name.ilike(like), FactSheet.description.ilike(like))
+            or_(Card.name.ilike(like), Card.description.ilike(like))
         )
         count_q = count_q.where(
-            or_(FactSheet.name.ilike(like), FactSheet.description.ilike(like))
+            or_(Card.name.ilike(like), Card.description.ilike(like))
         )
 
     # Filter by subtype (user)
     if subtype:
-        q = q.where(FactSheet.subtype == subtype)
-        count_q = count_q.where(FactSheet.subtype == subtype)
+        q = q.where(Card.subtype == subtype)
+        count_q = count_q.where(Card.subtype == subtype)
 
     # Filter by tags
     if tag_ids:
         ids = [t.strip() for t in tag_ids.split(",") if t.strip()]
         if ids:
             tag_uuids = [uuid.UUID(tid) for tid in ids]
-            tagged_fs = select(FactSheetTag.fact_sheet_id).where(
-                FactSheetTag.tag_id.in_(tag_uuids)
+            tagged_fs = select(CardTag.card_id).where(
+                CardTag.tag_id.in_(tag_uuids)
             )
-            q = q.where(FactSheet.id.in_(tagged_fs))
-            count_q = count_q.where(FactSheet.id.in_(tagged_fs))
+            q = q.where(Card.id.in_(tagged_fs))
+            count_q = count_q.where(Card.id.in_(tagged_fs))
 
     # Filter by attribute values (e.g. {"businessCriticality": "high"})
     if attr_filters:
@@ -386,13 +386,13 @@ async def get_public_portal_fact_sheets(
                 for attr_key, attr_val in parsed.items():
                     if not isinstance(attr_key, str) or not attr_key:
                         continue
-                    cond = FactSheet.attributes[attr_key].astext.cast(Text) == str(attr_val)
+                    cond = Card.attributes[attr_key].astext.cast(Text) == str(attr_val)
                     q = q.where(cond)
                     count_q = count_q.where(cond)
         except (json.JSONDecodeError, TypeError):
             pass  # Ignore malformed attr_filters
 
-    # Filter by relationship to a specific fact sheet (single, legacy)
+    # Filter by relationship to a specific card (single, legacy)
     if related_type and related_id:
         rid = uuid.UUID(related_id)
         related_fs = select(Relation.target_id).where(
@@ -404,18 +404,18 @@ async def get_public_portal_fact_sheets(
                 Relation.target_id == rid,
             )
         )
-        q = q.where(FactSheet.id.in_(related_fs))
-        count_q = count_q.where(FactSheet.id.in_(related_fs))
+        q = q.where(Card.id.in_(related_fs))
+        count_q = count_q.where(Card.id.in_(related_fs))
 
     # Filter by multiple relations (JSON: {"relTypeKey": "factSheetId", ...})
     if relation_filters:
         try:
             parsed_rf = json.loads(relation_filters)
             if isinstance(parsed_rf, dict):
-                for rel_key, fs_id in parsed_rf.items():
-                    if not rel_key or not fs_id:
+                for rel_key, card_id in parsed_rf.items():
+                    if not rel_key or not card_id:
                         continue
-                    rid = uuid.UUID(str(fs_id))
+                    rid = uuid.UUID(str(card_id))
                     sub = select(Relation.target_id).where(
                         Relation.type == rel_key,
                         Relation.source_id == rid,
@@ -425,40 +425,40 @@ async def get_public_portal_fact_sheets(
                             Relation.target_id == rid,
                         )
                     )
-                    q = q.where(FactSheet.id.in_(sub))
-                    count_q = count_q.where(FactSheet.id.in_(sub))
+                    q = q.where(Card.id.in_(sub))
+                    count_q = count_q.where(Card.id.in_(sub))
         except (json.JSONDecodeError, TypeError, ValueError):
             pass
 
     # Sorting — H9: whitelist sort columns
-    _allowed_sorts = {"name", "type", "status", "quality_seal", "completion", "created_at", "updated_at", "subtype"}
+    _allowed_sorts = {"name", "type", "status", "approval_status", "data_quality", "created_at", "updated_at", "subtype"}
     if sort_by not in _allowed_sorts:
         sort_by = "name"
-    sort_col = getattr(FactSheet, sort_by, FactSheet.name)
+    sort_col = getattr(Card, sort_by, Card.name)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
     q = q.offset((page - 1) * page_size).limit(page_size)
 
     total_result = await db.execute(count_q)
     total = total_result.scalar() or 0
 
-    fs_result = await db.execute(q)
-    fact_sheets = fs_result.scalars().all()
+    card_result = await db.execute(q)
+    cards = card_result.scalars().all()
 
-    # Collect tag data for the result fact sheets
-    fs_ids = [fs.id for fs in fact_sheets]
+    # Collect tag data for the result cards
+    card_ids = [card.id for card in cards]
     tags_map: dict[str, list] = {}
-    if fs_ids:
+    if card_ids:
         tag_rows = await db.execute(
             select(
-                FactSheetTag.fact_sheet_id,
+                CardTag.card_id,
                 Tag.id,
                 Tag.name,
                 Tag.color,
                 TagGroup.name.label("group_name"),
             )
-            .join(Tag, Tag.id == FactSheetTag.tag_id)
+            .join(Tag, Tag.id == CardTag.tag_id)
             .join(TagGroup, TagGroup.id == Tag.tag_group_id)
-            .where(FactSheetTag.fact_sheet_id.in_(fs_ids))
+            .where(CardTag.card_id.in_(card_ids))
         )
         for row in tag_rows.all():
             fsid = str(row[0])
@@ -469,20 +469,20 @@ async def get_public_portal_fact_sheets(
                 "group_name": row[4],
             })
 
-    # Collect relations for the result fact sheets (to show related items)
+    # Collect relations for the result cards (to show related items)
     relations_map: dict[str, list] = {}
-    if fs_ids:
+    if card_ids:
         # Source relations
         src_rows = await db.execute(
             select(
                 Relation.source_id,
                 Relation.type,
                 Relation.target_id,
-                FactSheet.name.label("target_name"),
-                FactSheet.type.label("target_type"),
+                Card.name.label("target_name"),
+                Card.type.label("target_type"),
             )
-            .join(FactSheet, FactSheet.id == Relation.target_id)
-            .where(Relation.source_id.in_(fs_ids))
+            .join(Card, Card.id == Relation.target_id)
+            .where(Relation.source_id.in_(card_ids))
         )
         for row in src_rows.all():
             fsid = str(row[0])
@@ -499,11 +499,11 @@ async def get_public_portal_fact_sheets(
                 Relation.target_id,
                 Relation.type,
                 Relation.source_id,
-                FactSheet.name.label("source_name"),
-                FactSheet.type.label("source_type"),
+                Card.name.label("source_name"),
+                Card.type.label("source_type"),
             )
-            .join(FactSheet, FactSheet.id == Relation.source_id)
-            .where(Relation.target_id.in_(fs_ids))
+            .join(Card, Card.id == Relation.source_id)
+            .where(Relation.target_id.in_(card_ids))
         )
         for row in tgt_rows.all():
             fsid = str(row[0])
@@ -515,17 +515,17 @@ async def get_public_portal_fact_sheets(
                 "direction": "incoming",
             })
 
-    # Collect subscriptions for the result fact sheets
+    # Collect subscriptions for the result cards
     subs_map: dict[str, list] = {}
-    if fs_ids:
+    if card_ids:
         sub_rows = await db.execute(
             select(
-                Subscription.fact_sheet_id,
-                Subscription.role,
+                Stakeholder.card_id,
+                Stakeholder.role,
                 User.display_name,
             )
-            .join(User, User.id == Subscription.user_id)
-            .where(Subscription.fact_sheet_id.in_(fs_ids))
+            .join(User, User.id == Stakeholder.user_id)
+            .where(Stakeholder.card_id.in_(card_ids))
         )
         for row in sub_rows.all():
             fsid = str(row[0])
@@ -535,22 +535,22 @@ async def get_public_portal_fact_sheets(
             })
 
     items = []
-    for fs in fact_sheets:
-        fsid = str(fs.id)
+    for card in cards:
+        fsid = str(card.id)
         items.append({
             "id": fsid,
-            "name": fs.name,
-            "type": fs.type,
-            "subtype": fs.subtype,
-            "description": fs.description,
-            "lifecycle": fs.lifecycle,
-            "attributes": fs.attributes,
-            "quality_seal": fs.quality_seal,
-            "completion": fs.completion,
+            "name": card.name,
+            "type": card.type,
+            "subtype": card.subtype,
+            "description": card.description,
+            "lifecycle": card.lifecycle,
+            "attributes": card.attributes,
+            "approval_status": card.approval_status,
+            "data_quality": card.data_quality,
             "tags": tags_map.get(fsid, []),
             "relations": relations_map.get(fsid, []),
-            "subscriptions": subs_map.get(fsid, []),
-            "updated_at": fs.updated_at.isoformat() if fs.updated_at else None,
+            "stakeholders": subs_map.get(fsid, []),
+            "updated_at": card.updated_at.isoformat() if card.updated_at else None,
         })
 
     return {

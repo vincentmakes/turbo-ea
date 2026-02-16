@@ -9,17 +9,17 @@ import MenuItem from "@mui/material/MenuItem";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { FactSheetType } from "@/types";
+import type { CardType } from "@/types";
 
 interface Props {
   open: boolean;
-  types: FactSheetType[];
+  types: CardType[];
   onClose: () => void;
   onCreate: (data: { type: string; name: string; description?: string }) => void;
 }
 
 /**
- * Lightweight dialog for creating a new fact sheet directly from the diagram.
+ * Lightweight dialog for creating a new card directly from the diagram.
  * Only asks for type + name (+ optional description).  The actual API call is
  * deferred until the user synchronises from the sync panel.
  */
@@ -56,7 +56,7 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
     <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="note_add" size={22} color="#6a1b9a" />
-        Create Fact Sheet
+        Create Card
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
         <TextField

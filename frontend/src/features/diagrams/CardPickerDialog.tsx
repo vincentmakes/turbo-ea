@@ -13,34 +13,34 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheetType, FactSheet, FactSheetListResponse } from "@/types";
+import type { CardType, Card, CardListResponse } from "@/types";
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onInsert: (fs: FactSheet, fsType: FactSheetType) => void;
+  onInsert: (card: Card, cardTypeKey: CardType) => void;
 }
 
-export default function FactSheetPickerDialog({
+export default function CardPickerDialog({
   open,
   onClose,
   onInsert,
 }: Props) {
-  const [types, setTypes] = useState<FactSheetType[]>([]);
+  const [types, setTypes] = useState<CardType[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [factSheets, setFactSheets] = useState<FactSheet[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Load types once
   useEffect(() => {
     if (!open) return;
     api
-      .get<FactSheetType[]>("/metamodel/types")
+      .get<CardType[]>("/metamodel/types")
       .then((t) => setTypes(t.filter((x) => !x.is_hidden)));
   }, [open]);
 
-  // Search fact sheets when type or search changes
+  // Search cards when type or search changes
   useEffect(() => {
     if (!open) return;
     const params = new URLSearchParams({ page_size: "100" });
@@ -48,14 +48,14 @@ export default function FactSheetPickerDialog({
     if (search.trim()) params.set("search", search.trim());
 
     if (!selectedType && !search.trim()) {
-      setFactSheets([]);
+      setCards([]);
       return;
     }
 
     setLoading(true);
     api
-      .get<FactSheetListResponse>(`/fact-sheets?${params}`)
-      .then((r) => setFactSheets(r.items))
+      .get<CardListResponse>(`/cards?${params}`)
+      .then((r) => setCards(r.items))
       .finally(() => setLoading(false));
   }, [open, selectedType, search]);
 
@@ -64,7 +64,7 @@ export default function FactSheetPickerDialog({
     if (!open) {
       setSelectedType(null);
       setSearch("");
-      setFactSheets([]);
+      setCards([]);
     }
   }, [open]);
 
@@ -74,10 +74,10 @@ export default function FactSheetPickerDialog({
   );
 
   const handleSelect = useCallback(
-    (fs: FactSheet) => {
-      const fsType = typeMap.get(fs.type);
-      if (fsType) {
-        onInsert(fs, fsType);
+    (card: Card) => {
+      const cardTypeKey = typeMap.get(card.type);
+      if (cardTypeKey) {
+        onInsert(card, cardTypeKey);
         onClose();
       }
     },
@@ -86,14 +86,14 @@ export default function FactSheetPickerDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>Insert Fact Sheet</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>Insert Card</DialogTitle>
       <DialogContent>
         {/* Search */}
         <TextField
           autoFocus
           size="small"
           fullWidth
-          placeholder="Search fact sheets..."
+          placeholder="Search cards..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
@@ -146,22 +146,22 @@ export default function FactSheetPickerDialog({
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
               <CircularProgress size={24} />
             </Box>
-          ) : factSheets.length === 0 ? (
+          ) : cards.length === 0 ? (
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{ textAlign: "center", py: 4 }}
             >
               {selectedType || search.trim()
-                ? "No fact sheets found"
+                ? "No cards found"
                 : "Select a type or search to browse"}
             </Typography>
           ) : (
             <List dense disablePadding>
-              {factSheets.map((fs) => {
-                const t = typeMap.get(fs.type);
+              {cards.map((card) => {
+                const t = typeMap.get(card.type);
                 return (
-                  <ListItemButton key={fs.id} onClick={() => handleSelect(fs)}>
+                  <ListItemButton key={card.id} onClick={() => handleSelect(card)}>
                     {t && (
                       <MaterialSymbol
                         icon={t.icon}
@@ -170,7 +170,7 @@ export default function FactSheetPickerDialog({
                       />
                     )}
                     <ListItemText
-                      primary={fs.name}
+                      primary={card.name}
                       secondary={t?.label}
                       primaryTypographyProps={{ noWrap: true, ml: 1 }}
                       secondaryTypographyProps={{

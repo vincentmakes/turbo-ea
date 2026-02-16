@@ -30,7 +30,7 @@ async def create_notification(
     message: str = "",
     link: str | None = None,
     data: dict[str, Any] | None = None,
-    fact_sheet_id: uuid.UUID | None = None,
+    card_id: uuid.UUID | None = None,
     actor_id: uuid.UUID | None = None,
 ) -> Notification | None:
     """Create a notification for a user if their preferences allow it.
@@ -66,7 +66,7 @@ async def create_notification(
         message=message,
         link=link,
         data=data or {},
-        fact_sheet_id=fact_sheet_id,
+        card_id=card_id,
         actor_id=actor_id,
         is_emailed=False,
     )
@@ -109,7 +109,7 @@ async def create_notification(
 async def create_notifications_for_subscribers(
     db: AsyncSession,
     *,
-    fact_sheet_id: uuid.UUID,
+    card_id: uuid.UUID,
     notif_type: str,
     title: str,
     message: str = "",
@@ -117,11 +117,11 @@ async def create_notifications_for_subscribers(
     data: dict[str, Any] | None = None,
     actor_id: uuid.UUID | None = None,
 ) -> list[Notification]:
-    """Create notifications for all subscribers of a fact sheet."""
-    from app.models.subscription import Subscription
+    """Create notifications for all subscribers of a card."""
+    from app.models.stakeholder import Stakeholder
 
     result = await db.execute(
-        select(Subscription).where(Subscription.fact_sheet_id == fact_sheet_id)
+        select(Stakeholder).where(Stakeholder.card_id == card_id)
     )
     subs = result.scalars().all()
 
@@ -135,7 +135,7 @@ async def create_notifications_for_subscribers(
             message=message,
             link=link,
             data=data,
-            fact_sheet_id=fact_sheet_id,
+            card_id=card_id,
             actor_id=actor_id,
         )
         if notif:

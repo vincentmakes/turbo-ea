@@ -1,6 +1,6 @@
 """BPM demo seed data for NexaTech Industries.
 
-Adds BusinessProcess fact sheets, BPM relations, BPMN diagrams with extracted
+Adds BusinessProcess cards, BPM relations, BPMN diagrams with extracted
 process elements, and process assessments.  Designed to layer on top of the
 base NexaTech demo dataset (seed_demo.py) without requiring a full reset.
 
@@ -17,7 +17,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.relation import Relation
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
@@ -45,7 +45,7 @@ def _fs(
 ):
     d: dict = dict(
         id=_id(ref), type="BusinessProcess", name=name, status="ACTIVE",
-        quality_seal=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
+        approval_status=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
     )
     if parent:
         d["parent_id"] = _id(parent)
@@ -408,7 +408,7 @@ PROCESSES = [
 
 # ===================================================================
 # BPM RELATIONS – linking processes to existing demo entities
-# Uses string names to look up existing fact sheets at runtime
+# Uses string names to look up existing cards at runtime
 # ===================================================================
 # We'll use a lookup dict populated at seed time for existing entities.
 # For now, define the spec and resolve at runtime.
@@ -779,7 +779,7 @@ _OTC_ELEMENTS = [
 # ===================================================================
 # COMPLETION SCORING  (reused from seed_demo.py)
 # ===================================================================
-def _compute_completion(d: dict, type_schemas: dict[str, list]) -> float:
+def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
     schema = type_schemas.get(d["type"], [])
     total_weight = 0.0
     filled_weight = 0.0
@@ -811,19 +811,19 @@ def _compute_completion(d: dict, type_schemas: dict[str, list]) -> float:
 async def seed_bpm_demo_data(db: AsyncSession) -> dict:
     """Insert BPM demo data. Safe to run on top of existing base demo data.
 
-    Returns counts dict. Skips if BusinessProcess fact sheets already exist.
+    Returns counts dict. Skips if BusinessProcess cards already exist.
     """
     # Check if BPM data already seeded
     result = await db.execute(
-        select(FactSheet.id).where(FactSheet.type == "BusinessProcess").limit(1)
+        select(Card.id).where(Card.type == "BusinessProcess").limit(1)
     )
     if result.scalar_one_or_none() is not None:
-        return {"skipped": True, "reason": "BusinessProcess fact sheets already exist"}
+        return {"skipped": True, "reason": "BusinessProcess cards already exist"}
 
-    # Build lookup: existing fact sheet name → id  (for cross-type relations)
+    # Build lookup: existing card name → id  (for cross-type relations)
     # Use (name, type) tuple to avoid collisions when the same name exists
     # in multiple types (e.g. "ServiceNow" as Application AND Provider).
-    existing_result = await db.execute(select(FactSheet.id, FactSheet.name, FactSheet.type))
+    existing_result = await db.execute(select(Card.id, Card.name, Card.type))
     name_type_to_id: dict[tuple[str, str], uuid.UUID] = {}
     name_to_id: dict[str, uuid.UUID] = {}  # fallback
     for row in existing_result.all():
@@ -833,14 +833,14 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
     # Build relation type key → target_type_key mapping for type-aware resolution
     _rel_target_type = {r["key"]: r["target_type_key"] for r in _META_RELATIONS}
 
-    # Compute completion scores
+    # Compute data quality scores
     type_schemas = {t["key"]: t.get("fields_schema", []) for t in _META_TYPES}
     for d in PROCESSES:
-        d["completion"] = _compute_completion(d, type_schemas)
+        d["data_quality"] = _compute_data_quality(d, type_schemas)
 
-    # Insert BusinessProcess fact sheets
+    # Insert BusinessProcess cards
     for d in PROCESSES:
-        db.add(FactSheet(**d))
+        db.add(Card(**d))
     await db.flush()
 
     # Resolve and insert relations
@@ -952,7 +952,7 @@ async def seed_bpm_demo_data(db: AsyncSession) -> dict:
 
     await db.commit()
     return {
-        "fact_sheets": len(PROCESSES),
+        "cards": len(PROCESSES),
         "relations": rel_count,
         "diagrams": diagram_count,
         "elements": element_count,

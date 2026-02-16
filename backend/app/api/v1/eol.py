@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -61,21 +61,21 @@ class EolProductMatch(BaseModel):
 
 
 class MassEolCandidate(BaseModel):
-    """A candidate EOL match for a fact sheet."""
+    """A candidate EOL match for a card."""
 
-    fact_sheet_id: str
-    fact_sheet_name: str
-    fact_sheet_type: str
+    card_id: str
+    card_name: str
+    card_type: str
     eol_product: str
     score: float
 
 
 class MassEolResult(BaseModel):
-    """Result of mass EOL search for a single fact sheet."""
+    """Result of mass EOL search for a single card."""
 
-    fact_sheet_id: str
-    fact_sheet_name: str
-    fact_sheet_type: str
+    card_id: str
+    card_name: str
+    card_type: str
     current_eol_product: str | None = None
     current_eol_cycle: str | None = None
     candidates: list[MassEolCandidate]
@@ -273,14 +273,14 @@ async def get_product_cycles(
 
 @router.post("/mass-search", response_model=list[MassEolResult])
 async def mass_eol_search(
-    type_key: str = Query(..., description="Fact sheet type to search (Application or ITComponent)"),
+    type_key: str = Query(..., description="Card type to search (Application or ITComponent)"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Mass-search EOL products for all fact sheets of a given type.
+    """Mass-search EOL products for all cards of a given type.
 
-    Finds fuzzy matches on endoflife.date for each fact sheet name.
-    Only returns fact sheets that have potential matches.
+    Finds fuzzy matches on endoflife.date for each card name.
+    Only returns cards that have potential matches.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
 
@@ -290,36 +290,36 @@ async def mass_eol_search(
             detail="Only Application and ITComponent types support EOL linking",
         )
 
-    # Fetch all active fact sheets of the given type
+    # Fetch all active cards of the given type
     stmt = (
-        select(FactSheet)
-        .where(FactSheet.type == type_key)
-        .where(FactSheet.status == "ACTIVE")
-        .order_by(FactSheet.name)
+        select(Card)
+        .where(Card.type == type_key)
+        .where(Card.status == "ACTIVE")
+        .order_by(Card.name)
     )
     result = await db.execute(stmt)
-    fact_sheets = result.scalars().all()
+    cards = result.scalars().all()
 
-    if not fact_sheets:
+    if not cards:
         return []
 
     # Fetch EOL product list
     products = await _get_all_products()
 
-    # Build results with fuzzy matches for each fact sheet
+    # Build results with fuzzy matches for each card
     results: list[MassEolResult] = []
 
     # Process in parallel using asyncio (fuzzy search is CPU-bound but fast)
-    for fs in fact_sheets:
-        matches = _fuzzy_search(fs.name, products, limit=5, threshold=0.35)
-        current_product = (fs.attributes or {}).get("eol_product")
-        current_cycle = (fs.attributes or {}).get("eol_cycle")
+    for card in cards:
+        matches = _fuzzy_search(card.name, products, limit=5, threshold=0.35)
+        current_product = (card.attributes or {}).get("eol_product")
+        current_cycle = (card.attributes or {}).get("eol_cycle")
 
         candidates = [
             MassEolCandidate(
-                fact_sheet_id=str(fs.id),
-                fact_sheet_name=fs.name,
-                fact_sheet_type=fs.type,
+                card_id=str(card.id),
+                card_name=card.name,
+                card_type=card.type,
                 eol_product=name,
                 score=round(score, 3),
             )
@@ -328,9 +328,9 @@ async def mass_eol_search(
 
         results.append(
             MassEolResult(
-                fact_sheet_id=str(fs.id),
-                fact_sheet_name=fs.name,
-                fact_sheet_type=fs.type,
+                card_id=str(card.id),
+                card_name=card.name,
+                card_type=card.type,
                 current_eol_product=current_product,
                 current_eol_cycle=current_cycle,
                 candidates=candidates,
@@ -346,9 +346,9 @@ async def mass_eol_link(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Bulk-link fact sheets to EOL products/cycles.
+    """Bulk-link cards to EOL products/cycles.
 
-    Expects a list of: [{fact_sheet_id, eol_product, eol_cycle}].
+    Expects a list of: [{card_id, eol_product, eol_cycle}].
     For ITComponent type, lifecycle dates are synced from EOL data.
     """
     await PermissionService.require_permission(db, user, "eol.manage")
@@ -357,26 +357,26 @@ async def mass_eol_link(
     updated = []
 
     for link in links:
-        fs_id = link.get("fact_sheet_id")
+        card_id = link.get("card_id")
         product = link.get("eol_product")
         cycle = link.get("eol_cycle")
-        if not fs_id or not product or not cycle:
+        if not card_id or not product or not cycle:
             continue
 
-        stmt = select(FactSheet).where(FactSheet.id == fs_id)
+        stmt = select(Card).where(Card.id == card_id)
         result = await db.execute(stmt)
-        fs = result.scalar_one_or_none()
-        if not fs:
+        card = result.scalar_one_or_none()
+        if not card:
             continue
 
         # Update attributes
-        attrs = dict(fs.attributes or {})
+        attrs = dict(card.attributes or {})
         attrs["eol_product"] = product
         attrs["eol_cycle"] = cycle
-        fs.attributes = attrs
+        card.attributes = attrs
 
         # For ITComponent: sync lifecycle dates
-        if fs.type == "ITComponent":
+        if card.type == "ITComponent":
             try:
                 resp = await client.get(f"{EOL_BASE}/{product}.json")
                 if resp.status_code == 200:
@@ -386,7 +386,7 @@ async def mass_eol_link(
                         None,
                     )
                     if match:
-                        lifecycle = dict(fs.lifecycle or {})
+                        lifecycle = dict(card.lifecycle or {})
                         if match.get("releaseDate"):
                             lifecycle["active"] = match["releaseDate"]
                         support = match.get("support")
@@ -395,11 +395,11 @@ async def mass_eol_link(
                         eol_val = match.get("eol")
                         if isinstance(eol_val, str):
                             lifecycle["endOfLife"] = eol_val
-                        fs.lifecycle = lifecycle
+                        card.lifecycle = lifecycle
             except httpx.HTTPError:
                 pass  # Link without lifecycle sync on error
 
-        updated.append(str(fs.id))
+        updated.append(str(card.id))
 
     await db.commit()
     return {"updated": updated, "count": len(updated)}

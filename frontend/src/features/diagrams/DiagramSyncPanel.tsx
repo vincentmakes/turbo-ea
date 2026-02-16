@@ -13,7 +13,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface PendingFactSheet {
+export interface PendingCard {
   cellId: string;
   type: string;
   typeLabel: string;
@@ -30,14 +30,14 @@ export interface PendingRelation {
   targetName: string;
   sourceColor: string;
   targetColor: string;
-  /** Real or pending- prefixed IDs of the connected fact sheets */
-  sourceFactSheetId: string;
-  targetFactSheetId: string;
+  /** Real or pending- prefixed IDs of the connected cards */
+  sourceCardId: string;
+  targetCardId: string;
 }
 
 export interface StaleItem {
   cellId: string;
-  factSheetId: string;
+  cardId: string;
   diagramName: string;
   inventoryName: string;
   typeColor: string;
@@ -46,7 +46,7 @@ export interface StaleItem {
 interface Props {
   open: boolean;
   onClose: () => void;
-  pendingFS: PendingFactSheet[];
+  pendingCards: PendingCard[];
   pendingRels: PendingRelation[];
   staleItems: StaleItem[];
   syncing: boolean;
@@ -67,7 +67,7 @@ interface Props {
 export default function DiagramSyncPanel({
   open,
   onClose,
-  pendingFS,
+  pendingCards,
   pendingRels,
   staleItems,
   syncing,
@@ -80,7 +80,7 @@ export default function DiagramSyncPanel({
   onCheckUpdates,
   checkingUpdates,
 }: Props) {
-  const totalPending = pendingFS.length + pendingRels.length;
+  const totalPending = pendingCards.length + pendingRels.length;
 
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: 360 } }}>
@@ -127,30 +127,30 @@ export default function DiagramSyncPanel({
           </Button>
         </Box>
 
-        {/* ---- Pending fact sheets ---- */}
-        {pendingFS.length > 0 && (
+        {/* ---- Pending cards ---- */}
+        {pendingCards.length > 0 && (
           <>
-            <SectionTitle icon="note_add" label="New Fact Sheets" count={pendingFS.length} />
-            {pendingFS.map((fs) => (
-              <ItemRow key={fs.cellId}>
+            <SectionTitle icon="note_add" label="New Cards" count={pendingCards.length} />
+            {pendingCards.map((card) => (
+              <ItemRow key={card.cellId}>
                 <Box
-                  sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: fs.typeColor, flexShrink: 0 }}
+                  sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: card.typeColor, flexShrink: 0 }}
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" noWrap fontWeight={500}>
-                    {fs.name}
+                    {card.name}
                   </Typography>
                   <Typography variant="caption" color="text.disabled">
-                    {fs.typeLabel}
+                    {card.typeLabel}
                   </Typography>
                 </Box>
                 <Tooltip title="Push to inventory">
-                  <IconButton size="small" onClick={() => onSyncFS(fs.cellId)} disabled={syncing}>
+                  <IconButton size="small" onClick={() => onSyncFS(card.cellId)} disabled={syncing}>
                     <MaterialSymbol icon="cloud_upload" size={16} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Remove from diagram">
-                  <IconButton size="small" onClick={() => onRemoveFS(fs.cellId)} disabled={syncing}>
+                  <IconButton size="small" onClick={() => onRemoveFS(card.cellId)} disabled={syncing}>
                     <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
                   </IconButton>
                 </Tooltip>

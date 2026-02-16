@@ -39,8 +39,8 @@ const BUILT_IN_PROPERTIES = [
   { key: "lifecycle", label: "Lifecycle" },
   { key: "tags", label: "Tags" },
   { key: "subscribers", label: "Team / Subscribers" },
-  { key: "completion", label: "Completion" },
-  { key: "quality_seal", label: "Quality Seal" },
+  { key: "data_quality", label: "Data Quality" },
+  { key: "approval_status", label: "Approval Status" },
 ];
 
 const DEFAULT_CARD: Record<string, boolean> = {
@@ -48,8 +48,8 @@ const DEFAULT_CARD: Record<string, boolean> = {
   lifecycle: true,
   tags: true,
   subscribers: true,
-  completion: true,
-  quality_seal: false,
+  data_quality: true,
+  approval_status: false,
 };
 
 const DEFAULT_DETAIL: Record<string, boolean> = {
@@ -57,8 +57,8 @@ const DEFAULT_DETAIL: Record<string, boolean> = {
   lifecycle: true,
   tags: true,
   subscribers: true,
-  completion: true,
-  quality_seal: true,
+  data_quality: true,
+  approval_status: true,
 };
 
 function slugify(text: string): string {
@@ -81,7 +81,7 @@ export default function WebPortalsAdmin() {
   const [slug, setSlug] = useState("");
   const [slugManual, setSlugManual] = useState(false);
   const [description, setDescription] = useState("");
-  const [factSheetType, setFactSheetType] = useState("");
+  const [cardType, setCardType] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
@@ -107,7 +107,7 @@ export default function WebPortalsAdmin() {
     setSlug("");
     setSlugManual(false);
     setDescription("");
-    setFactSheetType("");
+    setCardType("");
     setIsPublished(false);
     setToggles({});
     setFilterSubtypes([]);
@@ -127,7 +127,7 @@ export default function WebPortalsAdmin() {
     setSlug(portal.slug);
     setSlugManual(true);
     setDescription(portal.description || "");
-    setFactSheetType(portal.fact_sheet_type);
+    setCardType(portal.card_type);
     setIsPublished(portal.is_published);
     setToggles(
       (portal.card_config as Record<string, unknown>)?.toggles as Toggles || {}
@@ -149,23 +149,23 @@ export default function WebPortalsAdmin() {
     }
   };
 
-  const selectedType = visibleTypes.find((t) => t.key === factSheetType);
+  const selectedType = visibleTypes.find((t) => t.key === cardType);
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
-  // Relation types applicable to the selected fact sheet type
-  const applicableRelTypes = factSheetType
+  // Relation types applicable to the selected card type
+  const applicableRelTypes = cardType
     ? relationTypes.filter(
         (r) =>
           !r.is_hidden &&
-          (r.source_type_key === factSheetType ||
-            r.target_type_key === factSheetType)
+          (r.source_type_key === cardType ||
+            r.target_type_key === cardType)
       )
     : [];
 
   const getOtherTypeLabel = (rt: { source_type_key: string; target_type_key: string }) => {
     const otherKey =
-      rt.source_type_key === factSheetType
+      rt.source_type_key === cardType
         ? rt.target_type_key
         : rt.source_type_key;
     return types.find((t) => t.key === otherKey)?.label || otherKey;
@@ -179,7 +179,7 @@ export default function WebPortalsAdmin() {
       name,
       slug,
       description: description || null,
-      fact_sheet_type: factSheetType,
+      card_type: cardType,
       is_published: isPublished,
       display_fields: null,
       filters:
@@ -251,8 +251,8 @@ export default function WebPortalsAdmin() {
       </Box>
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Web portals are public-facing pages that display fact sheets to end
-        users without requiring authentication. Configure which fact sheet type
+        Web portals are public-facing pages that display cards to end
+        users without requiring authentication. Configure which card type
         to display, apply filters, and customize the card layout.
       </Typography>
 
@@ -273,7 +273,7 @@ export default function WebPortalsAdmin() {
               No web portals yet
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Create your first portal to share fact sheet data with end users.
+              Create your first portal to share card data with end users.
             </Typography>
             <Button variant="outlined" onClick={openCreate}>
               Create Portal
@@ -290,7 +290,7 @@ export default function WebPortalsAdmin() {
             <MaterialSymbol
               icon="language"
               size={24}
-              color={getTypeColor(portal.fact_sheet_type)}
+              color={getTypeColor(portal.card_type)}
             />
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -308,13 +308,13 @@ export default function WebPortalsAdmin() {
                 sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}
               >
                 <Chip
-                  label={getTypeLabel(portal.fact_sheet_type)}
+                  label={getTypeLabel(portal.card_type)}
                   size="small"
                   sx={{
                     height: 20,
                     fontSize: "0.65rem",
-                    bgcolor: `${getTypeColor(portal.fact_sheet_type)}18`,
-                    color: getTypeColor(portal.fact_sheet_type),
+                    bgcolor: `${getTypeColor(portal.card_type)}18`,
+                    color: getTypeColor(portal.card_type),
                     fontWeight: 600,
                   }}
                 />
@@ -466,14 +466,14 @@ export default function WebPortalsAdmin() {
           <TextField
             fullWidth
             select
-            label="Fact Sheet Type"
-            value={factSheetType}
+            label="Card Type"
+            value={cardType}
             onChange={(e) => {
-              setFactSheetType(e.target.value);
+              setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
             }}
-            helperText="Which type of fact sheets to display in this portal"
+            helperText="Which type of cards to display in this portal"
           >
             {visibleTypes.map((t) => (
               <MenuItem key={t.key} value={t.key}>
@@ -504,7 +504,7 @@ export default function WebPortalsAdmin() {
               }
               sx={{ mt: 2 }}
               SelectProps={{ multiple: true }}
-              helperText="Only show fact sheets of these subtypes"
+              helperText="Only show cards of these subtypes"
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
@@ -514,7 +514,7 @@ export default function WebPortalsAdmin() {
             </TextField>
           )}
 
-          {factSheetType && (
+          {cardType && (
             <>
             <Divider sx={{ my: 3 }} />
 
@@ -672,7 +672,7 @@ export default function WebPortalsAdmin() {
                     const cardChecked = t ? t.card : false;
                     const detailChecked = t ? t.detail : false;
                     const verb =
-                      rt.source_type_key === factSheetType
+                      rt.source_type_key === cardType
                         ? rt.label
                         : rt.reverse_label || rt.label;
                     return (
@@ -773,7 +773,7 @@ export default function WebPortalsAdmin() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!name.trim() || !slug.trim() || !factSheetType}
+            disabled={!name.trim() || !slug.trim() || !cardType}
           >
             {editingPortal ? "Save Changes" : "Create"}
           </Button>
