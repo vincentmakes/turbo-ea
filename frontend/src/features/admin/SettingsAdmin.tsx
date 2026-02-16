@@ -56,6 +56,11 @@ interface LogoInfo {
   mime_type: string;
 }
 
+interface FaviconInfo {
+  has_custom_favicon: boolean;
+  mime_type: string;
+}
+
 interface SsoSettings {
   enabled: boolean;
   client_id: string;
@@ -75,6 +80,12 @@ export default function SettingsAdmin() {
   const [logoVersion, setLogoVersion] = useState(0);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Favicon state
+  const [hasCustomFavicon, setHasCustomFavicon] = useState(false);
+  const [faviconVersion, setFaviconVersion] = useState(0);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const faviconFileInputRef = useRef<HTMLInputElement>(null);
 
   // Metamodel cache (invalidated when BPM toggle changes type visibility)
   const { invalidateCache: invalidateMetamodel } = useMetamodel();
@@ -112,12 +123,13 @@ export default function SettingsAdmin() {
     Promise.all([
       api.get<EmailSettings>("/settings/email"),
       api.get<LogoInfo>("/settings/logo/info"),
+      api.get<FaviconInfo>("/settings/favicon/info"),
       api.get<{ currency: string }>("/settings/currency"),
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
       api.get<SsoSettings>("/settings/sso"),
       api.get<{ enabled: boolean }>("/settings/registration"),
     ])
-      .then(([emailData, logoData, currencyData, bpmData, ssoData, regData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, ssoData, regData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -127,6 +139,7 @@ export default function SettingsAdmin() {
         setAppBaseUrl(emailData.app_base_url);
         setConfigured(emailData.configured);
         setHasCustomLogo(logoData.has_custom_logo);
+        setHasCustomFavicon(faviconData.has_custom_favicon);
         setSelectedCurrency(currencyData.currency);
         setBpmEnabled(bpmData.enabled);
         setSsoEnabled(ssoData.enabled);
@@ -195,7 +208,6 @@ export default function SettingsAdmin() {
       await api.upload("/settings/logo", file);
       setHasCustomLogo(true);
       setLogoVersion((v) => v + 1);
-      updateFavicons();
       setSnack("Logo updated");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to upload logo");
@@ -212,12 +224,46 @@ export default function SettingsAdmin() {
       await api.delete("/settings/logo");
       setHasCustomLogo(false);
       setLogoVersion((v) => v + 1);
-      updateFavicons();
       setSnack("Logo reset to default");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset logo");
     } finally {
       setUploadingLogo(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFavicon(true);
+    setError("");
+    try {
+      await api.upload("/settings/favicon", file);
+      setHasCustomFavicon(true);
+      setFaviconVersion((v) => v + 1);
+      updateFavicons();
+      setSnack("Favicon updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload favicon");
+    } finally {
+      setUploadingFavicon(false);
+      if (faviconFileInputRef.current) faviconFileInputRef.current.value = "";
+    }
+  };
+
+  const handleFaviconReset = async () => {
+    setUploadingFavicon(true);
+    setError("");
+    try {
+      await api.delete("/settings/favicon");
+      setHasCustomFavicon(false);
+      setFaviconVersion((v) => v + 1);
+      updateFavicons();
+      setSnack("Favicon reset to default");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset favicon");
+    } finally {
+      setUploadingFavicon(false);
     }
   };
 
@@ -320,10 +366,9 @@ export default function SettingsAdmin() {
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom logo to replace the default Turbo EA branding. The
-          uploaded image will be used in the navigation bar, as the browser
-          favicon, and as the Apple touch icon. Recommended: PNG or SVG with
-          visible colors (not white-on-transparent). Max 2 MB.
+          Upload a custom logo to replace the default Turbo EA branding in the
+          navigation bar. Recommended: PNG or SVG with visible colors (not
+          white-on-transparent). Max 2 MB.
         </Typography>
 
         <Box
@@ -387,6 +432,95 @@ export default function SettingsAdmin() {
                 sx={{ textTransform: "none" }}
                 onClick={handleLogoReset}
                 disabled={uploadingLogo}
+              >
+                Reset to Default
+              </Button>
+            )}
+          </Box>
+        </Box>
+      </Paper>
+
+      {/* Favicon Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="star" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            Favicon
+          </Typography>
+          <Chip
+            label={hasCustomFavicon ? "Custom" : "Default"}
+            size="small"
+            color={hasCustomFavicon ? "info" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Upload a custom favicon for the browser tab icon and Apple touch icon.
+          This can be different from the main logo. Recommended: square PNG,
+          at least 64x64 px. Max 2 MB.
+        </Typography>
+
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+            mb: 2,
+          }}
+        >
+          <Box
+            sx={{
+              width: 80,
+              height: 80,
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              bgcolor: "#f5f5f5",
+              p: 1,
+            }}
+          >
+            <img
+              src={`/api/v1/settings/favicon?v=${faviconVersion}`}
+              alt="Current favicon"
+              style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+            />
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            <input
+              ref={faviconFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+              style={{ display: "none" }}
+              onChange={handleFaviconUpload}
+            />
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={
+                uploadingFavicon ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MaterialSymbol icon="upload" size={18} />
+                )
+              }
+              sx={{ textTransform: "none" }}
+              onClick={() => faviconFileInputRef.current?.click()}
+              disabled={uploadingFavicon}
+            >
+              Upload Favicon
+            </Button>
+            {hasCustomFavicon && (
+              <Button
+                variant="outlined"
+                size="small"
+                color="warning"
+                startIcon={<MaterialSymbol icon="restart_alt" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleFaviconReset}
+                disabled={uploadingFavicon}
               >
                 Reset to Default
               </Button>
