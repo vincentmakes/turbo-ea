@@ -182,9 +182,13 @@ def _fs_to_response(fs: FactSheet) -> FactSheetResponse:
     )
 
 
+_ALLOWED_SORT_COLUMNS = {"name", "type", "status", "quality_seal", "completion", "created_at", "updated_at", "subtype"}
+
+
 @router.get("", response_model=FactSheetListResponse)
 async def list_fact_sheets(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str | None = Query(None),
     status: str | None = Query(None, alias="status"),
     search: str | None = Query(None),
@@ -224,7 +228,9 @@ async def list_fact_sheets(
         q = q.where(FactSheet.quality_seal.in_(seals))
         count_q = count_q.where(FactSheet.quality_seal.in_(seals))
 
-    # Sorting
+    # Sorting — H9: whitelist sort columns
+    if sort_by not in _ALLOWED_SORT_COLUMNS:
+        sort_by = "name"
     sort_col = getattr(FactSheet, sort_by, FactSheet.name)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
     q = q.offset((page - 1) * page_size).limit(page_size)
@@ -282,7 +288,7 @@ async def create_fact_sheet(
 
 
 @router.get("/{fs_id}", response_model=FactSheetResponse)
-async def get_fact_sheet(fs_id: str, db: AsyncSession = Depends(get_db)):
+async def get_fact_sheet(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
     fs = result.scalar_one_or_none()
     if not fs:
@@ -291,7 +297,7 @@ async def get_fact_sheet(fs_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{fs_id}/hierarchy")
-async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db)):
+async def get_hierarchy(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
     """Return ancestors (root→parent), children, and computed level."""
     uid = uuid.UUID(fs_id)
     result = await db.execute(select(FactSheet).where(FactSheet.id == uid))
@@ -428,6 +434,8 @@ async def bulk_update(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    if user.role == "viewer":
+        raise HTTPException(403, "Viewers cannot modify fact sheets")
     uuids = [uuid.UUID(i) for i in body.ids]
     result = await db.execute(select(FactSheet).where(FactSheet.id.in_(uuids)))
     sheets = result.scalars().all()
@@ -443,7 +451,12 @@ async def bulk_update(
 
 
 @router.post("/fix-hierarchy-names")
-async def fix_hierarchy_names(db: AsyncSession = Depends(get_db)):
+async def fix_hierarchy_names(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if user.role != "admin":
+        raise HTTPException(403, "Admin only")
     """One-time cleanup: strip accumulated hierarchy prefixes from names.
 
     A UI bug caused hierarchy paths like "Parent / Child" to be persisted as
@@ -472,6 +485,7 @@ async def fix_hierarchy_names(db: AsyncSession = Depends(get_db)):
 async def get_history(
     fs_id: str,
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
@@ -536,6 +550,7 @@ async def update_quality_seal(
 @router.get("/export/csv")
 async def export_csv(
     db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
     type: str | None = Query(None),
 ):
     q = select(FactSheet).where(FactSheet.status == "ACTIVE")

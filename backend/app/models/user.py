@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import Boolean, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,3 +46,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     notification_preferences: Mapped[dict | None] = mapped_column(
         JSONB, default=lambda: DEFAULT_NOTIFICATION_PREFERENCES.copy()
     )
+
+    # M5: Account lockout after failed login attempts
+    failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

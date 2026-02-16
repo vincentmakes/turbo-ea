@@ -1,7 +1,15 @@
 const BASE = "/api/v1";
 
 function getToken(): string | null {
-  return localStorage.getItem("token");
+  return sessionStorage.getItem("token");
+}
+
+export function setToken(token: string): void {
+  sessionStorage.setItem("token", token);
+}
+
+export function clearToken(): void {
+  sessionStorage.removeItem("token");
 }
 
 async function request<T>(
@@ -83,6 +91,7 @@ export const auth = {
   register: (email: string, display_name: string, password: string) =>
     api.post<{ access_token: string }>("/auth/register", { email, display_name, password }),
   me: () => api.get<{ id: string; email: string; display_name: string; role: string }>("/auth/me"),
+  refresh: () => api.post<{ access_token: string }>("/auth/refresh"),
   ssoConfig: () =>
     api.get<{
       enabled: boolean;

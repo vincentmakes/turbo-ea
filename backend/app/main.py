@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_router
-from app.config import settings
+from app.config import _DEFAULT_SECRET_KEYS, settings
+from app.core.rate_limit import limiter
 from app.database import engine
 from app.models import Base
+
+logger = logging.getLogger(__name__)
 
 
 def _run_alembic_stamp(alembic_cfg, revision):
@@ -26,6 +32,20 @@ def _run_alembic_upgrade(alembic_cfg, revision):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── C2: Refuse startup with default secret key in non-development envs ──
+    if settings.SECRET_KEY in _DEFAULT_SECRET_KEYS:
+        env = settings.ENVIRONMENT
+        if env != "development":
+            raise RuntimeError(
+                "SECRET_KEY must be set to a strong random value in production. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
+            )
+        else:
+            logger.warning(
+                "Using default SECRET_KEY — acceptable for development only. "
+                "Set a strong SECRET_KEY before deploying to production."
+            )
+
     from alembic.config import Config
     from sqlalchemy import inspect as sa_inspect
     from sqlalchemy import text
@@ -109,9 +129,6 @@ async def lifespan(app: FastAPI):
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
 
     # Ensure a demo admin user exists before BPM seed (needed for assessments).
-    # Created here so that seed_bpm_demo_data can find an admin user for
-    # assessor_id.  If a real admin already exists (e.g. user registered
-    # before a SEED_BPM=true restart), this is a no-op.
     if settings.SEED_DEMO or settings.SEED_BPM:
         from app.models.user import User
         from app.core.security import hash_password
@@ -132,7 +149,7 @@ async def lifespan(app: FastAPI):
                 await db.commit()
                 print("[seed] Created demo admin user (admin@turboea.demo)")
 
-    # Seed BPM demo data: runs with SEED_DEMO (full install) or SEED_BPM (incremental)
+    # Seed BPM demo data
     if settings.SEED_DEMO or settings.SEED_BPM:
         from app.services.seed_demo_bpm import seed_bpm_demo_data
 
@@ -148,19 +165,26 @@ async def lifespan(app: FastAPI):
     yield
 
 
+# ── H6: Conditionally disable OpenAPI docs in production ──
 app = FastAPI(
     title=settings.PROJECT_NAME,
     lifespan=lifespan,
-    docs_url="/api/docs",
-    openapi_url="/api/openapi.json",
+    docs_url="/api/docs" if settings.ENVIRONMENT == "development" else None,
+    redoc_url=None,
+    openapi_url="/api/openapi.json" if settings.ENVIRONMENT == "development" else None,
 )
 
+# ── C7: Rate limiter ──
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── C1: CORS — restrict origins instead of wildcard ──
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
@@ -168,4 +192,4 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "app": settings.PROJECT_NAME}
+    return {"status": "ok"}

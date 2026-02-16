@@ -88,6 +88,10 @@ export default function SettingsAdmin() {
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
 
+  // Registration toggle state
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
+  const [savingRegistration, setSavingRegistration] = useState(false);
+
   // SSO state
   const [ssoEnabled, setSsoEnabled] = useState(false);
   const [ssoClientId, setSsoClientId] = useState("");
@@ -111,8 +115,9 @@ export default function SettingsAdmin() {
       api.get<{ currency: string }>("/settings/currency"),
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
       api.get<SsoSettings>("/settings/sso"),
+      api.get<{ enabled: boolean }>("/settings/registration"),
     ])
-      .then(([emailData, logoData, currencyData, bpmData, ssoData]) => {
+      .then(([emailData, logoData, currencyData, bpmData, ssoData, regData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -128,6 +133,7 @@ export default function SettingsAdmin() {
         setSsoClientId(ssoData.client_id);
         setSsoClientSecret(ssoData.client_secret);
         setSsoTenantId(ssoData.tenant_id);
+        setRegistrationEnabled(regData.enabled);
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
       .finally(() => setLoading(false));
@@ -227,6 +233,20 @@ export default function SettingsAdmin() {
       setError(e instanceof Error ? e.message : "Failed to update BPM setting");
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handleRegistrationToggle = async (enabled: boolean) => {
+    setSavingRegistration(true);
+    setError("");
+    try {
+      await api.patch("/settings/registration", { enabled });
+      setRegistrationEnabled(enabled);
+      setSnack(enabled ? "Self-registration enabled" : "Self-registration disabled");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update registration setting");
+    } finally {
+      setSavingRegistration(false);
     }
   };
 
@@ -403,6 +423,44 @@ export default function SettingsAdmin() {
             />
           }
           label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
+        />
+      </Paper>
+
+      {/* Self-Registration Toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="person_add" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            Self-Registration
+          </Typography>
+          <Chip
+            label={registrationEnabled ? "Enabled" : "Disabled"}
+            size="small"
+            color={registrationEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Allow new users to create accounts themselves from the login page.
+          When disabled, users can only be added by an administrator (or via
+          SSO if configured). The first user can always register to bootstrap
+          the admin account.
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={registrationEnabled}
+              onChange={(e) => handleRegistrationToggle(e.target.checked)}
+              disabled={savingRegistration || ssoEnabled}
+            />
+          }
+          label={
+            ssoEnabled
+              ? "Registration is managed by SSO"
+              : registrationEnabled
+                ? "Users can self-register"
+                : "Only admins can create users"
+          }
         />
       </Paper>
 

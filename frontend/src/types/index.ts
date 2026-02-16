@@ -15,6 +15,7 @@ export interface SsoConfig {
   client_id?: string;
   tenant_id?: string;
   authorization_endpoint?: string;
+  registration_enabled?: boolean;
 }
 
 export interface SsoInvitation {

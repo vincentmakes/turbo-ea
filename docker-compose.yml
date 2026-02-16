@@ -14,11 +14,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       RESET_DB: ${RESET_DB:-false}
       SEED_DEMO: ${SEED_DEMO:-false}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8920}
       SEED_BPM: ${SEED_BPM:-false}
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-    ports:
-      - "8000:8000"
+    # L1: Backend only exposed via internal Docker network, not to host
+    expose:
+      - "8000"
 
   frontend:
     build:
