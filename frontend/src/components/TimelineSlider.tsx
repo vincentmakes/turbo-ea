@@ -7,6 +7,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 const ONE_DAY_MS = 86_400_000;
+const TEN_YEARS_MS = 10 * 365.25 * ONE_DAY_MS;
 const MIN_LABEL_SPACING_PX = 48;
 
 interface TimelineSliderProps {
@@ -73,8 +74,23 @@ export default function TimelineSlider({
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const todayMs = useMemo(() => todayProp ?? Date.now(), [todayProp]);
+
+  // Cap the slider to at most 10 years before today
+  const cappedRange = useMemo(() => {
+    const floor = todayMs - TEN_YEARS_MS;
+    return {
+      min: Math.max(dateRange.min, floor),
+      max: dateRange.max,
+    };
+  }, [dateRange, todayMs]);
+
+  const cappedMarks = useMemo(
+    () => yearMarks.filter((m) => m.value >= cappedRange.min && m.value <= cappedRange.max),
+    [yearMarks, cappedRange],
+  );
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const responsiveMarks = useResponsiveMarks(yearMarks, containerRef);
+  const responsiveMarks = useResponsiveMarks(cappedMarks, containerRef);
 
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
 
@@ -101,8 +117,8 @@ export default function TimelineSlider({
       <Box ref={containerRef} sx={{ px: 1.5 }}>
         <Slider
           value={value}
-          min={dateRange.min}
-          max={dateRange.max}
+          min={cappedRange.min}
+          max={cappedRange.max}
           step={ONE_DAY_MS}
           track={false}
           marks={responsiveMarks}
@@ -131,16 +147,16 @@ export default function TimelineSlider({
             "& .MuiSlider-mark": {
               width: 2,
               height: 10,
-              bgcolor: `${primary}66`,
+              bgcolor: `${primary}AA`,
               borderRadius: 1,
             },
             "& .MuiSlider-markActive": {
-              bgcolor: `${primary}66`,
+              bgcolor: `${primary}AA`,
             },
             "& .MuiSlider-markLabel": {
               fontSize: "0.68rem",
-              fontWeight: 500,
-              color: `${primary}BB`,
+              fontWeight: 600,
+              color: `${primary}E0`,
               top: 30,
             },
             // Prevent first/last labels from clipping outside container
