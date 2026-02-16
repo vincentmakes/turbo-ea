@@ -72,10 +72,6 @@ export default function TimelineSlider({
     return marks.map((m, i) => ({ ...m, showLabel: i % step === 0 }));
   }, [yearMarks, dateRange, trackW]);
 
-  /* ---------- "today" marker position ---------- */
-  const range = dateRange.max - dateRange.min || 1;
-  const todayPct = ((todayMs - dateRange.min) / range) * 100;
-  const showTodayMarker = todayPct > 0 && todayPct < 100;
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
 
   return (
@@ -115,7 +111,7 @@ export default function TimelineSlider({
             "& .MuiSlider-rail": {
               height: 6,
               borderRadius: 3,
-              bgcolor: `${primary}22`,
+              bgcolor: `${primary}50`,
               opacity: 1,
             },
             "& .MuiSlider-thumb": {
@@ -130,24 +126,6 @@ export default function TimelineSlider({
             },
           }}
         />
-
-        {/* Today indicator line */}
-        {showTodayMarker && (
-          <Box
-            sx={{
-              position: "absolute",
-              left: `${todayPct}%`,
-              top: 0,
-              width: 2,
-              height: 6,
-              bgcolor: primary,
-              borderRadius: 1,
-              opacity: 0.5,
-              pointerEvents: "none",
-              transform: "translateX(-1px)",
-            }}
-          />
-        )}
 
         {/* Year tick marks + labels */}
         <Box sx={{ position: "relative", width: "100%", height: 18, mt: -0.5 }}>
