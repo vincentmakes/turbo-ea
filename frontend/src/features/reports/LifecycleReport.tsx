@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -17,8 +17,6 @@ import TableSortLabel from "@mui/material/TableSortLabel";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
 import ReportLegend from "./ReportLegend";
@@ -78,13 +76,6 @@ const INITIATIVE_COLOR_OPTIONS = [
 
 const UNSET_BAR_COLOR = "#bdbdbd";
 
-const ROW_H = 40;
-const BAR_H = 22;
-const BAR_TOP = (ROW_H - BAR_H) / 2;
-const AXIS_H = 28;
-const TEN_YEARS_MS = 10 * 365.25 * 86400000;
-const MIN_LABEL_PX = 48; // minimum pixels between year labels before thinning
-
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -115,8 +106,6 @@ function fmtDate(s: string | undefined): string {
 
 export default function LifecycleReport() {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { types, loading: ml } = useMetamodel();
   const [fsType, setFsType] = useState("");
   const [data, setData] = useState<RoadmapItem[] | null>(null);
@@ -124,7 +113,6 @@ export default function LifecycleReport() {
   const [sortK, setSortK] = useState("name");
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [timelineWidth, setTimelineWidth] = useState(0);
 
   // Initiative-specific controls
   const [useInitiativeDates, setUseInitiativeDates] = useState(false);
@@ -151,7 +139,6 @@ export default function LifecycleReport() {
     const vMin = now - fiveYears;
     const vMax = now + fiveYears;
     const vSpan = vMax - vMin;
-    const pastCap = now - TEN_YEARS_MS; // cap: nothing older than 10 years
 
     // Find actual data extent
     let dMin = Infinity, dMax = -Infinity;
@@ -160,6 +147,7 @@ export default function LifecycleReport() {
         const t = parseDate(d.lifecycle[p.key]);
         if (t != null) { dMin = Math.min(dMin, t); dMax = Math.max(dMax, t); }
       }
+      // Also consider initiative startDate/endDate from attributes
       if (d.attributes) {
         const sd = parseDate(d.attributes.startDate as string);
         const ed = parseDate(d.attributes.endDate as string);
@@ -167,8 +155,6 @@ export default function LifecycleReport() {
         if (ed != null) { dMin = Math.min(dMin, ed); dMax = Math.max(dMax, ed); }
       }
     }
-    // Clamp data minimum to 10 years in the past
-    if (dMin !== Infinity) dMin = Math.max(dMin, pastCap);
     const tMin = Math.min(vMin, dMin === Infinity ? vMin : dMin);
     const tMax = Math.max(vMax, dMax === -Infinity ? vMax : dMax);
     const tRange = tMax - tMin;
@@ -183,38 +169,21 @@ export default function LifecycleReport() {
     };
   }, [data]);
 
-  // Year tick marks across the full range, with smart thinning for narrow screens
+  // Year tick marks across the full range
   const totalMax = totalMin + totalRange;
-  const allTicks = useMemo(() => {
+  const ticks = useMemo(() => {
     if (!totalRange) return [];
-    const out: { label: string; pct: number; year: number }[] = [];
+    const out: { label: string; pct: number }[] = [];
     const startYear = new Date(totalMin).getFullYear();
     const endYear = new Date(totalMax).getFullYear();
     for (let y = startYear; y <= endYear + 1; y++) {
       const t = new Date(y, 0, 1).getTime();
       if (t >= totalMin && t <= totalMax) {
-        out.push({ label: String(y), pct: ((t - totalMin) / totalRange) * 100, year: y });
+        out.push({ label: String(y), pct: ((t - totalMin) / totalRange) * 100 });
       }
     }
     return out;
   }, [totalMin, totalMax, totalRange]);
-
-  // Thin labels so they don't overlap on narrow / mobile screens
-  const ticks = useMemo(() => {
-    if (!allTicks.length || !timelineWidth) return allTicks;
-    const totalYears = allTicks.length;
-    const pxPerYear = timelineWidth / totalYears;
-    // Determine step: show every Nth year so labels are at least MIN_LABEL_PX apart
-    let step = 1;
-    if (pxPerYear < MIN_LABEL_PX) step = Math.ceil(MIN_LABEL_PX / pxPerYear);
-    if (step <= 1) return allTicks;
-    // Prefer nice step values (2, 5, 10, 20, 50...)
-    const niceSteps = [2, 5, 10, 20, 50, 100];
-    step = niceSteps.find((s) => s >= step) ?? step;
-    // Anchor on "now" year so the current year is always visible
-    const nowYear = new Date().getFullYear();
-    return allTicks.filter((t) => (t.year - nowYear) % step === 0);
-  }, [allTicks, timelineWidth]);
 
   // Phase counts
   const phaseCounts = useMemo(() => {
@@ -237,19 +206,6 @@ export default function LifecycleReport() {
     const viewMinPct = (viewMin - totalMin) / totalRange;
     el.scrollLeft = el.scrollWidth * viewMinPct;
   }, [items.length, viewMin, totalMin, totalRange]);
-
-  // Measure timeline container width for smart label thinning
-  const measureTimeline = useCallback(() => {
-    if (timelineRef.current) setTimelineWidth(timelineRef.current.clientWidth);
-  }, []);
-  useLayoutEffect(() => {
-    measureTimeline();
-    const el = timelineRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(measureTimeline);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [measureTimeline, items.length]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -356,25 +312,20 @@ export default function LifecycleReport() {
             <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
           ) : (
             <Box sx={{ display: "flex" }}>
-              {/* Fixed name column — narrower on mobile */}
-              <Box sx={{ width: isMobile ? 120 : 200, flexShrink: 0, pr: 1 }}>
-                <Box sx={{ height: AXIS_H, mb: 0.5 }} />
-                {items.map((item, idx) => {
+              {/* Fixed name column */}
+              <Box sx={{ width: 200, flexShrink: 0, pr: 1 }}>
+                <Box sx={{ height: 24, mb: 1 }} />
+                {items.map((item) => {
                   const cp = currentPhase(item.lifecycle);
                   const isEol = !useInitiativeDates && cp === "endOfLife";
                   return (
                     <Box
                       key={item.id}
-                      sx={{
-                        display: "flex", alignItems: "center", gap: 0.5, height: ROW_H,
-                        px: 0.5, cursor: "pointer",
-                        bgcolor: idx % 2 === 0 ? "transparent" : "action.hover",
-                        "&:hover": { bgcolor: "action.selected" },
-                      }}
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
                       onClick={() => navigate(`/fact-sheets/${item.id}`)}
                     >
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
-                      <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400, fontSize: isMobile ? "0.75rem" : undefined }}>
+                      <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
                         {item.name}
                       </Typography>
                     </Box>
@@ -386,50 +337,26 @@ export default function LifecycleReport() {
               <Box ref={timelineRef} sx={{ flex: 1, overflowX: "auto" }}>
                 <Box sx={{ position: "relative", width: `${contentPct}%`, minWidth: "100%" }}>
                   {/* Date axis */}
-                  <Box sx={{ position: "relative", height: AXIS_H, borderBottom: "1px solid", borderColor: "divider", mb: 0.5 }}>
+                  <Box sx={{ position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
                     {ticks.map((t) => (
                       <Typography
                         key={t.label}
                         variant="caption"
-                        sx={{
-                          position: "absolute", left: `${t.pct}%`, bottom: 4,
-                          transform: "translateX(-50%)",
-                          color: "text.secondary", fontSize: "0.75rem", fontWeight: 500,
-                          whiteSpace: "nowrap", userSelect: "none",
-                        }}
+                        sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
                       >
                         {t.label}
                       </Typography>
                     ))}
                   </Box>
 
-                  {/* Vertical year grid lines (behind bars) */}
-                  {allTicks.map((t) => (
-                    <Box
-                      key={`grid-${t.label}`}
-                      sx={{
-                        position: "absolute",
-                        left: `${t.pct}%`,
-                        top: AXIS_H + 4,
-                        bottom: 0,
-                        width: 0,
-                        borderLeft: "1px solid",
-                        borderColor: "divider",
-                        opacity: 0.5,
-                        pointerEvents: "none",
-                      }}
-                    />
-                  ))}
-
                   {/* Timeline bars */}
-                  {items.map((item, idx) => {
-                    const rowBg = idx % 2 === 0 ? "transparent" : "action.hover";
-
+                  {items.map((item) => {
                     if (useInitiativeDates) {
+                      // Initiative dates mode: single bar from startDate to endDate
                       const startMs = parseDate(item.attributes?.startDate as string);
                       const endMs = parseDate(item.attributes?.endDate as string);
                       if (!startMs && !endMs) {
-                        return <Box key={item.id} sx={{ height: ROW_H, bgcolor: rowBg }} />;
+                        return <Box key={item.id} sx={{ height: 32 }} />;
                       }
                       const barStart = startMs ?? endMs!;
                       const barEnd = endMs ?? totalMax;
@@ -445,11 +372,11 @@ export default function LifecycleReport() {
                       return (
                         <Box
                           key={item.id}
-                          sx={{ position: "relative", height: ROW_H, cursor: "pointer", bgcolor: rowBg, "&:hover": { bgcolor: "action.selected" } }}
+                          sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
                           onClick={() => navigate(`/fact-sheets/${item.id}`)}
                         >
-                          <Box sx={{ position: "absolute", top: BAR_TOP, left: 0, right: 0, height: BAR_H }}>
-                            <Tooltip title={tipText} arrow>
+                          <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
+                            <Tooltip title={tipText}>
                               <Box
                                 sx={{
                                   position: "absolute",
@@ -457,10 +384,7 @@ export default function LifecycleReport() {
                                   width: `${width}%`,
                                   height: "100%",
                                   bgcolor: barColor,
-                                  borderRadius: "4px",
-                                  boxShadow: "0 1px 3px rgba(0,0,0,.15)",
-                                  transition: "filter 0.15s",
-                                  "&:hover": { filter: "brightness(1.1)" },
+                                  borderRadius: "3px",
                                 }}
                               />
                             </Tooltip>
@@ -488,12 +412,12 @@ export default function LifecycleReport() {
                     return (
                       <Box
                         key={item.id}
-                        sx={{ position: "relative", height: ROW_H, cursor: "pointer", bgcolor: rowBg, "&:hover": { bgcolor: "action.selected" } }}
+                        sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
                         onClick={() => navigate(`/fact-sheets/${item.id}`)}
                       >
-                        <Box sx={{ position: "absolute", top: BAR_TOP, left: 0, right: 0, height: BAR_H }}>
+                        <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                           {segments.map((s, i) => (
-                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`} arrow>
+                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`}>
                               <Box
                                 sx={{
                                   position: "absolute",
@@ -501,20 +425,17 @@ export default function LifecycleReport() {
                                   width: `${s.width}%`,
                                   height: "100%",
                                   bgcolor: s.color,
-                                  borderRadius: i === 0 ? "4px 0 0 4px" : i === segments.length - 1 ? "0 4px 4px 0" : 0,
-                                  boxShadow: "0 1px 3px rgba(0,0,0,.15)",
-                                  transition: "filter 0.15s",
-                                  "&:hover": { filter: "brightness(1.1)" },
+                                  borderRadius: i === 0 ? "3px 0 0 3px" : i === segments.length - 1 ? "0 3px 3px 0" : 0,
                                 }}
                               />
                             </Tooltip>
                           ))}
                           {eolPct != null && (
-                            <Tooltip title={`End of Life: ${fmtDate(item.lifecycle.endOfLife)}`} arrow>
+                            <Tooltip title={`End of Life: ${fmtDate(item.lifecycle.endOfLife)}`}>
                               <Box sx={{ position: "absolute", left: `${eolPct}%`, top: -2, transform: "translateX(-50%)", zIndex: 2, lineHeight: 0 }}>
-                                <svg width="22" height="22" viewBox="0 0 22 22">
-                                  <circle cx="11" cy="11" r="10" fill="#f44336" stroke="#b71c1c" strokeWidth="1" />
-                                  <rect x="4.5" y="9" width="13" height="4" rx="1" fill="#fff" />
+                                <svg width="20" height="20" viewBox="0 0 20 20">
+                                  <circle cx="10" cy="10" r="9" fill="#f44336" stroke="#b71c1c" strokeWidth="1" />
+                                  <rect x="4" y="8" width="12" height="4" rx="1" fill="#fff" />
                                 </svg>
                               </Box>
                             </Tooltip>
@@ -524,7 +445,7 @@ export default function LifecycleReport() {
                     );
                   })}
 
-                  {/* Today line with label */}
+                  {/* Today line */}
                   <Box
                     sx={{
                       position: "absolute",
@@ -534,25 +455,9 @@ export default function LifecycleReport() {
                       width: 0,
                       borderLeft: "2px dashed #f44336",
                       pointerEvents: "none",
-                      zIndex: 3,
+                      zIndex: 1,
                     }}
-                  >
-                    <Typography
-                      sx={{
-                        position: "absolute",
-                        top: 0,
-                        left: 4,
-                        fontSize: "0.65rem",
-                        fontWeight: 700,
-                        color: "#f44336",
-                        lineHeight: 1,
-                        whiteSpace: "nowrap",
-                        userSelect: "none",
-                      }}
-                    >
-                      Today
-                    </Typography>
-                  </Box>
+                  />
                 </Box>
               </Box>
             </Box>
