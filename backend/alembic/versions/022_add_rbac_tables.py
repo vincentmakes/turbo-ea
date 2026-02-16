@@ -208,24 +208,28 @@ def upgrade() -> None:
                 continue
             perms = FS_PERM_MAP.get(role_key, DEFAULT_FS_PERMS)
             # Use INSERT ... ON CONFLICT to handle duplicates
+            # Must include color + is_archived because create_all makes them NOT NULL (no server_default)
             conn.execute(sa.text(
                 "INSERT INTO subscription_role_definitions "
-                "(id, fact_sheet_type_key, key, label, permissions, sort_order) "
-                "VALUES (gen_random_uuid(), :type_key, :key, :label, CAST(:perms AS jsonb), :sort_order) "
+                "(id, fact_sheet_type_key, key, label, color, is_archived, permissions, sort_order) "
+                "VALUES (gen_random_uuid(), :type_key, :key, :label, :color, false, CAST(:perms AS jsonb), :sort_order) "
                 "ON CONFLICT (fact_sheet_type_key, key) DO NOTHING"
             ), {
                 "type_key": type_key,
                 "key": role_key,
                 "label": role_label,
+                "color": "#757575",
                 "perms": perms,
                 "sort_order": idx,
             })
 
     log.info("Step 5: Add FK from users.role to roles.key")
     # First, ensure all existing user role values exist in the roles table
+    # Must include all NOT NULL columns (color, is_archived, is_system, is_default)
+    # because create_all makes them NOT NULL without server_default
     conn.execute(sa.text(
-        "INSERT INTO roles (id, key, label, permissions, sort_order) "
-        "SELECT gen_random_uuid(), u.role, u.role, CAST(:empty AS jsonb), 99 "
+        "INSERT INTO roles (id, key, label, color, is_system, is_default, is_archived, permissions, sort_order) "
+        "SELECT gen_random_uuid(), u.role, u.role, '#757575', false, false, false, CAST(:empty AS jsonb), 99 "
         "FROM users u "
         "WHERE u.role NOT IN (SELECT key FROM roles) "
         "ON CONFLICT (key) DO NOTHING"
