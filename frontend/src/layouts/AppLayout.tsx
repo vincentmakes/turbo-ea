@@ -104,7 +104,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isCompact = useMediaQuery("(max-width:1439px)");
+  const isCompact = useMediaQuery("(max-width:1279px)");
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
 
@@ -141,7 +141,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
-  const [adminMenu, setAdminMenu] = useState<HTMLElement | null>(null);
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -618,29 +617,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 ),
               )}
 
-              {/* Admin dropdown (desktop/tablet) */}
-              {showAdmin &&
-                (isCompact ? (
-                  <Tooltip title="Admin">
-                    <IconButton
-                      size="small"
-                      sx={{ color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)" }}
-                      onClick={(e) => setAdminMenu(e.currentTarget)}
-                    >
-                      <MaterialSymbol icon="admin_panel_settings" size={20} />
-                    </IconButton>
-                  </Tooltip>
-                ) : (
-                  <Button
-                    size="small"
-                    startIcon={<MaterialSymbol icon="admin_panel_settings" size={18} />}
-                    endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                    sx={navBtnSx(isGroupActive(adminItems as { path: string }[]))}
-                    onClick={(e) => setAdminMenu(e.currentTarget)}
-                  >
-                    Admin
-                  </Button>
-                ))}
             </Box>
           )}
 
@@ -667,28 +643,6 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             ))}
           </Menu>
 
-          {/* Admin dropdown menu */}
-          <Menu
-            anchorEl={adminMenu}
-            open={!!adminMenu}
-            onClose={() => setAdminMenu(null)}
-          >
-            {adminItems.map((item) => (
-              <MenuItem
-                key={item.path}
-                selected={isActive(item.path)}
-                onClick={() => {
-                  item.path && navigate(item.path);
-                  setAdminMenu(null);
-                }}
-              >
-                <ListItemIcon>
-                  <MaterialSymbol icon={item.icon} size={18} />
-                </ListItemIcon>
-                <ListItemText>{item.label}</ListItemText>
-              </MenuItem>
-            ))}
-          </Menu>
 
           <Box sx={{ flex: 1 }} />
 
@@ -711,7 +665,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
                     "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-                    input: { color: "#fff", py: 0.75 },
+                    input: { color: "#fff", py: 0.75, fontSize: "0.85rem" },
                   }}
                   InputProps={{
                     startAdornment: (
@@ -833,7 +787,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 variant="contained"
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
-                sx={{ ml: 1.5, textTransform: "none" }}
+                sx={{ ml: 1.5, px: 2, textTransform: "none" }}
                 onClick={() => navigate("/inventory?create=true")}
               >
                 Create
@@ -876,6 +830,32 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>Notification Settings</ListItemText>
             </MenuItem>
+            {showAdmin && <Divider />}
+            {showAdmin && (
+              <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>
+                <ListItemIcon>
+                  <MaterialSymbol icon="admin_panel_settings" size={18} />
+                </ListItemIcon>
+                <ListItemText primaryTypographyProps={{ variant: "caption", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Admin</ListItemText>
+              </MenuItem>
+            )}
+            {showAdmin && adminItems.map((item) => (
+              <MenuItem
+                key={item.path}
+                selected={isActive(item.path)}
+                onClick={() => {
+                  item.path && navigate(item.path);
+                  setUserMenu(null);
+                }}
+                sx={{ pl: 3 }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon={item.icon} size={18} />
+                </ListItemIcon>
+                <ListItemText>{item.label}</ListItemText>
+              </MenuItem>
+            ))}
+            <Divider />
             <MenuItem
               onClick={() => {
                 setUserMenu(null);
