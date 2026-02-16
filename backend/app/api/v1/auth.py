@@ -157,13 +157,19 @@ async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends
 
 
 @router.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
+async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    from app.services.permission_service import PermissionService
+
+    role_data = await PermissionService.load_role(db, user.role)
     return UserResponse(
         id=str(user.id),
         email=user.email,
         display_name=user.display_name,
         role=user.role,
+        role_label=role_data["label"] if role_data else user.role,
+        role_color=role_data["color"] if role_data else "#757575",
         is_active=user.is_active,
+        permissions=role_data["permissions"] if role_data else {},
     )
 
 

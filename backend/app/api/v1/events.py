@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.event import Event
 from app.models.user import User
 from app.services.event_bus import event_bus
@@ -36,11 +37,12 @@ async def event_stream(request: Request):
 @router.get("")
 async def list_events(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     fact_sheet_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
+    await PermissionService.require_permission(db, user, "admin.events")
     q = select(Event).order_by(Event.created_at.desc())
     if fact_sheet_id:
         import uuid as _uuid

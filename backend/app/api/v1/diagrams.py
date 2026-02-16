@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.diagram import Diagram, diagram_initiatives
 from app.models.user import User
 
@@ -88,7 +89,9 @@ async def _set_initiative_ids(
 async def list_diagrams(
     initiative_id: str | None = None,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "diagrams.view")
     if initiative_id:
         # Filter: only diagrams linked to this initiative
         stmt = (
@@ -131,6 +134,7 @@ async def create_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "diagrams.manage")
     d = Diagram(
         name=body.name,
         description=body.description,
@@ -160,6 +164,7 @@ async def get_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "diagrams.view")
     result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
     d = result.scalar_one_or_none()
     if not d:
@@ -185,6 +190,7 @@ async def update_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "diagrams.manage")
     result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
     d = result.scalar_one_or_none()
     if not d:
@@ -212,6 +218,7 @@ async def delete_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "diagrams.manage")
     result = await db.execute(select(Diagram).where(Diagram.id == uuid.UUID(diagram_id)))
     d = result.scalar_one_or_none()
     if not d:

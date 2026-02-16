@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.comment import Comment
 from app.models.fact_sheet import FactSheet
 from app.models.user import User
@@ -19,7 +20,12 @@ router = APIRouter(tags=["comments"])
 
 
 @router.get("/fact-sheets/{fs_id}/comments")
-async def list_comments(fs_id: str, db: AsyncSession = Depends(get_db)):
+async def list_comments(
+    fs_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "comments.view")
     result = await db.execute(
         select(Comment)
         .where(Comment.fact_sheet_id == uuid.UUID(fs_id), Comment.parent_id.is_(None))
@@ -50,8 +56,11 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "comments.create", fs_uuid, "fs.create_comments"):
+        raise HTTPException(403, "Not enough permissions")
     comment = Comment(
-        fact_sheet_id=uuid.UUID(fs_id),
+        fact_sheet_id=fs_uuid,
         user_id=user.id,
         content=body.content,
         parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
@@ -95,6 +104,10 @@ async def update_comment(
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(404, "Comment not found")
+    # Allow own comment edit, or require manage permission
+    if comment.user_id != user.id:
+        if not await PermissionService.check_permission(db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"):
+            raise HTTPException(403, "Not enough permissions")
     comment.content = body.content
     await db.commit()
     await db.refresh(comment)
@@ -111,5 +124,9 @@ async def delete_comment(
     comment = result.scalar_one_or_none()
     if not comment:
         raise HTTPException(404, "Comment not found")
+    # Allow own comment delete, or require manage permission
+    if comment.user_id != user.id:
+        if not await PermissionService.check_permission(db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"):
+            raise HTTPException(403, "Not enough permissions")
     await db.delete(comment)
     await db.commit()

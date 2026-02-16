@@ -39,6 +39,9 @@ class UserResponse(BaseModel):
     email: str
     display_name: str
     role: str
+    role_label: str | None = None
+    role_color: str | None = None
     is_active: bool
+    permissions: dict[str, bool] | None = None
 
     model_config = {"from_attributes": True}

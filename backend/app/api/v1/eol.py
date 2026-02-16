@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.user import User
 
@@ -202,13 +203,15 @@ def _fuzzy_search(query: str, products: list[str], limit: int = 20, threshold: f
 @router.get("/products", response_model=list[EolProduct])
 async def list_products(
     search: str = Query("", description="Filter product names (case-insensitive substring match)"),
-    _user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Return the list of all products tracked by endoflife.date.
 
     An optional *search* query filters the list client-side (the upstream API
     is purely static JSON and does not support server-side filtering).
     """
+    await PermissionService.require_permission(db, user, "eol.view")
     products = await _get_all_products()
     if search:
         q = search.lower()
@@ -221,13 +224,15 @@ async def list_products(
 async def fuzzy_search_products(
     search: str = Query(..., min_length=2, description="Fuzzy search query"),
     limit: int = Query(10, ge=1, le=50, description="Max results"),
-    _user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Fuzzy-search products on endoflife.date.
 
     Returns products ranked by fuzzy match score. Handles common
     mismatches like "SAP HANA" → "sap-hana", "Node.js" → "nodejs", etc.
     """
+    await PermissionService.require_permission(db, user, "eol.view")
     products = await _get_all_products()
     matches = _fuzzy_search(search, products, limit=limit)
     return [EolProductMatch(name=name, score=round(score, 3)) for name, score in matches]
@@ -236,9 +241,11 @@ async def fuzzy_search_products(
 @router.get("/products/{product}", response_model=list[EolCycle])
 async def get_product_cycles(
     product: str,
-    _user=Depends(get_current_user),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Return all release cycles for a given product."""
+    await PermissionService.require_permission(db, user, "eol.view")
     # M6: SSRF prevention — only allow alphanumeric, hyphens, and dots
     if not re.match(r"^[a-zA-Z0-9._-]+$", product):
         raise HTTPException(status_code=400, detail="Invalid product name")
@@ -273,10 +280,9 @@ async def mass_eol_search(
     """Mass-search EOL products for all fact sheets of a given type.
 
     Finds fuzzy matches on endoflife.date for each fact sheet name.
-    Only returns fact sheets that have potential matches. Admin only.
+    Only returns fact sheets that have potential matches.
     """
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    await PermissionService.require_permission(db, user, "eol.manage")
 
     if type_key not in ("Application", "ITComponent"):
         raise HTTPException(
@@ -344,10 +350,8 @@ async def mass_eol_link(
 
     Expects a list of: [{fact_sheet_id, eol_product, eol_cycle}].
     For ITComponent type, lifecycle dates are synced from EOL data.
-    Admin only.
     """
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    await PermissionService.require_permission(db, user, "eol.manage")
 
     client = await _get_client()
     updated = []

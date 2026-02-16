@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
@@ -62,6 +63,7 @@ async def create_relation(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "relations.manage")
     rel = Relation(
         type=body.type,
         source_id=uuid.UUID(body.source_id),
@@ -88,6 +90,7 @@ async def update_relation(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "relations.manage")
     result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
     rel = result.scalar_one_or_none()
     if not rel:
@@ -105,6 +108,7 @@ async def delete_relation(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "relations.manage")
     result = await db.execute(select(Relation).where(Relation.id == uuid.UUID(rel_id)))
     rel = result.scalar_one_or_none()
     if not rel:

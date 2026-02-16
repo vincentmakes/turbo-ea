@@ -11,6 +11,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.soaw import SoAW
 from app.models.todo import Todo
 from app.models.user import User
@@ -88,6 +89,7 @@ async def list_soaws(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "soaw.view")
     stmt = select(SoAW).order_by(SoAW.updated_at.desc())
     if initiative_id:
         stmt = stmt.where(SoAW.initiative_id == uuid.UUID(initiative_id))
@@ -102,6 +104,7 @@ async def create_soaw(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = SoAW(
         name=body.name,
         initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
@@ -123,6 +126,7 @@ async def get_soaw(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "soaw.view")
     s = await _get_soaw(db, soaw_id)
     return _row_to_dict(s)
 
@@ -134,6 +138,7 @@ async def update_soaw(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
 
     # Prevent editing signed documents
@@ -166,6 +171,7 @@ async def delete_soaw(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
     await db.delete(s)
     await db.commit()
@@ -183,6 +189,7 @@ async def request_signatures(
     user: User = Depends(get_current_user),
 ):
     """Request signatures from specified users. Creates todos and notifications."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
 
     if s.status == "signed":
@@ -252,6 +259,7 @@ async def sign_soaw(
 ):
     """Sign the SoAW as the current user. When all signatories have signed,
     the document status changes to 'signed' and becomes readonly."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
 
     if s.status == "signed":
@@ -348,6 +356,7 @@ async def revise_soaw(
     """Create a new revision of a signed SoAW. Copies the document content
     into a new draft linked to the same initiative, with an incremented
     revision number and parent_id pointing to the original."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
     s = await _get_soaw(db, soaw_id)
 
     if s.status != "signed":
@@ -382,6 +391,7 @@ async def list_revisions(
     user: User = Depends(get_current_user),
 ):
     """List all revisions in the chain for this SoAW (traverses parent_id)."""
+    await PermissionService.require_permission(db, user, "soaw.view")
     s = await _get_soaw(db, soaw_id)
 
     # Walk up to the root

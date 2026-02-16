@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
@@ -257,8 +258,7 @@ async def list_surveys(
     status: str | None = None,
 ):
     """List all surveys (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     q = select(Survey).order_by(Survey.created_at.desc())
     if status:
@@ -282,8 +282,7 @@ async def create_survey(
     user: User = Depends(get_current_user),
 ):
     """Create a new draft survey (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     # Validate target type exists
     type_result = await db.execute(
@@ -314,6 +313,7 @@ async def my_surveys(
     user: User = Depends(get_current_user),
 ):
     """List active surveys that the current user needs to respond to."""
+    await PermissionService.require_permission(db, user, "surveys.respond")
     q = (
         select(SurveyResponse)
         .where(
@@ -356,8 +356,7 @@ async def get_survey(
     user: User = Depends(get_current_user),
 ):
     """Get a single survey with stats (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -376,8 +375,7 @@ async def update_survey(
     user: User = Depends(get_current_user),
 ):
     """Update a draft survey (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -407,8 +405,7 @@ async def delete_survey(
     user: User = Depends(get_current_user),
 ):
     """Delete a draft survey (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -428,8 +425,7 @@ async def preview_survey(
     user: User = Depends(get_current_user),
 ):
     """Preview resolved targets before sending (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -453,8 +449,7 @@ async def send_survey(
     user: User = Depends(get_current_user),
 ):
     """Activate survey: resolve targets, create responses, notify."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -518,8 +513,7 @@ async def close_survey(
     user: User = Depends(get_current_user),
 ):
     """Close an active survey (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -545,8 +539,7 @@ async def list_responses(
     status: str | None = None,
 ):
     """Get all responses for a survey (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     q = select(SurveyResponse).where(
         SurveyResponse.survey_id == uuid.UUID(survey_id)
@@ -568,8 +561,7 @@ async def apply_responses(
     user: User = Depends(get_current_user),
 ):
     """Apply selected survey responses to fact sheets (admin only)."""
-    if user.role != "admin":
-        raise HTTPException(403, "Admin access required")
+    await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
     survey = result.scalar_one_or_none()
@@ -646,6 +638,7 @@ async def get_response_form(
     user: User = Depends(get_current_user),
 ):
     """Get the response form data for a fact sheet in a survey."""
+    await PermissionService.require_permission(db, user, "surveys.respond")
     resp_result = await db.execute(
         select(SurveyResponse).where(
             SurveyResponse.survey_id == uuid.UUID(survey_id),
@@ -710,6 +703,7 @@ async def submit_response(
     user: User = Depends(get_current_user),
 ):
     """Submit a survey response for a fact sheet."""
+    await PermissionService.require_permission(db, user, "surveys.respond")
     resp_result = await db.execute(
         select(SurveyResponse).where(
             SurveyResponse.survey_id == uuid.UUID(survey_id),

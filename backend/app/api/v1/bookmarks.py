@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.bookmark import Bookmark
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
@@ -20,6 +21,7 @@ async def list_bookmarks(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bookmarks.manage")
     result = await db.execute(
         select(Bookmark).where(Bookmark.user_id == user.id).order_by(Bookmark.created_at.desc())
     )
@@ -44,6 +46,7 @@ async def create_bookmark(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bookmarks.manage")
     bm = Bookmark(
         user_id=user.id,
         name=body.name,
@@ -66,6 +69,7 @@ async def update_bookmark(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bookmarks.manage")
     result = await db.execute(
         select(Bookmark).where(Bookmark.id == uuid.UUID(bm_id), Bookmark.user_id == user.id)
     )
@@ -94,6 +98,7 @@ async def delete_bookmark(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bookmarks.manage")
     result = await db.execute(
         select(Bookmark).where(Bookmark.id == uuid.UUID(bm_id), Bookmark.user_id == user.id)
     )

@@ -8,28 +8,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.subscription import Subscription
+from app.models.subscription_role_definition import SubscriptionRoleDefinition
 from app.models.user import User
 from app.schemas.common import SubscriptionCreate
 
 router = APIRouter(tags=["subscriptions"])
 
-# Fallback roles when a type has no subscription_roles configured
-_DEFAULT_ROLES = [
-    {"key": "responsible", "label": "Responsible"},
-    {"key": "observer", "label": "Observer"},
-]
-
 
 async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
-    """Return subscription roles defined on a fact sheet type."""
+    """Return active subscription roles from subscription_role_definitions table."""
+    result = await db.execute(
+        select(SubscriptionRoleDefinition)
+        .where(
+            SubscriptionRoleDefinition.fact_sheet_type_key == type_key,
+            SubscriptionRoleDefinition.is_archived == False,  # noqa: E712
+        )
+        .order_by(SubscriptionRoleDefinition.sort_order)
+    )
+    srds = result.scalars().all()
+    if srds:
+        return [{"key": s.key, "label": s.label, "color": s.color} for s in srds]
+    # Fallback to JSONB for backward compat during migration
     result = await db.execute(
         select(FactSheetType.subscription_roles).where(FactSheetType.key == type_key)
     )
     roles = result.scalar_one_or_none()
-    return roles if roles else _DEFAULT_ROLES
+    if roles:
+        return roles
+    return [
+        {"key": "responsible", "label": "Responsible"},
+        {"key": "observer", "label": "Observer"},
+    ]
 
 
 def _role_labels(roles: list[dict]) -> dict[str, str]:
@@ -41,23 +54,28 @@ async def list_roles(
     type_key: str | None = Query(None, description="Filter roles by fact sheet type"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return role definitions, optionally scoped to a specific type."""
+    """Return role definitions from subscription_role_definitions table."""
     if type_key:
         roles = await _roles_for_type(db, type_key)
         return [{"key": r["key"], "label": r["label"]} for r in roles]
 
-    # Return all unique roles across all types
-    result = await db.execute(select(FactSheetType.key, FactSheetType.subscription_roles))
-    all_roles: dict[str, dict] = {}
-    for row in result.all():
-        for r in (row[1] or _DEFAULT_ROLES):
-            if r["key"] not in all_roles:
-                all_roles[r["key"]] = {"key": r["key"], "label": r["label"]}
-    return list(all_roles.values())
+    # Return all unique active roles across all types
+    result = await db.execute(
+        select(SubscriptionRoleDefinition.key, SubscriptionRoleDefinition.label)
+        .where(SubscriptionRoleDefinition.is_archived == False)  # noqa: E712
+        .distinct(SubscriptionRoleDefinition.key)
+        .order_by(SubscriptionRoleDefinition.key)
+    )
+    return [{"key": row[0], "label": row[1]} for row in result.all()]
 
 
 @router.get("/fact-sheets/{fs_id}/subscriptions")
-async def list_subscriptions(fs_id: str, db: AsyncSession = Depends(get_db)):
+async def list_subscriptions(
+    fs_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "subscriptions.view")
     # Fetch the fact sheet type so we can resolve role labels
     fs_result = await db.execute(
         select(FactSheet.type).where(FactSheet.id == uuid.UUID(fs_id))
@@ -91,9 +109,12 @@ async def create_subscription(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "subscriptions.manage", fs_uuid, "fs.manage_subscriptions"):
+        raise HTTPException(403, "Not enough permissions")
     # Load fact sheet to get its type
     fs_result = await db.execute(
-        select(FactSheet.type).where(FactSheet.id == uuid.UUID(fs_id))
+        select(FactSheet.type).where(FactSheet.id == fs_uuid)
     )
     fs_type = fs_result.scalar_one_or_none()
     if not fs_type:
@@ -145,6 +166,8 @@ async def update_subscription(
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(404, "Subscription not found")
+    if not await PermissionService.check_permission(db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"):
+        raise HTTPException(403, "Not enough permissions")
 
     # Look up the fact sheet type to validate the new role
     fs_result = await db.execute(
@@ -178,5 +201,7 @@ async def delete_subscription(
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(404, "Subscription not found")
+    if not await PermissionService.check_permission(db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"):
+        raise HTTPException(403, "Not enough permissions")
     await db.delete(sub)
     await db.commit()

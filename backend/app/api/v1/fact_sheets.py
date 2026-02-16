@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
@@ -188,7 +189,7 @@ _ALLOWED_SORT_COLUMNS = {"name", "type", "status", "quality_seal", "completion",
 @router.get("", response_model=FactSheetListResponse)
 async def list_fact_sheets(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str | None = Query(None),
     status: str | None = Query(None, alias="status"),
     search: str | None = Query(None),
@@ -199,6 +200,7 @@ async def list_fact_sheets(
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
 ):
+    await PermissionService.require_permission(db, user, "inventory.view")
     q = select(FactSheet)
     count_q = select(func.count(FactSheet.id))
 
@@ -250,6 +252,7 @@ async def create_fact_sheet(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "inventory.create")
     fs = FactSheet(
         type=body.type,
         subtype=body.subtype,
@@ -344,7 +347,10 @@ async def update_fact_sheet(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "inventory.edit", fs_uuid, "fs.edit"):
+        raise HTTPException(403, "Not enough permissions")
+    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
     fs = result.scalar_one_or_none()
     if not fs:
         raise HTTPException(404, "Fact sheet not found")
@@ -414,7 +420,10 @@ async def archive_fact_sheet(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "inventory.delete", fs_uuid, "fs.delete"):
+        raise HTTPException(403, "Not enough permissions")
+    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
     fs = result.scalar_one_or_none()
     if not fs:
         raise HTTPException(404, "Fact sheet not found")
@@ -434,8 +443,7 @@ async def bulk_update(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.role == "viewer":
-        raise HTTPException(403, "Viewers cannot modify fact sheets")
+    await PermissionService.require_permission(db, user, "inventory.bulk_edit")
     uuids = [uuid.UUID(i) for i in body.ids]
     result = await db.execute(select(FactSheet).where(FactSheet.id.in_(uuids)))
     sheets = result.scalars().all()
@@ -455,8 +463,7 @@ async def fix_hierarchy_names(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     """One-time cleanup: strip accumulated hierarchy prefixes from names.
 
     A UI bug caused hierarchy paths like "Parent / Child" to be persisted as
@@ -518,7 +525,10 @@ async def update_quality_seal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "inventory.quality_seal", fs_uuid, "fs.quality_seal"):
+        raise HTTPException(403, "Not enough permissions")
+    result = await db.execute(select(FactSheet).where(FactSheet.id == fs_uuid))
     fs = result.scalar_one_or_none()
     if not fs:
         raise HTTPException(404, "Fact sheet not found")
@@ -547,12 +557,29 @@ async def update_quality_seal(
     return {"quality_seal": fs.quality_seal}
 
 
+@router.get("/{fs_id}/my-permissions")
+async def my_permissions(
+    fs_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the current user's effective permissions on a specific fact sheet."""
+    result = await db.execute(select(FactSheet).where(FactSheet.id == uuid.UUID(fs_id)))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Fact sheet not found")
+
+    return await PermissionService.get_effective_fs_permissions(
+        db, user, uuid.UUID(fs_id)
+    )
+
+
 @router.get("/export/csv")
 async def export_csv(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str | None = Query(None),
 ):
+    await PermissionService.require_permission(db, user, "inventory.export")
     q = select(FactSheet).where(FactSheet.status == "ACTIVE")
     if type:
         q = q.where(FactSheet.type == type)

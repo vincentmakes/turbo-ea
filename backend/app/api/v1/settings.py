@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.config import settings as app_config
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.app_settings import AppSettings
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation_type import RelationType
@@ -74,11 +75,6 @@ DEFAULT_CURRENCY = "USD"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _require_admin(user: User) -> None:
-    if user.role != "admin":
-        raise HTTPException(403, "Admin only")
-
-
 async def _get_or_create_row(db: AsyncSession) -> AppSettings:
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
@@ -116,7 +112,7 @@ async def get_email_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
     row = await _get_or_create_row(db)
     await db.commit()
     stored = row.email_settings or {}
@@ -140,7 +136,7 @@ async def update_email_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
     row = await _get_or_create_row(db)
 
     email = dict(row.email_settings or {})
@@ -165,7 +161,7 @@ async def test_email_settings(
     user: User = Depends(get_current_user),
 ):
     """Send a test email to the admin's own address using current SMTP settings."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     from app.services.email_service import send_notification_email
 
@@ -204,7 +200,7 @@ async def update_currency(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — set the display currency for all cost fields."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
@@ -250,7 +246,7 @@ async def update_bpm_enabled(
     relation types that touch BusinessProcess, so that fact sheets, relations,
     and reports are properly hidden/shown across the entire platform.
     """
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
@@ -301,7 +297,7 @@ async def update_bpm_row_order(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — set BPM process type row display order."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
@@ -368,7 +364,7 @@ async def get_logo_info(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — returns metadata about the current logo."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
 
@@ -386,7 +382,7 @@ async def upload_logo(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — upload a custom logo."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     content_type = file.content_type or ""
     if content_type not in ALLOWED_LOGO_MIMES:
@@ -414,7 +410,7 @@ async def reset_logo(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — reset to the default logo."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     row.custom_logo = None
@@ -434,7 +430,7 @@ async def get_sso_settings(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — get SSO configuration."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
     row = await _get_or_create_row(db)
     await db.commit()
     general = row.general_settings or {}
@@ -454,7 +450,7 @@ async def update_sso_settings(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — update SSO configuration."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
@@ -510,7 +506,7 @@ async def update_registration_settings(
     user: User = Depends(get_current_user),
 ):
     """Admin endpoint — enable or disable self-registration."""
-    _require_admin(user)
+    await PermissionService.require_permission(db, user, "admin.settings")
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})

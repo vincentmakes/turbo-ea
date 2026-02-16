@@ -53,6 +53,7 @@ import type {
   SubscriptionRoleDef,
   User,
   HierarchyData,
+  FactSheetEffectivePermissions,
 } from "@/types";
 
 // ── Completion Ring ─────────────────────────────────────────────
@@ -247,9 +248,11 @@ function FieldEditor({
 function DescriptionSection({
   fs,
   onSave,
+  canEdit = true,
 }: {
   fs: FactSheet;
   onSave: (u: Record<string, unknown>) => Promise<void>;
+  canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(fs.name);
@@ -272,7 +275,7 @@ function DescriptionSection({
           <MaterialSymbol icon="description" size={20} color="#666" />
           <Typography fontWeight={600}>Description</Typography>
         </Box>
-        {!editing && (
+        {!editing && canEdit && (
           <IconButton
             size="small"
             onClick={(e) => {
@@ -285,7 +288,7 @@ function DescriptionSection({
         )}
       </AccordionSummary>
       <AccordionDetails>
-        {editing ? (
+        {editing && canEdit ? (
           <Box>
             <TextField
               fullWidth
@@ -335,9 +338,11 @@ function DescriptionSection({
 function LifecycleSection({
   fs,
   onSave,
+  canEdit = true,
 }: {
   fs: FactSheet;
   onSave: (u: Record<string, unknown>) => Promise<void>;
+  canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
@@ -360,7 +365,7 @@ function LifecycleSection({
           <MaterialSymbol icon="timeline" size={20} color="#666" />
           <Typography fontWeight={600}>Lifecycle</Typography>
         </Box>
-        {!editing && (
+        {!editing && canEdit && (
           <IconButton
             size="small"
             onClick={(e) => {
@@ -476,11 +481,13 @@ function AttributeSection({
   fs,
   onSave,
   onRelationChange,
+  canEdit = true,
 }: {
   section: { section: string; fields: FieldDef[] };
   fs: FactSheet;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
+  canEdit?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
@@ -520,7 +527,7 @@ function AttributeSection({
             sx={{ ml: 1, height: 20, fontSize: "0.7rem" }}
           />
         </Box>
-        {!editing && (
+        {!editing && canEdit && (
           <IconButton
             size="small"
             onClick={(e) => {
@@ -533,7 +540,7 @@ function AttributeSection({
         )}
       </AccordionSummary>
       <AccordionDetails>
-        {editing ? (
+        {editing && canEdit ? (
           <Box>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
               {section.fields.map((field) =>
@@ -616,9 +623,11 @@ const LEVEL_COLORS = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd"];
 function HierarchySection({
   fs,
   onUpdate,
+  canEdit = true,
 }: {
   fs: FactSheet;
   onUpdate: () => void;
+  canEdit?: boolean;
 }) {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
@@ -826,24 +835,30 @@ function HierarchySection({
                     sx={{ cursor: "pointer" }}
                     icon={<MaterialSymbol icon={typeConfig?.icon || "category"} size={16} />}
                   />
-                  <IconButton size="small" onClick={() => setPickingParent(true)} title="Change parent">
-                    <MaterialSymbol icon="edit" size={16} />
-                  </IconButton>
-                  <IconButton size="small" onClick={handleRemoveParent} title="Remove parent">
-                    <MaterialSymbol icon="link_off" size={16} color="#f44336" />
-                  </IconButton>
+                  {canEdit && (
+                    <IconButton size="small" onClick={() => setPickingParent(true)} title="Change parent">
+                      <MaterialSymbol icon="edit" size={16} />
+                    </IconButton>
+                  )}
+                  {canEdit && (
+                    <IconButton size="small" onClick={handleRemoveParent} title="Remove parent">
+                      <MaterialSymbol icon="link_off" size={16} color="#f44336" />
+                    </IconButton>
+                  )}
                 </Box>
               ) : (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">No parent</Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<MaterialSymbol icon="add" size={16} />}
-                    onClick={() => setPickingParent(true)}
-                  >
-                    Set Parent
-                  </Button>
+                  {canEdit && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<MaterialSymbol icon="add" size={16} />}
+                      onClick={() => setPickingParent(true)}
+                    >
+                      Set Parent
+                    </Button>
+                  )}
                 </Box>
               )}
             </Box>
@@ -925,9 +940,11 @@ function HierarchySection({
                     <ListItem
                       key={child.id}
                       secondaryAction={
-                        <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title="Remove from hierarchy">
-                          <MaterialSymbol icon="link_off" size={16} color="#999" />
-                        </IconButton>
+                        canEdit ? (
+                          <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title="Remove from hierarchy">
+                            <MaterialSymbol icon="link_off" size={16} color="#999" />
+                          </IconButton>
+                        ) : undefined
                       }
                     >
                       <Box
@@ -944,16 +961,18 @@ function HierarchySection({
               ) : (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>No children</Typography>
               )}
-              <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<MaterialSymbol icon="add" size={16} />}
-                  onClick={() => setAddChildOpen(true)}
-                >
-                  Add Child
-                </Button>
-              </Box>
+              {canEdit && (
+                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<MaterialSymbol icon="add" size={16} />}
+                    onClick={() => setAddChildOpen(true)}
+                  >
+                    Add Child
+                  </Button>
+                </Box>
+              )}
             </Box>
 
             {/* Add child dialog */}
@@ -1026,7 +1045,7 @@ function HierarchySection({
 }
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
-function RelationsSection({ fsId, fsType, refreshKey = 0 }: { fsId: string; fsType: string; refreshKey?: number }) {
+function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = true }: { fsId: string; fsType: string; refreshKey?: number; canManageRelations?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { relationTypes, getType } = useMetamodel();
   const navigate = useNavigate();
@@ -1142,16 +1161,18 @@ function RelationsSection({ fsId, fsType, refreshKey = 0 }: { fsId: string; fsTy
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="add_link" size={16} />}
-            onClick={() => setAddDialogOpen(true)}
-          >
-            Add Relation
-          </Button>
-        </Box>
+        {canManageRelations && (
+          <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="add_link" size={16} />}
+              onClick={() => setAddDialogOpen(true)}
+            >
+              Add Relation
+            </Button>
+          </Box>
+        )}
         {grouped.length === 0 && (
           <Typography color="text.secondary" variant="body2">No relations yet.</Typography>
         )}
@@ -1175,9 +1196,11 @@ function RelationsSection({ fsId, fsType, refreshKey = 0 }: { fsId: string; fsTy
                   <ListItem
                     key={r.id}
                     secondaryAction={
-                      <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
-                        <MaterialSymbol icon="close" size={16} color="#999" />
-                      </IconButton>
+                      canManageRelations ? (
+                        <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
+                          <MaterialSymbol icon="close" size={16} color="#999" />
+                        </IconButton>
+                      ) : undefined
                     }
                   >
                     <Box
@@ -1310,7 +1333,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0 }: { fsId: string; fsTy
 }
 
 // ── Tab: Comments ───────────────────────────────────────────────
-function CommentsTab({ fsId }: { fsId: string }) {
+function CommentsTab({ fsId, canCreateComments = true, canManageComments = true }: { fsId: string; canCreateComments?: boolean; canManageComments?: boolean }) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState("");
 
@@ -1331,23 +1354,25 @@ function CommentsTab({ fsId }: { fsId: string }) {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Write a comment..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-        />
-        <Button
-          variant="contained"
-          onClick={handleAdd}
-          disabled={!newComment.trim()}
-        >
-          Post
-        </Button>
-      </Box>
+      {canCreateComments && (
+        <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Write a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+          />
+          <Button
+            variant="contained"
+            onClick={handleAdd}
+            disabled={!newComment.trim()}
+          >
+            Post
+          </Button>
+        </Box>
+      )}
       {comments.length === 0 && (
         <Typography color="text.secondary" variant="body2">
           No comments yet.
@@ -1548,7 +1573,7 @@ function TodosTab({ fsId }: { fsId: string }) {
 }
 
 // ── Tab: Subscriptions ──────────────────────────────────────────
-function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => void }) {
+function SubscriptionsTab({ fs, onRefresh, canManageSubscriptions = true }: { fs: FactSheet; onRefresh: () => void; canManageSubscriptions?: boolean }) {
   const [subs, setSubs] = useState<SubscriptionRef[]>([]);
   const [roles, setRoles] = useState<SubscriptionRoleDef[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -1597,16 +1622,18 @@ function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => v
 
   return (
     <Box>
-      <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<MaterialSymbol icon="person_add" size={16} />}
-          onClick={() => setAddOpen(true)}
-        >
-          Add Subscription
-        </Button>
-      </Box>
+      {canManageSubscriptions && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="person_add" size={16} />}
+            onClick={() => setAddOpen(true)}
+          >
+            Add Subscription
+          </Button>
+        </Box>
+      )}
       {grouped.map(({ role, items }) => (
         <Card key={role.key} sx={{ mb: 2 }}>
           <CardContent>
@@ -1623,9 +1650,11 @@ function SubscriptionsTab({ fs, onRefresh }: { fs: FactSheet; onRefresh: () => v
                   <ListItem
                     key={s.id}
                     secondaryAction={
-                      <IconButton size="small" onClick={() => handleDelete(s.id)}>
-                        <MaterialSymbol icon="close" size={16} />
-                      </IconButton>
+                      canManageSubscriptions ? (
+                        <IconButton size="small" onClick={() => handleDelete(s.id)}>
+                          <MaterialSymbol icon="close" size={16} />
+                        </IconButton>
+                      ) : undefined
                     }
                   >
                     <MaterialSymbol icon="person" size={20} />
@@ -1720,6 +1749,22 @@ function HistoryTab({ fsId }: { fsId: string }) {
   );
 }
 
+// ── Default permissions (allow everything until loaded) ─────────
+const DEFAULT_PERMISSIONS: FactSheetEffectivePermissions["effective"] = {
+  can_view: true,
+  can_edit: true,
+  can_delete: true,
+  can_quality_seal: true,
+  can_manage_subscriptions: true,
+  can_manage_relations: true,
+  can_manage_documents: true,
+  can_manage_comments: true,
+  can_create_comments: true,
+  can_bpm_edit: true,
+  can_bpm_manage_drafts: true,
+  can_bpm_approve: true,
+};
+
 // ── Main Detail Page ────────────────────────────────────────────
 export default function FactSheetDetail() {
   const { id } = useParams<{ id: string }>();
@@ -1736,6 +1781,17 @@ export default function FactSheetDetail() {
   const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
     null
   );
+  const [perms, setPerms] = useState<FactSheetEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
+
+  // Fetch effective permissions for this fact sheet
+  useEffect(() => {
+    if (!id) return;
+    setPerms(DEFAULT_PERMISSIONS);
+    api
+      .get<FactSheetEffectivePermissions>(`/fact-sheets/${id}/my-permissions`)
+      .then((res) => setPerms(res.effective))
+      .catch(() => {}); // keep defaults on error
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -1831,42 +1887,46 @@ export default function FactSheetDetail() {
           <CompletionRing value={fs.completion} />
           <LifecycleBadge lifecycle={fs.lifecycle} />
           <QualitySealBadge seal={fs.quality_seal} />
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={(e) => setSealMenuAnchor(e.currentTarget)}
-            endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
-          >
-            Seal
-          </Button>
+          {perms.can_quality_seal && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={(e) => setSealMenuAnchor(e.currentTarget)}
+              endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
+            >
+              Seal
+            </Button>
+          )}
         </Box>
-        <Menu
-          anchorEl={sealMenuAnchor}
-          open={!!sealMenuAnchor}
-          onClose={() => setSealMenuAnchor(null)}
-        >
-          <MenuItem
-            onClick={() => handleSealAction("approve")}
-            disabled={fs.quality_seal === "APPROVED"}
+        {perms.can_quality_seal && (
+          <Menu
+            anchorEl={sealMenuAnchor}
+            open={!!sealMenuAnchor}
+            onClose={() => setSealMenuAnchor(null)}
           >
-            <MaterialSymbol icon="verified" size={18} color="#4caf50" />
-            <Typography sx={{ ml: 1 }}>Approve</Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => handleSealAction("reject")}
-            disabled={fs.quality_seal === "REJECTED"}
-          >
-            <MaterialSymbol icon="cancel" size={18} color="#f44336" />
-            <Typography sx={{ ml: 1 }}>Reject</Typography>
-          </MenuItem>
-          <MenuItem
-            onClick={() => handleSealAction("reset")}
-            disabled={fs.quality_seal === "DRAFT"}
-          >
-            <MaterialSymbol icon="restart_alt" size={18} color="#666" />
-            <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
-          </MenuItem>
-        </Menu>
+            <MenuItem
+              onClick={() => handleSealAction("approve")}
+              disabled={fs.quality_seal === "APPROVED"}
+            >
+              <MaterialSymbol icon="verified" size={18} color="#4caf50" />
+              <Typography sx={{ ml: 1 }}>Approve</Typography>
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleSealAction("reject")}
+              disabled={fs.quality_seal === "REJECTED"}
+            >
+              <MaterialSymbol icon="cancel" size={18} color="#f44336" />
+              <Typography sx={{ ml: 1 }}>Reject</Typography>
+            </MenuItem>
+            <MenuItem
+              onClick={() => handleSealAction("reset")}
+              disabled={fs.quality_seal === "DRAFT"}
+            >
+              <MaterialSymbol icon="restart_alt" size={18} color="#666" />
+              <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
+            </MenuItem>
+          </Menu>
+        )}
       </Box>
 
       {/* ── Top-level tabs ── */}
@@ -1891,9 +1951,9 @@ export default function FactSheetDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection fs={fs} onSave={handleUpdate} />
+              <DescriptionSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
               <EolLinkSection fs={fs} onSave={handleUpdate} />
-              <LifecycleSection fs={fs} onSave={handleUpdate} />
+              <LifecycleSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
                 <AttributeSection
                   key={section.section}
@@ -1901,26 +1961,27 @@ export default function FactSheetDetail() {
                   fs={fs}
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
+                  canEdit={perms.can_edit}
                 />
               ))}
-              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
-              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
+              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canEdit={perms.can_edit} />
+              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
             </Box>
           )}
           {tab === 1 && <Card><CardContent><ProcessFlowTab processId={fs.id} processName={fs.name} initialSubTab={initialSubTab} /></CardContent></Card>}
           {tab === 2 && <Card><CardContent><ProcessAssessmentPanel processId={fs.id} /></CardContent></Card>}
-          {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 3 && <Card><CardContent><CommentsTab fsId={fs.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></Card>}
           {tab === 4 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
-          {tab === 5 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} /></CardContent></Card>}
+          {tab === 5 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canManageSubscriptions={perms.can_manage_subscriptions} /></CardContent></Card>}
           {tab === 6 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
         </>
       ) : (
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection fs={fs} onSave={handleUpdate} />
+              <DescriptionSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
               <EolLinkSection fs={fs} onSave={handleUpdate} />
-              <LifecycleSection fs={fs} onSave={handleUpdate} />
+              <LifecycleSection fs={fs} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
                 <AttributeSection
                   key={section.section}
@@ -1928,15 +1989,16 @@ export default function FactSheetDetail() {
                   fs={fs}
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
+                  canEdit={perms.can_edit}
                 />
               ))}
-              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} />
-              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} />
+              <HierarchySection fs={fs} onUpdate={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canEdit={perms.can_edit} />
+              <RelationsSection fsId={fs.id} fsType={fs.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
             </Box>
           )}
-          {tab === 1 && <Card><CardContent><CommentsTab fsId={fs.id} /></CardContent></Card>}
+          {tab === 1 && <Card><CardContent><CommentsTab fsId={fs.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></Card>}
           {tab === 2 && <Card><CardContent><TodosTab fsId={fs.id} /></CardContent></Card>}
-          {tab === 3 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} /></CardContent></Card>}
+          {tab === 3 && <Card><CardContent><SubscriptionsTab fs={fs} onRefresh={() => api.get<FactSheet>(`/fact-sheets/${fs.id}`).then(setFs)} canManageSubscriptions={perms.can_manage_subscriptions} /></CardContent></Card>}
           {tab === 4 && <Card><CardContent><HistoryTab fsId={fs.id} /></CardContent></Card>}
         </>
       )}
