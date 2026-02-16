@@ -213,8 +213,13 @@ async def list_fact_sheets(
         q = q.where(FactSheet.type == type)
         count_q = count_q.where(FactSheet.type == type)
     if status:
-        q = q.where(FactSheet.status == status)
-        count_q = count_q.where(FactSheet.status == status)
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if len(statuses) == 1:
+            q = q.where(FactSheet.status == statuses[0])
+            count_q = count_q.where(FactSheet.status == statuses[0])
+        else:
+            q = q.where(FactSheet.status.in_(statuses))
+            count_q = count_q.where(FactSheet.status.in_(statuses))
     else:
         q = q.where(FactSheet.status == "ACTIVE")
         count_q = count_q.where(FactSheet.status == "ACTIVE")
