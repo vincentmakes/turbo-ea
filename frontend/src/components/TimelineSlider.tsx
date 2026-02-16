@@ -1,58 +1,26 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState, useLayoutEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
-/* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const ONE_DAY_MS = 86400000;
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
-
-interface DateRange {
-  min: number;
-  max: number;
-}
+const ONE_DAY_MS = 86_400_000;
 
 interface TimelineSliderProps {
   value: number;
   onChange: (v: number) => void;
-  dateRange: DateRange;
+  dateRange: { min: number; max: number };
   yearMarks: { value: number; label: string }[];
-  /** Reference "today" timestamp (defaults to Date.now()) */
   todayMs?: number;
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-const fmtSliderDate = (v: number) =>
+const fmtTip = (v: number) =>
   new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short" });
 
-const fmtFullDate = (v: number) =>
-  new Date(v).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-/** Thin year marks so labels don't overlap at a given count. */
-function thinMarks(marks: { value: number; label: string }[], maxLabels: number) {
-  if (marks.length <= maxLabels) return marks;
-  const step = Math.ceil(marks.length / maxLabels);
-  return marks.map((m, i) => (i % step === 0 ? m : { ...m, label: "" }));
-}
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+const fmtFull = (v: number) =>
+  new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
 export default function TimelineSlider({
   value,
@@ -61,82 +29,168 @@ export default function TimelineSlider({
   yearMarks,
   todayMs: todayProp,
 }: TimelineSliderProps) {
+  const theme = useTheme();
+  const primary = theme.palette.primary.main;
   const todayMs = useMemo(() => todayProp ?? Date.now(), [todayProp]);
 
-  // Show at most ~8 year labels to avoid overlap
-  const visibleMarks = useMemo(() => thinMarks(yearMarks, 8), [yearMarks]);
+  /* ---------- measure width for label thinning ---------- */
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [trackW, setTrackW] = useState(300);
+  const measure = useCallback(() => {
+    if (trackRef.current) setTrackW(trackRef.current.clientWidth);
+  }, []);
+  useLayoutEffect(() => {
+    measure();
+    const el = trackRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure]);
+
+  /* ---------- thin labels so they never overlap ---------- */
+  const thinned = useMemo(() => {
+    if (!yearMarks.length) return [];
+    const minGap = 40; // px minimum between labels
+    const range = dateRange.max - dateRange.min || 1;
+    const marks = yearMarks
+      .filter((m) => m.value >= dateRange.min && m.value <= dateRange.max)
+      .map((m) => ({
+        ...m,
+        pct: ((m.value - dateRange.min) / range) * 100,
+      }));
+    if (marks.length <= 1) return marks.map((m) => ({ ...m, showLabel: true }));
+
+    // find a nice step so labels are at least minGap px apart
+    let step = 1;
+    for (const s of [1, 2, 5, 10, 20]) {
+      const kept = marks.filter((_, i) => i % s === 0);
+      if (kept.length <= 1) { step = s; break; }
+      const pxBetween = trackW / (kept.length - 1);
+      if (pxBetween >= minGap) { step = s; break; }
+    }
+    return marks.map((m, i) => ({ ...m, showLabel: i % step === 0 }));
+  }, [yearMarks, dateRange, trackW]);
+
+  /* ---------- "today" marker position ---------- */
+  const range = dateRange.max - dateRange.min || 1;
+  const todayPct = ((todayMs - dateRange.min) / range) * 100;
+  const showTodayMarker = todayPct > 0 && todayPct < 100;
+  const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        width: "100%",
-        pt: 0.5,
-      }}
-    >
-      <MaterialSymbol icon="calendar_month" size={18} color="#999" />
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ fontWeight: 600, whiteSpace: "nowrap" }}
-      >
-        Timeline:
-      </Typography>
+    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5 }}>
+      {/* Label row */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+        <MaterialSymbol icon="calendar_month" size={16} color={primary} />
+        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+          {fmtFull(value)}
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        {isAway && (
+          <Chip
+            size="small"
+            label="Reset to today"
+            onClick={() => onChange(todayMs)}
+            sx={{ height: 22, fontSize: "0.7rem", bgcolor: `${primary}14`, color: primary }}
+          />
+        )}
+      </Box>
 
-      <Slider
-        value={value}
-        min={dateRange.min}
-        max={dateRange.max}
-        track={false}
-        step={ONE_DAY_MS}
-        onChange={(_, v) => onChange(v as number)}
-        valueLabelDisplay="auto"
-        valueLabelFormat={fmtSliderDate}
-        marks={visibleMarks}
-        sx={{
-          flex: 1,
-          mx: 1,
-          maxWidth: 480,
-          "& .MuiSlider-rail": {
-            height: 4,
-            borderRadius: 2,
-            opacity: 0.32,
-          },
-          "& .MuiSlider-thumb": {
-            width: 16,
-            height: 16,
-          },
-          "& .MuiSlider-mark": {
-            height: 8,
-            width: 1,
-            bgcolor: "text.disabled",
-          },
-          "& .MuiSlider-markLabel": {
-            fontSize: "0.68rem",
-            color: "text.secondary",
-          },
-        }}
-      />
-
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ whiteSpace: "nowrap", minWidth: 100 }}
-      >
-        {fmtFullDate(value)}
-      </Typography>
-
-      {Math.abs(value - todayMs) > ONE_DAY_MS && (
-        <Chip
-          size="small"
-          label="Today"
-          variant="outlined"
-          onClick={() => onChange(todayMs)}
-          sx={{ fontSize: "0.72rem" }}
+      {/* Track area */}
+      <Box ref={trackRef} sx={{ position: "relative", width: "100%", px: 1 }}>
+        {/* MUI Slider — no marks, no track colour */}
+        <Slider
+          value={value}
+          min={dateRange.min}
+          max={dateRange.max}
+          step={ONE_DAY_MS}
+          track={false}
+          onChange={(_, v) => onChange(v as number)}
+          valueLabelDisplay="auto"
+          valueLabelFormat={fmtTip}
+          sx={{
+            height: 6,
+            p: 0,
+            "& .MuiSlider-rail": {
+              height: 6,
+              borderRadius: 3,
+              bgcolor: `${primary}22`,
+              opacity: 1,
+            },
+            "& .MuiSlider-thumb": {
+              width: 16,
+              height: 16,
+              bgcolor: primary,
+              border: "2px solid #fff",
+              boxShadow: `0 0 0 1px ${primary}40`,
+              "&:hover, &.Mui-focusVisible": {
+                boxShadow: `0 0 0 6px ${primary}24`,
+              },
+            },
+          }}
         />
-      )}
+
+        {/* Today indicator line */}
+        {showTodayMarker && (
+          <Box
+            sx={{
+              position: "absolute",
+              left: `${todayPct}%`,
+              top: 0,
+              width: 2,
+              height: 6,
+              bgcolor: primary,
+              borderRadius: 1,
+              opacity: 0.5,
+              pointerEvents: "none",
+              transform: "translateX(-1px)",
+            }}
+          />
+        )}
+
+        {/* Year tick marks + labels */}
+        <Box sx={{ position: "relative", width: "100%", height: 18, mt: -0.5 }}>
+          {thinned.map((m) => (
+            <Box
+              key={m.value}
+              sx={{
+                position: "absolute",
+                left: `${m.pct}%`,
+                top: 0,
+                transform: "translateX(-50%)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <Box
+                sx={{
+                  width: 1,
+                  height: 6,
+                  bgcolor: `${primary}40`,
+                  borderRadius: 0.5,
+                }}
+              />
+              {m.showLabel && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontSize: "0.62rem",
+                    color: `${primary}99`,
+                    lineHeight: 1,
+                    mt: "1px",
+                    userSelect: "none",
+                  }}
+                >
+                  {m.label}
+                </Typography>
+              )}
+            </Box>
+          ))}
+        </Box>
+      </Box>
     </Box>
   );
 }
