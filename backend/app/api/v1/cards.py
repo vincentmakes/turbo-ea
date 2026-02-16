@@ -231,9 +231,9 @@ async def list_cards(
         q = q.where(Card.parent_id == uuid.UUID(parent_id))
         count_q = count_q.where(Card.parent_id == uuid.UUID(parent_id))
     if approval_status:
-        seals = [s.strip() for s in approval_status.split(",") if s.strip()]
-        q = q.where(Card.approval_status.in_(seals))
-        count_q = count_q.where(Card.approval_status.in_(seals))
+        statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
+        q = q.where(Card.approval_status.in_(statuses))
+        count_q = count_q.where(Card.approval_status.in_(statuses))
 
     # Sorting — H9: whitelist sort columns
     if sort_by not in _ALLOWED_SORT_COLUMNS:
@@ -379,10 +379,10 @@ async def update_card(
 
     if changes:
         card.updated_by = user.id
-        # Break quality seal on edit (attribute/lifecycle changes break it)
+        # Break approval status on edit (attribute/lifecycle changes break it)
         if card.approval_status == "APPROVED":
-            seal_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
-            if seal_breaking & changes.keys():
+            status_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
+            if status_breaking & changes.keys():
                 card.approval_status = "BROKEN"
 
         # Auto-sync capability level when parent changes or level is missing
@@ -537,24 +537,24 @@ async def update_approval_status(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
-    seal_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
-    card.approval_status = seal_map[action]
+    status_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
+    card.approval_status = status_map[action]
     await event_bus.publish(
         f"card.approval_status.{action}",
-        {"id": str(card.id), "seal": card.approval_status},
+        {"id": str(card.id), "approval_status": card.approval_status},
         db=db, card_id=card.id, user_id=user.id,
     )
 
-    # Notify subscribers about quality seal change
+    # Notify stakeholders about approval status change
     action_label = {"approve": "approved", "reject": "rejected", "reset": "reset"}
     await notification_service.create_notifications_for_subscribers(
         db,
         card_id=card.id,
         notif_type="approval_status_changed",
-        title=f"Quality Seal {action_label[action].title()}",
-        message=f'{user.display_name} {action_label[action]} the quality seal on "{card.name}"',
+        title=f"Approval Status {action_label[action].title()}",
+        message=f'{user.display_name} {action_label[action]} the approval status on "{card.name}"',
         link=f"/cards/{card_id}",
-        data={"seal": card.approval_status, "action": action},
+        data={"approval_status": card.approval_status, "action": action},
         actor_id=user.id,
     )
 

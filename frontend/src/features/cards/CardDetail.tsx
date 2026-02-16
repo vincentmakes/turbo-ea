@@ -56,8 +56,8 @@ import type {
   CardEffectivePermissions,
 } from "@/types";
 
-// ── Completion Ring ─────────────────────────────────────────────
-function CompletionRing({ value }: { value: number }) {
+// ── Data Quality Ring ───────────────────────────────────────────
+function DataQualityRing({ value }: { value: number }) {
   const size = 52;
   const sw = 5;
   const r = (size - sw) / 2;
@@ -1884,9 +1884,9 @@ export default function CardDetail() {
         </Box>
         {/* Badges — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
-          <CompletionRing value={card.data_quality} />
+          <DataQualityRing value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
-          <ApprovalStatusBadge seal={card.approval_status} />
+          <ApprovalStatusBadge status={card.approval_status} />
           {perms.can_approval_status && (
             <Button
               size="small"

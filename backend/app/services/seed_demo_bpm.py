@@ -41,11 +41,11 @@ def _fs(
     ref: str, name: str, *,
     parent: str | None = None, subtype: str | None = None,
     desc: str | None = None, attrs: dict | None = None,
-    lifecycle: dict | None = None, seal: str = "APPROVED",
+    lifecycle: dict | None = None, approval: str = "APPROVED",
 ):
     d: dict = dict(
         id=_id(ref), type="BusinessProcess", name=name, status="ACTIVE",
-        approval_status=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
+        approval_status=approval, attributes=attrs or {}, lifecycle=lifecycle or {},
     )
     if parent:
         d["parent_id"] = _id(parent)

@@ -27,11 +27,11 @@ def _fs(
     parent: str | None = None, subtype: str | None = None,
     desc: str | None = None, attrs: dict | None = None,
     lifecycle: dict | None = None, status: str = "ACTIVE",
-    seal: str = "APPROVED", ext_id: str | None = None,
+    approval: str = "APPROVED", ext_id: str | None = None,
 ):
     d: dict = dict(
         id=_id(ref), type=type_, name=name, status=status,
-        approval_status=seal, attributes=attrs or {}, lifecycle=lifecycle or {},
+        approval_status=approval, attributes=attrs or {}, lifecycle=lifecycle or {},
     )
     if parent:
         d["parent_id"] = _id(parent)
@@ -50,7 +50,7 @@ def _rel(type_: str, src: str, tgt: str, attrs: dict | None = None, desc: str | 
 
 
 # ===================================================================
-# FACT SHEETS
+# CARDS
 # ===================================================================
 
 # ── Organizations ─────────────────────────────────────────────────

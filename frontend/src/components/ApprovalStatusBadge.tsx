@@ -2,11 +2,11 @@ import Chip from "@mui/material/Chip";
 import MaterialSymbol from "./MaterialSymbol";
 
 interface Props {
-  seal: string;
+  status: string;
   size?: "small" | "medium";
 }
 
-const SEAL_CONFIG: Record<
+const STATUS_CONFIG: Record<
   string,
   { label: string; color: "default" | "success" | "warning" | "error"; icon: string }
 > = {
@@ -16,8 +16,8 @@ const SEAL_CONFIG: Record<
   REJECTED: { label: "Rejected", color: "error", icon: "cancel" },
 };
 
-export default function ApprovalStatusBadge({ seal, size = "small" }: Props) {
-  const cfg = SEAL_CONFIG[seal];
+export default function ApprovalStatusBadge({ status, size = "small" }: Props) {
+  const cfg = STATUS_CONFIG[status];
   if (!cfg) return null;
   return (
     <Chip

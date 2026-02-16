@@ -66,15 +66,15 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     )
     avg_data_quality = avg_result.scalar() or 0
 
-    # Quality seal distribution
-    seal_counts = await db.execute(
+    # Approval status distribution
+    status_counts = await db.execute(
         select(Card.approval_status, func.count(Card.id))
         .where(Card.status == "ACTIVE")
         .group_by(Card.approval_status)
     )
-    seals = {row[0]: row[1] for row in seal_counts.all()}
+    statuses = {row[0]: row[1] for row in status_counts.all()}
 
-    # Completion distribution (buckets)
+    # Data quality distribution (buckets)
     data_quality_dist = {"0-25": 0, "25-50": 0, "50-75": 0, "75-100": 0}
     comp_result = await db.execute(
         select(Card.data_quality).where(Card.status == "ACTIVE")
@@ -123,7 +123,7 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         "total_cards": total,
         "by_type": by_type,
         "avg_data_quality": round(avg_data_quality, 1),
-        "approval_statuss": seals,
+        "approval_statuses": statuses,
         "data_quality_distribution": data_quality_dist,
         "lifecycle_distribution": lifecycle_dist,
         "recent_events": recent_events,

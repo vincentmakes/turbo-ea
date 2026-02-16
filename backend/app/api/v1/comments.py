@@ -78,13 +78,13 @@ async def create_comment(
     # Notify subscribers of the card
     card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
     card = card_result.scalar_one_or_none()
-    fs_name = card.name if card else "Unknown"
+    card_name = card.name if card else "Unknown"
     await notification_service.create_notifications_for_subscribers(
         db,
         card_id=uuid.UUID(card_id),
         notif_type="comment_added",
         title="New Comment",
-        message=f'{user.display_name} commented on "{fs_name}": {comment.content[:80]}',
+        message=f'{user.display_name} commented on "{card_name}": {comment.content[:80]}',
         link=f"/cards/{card_id}",
         data={"comment_id": str(comment.id)},
         actor_id=user.id,

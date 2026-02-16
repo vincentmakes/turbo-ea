@@ -348,9 +348,9 @@ async def get_public_portal_cards(
     if portal_filters.get("subtypes"):
         q = q.where(Card.subtype.in_(portal_filters["subtypes"]))
         count_q = count_q.where(Card.subtype.in_(portal_filters["subtypes"]))
-    if portal_filters.get("approval_statuss"):
-        q = q.where(Card.approval_status.in_(portal_filters["approval_statuss"]))
-        count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuss"]))
+    if portal_filters.get("approval_statuses"):
+        q = q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+        count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
 
     # Apply user-supplied search
     if search:

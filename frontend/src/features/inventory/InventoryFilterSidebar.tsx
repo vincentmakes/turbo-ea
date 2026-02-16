@@ -35,7 +35,7 @@ import type { CardType, Bookmark, FieldDef, RelationType } from "@/types";
 export interface Filters {
   types: string[];
   search: string;
-  approvalStatuss: string[];
+  approvalStatuses: string[];
   attributes: Record<string, string>; // key → value (single_select only for now)
   relations: Record<string, string>; // relTypeKey → related card name
 }
@@ -52,7 +52,7 @@ interface Props {
   relationsMap?: Map<string, Map<string, string[]>>;
 }
 
-const SEAL_OPTIONS = [
+const APPROVAL_STATUS_OPTIONS = [
   { key: "DRAFT", label: "Draft", color: "#9e9e9e" },
   { key: "APPROVED", label: "Approved", color: "#4caf50" },
   { key: "BROKEN", label: "Broken", color: "#ff9800" },
@@ -81,7 +81,7 @@ export default function InventoryFilterSidebar({
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
     search: true,
-    seals: false,
+    approvalStatus: false,
     attributes: false,
     relationships: false,
   });
@@ -135,10 +135,10 @@ export default function InventoryFilterSidebar({
   };
 
   const toggleSeal = (key: string) => {
-    const next = filters.approvalStatuss.includes(key)
-      ? filters.approvalStatuss.filter((s) => s !== key)
-      : [...filters.approvalStatuss, key];
-    onFiltersChange({ ...filters, approvalStatuss: next });
+    const next = filters.approvalStatuses.includes(key)
+      ? filters.approvalStatuses.filter((s) => s !== key)
+      : [...filters.approvalStatuses, key];
+    onFiltersChange({ ...filters, approvalStatuses: next });
   };
 
   const setAttr = (key: string, value: string) => {
@@ -174,12 +174,12 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", approvalStatuss: [], attributes: {}, relations: {} });
+    onFiltersChange({ types: [], search: "", approvalStatuses: [], attributes: {}, relations: {} });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
-    filters.approvalStatuss.length +
+    filters.approvalStatuses.length +
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length;
 
@@ -193,7 +193,7 @@ export default function InventoryFilterSidebar({
       filters: {
         types: filters.types,
         search: filters.search,
-        approvalStatuss: filters.approvalStatuss,
+        approvalStatuses: filters.approvalStatuses,
         attributes: filters.attributes,
       },
     };
@@ -214,7 +214,7 @@ export default function InventoryFilterSidebar({
       onFiltersChange({
         types: f.types || [],
         search: f.search || "",
-        approvalStatuss: f.approvalStatuss || [],
+        approvalStatuses: f.approvalStatuses || [],
         attributes: f.attributes || {},
         relations: f.relations || {},
       });
@@ -411,25 +411,25 @@ export default function InventoryFilterSidebar({
                 </List>
               </Collapse>
 
-              {/* Approval Statuss */}
+              {/* Approval Status */}
               <SectionHeader
                 label="Approval Status"
                 icon="verified"
-                expanded={expandedSections.seals}
-                onToggle={() => toggleSection("seals")}
-                count={filters.approvalStatuss.length}
+                expanded={expandedSections.approvalStatus}
+                onToggle={() => toggleSection("approvalStatus")}
+                count={filters.approvalStatuses.length}
               />
-              <Collapse in={expandedSections.seals}>
+              <Collapse in={expandedSections.approvalStatus}>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
-                  {SEAL_OPTIONS.map((s) => (
+                  {APPROVAL_STATUS_OPTIONS.map((s) => (
                     <Chip
                       key={s.key}
                       label={s.label}
                       size="small"
                       onClick={() => toggleSeal(s.key)}
-                      variant={filters.approvalStatuss.includes(s.key) ? "filled" : "outlined"}
+                      variant={filters.approvalStatuses.includes(s.key) ? "filled" : "outlined"}
                       sx={
-                        filters.approvalStatuss.includes(s.key)
+                        filters.approvalStatuses.includes(s.key)
                           ? { bgcolor: s.color, color: "#fff", borderColor: s.color }
                           : { borderColor: s.color, color: s.color }
                       }

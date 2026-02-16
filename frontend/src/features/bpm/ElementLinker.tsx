@@ -22,20 +22,20 @@ interface Props {
   onSaved: () => void;
 }
 
-interface FsOption {
+interface CardOption {
   id: string;
   name: string;
   type: string;
 }
 
 export default function ElementLinker({ open, onClose, element, processId, onSaved }: Props) {
-  const [apps, setApps] = useState<FsOption[]>([]);
-  const [dataObjects, setDataObjects] = useState<FsOption[]>([]);
-  const [itComponents, setItComponents] = useState<FsOption[]>([]);
+  const [apps, setApps] = useState<CardOption[]>([]);
+  const [dataObjects, setDataObjects] = useState<CardOption[]>([]);
+  const [itComponents, setItComponents] = useState<CardOption[]>([]);
 
-  const [selectedApp, setSelectedApp] = useState<FsOption | null>(null);
-  const [selectedData, setSelectedData] = useState<FsOption | null>(null);
-  const [selectedItc, setSelectedItc] = useState<FsOption | null>(null);
+  const [selectedApp, setSelectedApp] = useState<CardOption | null>(null);
+  const [selectedData, setSelectedData] = useState<CardOption | null>(null);
+  const [selectedItc, setSelectedItc] = useState<CardOption | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

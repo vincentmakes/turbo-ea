@@ -51,13 +51,13 @@ const QUALITY_COLORS = {
   minimal: "#f44336",
 };
 
-function data_qualityColor(v: number): string {
+function dataQualityColor(v: number): string {
   if (v >= 80) return "#4caf50";
   if (v >= 40) return "#ff9800";
   return "#f44336";
 }
 
-function data_qualityLabel(v: number): string {
+function dataQualityLabel(v: number): string {
   if (v >= 80) return "Complete";
   if (v >= 40) return "Partial";
   return "Minimal";
@@ -139,8 +139,8 @@ export default function DataQualityReport() {
           label="Overall Quality"
           value={`${data.overall_data_quality}%`}
           icon="speed"
-          iconColor={data_qualityColor(data.overall_data_quality)}
-          color={data_qualityColor(data.overall_data_quality)}
+          iconColor={dataQualityColor(data.overall_data_quality)}
+          color={dataQualityColor(data.overall_data_quality)}
         />
         <MetricCard
           label="Total Items"
@@ -207,7 +207,7 @@ export default function DataQualityReport() {
                         <Chip size="small" label={`${t.total} items`} variant="outlined" sx={{ height: 20, fontSize: 10 }} />
                         <Typography
                           variant="caption"
-                          sx={{ fontWeight: 700, color: data_qualityColor(t.avg_data_quality), minWidth: 36, textAlign: "right" }}
+                          sx={{ fontWeight: 700, color: dataQualityColor(t.avg_data_quality), minWidth: 36, textAlign: "right" }}
                         >
                           {t.avg_data_quality}%
                         </Typography>
@@ -221,7 +221,7 @@ export default function DataQualityReport() {
                         borderRadius: 4,
                         bgcolor: "#f0f0f0",
                         "& .MuiLinearProgress-bar": {
-                          bgcolor: data_qualityColor(t.avg_data_quality),
+                          bgcolor: dataQualityColor(t.avg_data_quality),
                           borderRadius: 4,
                         },
                       }}
@@ -263,7 +263,7 @@ export default function DataQualityReport() {
                         size="small"
                         label={`${t.avg_data_quality}%`}
                         sx={{
-                          bgcolor: data_qualityColor(t.avg_data_quality),
+                          bgcolor: dataQualityColor(t.avg_data_quality),
                           color: "#fff",
                           fontWeight: 700,
                           height: 22,
@@ -315,7 +315,7 @@ export default function DataQualityReport() {
                             borderRadius: 3,
                             bgcolor: "#f0f0f0",
                             "& .MuiLinearProgress-bar": {
-                              bgcolor: data_qualityColor(item.data_quality),
+                              bgcolor: dataQualityColor(item.data_quality),
                               borderRadius: 3,
                             },
                           }}
@@ -328,9 +328,9 @@ export default function DataQualityReport() {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={data_qualityLabel(item.data_quality)}
+                        label={dataQualityLabel(item.data_quality)}
                         sx={{
-                          bgcolor: data_qualityColor(item.data_quality),
+                          bgcolor: dataQualityColor(item.data_quality),
                           color: "#fff",
                           height: 20,
                           fontSize: 10,

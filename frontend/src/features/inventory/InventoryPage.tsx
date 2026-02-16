@@ -34,7 +34,7 @@ import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
-const SEAL_COLORS: Record<string, string> = {
+const APPROVAL_STATUS_COLORS: Record<string, string> = {
   DRAFT: "#9e9e9e",
   APPROVED: "#4caf50",
   BROKEN: "#ff9800",
@@ -131,7 +131,7 @@ export default function InventoryPage() {
     return {
       types: searchParams.get("type") ? [searchParams.get("type")!] : [],
       search: searchParams.get("search") || "",
-      approvalStatuss: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
+      approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
       attributes,
       relations: {},
     };
@@ -186,8 +186,8 @@ export default function InventoryPage() {
       const params = new URLSearchParams();
       if (filters.types.length === 1) params.set("type", filters.types[0]);
       if (filters.search) params.set("search", filters.search);
-      if (filters.approvalStatuss.length > 0) {
-        params.set("approval_status", filters.approvalStatuss.join(","));
+      if (filters.approvalStatuses.length > 0) {
+        params.set("approval_status", filters.approvalStatuses.join(","));
       }
       params.set("page_size", "500");
       const res = await api.get<CardListResponse>(
@@ -198,7 +198,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuss]);
+  }, [filters.types, filters.search, filters.approvalStatuses]);
 
   useEffect(() => {
     loadData();
@@ -465,7 +465,7 @@ export default function InventoryPage() {
         headerName: "Seal",
         width: 110,
         cellRenderer: (p: { value: string }) => {
-          const color = SEAL_COLORS[p.value];
+          const color = APPROVAL_STATUS_COLORS[p.value];
           if (!color) return "";
           const labels: Record<string, string> = {
             DRAFT: "Draft",

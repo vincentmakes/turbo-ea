@@ -32,28 +32,28 @@ import type { DashboardData } from "@/types";
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const SEAL_COLORS: Record<string, string> = {
+const APPROVAL_STATUS_COLORS: Record<string, string> = {
   DRAFT: "#9e9e9e",
   APPROVED: "#4caf50",
   REJECTED: "#f44336",
   BROKEN: "#ff9800",
 };
 
-const SEAL_LABELS: Record<string, string> = {
+const APPROVAL_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Draft",
   APPROVED: "Approved",
   REJECTED: "Rejected",
   BROKEN: "Broken",
 };
 
-const COMPLETION_COLORS: Record<string, string> = {
+const DATA_QUALITY_COLORS: Record<string, string> = {
   "0-25": "#f44336",
   "25-50": "#ff9800",
   "50-75": "#2196f3",
   "75-100": "#4caf50",
 };
 
-const COMPLETION_LABELS: Record<string, string> = {
+const DATA_QUALITY_LABELS: Record<string, string> = {
   "0-25": "0 - 25%",
   "25-50": "25 - 50%",
   "50-75": "50 - 75%",
@@ -92,19 +92,19 @@ export default function Dashboard() {
       .sort((a, b) => b.count - a.count);
   }, [data, types]);
 
-  const sealChartData = useMemo(() => {
+  const approvalChartData = useMemo(() => {
     if (!data) return [];
-    return Object.entries(data.approval_statuss)
+    return Object.entries(data.approval_statuses)
       .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: SEAL_LABELS[k] || k, value: v, color: SEAL_COLORS[k] || "#999", key: k }));
+      .map(([k, v]) => ({ name: APPROVAL_STATUS_LABELS[k] || k, value: v, color: APPROVAL_STATUS_COLORS[k] || "#999", key: k }));
   }, [data]);
 
-  const data_qualityChartData = useMemo(() => {
+  const dataQualityChartData = useMemo(() => {
     if (!data) return [];
     return Object.entries(data.data_quality_distribution).map(([k, v]) => ({
-      name: COMPLETION_LABELS[k] || k,
+      name: DATA_QUALITY_LABELS[k] || k,
       count: v,
-      color: COMPLETION_COLORS[k] || "#999",
+      color: DATA_QUALITY_COLORS[k] || "#999",
     }));
   }, [data]);
 
@@ -160,7 +160,7 @@ export default function Dashboard() {
                 <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
                 <Typography variant="subtitle2" color="text.secondary">Approved Seals</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.approval_statuss["APPROVED"] || 0}</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -171,13 +171,13 @@ export default function Dashboard() {
                 <MaterialSymbol icon="warning" size={24} color="#f57c00" />
                 <Typography variant="subtitle2" color="text.secondary">Broken Seals</Typography>
               </Box>
-              <Typography variant="h4" fontWeight={700}>{data.approval_statuss["BROKEN"] || 0}</Typography>
+              <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* -------- Row 2: Type bar chart + Quality seal donut -------- */}
+      {/* -------- Row 2: Type bar chart + Approval status donut -------- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} md={7}>
           <Card sx={{ height: "100%" }}>
@@ -227,11 +227,11 @@ export default function Dashboard() {
               <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                 Approval Status Distribution
               </Typography>
-              {sealChartData.length > 0 ? (
+              {approvalChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie
-                      data={sealChartData}
+                      data={approvalChartData}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
@@ -242,11 +242,11 @@ export default function Dashboard() {
                       cursor="pointer"
                       label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
                       onClick={(_data, idx) => {
-                        const seal = sealChartData[idx]?.key;
-                        if (seal) navigate(`/inventory?approval_status=${seal}`);
+                        const status = approvalChartData[idx]?.key;
+                        if (status) navigate(`/inventory?approval_status=${status}`);
                       }}
                     >
-                      {sealChartData.map((d, i) => (
+                      {approvalChartData.map((d, i) => (
                         <Cell key={i} fill={d.color} />
                       ))}
                     </Pie>
@@ -271,7 +271,7 @@ export default function Dashboard() {
                 Completion Distribution
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
-                <BarChart data={data_qualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
+                <BarChart data={dataQualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} />
@@ -283,7 +283,7 @@ export default function Dashboard() {
                     cursor="pointer"
                     onClick={() => navigate("/reports/data-quality")}
                   >
-                    {data_qualityChartData.map((d, i) => (
+                    {dataQualityChartData.map((d, i) => (
                       <Cell key={i} fill={d.color} />
                     ))}
                   </Bar>

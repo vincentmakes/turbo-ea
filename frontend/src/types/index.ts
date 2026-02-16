@@ -295,7 +295,7 @@ export interface DashboardData {
   total_cards: number;
   by_type: Record<string, number>;
   avg_data_quality: number;
-  approval_statuss: Record<string, number>;
+  approval_statuses: Record<string, number>;
   data_quality_distribution: Record<string, number>;
   lifecycle_distribution: Record<string, number>;
   recent_events: EventEntry[];

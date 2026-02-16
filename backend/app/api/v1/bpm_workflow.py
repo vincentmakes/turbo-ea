@@ -508,24 +508,24 @@ async def approve_version(
         if linked_card_ids:
             card_result = await db.execute(
                 select(Card.id, Card.name, Card.status).where(
-                    Card.id.in_([uuid.UUID(fid) for fid in linked_card_ids])
+                    Card.id.in_([uuid.UUID(cid) for cid in linked_card_ids])
                 )
             )
-            fs_name_map: dict[str, str] = {}
+            card_name_map: dict[str, str] = {}
             for row in card_result.all():
-                fid_str = str(row[0])
-                fs_name_map[fid_str] = row[1]
+                cid_str = str(row[0])
+                card_name_map[cid_str] = row[1]
                 if row[2] == "ACTIVE":
-                    valid_card_ids.add(fid_str)
+                    valid_card_ids.add(cid_str)
                 else:
                     stale_link_warnings.append(
-                        f"{row[1]} ({fid_str[:8]}...) is no longer active"
+                        f"{row[1]} ({cid_str[:8]}...) is no longer active"
                     )
             # Check for deleted (not found) cards
-            for fid in linked_card_ids:
-                if fid not in fs_name_map:
+            for cid in linked_card_ids:
+                if cid not in card_name_map:
                     stale_link_warnings.append(
-                        f"Linked card {fid[:8]}... no longer exists"
+                        f"Linked card {cid[:8]}... no longer exists"
                     )
 
         # Load existing elements to preserve EA links (application, data_object, it_component)
@@ -779,7 +779,7 @@ async def get_draft_elements(
     if card_ids:
         card_result = await db.execute(
             select(Card.id, Card.name).where(
-                Card.id.in_([uuid.UUID(fid) for fid in card_ids])
+                Card.id.in_([uuid.UUID(cid) for cid in card_ids])
             )
         )
         for row in card_result.all():
