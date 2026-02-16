@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
@@ -27,6 +26,7 @@ from app.schemas.fact_sheet import (
 )
 from app.services import notification_service
 from app.services.event_bus import event_bus
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/fact-sheets", tags=["fact-sheets"])
 

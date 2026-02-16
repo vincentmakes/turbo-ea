@@ -8,13 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.comment import Comment
 from app.models.fact_sheet import FactSheet
 from app.models.user import User
 from app.schemas.common import CommentCreate, CommentUpdate
 from app.services import notification_service
 from app.services.event_bus import event_bus
+from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["comments"])
 
@@ -57,7 +57,9 @@ async def create_comment(
     user: User = Depends(get_current_user),
 ):
     fs_uuid = uuid.UUID(fs_id)
-    if not await PermissionService.check_permission(db, user, "comments.create", fs_uuid, "fs.create_comments"):
+    if not await PermissionService.check_permission(
+        db, user, "comments.create", fs_uuid, "fs.create_comments"
+    ):
         raise HTTPException(403, "Not enough permissions")
     comment = Comment(
         fact_sheet_id=fs_uuid,
@@ -106,7 +108,9 @@ async def update_comment(
         raise HTTPException(404, "Comment not found")
     # Allow own comment edit, or require manage permission
     if comment.user_id != user.id:
-        if not await PermissionService.check_permission(db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"):
+        if not await PermissionService.check_permission(
+            db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"
+        ):
             raise HTTPException(403, "Not enough permissions")
     comment.content = body.content
     await db.commit()
@@ -126,7 +130,9 @@ async def delete_comment(
         raise HTTPException(404, "Comment not found")
     # Allow own comment delete, or require manage permission
     if comment.user_id != user.id:
-        if not await PermissionService.check_permission(db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"):
+        if not await PermissionService.check_permission(
+            db, user, "comments.manage", comment.fact_sheet_id, "fs.manage_comments"
+        ):
             raise HTTPException(403, "Not enough permissions")
     await db.delete(comment)
     await db.commit()

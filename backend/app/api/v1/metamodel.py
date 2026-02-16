@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
-from app.models.fact_sheet_type import FactSheetType
-from app.models.relation_type import RelationType
 from app.models.fact_sheet import FactSheet
+from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
+from app.models.relation_type import RelationType
 from app.models.subscription import Subscription
 from app.models.user import User
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 

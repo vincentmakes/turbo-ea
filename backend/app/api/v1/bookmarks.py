@@ -8,10 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.bookmark import Bookmark
 from app.models.user import User
 from app.schemas.common import BookmarkCreate, BookmarkUpdate
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 

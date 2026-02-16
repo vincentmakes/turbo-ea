@@ -12,11 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.config import settings as app_config
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.app_settings import AppSettings
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation_type import RelationType
 from app.models.user import User
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
