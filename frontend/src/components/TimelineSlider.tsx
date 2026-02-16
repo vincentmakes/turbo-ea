@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useLayoutEffect, useCallback } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
@@ -7,6 +7,7 @@ import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 const ONE_DAY_MS = 86_400_000;
+const MIN_LABEL_SPACING_PX = 48;
 
 interface TimelineSliderProps {
   value: number;
@@ -22,6 +23,46 @@ const fmtTip = (v: number) =>
 const fmtFull = (v: number) =>
   new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
+/**
+ * Thin year marks responsively: keep tick dots for every mark but only
+ * show text labels on a subset so they stay >= minSpacingPx apart.
+ */
+function useResponsiveMarks(
+  allMarks: { value: number; label: string }[],
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  minSpacingPx = MIN_LABEL_SPACING_PX,
+) {
+  const [marks, setMarks] = useState(allMarks);
+
+  const update = useCallback(() => {
+    const width = containerRef.current?.clientWidth ?? 400;
+    if (!allMarks.length) { setMarks([]); return; }
+
+    const maxLabels = Math.max(2, Math.floor(width / minSpacingPx));
+    if (allMarks.length <= maxLabels) { setMarks(allMarks); return; }
+
+    // pick a nice step that keeps labels readable
+    const step = Math.ceil(allMarks.length / maxLabels);
+    setMarks(
+      allMarks.map((m, i) => ({
+        value: m.value,
+        label: i % step === 0 || i === allMarks.length - 1 ? m.label : "",
+      })),
+    );
+  }, [allMarks, containerRef, minSpacingPx]);
+
+  useEffect(() => {
+    update();
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [update, containerRef]);
+
+  return marks;
+}
+
 export default function TimelineSlider({
   value,
   onChange,
@@ -32,45 +73,8 @@ export default function TimelineSlider({
   const theme = useTheme();
   const primary = theme.palette.primary.main;
   const todayMs = useMemo(() => todayProp ?? Date.now(), [todayProp]);
-
-  /* ---------- measure width for label thinning ---------- */
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [trackW, setTrackW] = useState(300);
-  const measure = useCallback(() => {
-    if (trackRef.current) setTrackW(trackRef.current.clientWidth);
-  }, []);
-  useLayoutEffect(() => {
-    measure();
-    const el = trackRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [measure]);
-
-  /* ---------- thin labels so they never overlap ---------- */
-  const thinned = useMemo(() => {
-    if (!yearMarks.length) return [];
-    const minGap = 40; // px minimum between labels
-    const range = dateRange.max - dateRange.min || 1;
-    const marks = yearMarks
-      .filter((m) => m.value >= dateRange.min && m.value <= dateRange.max)
-      .map((m) => ({
-        ...m,
-        pct: ((m.value - dateRange.min) / range) * 100,
-      }));
-    if (marks.length <= 1) return marks.map((m) => ({ ...m, showLabel: true }));
-
-    // find a nice step so labels are at least minGap px apart
-    let step = 1;
-    for (const s of [1, 2, 5, 10, 20]) {
-      const kept = marks.filter((_, i) => i % s === 0);
-      if (kept.length <= 1) { step = s; break; }
-      const pxBetween = trackW / (kept.length - 1);
-      if (pxBetween >= minGap) { step = s; break; }
-    }
-    return marks.map((m, i) => ({ ...m, showLabel: i % step === 0 }));
-  }, [yearMarks, dateRange, trackW]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const responsiveMarks = useResponsiveMarks(yearMarks, containerRef);
 
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
 
@@ -93,30 +97,30 @@ export default function TimelineSlider({
         )}
       </Box>
 
-      {/* Track area */}
-      <Box ref={trackRef} sx={{ position: "relative", width: "100%", px: 1 }}>
-        {/* MUI Slider — no marks, no track colour */}
+      {/* Slider with native MUI marks */}
+      <Box ref={containerRef} sx={{ px: 1.5 }}>
         <Slider
           value={value}
           min={dateRange.min}
           max={dateRange.max}
           step={ONE_DAY_MS}
           track={false}
+          marks={responsiveMarks}
           onChange={(_, v) => onChange(v as number)}
           valueLabelDisplay="auto"
           valueLabelFormat={fmtTip}
           sx={{
+            color: primary,
             height: 6,
-            p: 0,
             "& .MuiSlider-rail": {
               height: 6,
               borderRadius: 3,
-              bgcolor: `${primary}50`,
+              bgcolor: `${primary}40`,
               opacity: 1,
             },
             "& .MuiSlider-thumb": {
-              width: 16,
-              height: 16,
+              width: 18,
+              height: 18,
               bgcolor: primary,
               border: "2px solid #fff",
               boxShadow: `0 0 0 1px ${primary}40`,
@@ -124,50 +128,30 @@ export default function TimelineSlider({
                 boxShadow: `0 0 0 6px ${primary}24`,
               },
             },
+            "& .MuiSlider-mark": {
+              width: 2,
+              height: 10,
+              bgcolor: `${primary}66`,
+              borderRadius: 1,
+            },
+            "& .MuiSlider-markActive": {
+              bgcolor: `${primary}66`,
+            },
+            "& .MuiSlider-markLabel": {
+              fontSize: "0.68rem",
+              fontWeight: 500,
+              color: `${primary}BB`,
+              top: 30,
+            },
+            // Prevent first/last labels from clipping outside container
+            "& .MuiSlider-markLabel:first-of-type": {
+              transform: "translateX(0%)",
+            },
+            "& .MuiSlider-markLabel:last-of-type": {
+              transform: "translateX(-100%)",
+            },
           }}
         />
-
-        {/* Year tick marks + labels */}
-        <Box sx={{ position: "relative", width: "100%", height: 22, mt: "2px" }}>
-          {thinned.map((m) => (
-            <Box
-              key={m.value}
-              sx={{
-                position: "absolute",
-                left: `${m.pct}%`,
-                top: 0,
-                transform: "translateX(-50%)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                pointerEvents: "none",
-              }}
-            >
-              <Box
-                sx={{
-                  width: 1.5,
-                  height: m.showLabel ? 10 : 6,
-                  bgcolor: `${primary}66`,
-                }}
-              />
-              {m.showLabel && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: "0.65rem",
-                    fontWeight: 500,
-                    color: `${primary}BB`,
-                    lineHeight: 1,
-                    mt: "2px",
-                    userSelect: "none",
-                  }}
-                >
-                  {m.label}
-                </Typography>
-              )}
-            </Box>
-          ))}
-        </Box>
       </Box>
     </Box>
   );
