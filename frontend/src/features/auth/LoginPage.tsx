@@ -70,22 +70,23 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
       sx={{
         minHeight: "100vh",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         bgcolor: "#1a1a2e",
       }}
     >
+      <Box sx={{ textAlign: "center", mb: 3 }}>
+        <img
+          src="/logo.png"
+          alt="Turbo EA"
+          style={{ height: 64, objectFit: "contain" }}
+        />
+        <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>
+          Enterprise Architecture Management
+        </Typography>
+      </Box>
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
-        <Box sx={{ textAlign: "center", mb: 3 }}>
-          <img
-            src="/logo.png"
-            alt="Turbo EA"
-            style={{ height: 64, objectFit: "contain" }}
-          />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Enterprise Architecture Management
-          </Typography>
-        </Box>
 
         {/* SSO Login Button */}
         {ssoEnabled && (
