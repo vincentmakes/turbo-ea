@@ -3,15 +3,14 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
+import sqlalchemy
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-import sqlalchemy
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
@@ -20,6 +19,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import FactSheetTag
 from app.models.user import User
 from app.services import notification_service
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/surveys", tags=["surveys"])
 

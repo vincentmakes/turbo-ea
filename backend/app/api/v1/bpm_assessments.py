@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.process_assessment import ProcessAssessment
 from app.models.user import User
 from app.schemas.bpm import ProcessAssessmentCreate, ProcessAssessmentUpdate
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/bpm", tags=["bpm"])
 

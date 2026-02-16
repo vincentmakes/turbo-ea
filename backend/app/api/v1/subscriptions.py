@@ -3,20 +3,25 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.subscription import Subscription
 from app.models.subscription_role_definition import SubscriptionRoleDefinition
 from app.models.user import User
 from app.schemas.common import SubscriptionCreate
+from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["subscriptions"])
+
+_DEFAULT_ROLES = [
+    {"key": "responsible", "label": "Responsible"},
+    {"key": "observer", "label": "Observer"},
+]
 
 
 async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
@@ -110,7 +115,9 @@ async def create_subscription(
     user: User = Depends(get_current_user),
 ):
     fs_uuid = uuid.UUID(fs_id)
-    if not await PermissionService.check_permission(db, user, "subscriptions.manage", fs_uuid, "fs.manage_subscriptions"):
+    if not await PermissionService.check_permission(
+        db, user, "subscriptions.manage", fs_uuid, "fs.manage_subscriptions"
+    ):
         raise HTTPException(403, "Not enough permissions")
     # Load fact sheet to get its type
     fs_result = await db.execute(
@@ -123,7 +130,10 @@ async def create_subscription(
     roles = await _roles_for_type(db, fs_type)
     valid_keys = {r["key"] for r in roles}
     if body.role not in valid_keys:
-        raise HTTPException(400, f"Invalid role '{body.role}'. Valid for {fs_type}: {sorted(valid_keys)}")
+        raise HTTPException(
+            400,
+            f"Invalid role '{body.role}'. Valid for {fs_type}: {sorted(valid_keys)}",
+        )
 
     # Prevent duplicate role for same user on same fact sheet
     existing = await db.execute(
@@ -166,7 +176,9 @@ async def update_subscription(
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(404, "Subscription not found")
-    if not await PermissionService.check_permission(db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"):
+    if not await PermissionService.check_permission(
+        db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"
+    ):
         raise HTTPException(403, "Not enough permissions")
 
     # Look up the fact sheet type to validate the new role
@@ -201,7 +213,9 @@ async def delete_subscription(
     sub = result.scalar_one_or_none()
     if not sub:
         raise HTTPException(404, "Subscription not found")
-    if not await PermissionService.check_permission(db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"):
+    if not await PermissionService.check_permission(
+        db, user, "subscriptions.manage", sub.fact_sheet_id, "fs.manage_subscriptions"
+    ):
         raise HTTPException(403, "Not enough permissions")
     await db.delete(sub)
     await db.commit()

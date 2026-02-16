@@ -6,12 +6,11 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
-from sqlalchemy.types import Text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import Text
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
@@ -21,6 +20,7 @@ from app.models.tag import FactSheetTag, Tag, TagGroup
 from app.models.user import User
 from app.models.web_portal import WebPortal
 from app.schemas.common import WebPortalCreate, WebPortalUpdate
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/web-portals", tags=["web-portals"])
 

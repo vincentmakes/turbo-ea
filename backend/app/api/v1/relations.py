@@ -8,13 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
 from app.models.user import User
-from app.schemas.relation import RelationCreate, RelationResponse, RelationUpdate, FactSheetRef
+from app.schemas.relation import FactSheetRef, RelationCreate, RelationResponse, RelationUpdate
 from app.services.event_bus import event_bus
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/relations", tags=["relations"])
 
