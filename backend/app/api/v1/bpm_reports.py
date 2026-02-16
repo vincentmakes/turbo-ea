@@ -222,6 +222,7 @@ async def capability_heatmap(
     user: User = Depends(get_current_user),
 ):
     """Capability tree colored by a chosen metric."""
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # Load capabilities
     cap_result = await db.execute(
         select(FactSheet).where(
@@ -273,6 +274,7 @@ async def capability_heatmap(
 @router.get("/element-application-map")
 async def element_application_map(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Which BPMN elements use which applications — grouped by application."""
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     result = await db.execute(
         select(ProcessElement)
         .where(ProcessElement.application_id.isnot(None))
@@ -322,6 +324,7 @@ async def element_application_map(db: AsyncSession = Depends(get_db), user: User
 @router.get("/process-map")
 async def process_map(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Process landscape map: hierarchy + related apps, data objects, orgs, contexts."""
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # All active BusinessProcess fact sheets
     proc_result = await db.execute(
         select(FactSheet).where(
@@ -508,6 +511,7 @@ async def value_stream_matrix(db: AsyncSession = Depends(get_db), user: User = D
     Only shows BusinessContext items with subtype 'valueStream' as columns.
     Includes related apps and parent_id for nested process display.
     """
+    await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # All active BusinessProcesses
     proc_result = await db.execute(
         select(FactSheet).where(

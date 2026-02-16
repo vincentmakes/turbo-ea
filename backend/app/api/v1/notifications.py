@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.notification import Notification
 from app.models.survey import SurveyResponse
 from app.models.todo import Todo
@@ -43,6 +44,7 @@ async def list_notifications(
     page_size: int = Query(50, ge=1, le=200),
 ):
     """List notifications for the current user."""
+    await PermissionService.require_permission(db, user, "notifications.manage")
     q = (
         select(Notification)
         .where(Notification.user_id == user.id)
@@ -70,6 +72,7 @@ async def unread_count(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "notifications.manage")
     count = await notification_service.get_unread_count(db, user.id)
     return {"count": count}
 
@@ -80,6 +83,7 @@ async def badge_counts(
     user: User = Depends(get_current_user),
 ):
     """Return counts for nav-bar badge dots: open todos and pending surveys."""
+    await PermissionService.require_permission(db, user, "notifications.manage")
     open_todos = (
         await db.execute(
             select(func.count(Todo.id)).where(
@@ -107,6 +111,7 @@ async def mark_read(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "notifications.manage")
     ok = await notification_service.mark_as_read(
         db, uuid.UUID(notification_id), user.id
     )
@@ -121,6 +126,7 @@ async def mark_all_read(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "notifications.manage")
     count = await notification_service.mark_all_as_read(db, user.id)
     await db.commit()
     return {"marked": count}
