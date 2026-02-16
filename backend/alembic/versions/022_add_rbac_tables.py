@@ -194,7 +194,9 @@ def upgrade() -> None:
         "SELECT key, subscription_roles FROM fact_sheet_types "
         "WHERE subscription_roles IS NOT NULL AND subscription_roles != '[]'::jsonb"
     ))
-    for row in result:
+    rows = result.fetchall()  # Must fetch all before executing INSERTs on same conn
+    log.info("  Found %d fact sheet types with subscription roles", len(rows))
+    for row in rows:
         type_key = row[0]
         sub_roles = row[1]  # Already a list of dicts from JSONB
         if not sub_roles:
