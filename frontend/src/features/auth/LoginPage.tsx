@@ -31,6 +31,8 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   }, []);
 
   const ssoEnabled = ssoConfig?.enabled === true;
+  const registrationAllowed =
+    !ssoEnabled && ssoConfig?.registration_enabled !== false;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,8 +120,8 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
           </>
         )}
 
-        {/* Only show Login tab when SSO is enabled (no registration allowed) */}
-        {!ssoEnabled && (
+        {/* Only show Login/Register tabs when registration is allowed */}
+        {registrationAllowed && (
           <Tabs value={tab} onChange={(_, v) => setTab(v)} centered sx={{ mb: 2 }}>
             <Tab label="Login" />
             <Tab label="Register" />
@@ -142,7 +144,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             required
             sx={{ mb: 2 }}
           />
-          {tab === 1 && !ssoEnabled && (
+          {tab === 1 && registrationAllowed && (
             <TextField
               fullWidth
               label="Display Name"
@@ -168,7 +170,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
             disabled={loading}
             size="large"
           >
-            {loading ? "..." : tab === 0 || ssoEnabled ? "Login" : "Register"}
+            {loading ? "..." : tab === 0 || !registrationAllowed ? "Login" : "Register"}
           </Button>
         </form>
       </Card>

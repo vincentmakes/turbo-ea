@@ -482,3 +482,40 @@ async def get_sso_status(db: AsyncSession = Depends(get_db)):
     general = (row.general_settings if row else None) or {}
     sso = general.get("sso", {})
     return {"enabled": sso.get("enabled", False)}
+
+
+# ---------------------------------------------------------------------------
+# Self-registration toggle
+# ---------------------------------------------------------------------------
+
+class RegistrationPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/registration")
+async def get_registration_settings(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether self-registration is enabled."""
+    result = await db.execute(
+        select(AppSettings).where(AppSettings.id == "default")
+    )
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("registrationEnabled", True)}
+
+
+@router.patch("/registration")
+async def update_registration_settings(
+    body: RegistrationPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable self-registration."""
+    _require_admin(user)
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["registrationEnabled"] = body.enabled
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}

@@ -29,11 +29,16 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_sso_config(db: AsyncSession) -> dict:
-    """Read SSO configuration from app_settings."""
+async def _get_general_settings(db: AsyncSession) -> dict:
+    """Read general_settings from app_settings."""
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
-    general = (row.general_settings if row else None) or {}
+    return (row.general_settings if row else None) or {}
+
+
+async def _get_sso_config(db: AsyncSession) -> dict:
+    """Read SSO configuration from app_settings."""
+    general = await _get_general_settings(db)
     return general.get("sso", {})
 
 
@@ -69,22 +74,31 @@ def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
 async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    # Block registration when SSO is enabled
-    sso_config = await _get_sso_config(db)
-    if sso_config.get("enabled"):
-        raise HTTPException(
-            403, "Registration is disabled when SSO is enabled. Sign in with Microsoft."
-        )
-
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
-        raise HTTPException(400, "Email already registered")
+    general = await _get_general_settings(db)
 
     # ── M1: Use advisory lock to prevent race condition on first-user admin ──
     await db.execute(text("SELECT pg_advisory_xact_lock(1)"))
     count_result = await db.execute(select(func.count(User.id)))
     user_count = count_result.scalar()
-    role = "admin" if user_count == 0 else "member"
+    is_first_user = user_count == 0
+    role = "admin" if is_first_user else "member"
+
+    # Always allow first-user bootstrap registration
+    if not is_first_user:
+        # Block registration when SSO is enabled
+        sso_config = general.get("sso", {})
+        if sso_config.get("enabled"):
+            raise HTTPException(
+                403, "Registration is disabled when SSO is enabled. Sign in with Microsoft."
+            )
+
+        # Block registration when admin has disabled self-registration
+        if not general.get("registrationEnabled", True):
+            raise HTTPException(403, "Self-registration is disabled. Contact an administrator.")
+
+    existing = await db.execute(select(User).where(User.email == body.email))
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "Email already registered")
 
     user = User(
         email=body.email,
@@ -172,10 +186,15 @@ async def refresh_token(
 @router.get("/sso/config")
 async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns SSO configuration needed by the frontend to
-    build the Microsoft authorization URL. No secrets are exposed."""
-    sso = await _get_sso_config(db)
+    build the Microsoft authorization URL. No secrets are exposed.
+    Also includes registration_enabled so the login page knows whether to
+    show the Register tab."""
+    general = await _get_general_settings(db)
+    registration_enabled = general.get("registrationEnabled", True)
+
+    sso = general.get("sso", {})
     if not sso.get("enabled"):
-        return {"enabled": False}
+        return {"enabled": False, "registration_enabled": registration_enabled}
 
     tenant = sso.get("tenant_id", "organizations")
     client_id = sso.get("client_id", "")
@@ -187,6 +206,7 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
         "authorization_endpoint": (
             f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize"
         ),
+        "registration_enabled": registration_enabled,
     }
 
 
