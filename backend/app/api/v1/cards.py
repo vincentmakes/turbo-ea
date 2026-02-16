@@ -153,9 +153,9 @@ def _card_to_response(card: Card) -> CardResponse:
             id=str(t.id), name=t.name, color=t.color,
             group_name=t.group.name if t.group else None,
         ))
-    subs = []
+    stakeholder_refs = []
     for s in (card.stakeholders or []):
-        subs.append(StakeholderRef(
+        stakeholder_refs.append(StakeholderRef(
             id=str(s.id), user_id=str(s.user_id), role=s.role,
             user_display_name=s.user.display_name if s.user else None,
             user_email=s.user.email if s.user else None,
@@ -179,7 +179,7 @@ def _card_to_response(card: Card) -> CardResponse:
         created_at=card.created_at,
         updated_at=card.updated_at,
         tags=tags,
-        subscriptions=subs,
+        stakeholders=stakeholder_refs,
     )
 
 
@@ -573,7 +573,7 @@ async def my_permissions(
     if not result.scalar_one_or_none():
         raise HTTPException(404, "Card not found")
 
-    return await PermissionService.get_effective_fs_permissions(
+    return await PermissionService.get_effective_card_permissions(
         db, user, uuid.UUID(card_id)
     )
 

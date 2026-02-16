@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import FS_TO_APP_PERMISSION_MAP
+from app.core.permissions import CARD_TO_APP_PERMISSION_MAP
 from app.models.card import Card
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
@@ -64,27 +64,27 @@ class PermissionService:
         return bool(perms.get(permission, False))
 
     @staticmethod
-    async def has_fs_permission(
+    async def has_card_permission(
         db: AsyncSession, user: User, card_id: UUID, permission: str
     ) -> bool:
-        """Check if user has permission on a specific card via subscription."""
-        subs = await db.execute(
+        """Check if user has permission on a specific card via stakeholder role."""
+        stakeholder_result = await db.execute(
             select(Stakeholder.role).where(
                 Stakeholder.card_id == card_id,
                 Stakeholder.user_id == user.id,
             )
         )
-        fs_type_result = await db.execute(
+        card_type_result = await db.execute(
             select(Card.type).where(Card.id == card_id)
         )
-        type_key = fs_type_result.scalar_one_or_none()
+        type_key = card_type_result.scalar_one_or_none()
         if not type_key:
             return False
 
-        for (sub_role,) in subs.all():
+        for (role_key,) in stakeholder_result.all():
             # Check cache first
             now = time.time()
-            cache_key = (type_key, sub_role)
+            cache_key = (type_key, role_key)
             cached = PermissionService._srd_cache.get(cache_key)
             if cached and (now - cached[1]) < PermissionService.CACHE_TTL:
                 perms = cached[0]
@@ -92,7 +92,7 @@ class PermissionService:
                 srd = await db.execute(
                     select(StakeholderRoleDefinition.permissions).where(
                         StakeholderRoleDefinition.card_type_key == type_key,
-                        StakeholderRoleDefinition.key == sub_role,
+                        StakeholderRoleDefinition.key == role_key,
                         StakeholderRoleDefinition.is_archived == False,  # noqa: E712
                     )
                 )
@@ -109,14 +109,14 @@ class PermissionService:
         user: User,
         app_permission: str,
         card_id: UUID | None = None,
-        fs_permission: str | None = None,
+        card_permission: str | None = None,
     ) -> bool:
         """Combined check: returns True if app-level OR card-level grants access."""
         if await PermissionService.has_app_permission(db, user, app_permission):
             return True
-        if card_id and fs_permission:
-            return await PermissionService.has_fs_permission(
-                db, user, card_id, fs_permission
+        if card_id and card_permission:
+            return await PermissionService.has_card_permission(
+                db, user, card_id, card_permission
             )
         return False
 
@@ -126,49 +126,49 @@ class PermissionService:
         user: User,
         app_permission: str,
         card_id: UUID | None = None,
-        fs_permission: str | None = None,
+        card_permission: str | None = None,
     ) -> None:
         """Raise 403 if permission check fails."""
         if not await PermissionService.check_permission(
-            db, user, app_permission, card_id, fs_permission
+            db, user, app_permission, card_id, card_permission
         ):
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
-    async def get_effective_fs_permissions(
+    async def get_effective_card_permissions(
         db: AsyncSession, user: User, card_id: UUID
     ) -> dict:
         """Return the user's effective permissions on a specific card.
 
-        Returns a dict with app_level, stakeholder_roles, fs_level, and effective keys.
+        Returns a dict with app_level, stakeholder_roles, card_level, and effective keys.
         """
         # Get user's app-level permissions
         role_data = await PermissionService.load_role(db, user.role)
         app_perms = role_data.get("permissions", {}) if role_data else {}
 
         # Get card type
-        fs_type_result = await db.execute(
+        card_type_result = await db.execute(
             select(Card.type).where(Card.id == card_id)
         )
-        type_key = fs_type_result.scalar_one_or_none()
+        type_key = card_type_result.scalar_one_or_none()
 
-        # Get user subscriptions on this FS
-        subs = await db.execute(
+        # Get user stakeholder roles on this card
+        stakeholder_result = await db.execute(
             select(Stakeholder.role).where(
                 Stakeholder.card_id == card_id,
                 Stakeholder.user_id == user.id,
             )
         )
-        sub_roles = [r for (r,) in subs.all()]
+        stakeholder_roles = [r for (r,) in stakeholder_result.all()]
 
-        # Aggregate FS-level permissions from all subscriptions
-        fs_level: dict[str, bool] = {}
+        # Aggregate card-level permissions from all stakeholder roles
+        card_level: dict[str, bool] = {}
         if type_key:
-            for sub_role in sub_roles:
+            for role_key in stakeholder_roles:
                 srd = await db.execute(
                     select(StakeholderRoleDefinition.permissions).where(
                         StakeholderRoleDefinition.card_type_key == type_key,
-                        StakeholderRoleDefinition.key == sub_role,
+                        StakeholderRoleDefinition.key == role_key,
                         StakeholderRoleDefinition.is_archived == False,  # noqa: E712
                     )
                 )
@@ -176,29 +176,29 @@ class PermissionService:
                 if perms:
                     for k, v in perms.items():
                         if v:
-                            fs_level[k] = True
+                            card_level[k] = True
 
-        # Compute effective permissions (union of app-level and FS-level)
+        # Compute effective permissions (union of app-level and card-level)
         is_admin = app_perms.get("*", False)
         effective = {
-            "can_view": is_admin or app_perms.get("inventory.view", False) or fs_level.get("card.view", False),
-            "can_edit": is_admin or app_perms.get("inventory.edit", False) or fs_level.get("card.edit", False),
-            "can_delete": is_admin or app_perms.get("inventory.delete", False) or fs_level.get("card.delete", False),
-            "can_approval_status": is_admin or app_perms.get("inventory.approval_status", False) or fs_level.get("card.approval_status", False),
-            "can_manage_stakeholders": is_admin or app_perms.get("stakeholders.manage", False) or fs_level.get("card.manage_stakeholders", False),
-            "can_manage_relations": is_admin or app_perms.get("relations.manage", False) or fs_level.get("card.manage_relations", False),
-            "can_manage_documents": is_admin or app_perms.get("documents.manage", False) or fs_level.get("card.manage_documents", False),
-            "can_manage_comments": is_admin or app_perms.get("comments.manage", False) or fs_level.get("card.manage_comments", False),
-            "can_create_comments": is_admin or app_perms.get("comments.create", False) or fs_level.get("card.create_comments", False),
-            "can_bpm_edit": is_admin or app_perms.get("bpm.edit", False) or fs_level.get("card.bpm_edit", False),
-            "can_bpm_manage_drafts": is_admin or app_perms.get("bpm.manage_drafts", False) or fs_level.get("card.bpm_manage_drafts", False),
-            "can_bpm_approve": is_admin or app_perms.get("bpm.approve_flows", False) or fs_level.get("card.bpm_approve", False),
+            "can_view": is_admin or app_perms.get("inventory.view", False) or card_level.get("card.view", False),
+            "can_edit": is_admin or app_perms.get("inventory.edit", False) or card_level.get("card.edit", False),
+            "can_delete": is_admin or app_perms.get("inventory.delete", False) or card_level.get("card.delete", False),
+            "can_approval_status": is_admin or app_perms.get("inventory.approval_status", False) or card_level.get("card.approval_status", False),
+            "can_manage_stakeholders": is_admin or app_perms.get("stakeholders.manage", False) or card_level.get("card.manage_stakeholders", False),
+            "can_manage_relations": is_admin or app_perms.get("relations.manage", False) or card_level.get("card.manage_relations", False),
+            "can_manage_documents": is_admin or app_perms.get("documents.manage", False) or card_level.get("card.manage_documents", False),
+            "can_manage_comments": is_admin or app_perms.get("comments.manage", False) or card_level.get("card.manage_comments", False),
+            "can_create_comments": is_admin or app_perms.get("comments.create", False) or card_level.get("card.create_comments", False),
+            "can_bpm_edit": is_admin or app_perms.get("bpm.edit", False) or card_level.get("card.bpm_edit", False),
+            "can_bpm_manage_drafts": is_admin or app_perms.get("bpm.manage_drafts", False) or card_level.get("card.bpm_manage_drafts", False),
+            "can_bpm_approve": is_admin or app_perms.get("bpm.approve_flows", False) or card_level.get("card.bpm_approve", False),
         }
 
         return {
             "app_level": {k: v for k, v in app_perms.items() if k != "*"} if not is_admin else {"*": True},
-            "stakeholder_roles": sub_roles,
-            "fs_level": fs_level,
+            "stakeholder_roles": stakeholder_roles,
+            "card_level": card_level,
             "effective": effective,
         }
 
@@ -212,7 +212,7 @@ class PermissionService:
 
     @staticmethod
     def invalidate_srd_cache(type_key: str | None = None, role_key: str | None = None) -> None:
-        """Invalidate subscription role definition cache."""
+        """Invalidate stakeholder role definition cache."""
         if type_key and role_key:
             PermissionService._srd_cache.pop((type_key, role_key), None)
         elif type_key:

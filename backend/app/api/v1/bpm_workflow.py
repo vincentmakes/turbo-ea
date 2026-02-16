@@ -548,7 +548,7 @@ async def approve_version(
                 old.lane_name = ext.lane_name
                 old.is_automated = ext.is_automated
                 old.sequence_order = ext.sequence_order
-                # Apply draft links (only if the linked FS is still valid)
+                # Apply draft links (only if the linked card is still valid)
                 if draft_link:
                     _apply_draft_link(old, draft_link, valid_card_ids)
             else:

@@ -73,7 +73,7 @@ class CardResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     tags: list[TagRef] = []
-    subscriptions: list[StakeholderRef] = []
+    stakeholders: list[StakeholderRef] = []
 
     model_config = {"from_attributes": True}
 

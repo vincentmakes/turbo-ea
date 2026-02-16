@@ -53,7 +53,7 @@ def _serialize_relation_type(r: RelationType) -> dict:
     }
 
 
-# ── Fact Sheet Types ───────────────────────────────────────────────────
+# ── Card Types ─────────────────────────────────────────────────────────
 
 @router.get("/types")
 async def list_types(
@@ -123,13 +123,13 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
     if not t:
         raise HTTPException(404, "Type not found")
 
-    # Prevent removing subscription roles that are in use
+    # Prevent removing stakeholder roles that are in use
     if "stakeholder_roles" in body:
         old_keys = {r["key"] for r in (t.stakeholder_roles or [])}
         new_keys = {r["key"] for r in (body["stakeholder_roles"] or [])}
         removed = old_keys - new_keys
         if removed:
-            # Check if any subscriptions use the removed roles on cards of this type
+            # Check if any stakeholders use the removed roles on cards of this type
             in_use = (
                 await db.execute(
                     select(Stakeholder.role, func.count(Stakeholder.id))
@@ -139,11 +139,11 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
                 )
             ).all()
             if in_use:
-                details = ", ".join(f"'{r}' ({c} subscription(s))" for r, c in in_use)
+                details = ", ".join(f"'{r}' ({c} stakeholder(s))" for r, c in in_use)
                 raise HTTPException(
                     400,
                     f"Cannot remove roles that are in use: {details}. "
-                    "Remove the subscriptions first.",
+                    "Remove the stakeholder assignments first.",
                 )
 
     updatable = [

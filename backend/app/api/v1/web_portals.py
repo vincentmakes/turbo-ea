@@ -407,7 +407,7 @@ async def get_public_portal_cards(
         q = q.where(Card.id.in_(related_fs))
         count_q = count_q.where(Card.id.in_(related_fs))
 
-    # Filter by multiple relations (JSON: {"relTypeKey": "factSheetId", ...})
+    # Filter by multiple relations (JSON: {"relTypeKey": "cardId", ...})
     if relation_filters:
         try:
             parsed_rf = json.loads(relation_filters)
@@ -515,7 +515,7 @@ async def get_public_portal_cards(
                 "direction": "incoming",
             })
 
-    # Collect subscriptions for the result cards
+    # Collect stakeholders for the result cards
     subs_map: dict[str, list] = {}
     if card_ids:
         sub_rows = await db.execute(

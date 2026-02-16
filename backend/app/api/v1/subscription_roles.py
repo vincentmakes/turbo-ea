@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
-from app.core.permissions import ALL_FS_PERMISSION_KEYS, FS_PERMISSIONS
+from app.core.permissions import ALL_CARD_PERMISSION_KEYS, CARD_PERMISSIONS
 from app.database import get_db
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
@@ -48,7 +48,7 @@ class StakeholderRoleCreate(BaseModel):
     @field_validator("permissions")
     @classmethod
     def validate_permissions(cls, v: dict[str, bool]) -> dict[str, bool]:
-        unknown = set(v.keys()) - ALL_FS_PERMISSION_KEYS
+        unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
         if unknown:
             raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
         return v
@@ -65,7 +65,7 @@ class StakeholderRoleUpdate(BaseModel):
     @classmethod
     def validate_permissions(cls, v: dict[str, bool] | None) -> dict[str, bool] | None:
         if v is not None:
-            unknown = set(v.keys()) - ALL_FS_PERMISSION_KEYS
+            unknown = set(v.keys()) - ALL_CARD_PERMISSION_KEYS
             if unknown:
                 raise ValueError(f"Unknown permission keys: {', '.join(sorted(unknown))}")
         return v
@@ -326,6 +326,6 @@ async def restore_stakeholder_role(
 
 
 @router.get("/stakeholder-roles/permissions-schema")
-async def fs_permissions_schema(user: User = Depends(get_current_user)):
-    """Return the full FS-level permission key catalog."""
-    return FS_PERMISSIONS
+async def card_permissions_schema(user: User = Depends(get_current_user)):
+    """Return the full card-level permission key catalog."""
+    return CARD_PERMISSIONS

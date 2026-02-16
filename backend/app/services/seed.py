@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import (
     ADMIN_PERMISSIONS,
     BPM_ADMIN_PERMISSIONS,
-    DEFAULT_FS_PERMISSIONS_BY_ROLE,
+    DEFAULT_CARD_PERMISSIONS_BY_ROLE,
     MEMBER_PERMISSIONS,
     VIEWER_PERMISSIONS,
 )
@@ -137,7 +137,7 @@ PROCESS_FREQUENCY_OPTIONS = [
     {"key": "continuous", "label": "Continuous"},
 ]
 
-# ── 14 Fact Sheet Types (from Meta_Model.xml + BPM) ──────────────────
+# ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [
     # -- Strategy & Transformation layer --
@@ -813,7 +813,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
         if r["key"] not in existing_roles:
             db.add(Role(**r))
 
-    # ── Seed subscription role definitions ────────────────────────────────
+    # ── Seed stakeholder role definitions ──────────────────────────────────
     # Flush first so that any newly-inserted card_types rows are
     # visible to the FK constraint on subscription_role_definitions.
     await db.flush()
@@ -840,7 +840,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             sr_key = sr["key"]
             if (type_key, sr_key) in existing_srd_keys:
                 continue
-            permissions = DEFAULT_FS_PERMISSIONS_BY_ROLE.get(sr_key, {})
+            permissions = DEFAULT_CARD_PERMISSIONS_BY_ROLE.get(sr_key, {})
             db.add(
                 StakeholderRoleDefinition(
                     card_type_key=type_key,

@@ -138,47 +138,47 @@ for group in APP_PERMISSIONS.values():
     ALL_APP_PERMISSION_KEYS.update(group["permissions"].keys())
 
 # ---------------------------------------------------------------------------
-# Card-level permissions (stored in subscription_role_definitions.permissions)
+# Card-level permissions (stored in stakeholder_role_definitions.permissions)
 # ---------------------------------------------------------------------------
 
-FS_PERMISSIONS: dict[str, str] = {
-    "fs.view": "View this card's detail page",
-    "fs.edit": "Edit this card's fields, name, description, lifecycle",
-    "fs.delete": "Delete or archive this card",
-    "fs.approval_status": "Approve, reject, or reset approval status",
+CARD_PERMISSIONS: dict[str, str] = {
+    "card.view": "View this card's detail page",
+    "card.edit": "Edit this card's fields, name, description, lifecycle",
+    "card.delete": "Delete or archive this card",
+    "card.approval_status": "Approve, reject, or reset approval status",
     "card.manage_stakeholders": "Add or remove other users' stakeholder assignments",
-    "fs.manage_relations": "Add or remove relations on this card",
-    "fs.manage_documents": "Add or remove document links",
-    "fs.manage_comments": "Delete any comment (not just own)",
-    "fs.create_comments": "Post comments on this card",
-    "fs.bpm_edit": "Edit BPM diagram and elements (process types only)",
-    "fs.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
-    "fs.bpm_approve": "Approve or reject submitted BPMN flow versions",
+    "card.manage_relations": "Add or remove relations on this card",
+    "card.manage_documents": "Add or remove document links",
+    "card.manage_comments": "Delete any comment (not just own)",
+    "card.create_comments": "Post comments on this card",
+    "card.bpm_edit": "Edit BPM diagram and elements (process types only)",
+    "card.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
+    "card.bpm_approve": "Approve or reject submitted BPMN flow versions",
 }
 
-ALL_FS_PERMISSION_KEYS: set[str] = set(FS_PERMISSIONS.keys())
+ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
 
 # ---------------------------------------------------------------------------
 # Mapping: app-level permission → card-level equivalent
-# When checking a FS action, the app-level perm also grants access.
+# When checking a card action, the app-level perm also grants access.
 # ---------------------------------------------------------------------------
 
-APP_TO_FS_PERMISSION_MAP: dict[str, str] = {
-    "inventory.edit": "fs.edit",
-    "inventory.delete": "fs.delete",
-    "inventory.approval_status": "fs.approval_status",
+APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
+    "inventory.edit": "card.edit",
+    "inventory.delete": "card.delete",
+    "inventory.approval_status": "card.approval_status",
     "stakeholders.manage": "card.manage_stakeholders",
-    "relations.manage": "fs.manage_relations",
-    "documents.manage": "fs.manage_documents",
-    "comments.manage": "fs.manage_comments",
-    "comments.create": "fs.create_comments",
-    "bpm.edit": "fs.bpm_edit",
-    "bpm.manage_drafts": "fs.bpm_manage_drafts",
-    "bpm.approve_flows": "fs.bpm_approve",
+    "relations.manage": "card.manage_relations",
+    "documents.manage": "card.manage_documents",
+    "comments.manage": "card.manage_comments",
+    "comments.create": "card.create_comments",
+    "bpm.edit": "card.bpm_edit",
+    "bpm.manage_drafts": "card.bpm_manage_drafts",
+    "bpm.approve_flows": "card.bpm_approve",
 }
 
-# Reverse: fs-level → app-level (for check_permission convenience)
-FS_TO_APP_PERMISSION_MAP: dict[str, str] = {v: k for k, v in APP_TO_FS_PERMISSION_MAP.items()}
+# Reverse: card-level → app-level (for check_permission convenience)
+CARD_TO_APP_PERMISSION_MAP: dict[str, str] = {v: k for k, v in APP_TO_CARD_PERMISSION_MAP.items()}
 
 # ---------------------------------------------------------------------------
 # Default permission sets for seeded roles
@@ -322,89 +322,89 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
 }
 
 # ---------------------------------------------------------------------------
-# Default subscription-role permission sets
+# Default stakeholder-role permission sets
 # ---------------------------------------------------------------------------
 
-RESPONSIBLE_FS_PERMISSIONS: dict[str, bool] = {
-    "fs.view": True,
-    "fs.edit": True,
-    "fs.delete": True,
-    "fs.approval_status": True,
+RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.delete": True,
+    "card.approval_status": True,
     "card.manage_stakeholders": True,
-    "fs.manage_relations": True,
-    "fs.manage_documents": True,
-    "fs.manage_comments": True,
-    "fs.create_comments": True,
-    "fs.bpm_edit": True,
-    "fs.bpm_manage_drafts": True,
-    "fs.bpm_approve": False,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": True,
+    "card.create_comments": True,
+    "card.bpm_edit": True,
+    "card.bpm_manage_drafts": True,
+    "card.bpm_approve": False,
 }
 
-OBSERVER_FS_PERMISSIONS: dict[str, bool] = {
-    "fs.view": True,
-    "fs.edit": False,
-    "fs.delete": False,
-    "fs.approval_status": False,
+OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": False,
+    "card.delete": False,
+    "card.approval_status": False,
     "card.manage_stakeholders": False,
-    "fs.manage_relations": False,
-    "fs.manage_documents": False,
-    "fs.manage_comments": False,
-    "fs.create_comments": True,
-    "fs.bpm_edit": False,
-    "fs.bpm_manage_drafts": False,
-    "fs.bpm_approve": False,
+    "card.manage_relations": False,
+    "card.manage_documents": False,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": False,
+    "card.bpm_manage_drafts": False,
+    "card.bpm_approve": False,
 }
 
-PROCESS_OWNER_FS_PERMISSIONS: dict[str, bool] = {
-    "fs.view": True,
-    "fs.edit": True,
-    "fs.delete": False,
-    "fs.approval_status": True,
+PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.delete": False,
+    "card.approval_status": True,
     "card.manage_stakeholders": True,
-    "fs.manage_relations": True,
-    "fs.manage_documents": True,
-    "fs.manage_comments": False,
-    "fs.create_comments": True,
-    "fs.bpm_edit": True,
-    "fs.bpm_manage_drafts": True,
-    "fs.bpm_approve": True,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": True,
+    "card.bpm_manage_drafts": True,
+    "card.bpm_approve": True,
 }
 
-TECH_APP_OWNER_FS_PERMISSIONS: dict[str, bool] = {
-    "fs.view": True,
-    "fs.edit": True,
-    "fs.delete": False,
-    "fs.approval_status": False,
+TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.delete": False,
+    "card.approval_status": False,
     "card.manage_stakeholders": False,
-    "fs.manage_relations": True,
-    "fs.manage_documents": True,
-    "fs.manage_comments": False,
-    "fs.create_comments": True,
-    "fs.bpm_edit": False,
-    "fs.bpm_manage_drafts": False,
-    "fs.bpm_approve": False,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": False,
+    "card.bpm_manage_drafts": False,
+    "card.bpm_approve": False,
 }
 
-BIZ_APP_OWNER_FS_PERMISSIONS: dict[str, bool] = {
-    "fs.view": True,
-    "fs.edit": True,
-    "fs.delete": False,
-    "fs.approval_status": False,
+BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.delete": False,
+    "card.approval_status": False,
     "card.manage_stakeholders": False,
-    "fs.manage_relations": True,
-    "fs.manage_documents": True,
-    "fs.manage_comments": False,
-    "fs.create_comments": True,
-    "fs.bpm_edit": False,
-    "fs.bpm_manage_drafts": False,
-    "fs.bpm_approve": False,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": False,
+    "card.bpm_manage_drafts": False,
+    "card.bpm_approve": False,
 }
 
 # Map stakeholder role key → default permissions
-DEFAULT_FS_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
-    "responsible": RESPONSIBLE_FS_PERMISSIONS,
-    "observer": OBSERVER_FS_PERMISSIONS,
-    "process_owner": PROCESS_OWNER_FS_PERMISSIONS,
-    "technical_application_owner": TECH_APP_OWNER_FS_PERMISSIONS,
-    "business_application_owner": BIZ_APP_OWNER_FS_PERMISSIONS,
+DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
+    "responsible": RESPONSIBLE_CARD_PERMISSIONS,
+    "observer": OBSERVER_CARD_PERMISSIONS,
+    "process_owner": PROCESS_OWNER_CARD_PERMISSIONS,
+    "technical_application_owner": TECH_APP_OWNER_CARD_PERMISSIONS,
+    "business_application_owner": BIZ_APP_OWNER_CARD_PERMISSIONS,
 }

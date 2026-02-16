@@ -6,10 +6,10 @@ import type { User, CardEffectivePermissions } from "@/types";
  * Hook for checking user permissions at both app-level and card-level.
  *
  * App-level permissions come from the user's role (loaded via /auth/me).
- * Fact-sheet-level permissions are loaded on demand via /cards/:id/my-permissions.
+ * Card-level permissions are loaded on demand via /cards/:id/my-permissions.
  */
 export function usePermissions(user: User | null) {
-  const [fsPermissions, setFsPermissions] = useState<
+  const [cardPermissions, setCardPermissions] = useState<
     Record<string, CardEffectivePermissions>
   >({});
 
@@ -40,47 +40,47 @@ export function usePermissions(user: User | null) {
    * Load effective permissions for a specific card.
    * Results are cached per card ID.
    */
-  const loadFsPermissions = useCallback(
-    async (fsId: string) => {
-      if (fsPermissions[fsId]) return;
+  const loadCardPermissions = useCallback(
+    async (cardId: string) => {
+      if (cardPermissions[cardId]) return;
       try {
         const perms = await api.get<CardEffectivePermissions>(
-          `/cards/${fsId}/my-permissions`
+          `/cards/${cardId}/my-permissions`
         );
-        setFsPermissions((prev) => ({ ...prev, [fsId]: perms }));
+        setCardPermissions((prev) => ({ ...prev, [cardId]: perms }));
       } catch {
         // Silently fail — permissions will default to false
       }
     },
-    [fsPermissions]
+    [cardPermissions]
   );
 
   /**
    * Check if user can perform an action on a specific card.
-   * Checks both app-level and FS-level permissions.
+   * Checks both app-level and card-level permissions.
    */
-  const canOnFs = useCallback(
-    (fsId: string, effectiveKey: string): boolean => {
+  const canOnCard = useCallback(
+    (cardId: string, effectiveKey: string): boolean => {
       if (isAdmin) return true;
-      const fsPerms = fsPermissions[fsId];
-      if (!fsPerms) return false;
-      return !!(fsPerms.effective as Record<string, boolean>)[effectiveKey];
+      const cardPerms = cardPermissions[cardId];
+      if (!cardPerms) return false;
+      return !!(cardPerms.effective as Record<string, boolean>)[effectiveKey];
     },
-    [isAdmin, fsPermissions]
+    [isAdmin, cardPermissions]
   );
 
   /**
-   * Invalidate cached FS permissions (e.g. after a stakeholder change).
+   * Invalidate cached card permissions (e.g. after a stakeholder change).
    */
-  const invalidateFsPermissions = useCallback((fsId?: string) => {
-    if (fsId) {
-      setFsPermissions((prev) => {
+  const invalidateCardPermissions = useCallback((cardId?: string) => {
+    if (cardId) {
+      setCardPermissions((prev) => {
         const next = { ...prev };
-        delete next[fsId];
+        delete next[cardId];
         return next;
       });
     } else {
-      setFsPermissions({});
+      setCardPermissions({});
     }
   }, []);
 
@@ -88,9 +88,9 @@ export function usePermissions(user: User | null) {
     permissions,
     can,
     isAdmin,
-    fsPermissions,
-    loadFsPermissions,
-    canOnFs,
-    invalidateFsPermissions,
+    cardPermissions,
+    loadCardPermissions,
+    canOnCard,
+    invalidateCardPermissions,
   };
 }

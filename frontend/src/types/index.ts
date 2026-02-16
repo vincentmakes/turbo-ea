@@ -51,7 +51,7 @@ export interface StakeholderRoleDefinitionFull {
 export interface CardEffectivePermissions {
   app_level: Record<string, boolean>;
   stakeholder_roles: string[];
-  fs_level: Record<string, boolean>;
+  card_level: Record<string, boolean>;
   effective: {
     can_view: boolean;
     can_edit: boolean;

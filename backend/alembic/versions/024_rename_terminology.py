@@ -7,6 +7,7 @@ Create Date: 2026-02-16
 from typing import Sequence, Union
 
 from alembic import op
+import sqlalchemy as sa
 
 # revision identifiers
 revision: str = "024"
@@ -43,8 +44,39 @@ def upgrade() -> None:
     # subscription_roles → stakeholder_roles on card_types
     op.alter_column("card_types", "subscription_roles", new_column_name="stakeholder_roles")
 
+    # Rename fs.* → card.* permission keys in stakeholder role definition JSONB data
+    op.execute(sa.text("""
+        UPDATE subscription_role_definitions
+        SET permissions = (
+            SELECT jsonb_object_agg(
+                CASE WHEN key LIKE 'fs.%' THEN 'card.' || substring(key from 4)
+                     ELSE key
+                END,
+                value
+            )
+            FROM jsonb_each(permissions)
+        )
+        WHERE permissions IS NOT NULL
+          AND permissions::text LIKE '%"fs.%'
+    """))
+
 
 def downgrade() -> None:
+    # Revert card.* → fs.* permission keys in stakeholder role definition JSONB data
+    op.execute(sa.text("""
+        UPDATE subscription_role_definitions
+        SET permissions = (
+            SELECT jsonb_object_agg(
+                CASE WHEN key LIKE 'card.%' THEN 'fs.' || substring(key from 6)
+                     ELSE key
+                END,
+                value
+            )
+            FROM jsonb_each(permissions)
+        )
+        WHERE permissions IS NOT NULL
+          AND permissions::text LIKE '%"card.%'
+    """))
     op.alter_column("card_types", "stakeholder_roles", new_column_name="subscription_roles")
     op.alter_column("web_portals", "card_type", new_column_name="fact_sheet_type")
     op.alter_column("bookmarks", "card_type", new_column_name="fact_sheet_type")

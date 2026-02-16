@@ -16,9 +16,9 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/diagrams", tags=["diagrams"])
 
-# Regex to pull factSheetId values out of DrawIO XML <object> elements.
+# Regex to pull cardId values out of DrawIO XML <object> elements.
 # Faster than full XML parsing and safe here because the attribute value is a UUID.
-_FS_ID_RE = re.compile(r'factSheetId="([0-9a-fA-F-]{36})"')
+_CARD_ID_RE = re.compile(r'cardId="([0-9a-fA-F-]{36})"')
 
 
 def _extract_card_refs(data: dict | None) -> list[str]:
@@ -26,7 +26,7 @@ def _extract_card_refs(data: dict | None) -> list[str]:
     xml = (data or {}).get("xml", "")
     if not xml:
         return []
-    return list(dict.fromkeys(_FS_ID_RE.findall(xml)))
+    return list(dict.fromkeys(_CARD_ID_RE.findall(xml)))
 
 
 class DiagramCreate(BaseModel):
