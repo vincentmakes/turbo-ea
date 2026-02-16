@@ -319,11 +319,15 @@ async def app_portfolio(
                 "other_type_key": other,
             })
 
-    # 6. Get the Application type schema for field definitions
-    type_result = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == "Application")
+    # 6. Get fact sheet types (schema + visibility)
+    all_types_result = await db.execute(
+        select(FactSheetType)
     )
-    app_type = type_result.scalar_one_or_none()
+    all_types = all_types_result.scalars().all()
+    visible_type_keys = {
+        t.key for t in all_types if not t.is_hidden
+    }
+    app_type = next((t for t in all_types if t.key == "Application"), None)
     fields_schema = app_type.fields_schema if app_type else []
 
     # 7. Get all organizations for org filter options
@@ -358,10 +362,12 @@ async def app_portfolio(
             "org_ids": sorted(app_orgs.get(aid, set())),
         })
 
-    # 9. Collect groupable related types (types that have at least 1 linked app)
+    # 9. Collect groupable related types (visible only, with linked apps)
     groupable_types: dict[str, list[dict]] = {}
     for fs_data in related_map.values():
         ft = fs_data["type"]
+        if ft not in visible_type_keys:
+            continue
         if ft not in groupable_types:
             groupable_types[ft] = []
         groupable_types[ft].append(fs_data)
