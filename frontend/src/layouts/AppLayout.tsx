@@ -105,6 +105,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery("(max-width:767px)");
   const isCompact = useMediaQuery("(max-width:1023px)");
+  const isNarrow = useMediaQuery("(max-width:1160px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
@@ -650,10 +651,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </Menu>
 
 
-          <Box sx={{ flex: !isMobile && isCompact && searchExpanded ? 0 : 1 }} />
+          <Box sx={{ flex: !isMobile && isNarrow && searchExpanded ? 0 : 1 }} />
 
-          {/* Search: compact mode shows icon that expands on click */}
-          {!isMobile && isCompact && !searchExpanded && (
+          {/* Search: narrow mode shows icon that expands on click */}
+          {!isMobile && isNarrow && !searchExpanded && (
             <Tooltip title="Search">
               <IconButton
                 sx={{ color: "rgba(255,255,255,0.7)" }}
@@ -663,13 +664,13 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </IconButton>
             </Tooltip>
           )}
-          {/* Search field: always visible on desktop, expands on compact */}
-          {!isMobile && (!isCompact || searchExpanded) && (
-            <ClickAwayListener onClickAway={() => { setSearchOpen(false); if (isCompact) setSearchExpanded(false); }}>
+          {/* Search field: always visible on wide screens, expands on narrow */}
+          {!isMobile && (!isNarrow || searchExpanded) && (
+            <ClickAwayListener onClickAway={() => { setSearchOpen(false); if (isNarrow) setSearchExpanded(false); }}>
               <Box
                 sx={{
                   position: "relative",
-                  ...(isCompact && searchExpanded
+                  ...(isNarrow && searchExpanded
                     ? { flex: 1 }
                     : { flexShrink: 1 }),
                   minWidth: 0,
@@ -678,7 +679,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               >
                 <TextField
                   size="small"
-                  fullWidth={isCompact && searchExpanded}
+                  fullWidth={isNarrow && searchExpanded}
                   placeholder="Search fact sheets..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -686,9 +687,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   onFocus={() => {
                     if (searchResults.length > 0) setSearchOpen(true);
                   }}
-                  autoFocus={isCompact && searchExpanded}
+                  autoFocus={isNarrow && searchExpanded}
                   sx={{
-                    ...(!isCompact ? { width: isCondensed ? 200 : 360 } : {}),
+                    ...(!isNarrow ? { width: isCondensed ? 200 : 360 } : {}),
                     maxWidth: "100%",
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
@@ -801,7 +802,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* Create button — icon-only on mobile or when search is expanded */}
           {can("inventory.create") && (
-            isMobile || (isCompact && searchExpanded) ? (
+            isMobile || (isNarrow && searchExpanded) ? (
               <Tooltip title="Create">
                 <IconButton
                   sx={{ color: "#fff" }}
