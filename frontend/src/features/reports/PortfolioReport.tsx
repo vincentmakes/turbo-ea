@@ -376,7 +376,7 @@ function GroupCard({
   const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
   const totalCost = group.apps.reduce(
     (s, a) =>
-      s + (((a.attributes || {}).totalAnnualCost as number) || 0),
+      s + (((a.attributes || {}).costTotalAnnual as number) || 0),
     0,
   );
 
@@ -699,7 +699,7 @@ export default function PortfolioReport() {
     const total = filteredApps.length;
     const totalCost = filteredApps.reduce(
       (s, a) =>
-        s + (((a.attributes || {}).totalAnnualCost as number) || 0),
+        s + (((a.attributes || {}).costTotalAnnual as number) || 0),
       0,
     );
     const withEol = filteredApps.filter(
@@ -772,8 +772,8 @@ export default function PortfolioReport() {
       if (sortK === "subtype")
         return (a.subtype || "").localeCompare(b.subtype || "") * dir;
       if (sortK === "cost") {
-        const ac = ((a.attributes || {}).totalAnnualCost as number) || 0;
-        const bc = ((b.attributes || {}).totalAnnualCost as number) || 0;
+        const ac = ((a.attributes || {}).costTotalAnnual as number) || 0;
+        const bc = ((b.attributes || {}).costTotalAnnual as number) || 0;
         return (ac - bc) * dir;
       }
       // Attribute column
@@ -1295,7 +1295,7 @@ export default function PortfolioReport() {
                   ? getAppColor(app, colorBy, selectFields)
                   : null;
                 const cost =
-                  ((attrs.totalAnnualCost as number) || 0);
+                  ((attrs.costTotalAnnual as number) || 0);
 
                 return (
                   <TableRow
@@ -1375,7 +1375,7 @@ export default function PortfolioReport() {
                     drawer.apps.reduce(
                       (s, a) =>
                         s +
-                        (((a.attributes || {}).totalAnnualCost as number) ||
+                        (((a.attributes || {}).costTotalAnnual as number) ||
                           0),
                       0,
                     ),
