@@ -17,8 +17,10 @@ from app.api.v1 import (
     notifications,
     relations,
     reports,
+    roles,
     settings,
     soaw,
+    subscription_roles,
     subscriptions,
     surveys,
     tags,
@@ -52,3 +54,5 @@ api_router.include_router(bpm.router)
 api_router.include_router(bpm_assessments.router)
 api_router.include_router(bpm_reports.router)
 api_router.include_router(bpm_workflow.router)
+api_router.include_router(roles.router)
+api_router.include_router(subscription_roles.router)

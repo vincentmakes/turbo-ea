@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.tag import FactSheetTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate
@@ -41,6 +42,7 @@ async def create_tag_group(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "tags.manage")
     group = TagGroup(name=body.name, description=body.description, mode=body.mode, mandatory=body.mandatory)
     db.add(group)
     await db.commit()
@@ -55,6 +57,7 @@ async def create_tag(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "tags.manage")
     tag = Tag(tag_group_id=uuid.UUID(group_id), name=body.name, color=body.color)
     db.add(tag)
     await db.commit()
@@ -69,6 +72,7 @@ async def assign_tags(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "tags.manage")
     for tid in tag_ids:
         existing = await db.execute(
             select(FactSheetTag).where(
@@ -89,6 +93,7 @@ async def remove_tag(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "tags.manage")
     result = await db.execute(
         select(FactSheetTag).where(
             FactSheetTag.fact_sheet_id == uuid.UUID(fs_id),

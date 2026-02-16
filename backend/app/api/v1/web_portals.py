@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation import Relation
@@ -51,6 +52,7 @@ async def list_portals(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
     result = await db.execute(
         select(WebPortal).order_by(WebPortal.created_at.desc())
     )
@@ -63,8 +65,7 @@ async def create_portal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.role != "admin":
-        raise HTTPException(403, "Only admins can create web portals")
+    await PermissionService.require_permission(db, user, "web_portals.manage")
     if not _SLUG_RE.match(body.slug):
         raise HTTPException(
             400,
@@ -106,6 +107,7 @@ async def get_portal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
     result = await db.execute(
         select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
     )
@@ -122,8 +124,7 @@ async def update_portal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.role != "admin":
-        raise HTTPException(403, "Only admins can update web portals")
+    await PermissionService.require_permission(db, user, "web_portals.manage")
     result = await db.execute(
         select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
     )
@@ -162,8 +163,7 @@ async def delete_portal(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    if user.role != "admin":
-        raise HTTPException(403, "Only admins can delete web portals")
+    await PermissionService.require_permission(db, user, "web_portals.manage")
     result = await db.execute(
         select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
     )

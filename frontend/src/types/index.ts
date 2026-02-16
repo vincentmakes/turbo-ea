@@ -3,11 +3,69 @@ export interface User {
   email: string;
   display_name: string;
   role: string;
+  role_label?: string;
+  role_color?: string;
   is_active: boolean;
   auth_provider?: string;
   has_password?: boolean;
   pending_setup?: boolean;
   created_at?: string;
+  permissions?: Record<string, boolean>;
+}
+
+export interface AppRole {
+  id: string;
+  key: string;
+  label: string;
+  description?: string;
+  is_system: boolean;
+  is_default: boolean;
+  is_archived: boolean;
+  color: string;
+  permissions: Record<string, boolean>;
+  sort_order: number;
+  user_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  archived_at?: string;
+  archived_by?: string;
+}
+
+export interface SubscriptionRoleDefinitionFull {
+  id: string;
+  fact_sheet_type_key: string;
+  key: string;
+  label: string;
+  description?: string;
+  color: string;
+  permissions: Record<string, boolean>;
+  is_archived: boolean;
+  sort_order: number;
+  subscription_count?: number;
+  created_at?: string;
+  updated_at?: string;
+  archived_at?: string;
+  archived_by?: string;
+}
+
+export interface FactSheetEffectivePermissions {
+  app_level: Record<string, boolean>;
+  subscription_roles: string[];
+  fs_level: Record<string, boolean>;
+  effective: {
+    can_view: boolean;
+    can_edit: boolean;
+    can_delete: boolean;
+    can_quality_seal: boolean;
+    can_manage_subscriptions: boolean;
+    can_manage_relations: boolean;
+    can_manage_documents: boolean;
+    can_manage_comments: boolean;
+    can_create_comments: boolean;
+    can_bpm_edit: boolean;
+    can_bpm_manage_drafts: boolean;
+    can_bpm_approve: boolean;
+  };
 }
 
 export interface SsoConfig {

@@ -30,6 +30,7 @@ import SurveyBuilder from "@/features/admin/SurveyBuilder";
 import SurveyResults from "@/features/admin/SurveyResults";
 import EolAdmin from "@/features/admin/EolAdmin";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
+import RolesAdmin from "@/features/admin/RolesAdmin";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
 import SsoCallback from "@/features/auth/SsoCallback";
@@ -122,6 +123,7 @@ function AppRoutes() {
               <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
               <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
               <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
+              <Route path="/admin/roles" element={<RolesAdmin />} />
               <Route path="/admin/web-portals" element={<WebPortalsAdmin />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>

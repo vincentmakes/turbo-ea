@@ -40,12 +40,25 @@ async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)
 
 
 def require_admin(user: User) -> None:
-    """Raise 403 unless user is a site admin."""
+    """Raise 403 unless user is a site admin. (Deprecated — use PermissionService.)"""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
 
 
 def require_bpm_admin(user: User) -> None:
-    """Raise 403 unless user is admin or bpm_admin."""
+    """Raise 403 unless user is admin or bpm_admin. (Deprecated — use PermissionService.)"""
     if user.role not in ("admin", "bpm_admin"):
         raise HTTPException(status_code=403, detail="Admin or BPM Admin required")
+
+
+def require_permission(app_perm: str):
+    """Dependency factory that checks a single app-level permission via PermissionService."""
+    async def _check(
+        user: User = Depends(get_current_user),
+        db: AsyncSession = Depends(get_db),
+    ) -> User:
+        from app.services.permission_service import PermissionService
+
+        await PermissionService.require_permission(db, user, app_perm)
+        return user
+    return _check

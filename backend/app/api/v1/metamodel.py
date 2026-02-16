@@ -4,12 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation_type import RelationType
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
 from app.models.subscription import Subscription
+from app.models.user import User
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
@@ -56,6 +59,7 @@ def _serialize_relation_type(r: RelationType) -> dict:
 async def list_types(
     include_hidden: bool = Query(False),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     q = select(FactSheetType).order_by(FactSheetType.sort_order)
     if not include_hidden:
@@ -65,7 +69,7 @@ async def list_types(
 
 
 @router.get("/types/{key}")
-async def get_type(key: str, db: AsyncSession = Depends(get_db)):
+async def get_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
     t = result.scalar_one_or_none()
     if not t:
@@ -74,7 +78,8 @@ async def get_type(key: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/types", status_code=201)
-async def create_type(body: dict, db: AsyncSession = Depends(get_db)):
+async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     existing = await db.execute(
         select(FactSheetType).where(FactSheetType.key == body.get("key", ""))
     )
@@ -111,7 +116,8 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/types/{key}")
-async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db)):
+async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
     t = result.scalar_one_or_none()
     if not t:
@@ -155,7 +161,8 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/types/{key}")
-async def delete_type(key: str, db: AsyncSession = Depends(get_db)):
+async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
     t = result.scalar_one_or_none()
     if not t:
@@ -208,6 +215,7 @@ async def list_relation_types(
     type_key: str | None = Query(None, description="Filter relations connected to this type"),
     include_hidden: bool = Query(False),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
 ):
     q = select(RelationType).order_by(RelationType.sort_order)
     if not include_hidden:
@@ -222,7 +230,7 @@ async def list_relation_types(
 
 
 @router.get("/relation-types/{key}")
-async def get_relation_type(key: str, db: AsyncSession = Depends(get_db)):
+async def get_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
     if not r:
@@ -231,7 +239,8 @@ async def get_relation_type(key: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/relation-types", status_code=201)
-async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db)):
+async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     existing = await db.execute(
         select(RelationType).where(RelationType.key == body.get("key", ""))
     )
@@ -272,7 +281,8 @@ async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db)):
 
 
 @router.patch("/relation-types/{key}")
-async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(get_db)):
+async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
     if not r:
@@ -292,7 +302,8 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
 
 
 @router.delete("/relation-types/{key}")
-async def delete_relation_type(key: str, db: AsyncSession = Depends(get_db)):
+async def delete_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
     if not r:

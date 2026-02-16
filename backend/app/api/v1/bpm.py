@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
@@ -86,6 +87,7 @@ async def get_diagram(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -115,6 +117,7 @@ async def save_diagram(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
     process = await _get_process_or_404(db, pid)
 
@@ -194,9 +197,8 @@ async def delete_diagram(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Delete all diagram versions and extracted elements for a process (admin or bpm_admin)."""
-    if current_user.role not in ("admin", "bpm_admin"):
-        raise HTTPException(403, "Admin or BPM Admin required")
+    """Delete all diagram versions and extracted elements for a process."""
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
 
     pid = uuid.UUID(process_id)
     process = await _get_process_or_404(db, pid)
@@ -233,6 +235,7 @@ async def list_diagram_versions(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -257,6 +260,7 @@ async def export_bpmn(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -283,6 +287,7 @@ async def export_svg(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -310,6 +315,7 @@ async def import_bpmn(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     content = await file.read()
@@ -333,6 +339,7 @@ async def list_elements(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -372,6 +379,7 @@ async def update_element(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    await PermissionService.require_permission(db, current_user, "bpm.edit")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(

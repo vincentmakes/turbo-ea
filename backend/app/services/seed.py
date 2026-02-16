@@ -4,8 +4,17 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import (
+    ADMIN_PERMISSIONS,
+    BPM_ADMIN_PERMISSIONS,
+    DEFAULT_FS_PERMISSIONS_BY_ROLE,
+    MEMBER_PERMISSIONS,
+    VIEWER_PERMISSIONS,
+)
 from app.models.fact_sheet_type import FactSheetType
 from app.models.relation_type import RelationType
+from app.models.role import Role
+from app.models.subscription_role_definition import SubscriptionRoleDefinition
 
 # ── Reusable option lists ──────────────────────────────────────────────
 
@@ -752,5 +761,94 @@ async def seed_metamodel(db: AsyncSession) -> None:
             sort_order=r.get("sort_order", i),
         )
         db.add(rt)
+
+    # ── Seed RBAC roles ──────────────────────────────────────────────────
+    existing_roles_result = await db.execute(select(Role))
+    existing_roles = {r.key for r in existing_roles_result.scalars().all()}
+
+    seed_roles = [
+        {
+            "key": "admin",
+            "label": "Admin",
+            "description": "Full access to all features and administration.",
+            "is_system": True,
+            "is_default": False,
+            "color": "#d32f2f",
+            "permissions": ADMIN_PERMISSIONS,
+            "sort_order": 0,
+        },
+        {
+            "key": "bpm_admin",
+            "label": "BPM Admin",
+            "description": "Full BPM management plus standard member access.",
+            "is_system": False,
+            "is_default": False,
+            "color": "#7B1FA2",
+            "permissions": BPM_ADMIN_PERMISSIONS,
+            "sort_order": 1,
+        },
+        {
+            "key": "member",
+            "label": "Member",
+            "description": "Standard access to create, edit, and manage fact sheets.",
+            "is_system": False,
+            "is_default": True,
+            "color": "#1976d2",
+            "permissions": MEMBER_PERMISSIONS,
+            "sort_order": 2,
+        },
+        {
+            "key": "viewer",
+            "label": "Viewer",
+            "description": "Read-only access to the EA landscape.",
+            "is_system": False,
+            "is_default": False,
+            "color": "#757575",
+            "permissions": VIEWER_PERMISSIONS,
+            "sort_order": 3,
+        },
+    ]
+
+    for r in seed_roles:
+        if r["key"] not in existing_roles:
+            db.add(Role(**r))
+
+    # ── Seed subscription role definitions ────────────────────────────────
+    # Flush first so that any newly-inserted fact_sheet_types rows are
+    # visible to the FK constraint on subscription_role_definitions.
+    await db.flush()
+
+    existing_srd_result = await db.execute(select(SubscriptionRoleDefinition))
+    existing_srd_keys = {
+        (s.fact_sheet_type_key, s.key)
+        for s in existing_srd_result.scalars().all()
+    }
+
+    for t in TYPES:
+        type_key = t["key"]
+        # Use the type's explicit subscription_roles if provided,
+        # otherwise fall back to the same defaults used when creating
+        # the FactSheetType above.
+        if "subscription_roles" in t:
+            roles_for_type = t["subscription_roles"]
+        elif type_key == "Application":
+            roles_for_type = _app_roles
+        else:
+            roles_for_type = _default_roles
+
+        for idx, sr in enumerate(roles_for_type):
+            sr_key = sr["key"]
+            if (type_key, sr_key) in existing_srd_keys:
+                continue
+            permissions = DEFAULT_FS_PERMISSIONS_BY_ROLE.get(sr_key, {})
+            db.add(
+                SubscriptionRoleDefinition(
+                    fact_sheet_type_key=type_key,
+                    key=sr_key,
+                    label=sr["label"],
+                    permissions=permissions,
+                    sort_order=idx,
+                )
+            )
 
     await db.commit()

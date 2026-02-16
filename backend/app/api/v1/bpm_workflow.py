@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.fact_sheet import FactSheet
 from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
@@ -56,31 +57,25 @@ async def _user_subscription_roles(
     return {r for (r,) in result.all()}
 
 
-def _can_view_drafts(user: User, sub_roles: set[str]) -> bool:
-    """Check if a user can see draft / archived tabs.
-
-    Allowed for: admin, bpm_admin, member, and fact-sheet subscribers
-    with roles responsible, process_owner, or observer.
-    """
-    if user.role in ("admin", "bpm_admin", "member"):
-        return True
-    privileged = {"responsible", "process_owner", "observer"}
-    return bool(sub_roles & privileged)
+async def _can_view_drafts(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
+    """Check if a user can see draft / archived tabs via PermissionService."""
+    return await PermissionService.check_permission(
+        db, user, "bpm.view", process_id, "fs.view"
+    )
 
 
-def _can_edit_draft(user: User, sub_roles: set[str]) -> bool:
-    """Check if a user can create / edit drafts."""
-    if user.role in ("admin", "bpm_admin", "member"):
-        return True
-    privileged = {"responsible", "process_owner"}
-    return bool(sub_roles & privileged)
+async def _can_edit_draft(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
+    """Check if a user can create / edit drafts via PermissionService."""
+    return await PermissionService.check_permission(
+        db, user, "bpm.edit", process_id, "fs.edit"
+    )
 
 
-def _is_process_owner(user: User, sub_roles: set[str]) -> bool:
-    """Check if user is a process owner (can approve)."""
-    if user.role in ("admin", "bpm_admin"):
-        return True
-    return "process_owner" in sub_roles
+async def _is_process_owner(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
+    """Check if user can approve (process owner) via PermissionService."""
+    return await PermissionService.check_permission(
+        db, user, "bpm.edit", process_id, "fs.quality_seal"
+    )
 
 
 def _version_response(v: ProcessFlowVersion) -> dict:
@@ -142,6 +137,7 @@ async def get_published_flow(
     user: User = Depends(get_current_user),
 ):
     """Get the currently published process flow (visible to all authenticated users)."""
+    await PermissionService.require_permission(db, user, "bpm.view")
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
     result = await db.execute(
@@ -171,8 +167,7 @@ async def list_drafts(
     """List draft (and pending) flow versions for a process."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_view_drafts(user, sub_roles):
+    if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view drafts")
 
     result = await db.execute(
@@ -196,8 +191,7 @@ async def create_draft(
     """Create a new draft process flow, optionally cloned from an existing version."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_edit_draft(user, sub_roles):
+    if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to create drafts")
 
     bpmn_xml = body.bpmn_xml
@@ -295,8 +289,7 @@ async def get_version(
 
     # Published versions are visible to all; drafts/pending/archived need perms
     if version.status in ("draft", "pending", "archived"):
-        sub_roles = await _user_subscription_roles(db, pid, user.id)
-        if not _can_view_drafts(user, sub_roles):
+        if not await _can_view_drafts(db, user, pid):
             raise HTTPException(403, "Insufficient permissions")
 
     return _version_response(version)
@@ -314,8 +307,7 @@ async def update_draft(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_edit_draft(user, sub_roles):
+    if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
     result = await db.execute(
@@ -351,8 +343,7 @@ async def delete_draft(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_edit_draft(user, sub_roles):
+    if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
     result = await db.execute(
@@ -385,8 +376,7 @@ async def submit_for_approval(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_edit_draft(user, sub_roles):
+    if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
     result = await db.execute(
@@ -467,8 +457,7 @@ async def approve_version(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _is_process_owner(user, sub_roles):
+    if not await _is_process_owner(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can approve")
 
     result = await db.execute(
@@ -656,8 +645,7 @@ async def reject_version(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     process = await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _is_process_owner(user, sub_roles):
+    if not await _is_process_owner(db, user, pid):
         raise HTTPException(403, "Only process owners, admins, or BPM admins can reject")
 
     result = await db.execute(
@@ -730,8 +718,7 @@ async def list_archived(
     """List archived process flow versions (most recent first)."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_view_drafts(user, sub_roles):
+    if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions to view archives")
 
     result = await db.execute(
@@ -760,8 +747,7 @@ async def get_draft_elements(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_view_drafts(user, sub_roles):
+    if not await _can_view_drafts(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
     result = await db.execute(
@@ -837,8 +823,7 @@ async def update_draft_element_link(
     pid = uuid.UUID(process_id)
     vid = uuid.UUID(version_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
-    if not _can_edit_draft(user, sub_roles):
+    if not await _can_edit_draft(db, user, pid):
         raise HTTPException(403, "Insufficient permissions")
 
     result = await db.execute(
@@ -891,9 +876,8 @@ async def get_flow_permissions(
     """Return the current user's permissions on the process flow."""
     pid = uuid.UUID(process_id)
     await _get_process_or_404(db, pid)
-    sub_roles = await _user_subscription_roles(db, pid, user.id)
     return {
-        "can_view_drafts": _can_view_drafts(user, sub_roles),
-        "can_edit_draft": _can_edit_draft(user, sub_roles),
-        "can_approve": _is_process_owner(user, sub_roles),
+        "can_view_drafts": await _can_view_drafts(db, user, pid),
+        "can_edit_draft": await _can_edit_draft(db, user, pid),
+        "can_approve": await _is_process_owner(db, user, pid),
     }

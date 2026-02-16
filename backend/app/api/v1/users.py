@@ -4,15 +4,17 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.api.v1.auth import _get_sso_config, generate_setup_token
 from app.core.security import hash_password
 from app.database import get_db
+from app.models.role import Role
 from app.models.sso_invitation import SsoInvitation
 from app.models.user import DEFAULT_NOTIFICATION_PREFERENCES, User
+from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -72,11 +74,12 @@ async def create_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    await PermissionService.require_permission(db, current_user, "admin.users")
 
-    if body.role not in ("admin", "bpm_admin", "member", "viewer"):
-        raise HTTPException(400, "Role must be admin, bpm_admin, member, or viewer")
+    # Validate role key exists in roles table
+    role_result = await db.execute(select(Role).where(Role.key == body.role))
+    if not role_result.scalar_one_or_none():
+        raise HTTPException(400, f"Unknown role '{body.role}'")
 
     email = body.email.lower().strip()
 
@@ -175,7 +178,9 @@ async def update_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin" and str(current_user.id) != user_id:
+    is_admin = await PermissionService.has_app_permission(db, current_user, "admin.users")
+    is_self = str(current_user.id) == user_id
+    if not is_admin and not is_self:
         raise HTTPException(403, "Admin only or own profile")
 
     result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
@@ -186,13 +191,22 @@ async def update_user(
     data = body.model_dump(exclude_unset=True)
 
     # Non-admin can only update own display_name and password
-    if current_user.role != "admin":
+    if not is_admin:
         allowed = {"display_name", "password"}
         if not set(data.keys()).issubset(allowed):
             raise HTTPException(403, "Non-admin can only update display_name and password")
 
-    if "role" in data and data["role"] not in ("admin", "member", "viewer"):
-        raise HTTPException(400, "Role must be admin, member, or viewer")
+    if "role" in data:
+        role_result = await db.execute(select(Role).where(Role.key == data["role"]))
+        if not role_result.scalar_one_or_none():
+            raise HTTPException(400, f"Unknown role '{data['role']}'")
+        # Prevent last admin from losing admin role
+        if u.role == "admin" and data["role"] != "admin":
+            admin_count = await db.execute(
+                select(func.count(User.id)).where(User.role == "admin", User.is_active == True)  # noqa: E712
+            )
+            if (admin_count.scalar() or 0) <= 1:
+                raise HTTPException(400, "Cannot remove the last admin role")
 
     if "email" in data:
         existing = await db.execute(
@@ -220,8 +234,7 @@ async def delete_user(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    await PermissionService.require_permission(db, current_user, "admin.users")
 
     if str(current_user.id) == user_id:
         raise HTTPException(400, "Cannot delete your own account")
@@ -296,8 +309,7 @@ async def list_invitations(
     current_user: User = Depends(get_current_user),
 ):
     """Admin only — list all pending invitations."""
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    await PermissionService.require_permission(db, current_user, "admin.users")
     result = await db.execute(
         select(SsoInvitation).order_by(SsoInvitation.email)
     )
@@ -311,8 +323,7 @@ async def delete_invitation(
     current_user: User = Depends(get_current_user),
 ):
     """Admin only — delete/revoke a pending SSO invitation."""
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin only")
+    await PermissionService.require_permission(db, current_user, "admin.users")
 
     result = await db.execute(
         select(SsoInvitation).where(SsoInvitation.id == uuid.UUID(invitation_id))

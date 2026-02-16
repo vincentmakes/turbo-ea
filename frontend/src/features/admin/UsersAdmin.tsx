@@ -26,16 +26,14 @@ import Checkbox from "@mui/material/Checkbox";
 import Alert from "@mui/material/Alert";
 import Stack from "@mui/material/Stack";
 import { api } from "@/api/client";
-import type { User, SsoInvitation } from "@/types";
+import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
-
-type Role = "admin" | "bpm_admin" | "member" | "viewer";
 
 interface InviteFormState {
   email: string;
   display_name: string;
   password: string;
-  role: Role;
+  role: string;
   send_email: boolean;
 }
 
@@ -51,7 +49,7 @@ interface EditFormState {
   email: string;
   display_name: string;
   password: string;
-  role: Role;
+  role: string;
 }
 
 export default function UsersAdmin() {
@@ -77,9 +75,21 @@ export default function UsersAdmin() {
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  // Roles
+  const [roles, setRoles] = useState<AppRole[]>([]);
+
   // Pending invitations
   const [invitations, setInvitations] = useState<SsoInvitation[]>([]);
   const [ssoEnabled, setSsoEnabled] = useState(false);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const data = await api.get<AppRole[]>("/roles");
+      setRoles(data);
+    } catch {
+      // Silently fail — roles are supplementary; table still works
+    }
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -113,10 +123,11 @@ export default function UsersAdmin() {
   }, []);
 
   useEffect(() => {
+    fetchRoles();
     fetchUsers();
     fetchInvitations();
     fetchSsoStatus();
-  }, [fetchUsers, fetchInvitations, fetchSsoStatus]);
+  }, [fetchRoles, fetchUsers, fetchInvitations, fetchSsoStatus]);
 
   // --- Inline role update ---
   const updateRole = async (userId: string, role: string) => {
@@ -202,7 +213,7 @@ export default function UsersAdmin() {
       email: user.email,
       display_name: user.display_name,
       password: "",
-      role: user.role as Role,
+      role: user.role,
     });
     setEditError(null);
     setEditOpen(true);
@@ -253,6 +264,40 @@ export default function UsersAdmin() {
         err instanceof Error ? err.message : "Failed to delete invitation"
       );
     }
+  };
+
+  // Build a map from role key to AppRole for quick lookups
+  const roleMap = new Map(roles.map((r) => [r.key, r]));
+  const activeRoles = roles.filter((r) => !r.is_archived);
+
+  // Helper: get role chip for a user's role
+  const getRoleChip = (roleKey: string) => {
+    const role = roleMap.get(roleKey);
+    if (role) {
+      return (
+        <Stack direction="row" spacing={0.5} alignItems="center">
+          <Chip
+            size="small"
+            label={role.label}
+            sx={{
+              bgcolor: role.color + "22",
+              color: role.color,
+              fontWeight: 600,
+              border: `1px solid ${role.color}44`,
+            }}
+          />
+          {role.is_archived && (
+            <Tooltip title="Archived role">
+              <span style={{ display: "inline-flex", alignItems: "center" }}>
+                <MaterialSymbol icon="warning" size={16} sx={{ color: "warning.main" }} />
+              </span>
+            </Tooltip>
+          )}
+        </Stack>
+      );
+    }
+    // Fallback when role is not found in the list (e.g., roles not loaded yet)
+    return <Chip size="small" label={roleKey} variant="outlined" />;
   };
 
   const isEditingSsoUser = editingUser?.auth_provider === "sso";
@@ -343,17 +388,72 @@ export default function UsersAdmin() {
                   <TableCell>{u.display_name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
-                    <Select
-                      size="small"
-                      value={u.role}
-                      onChange={(e) => updateRole(u.id, e.target.value)}
-                      sx={{ minWidth: 110 }}
-                    >
-                      <MenuItem value="admin">Admin</MenuItem>
-                      <MenuItem value="bpm_admin">BPM Admin</MenuItem>
-                      <MenuItem value="member">Member</MenuItem>
-                      <MenuItem value="viewer">Viewer</MenuItem>
-                    </Select>
+                    {roles.length > 0 ? (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Select
+                          size="small"
+                          value={u.role}
+                          onChange={(e) => updateRole(u.id, e.target.value)}
+                          sx={{ minWidth: 130 }}
+                          renderValue={(val) => {
+                            const r = roleMap.get(val);
+                            return r ? (
+                              <Chip
+                                size="small"
+                                label={r.label}
+                                sx={{
+                                  bgcolor: r.color + "22",
+                                  color: r.color,
+                                  fontWeight: 600,
+                                  border: `1px solid ${r.color}44`,
+                                }}
+                              />
+                            ) : val;
+                          }}
+                        >
+                          {activeRoles.map((r) => (
+                            <MenuItem key={r.key} value={r.key}>
+                              <Chip
+                                size="small"
+                                label={r.label}
+                                sx={{
+                                  bgcolor: r.color + "22",
+                                  color: r.color,
+                                  fontWeight: 600,
+                                  border: `1px solid ${r.color}44`,
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            </MenuItem>
+                          ))}
+                          {/* Keep current role as option if it is archived */}
+                          {roleMap.get(u.role)?.is_archived && (
+                            <MenuItem value={u.role} disabled>
+                              <Chip
+                                size="small"
+                                label={roleMap.get(u.role)!.label}
+                                sx={{
+                                  bgcolor: roleMap.get(u.role)!.color + "22",
+                                  color: roleMap.get(u.role)!.color,
+                                  fontWeight: 600,
+                                  border: `1px solid ${roleMap.get(u.role)!.color}44`,
+                                  pointerEvents: "none",
+                                }}
+                              />
+                            </MenuItem>
+                          )}
+                        </Select>
+                        {roleMap.get(u.role)?.is_archived && (
+                          <Tooltip title="This user has an archived role. Consider reassigning.">
+                            <span style={{ display: "inline-flex", alignItems: "center" }}>
+                              <MaterialSymbol icon="warning" size={18} sx={{ color: "warning.main" }} />
+                            </span>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    ) : (
+                      getRoleChip(u.role)
+                    )}
                   </TableCell>
                   <TableCell>{getAuthChip(u)}</TableCell>
                   <TableCell>
@@ -422,11 +522,7 @@ export default function UsersAdmin() {
                   <TableRow key={inv.id} hover>
                     <TableCell>{inv.email}</TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        label={inv.role}
-                        variant="outlined"
-                      />
+                      {getRoleChip(inv.role)}
                     </TableCell>
                     <TableCell>
                       {inv.created_at
@@ -519,14 +615,25 @@ export default function UsersAdmin() {
                 onChange={(e) =>
                   setInviteForm((p) => ({
                     ...p,
-                    role: e.target.value as Role,
+                    role: e.target.value as string,
                   }))
                 }
               >
-                <MenuItem value="admin">Admin</MenuItem>
-                <MenuItem value="bpm_admin">BPM Admin</MenuItem>
-                <MenuItem value="member">Member</MenuItem>
-                <MenuItem value="viewer">Viewer</MenuItem>
+                {activeRoles.map((r) => (
+                  <MenuItem key={r.key} value={r.key}>
+                    <Chip
+                      size="small"
+                      label={r.label}
+                      sx={{
+                        bgcolor: r.color + "22",
+                        color: r.color,
+                        fontWeight: 600,
+                        border: `1px solid ${r.color}44`,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             <FormControlLabel
@@ -619,16 +726,48 @@ export default function UsersAdmin() {
                 onChange={(e) =>
                   setEditForm((p) => ({
                     ...p,
-                    role: e.target.value as Role,
+                    role: e.target.value as string,
                   }))
                 }
               >
-                <MenuItem value="admin">Admin</MenuItem>
-                <MenuItem value="bpm_admin">BPM Admin</MenuItem>
-                <MenuItem value="member">Member</MenuItem>
-                <MenuItem value="viewer">Viewer</MenuItem>
+                {activeRoles.map((r) => (
+                  <MenuItem key={r.key} value={r.key}>
+                    <Chip
+                      size="small"
+                      label={r.label}
+                      sx={{
+                        bgcolor: r.color + "22",
+                        color: r.color,
+                        fontWeight: 600,
+                        border: `1px solid ${r.color}44`,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </MenuItem>
+                ))}
+                {/* Keep current role as option if it is archived */}
+                {editForm.role && roleMap.get(editForm.role)?.is_archived && (
+                  <MenuItem value={editForm.role} disabled>
+                    <Chip
+                      size="small"
+                      label={roleMap.get(editForm.role)!.label}
+                      sx={{
+                        bgcolor: roleMap.get(editForm.role)!.color + "22",
+                        color: roleMap.get(editForm.role)!.color,
+                        fontWeight: 600,
+                        border: `1px solid ${roleMap.get(editForm.role)!.color}44`,
+                        pointerEvents: "none",
+                      }}
+                    />
+                  </MenuItem>
+                )}
               </Select>
             </FormControl>
+            {editForm.role && roleMap.get(editForm.role)?.is_archived && (
+              <Alert severity="warning" variant="outlined">
+                This user has an archived role. Consider assigning a new active role.
+              </Alert>
+            )}
             {editError && <Alert severity="error">{editError}</Alert>}
           </Stack>
         </DialogContent>

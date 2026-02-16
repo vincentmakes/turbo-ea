@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.document import Document
 from app.models.user import User
 from app.schemas.common import DocumentCreate
@@ -16,7 +17,12 @@ router = APIRouter(tags=["documents"])
 
 
 @router.get("/fact-sheets/{fs_id}/documents")
-async def list_documents(fs_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+async def list_documents(
+    fs_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "documents.view")
     result = await db.execute(
         select(Document).where(Document.fact_sheet_id == uuid.UUID(fs_id))
     )
@@ -41,8 +47,11 @@ async def create_document(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    fs_uuid = uuid.UUID(fs_id)
+    if not await PermissionService.check_permission(db, user, "documents.manage", fs_uuid, "fs.manage_documents"):
+        raise HTTPException(403, "Not enough permissions")
     doc = Document(
-        fact_sheet_id=uuid.UUID(fs_id),
+        fact_sheet_id=fs_uuid,
         name=body.name,
         url=body.url,
         type=body.type,
@@ -64,5 +73,7 @@ async def delete_document(
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
+    if not await PermissionService.check_permission(db, user, "documents.manage", doc.fact_sheet_id, "fs.manage_documents"):
+        raise HTTPException(403, "Not enough permissions")
     await db.delete(doc)
     await db.commit()

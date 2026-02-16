@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
+from app.services.permission_service import PermissionService
 from app.models.event import Event
 from app.models.fact_sheet import FactSheet
 from app.models.relation import Relation
@@ -45,7 +46,8 @@ def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
 
 
 @router.get("/dashboard")
-async def dashboard(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Count by type
     type_counts = await db.execute(
         select(FactSheet.type, func.count(FactSheet.id))
@@ -130,11 +132,12 @@ async def dashboard(db: AsyncSession = Depends(get_db), _user: User = Depends(ge
 @router.get("/landscape")
 async def landscape(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str = Query("Application"),
     group_by: str = Query("BusinessCapability"),
 ):
     """Landscape report: fact sheets grouped by a related type."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Get all fact sheets of the target type
     result = await db.execute(
         select(FactSheet).where(FactSheet.type == type, FactSheet.status == "ACTIVE")
@@ -191,7 +194,7 @@ async def landscape(
 @router.get("/portfolio")
 async def portfolio(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str = Query("Application"),
     x_axis: str = Query("functionalFit"),
     y_axis: str = Query("technicalFit"),
@@ -199,6 +202,7 @@ async def portfolio(
     color_field: str = Query("businessCriticality"),
 ):
     """Portfolio scatter/bubble chart data."""
+    await PermissionService.require_permission(db, user, "reports.portfolio")
     result = await db.execute(
         select(FactSheet).where(FactSheet.type == type, FactSheet.status == "ACTIVE")
     )
@@ -221,11 +225,12 @@ async def portfolio(
 @router.get("/matrix")
 async def matrix(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     row_type: str = Query("Application"),
     col_type: str = Query("BusinessCapability"),
 ):
     """Matrix report: cross-reference grid."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     rows_result = await db.execute(
         select(FactSheet).where(FactSheet.type == row_type, FactSheet.status == "ACTIVE").order_by(FactSheet.name)
     )
@@ -267,10 +272,11 @@ async def matrix(
 @router.get("/roadmap")
 async def roadmap(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str | None = Query(None),
 ):
     """Roadmap: lifecycle timeline data."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     q = select(FactSheet).where(FactSheet.status == "ACTIVE")
     if type:
         q = q.where(FactSheet.type == type)
@@ -295,10 +301,11 @@ async def roadmap(
 @router.get("/cost")
 async def cost_report(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str = Query("Application"),
 ):
     """Cost aggregation report."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     result = await db.execute(
         select(FactSheet).where(FactSheet.type == type, FactSheet.status == "ACTIVE")
     )
@@ -317,12 +324,13 @@ async def cost_report(
 @router.get("/cost-treemap")
 async def cost_treemap(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     type: str = Query("Application"),
     cost_field: str = Query("totalAnnualCost"),
     group_by: str | None = Query(None),
 ):
     """Cost treemap: items with cost, optionally grouped by a related type."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     result = await db.execute(
         select(FactSheet).where(FactSheet.type == type, FactSheet.status == "ACTIVE")
     )
@@ -389,10 +397,11 @@ async def cost_treemap(
 @router.get("/capability-heatmap")
 async def capability_heatmap(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     metric: str = Query("app_count"),
 ):
     """Business capability heatmap data with hierarchy."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Get all business capabilities
     caps_result = await db.execute(
         select(FactSheet).where(
@@ -494,12 +503,13 @@ async def capability_heatmap(
 @router.get("/dependencies")
 async def dependencies(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     center_id: str | None = Query(None),
     depth: int = Query(2, ge=1, le=3),
     type: str | None = Query(None),
 ):
     """Dependency / interface map: nodes + edges for graph rendering."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Always load ALL active fact sheets for ancestor path resolution
     full_result = await db.execute(
         select(FactSheet).where(FactSheet.status == "ACTIVE")
@@ -603,8 +613,9 @@ async def dependencies(
 
 
 @router.get("/data-quality")
-async def data_quality(db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Data quality & completeness dashboard."""
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     result = await db.execute(
         select(FactSheet).where(FactSheet.status == "ACTIVE")
     )
@@ -773,7 +784,7 @@ def _manual_eol_status(lifecycle: dict | None) -> str:
 @router.get("/eol")
 async def eol_report(
     db: AsyncSession = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user),
 ):
     """End-of-Life risk & impact report.
 
@@ -786,6 +797,7 @@ async def eol_report(
     to endoflife.date, ``"manual"`` for items with only a hand-entered
     ``endOfLife`` lifecycle date.
     """
+    await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # 1. Fetch all active Applications and ITComponents
     result = await db.execute(
         select(FactSheet).where(

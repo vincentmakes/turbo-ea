@@ -42,12 +42,18 @@ interface NavItem {
   children?: { label: string; icon: string; path: string }[];
 }
 
-const NAV_ITEMS: NavItem[] = [
+interface NavItemWithPermission extends NavItem {
+  permission?: string;
+  children?: (NavItem["children"] extends (infer T)[] | undefined ? T & { permission?: string } : never)[];
+}
+
+const NAV_ITEMS: NavItemWithPermission[] = [
   { label: "Dashboard", icon: "dashboard", path: "/" },
-  { label: "Inventory", icon: "inventory_2", path: "/inventory" },
+  { label: "Inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
   {
     label: "Reports",
     icon: "analytics",
+    permission: "reports.ea_dashboard",
     children: [
       { label: "Portfolio", icon: "bubble_chart", path: "/reports/portfolio" },
       { label: "Capability Map", icon: "grid_view", path: "/reports/capability-map" },
@@ -59,25 +65,30 @@ const NAV_ITEMS: NavItem[] = [
       { label: "End of Life", icon: "update", path: "/reports/eol" },
     ],
   },
-  { label: "BPM", icon: "route", path: "/bpm" },
-  { label: "Diagrams", icon: "schema", path: "/diagrams" },
-  { label: "Delivery", icon: "architecture", path: "/ea-delivery" },
+  { label: "BPM", icon: "route", path: "/bpm", permission: "bpm.view" },
+  { label: "Diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
+  { label: "Delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { label: "Todos", icon: "checklist", path: "/todos" },
 ];
 
-const ADMIN_ITEMS: NavItem[] = [
-  { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel" },
-  { label: "Tags", icon: "label", path: "/admin/tags" },
-  { label: "Users", icon: "group", path: "/admin/users" },
-  { label: "Surveys", icon: "assignment", path: "/admin/surveys" },
-  { label: "Settings", icon: "settings", path: "/admin/settings" },
-  { label: "EOL Search", icon: "update", path: "/admin/eol" },
-  { label: "Web Portals", icon: "language", path: "/admin/web-portals" },
+const ADMIN_ITEMS: (NavItem & { permission?: string })[] = [
+  { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
+  { label: "Tags", icon: "label", path: "/admin/tags", permission: "tags.manage" },
+  { label: "Roles", icon: "shield_person", path: "/admin/roles", permission: "admin.roles" },
+  { label: "Users", icon: "group", path: "/admin/users", permission: "admin.users" },
+  { label: "Surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
+  { label: "Settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
+  { label: "EOL Search", icon: "update", path: "/admin/eol", permission: "eol.manage" },
+  { label: "Web Portals", icon: "language", path: "/admin/web-portals", permission: "web_portals.manage" },
 ];
+
+interface PermissionMap {
+  [key: string]: boolean;
+}
 
 interface Props {
   children: ReactNode;
-  user: { id: string; display_name: string; email: string; role: string };
+  user: { id: string; display_name: string; email: string; role: string; permissions?: PermissionMap };
   onLogout: () => void;
 }
 
@@ -97,14 +108,36 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
 
-  // Filter nav items based on BPM enabled state
-  const navItems = useMemo(() => {
-    if (bpmEnabled) return NAV_ITEMS;
-    return NAV_ITEMS.filter((item) => item.label !== "BPM");
-  }, [bpmEnabled]);
+  // Permission check helper
+  const can = useCallback(
+    (permission: string): boolean => {
+      const perms = user.permissions;
+      if (!perms) return true; // Fallback: allow all if permissions not loaded yet
+      if (perms["*"]) return true;
+      return !!perms[permission];
+    },
+    [user.permissions]
+  );
 
-  // Also filter admin items — show BPM reports only when enabled
-  const adminItems = useMemo(() => ADMIN_ITEMS, []);
+  // Filter nav items based on BPM enabled state and permissions
+  const navItems = useMemo(() => {
+    let items = NAV_ITEMS as NavItemWithPermission[];
+    if (!bpmEnabled) items = items.filter((item) => item.label !== "BPM");
+    return items.filter(
+      (item) => !item.permission || can(item.permission)
+    );
+  }, [bpmEnabled, can]);
+
+  // Filter admin items based on permissions
+  const adminItems = useMemo(() => {
+    const filtered = ADMIN_ITEMS.filter(
+      (item) => !item.permission || can(item.permission)
+    );
+    return filtered;
+  }, [can]);
+
+  // Should the admin section be shown at all?
+  const showAdmin = adminItems.length > 0;
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [reportsMenu, setReportsMenu] = useState<HTMLElement | null>(null);
@@ -408,56 +441,64 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           ),
         )}
 
-        <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
+        {showAdmin && (
+          <>
+            <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
 
-        {/* Admin section */}
-        <ListItemButton
-          onClick={() => setDrawerAdminOpen((p) => !p)}
-          sx={{
-            borderRadius: 1,
-            color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)",
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
-            <MaterialSymbol icon="admin_panel_settings" size={20} color="inherit" />
-          </ListItemIcon>
-          <ListItemText primary="Admin" />
-          <MaterialSymbol
-            icon={drawerAdminOpen ? "expand_less" : "expand_more"}
-            size={18}
-            color="inherit"
-          />
-        </ListItemButton>
-        <Collapse in={drawerAdminOpen}>
-          <List disablePadding sx={{ pl: 2 }}>
-            {adminItems.map((item) => (
-              <ListItemButton
-                key={item.path}
-                selected={isActive(item.path)}
-                onClick={() => item.path && drawerNav(item.path)}
-                sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)", "&.Mui-selected": { color: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
-              >
-                <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
-                  <MaterialSymbol icon={item.icon} size={18} color="inherit" />
-                </ListItemIcon>
-                <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
-              </ListItemButton>
-            ))}
-          </List>
-        </Collapse>
+            {/* Admin section */}
+            <ListItemButton
+              onClick={() => setDrawerAdminOpen((p) => !p)}
+              sx={{
+                borderRadius: 1,
+                color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)",
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                <MaterialSymbol icon="admin_panel_settings" size={20} color="inherit" />
+              </ListItemIcon>
+              <ListItemText primary="Admin" />
+              <MaterialSymbol
+                icon={drawerAdminOpen ? "expand_less" : "expand_more"}
+                size={18}
+                color="inherit"
+              />
+            </ListItemButton>
+            <Collapse in={drawerAdminOpen}>
+              <List disablePadding sx={{ pl: 2 }}>
+                {adminItems.map((item) => (
+                  <ListItemButton
+                    key={item.path}
+                    selected={isActive(item.path)}
+                    onClick={() => item.path && drawerNav(item.path)}
+                    sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)", "&.Mui-selected": { color: "#fff", bgcolor: "rgba(255,255,255,0.12)" } }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 32, color: "inherit" }}>
+                      <MaterialSymbol icon={item.icon} size={18} color="inherit" />
+                    </ListItemIcon>
+                    <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: "0.85rem" }} />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Collapse>
+          </>
+        )}
 
-        <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
+        {can("inventory.create") && (
+          <>
+            <Divider sx={{ my: 1, borderColor: "rgba(255,255,255,0.1)" }} />
 
-        {/* Create */}
-        <ListItemButton
-          onClick={() => drawerNav("/inventory?create=true")}
-          sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)" }}
-        >
-          <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
-            <MaterialSymbol icon="add" size={20} color="inherit" />
-          </ListItemIcon>
-          <ListItemText primary="Create Fact Sheet" />
-        </ListItemButton>
+            {/* Create */}
+            <ListItemButton
+              onClick={() => drawerNav("/inventory?create=true")}
+              sx={{ borderRadius: 1, color: "rgba(255,255,255,0.7)" }}
+            >
+              <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
+                <MaterialSymbol icon="add" size={20} color="inherit" />
+              </ListItemIcon>
+              <ListItemText primary="Create Fact Sheet" />
+            </ListItemButton>
+          </>
+        )}
       </List>
 
       {/* User info at bottom */}
@@ -576,7 +617,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             )}
 
           {/* Admin dropdown (desktop/tablet) */}
-          {!isMobile &&
+          {!isMobile && showAdmin &&
             (isCompact ? (
               <Tooltip title="Admin">
                 <IconButton
@@ -772,26 +813,28 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </ClickAwayListener>
           )}
 
-          {/* Create button */}
-          {isMobile ? (
-            <Tooltip title="Create">
-              <IconButton
-                sx={{ color: "#fff" }}
+          {/* Create button — only shown if user can create fact sheets */}
+          {can("inventory.create") && (
+            isMobile ? (
+              <Tooltip title="Create">
+                <IconButton
+                  sx={{ color: "#fff" }}
+                  onClick={() => navigate("/inventory?create=true")}
+                >
+                  <MaterialSymbol icon="add_circle" size={24} />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<MaterialSymbol icon="add" size={18} />}
+                sx={{ ml: 1.5, textTransform: "none" }}
                 onClick={() => navigate("/inventory?create=true")}
               >
-                <MaterialSymbol icon="add_circle" size={24} />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<MaterialSymbol icon="add" size={18} />}
-              sx={{ ml: 1.5, textTransform: "none" }}
-              onClick={() => navigate("/inventory?create=true")}
-            >
-              Create
-            </Button>
+                Create
+              </Button>
+            )
           )}
 
           {/* Notification bell */}
