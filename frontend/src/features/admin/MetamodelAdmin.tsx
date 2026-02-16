@@ -81,6 +81,15 @@ const PAD_X = 80;
 const PAD_Y = 80;
 const LAYER_LABEL_W = 180;
 
+/* Edge routing */
+const TRACK_GAP = 10;
+const TRACK_MARGIN = 16;
+const SAME_LAYER_ARC_BASE = 32;
+const SAME_LAYER_ARC_STEP = 18;
+const CORNER_R = 10;
+const LABEL_W = 84;
+const LABEL_H = 20;
+
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
@@ -1429,6 +1438,74 @@ function TypeDetailDrawer({
 }
 
 /* ------------------------------------------------------------------ */
+/*  Metamodel Graph  — edge routing helpers                            */
+/* ------------------------------------------------------------------ */
+
+interface ClassifiedEdge {
+  rel: RType;
+  srcLayerIdx: number;
+  tgtLayerIdx: number;
+  direction: "down" | "up" | "same";
+  /** Gap indices the edge must route through (ordered src→tgt) */
+  gapsUsed: number[];
+  /** One track Y per gap, filled during assignment */
+  trackY: number[];
+}
+
+interface GapInfo {
+  topY: number;
+  bottomY: number;
+}
+
+interface Corridor {
+  centerX: number;
+  width: number;
+}
+
+/**
+ * Convert a polyline of waypoints into an SVG path with rounded corners.
+ * Adjacent co-linear segments are collapsed automatically.
+ */
+function segmentsToPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return "";
+  const parts: string[] = [`M${pts[0].x},${pts[0].y}`];
+
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1];
+    const curr = pts[i];
+    const next = i < pts.length - 1 ? pts[i + 1] : null;
+
+    if (
+      !next ||
+      (prev.x === curr.x && curr.x === next.x) ||
+      (prev.y === curr.y && curr.y === next.y)
+    ) {
+      parts.push(`L${curr.x},${curr.y}`);
+    } else {
+      // Corner — apply rounding
+      const legA = Math.max(Math.abs(curr.x - prev.x), Math.abs(curr.y - prev.y));
+      const legB = Math.max(Math.abs(next.x - curr.x), Math.abs(next.y - curr.y));
+      const r = Math.min(CORNER_R, legA / 2, legB / 2);
+      if (r < 1) {
+        parts.push(`L${curr.x},${curr.y}`);
+        continue;
+      }
+      const dx1 = Math.sign(curr.x - prev.x);
+      const dy1 = Math.sign(curr.y - prev.y);
+      const dx2 = Math.sign(next.x - curr.x);
+      const dy2 = Math.sign(next.y - curr.y);
+      const ax = curr.x - (dx1 !== 0 ? dx1 * r : 0);
+      const ay = curr.y - (dy1 !== 0 ? dy1 * r : 0);
+      const bx = curr.x + (dx2 !== 0 ? dx2 * r : 0);
+      const by = curr.y + (dy2 !== 0 ? dy2 * r : 0);
+      parts.push(`L${ax},${ay}`);
+      parts.push(`Q${curr.x},${curr.y} ${bx},${by}`);
+    }
+  }
+  return parts.join(" ");
+}
+
+/* ------------------------------------------------------------------ */
 /*  Metamodel Graph  (SVG)                                             */
 /* ------------------------------------------------------------------ */
 
@@ -1441,7 +1518,9 @@ interface GraphProps {
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
 
-  /* --- Build layers --- */
+  /* ================================================================ */
+  /*  Build layers                                                     */
+  /* ================================================================ */
   const layers = useMemo(() => {
     const byCategory: Record<string, FSType[]> = {};
     for (const t of visibleTypes) {
@@ -1456,12 +1535,13 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
     })).filter((l) => l.nodes.length > 0);
   }, [visibleTypes]);
 
-  /* --- Compute positions --- */
+  /* ================================================================ */
+  /*  Compute node positions                                           */
+  /* ================================================================ */
   const layout = useMemo(() => {
     const map: Record<string, { x: number; y: number }> = {};
     const maxNodes = Math.max(...layers.map((l) => l.nodes.length), 1);
-    const contentW =
-      maxNodes * NODE_W + (maxNodes - 1) * NODE_GAP_X;
+    const contentW = maxNodes * NODE_W + (maxNodes - 1) * NODE_GAP_X;
     const svgW = contentW + PAD_X * 2 + LAYER_LABEL_W;
 
     layers.forEach((layer, li) => {
@@ -1477,33 +1557,92 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
       });
     });
 
-    const svgH =
-      layers.length * NODE_H +
-      (layers.length - 1) * LAYER_GAP_Y +
-      PAD_Y * 2;
-
-    return { map, svgW, svgH, contentW };
+    return { map, svgW, contentW };
   }, [layers]);
 
-  /* --- Build edges --- */
+  /* ================================================================ */
+  /*  Build edges — track-based routing                                */
+  /* ================================================================ */
   const edges = useMemo(() => {
-    const R = 10; // rounded corner radius
     const visible = relationTypes.filter(
       (r) => layout.map[r.source_type_key] && layout.map[r.target_type_key],
     );
+    if (visible.length === 0) return [];
 
-    // ---- Step 1: Compute port slots per node ----
+    // -- Build layer-index lookup --
+    const layerIdx: Record<string, number> = {};
+    layers.forEach((layer, li) => {
+      layer.nodes.forEach((n) => { layerIdx[n.key] = li; });
+    });
+
+    // -- Classify edges --
+    const classified: ClassifiedEdge[] = visible.map((r) => {
+      const sli = layerIdx[r.source_type_key];
+      const tli = layerIdx[r.target_type_key];
+      const direction: ClassifiedEdge["direction"] =
+        sli < tli ? "down" : sli > tli ? "up" : "same";
+      const gapsUsed: number[] = [];
+      if (direction === "down") {
+        for (let g = sli; g < tli; g++) gapsUsed.push(g);
+      } else if (direction === "up") {
+        // ordered from source toward target (high→low)
+        for (let g = sli - 1; g >= tli; g--) gapsUsed.push(g);
+      }
+      return { rel: r, srcLayerIdx: sli, tgtLayerIdx: tli, direction, gapsUsed, trackY: [] };
+    });
+
+    // -- Compute gap geometry --
+    const gaps: GapInfo[] = [];
+    for (let i = 0; i < layers.length - 1; i++) {
+      const topY = PAD_Y + i * (NODE_H + LAYER_GAP_Y) + NODE_H + TRACK_MARGIN;
+      const bottomY = PAD_Y + (i + 1) * (NODE_H + LAYER_GAP_Y) - TRACK_MARGIN;
+      gaps.push({ topY, bottomY });
+    }
+
+    // -- Compute corridors per layer (vertical pass-through between nodes) --
+    const corridorsPerLayer: Corridor[][] = layers.map((layer) => {
+      const positions = layer.nodes
+        .map((n) => layout.map[n.key])
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x);
+      const corrs: Corridor[] = [];
+      // Left margin corridor
+      if (positions.length > 0) {
+        const leftBound = LAYER_LABEL_W;
+        if (positions[0].x - leftBound > 20) {
+          corrs.push({ centerX: (leftBound + positions[0].x) / 2, width: positions[0].x - leftBound });
+        }
+      }
+      // Inter-node corridors
+      for (let i = 0; i < positions.length - 1; i++) {
+        const right = positions[i].x + NODE_W;
+        const left = positions[i + 1].x;
+        corrs.push({ centerX: (right + left) / 2, width: left - right });
+      }
+      // Right margin corridor
+      if (positions.length > 0) {
+        const lastRight = positions[positions.length - 1].x + NODE_W;
+        const svgRight = layout.svgW - PAD_X;
+        if (svgRight - lastRight > 20) {
+          corrs.push({ centerX: (lastRight + svgRight) / 2, width: svgRight - lastRight });
+        }
+      }
+      return corrs;
+    });
+
+    // -- Port assignment --
     const bottomPorts: Record<string, string[]> = {};
     const topPorts: Record<string, string[]> = {};
 
-    for (const r of visible) {
-      const src = layout.map[r.source_type_key];
-      const tgt = layout.map[r.target_type_key];
-
-      if (src.y === tgt.y) {
-        (bottomPorts[r.source_type_key] ??= []).push(r.key);
-        (bottomPorts[r.target_type_key] ??= []).push(r.key);
-      } else if (src.y < tgt.y) {
+    for (const e of classified) {
+      const r = e.rel;
+      if (e.direction === "same") {
+        // Same-layer edges exit/enter from the top
+        (topPorts[r.source_type_key] ??= []).push(r.key);
+        if (r.source_type_key !== r.target_type_key) {
+          (topPorts[r.target_type_key] ??= []).push(r.key);
+        }
+      } else if (e.direction === "down") {
         (bottomPorts[r.source_type_key] ??= []).push(r.key);
         (topPorts[r.target_type_key] ??= []).push(r.key);
       } else {
@@ -1527,7 +1666,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
     sortPorts(bottomPorts);
     sortPorts(topPorts);
 
-    const portX = (nodeKey: string, edgeKey: string, side: "top" | "bottom") => {
+    const portXOffset = (nodeKey: string, edgeKey: string, side: "top" | "bottom"): number => {
       const ports = side === "bottom" ? bottomPorts[nodeKey] : topPorts[nodeKey];
       if (!ports) return NODE_W / 2;
       const idx = ports.indexOf(edgeKey);
@@ -1537,80 +1676,165 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
       return margin + (n === 1 ? span / 2 : (idx / (n - 1)) * span);
     };
 
-    // Helper: orthogonal path with rounded corners
-    // Goes: vertical from src → midY, horizontal to tgtX, vertical to tgt
-    const orthoPath = (
-      x1: number, y1: number, x2: number, y2: number, midY: number,
-    ) => {
-      const r = Math.min(R, Math.abs(midY - y1) / 2, Math.abs(y2 - midY) / 2, Math.abs(x2 - x1) / 2);
-      if (r < 1 || x1 === x2) {
-        // Straight line or too small for corners
-        return `M${x1},${y1} L${x1},${midY} L${x2},${midY} L${x2},${y2}`;
+    // -- Assign tracks (unique Y per edge per gap) --
+    for (let g = 0; g < gaps.length; g++) {
+      const gap = gaps[g];
+      const inGap = classified.filter((e) => e.gapsUsed.includes(g));
+      if (inGap.length === 0) continue;
+
+      // Sort by interpolated X at this gap for minimal crossings
+      inGap.sort((a, b) => {
+        const interp = (e: ClassifiedEdge) => {
+          const srcX = layout.map[e.rel.source_type_key].x + NODE_W / 2;
+          const tgtX = layout.map[e.rel.target_type_key].x + NODE_W / 2;
+          const total = e.gapsUsed.length;
+          const pos = e.gapsUsed.indexOf(g);
+          const t = total === 1 ? 0.5 : (pos + 0.5) / total;
+          return srcX + (tgtX - srcX) * t;
+        };
+        return interp(a) - interp(b);
+      });
+
+      const n = inGap.length;
+      const totalH = (n - 1) * TRACK_GAP;
+      const centerY = (gap.topY + gap.bottomY) / 2;
+      const startY = centerY - totalH / 2;
+
+      inGap.forEach((edge, i) => {
+        const localIdx = edge.gapsUsed.indexOf(g);
+        edge.trackY[localIdx] = startY + i * TRACK_GAP;
+      });
+    }
+
+    // -- Choose corridor X for multi-gap edges passing through intermediate layers --
+    // Track usage per corridor per layer so parallel verticals don't overlap
+    const corridorUsage: Record<string, number> = {};
+
+    const chooseCorridorX = (intermediateLayerIdx: number, idealX: number): number => {
+      const corrs = corridorsPerLayer[intermediateLayerIdx];
+      if (!corrs || corrs.length === 0) return idealX; // fallback
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < corrs.length; i++) {
+        const dist = Math.abs(corrs[i].centerX - idealX);
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
       }
-      const dx = x2 > x1 ? 1 : -1;
-      const dy1 = midY > y1 ? 1 : -1;
-      const dy2 = y2 > midY ? 1 : -1;
-      return [
-        `M${x1},${y1}`,
-        `L${x1},${midY - r * dy1}`,
-        `Q${x1},${midY} ${x1 + r * dx},${midY}`,
-        `L${x2 - r * dx},${midY}`,
-        `Q${x2},${midY} ${x2},${midY + r * dy2}`,
-        `L${x2},${y2}`,
-      ].join(" ");
+      const key = `${intermediateLayerIdx}-${bestIdx}`;
+      const used = corridorUsage[key] ?? 0;
+      corridorUsage[key] = used + 1;
+      // Spread parallel verticals within the corridor
+      const maxInCorridor = Math.max(1, Math.floor(corrs[bestIdx].width / 8));
+      const offset = (used - (maxInCorridor - 1) / 2) * 6;
+      return corrs[bestIdx].centerX + Math.max(-corrs[bestIdx].width / 2 + 4, Math.min(corrs[bestIdx].width / 2 - 4, offset));
     };
 
-    // ---- Step 2: Build paths ----
-    let sameLayerIdx = 0;
-    const LABEL_W = 84;
-    const LABEL_H = 20;
+    // -- Build paths --
+    const sameLayerCount: Record<number, number> = {};
 
-    const rawEdges = visible.map((r) => {
-      const src = layout.map[r.source_type_key];
-      const tgt = layout.map[r.target_type_key];
-
+    const rawEdges = classified.map((edge) => {
+      const r = edge.rel;
+      const srcPos = layout.map[r.source_type_key];
+      const tgtPos = layout.map[r.target_type_key];
       let d: string;
       let labelX: number;
       let labelY: number;
 
-      if (src.y === tgt.y) {
-        // Same layer — arc above the nodes with staggered heights
-        const srcPx = src.x + portX(r.source_type_key, r.key, "bottom");
-        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "bottom");
-        const topY = src.y;
-        const stagger = sameLayerIdx++ * 16;
-        const arcLift = 36 + stagger;
-        const midY = topY - arcLift;
-        d = orthoPath(srcPx, topY, tgtPx, topY, midY);
-        labelX = (srcPx + tgtPx) / 2;
-        labelY = midY;
-      } else if (src.y < tgt.y) {
-        // Source above target — orthogonal: down, across, down
-        const srcPx = src.x + portX(r.source_type_key, r.key, "bottom");
-        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "top");
-        const srcBotY = src.y + NODE_H;
-        const tgtTopY = tgt.y;
-        const midY = (srcBotY + tgtTopY) / 2;
-        d = orthoPath(srcPx, srcBotY, tgtPx, tgtTopY, midY);
-        labelX = (srcPx + tgtPx) / 2;
-        labelY = midY;
+      if (edge.direction === "same") {
+        // Same-layer arc above the nodes
+        const arcIdx = sameLayerCount[edge.srcLayerIdx] ?? 0;
+        sameLayerCount[edge.srcLayerIdx] = arcIdx + 1;
+
+        const srcPx = srcPos.x + portXOffset(r.source_type_key, r.key, "top");
+        const tgtPx = tgtPos.x + portXOffset(r.target_type_key, r.key, "top");
+        const nodeTopY = srcPos.y;
+        const arcY = nodeTopY - SAME_LAYER_ARC_BASE - arcIdx * SAME_LAYER_ARC_STEP;
+
+        // Self-loop (same type to same type)
+        if (r.source_type_key === r.target_type_key) {
+          const cx = srcPos.x + NODE_W / 2;
+          const loopW = 24;
+          const pts = [
+            { x: cx - loopW, y: nodeTopY },
+            { x: cx - loopW, y: arcY },
+            { x: cx + loopW, y: arcY },
+            { x: cx + loopW, y: nodeTopY },
+          ];
+          d = segmentsToPath(pts);
+          labelX = cx;
+          labelY = arcY;
+        } else {
+          const pts = [
+            { x: srcPx, y: nodeTopY },
+            { x: srcPx, y: arcY },
+            { x: tgtPx, y: arcY },
+            { x: tgtPx, y: nodeTopY },
+          ];
+          d = segmentsToPath(pts);
+          labelX = (srcPx + tgtPx) / 2;
+          labelY = arcY;
+        }
       } else {
-        // Source below target — orthogonal: up, across, up
-        const srcPx = src.x + portX(r.source_type_key, r.key, "top");
-        const tgtPx = tgt.x + portX(r.target_type_key, r.key, "bottom");
-        const srcTopY = src.y;
-        const tgtBotY = tgt.y + NODE_H;
-        const midY = (srcTopY + tgtBotY) / 2;
-        d = orthoPath(srcPx, srcTopY, tgtPx, tgtBotY, midY);
-        labelX = (srcPx + tgtPx) / 2;
-        labelY = midY;
+        // Cross-layer edge (single-gap or multi-gap)
+        const goingDown = edge.direction === "down";
+        const srcSide = goingDown ? "bottom" : "top";
+        const tgtSide = goingDown ? "top" : "bottom";
+        const srcPx = srcPos.x + portXOffset(r.source_type_key, r.key, srcSide);
+        const tgtPx = tgtPos.x + portXOffset(r.target_type_key, r.key, tgtSide);
+        const srcEdgeY = goingDown ? srcPos.y + NODE_H : srcPos.y;
+        const tgtEdgeY = goingDown ? tgtPos.y : tgtPos.y + NODE_H;
+
+        const pts: { x: number; y: number }[] = [{ x: srcPx, y: srcEdgeY }];
+        let curX = srcPx;
+
+        for (let gi = 0; gi < edge.gapsUsed.length; gi++) {
+          const trackAtGap = edge.trackY[gi];
+
+          // Vertical from current position to the track
+          pts.push({ x: curX, y: trackAtGap });
+
+          if (gi < edge.gapsUsed.length - 1) {
+            // Multi-gap: route through intermediate layer via a corridor
+            const gapIdx = edge.gapsUsed[gi];
+            const nextGapIdx = edge.gapsUsed[gi + 1];
+            // The intermediate layer is between these two gaps
+            const intermediateLayer = goingDown
+              ? Math.max(gapIdx, nextGapIdx)   // the lower gap index + 1
+              : Math.min(gapIdx, nextGapIdx) + 1;
+
+            const idealX = srcPx + (tgtPx - srcPx) * ((gi + 1) / edge.gapsUsed.length);
+            const corridorX = chooseCorridorX(intermediateLayer, idealX);
+
+            // Horizontal to corridor
+            pts.push({ x: corridorX, y: trackAtGap });
+            curX = corridorX;
+            // The next iteration will draw vertical from corridorX to the next track
+          } else {
+            // Last gap: horizontal to target port X
+            pts.push({ x: tgtPx, y: trackAtGap });
+            curX = tgtPx;
+          }
+        }
+
+        // Final vertical to target
+        pts.push({ x: curX, y: tgtEdgeY });
+
+        d = segmentsToPath(pts);
+
+        // Label at the middle gap's track
+        const midGap = Math.floor(edge.gapsUsed.length / 2);
+        labelY = edge.trackY[midGap];
+        // Label X at the midpoint of the horizontal segment in that gap
+        if (edge.gapsUsed.length === 1) {
+          labelX = (srcPx + tgtPx) / 2;
+        } else {
+          labelX = (srcPx + tgtPx) / 2;
+        }
       }
 
       return { key: r.key, d, label: r.label, labelX, labelY };
     });
 
-    // ---- Step 3: Resolve label overlaps ----
-    // Collect node rects as occupied zones
+    // -- Resolve label overlaps --
     type Rect = { x: number; y: number; w: number; h: number };
     const rectsOverlap = (a: Rect, b: Rect) =>
       a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -1625,15 +1849,12 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
       let ly = edge.labelY - LABEL_H / 2;
       let labelRect: Rect = { x: lx, y: ly, w: LABEL_W, h: LABEL_H };
 
-      // Check for overlaps with nodes and already-placed labels
       const allBlocked = [...nodeRects, ...placedLabels];
       let hasOverlap = allBlocked.some((r) => rectsOverlap(labelRect, r));
 
       if (hasOverlap) {
-        // Try shifting vertically in small increments along the vertical
-        // segments of the path (up to ±40px)
         let resolved = false;
-        for (let dy = -LABEL_H; dy <= LABEL_H * 2; dy += 6) {
+        for (let dy = -LABEL_H; dy <= LABEL_H * 3; dy += 6) {
           if (dy === 0) continue;
           const tryRect: Rect = { x: lx, y: ly + dy, w: LABEL_W, h: LABEL_H };
           if (!allBlocked.some((r) => rectsOverlap(tryRect, r))) {
@@ -1643,9 +1864,8 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             break;
           }
         }
-        // If vertical shift didn't help, try horizontal shifts
         if (!resolved) {
-          for (let dx = LABEL_W; dx <= LABEL_W * 2; dx += LABEL_W) {
+          for (let dx = LABEL_W; dx <= LABEL_W * 3; dx += LABEL_W * 0.5) {
             for (const sign of [1, -1]) {
               const tryRect: Rect = { x: lx + dx * sign, y: ly, w: LABEL_W, h: LABEL_H };
               if (!allBlocked.some((r) => rectsOverlap(tryRect, r))) {
@@ -1666,15 +1886,52 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
     }
 
     return rawEdges;
-  }, [relationTypes, layout]);
+  }, [relationTypes, layout, layers]);
 
-  /* --- Category label y positions --- */
+  /* ================================================================ */
+  /*  Derived layout values                                            */
+  /* ================================================================ */
   const layerLabels = useMemo(() => {
     return layers.map((layer, li) => ({
       label: layer.category,
       y: PAD_Y + li * (NODE_H + LAYER_GAP_Y),
     }));
   }, [layers]);
+
+  // Compute dynamic SVG height accounting for same-layer arcs above layer 0
+  const svgDimensions = useMemo(() => {
+    // Count same-layer edges per layer to determine arc space needed above layer 0
+    const layerIdx: Record<string, number> = {};
+    layers.forEach((layer, li) => {
+      layer.nodes.forEach((n) => { layerIdx[n.key] = li; });
+    });
+    let maxArcLift = 0;
+    const sameCountPerLayer: Record<number, number> = {};
+    for (const r of relationTypes) {
+      if (!layout.map[r.source_type_key] || !layout.map[r.target_type_key]) continue;
+      const sli = layerIdx[r.source_type_key];
+      const tli = layerIdx[r.target_type_key];
+      if (sli === tli) {
+        sameCountPerLayer[sli] = (sameCountPerLayer[sli] ?? 0) + 1;
+      }
+    }
+    for (const [, count] of Object.entries(sameCountPerLayer)) {
+      const lift = SAME_LAYER_ARC_BASE + (count - 1) * SAME_LAYER_ARC_STEP;
+      if (lift > maxArcLift) maxArcLift = lift;
+    }
+    const effectivePadY = Math.max(PAD_Y, maxArcLift + 24);
+
+    const svgH =
+      layers.length * NODE_H +
+      (layers.length - 1) * LAYER_GAP_Y +
+      effectivePadY + PAD_Y;
+
+    return { svgW: layout.svgW, svgH };
+  }, [layers, layout, relationTypes]);
+
+  /* ================================================================ */
+  /*  Render                                                           */
+  /* ================================================================ */
 
   if (visibleTypes.length === 0) {
     return (
@@ -1697,11 +1954,10 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
       }}
     >
       <svg
-        width={layout.svgW}
-        height={layout.svgH}
-        style={{ display: "block", minWidth: layout.svgW }}
+        width={svgDimensions.svgW}
+        height={svgDimensions.svgH}
+        style={{ display: "block", minWidth: svgDimensions.svgW }}
       >
-
         <style>{`
           .mm-edge:hover path { stroke: #6b7280; stroke-width: 2; }
           .mm-edge:hover .mm-edge-label { font-weight: 600; }
@@ -1740,7 +1996,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             <rect
               x={LAYER_LABEL_W - 4}
               y={ll.y - 16}
-              width={layout.svgW - LAYER_LABEL_W + 4 - PAD_X + 20}
+              width={svgDimensions.svgW - LAYER_LABEL_W + 4 - PAD_X + 20}
               height={NODE_H + 32}
               rx={10}
               fill="#f0f1f3"
