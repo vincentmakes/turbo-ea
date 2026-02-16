@@ -24,7 +24,6 @@ import Slider from "@mui/material/Slider";
 import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 
 /* ------------------------------------------------------------------ */
@@ -362,7 +361,6 @@ function GroupCard({
   totalApps,
   onGroupClick,
   onAppClick,
-  fmtCost,
 }: {
   group: GroupData;
   colorBy: string;
@@ -370,15 +368,9 @@ function GroupCard({
   totalApps: number;
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
-  fmtCost: (v: number) => string;
 }) {
   const count = group.apps.length;
   const pct = totalApps > 0 ? Math.round((count / totalApps) * 100) : 0;
-  const totalCost = group.apps.reduce(
-    (s, a) =>
-      s + (((a.attributes || {}).costTotalAnnual as number) || 0),
-    0,
-  );
 
   return (
     <Box
@@ -466,25 +458,6 @@ function GroupCard({
             ))}
         </Box>
       )}
-
-      {/* Footer with cost */}
-      {totalCost > 0 && (
-        <Box
-          sx={{
-            px: 1.5,
-            py: 0.75,
-            borderTop: "1px solid #f0f0f0",
-            display: "flex",
-            alignItems: "center",
-            gap: 0.5,
-          }}
-        >
-          <MaterialSymbol icon="payments" size={14} color="#999" />
-          <Typography variant="caption" color="text.secondary">
-            {fmtCost(totalCost)}
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 }
@@ -504,6 +477,7 @@ function FilterSelect({
     <Autocomplete
       multiple
       size="small"
+      limitTags={1}
       options={options.map((o) => o.key)}
       getOptionLabel={(key) =>
         options.find((o) => o.key === key)?.label ?? key
@@ -525,13 +499,20 @@ function FilterSelect({
                 color: opt?.color ? "#fff" : undefined,
                 fontWeight: 500,
                 fontSize: "0.72rem",
+                maxWidth: 120,
               }}
             />
           );
         })
       }
-      renderInput={(params) => <TextField {...params} label={label} />}
-      sx={{ minWidth: 180, maxWidth: 280 }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={value.length === 0 ? "All" : ""}
+        />
+      )}
+      sx={{ width: 200 }}
     />
   );
 }
@@ -542,7 +523,6 @@ function FilterSelect({
 
 export default function PortfolioReport() {
   const navigate = useNavigate();
-  const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
 
   // Data
@@ -697,17 +677,11 @@ export default function PortfolioReport() {
   // Summary stats
   const stats = useMemo(() => {
     const total = filteredApps.length;
-    const totalCost = filteredApps.reduce(
-      (s, a) =>
-        s + (((a.attributes || {}).costTotalAnnual as number) || 0),
-      0,
-    );
     const withEol = filteredApps.filter(
       (a) => a.lifecycle?.endOfLife,
     ).length;
-    const groupedCount = total - ungrouped.length;
-    return { total, totalCost, withEol, groupedCount };
-  }, [filteredApps, ungrouped]);
+    return { total, withEol };
+  }, [filteredApps]);
 
   // Color legend
   const colorLegend = useMemo(() => {
@@ -771,11 +745,6 @@ export default function PortfolioReport() {
       if (sortK === "name") return a.name.localeCompare(b.name) * dir;
       if (sortK === "subtype")
         return (a.subtype || "").localeCompare(b.subtype || "") * dir;
-      if (sortK === "cost") {
-        const ac = ((a.attributes || {}).costTotalAnnual as number) || 0;
-        const bc = ((b.attributes || {}).costTotalAnnual as number) || 0;
-        return (ac - bc) * dir;
-      }
       // Attribute column
       const av = ((a.attributes || {})[sortK] as string) || "";
       const bv = ((b.attributes || {})[sortK] as string) || "";
@@ -1007,14 +976,6 @@ export default function PortfolioReport() {
                 <strong>{stats.total}</strong> applications
               </Typography>
             </Box>
-            {stats.totalCost > 0 && (
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <MaterialSymbol icon="payments" size={16} color="#2e7d32" />
-                <Typography variant="caption" color="text.secondary">
-                  <strong>{fmtShort(stats.totalCost)}</strong> total cost
-                </Typography>
-              </Box>
-            )}
             {stats.withEol > 0 && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
@@ -1123,7 +1084,6 @@ export default function PortfolioReport() {
                     totalApps={stats.total}
                     onGroupClick={handleGroupClick}
                     onAppClick={handleAppClick}
-                    fmtCost={fmtShort}
                   />
                 ))}
               </Box>
@@ -1255,15 +1215,6 @@ export default function PortfolioReport() {
                     </TableSortLabel>
                   </TableCell>
                 )}
-                <TableCell align="right">
-                  <TableSortLabel
-                    active={sortK === "cost"}
-                    direction={sortK === "cost" ? sortD : "asc"}
-                    onClick={() => tableSort("cost")}
-                  >
-                    Annual Cost
-                  </TableSortLabel>
-                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1294,8 +1245,6 @@ export default function PortfolioReport() {
                 const colorDot = colorBy
                   ? getAppColor(app, colorBy, selectFields)
                   : null;
-                const cost =
-                  ((attrs.costTotalAnnual as number) || 0);
 
                 return (
                   <TableRow
@@ -1330,9 +1279,6 @@ export default function PortfolioReport() {
                         </Box>
                       </TableCell>
                     )}
-                    <TableCell align="right">
-                      {cost > 0 ? fmtShort(cost) : "\u2014"}
-                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -1360,7 +1306,7 @@ export default function PortfolioReport() {
             </Box>
 
             {/* Summary metrics */}
-            <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
+            <Box sx={{ display: "flex", gap: 3, mb: 2 }}>
               <Box sx={{ textAlign: "center", minWidth: 80 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>
                   {drawer.apps.length}
@@ -1369,33 +1315,16 @@ export default function PortfolioReport() {
                   Applications
                 </Typography>
               </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {fmtShort(
-                    drawer.apps.reduce(
-                      (s, a) =>
-                        s +
-                        (((a.attributes || {}).costTotalAnnual as number) ||
-                          0),
-                      0,
-                    ),
-                  )}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Total Cost
-                </Typography>
-              </Box>
-              <Box sx={{ textAlign: "center", minWidth: 80 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {
-                    drawer.apps.filter((a) => a.lifecycle?.endOfLife)
-                      .length
-                  }
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  EOL Risk
-                </Typography>
-              </Box>
+              {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length > 0 && (
+                <Box sx={{ textAlign: "center", minWidth: 80 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: "#e65100" }}>
+                    {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    EOL Risk
+                  </Typography>
+                </Box>
+              )}
             </Box>
 
             {/* Application list */}
