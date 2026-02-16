@@ -115,7 +115,7 @@ export default function TimelineSlider({
             "& .MuiSlider-rail": {
               height: 6,
               borderRadius: 3,
-              bgcolor: "action.hover",
+              bgcolor: `${primary}22`,
               opacity: 1,
             },
             "& .MuiSlider-thumb": {
@@ -169,7 +169,7 @@ export default function TimelineSlider({
                 sx={{
                   width: 1,
                   height: 6,
-                  bgcolor: "text.disabled",
+                  bgcolor: `${primary}40`,
                   borderRadius: 0.5,
                 }}
               />
@@ -178,7 +178,7 @@ export default function TimelineSlider({
                   variant="caption"
                   sx={{
                     fontSize: "0.62rem",
-                    color: "text.disabled",
+                    color: `${primary}99`,
                     lineHeight: 1,
                     mt: "1px",
                     userSelect: "none",
