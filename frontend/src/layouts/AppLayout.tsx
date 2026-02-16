@@ -55,7 +55,7 @@ const NAV_ITEMS: NavItemWithPermission[] = [
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
-      { label: "Portfolio", icon: "bubble_chart", path: "/reports/portfolio" },
+      { label: "Portfolio", icon: "dashboard", path: "/reports/portfolio" },
       { label: "Capability Map", icon: "grid_view", path: "/reports/capability-map" },
       { label: "Lifecycle", icon: "timeline", path: "/reports/lifecycle" },
       { label: "Dependencies", icon: "hub", path: "/reports/dependencies" },
