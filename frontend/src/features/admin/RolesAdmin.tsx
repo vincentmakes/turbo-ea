@@ -12,6 +12,7 @@ import Switch from "@mui/material/Switch";
 import Chip from "@mui/material/Chip";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import Divider from "@mui/material/Divider";
 import List from "@mui/material/List";
@@ -90,7 +91,7 @@ export default function RolesAdmin() {
   const [editIsDefault, setEditIsDefault] = useState(false);
   const [editPermissions, setEditPermissions] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [snack, setSnack] = useState("");
   const [detailError, setDetailError] = useState<string | null>(null);
 
   /* ---- Create dialog ---- */
@@ -143,7 +144,6 @@ export default function RolesAdmin() {
       setEditIsDefault(role.is_default);
       setEditPermissions({ ...role.permissions });
       setDetailError(null);
-      setSaveSuccess(false);
     } catch (err) {
       setDetailError(
         err instanceof Error ? err.message : "Failed to load role details"
@@ -187,7 +187,6 @@ export default function RolesAdmin() {
     try {
       setSaving(true);
       setDetailError(null);
-      setSaveSuccess(false);
       await api.patch(`/roles/${selectedKey}`, {
         label: editLabel.trim(),
         description: editDescription.trim() || null,
@@ -195,12 +194,10 @@ export default function RolesAdmin() {
         is_default: editIsDefault,
         permissions: editPermissions,
       });
-      setSaveSuccess(true);
+      setSnack("Role saved successfully");
       // Refresh list and detail
       await fetchRoles();
       await fetchRoleDetail(selectedKey);
-      // Clear success after 3s
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       setDetailError(
         err instanceof Error ? err.message : "Failed to save role"
@@ -230,6 +227,7 @@ export default function RolesAdmin() {
       setCreateForm(EMPTY_CREATE_FORM);
       await fetchRoles();
       setSelectedKey(created.key);
+      setSnack("Role created successfully");
     } catch (err) {
       setCreateError(
         err instanceof Error ? err.message : "Failed to create role"
@@ -254,6 +252,7 @@ export default function RolesAdmin() {
         setSelectedKey(null);
       }
       await fetchRoles();
+      setSnack("Role archived");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to archive role"
@@ -270,6 +269,7 @@ export default function RolesAdmin() {
       if (selectedKey === key) {
         await fetchRoleDetail(key);
       }
+      setSnack("Role restored");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to restore role"
@@ -495,13 +495,6 @@ export default function RolesAdmin() {
                     onClose={() => setDetailError(null)}
                   >
                     {detailError}
-                  </Alert>
-                )}
-
-                {/* Save success */}
-                {saveSuccess && (
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    Role saved successfully.
                   </Alert>
                 )}
 
@@ -1040,6 +1033,15 @@ export default function RolesAdmin() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* ============ Success Snackbar ============ */}
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={4000}
+        onClose={() => setSnack("")}
+        message={snack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      />
     </Box>
   );
 }
