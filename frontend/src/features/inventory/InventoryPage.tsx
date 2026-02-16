@@ -123,7 +123,7 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState<Filters>({
     types: searchParams.get("type") ? [searchParams.get("type")!] : [],
     search: searchParams.get("search") || "",
-    qualitySeals: [],
+    qualitySeals: searchParams.get("quality_seal") ? [searchParams.get("quality_seal")!] : [],
     attributes: {},
     relations: {},
   });
