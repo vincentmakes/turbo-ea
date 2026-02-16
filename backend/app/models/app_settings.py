@@ -19,6 +19,8 @@ class AppSettings(Base):
     general_settings: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     custom_logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     custom_logo_mime: Mapped[str | None] = mapped_column(Text, nullable=True)
+    custom_favicon: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    custom_favicon_mime: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

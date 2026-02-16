@@ -334,20 +334,19 @@ async def get_logo(db: AsyncSession = Depends(get_db)):
 
 @router.get("/favicon")
 async def get_favicon(db: AsyncSession = Depends(get_db)):
-    """Public endpoint — favicon-friendly version of the logo.
+    """Public endpoint — returns the current favicon.
 
-    Returns the custom logo if set, otherwise a dark-blue recolored
-    default that is visible on light browser chrome / bookmark bars.
+    Priority: custom favicon → default favicon.
     """
     result = await db.execute(
         select(AppSettings).where(AppSettings.id == "default")
     )
     row = result.scalar_one_or_none()
 
-    if row and row.custom_logo:
+    if row and row.custom_favicon:
         return Response(
-            content=row.custom_logo,
-            media_type=row.custom_logo_mime or "image/png",
+            content=row.custom_favicon,
+            media_type=row.custom_favicon_mime or "image/png",
             headers={"Cache-Control": "public, max-age=300"},
         )
 
@@ -415,6 +414,72 @@ async def reset_logo(
     row = await _get_or_create_row(db)
     row.custom_logo = None
     row.custom_logo_mime = None
+    await db.commit()
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Favicon endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/favicon/info")
+async def get_favicon_info(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — returns metadata about the current favicon."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+
+    has_custom = bool(row and row.custom_favicon)
+    return {
+        "has_custom_favicon": has_custom,
+        "mime_type": (row.custom_favicon_mime if has_custom else "image/png"),
+    }
+
+
+@router.post("/favicon")
+async def upload_favicon(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — upload a custom favicon."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_LOGO_MIMES:
+        raise HTTPException(
+            400,
+            f"Unsupported file type: {content_type}. "
+            "Allowed: PNG, JPEG, WebP, GIF.",
+        )
+
+    data = await file.read()
+    if len(data) > MAX_LOGO_SIZE:
+        raise HTTPException(400, f"Favicon must be under {MAX_LOGO_SIZE // (1024 * 1024)} MB.")
+
+    row = await _get_or_create_row(db)
+    row.custom_favicon = data
+    row.custom_favicon_mime = content_type
+    await db.commit()
+
+    return {"ok": True}
+
+
+@router.delete("/favicon")
+async def reset_favicon(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — reset to the default favicon."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    row.custom_favicon = None
+    row.custom_favicon_mime = None
     await db.commit()
 
     return {"ok": True}
