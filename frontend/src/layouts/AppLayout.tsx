@@ -104,7 +104,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isCompact = useMediaQuery(theme.breakpoints.down("lg"));
+  const isCompact = useMediaQuery("(max-width:1439px)");
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
 
@@ -264,6 +264,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     fontSize: "0.85rem",
     minWidth: 0,
     px: isCompact && !isMobile ? 1 : 1.5,
+    whiteSpace: "nowrap" as const,
     borderRadius: 1,
     bgcolor: active ? "rgba(255,255,255,0.12)" : "transparent",
     "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
@@ -559,86 +560,89 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </Box>
 
           {/* Desktop / tablet nav items */}
-          {!isMobile &&
-            navItems.map((item) =>
-              item.children ? (
-                isCompact ? (
+          {!isMobile && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+              {navItems.map((item) =>
+                item.children ? (
+                  isCompact ? (
+                    <Tooltip key={item.label} title={item.label}>
+                      <IconButton
+                        size="small"
+                        sx={{ color: isGroupActive(item.children) ? "#fff" : "rgba(255,255,255,0.7)" }}
+                        onClick={(e) => setReportsMenu(e.currentTarget)}
+                      >
+                        <MaterialSymbol icon={item.icon} size={20} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Button
+                      key={item.label}
+                      size="small"
+                      startIcon={<MaterialSymbol icon={item.icon} size={18} />}
+                      endIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                      sx={navBtnSx(isGroupActive(item.children))}
+                      onClick={(e) => setReportsMenu(e.currentTarget)}
+                    >
+                      {item.label}
+                    </Button>
+                  )
+                ) : isCompact ? (
                   <Tooltip key={item.label} title={item.label}>
                     <IconButton
                       size="small"
-                      sx={{ color: isGroupActive(item.children) ? "#fff" : "rgba(255,255,255,0.7)" }}
-                      onClick={(e) => setReportsMenu(e.currentTarget)}
+                      sx={{
+                        color: isActive(item.path) ? "#fff" : "rgba(255,255,255,0.7)",
+                        bgcolor: isActive(item.path) ? "rgba(255,255,255,0.12)" : "transparent",
+                      }}
+                      onClick={() => item.path && navigate(item.path)}
                     >
-                      <MaterialSymbol icon={item.icon} size={20} />
+                      <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                        <MaterialSymbol icon={item.icon} size={20} />
+                      </Badge>
                     </IconButton>
                   </Tooltip>
                 ) : (
                   <Button
                     key={item.label}
                     size="small"
-                    startIcon={<MaterialSymbol icon={item.icon} size={18} />}
-                    endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                    sx={navBtnSx(isGroupActive(item.children))}
-                    onClick={(e) => setReportsMenu(e.currentTarget)}
+                    startIcon={
+                      <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                        <MaterialSymbol icon={item.icon} size={18} />
+                      </Badge>
+                    }
+                    sx={navBtnSx(isActive(item.path))}
+                    onClick={() => item.path && navigate(item.path)}
                   >
                     {item.label}
                   </Button>
-                )
-              ) : isCompact ? (
-                <Tooltip key={item.label} title={item.label}>
-                  <IconButton
-                    size="small"
-                    sx={{
-                      color: isActive(item.path) ? "#fff" : "rgba(255,255,255,0.7)",
-                      bgcolor: isActive(item.path) ? "rgba(255,255,255,0.12)" : "transparent",
-                    }}
-                    onClick={() => item.path && navigate(item.path)}
-                  >
-                    <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
-                      <MaterialSymbol icon={item.icon} size={20} />
-                    </Badge>
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <Button
-                  key={item.label}
-                  size="small"
-                  startIcon={
-                    <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
-                      <MaterialSymbol icon={item.icon} size={18} />
-                    </Badge>
-                  }
-                  sx={navBtnSx(isActive(item.path))}
-                  onClick={() => item.path && navigate(item.path)}
-                >
-                  {item.label}
-                </Button>
-              ),
-            )}
+                ),
+              )}
 
-          {/* Admin dropdown (desktop/tablet) */}
-          {!isMobile && showAdmin &&
-            (isCompact ? (
-              <Tooltip title="Admin">
-                <IconButton
-                  size="small"
-                  sx={{ color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)" }}
-                  onClick={(e) => setAdminMenu(e.currentTarget)}
-                >
-                  <MaterialSymbol icon="admin_panel_settings" size={20} />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Button
-                size="small"
-                startIcon={<MaterialSymbol icon="admin_panel_settings" size={18} />}
-                endIcon={<MaterialSymbol icon="expand_more" size={16} />}
-                sx={navBtnSx(isGroupActive(adminItems as { path: string }[]))}
-                onClick={(e) => setAdminMenu(e.currentTarget)}
-              >
-                Admin
-              </Button>
-            ))}
+              {/* Admin dropdown (desktop/tablet) */}
+              {showAdmin &&
+                (isCompact ? (
+                  <Tooltip title="Admin">
+                    <IconButton
+                      size="small"
+                      sx={{ color: isGroupActive(adminItems as { path: string }[]) ? "#fff" : "rgba(255,255,255,0.7)" }}
+                      onClick={(e) => setAdminMenu(e.currentTarget)}
+                    >
+                      <MaterialSymbol icon="admin_panel_settings" size={20} />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  <Button
+                    size="small"
+                    startIcon={<MaterialSymbol icon="admin_panel_settings" size={18} />}
+                    endIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                    sx={navBtnSx(isGroupActive(adminItems as { path: string }[]))}
+                    onClick={(e) => setAdminMenu(e.currentTarget)}
+                  >
+                    Admin
+                  </Button>
+                ))}
+            </Box>
+          )}
 
           {/* Reports dropdown menu */}
           <Menu
@@ -702,8 +706,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     if (searchResults.length > 0) setSearchOpen(true);
                   }}
                   sx={{
-                    maxWidth: isCompact ? 200 : 360,
-                    minWidth: isCompact ? 200 : 300,
+                    maxWidth: isCompact ? 180 : 360,
+                    minWidth: isCompact ? 140 : 180,
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
                     "& .MuiOutlinedInput-notchedOutline": { border: "none" },
