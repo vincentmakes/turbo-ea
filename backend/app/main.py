@@ -80,7 +80,11 @@ async def lifespan(app: FastAPI):
                     await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
                 else:
                     # Normal path: run pending migrations
-                    await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
+                    try:
+                        await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
+                    except Exception:
+                        logger.exception("Alembic migration failed")
+                        raise
 
     # Load DB-persisted email settings into runtime config
     from sqlalchemy import select as _sel

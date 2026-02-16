@@ -103,11 +103,15 @@ DEFAULT_FS_PERMS = json.dumps({"fs.view": True})
 
 
 def upgrade() -> None:
+    import logging
+    log = logging.getLogger("alembic.migration.022")
+
     from sqlalchemy import inspect as sa_inspect
 
     conn = op.get_bind()
     inspector = sa_inspect(conn)
 
+    log.info("Step 1: Create roles table")
     # 1. Create roles table
     if not inspector.has_table("roles"):
         op.create_table(
@@ -130,6 +134,7 @@ def upgrade() -> None:
                        sa.ForeignKey("users.id"), nullable=True),
         )
 
+    log.info("Step 2: Seed system/default roles")
     # 2. Seed system/default roles
     op.execute(f"""
         INSERT INTO roles (key, label, description, is_system, is_default, is_archived, color, permissions, sort_order)
@@ -145,6 +150,7 @@ def upgrade() -> None:
         ON CONFLICT (key) DO NOTHING;
     """)
 
+    log.info("Step 3: Create subscription_role_definitions table")
     # 3. Create subscription_role_definitions table
     if not inspector.has_table("subscription_role_definitions"):
         op.create_table(
@@ -168,6 +174,7 @@ def upgrade() -> None:
             sa.UniqueConstraint("fact_sheet_type_key", "key", name="uq_srd_type_key"),
         )
 
+    log.info("Step 4: Migrate existing subscription roles from FactSheetType JSONB")
     # 4. Migrate existing subscription roles from FactSheetType JSONB
     conn = op.get_bind()
     result = conn.execute(sa.text(
@@ -199,7 +206,7 @@ def upgrade() -> None:
                 "sort_order": idx,
             })
 
-    # 5. Add FK from users.role to roles.key
+    log.info("Step 5: Add FK from users.role to roles.key")
     # First, ensure all existing user role values exist in the roles table
     conn.execute(sa.text("""
         INSERT INTO roles (key, label, permissions, sort_order)
@@ -209,11 +216,14 @@ def upgrade() -> None:
         ON CONFLICT (key) DO NOTHING
     """))
 
+    log.info("Step 6: Create FK constraint")
     # Now add the foreign key constraint
     try:
         op.create_foreign_key("fk_users_role_key", "users", "roles", ["role"], ["key"])
-    except Exception:
-        pass  # FK may already exist
+    except Exception as e:
+        log.info("FK constraint already exists or skipped: %s", e)
+
+    log.info("Migration 022 completed successfully")
 
 
 def downgrade() -> None:
