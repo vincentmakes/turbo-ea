@@ -1959,8 +1959,10 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
         style={{ display: "block", minWidth: svgDimensions.svgW }}
       >
         <style>{`
-          .mm-edge:hover path { stroke: #6b7280; stroke-width: 2; }
-          .mm-edge:hover .mm-edge-label { font-weight: 600; }
+          .mm-edge:hover > path { stroke: #e67700; stroke-width: 2; }
+          .mm-edge:hover > path[marker-end] { marker-end: url(#mm-arrow-hover); }
+          .mm-edge:hover .mm-edge-label rect { fill: #e67700; fill-opacity: 1; stroke: #c45d00; }
+          .mm-edge:hover .mm-edge-label text { fill: #fff; font-weight: 600; }
         `}</style>
         <defs>
           <marker
@@ -1972,6 +1974,16 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             orient="auto"
           >
             <path d="M0,0.5 L9,3 L0,5.5 Z" fill="#b0b8c4" />
+          </marker>
+          <marker
+            id="mm-arrow-hover"
+            markerWidth="9"
+            markerHeight="6"
+            refX="9"
+            refY="3"
+            orient="auto"
+          >
+            <path d="M0,0.5 L9,3 L0,5.5 Z" fill="#e67700" />
           </marker>
           <filter
             id="mm-shadow"
