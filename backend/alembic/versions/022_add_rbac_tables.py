@@ -189,7 +189,7 @@ def upgrade() -> None:
             conn.execute(sa.text(
                 "INSERT INTO subscription_role_definitions "
                 "(fact_sheet_type_key, key, label, permissions, sort_order) "
-                "VALUES (:type_key, :key, :label, :perms::jsonb, :sort_order) "
+                "VALUES (:type_key, :key, :label, CAST(:perms AS jsonb), :sort_order) "
                 "ON CONFLICT (fact_sheet_type_key, key) DO NOTHING"
             ), {
                 "type_key": type_key,
