@@ -96,7 +96,7 @@ export default function Dashboard() {
     if (!data) return [];
     return Object.entries(data.quality_seals)
       .filter(([, v]) => v > 0)
-      .map(([k, v]) => ({ name: SEAL_LABELS[k] || k, value: v, color: SEAL_COLORS[k] || "#999" }));
+      .map(([k, v]) => ({ name: SEAL_LABELS[k] || k, value: v, color: SEAL_COLORS[k] || "#999", key: k }));
   }, [data]);
 
   const completionChartData = useMemo(() => {
@@ -239,7 +239,12 @@ export default function Dashboard() {
                       innerRadius={50}
                       outerRadius={90}
                       paddingAngle={2}
+                      cursor="pointer"
                       label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
+                      onClick={(_data, idx) => {
+                        const seal = sealChartData[idx]?.key;
+                        if (seal) navigate(`/inventory?quality_seal=${seal}`);
+                      }}
                     >
                       {sealChartData.map((d, i) => (
                         <Cell key={i} fill={d.color} />
@@ -271,7 +276,13 @@ export default function Dashboard() {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} />
                   <RTooltip />
-                  <Bar dataKey="count" name="Fact Sheets" radius={[4, 4, 0, 0]}>
+                  <Bar
+                    dataKey="count"
+                    name="Fact Sheets"
+                    radius={[4, 4, 0, 0]}
+                    cursor="pointer"
+                    onClick={() => navigate("/reports/data-quality")}
+                  >
                     {completionChartData.map((d, i) => (
                       <Cell key={i} fill={d.color} />
                     ))}
@@ -294,7 +305,13 @@ export default function Dashboard() {
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                   <YAxis allowDecimals={false} />
                   <RTooltip />
-                  <Bar dataKey="count" name="Fact Sheets" radius={[4, 4, 0, 0]}>
+                  <Bar
+                    dataKey="count"
+                    name="Fact Sheets"
+                    radius={[4, 4, 0, 0]}
+                    cursor="pointer"
+                    onClick={() => navigate("/reports/lifecycle")}
+                  >
                     {lifecycleChartData.map((d, i) => (
                       <Cell key={i} fill={d.color} />
                     ))}
