@@ -235,6 +235,7 @@ async def update_subscription_role(
         setattr(srd, field, value)
 
     await db.commit()
+    await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
     return _srd_response(srd)
 
@@ -284,6 +285,7 @@ async def archive_subscription_role(
     srd.archived_at = datetime.now(timezone.utc)
     srd.archived_by = user.id
     await db.commit()
+    await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
 
     resp = _srd_response(srd)
@@ -317,6 +319,7 @@ async def restore_subscription_role(
     srd.archived_at = None
     srd.archived_by = None
     await db.commit()
+    await db.refresh(srd)
     PermissionService.invalidate_srd_cache(type_key, role_key)
 
     return _srd_response(srd)

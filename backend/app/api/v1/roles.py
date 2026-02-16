@@ -224,6 +224,7 @@ async def update_role(
         setattr(role, field, value)
 
     await db.commit()
+    await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
     return _role_response(role)
 
@@ -260,6 +261,7 @@ async def archive_role(
     role.archived_at = datetime.now(timezone.utc)
     role.archived_by = user.id
     await db.commit()
+    await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
 
     resp = _role_response(role)
@@ -287,6 +289,7 @@ async def restore_role(
     role.archived_at = None
     role.archived_by = None
     await db.commit()
+    await db.refresh(role)
     PermissionService.invalidate_role_cache(key)
 
     return _role_response(role)
