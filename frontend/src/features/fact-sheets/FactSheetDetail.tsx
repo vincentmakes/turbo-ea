@@ -1333,7 +1333,7 @@ function RelationsSection({ fsId, fsType, refreshKey = 0, canManageRelations = t
 }
 
 // ── Tab: Comments ───────────────────────────────────────────────
-function CommentsTab({ fsId, canCreateComments = true, canManageComments = true }: { fsId: string; canCreateComments?: boolean; canManageComments?: boolean }) {
+function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canManageComments = true }: { fsId: string; canCreateComments?: boolean; canManageComments?: boolean }) {
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState("");
 

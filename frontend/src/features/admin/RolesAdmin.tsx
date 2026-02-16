@@ -724,7 +724,7 @@ export default function RolesAdmin() {
                 )}
 
                 {Object.entries(schema).map(([groupKey, group]) => {
-                  const { all, some } = getGroupCheckedState(group);
+                  const { all } = getGroupCheckedState(group);
                   const permKeys = Object.keys(group.permissions);
 
                   return (

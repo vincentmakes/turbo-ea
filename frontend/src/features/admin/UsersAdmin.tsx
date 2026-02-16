@@ -289,7 +289,7 @@ export default function UsersAdmin() {
           {role.is_archived && (
             <Tooltip title="Archived role">
               <span style={{ display: "inline-flex", alignItems: "center" }}>
-                <MaterialSymbol icon="warning" size={16} sx={{ color: "warning.main" }} />
+                <MaterialSymbol icon="warning" size={16} color="#ed6c02" />
               </span>
             </Tooltip>
           )}
@@ -446,7 +446,7 @@ export default function UsersAdmin() {
                         {roleMap.get(u.role)?.is_archived && (
                           <Tooltip title="This user has an archived role. Consider reassigning.">
                             <span style={{ display: "inline-flex", alignItems: "center" }}>
-                              <MaterialSymbol icon="warning" size={18} sx={{ color: "warning.main" }} />
+                              <MaterialSymbol icon="warning" size={18} color="#ed6c02" />
                             </span>
                           </Tooltip>
                         )}
