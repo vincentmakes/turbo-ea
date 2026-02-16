@@ -138,7 +138,20 @@ function BpmDashboardContent() {
               <Typography variant="subtitle2" gutterBottom>By Process Type</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
-                  <Pie data={typeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                  <Pie
+                    data={typeData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label
+                    style={{ cursor: "pointer" }}
+                    onClick={(_data, idx) => {
+                      const name = typeData[idx]?.name;
+                      if (name) navigate(`/inventory?type=BusinessProcess&attr_processType=${encodeURIComponent(name)}`);
+                    }}
+                  >
                     {typeData.map((_, i) => (
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
@@ -162,7 +175,15 @@ function BpmDashboardContent() {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" name="Processes">
+                  <Bar
+                    dataKey="value"
+                    name="Processes"
+                    style={{ cursor: "pointer" }}
+                    onClick={(_data, idx) => {
+                      const name = maturityData[idx]?.name;
+                      if (name) navigate(`/inventory?type=BusinessProcess&attr_maturity=${encodeURIComponent(name)}`);
+                    }}
+                  >
                     {maturityData.map((entry, i) => (
                       <Cell key={i} fill={MATURITY_COLORS[entry.name] || "#9e9e9e"} />
                     ))}
@@ -184,7 +205,16 @@ function BpmDashboardContent() {
                   <XAxis dataKey="name" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="value" name="Processes" fill="#1976d2" />
+                  <Bar
+                    dataKey="value"
+                    name="Processes"
+                    fill="#1976d2"
+                    style={{ cursor: "pointer" }}
+                    onClick={(_data, idx) => {
+                      const name = automationData[idx]?.name;
+                      if (name) navigate(`/inventory?type=BusinessProcess&attr_automationLevel=${encodeURIComponent(name)}`);
+                    }}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

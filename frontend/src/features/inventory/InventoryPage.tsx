@@ -120,12 +120,21 @@ export default function InventoryPage() {
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
-  const [filters, setFilters] = useState<Filters>({
-    types: searchParams.get("type") ? [searchParams.get("type")!] : [],
-    search: searchParams.get("search") || "",
-    qualitySeals: searchParams.get("quality_seal") ? [searchParams.get("quality_seal")!] : [],
-    attributes: {},
-    relations: {},
+  const [filters, setFilters] = useState<Filters>(() => {
+    // Parse attr_* URL params into initial attribute filters
+    const attributes: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      if (key.startsWith("attr_")) {
+        attributes[key.slice(5)] = value;
+      }
+    });
+    return {
+      types: searchParams.get("type") ? [searchParams.get("type")!] : [],
+      search: searchParams.get("search") || "",
+      qualitySeals: searchParams.get("quality_seal") ? [searchParams.get("quality_seal")!] : [],
+      attributes,
+      relations: {},
+    };
   });
 
   const [data, setData] = useState<FactSheet[]>([]);
