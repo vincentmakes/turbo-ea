@@ -8,7 +8,6 @@ import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
-import MaterialSymbol from "@/components/MaterialSymbol";
 import { auth } from "@/api/client";
 import type { SsoConfig } from "@/types";
 
@@ -78,11 +77,12 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
     >
       <Card sx={{ p: 4, width: 400, maxWidth: "90vw" }}>
         <Box sx={{ textAlign: "center", mb: 3 }}>
-          <MaterialSymbol icon="hub" size={48} color="#1976d2" />
-          <Typography variant="h5" fontWeight={700} sx={{ mt: 1 }}>
-            Turbo EA
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <img
+            src="/logo.png"
+            alt="Turbo EA"
+            style={{ height: 64, objectFit: "contain" }}
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Enterprise Architecture Management
           </Typography>
         </Box>

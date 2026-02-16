@@ -103,8 +103,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const isCompact = useMediaQuery("(max-width:1279px)");
+  const isMobile = useMediaQuery("(max-width:767px)");
+  const isCompact = useMediaQuery("(max-width:1023px)");
+  const isCondensed = useMediaQuery("(max-width:1279px)");
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
 
@@ -260,9 +261,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     color: active ? "#fff" : "rgba(255,255,255,0.7)",
     textTransform: "none" as const,
     fontWeight: active ? 700 : 500,
-    fontSize: "0.85rem",
+    fontSize: isCondensed ? "0.75rem" : "0.85rem",
     minWidth: 0,
-    px: isCompact && !isMobile ? 1 : 1.5,
+    px: isCondensed ? 0.75 : 1.5,
     whiteSpace: "nowrap" as const,
     borderRadius: 1,
     bgcolor: active ? "rgba(255,255,255,0.12)" : "transparent",
@@ -546,7 +547,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             sx={{
               display: "flex",
               alignItems: "center",
-              mr: isMobile ? 0 : 3,
+              mr: isMobile ? 0 : isCondensed ? 1.5 : 3,
               cursor: "pointer",
             }}
             onClick={() => navigate("/")}
@@ -660,8 +661,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     if (searchResults.length > 0) setSearchOpen(true);
                   }}
                   sx={{
-                    maxWidth: isCompact ? 180 : 360,
-                    minWidth: isCompact ? 140 : 180,
+                    maxWidth: isCondensed ? 200 : 360,
+                    minWidth: isCondensed ? 140 : 180,
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
                     "& .MuiOutlinedInput-notchedOutline": { border: "none" },
