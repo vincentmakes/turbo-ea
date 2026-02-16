@@ -75,7 +75,7 @@ export default function TimelineSlider({
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
 
   return (
-    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5 }}>
+    <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
       {/* Label row */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
         <MaterialSymbol icon="calendar_month" size={16} color={primary} />
