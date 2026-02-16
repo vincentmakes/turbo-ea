@@ -12,12 +12,10 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
-import Slider from "@mui/material/Slider";
-import Chip from "@mui/material/Chip";
 import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
 import MetricCard from "./MetricCard";
-import MaterialSymbol from "@/components/MaterialSymbol";
+import TimelineSlider from "@/components/TimelineSlider";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useCurrency } from "@/hooks/useCurrency";
 import { api } from "@/api/client";
@@ -216,9 +214,6 @@ export default function CostReport() {
     return a.name.localeCompare(b.name) * d;
   });
 
-  const fmtSliderDate = (v: number) =>
-    new Date(v).toLocaleDateString("en-US", { year: "numeric", month: "short" });
-
   const Tip = ({ active, payload }: { active?: boolean; payload?: { payload: { name: string; cost: number; size: number } }[] }) => {
     if (!active || !payload?.[0]) return null;
     const d = payload[0].payload;
@@ -255,29 +250,13 @@ export default function CostReport() {
           )}
 
           {hasLifecycleData && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2, width: "100%", pt: 0.5 }}>
-              <MaterialSymbol icon="calendar_month" size={18} color="#999" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-                Timeline:
-              </Typography>
-              <Slider
-                value={timelineDate}
-                min={dateRange.min}
-                max={dateRange.max}
-                step={86400000}
-                onChange={(_, v) => { setSliderTouched(true); setTimelineDate(v as number); }}
-                valueLabelDisplay="auto"
-                valueLabelFormat={fmtSliderDate}
-                marks={yearMarks}
-                sx={{ flex: 1, mx: 1 }}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", minWidth: 100 }}>
-                {new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
-              </Typography>
-              {Math.abs(timelineDate - todayMs) > 86400000 && (
-                <Chip size="small" label="Today" variant="outlined" onClick={() => setTimelineDate(todayMs)} sx={{ fontSize: "0.72rem" }} />
-              )}
-            </Box>
+            <TimelineSlider
+              value={timelineDate}
+              onChange={(v) => { setSliderTouched(true); setTimelineDate(v); }}
+              dateRange={dateRange}
+              yearMarks={yearMarks}
+              todayMs={todayMs}
+            />
           )}
         </>
       }
