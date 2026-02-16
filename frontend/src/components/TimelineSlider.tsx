@@ -98,8 +98,11 @@ export default function TimelineSlider({
     <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
       {/* Label row */}
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-        <MaterialSymbol icon="calendar_month" size={16} color={primary} />
-        <Typography variant="caption" sx={{ fontWeight: 600, color: "text.secondary" }}>
+        <MaterialSymbol icon="electric_bolt" size={16} color={primary} />
+        <Typography variant="caption" sx={{ fontWeight: 700, color: primary }}>
+          Time Travel
+        </Typography>
+        <Typography variant="caption" sx={{ fontWeight: 500, color: "text.secondary" }}>
           {fmtFull(value)}
         </Typography>
         <Box sx={{ flex: 1 }} />
