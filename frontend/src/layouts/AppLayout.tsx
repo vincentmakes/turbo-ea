@@ -146,6 +146,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
   const searchAnchorRef = useRef<HTMLDivElement | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -233,10 +234,12 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   // Close search results on navigation
   useEffect(() => {
     setSearchOpen(false);
+    setSearchExpanded(false);
   }, [location.pathname]);
 
   const handleSearchResultClick = (id: string) => {
     setSearchOpen(false);
+    setSearchExpanded(false);
     setSearch("");
     navigate(`/fact-sheets/${id}`);
   };
@@ -244,11 +247,13 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const handleSearch = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && search.trim()) {
       setSearchOpen(false);
+      setSearchExpanded(false);
       navigate(`/inventory?search=${encodeURIComponent(search.trim())}`);
       setDrawerOpen(false);
     }
     if (e.key === "Escape") {
       setSearchOpen(false);
+      setSearchExpanded(false);
     }
   };
 
@@ -645,14 +650,35 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           </Menu>
 
 
-          <Box sx={{ flex: 1 }} />
+          <Box sx={{ flex: !isMobile && isCompact && searchExpanded ? 0 : 1 }} />
 
-          {/* Search (hidden on mobile — available in drawer) */}
-          {!isMobile && (
-            <ClickAwayListener onClickAway={() => setSearchOpen(false)}>
-              <Box sx={{ position: "relative", flexShrink: 1, minWidth: 0 }} ref={searchAnchorRef}>
+          {/* Search: compact mode shows icon that expands on click */}
+          {!isMobile && isCompact && !searchExpanded && (
+            <Tooltip title="Search">
+              <IconButton
+                sx={{ color: "rgba(255,255,255,0.7)" }}
+                onClick={() => setSearchExpanded(true)}
+              >
+                <MaterialSymbol icon="search" size={22} />
+              </IconButton>
+            </Tooltip>
+          )}
+          {/* Search field: always visible on desktop, expands on compact */}
+          {!isMobile && (!isCompact || searchExpanded) && (
+            <ClickAwayListener onClickAway={() => { setSearchOpen(false); if (isCompact) setSearchExpanded(false); }}>
+              <Box
+                sx={{
+                  position: "relative",
+                  ...(isCompact && searchExpanded
+                    ? { flex: 1 }
+                    : { flexShrink: 1 }),
+                  minWidth: 0,
+                }}
+                ref={searchAnchorRef}
+              >
                 <TextField
                   size="small"
+                  fullWidth={isCompact && searchExpanded}
                   placeholder="Search fact sheets..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -660,8 +686,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                   onFocus={() => {
                     if (searchResults.length > 0) setSearchOpen(true);
                   }}
+                  autoFocus={isCompact && searchExpanded}
                   sx={{
-                    width: isCondensed ? 200 : 360,
+                    ...(!isCompact ? { width: isCondensed ? 200 : 360 } : {}),
                     maxWidth: "100%",
                     bgcolor: "rgba(255,255,255,0.08)",
                     borderRadius: 1,
@@ -772,9 +799,9 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             </ClickAwayListener>
           )}
 
-          {/* Create button — only shown if user can create fact sheets */}
+          {/* Create button — icon-only on mobile or when search is expanded */}
           {can("inventory.create") && (
-            isMobile ? (
+            isMobile || (isCompact && searchExpanded) ? (
               <Tooltip title="Create">
                 <IconButton
                   sx={{ color: "#fff" }}
