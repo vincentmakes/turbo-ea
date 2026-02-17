@@ -35,9 +35,9 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 ---
 
-## Quick Start (Docker Compose with PostgreSQL)
+## Quick Start
 
-This is the recommended way to get Turbo EA running. It starts the backend, frontend, and a PostgreSQL database all in Docker containers.
+The quickest way to get Turbo EA running. This starts PostgreSQL, the backend, and the frontend all in Docker containers with a single command.
 
 ### Prerequisites
 
@@ -57,56 +57,33 @@ cd turbo-ea
 cp .env.example .env
 ```
 
-Edit `.env` and set at minimum:
+Edit `.env` and configure:
 
 ```dotenv
-# PostgreSQL credentials (used by both the DB container and the backend)
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-POSTGRES_DB=turboea
-POSTGRES_USER=turboea
+# PostgreSQL credentials
 POSTGRES_PASSWORD=<choose-a-strong-password>
 
 # JWT signing key — generate one with:
 #   python3 -c "import secrets; print(secrets.token_urlsafe(64))"
 SECRET_KEY=<your-generated-secret>
 
-# Port the app will be available on
+# Port the app will be available on (default: 8920)
 HOST_PORT=8920
 ```
 
-### 3. Create the Docker network
-
-Turbo EA services communicate over a Docker network called `guac-net`:
+### 3. Start the app
 
 ```bash
-docker network create guac-net
+docker compose -f docker-compose.db.yml up --build -d
 ```
 
-### 4. Start with PostgreSQL included
+That's it. Open **http://localhost:8920** in your browser.
 
-Use the standalone profile that includes a PostgreSQL container:
+The **first user to register** automatically gets the **admin** role.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.db.yml up --build -d
-```
+### Load demo data (optional)
 
-Alternatively, if you prefer a single command going forward, you can set the `COMPOSE_FILE` environment variable:
-
-```bash
-export COMPOSE_FILE=docker-compose.yml:docker-compose.db.yml
-docker compose up --build -d
-```
-
-### 5. Open the app
-
-Navigate to **http://localhost:8920** (or whatever port you set in `HOST_PORT`).
-
-The **first user to register** automatically gets the **admin** role. All subsequent users default to **member**.
-
-### Optional: Load demo data
-
-To start with a fully populated demo dataset (NexaTech Industries), set this in your `.env` before the first startup:
+To start with a fully populated demo dataset (NexaTech Industries), add this to your `.env` before the first startup:
 
 ```dotenv
 SEED_DEMO=true
@@ -114,45 +91,40 @@ SEED_DEMO=true
 
 ---
 
-## Alternative: Use an Existing PostgreSQL Instance
+## Using an Existing PostgreSQL Database
 
-If you already have a PostgreSQL server running (e.g., a separate container, a managed database, or a local install), you only need the base `docker-compose.yml`:
+If you already have a PostgreSQL server (managed database, separate container, local install), you can run just the backend and frontend.
 
-### 1. Configure your `.env`
+### 1. Prepare the database
 
-Point the `POSTGRES_*` variables at your existing database:
+Create a database and user for Turbo EA:
+
+```sql
+CREATE USER turboea WITH PASSWORD 'your-password';
+CREATE DATABASE turboea OWNER turboea;
+```
+
+### 2. Configure `.env`
 
 ```dotenv
-POSTGRES_HOST=your-postgres-host    # container name, hostname, or IP
+POSTGRES_HOST=your-postgres-host   # hostname or IP of your PostgreSQL server
 POSTGRES_PORT=5432
 POSTGRES_DB=turboea
 POSTGRES_USER=turboea
-POSTGRES_PASSWORD=your-db-password
+POSTGRES_PASSWORD=your-password
 SECRET_KEY=<your-generated-secret>
 HOST_PORT=8920
 ```
 
-Make sure the database and user already exist. You can create them with:
-
-```sql
-CREATE USER turboea WITH PASSWORD 'your-db-password';
-CREATE DATABASE turboea OWNER turboea;
-```
-
-### 2. Ensure network connectivity
-
-Your PostgreSQL instance must be reachable from the `guac-net` Docker network. If PostgreSQL is running in another Docker container, attach it to the same network:
-
-```bash
-docker network create guac-net        # if it doesn't exist yet
-docker network connect guac-net your-postgres-container
-```
-
 ### 3. Start the app
+
+The base `docker-compose.yml` runs only the backend and frontend (no database container). You need to make sure the backend can reach your PostgreSQL host. If PostgreSQL is on the same Docker host, the easiest approach is to use `host.docker.internal` or attach both to the same Docker network.
 
 ```bash
 docker compose up --build -d
 ```
+
+> **Note:** The base `docker-compose.yml` expects a Docker network called `guac-net`. If you don't have one, either create it (`docker network create guac-net`) or use `docker-compose.db.yml` and override `POSTGRES_HOST` to point to your external database.
 
 ---
 
@@ -174,7 +146,7 @@ python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -e ".[dev]"
 
-# Set environment variables (or create a .env in the project root)
+# Set environment variables
 export POSTGRES_HOST=localhost
 export POSTGRES_DB=turboea
 export POSTGRES_USER=turboea
@@ -234,11 +206,11 @@ npm run build         # TypeScript check + production build
 └──────────────────────────┬────────────────────────────────┘
                            │
 ┌──────────────────────────▼────────────────────────────────┐
-│  PostgreSQL (asyncpg driver)                              │
+│  PostgreSQL 16 (asyncpg driver)                           │
 └───────────────────────────────────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx. The diagram editor loads it in a same-origin iframe.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
 
 ---
 
@@ -250,13 +222,13 @@ npm run build         # TypeScript check + production build
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
 | `POSTGRES_DB` | `turboea` | Database name |
 | `POSTGRES_USER` | `turboea` | Database user |
-| `POSTGRES_PASSWORD` | `changeme` | Database password |
+| `POSTGRES_PASSWORD` | *(required)* | Database password |
 | `SECRET_KEY` | *(required)* | HMAC key for JWT signing |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | JWT token lifetime (24h default) |
-| `HOST_PORT` | `8920` | Port exposed on the host for the frontend |
+| `HOST_PORT` | `8920` | Port exposed on the host |
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
 | `RESET_DB` | `false` | Drop all tables and re-seed on startup |
-| `SEED_DEMO` | `false` | Populate NexaTech Industries demo dataset on first startup |
+| `SEED_DEMO` | `false` | Populate demo dataset on first startup |
 
 ---
 
@@ -266,23 +238,21 @@ npm run build         # TypeScript check + production build
 
 Alembic migrations run automatically on startup:
 
-- **Fresh database**: Tables are created and stamped at the latest migration.
-- **Existing database**: Pending migrations are applied (`alembic upgrade head`).
-- **Reset**: Set `RESET_DB=true` to drop all tables and re-create from scratch.
+- **Fresh database** — Tables are created and stamped at the latest migration.
+- **Existing database** — Pending migrations are applied automatically.
+- **Reset** — Set `RESET_DB=true` to drop all tables and re-create from scratch.
 
 ### Backups
 
-If using the bundled PostgreSQL container (`docker-compose.db.yml`), data is persisted in a Docker volume called `turboea-pgdata`. To back up:
+If using the bundled PostgreSQL container (`docker-compose.db.yml`), data is persisted in the `turboea-pgdata` Docker volume.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.db.yml exec db \
+# Backup
+docker compose -f docker-compose.db.yml exec db \
   pg_dump -U turboea turboea > backup.sql
-```
 
-To restore:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.db.yml exec -T db \
+# Restore
+docker compose -f docker-compose.db.yml exec -T db \
   psql -U turboea turboea < backup.sql
 ```
 
@@ -299,7 +269,7 @@ Turbo EA does not terminate TLS itself. Deploy behind a TLS-terminating reverse 
 - Nginx with [Let's Encrypt](https://letsencrypt.org/)
 - Cloudflare Tunnel
 
-Update `ALLOWED_ORIGINS` in your `.env` to match your HTTPS domain:
+Update `ALLOWED_ORIGINS` to match your domain:
 
 ```dotenv
 ALLOWED_ORIGINS=https://ea.yourdomain.com
@@ -309,10 +279,10 @@ ALLOWED_ORIGINS=https://ea.yourdomain.com
 
 ```bash
 git pull
-docker compose -f docker-compose.yml -f docker-compose.db.yml up --build -d
+docker compose -f docker-compose.db.yml up --build -d
 ```
 
-Database migrations run automatically on startup, so the schema will be updated as needed.
+Migrations run automatically on startup, so the database schema is updated as needed.
 
 ---
 
@@ -348,8 +318,8 @@ turbo-ea/
 │   ├── package.json
 │   └── Dockerfile           # Multi-stage: node build → drawio clone → nginx
 │
-├── docker-compose.yml       # Backend + frontend services
-├── docker-compose.db.yml    # PostgreSQL service (optional add-on)
+├── docker-compose.yml       # Backend + frontend only (external DB)
+├── docker-compose.db.yml    # Full stack including PostgreSQL
 ├── .env.example             # Template for environment variables
 └── CLAUDE.md                # AI assistant context file
 ```
