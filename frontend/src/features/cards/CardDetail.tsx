@@ -1073,7 +1073,7 @@ function HierarchySection({
 function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
-  const hiddenTypeKeys = useMemo(() => new Set(allTypes.filter((t) => t.is_hidden).map((t) => t.key)), [allTypes]);
+  const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
   const navigate = useNavigate();
 
   // Add relation dialog state
@@ -1099,7 +1099,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
     (rt) =>
       !rt.is_hidden &&
       (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
-      !hiddenTypeKeys.has(
+      visibleTypeKeys.has(
         rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key
       )
   );

@@ -154,14 +154,15 @@ export default function WebPortalsAdmin() {
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
   // Relation types applicable to the selected card type
-  const hiddenTypeKeys = new Set(types.filter((t) => t.is_hidden).map((t) => t.key));
+  // Since the API excludes hidden types, check that the other-end type exists in visible types
+  const visibleTypeKeys = new Set(types.map((t) => t.key));
   const applicableRelTypes = cardType
     ? relationTypes.filter(
         (r) =>
           !r.is_hidden &&
           (r.source_type_key === cardType ||
             r.target_type_key === cardType) &&
-          !hiddenTypeKeys.has(
+          visibleTypeKeys.has(
             r.source_type_key === cardType
               ? r.target_type_key
               : r.source_type_key
