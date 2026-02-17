@@ -256,8 +256,8 @@ export default function MatrixReport() {
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} />
-        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} />
+        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
+        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
         <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
         <MetricCard label="Coverage" value={`${coverage}%`} icon="percent" />
       </Box>
@@ -365,9 +365,12 @@ export default function MatrixReport() {
                     </td>
                     {sortedCols.map((c) => {
                       const val = getCellValue(r.id, c.id);
+                      const isDiagonal = rowType === colType && r.id === c.id;
                       const isHighlighted = hoveredRow === r.id || hoveredCol === c.id;
                       let bg = "#fff";
-                      if (cellMode === "count" && val > 0) {
+                      if (isDiagonal) {
+                        bg = isHighlighted ? "#e8eaf6" : "#f3f4f8";
+                      } else if (cellMode === "count" && val > 0) {
                         bg = heatColor(val, maxCellCount);
                       } else if (val > 0) {
                         bg = isHighlighted ? "#bbdefb" : "#e3f2fd";
@@ -394,14 +397,20 @@ export default function MatrixReport() {
                         >
                           {cellMode === "exists" ? (
                             val > 0 ? (
-                              <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#1976d2", mx: "auto" }} />
+                              <Box sx={{
+                                width: isDiagonal ? 8 : 10,
+                                height: isDiagonal ? 8 : 10,
+                                borderRadius: "50%",
+                                bgcolor: isDiagonal ? "#9e9e9e" : "#1976d2",
+                                mx: "auto",
+                              }} />
                             ) : null
                           ) : val > 0 ? (
                             <Typography
                               variant="caption"
                               sx={{
                                 fontWeight: 600,
-                                color: val > maxCellCount * 0.5 ? "#fff" : "#333",
+                                color: isDiagonal ? "#666" : (val > maxCellCount * 0.5 ? "#fff" : "#333"),
                                 fontSize: 10,
                               }}
                             >

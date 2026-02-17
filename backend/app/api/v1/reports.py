@@ -426,6 +426,11 @@ async def matrix(
         else:
             intersections.add((tid, sid))
 
+    # When same type on both axes, add self-relations on the diagonal
+    if row_type == col_type:
+        for card in rows:
+            intersections.add((str(card.id), str(card.id)))
+
     return {
         "rows": [{"id": str(r.id), "name": r.name, "parent_id": str(r.parent_id) if r.parent_id else None} for r in rows],
         "columns": [{"id": str(c.id), "name": c.name, "parent_id": str(c.parent_id) if c.parent_id else None} for c in cols],
