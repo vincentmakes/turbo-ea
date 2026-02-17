@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -12,7 +12,6 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
-import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
@@ -57,8 +56,24 @@ function heatColor(value: number, max: number): string {
 // Styling constants
 const ROW_HEADER_COL_WIDTH = 140;
 const LEVEL_COLORS = ["#f0f0f0", "#f5f5f5", "#fafafa", "#fff", "#fff"];
-// Border style shared by all cells (used with border-collapse: separate)
 const CELL_BORDER = "1px solid #e0e0e0";
+
+// Depth level pill button styles
+const levelPillBase: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 20,
+  height: 18,
+  fontSize: 10,
+  fontWeight: 600,
+  borderRadius: 3,
+  cursor: "pointer",
+  border: "1px solid #ccc",
+  transition: "all 0.15s",
+  lineHeight: 1,
+  userSelect: "none",
+};
 
 export default function MatrixReport() {
   const navigate = useNavigate();
@@ -79,6 +94,38 @@ export default function MatrixReport() {
   // Depth control state (Infinity = fully expanded)
   const [rowExpandedDepth, setRowExpandedDepth] = useState<number>(Infinity);
   const [colExpandedDepth, setColExpandedDepth] = useState<number>(Infinity);
+
+  // Sticky header: measure cumulative row heights for multi-row thead
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+  const [headerTopOffsets, setHeaderTopOffsets] = useState<number[]>([0]);
+
+  const measureHeaderOffsets = useCallback(() => {
+    const thead = theadRef.current;
+    if (!thead) return;
+    const rows = thead.querySelectorAll("tr");
+    const offsets: number[] = [0];
+    let cumulative = 0;
+    for (let i = 0; i < rows.length - 1; i++) {
+      cumulative += rows[i].getBoundingClientRect().height;
+      offsets.push(cumulative);
+    }
+    setHeaderTopOffsets((prev) => {
+      // Avoid unnecessary re-renders if offsets haven't changed
+      if (prev.length === offsets.length && prev.every((v, i) => Math.abs(v - offsets[i]) < 0.5)) return prev;
+      return offsets;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    measureHeaderOffsets();
+  });
+
+  // Also re-measure on resize
+  useEffect(() => {
+    const observer = new ResizeObserver(measureHeaderOffsets);
+    if (theadRef.current) observer.observe(theadRef.current);
+    return () => observer.disconnect();
+  }, [measureHeaderOffsets]);
 
   // Load saved report config
   useEffect(() => {
@@ -159,7 +206,7 @@ export default function MatrixReport() {
     return pruneTreeToDepth(colTreeFull.roots, effectiveColDepth);
   }, [colTreeFull, effectiveColDepth, sortCols]);
 
-  // Get pruned leaf nodes (the visible "rows" and "columns" of the matrix body)
+  // Get pruned leaf nodes
   const leafRowNodes = useMemo(() => {
     if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
     if (!data) return [];
@@ -297,21 +344,19 @@ export default function MatrixReport() {
   const maxPossible = (data?.rows.length || 0) * (data?.columns.length || 0);
   const coverage = maxPossible > 0 ? ((totalIntersections / maxPossible) * 100).toFixed(1) : "0";
 
-  // Hover helpers: for group headers, highlight all descendant leaf IDs
+  // Hover helpers
   const getHoveredRowIds = (id: string | null): Set<string> => {
     if (!id) return new Set();
     const node = allRowNodesMap.get(id);
     if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
     return new Set([id]);
   };
-
   const getHoveredColIds = (id: string | null): Set<string> => {
     if (!id) return new Set();
     const node = allColNodesMap.get(id);
     if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
     return new Set([id]);
   };
-
   const hoveredRowIds = useMemo(() => getHoveredRowIds(hoveredRow), [hoveredRow, allRowNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
   const hoveredColIds = useMemo(() => getHoveredColIds(hoveredCol), [hoveredCol, allColNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -330,16 +375,39 @@ export default function MatrixReport() {
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
-  const hasAnyDepthControl = isHierarchyRowMode || isHierarchyColMode;
-
-  // Compute sticky top offsets: measure from thead rows. Each header row gets
-  // accumulated top from the ones above it. We use a ref-based approach would
-  // be ideal but for simplicity we compute from cell heights:
-  // - Group header rows (non-leaf): ~28px
-  // - Leaf header row: taller due to vertical text (~100px+), handled by browser
-  // We stack with top = sum of previous rows' heights. Since the browser manages
-  // actual heights, we use auto-stacking by not setting top on non-first rows.
-  // Instead, we rely on each <tr> in <thead> having its cells sticky.
+  // Render a segmented level selector: clickable pills [0] [1] [2] ...
+  const renderLevelSelector = (
+    label: string,
+    icon: string,
+    maxDepth: number,
+    activeDepth: number,
+    onChange: (depth: number) => void,
+  ) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 3 }}>
+      <Tooltip title={`${label} hierarchy depth`}>
+        <span style={{ display: "inline-flex", alignItems: "center" }}>
+          <MaterialSymbol icon={icon} size={13} color="#888" />
+        </span>
+      </Tooltip>
+      {Array.from({ length: maxDepth + 1 }, (_, i) => {
+        const isActive = i === activeDepth;
+        return (
+          <span
+            key={i}
+            onClick={(e) => { e.stopPropagation(); onChange(i); }}
+            style={{
+              ...levelPillBase,
+              background: isActive ? "#1976d2" : "#fff",
+              color: isActive ? "#fff" : "#555",
+              borderColor: isActive ? "#1976d2" : "#ccc",
+            }}
+          >
+            {i}
+          </span>
+        );
+      })}
+    </div>
+  );
 
   return (
     <ReportShell
@@ -377,7 +445,7 @@ export default function MatrixReport() {
         </>
       }
     >
-      {/* Summary strip — compact single row */}
+      {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
         <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
@@ -395,7 +463,6 @@ export default function MatrixReport() {
           ref={tableRef}
           sx={{
             overflow: "auto",
-            // Use available viewport height minus approximate header space
             maxHeight: "calc(100vh - 280px)",
             minHeight: 300,
           }}
@@ -405,180 +472,111 @@ export default function MatrixReport() {
             borderSpacing: 0,
             minWidth: "100%",
           }}>
-            <thead>
-              {columnHeaderRows.map((row, levelIdx) => (
-                <tr key={levelIdx}>
-                  {/* Corner cell: only on first header row — contains label + depth controls */}
-                  {levelIdx === 0 && (
-                    <th
-                      rowSpan={numColHeaderRows}
-                      colSpan={numRowHeaderCols}
-                      style={{
-                        position: "sticky",
-                        left: 0,
-                        top: 0,
-                        zIndex: 4,
-                        background: "#f0f0f0",
-                        padding: hasAnyDepthControl ? "6px 8px" : "8px 12px",
-                        borderBottom: CELL_BORDER,
-                        borderRight: CELL_BORDER,
-                        fontWeight: 600,
-                        fontSize: 11,
-                        textAlign: "left",
-                        verticalAlign: "top",
-                        minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
-                      }}
-                    >
-                      <div style={{ marginBottom: hasAnyDepthControl ? 4 : 0 }}>
-                        {rowLabel} / {colLabel}
-                      </div>
-                      {/* Depth controls inside corner cell */}
-                      {hasAnyDepthControl && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-                          {isHierarchyRowMode && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                              <span style={{ fontSize: 10, color: "#666", minWidth: 28 }}>Rows</span>
-                              <Tooltip title="Collapse row level">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    disabled={effectiveRowDepth <= 0}
-                                    onClick={() => setRowExpandedDepth((prev) => Math.max(0, Math.min(prev, rowTreeFull!.maxDepth) - 1))}
-                                    sx={{ p: 0.25 }}
-                                  >
-                                    <MaterialSymbol icon="remove" size={14} />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                              <span style={{
-                                fontSize: 10, fontWeight: 700, color: "#333",
-                                background: "#fff", borderRadius: 3, padding: "1px 6px",
-                                border: "1px solid #ccc", minWidth: 30, textAlign: "center",
-                                display: "inline-block",
-                              }}>
-                                {effectiveRowDepth}/{rowTreeFull!.maxDepth}
-                              </span>
-                              <Tooltip title="Expand row level">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    disabled={effectiveRowDepth >= rowTreeFull!.maxDepth}
-                                    onClick={() => setRowExpandedDepth((prev) => Math.min(rowTreeFull!.maxDepth, (prev === Infinity ? rowTreeFull!.maxDepth : prev) + 1))}
-                                    sx={{ p: 0.25 }}
-                                  >
-                                    <MaterialSymbol icon="add" size={14} />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            </div>
-                          )}
-                          {isHierarchyColMode && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                              <span style={{ fontSize: 10, color: "#666", minWidth: 28 }}>Cols</span>
-                              <Tooltip title="Collapse column level">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    disabled={effectiveColDepth <= 0}
-                                    onClick={() => setColExpandedDepth((prev) => Math.max(0, Math.min(prev, colTreeFull!.maxDepth) - 1))}
-                                    sx={{ p: 0.25 }}
-                                  >
-                                    <MaterialSymbol icon="remove" size={14} />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                              <span style={{
-                                fontSize: 10, fontWeight: 700, color: "#333",
-                                background: "#fff", borderRadius: 3, padding: "1px 6px",
-                                border: "1px solid #ccc", minWidth: 30, textAlign: "center",
-                                display: "inline-block",
-                              }}>
-                                {effectiveColDepth}/{colTreeFull!.maxDepth}
-                              </span>
-                              <Tooltip title="Expand column level">
-                                <span>
-                                  <IconButton
-                                    size="small"
-                                    disabled={effectiveColDepth >= colTreeFull!.maxDepth}
-                                    onClick={() => setColExpandedDepth((prev) => Math.min(colTreeFull!.maxDepth, (prev === Infinity ? colTreeFull!.maxDepth : prev) + 1))}
-                                    sx={{ p: 0.25 }}
-                                  >
-                                    <MaterialSymbol icon="add" size={14} />
-                                  </IconButton>
-                                </span>
-                              </Tooltip>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </th>
-                  )}
-                  {row.map((cell) => {
-                    const isLeafCell = cell.isLeaf;
-                    const isHighlighted = hoveredColIds.has(cell.node.item.id)
-                      || cell.node.leafDescendants.some((id) => hoveredColIds.has(id));
-                    return (
+            <thead ref={theadRef}>
+              {columnHeaderRows.map((row, levelIdx) => {
+                const stickyTop = headerTopOffsets[levelIdx] ?? 0;
+                return (
+                  <tr key={levelIdx}>
+                    {/* Corner cell: first header row only */}
+                    {levelIdx === 0 && (
                       <th
-                        key={cell.node.item.id}
-                        colSpan={cell.colspan}
-                        rowSpan={cell.rowspan || 1}
+                        rowSpan={numColHeaderRows}
+                        colSpan={numRowHeaderCols}
+                        style={{
+                          position: "sticky",
+                          left: 0,
+                          top: 0,
+                          zIndex: 4,
+                          background: "#f0f0f0",
+                          padding: "6px 8px",
+                          borderBottom: CELL_BORDER,
+                          borderRight: CELL_BORDER,
+                          fontWeight: 600,
+                          fontSize: 11,
+                          textAlign: "left",
+                          verticalAlign: "top",
+                          minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
+                        }}
+                      >
+                        <div>{rowLabel} / {colLabel}</div>
+                        {/* Depth level selectors */}
+                        {isHierarchyRowMode && renderLevelSelector(
+                          "Rows", "table_rows", rowTreeFull!.maxDepth, effectiveRowDepth,
+                          (d) => setRowExpandedDepth(d),
+                        )}
+                        {isHierarchyColMode && renderLevelSelector(
+                          "Columns", "view_column", colTreeFull!.maxDepth, effectiveColDepth,
+                          (d) => setColExpandedDepth(d),
+                        )}
+                      </th>
+                    )}
+                    {row.map((cell) => {
+                      const isLeafCell = cell.isLeaf;
+                      const isHighlighted = hoveredColIds.has(cell.node.item.id)
+                        || cell.node.leafDescendants.some((id) => hoveredColIds.has(id));
+                      return (
+                        <th
+                          key={cell.node.item.id}
+                          colSpan={cell.colspan}
+                          rowSpan={cell.rowspan || 1}
+                          style={{
+                            position: "sticky",
+                            top: stickyTop,
+                            zIndex: 3,
+                            background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[levelIdx] || "#fff"),
+                            padding: isLeafCell ? "6px 3px" : "4px 6px",
+                            borderBottom: CELL_BORDER,
+                            borderRight: CELL_BORDER,
+                            fontSize: isLeafCell ? 10 : 11,
+                            fontWeight: isLeafCell ? 600 : 700,
+                            whiteSpace: "nowrap",
+                            writingMode: isLeafCell ? "vertical-lr" : "initial",
+                            textOrientation: isLeafCell ? "mixed" : "initial",
+                            textAlign: "center",
+                            maxWidth: isLeafCell ? 32 : undefined,
+                            minHeight: isLeafCell ? 80 : undefined,
+                            cursor: "pointer",
+                            transition: "background-color 0.15s",
+                          }}
+                          onMouseEnter={() => setHoveredCol(cell.node.item.id)}
+                          onMouseLeave={() => setHoveredCol(null)}
+                          onClick={() => navigate(`/cards/${cell.node.item.id}`)}
+                        >
+                          {isLeafCell
+                            ? (cell.node.item.name.length > 24
+                              ? cell.node.item.name.slice(0, 23) + "\u2026"
+                              : cell.node.item.name)
+                            : cell.node.item.name}
+                          {cell.isPrunedGroup && (
+                            <span style={{ opacity: 0.6, fontSize: 9, marginLeft: 2 }}>
+                              ({cell.node.originalLeafCount})
+                            </span>
+                          )}
+                        </th>
+                      );
+                    })}
+                    {/* Sigma column header: first row only */}
+                    {levelIdx === 0 && (
+                      <th
+                        rowSpan={numColHeaderRows}
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
-                          background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[levelIdx] || "#fff"),
-                          padding: isLeafCell ? "6px 3px" : "4px 6px",
+                          zIndex: 3,
+                          background: "#f0f0f0",
+                          padding: "6px 6px",
                           borderBottom: CELL_BORDER,
                           borderRight: CELL_BORDER,
-                          fontSize: isLeafCell ? 10 : 11,
-                          fontWeight: isLeafCell ? 600 : 700,
-                          whiteSpace: "nowrap",
-                          writingMode: isLeafCell ? "vertical-lr" : "initial",
-                          textOrientation: isLeafCell ? "mixed" : "initial",
-                          textAlign: "center",
-                          maxWidth: isLeafCell ? 32 : undefined,
-                          minHeight: isLeafCell ? 80 : undefined,
-                          cursor: "pointer",
-                          transition: "background-color 0.15s",
+                          fontSize: 10,
+                          fontWeight: 700,
                         }}
-                        onMouseEnter={() => setHoveredCol(cell.node.item.id)}
-                        onMouseLeave={() => setHoveredCol(null)}
-                        onClick={() => navigate(`/cards/${cell.node.item.id}`)}
                       >
-                        {isLeafCell
-                          ? (cell.node.item.name.length > 24
-                            ? cell.node.item.name.slice(0, 23) + "\u2026"
-                            : cell.node.item.name)
-                          : cell.node.item.name}
-                        {cell.isPrunedGroup && (
-                          <span style={{ opacity: 0.6, fontSize: 9, marginLeft: 2 }}>
-                            ({cell.node.originalLeafCount})
-                          </span>
-                        )}
+                        &Sigma;
                       </th>
-                    );
-                  })}
-                  {/* Sigma column header: only on first row */}
-                  {levelIdx === 0 && (
-                    <th
-                      rowSpan={numColHeaderRows}
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f0f0f0",
-                        padding: "6px 6px",
-                        borderBottom: CELL_BORDER,
-                        borderRight: CELL_BORDER,
-                        fontSize: 10,
-                        fontWeight: 700,
-                      }}
-                    >
-                      &Sigma;
-                    </th>
-                  )}
-                </tr>
-              ))}
+                    )}
+                  </tr>
+                );
+              })}
             </thead>
             <tbody>
               {leafRowNodes.map((leafRow, rowIdx) => {
