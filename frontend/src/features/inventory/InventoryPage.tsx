@@ -201,7 +201,7 @@ export default function InventoryPage() {
         params.set("approval_status", filters.approvalStatuses.join(","));
       }
       if (filters.showArchived) {
-        params.set("status", "ACTIVE,ARCHIVED");
+        params.set("status", "ARCHIVED");
       }
       params.set("page_size", "500");
       const res = await api.get<CardListResponse>(

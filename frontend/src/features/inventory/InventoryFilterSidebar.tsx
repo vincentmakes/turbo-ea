@@ -460,7 +460,7 @@ export default function InventoryFilterSidebar({
                     label={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         <MaterialSymbol icon="archive" size={16} color="#666" />
-                        <Typography variant="body2" fontSize={12}>Include archived</Typography>
+                        <Typography variant="body2" fontSize={12}>Show archived only</Typography>
                       </Box>
                     }
                     sx={{ ml: 0 }}
