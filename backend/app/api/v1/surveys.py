@@ -461,7 +461,7 @@ async def send_survey(
     if not survey.fields:
         raise HTTPException(400, "Survey must have at least one field")
     if not survey.target_roles:
-        raise HTTPException(400, "Survey must target at least one subscription role")
+        raise HTTPException(400, "Survey must target at least one stakeholder role")
 
     targets = await _resolve_targets(db, survey)
     if not targets:

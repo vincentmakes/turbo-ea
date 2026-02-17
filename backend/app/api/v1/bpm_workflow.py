@@ -47,7 +47,7 @@ async def _get_process_or_404(db: AsyncSession, process_id: uuid.UUID) -> Card:
 async def _user_stakeholder_roles(
     db: AsyncSession, process_id: uuid.UUID, user_id: uuid.UUID
 ) -> set[str]:
-    """Return the set of subscription roles a user holds on a card."""
+    """Return the set of stakeholder roles a user holds on a card."""
     result = await db.execute(
         select(Stakeholder.role).where(
             Stakeholder.card_id == process_id,

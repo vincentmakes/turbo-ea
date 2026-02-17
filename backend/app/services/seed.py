@@ -14,7 +14,7 @@ from app.core.permissions import (
 from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.role import Role
-from app.models.subscription_role_definition import StakeholderRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
 # ── Reusable option lists ──────────────────────────────────────────────
 
@@ -815,7 +815,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
 
     # ── Seed stakeholder role definitions ──────────────────────────────────
     # Flush first so that any newly-inserted card_types rows are
-    # visible to the FK constraint on subscription_role_definitions.
+    # visible to the FK constraint on stakeholder_role_definitions.
     await db.flush()
 
     existing_srd_result = await db.execute(select(StakeholderRoleDefinition))

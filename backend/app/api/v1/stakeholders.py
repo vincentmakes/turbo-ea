@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
-from app.models.subscription_role_definition import StakeholderRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 from app.schemas.common import StakeholderCreate
 from app.services.permission_service import PermissionService
@@ -25,7 +25,7 @@ _DEFAULT_ROLES = [
 
 
 async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
-    """Return active stakeholder roles from subscription_role_definitions table."""
+    """Return active stakeholder roles from stakeholder_role_definitions table."""
     result = await db.execute(
         select(StakeholderRoleDefinition)
         .where(
@@ -59,7 +59,7 @@ async def list_roles(
     type_key: str | None = Query(None, description="Filter roles by card type"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return role definitions from subscription_role_definitions table."""
+    """Return role definitions from stakeholder_role_definitions table."""
     if type_key:
         roles = await _roles_for_type(db, type_key)
         return [{"key": r["key"], "label": r["label"]} for r in roles]

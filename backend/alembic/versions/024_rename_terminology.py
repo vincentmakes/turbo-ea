@@ -17,6 +17,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect as sa_inspect
+
+    conn = op.get_bind()
+    inspector = sa_inspect(conn)
+
+    # Base.metadata.create_all runs BEFORE Alembic migrations.  Because the
+    # ORM models already use the new table names (cards, card_types, …),
+    # create_all will have created empty "ghost" tables with those names while
+    # the real data still lives in the old tables (fact_sheets, …).
+    # Drop the ghost tables so the renames below can succeed.
+    ghost_tables = [
+        "stakeholder_role_definitions",
+        "card_tags",
+        "stakeholders",
+        "cards",
+        "card_types",
+    ]
+    for new_name in ghost_tables:
+        if inspector.has_table(new_name):
+            op.execute(sa.text(f'DROP TABLE IF EXISTS "{new_name}" CASCADE'))
+
     # Table renames
     op.rename_table("fact_sheets", "cards")
     op.rename_table("fact_sheet_types", "card_types")
@@ -44,9 +65,20 @@ def upgrade() -> None:
     # subscription_roles → stakeholder_roles on card_types
     op.alter_column("card_types", "subscription_roles", new_column_name="stakeholder_roles")
 
+    # subscription_role_definitions: rename column + table
+    if inspector.has_table("subscription_role_definitions"):
+        cols = [c["name"] for c in inspector.get_columns("subscription_role_definitions")]
+        if "fact_sheet_type_key" in cols:
+            op.alter_column(
+                "subscription_role_definitions",
+                "fact_sheet_type_key",
+                new_column_name="card_type_key",
+            )
+        op.rename_table("subscription_role_definitions", "stakeholder_role_definitions")
+
     # Rename fs.* → card.* permission keys in stakeholder role definition JSONB data
     op.execute(sa.text("""
-        UPDATE subscription_role_definitions
+        UPDATE stakeholder_role_definitions
         SET permissions = (
             SELECT jsonb_object_agg(
                 CASE WHEN key LIKE 'fs.%' THEN 'card.' || substring(key from 4)
@@ -64,7 +96,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     # Revert card.* → fs.* permission keys in stakeholder role definition JSONB data
     op.execute(sa.text("""
-        UPDATE subscription_role_definitions
+        UPDATE stakeholder_role_definitions
         SET permissions = (
             SELECT jsonb_object_agg(
                 CASE WHEN key LIKE 'card.%' THEN 'fs.' || substring(key from 6)
@@ -77,6 +109,21 @@ def downgrade() -> None:
         WHERE permissions IS NOT NULL
           AND permissions::text LIKE '%"card.%'
     """))
+
+    # Rename table back and revert column
+    from sqlalchemy import inspect as sa_inspect
+    conn = op.get_bind()
+    inspector = sa_inspect(conn)
+    if inspector.has_table("stakeholder_role_definitions"):
+        op.rename_table("stakeholder_role_definitions", "subscription_role_definitions")
+        cols = [c["name"] for c in inspector.get_columns("subscription_role_definitions")]
+        if "card_type_key" in cols:
+            op.alter_column(
+                "subscription_role_definitions",
+                "card_type_key",
+                new_column_name="fact_sheet_type_key",
+            )
+
     op.alter_column("card_types", "stakeholder_roles", new_column_name="subscription_roles")
     op.alter_column("web_portals", "card_type", new_column_name="fact_sheet_type")
     op.alter_column("bookmarks", "card_type", new_column_name="fact_sheet_type")

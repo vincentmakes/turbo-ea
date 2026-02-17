@@ -13,7 +13,7 @@ from app.core.permissions import CARD_TO_APP_PERMISSION_MAP
 from app.models.card import Card
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
-from app.models.subscription_role_definition import StakeholderRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 
 

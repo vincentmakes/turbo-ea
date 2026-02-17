@@ -13,7 +13,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
     """Per-card-type stakeholder role with granular permissions."""
 
-    __tablename__ = "subscription_role_definitions"
+    __tablename__ = "stakeholder_role_definitions"
     __table_args__ = (
         UniqueConstraint("card_type_key", "key", name="uq_srd_type_key"),
     )

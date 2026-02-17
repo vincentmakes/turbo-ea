@@ -15,7 +15,7 @@ from app.core.permissions import ALL_CARD_PERMISSION_KEYS, CARD_PERMISSIONS
 from app.database import get_db
 from app.models.card_type import CardType
 from app.models.stakeholder import Stakeholder
-from app.models.subscription_role_definition import StakeholderRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 from app.services.permission_service import PermissionService
 

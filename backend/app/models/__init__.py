@@ -18,7 +18,7 @@ from app.models.role import Role
 from app.models.soaw import SoAW
 from app.models.sso_invitation import SsoInvitation
 from app.models.stakeholder import Stakeholder
-from app.models.subscription_role_definition import StakeholderRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
