@@ -60,31 +60,34 @@ async def lifespan(app: FastAPI):
         # Stamp so future non-reset runs just upgrade
         await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
     else:
-        # Ensure all tables exist (first run / new install)
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-
-        # If DB existed before Alembic, stamp baseline then upgrade
+        # Determine DB state before touching anything
         async with engine.connect() as conn:
-            has_table = await conn.run_sync(
+            has_alembic = await conn.run_sync(
                 lambda sync_conn: sa_inspect(sync_conn).has_table("alembic_version")
             )
-            if not has_table:
-                # First Alembic run on existing DB – stamp current state
-                await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
-            else:
+            alembic_version = None
+            if has_alembic:
                 row = await conn.execute(
                     text("SELECT version_num FROM alembic_version LIMIT 1")
                 )
-                if row.first() is None:
-                    await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
-                else:
-                    # Normal path: run pending migrations
-                    try:
-                        await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
-                    except Exception:
-                        logger.exception("Alembic migration failed")
-                        raise
+                first = row.first()
+                alembic_version = first[0] if first else None
+
+        if not has_alembic or alembic_version is None:
+            # Fresh DB or pre-Alembic: create tables from models, then stamp
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            await asyncio.to_thread(_run_alembic_stamp, alembic_cfg, "head")
+        else:
+            # Existing DB: run migrations FIRST (they may rename tables),
+            # then create_all to pick up any genuinely new tables.
+            try:
+                await asyncio.to_thread(_run_alembic_upgrade, alembic_cfg, "head")
+            except Exception:
+                logger.exception("Alembic migration failed")
+                raise
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
 
     # Load DB-persisted email settings into runtime config
     from sqlalchemy import select as _sel
