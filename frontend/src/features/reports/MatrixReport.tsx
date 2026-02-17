@@ -459,7 +459,7 @@ export default function MatrixReport() {
                           top: 0,
                           zIndex: 4,
                           background: "#f0f0f0",
-                          padding: `6px ${isHierarchyRowMode ? 34 : 8}px ${isHierarchyColMode ? 30 : 6}px 8px`,
+                          padding: `6px 8px ${isHierarchyRowMode ? 30 : 6}px ${isHierarchyColMode ? 34 : 8}px`,
                           borderBottom: CELL_BORDER,
                           borderRight: CELL_BORDER,
                           fontWeight: 600,
@@ -473,19 +473,19 @@ export default function MatrixReport() {
                         <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
                           {rowLabel} / {colLabel}
                         </div>
-                        {/* Row depth: horizontal -/+ centered vertically, flush right */}
+                        {/* Row depth: horizontal -/+ centered horizontally, flush bottom */}
                         {isHierarchyRowMode && (
                           <div style={{
                             position: "absolute",
-                            right: 6,
-                            top: "50%",
-                            transform: "translateY(-50%)",
+                            bottom: 4,
+                            left: "50%",
+                            transform: "translateX(-50%)",
                             display: "flex",
                             flexDirection: "row",
                             alignItems: "center",
                             gap: 3,
                           }}>
-                            <Tooltip title="Collapse row level" placement="left">
+                            <Tooltip title="Collapse row level">
                               <span
                                 style={depthBtnStyle(effectiveRowDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
@@ -494,7 +494,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand row level" placement="left">
+                            <Tooltip title="Expand row level">
                               <span
                                 style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
@@ -504,19 +504,19 @@ export default function MatrixReport() {
                             </Tooltip>
                           </div>
                         )}
-                        {/* Column depth: vertical -/+ centered horizontally, flush bottom */}
+                        {/* Column depth: vertical -/+ centered vertically, flush left */}
                         {isHierarchyColMode && (
                           <div style={{
                             position: "absolute",
-                            bottom: 4,
-                            left: "50%",
-                            transform: "translateX(-50%)",
+                            left: 6,
+                            top: "50%",
+                            transform: "translateY(-50%)",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
                             gap: 1,
                           }}>
-                            <Tooltip title="Collapse column level">
+                            <Tooltip title="Collapse column level" placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
@@ -525,7 +525,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand column level">
+                            <Tooltip title="Expand column level" placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
