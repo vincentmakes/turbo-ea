@@ -27,6 +27,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -527,6 +528,7 @@ export default function PortfolioReport() {
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("portfolio");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
   // Data
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -781,7 +783,8 @@ export default function PortfolioReport() {
       iconColor="#0f7eb5"
       view={view}
       onViewChange={setView}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -1378,6 +1381,7 @@ export default function PortfolioReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="portfolio"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );

@@ -19,6 +19,7 @@ import MetricCard from "./MetricCard";
 import TimelineSlider from "@/components/TimelineSlider";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
@@ -104,6 +105,7 @@ export default function CostReport() {
   const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
   const saved = useSavedReport("cost");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const [costField, setCostField] = useState("totalAnnualCost");
   const [groupBy, setGroupBy] = useState("");
@@ -252,7 +254,8 @@ export default function CostReport() {
       iconColor="#2e7d32"
       view={view}
       onViewChange={setView}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -382,6 +385,7 @@ export default function CostReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="cost"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );

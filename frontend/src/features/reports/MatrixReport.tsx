@@ -17,6 +17,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
 
 interface MatrixData {
@@ -42,6 +43,7 @@ export default function MatrixReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
   const saved = useSavedReport("matrix");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
   const [data, setData] = useState<MatrixData | null>(null);
@@ -166,7 +168,8 @@ export default function MatrixReport() {
       icon="table_chart"
       iconColor="#6a1b9a"
       hasTableToggle={false}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -444,6 +447,7 @@ export default function MatrixReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="matrix"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );
