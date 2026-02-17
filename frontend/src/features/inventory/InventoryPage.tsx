@@ -29,6 +29,7 @@ import ImportDialog from "./ImportDialog";
 import { exportToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/api/client";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -112,6 +113,8 @@ export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { types, relationTypes } = useMetamodel();
+  const { user } = useAuth();
+  const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -132,6 +135,7 @@ export default function InventoryPage() {
       types: searchParams.get("type") ? [searchParams.get("type")!] : [],
       search: searchParams.get("search") || "",
       approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
+      showArchived: searchParams.get("show_archived") === "true",
       attributes,
       relations: {},
     };
@@ -196,6 +200,9 @@ export default function InventoryPage() {
       if (filters.approvalStatuses.length > 0) {
         params.set("approval_status", filters.approvalStatuses.join(","));
       }
+      if (filters.showArchived) {
+        params.set("status", "ACTIVE,ARCHIVED");
+      }
       params.set("page_size", "500");
       const res = await api.get<CardListResponse>(
         `/cards?${params}`
@@ -205,7 +212,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses]);
+  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived]);
 
   useEffect(() => {
     loadData();
@@ -527,6 +534,23 @@ export default function InventoryPage() {
       }
     );
 
+    // Show status column when archived items are included
+    if (filters.showArchived) {
+      cols.push({
+        field: "status",
+        headerName: "Status",
+        width: 110,
+        cellRenderer: (p: { value: string }) => {
+          if (p.value === "ARCHIVED") {
+            return (
+              <Chip size="small" label="Archived" sx={{ bgcolor: "#9e9e9e", color: "#fff", fontWeight: 500 }} />
+            );
+          }
+          return <Chip size="small" label="Active" variant="outlined" sx={{ fontWeight: 500 }} />;
+        },
+      });
+    }
+
     // Add type-specific attribute columns
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
@@ -657,7 +681,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -755,6 +779,7 @@ export default function InventoryPage() {
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
             relationsMap={relationsMap}
+            canArchive={canArchive}
           />
         </Drawer>
       ) : (
@@ -768,6 +793,7 @@ export default function InventoryPage() {
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
+          canArchive={canArchive}
         />
       )}
 
@@ -923,6 +949,7 @@ export default function InventoryPage() {
               }
             }}
             getRowId={(p) => p.data.id}
+            getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
             animateRows
             pagination
             paginationPageSize={100}

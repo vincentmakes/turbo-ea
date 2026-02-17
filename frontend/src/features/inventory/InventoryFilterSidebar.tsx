@@ -24,6 +24,8 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { CardType, Bookmark, FieldDef, RelationType } from "@/types";
@@ -36,6 +38,7 @@ export interface Filters {
   types: string[];
   search: string;
   approvalStatuses: string[];
+  showArchived: boolean;
   attributes: Record<string, string>; // key → value (single_select only for now)
   relations: Record<string, string>; // relTypeKey → related card name
 }
@@ -50,6 +53,7 @@ interface Props {
   onWidthChange: (w: number) => void;
   relevantRelTypes?: RelationType[];
   relationsMap?: Map<string, Map<string, string[]>>;
+  canArchive?: boolean;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -76,6 +80,7 @@ export default function InventoryFilterSidebar({
   onWidthChange,
   relevantRelTypes = [],
   relationsMap,
+  canArchive = false,
 }: Props) {
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -174,12 +179,13 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", approvalStatuses: [], attributes: {}, relations: {} });
+    onFiltersChange({ types: [], search: "", approvalStatuses: [], showArchived: false, attributes: {}, relations: {} });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
     filters.approvalStatuses.length +
+    (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length;
 
@@ -194,6 +200,7 @@ export default function InventoryFilterSidebar({
         types: filters.types,
         search: filters.search,
         approvalStatuses: filters.approvalStatuses,
+        showArchived: filters.showArchived,
         attributes: filters.attributes,
       },
     };
@@ -215,6 +222,7 @@ export default function InventoryFilterSidebar({
         types: f.types || [],
         search: f.search || "",
         approvalStatuses: f.approvalStatuses || [],
+        showArchived: f.showArchived || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
       });
@@ -437,6 +445,28 @@ export default function InventoryFilterSidebar({
                   ))}
                 </Box>
               </Collapse>
+
+              {/* Include Archived toggle */}
+              {canArchive && (
+                <Box sx={{ px: 0.5, mb: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={filters.showArchived}
+                        onChange={(e) => onFiltersChange({ ...filters, showArchived: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <MaterialSymbol icon="archive" size={16} color="#666" />
+                        <Typography variant="body2" fontSize={12}>Include archived</Typography>
+                      </Box>
+                    }
+                    sx={{ ml: 0 }}
+                  />
+                </Box>
+              )}
 
               {/* Attribute Filters (only when single type selected) */}
               {attributeFields.length > 0 && (
