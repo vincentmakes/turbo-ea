@@ -40,8 +40,10 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
+import InputAdornment from "@mui/material/InputAdornment";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
 import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
+import { useCurrency } from "@/hooks/useCurrency";
 import type {
   Card,
   Relation,
@@ -121,6 +123,7 @@ const PHASE_LABELS: Record<string, string> = {
 
 // ── Read-only field value renderer ──────────────────────────────
 function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
+  const { fmt } = useCurrency();
   if (field.type === "single_select" && field.options) {
     const opt = field.options.find((o) => o.key === value);
     return opt ? (
@@ -144,6 +147,13 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
       />
     );
   }
+  if (field.type === "cost") {
+    return (
+      <Typography variant="body2">
+        {value != null && value !== "" ? fmt.format(Number(value)) : "—"}
+      </Typography>
+    );
+  }
   return (
     <Typography variant="body2">
       {value != null && value !== "" ? String(value) : "—"}
@@ -161,6 +171,7 @@ function FieldEditor({
   value: unknown;
   onChange: (v: unknown) => void;
 }) {
+  const { symbol } = useCurrency();
   switch (field.type) {
     case "single_select":
       return (
@@ -193,6 +204,20 @@ function FieldEditor({
             ))}
           </Select>
         </FormControl>
+      );
+    case "cost":
+      return (
+        <TextField
+          size="small"
+          label={field.label}
+          type="number"
+          value={value ?? ""}
+          onChange={(e) =>
+            onChange(e.target.value ? Number(e.target.value) : undefined)
+          }
+          slotProps={{ input: { startAdornment: <InputAdornment position="start">{symbol}</InputAdornment> } }}
+          sx={{ minWidth: 200 }}
+        />
       );
     case "number":
       return (

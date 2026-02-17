@@ -51,6 +51,7 @@ import type {
 const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; label: string }[] = [
   { value: "text", label: "Text" },
   { value: "number", label: "Number" },
+  { value: "cost", label: "Cost" },
   { value: "boolean", label: "Boolean" },
   { value: "date", label: "Date" },
   { value: "single_select", label: "Single Select" },
