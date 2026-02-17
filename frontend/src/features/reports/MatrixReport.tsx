@@ -375,18 +375,27 @@ export default function MatrixReport() {
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
-  // Render a segmented level selector: clickable pills [0] [1] [2] ...
-  const renderLevelSelector = (
-    label: string,
-    icon: string,
+  // Render level pills in a given direction
+  const renderLevelPills = (
     maxDepth: number,
     activeDepth: number,
     onChange: (depth: number) => void,
+    direction: "horizontal" | "vertical",
+    label: string,
   ) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 3 }}>
-      <Tooltip title={`${label} hierarchy depth`}>
+    <div style={{
+      display: "flex",
+      flexDirection: direction === "vertical" ? "column" : "row",
+      alignItems: "center",
+      gap: 2,
+    }}>
+      <Tooltip title={`${label} depth`}>
         <span style={{ display: "inline-flex", alignItems: "center" }}>
-          <MaterialSymbol icon={icon} size={13} color="#888" />
+          <MaterialSymbol
+            icon={direction === "vertical" ? "table_rows" : "view_column"}
+            size={12}
+            color="#999"
+          />
         </span>
       </Tooltip>
       {Array.from({ length: maxDepth + 1 }, (_, i) => {
@@ -498,16 +507,28 @@ export default function MatrixReport() {
                           minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
                         }}
                       >
-                        <div>{rowLabel} / {colLabel}</div>
-                        {/* Depth level selectors */}
-                        {isHierarchyRowMode && renderLevelSelector(
-                          "Rows", "table_rows", rowTreeFull!.maxDepth, effectiveRowDepth,
-                          (d) => setRowExpandedDepth(d),
-                        )}
-                        {isHierarchyColMode && renderLevelSelector(
-                          "Columns", "view_column", colTreeFull!.maxDepth, effectiveColDepth,
-                          (d) => setColExpandedDepth(d),
-                        )}
+                        {/* Corner cell layout: row pills vertical on left, col pills horizontal on bottom */}
+                        <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+                          {/* Vertical row depth pills along left edge */}
+                          {isHierarchyRowMode && renderLevelPills(
+                            rowTreeFull!.maxDepth, effectiveRowDepth,
+                            (d) => setRowExpandedDepth(d), "vertical", "Row",
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
+                              {rowLabel} / {colLabel}
+                            </div>
+                            {/* Horizontal column depth pills along bottom */}
+                            {isHierarchyColMode && (
+                              <div style={{ marginTop: 4 }}>
+                                {renderLevelPills(
+                                  colTreeFull!.maxDepth, effectiveColDepth,
+                                  (d) => setColExpandedDepth(d), "horizontal", "Column",
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </th>
                     )}
                     {row.map((cell) => {
