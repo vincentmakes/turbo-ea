@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -14,6 +15,7 @@ from app.database import get_db
 from app.models.event import Event
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.relation import Relation
 from app.models.user import User
 from app.schemas.card import (
     CardBulkUpdate,
@@ -174,6 +176,7 @@ def _card_to_response(card: Card) -> CardResponse:
         data_quality=card.data_quality,
         external_id=card.external_id,
         alias=card.alias,
+        archived_at=card.archived_at,
         created_by=str(card.created_by) if card.created_by else None,
         updated_by=str(card.updated_by) if card.updated_by else None,
         created_at=card.created_at,
@@ -419,26 +422,98 @@ async def update_card(
     return _card_to_response(card)
 
 
-@router.delete("/{card_id}", status_code=204)
+@router.post("/{card_id}/archive", response_model=CardResponse)
 async def archive_card(
     card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    """Archive a card (soft delete). Sets status to ARCHIVED and records archived_at."""
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.delete", card_uuid, "card.delete"):
+    if not await PermissionService.check_permission(db, user, "inventory.archive", card_uuid, "card.archive"):
         raise HTTPException(403, "Not enough permissions")
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    if card.status == "ARCHIVED":
+        raise HTTPException(400, "Card is already archived")
     card.status = "ARCHIVED"
+    card.archived_at = datetime.now(timezone.utc)
     card.updated_by = user.id
     await event_bus.publish(
         "card.archived",
         {"id": str(card.id), "type": card.type, "name": card.name},
         db=db, card_id=card.id, user_id=user.id,
     )
+    await db.commit()
+    await db.refresh(card)
+    return _card_to_response(card)
+
+
+@router.post("/{card_id}/restore", response_model=CardResponse)
+async def restore_card(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Restore an archived card back to ACTIVE status."""
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(db, user, "inventory.archive", card_uuid, "card.archive"):
+        raise HTTPException(403, "Not enough permissions")
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+    if card.status != "ARCHIVED":
+        raise HTTPException(400, "Card is not archived")
+    card.status = "ACTIVE"
+    card.archived_at = None
+    card.updated_by = user.id
+    await event_bus.publish(
+        "card.restored",
+        {"id": str(card.id), "type": card.type, "name": card.name},
+        db=db, card_id=card.id, user_id=user.id,
+    )
+    await db.commit()
+    await db.refresh(card)
+    return _card_to_response(card)
+
+
+@router.delete("/{card_id}", status_code=204)
+async def delete_card(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently delete a card. Admin only."""
+    card_uuid = uuid.UUID(card_id)
+    if not await PermissionService.check_permission(db, user, "inventory.delete", card_uuid, "card.delete"):
+        raise HTTPException(403, "Not enough permissions — only admins can permanently delete cards")
+    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    card = result.scalar_one_or_none()
+    if not card:
+        raise HTTPException(404, "Card not found")
+
+    card_name = card.name
+    card_type = card.type
+
+    # Delete related records first
+    relations = await db.execute(
+        select(Relation).where(
+            or_(Relation.source_id == card_uuid, Relation.target_id == card_uuid)
+        )
+    )
+    for rel in relations.scalars().all():
+        await db.delete(rel)
+
+    await event_bus.publish(
+        "card.deleted",
+        {"id": str(card_uuid), "type": card_type, "name": card_name},
+        db=db, card_id=card_uuid, user_id=user.id,
+    )
+
+    await db.delete(card)
     await db.commit()
 
 

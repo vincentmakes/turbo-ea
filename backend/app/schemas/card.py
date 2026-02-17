@@ -68,6 +68,7 @@ class CardResponse(BaseModel):
     data_quality: float
     external_id: str | None = None
     alias: str | None = None
+    archived_at: datetime | None = None
     created_by: str | None = None
     updated_by: str | None = None
     created_at: datetime | None = None
