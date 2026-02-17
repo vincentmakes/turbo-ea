@@ -15,6 +15,7 @@ import CostReport from "@/features/reports/CostReport";
 import MatrixReport from "@/features/reports/MatrixReport";
 import DataQualityReport from "@/features/reports/DataQualityReport";
 import EolReport from "@/features/reports/EolReport";
+import SavedReportsPage from "@/features/reports/SavedReportsPage";
 import DiagramsPage from "@/features/diagrams/DiagramsPage";
 import DiagramEditor from "@/features/diagrams/DiagramEditor";
 import TodosPage from "@/features/todos/TodosPage";
@@ -103,6 +104,7 @@ function AppRoutes() {
               <Route path="/reports/matrix" element={<MatrixReport />} />
               <Route path="/reports/data-quality" element={<DataQualityReport />} />
               <Route path="/reports/eol" element={<EolReport />} />
+              <Route path="/reports/saved" element={<SavedReportsPage />} />
               <Route path="/bpm" element={<BpmDashboard />} />
               <Route path="/bpm/processes/:id/flow" element={<ProcessFlowEditorPage />} />
               <Route path="/diagrams" element={<DiagramsPage />} />

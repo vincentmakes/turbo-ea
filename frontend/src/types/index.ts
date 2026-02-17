@@ -281,6 +281,23 @@ export interface Bookmark {
   created_at?: string;
 }
 
+export interface SavedReport {
+  id: string;
+  owner_id: string;
+  owner_name?: string;
+  name: string;
+  description?: string;
+  report_type: string;
+  config: Record<string, unknown>;
+  thumbnail?: string;
+  visibility: "private" | "public" | "shared";
+  shared_with: string[];
+  shared_with_users?: { id: string; display_name: string; email: string }[];
+  is_owner: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface EventEntry {
   id: string;
   card_id?: string;

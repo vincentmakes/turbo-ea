@@ -21,10 +21,12 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -524,6 +526,7 @@ function FilterSelect({
 export default function PortfolioReport() {
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
+  const saved = useSavedReport("portfolio");
 
   // Data
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -546,6 +549,24 @@ export default function PortfolioReport() {
   // Table sort
   const [sortK, setSortK] = useState("name");
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+      if (cfg.groupByRaw) setGroupByRaw(cfg.groupByRaw as string);
+      if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
+      if (cfg.search != null) setSearch(cfg.search as string);
+      if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
+      if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
+      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+      if (cfg.sortK) setSortK(cfg.sortK as string);
+      if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ view, groupByRaw, colorBy, search, filterOrgs, attrFilters, timelineDate, sortK, sortD });
 
   // Fetch data
   useEffect(() => {
@@ -760,6 +781,9 @@ export default function PortfolioReport() {
       iconColor="#0f7eb5"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -1349,6 +1373,12 @@ export default function PortfolioReport() {
           </Box>
         )}
       </Drawer>
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="portfolio"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

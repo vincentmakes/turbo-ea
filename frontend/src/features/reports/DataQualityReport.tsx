@@ -14,8 +14,10 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Alert from "@mui/material/Alert";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, ResponsiveContainer, Legend } from "recharts";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { api } from "@/api/client";
 
 interface TypeStat {
@@ -66,8 +68,19 @@ function dataQualityLabel(v: number): string {
 export default function DataQualityReport() {
   const navigate = useNavigate();
   const { types } = useMetamodel();
+  const saved = useSavedReport("data-quality");
   const [data, setData] = useState<DQData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ view });
 
   useEffect(() => {
     api.get<DQData>("/reports/data-quality").then(setData);
@@ -121,6 +134,9 @@ export default function DataQualityReport() {
       iconColor="#2e7d32"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
     >
       {/* Alerts */}
       {alerts.length > 0 && (
@@ -366,6 +382,12 @@ export default function DataQualityReport() {
           <Typography variant="caption" color="text.secondary">Minimal (&lt;40%)</Typography>
         </Box>
       </Box>
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="data-quality"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

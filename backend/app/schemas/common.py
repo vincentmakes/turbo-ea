@@ -174,6 +174,25 @@ class WebPortalUpdate(BaseModel):
     is_published: bool | None = None
 
 
+class SavedReportCreate(BaseModel):
+    name: str
+    description: str | None = None
+    report_type: str
+    config: dict
+    thumbnail: str | None = None
+    visibility: str = "private"
+    shared_with: list[str] | None = None
+
+
+class SavedReportUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    config: dict | None = None
+    thumbnail: str | None = None
+    visibility: str | None = None
+    shared_with: list[str] | None = None
+
+
 # Fix forward refs
 TagGroupResponse.model_rebuild()
 CommentResponse.model_rebuild()

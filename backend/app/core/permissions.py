@@ -100,6 +100,12 @@ APP_PERMISSIONS: dict[str, dict] = {
             "bookmarks.manage": "Manage own bookmarks",
         },
     },
+    "saved_reports": {
+        "label": "Saved Reports",
+        "permissions": {
+            "saved_reports.create": "Create and manage saved reports",
+        },
+    },
     "eol": {
         "label": "End of Life",
         "permissions": {
@@ -218,6 +224,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "soaw.sign": True,
     "tags.manage": True,
     "bookmarks.manage": True,
+    "saved_reports.create": True,
     "eol.view": True,
     "eol.manage": True,
     "web_portals.view": True,
@@ -263,6 +270,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "soaw.sign": True,
     "tags.manage": True,
     "bookmarks.manage": True,
+    "saved_reports.create": True,
     "eol.view": True,
     "eol.manage": True,
     "web_portals.view": True,
@@ -309,6 +317,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "soaw.sign": False,
     "tags.manage": False,
     "bookmarks.manage": True,
+    "saved_reports.create": False,
     "eol.view": True,
     "eol.manage": False,
     "web_portals.view": True,

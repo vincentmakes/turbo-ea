@@ -8,6 +8,7 @@ from app.api.v1 import (
     bpm_reports,
     bpm_workflow,
     comments,
+    custom_reports,
     diagrams,
     documents,
     eol,
@@ -40,6 +41,7 @@ api_router.include_router(todos.router)
 api_router.include_router(tags.router)
 api_router.include_router(documents.router)
 api_router.include_router(bookmarks.router)
+api_router.include_router(custom_reports.router)
 api_router.include_router(reports.router)
 api_router.include_router(diagrams.router)
 api_router.include_router(soaw.router)

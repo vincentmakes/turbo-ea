@@ -18,8 +18,10 @@ import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
 
@@ -341,6 +343,7 @@ function computeTreeLayout(
 export default function DependencyReport() {
   const navigate = useNavigate();
   const { types } = useMetamodel();
+  const saved = useSavedReport("dependencies");
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [center, setCenter] = useState("");
   const [nodes, setNodes] = useState<GNode[]>([]);
@@ -359,6 +362,18 @@ export default function DependencyReport() {
   /* -- picker state -- */
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.cardTypeKey !== undefined) setCardTypeKey(cfg.cardTypeKey as string);
+      if (cfg.center) setCenter(cfg.center as string);
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ cardTypeKey, center, view });
 
   // Fetch data
   useEffect(() => {
@@ -503,6 +518,9 @@ export default function DependencyReport() {
       iconColor="#6a1b9a"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           <TextField
@@ -1209,6 +1227,12 @@ export default function DependencyReport() {
           </Table>
         </Paper>
       )}
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="dependencies"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }
