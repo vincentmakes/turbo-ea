@@ -485,7 +485,7 @@ export default function MatrixReport() {
                             alignItems: "center",
                             gap: 3,
                           }}>
-                            <Tooltip title="Collapse column">
+                            <Tooltip title="Collapse rows">
                               <span
                                 style={depthBtnStyle(effectiveRowDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
@@ -494,7 +494,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand column">
+                            <Tooltip title="Expand rows">
                               <span
                                 style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
@@ -516,7 +516,7 @@ export default function MatrixReport() {
                             alignItems: "center",
                             gap: 1,
                           }}>
-                            <Tooltip title="Collapse row" placement="right">
+                            <Tooltip title="Collapse columns" placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
@@ -525,7 +525,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand row" placement="right">
+                            <Tooltip title="Expand columns" placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
