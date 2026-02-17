@@ -21,7 +21,7 @@ import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheetType } from "@/types";
+import type { CardType } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Data types                                                         */
@@ -127,13 +127,13 @@ const FALLBACK_COLORS: Record<string, string> = {
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-function tc(key: string, types: FactSheetType[]): string {
+function tc(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.color || FALLBACK_COLORS[key] || "#999";
 }
-function tl(key: string, types: FactSheetType[]): string {
+function tl(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.label || key;
 }
-function ti(key: string, types: FactSheetType[]): string {
+function ti(key: string, types: CardType[]): string {
   return types.find((t) => t.key === key)?.icon || "description";
 }
 
@@ -156,7 +156,7 @@ function computeTreeLayout(
   expanded: Set<string>,
   adjMap: Map<string, { nodeId: string; relType: string; relLabel: string; relDescription?: string }[]>,
   nodeMap: Map<string, GNode>,
-  types: FactSheetType[],
+  types: CardType[],
 ): TreeLayout {
   const cards: PositionedCard[] = [];
   const headers: PositionedHeader[] = [];
@@ -341,7 +341,7 @@ function computeTreeLayout(
 export default function DependencyReport() {
   const navigate = useNavigate();
   const { types } = useMetamodel();
-  const [fsType, setFsType] = useState("");
+  const [cardTypeKey, setCardTypeKey] = useState("");
   const [center, setCenter] = useState("");
   const [nodes, setNodes] = useState<GNode[]>([]);
   const [edges, setEdges] = useState<GEdge[]>([]);
@@ -364,7 +364,7 @@ export default function DependencyReport() {
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
-    if (fsType) p.set("type", fsType);
+    if (cardTypeKey) p.set("type", cardTypeKey);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -372,7 +372,7 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [fsType]);
+  }, [cardTypeKey]);
 
   // Adjacency map
   const adjMap = useMemo(() => {
@@ -482,8 +482,8 @@ export default function DependencyReport() {
 
   // Autocomplete options for toolbar
   const acOptions = useMemo(
-    () => (fsType ? nodes.filter((n) => n.type === fsType) : nodes),
-    [nodes, fsType],
+    () => (cardTypeKey ? nodes.filter((n) => n.type === cardTypeKey) : nodes),
+    [nodes, cardTypeKey],
   );
 
   if (loading)
@@ -509,9 +509,9 @@ export default function DependencyReport() {
             select
             size="small"
             label="Type"
-            value={fsType}
+            value={cardTypeKey}
             onChange={(e) => {
-              setFsType(e.target.value);
+              setCardTypeKey(e.target.value);
               setCenter("");
               setPickerTypeFilter(null);
             }}
@@ -891,11 +891,11 @@ export default function DependencyReport() {
                       )}
 
                       {/* Open in new tab */}
-                      <Tooltip title="Open fact sheet" arrow>
+                      <Tooltip title="Open card" arrow>
                         <IconButton
                           size="small"
                           sx={{ p: 0.25, ml: "auto" }}
-                          onClick={(e) => { e.stopPropagation(); window.open(`/fact-sheets/${card.id}`, "_blank"); }}
+                          onClick={(e) => { e.stopPropagation(); window.open(`/cards/${card.id}`, "_blank"); }}
                         >
                           <MaterialSymbol icon="open_in_new" size={14} color="#999" />
                         </IconButton>
@@ -960,7 +960,7 @@ export default function DependencyReport() {
               <Box sx={{ textAlign: "center", mb: 2 }}>
                 <MaterialSymbol icon="account_tree" size={44} color="#bbb" />
                 <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Select a fact sheet to explore
+                  Select a card to explore
                 </Typography>
                 <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: "auto" }}>
                   Search and pick a starting point. Click to center, then expand
@@ -972,7 +972,7 @@ export default function DependencyReport() {
               <TextField
                 size="small"
                 fullWidth
-                placeholder="Search fact sheets..."
+                placeholder="Search cards..."
                 value={pickerSearch}
                 onChange={(e) => setPickerSearch(e.target.value)}
                 InputProps={{
@@ -1052,7 +1052,7 @@ export default function DependencyReport() {
               <Box sx={{ py: 4, textAlign: "center" }}>
                 <Typography color="text.disabled" variant="body2">
                   {nodes.length === 0
-                    ? "No fact sheets found."
+                    ? "No cards found."
                     : "No results match your search."}
                 </Typography>
               </Box>
@@ -1180,7 +1180,7 @@ export default function DependencyReport() {
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
-                        s && navigate(`/fact-sheets/${s.id}`)
+                        s && navigate(`/cards/${s.id}`)
                       }
                     >
                       {s?.name}
@@ -1197,7 +1197,7 @@ export default function DependencyReport() {
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
-                        t && navigate(`/fact-sheets/${t.id}`)
+                        t && navigate(`/cards/${t.id}`)
                       }
                     >
                       {t?.name}

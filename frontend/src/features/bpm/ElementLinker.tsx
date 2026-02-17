@@ -1,5 +1,5 @@
 /**
- * ElementLinker — Dialog for linking BPMN elements to EA fact sheets.
+ * ElementLinker — Dialog for linking BPMN elements to EA cards.
  * Search for Applications, Data Objects, IT Components and assign them.
  */
 import { useState, useEffect } from "react";
@@ -12,7 +12,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
-import type { ProcessElement, FactSheet } from "@/types";
+import type { ProcessElement, Card } from "@/types";
 
 interface Props {
   open: boolean;
@@ -22,20 +22,20 @@ interface Props {
   onSaved: () => void;
 }
 
-interface FsOption {
+interface CardOption {
   id: string;
   name: string;
   type: string;
 }
 
 export default function ElementLinker({ open, onClose, element, processId, onSaved }: Props) {
-  const [apps, setApps] = useState<FsOption[]>([]);
-  const [dataObjects, setDataObjects] = useState<FsOption[]>([]);
-  const [itComponents, setItComponents] = useState<FsOption[]>([]);
+  const [apps, setApps] = useState<CardOption[]>([]);
+  const [dataObjects, setDataObjects] = useState<CardOption[]>([]);
+  const [itComponents, setItComponents] = useState<CardOption[]>([]);
 
-  const [selectedApp, setSelectedApp] = useState<FsOption | null>(null);
-  const [selectedData, setSelectedData] = useState<FsOption | null>(null);
-  const [selectedItc, setSelectedItc] = useState<FsOption | null>(null);
+  const [selectedApp, setSelectedApp] = useState<CardOption | null>(null);
+  const [selectedData, setSelectedData] = useState<CardOption | null>(null);
+  const [selectedItc, setSelectedItc] = useState<CardOption | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -43,13 +43,13 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
     // Load options for each type
     async function load() {
       const [appRes, dataRes, itcRes] = await Promise.all([
-        api.get<{ items: FactSheet[] }>("/fact-sheets?type=Application&page_size=200&status=ACTIVE"),
-        api.get<{ items: FactSheet[] }>("/fact-sheets?type=DataObject&page_size=200&status=ACTIVE"),
-        api.get<{ items: FactSheet[] }>("/fact-sheets?type=ITComponent&page_size=200&status=ACTIVE"),
+        api.get<{ items: Card[] }>("/cards?type=Application&page_size=200&status=ACTIVE"),
+        api.get<{ items: Card[] }>("/cards?type=DataObject&page_size=200&status=ACTIVE"),
+        api.get<{ items: Card[] }>("/cards?type=ITComponent&page_size=200&status=ACTIVE"),
       ]);
-      setApps((appRes.items || []).map((f: FactSheet) => ({ id: f.id, name: f.name, type: f.type })));
-      setDataObjects((dataRes.items || []).map((f: FactSheet) => ({ id: f.id, name: f.name, type: f.type })));
-      setItComponents((itcRes.items || []).map((f: FactSheet) => ({ id: f.id, name: f.name, type: f.type })));
+      setApps((appRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
+      setDataObjects((dataRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
+      setItComponents((itcRes.items || []).map((f: Card) => ({ id: f.id, name: f.name, type: f.type })));
     }
     load();
   }, [open]);

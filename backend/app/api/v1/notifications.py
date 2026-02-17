@@ -28,7 +28,7 @@ def _notif_to_dict(n: Notification) -> dict:
         "link": n.link,
         "is_read": n.is_read,
         "data": n.data or {},
-        "fact_sheet_id": str(n.fact_sheet_id) if n.fact_sheet_id else None,
+        "card_id": str(n.card_id) if n.card_id else None,
         "actor_id": str(n.actor_id) if n.actor_id else None,
         "actor_name": n.actor.display_name if n.actor else None,
         "created_at": n.created_at.isoformat() if n.created_at else None,

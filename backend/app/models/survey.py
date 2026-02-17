@@ -11,7 +11,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class Survey(Base, UUIDMixin, TimestampMixin):
-    """Admin-created data-maintenance survey targeting fact sheet subscribers."""
+    """Admin-created data-maintenance survey targeting card subscribers."""
 
     __tablename__ = "surveys"
 
@@ -41,18 +41,18 @@ class Survey(Base, UUIDMixin, TimestampMixin):
 
 
 class SurveyResponse(Base, UUIDMixin, TimestampMixin):
-    """Individual response record: one per fact-sheet + user pair in a survey."""
+    """Individual response record: one per card + user pair in a survey."""
 
     __tablename__ = "survey_responses"
     __table_args__ = (
-        UniqueConstraint("survey_id", "fact_sheet_id", "user_id", name="uq_survey_response"),
+        UniqueConstraint("survey_id", "card_id", "user_id", name="uq_survey_response"),
     )
 
     survey_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("surveys.id", ondelete="CASCADE"), index=True
     )
-    fact_sheet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), index=True
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), index=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
@@ -69,5 +69,5 @@ class SurveyResponse(Base, UUIDMixin, TimestampMixin):
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     survey = relationship("Survey", back_populates="responses", lazy="selectin")
-    fact_sheet = relationship("FactSheet", lazy="selectin")
+    card = relationship("Card", lazy="selectin")
     user = relationship("User", lazy="selectin")

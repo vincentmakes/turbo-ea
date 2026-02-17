@@ -31,9 +31,9 @@ export interface AppRole {
   archived_by?: string;
 }
 
-export interface SubscriptionRoleDefinitionFull {
+export interface StakeholderRoleDefinitionFull {
   id: string;
-  fact_sheet_type_key: string;
+  card_type_key: string;
   key: string;
   label: string;
   description?: string;
@@ -41,23 +41,23 @@ export interface SubscriptionRoleDefinitionFull {
   permissions: Record<string, boolean>;
   is_archived: boolean;
   sort_order: number;
-  subscription_count?: number;
+  stakeholder_count?: number;
   created_at?: string;
   updated_at?: string;
   archived_at?: string;
   archived_by?: string;
 }
 
-export interface FactSheetEffectivePermissions {
+export interface CardEffectivePermissions {
   app_level: Record<string, boolean>;
-  subscription_roles: string[];
-  fs_level: Record<string, boolean>;
+  stakeholder_roles: string[];
+  card_level: Record<string, boolean>;
   effective: {
     can_view: boolean;
     can_edit: boolean;
     can_delete: boolean;
-    can_quality_seal: boolean;
-    can_manage_subscriptions: boolean;
+    can_approval_status: boolean;
+    can_manage_stakeholders: boolean;
     can_manage_relations: boolean;
     can_manage_documents: boolean;
     can_manage_comments: boolean;
@@ -84,7 +84,7 @@ export interface SsoInvitation {
   created_at?: string;
 }
 
-export interface SubscriptionRoleDef {
+export interface StakeholderRoleDef {
   key: string;
   label: string;
   allowed_types: string[] | null;
@@ -116,12 +116,12 @@ export interface SectionDef {
   fields: FieldDef[];
 }
 
-export interface SubscriptionRoleDefinition {
+export interface StakeholderRoleDefinition {
   key: string;
   label: string;
 }
 
-export interface FactSheetType {
+export interface CardType {
   key: string;
   label: string;
   description?: string;
@@ -131,7 +131,7 @@ export interface FactSheetType {
   has_hierarchy: boolean;
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
-  subscription_roles?: SubscriptionRoleDefinition[];
+  stakeholder_roles?: StakeholderRoleDefinition[];
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;
@@ -158,7 +158,7 @@ export interface TagRef {
   group_name?: string;
 }
 
-export interface SubscriptionRef {
+export interface StakeholderRef {
   id: string;
   user_id: string;
   user_display_name?: string;
@@ -167,7 +167,7 @@ export interface SubscriptionRef {
   role_label?: string;
 }
 
-export interface FactSheet {
+export interface Card {
   id: string;
   type: string;
   subtype?: string;
@@ -177,8 +177,8 @@ export interface FactSheet {
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
   status: string;
-  quality_seal: string;
-  completion: number;
+  approval_status: string;
+  data_quality: number;
   external_id?: string;
   alias?: string;
   created_by?: string;
@@ -186,7 +186,7 @@ export interface FactSheet {
   created_at?: string;
   updated_at?: string;
   tags: TagRef[];
-  subscriptions: SubscriptionRef[];
+  stakeholders: StakeholderRef[];
 }
 
 export interface HierarchyNode {
@@ -201,8 +201,8 @@ export interface HierarchyData {
   level: number;
 }
 
-export interface FactSheetListResponse {
-  items: FactSheet[];
+export interface CardListResponse {
+  items: Card[];
   total: number;
   page: number;
   page_size: number;
@@ -228,7 +228,7 @@ export interface Relation {
 
 export interface Comment {
   id: string;
-  fact_sheet_id: string;
+  card_id: string;
   user_id: string;
   user_display_name?: string;
   content: string;
@@ -240,9 +240,9 @@ export interface Comment {
 
 export interface Todo {
   id: string;
-  fact_sheet_id?: string;
-  fact_sheet_name?: string;
-  fact_sheet_type?: string;
+  card_id?: string;
+  card_name?: string;
+  card_type?: string;
   description: string;
   status: string;
   link?: string;
@@ -273,7 +273,7 @@ export interface Tag {
 export interface Bookmark {
   id: string;
   name: string;
-  fact_sheet_type?: string;
+  card_type?: string;
   filters?: Record<string, unknown>;
   columns?: string[];
   sort?: Record<string, unknown>;
@@ -283,7 +283,7 @@ export interface Bookmark {
 
 export interface EventEntry {
   id: string;
-  fact_sheet_id?: string;
+  card_id?: string;
   user_id?: string;
   user_display_name?: string;
   event_type: string;
@@ -292,11 +292,11 @@ export interface EventEntry {
 }
 
 export interface DashboardData {
-  total_fact_sheets: number;
+  total_cards: number;
   by_type: Record<string, number>;
-  avg_completion: number;
-  quality_seals: Record<string, number>;
-  completion_distribution: Record<string, number>;
+  avg_data_quality: number;
+  approval_statuses: Record<string, number>;
+  data_quality_distribution: Record<string, number>;
   lifecycle_distribution: Record<string, number>;
   recent_events: EventEntry[];
 }
@@ -307,9 +307,9 @@ export interface DashboardData {
 
 export type NotificationType =
   | "todo_assigned"
-  | "fact_sheet_updated"
+  | "card_updated"
   | "comment_added"
-  | "quality_seal_changed"
+  | "approval_status_changed"
   | "soaw_sign_requested"
   | "soaw_signed"
   | "survey_request";
@@ -323,7 +323,7 @@ export interface Notification {
   link?: string;
   is_read: boolean;
   data?: Record<string, unknown>;
-  fact_sheet_id?: string;
+  card_id?: string;
   actor_id?: string;
   actor_name?: string;
   created_at?: string;
@@ -434,9 +434,9 @@ export interface Survey {
 export interface SurveyResponseDetail {
   id: string;
   survey_id: string;
-  fact_sheet_id: string;
-  fact_sheet_name?: string;
-  fact_sheet_type?: string;
+  card_id: string;
+  card_name?: string;
+  card_type?: string;
   user_id: string;
   user_display_name?: string;
   user_email?: string;
@@ -449,14 +449,14 @@ export interface SurveyResponseDetail {
 }
 
 export interface SurveyPreviewTarget {
-  fact_sheet_id: string;
-  fact_sheet_name: string;
-  fact_sheet_type: string;
+  card_id: string;
+  card_name: string;
+  card_type: string;
   users: { user_id: string; display_name: string; email: string; role: string }[];
 }
 
 export interface SurveyPreviewResult {
-  total_fact_sheets: number;
+  total_cards: number;
   total_users: number;
   targets: SurveyPreviewTarget[];
 }
@@ -468,14 +468,14 @@ export interface MySurveyItem {
   survey_status: string;
   target_type_key: string;
   pending_count: number;
-  items: { response_id: string; fact_sheet_id: string; fact_sheet_name: string }[];
+  items: { response_id: string; card_id: string; card_name: string }[];
 }
 
 export interface SurveyRespondForm {
   response_id: string;
   response_status: string;
   survey: { id: string; name: string; message: string };
-  fact_sheet: { id: string; name: string; type: string; subtype?: string };
+  card: { id: string; name: string; type: string; subtype?: string };
   fields: (SurveyField & { current_value: unknown })[];
   existing_responses: Record<string, { current_value: unknown; new_value: unknown; confirmed: boolean }>;
 }
@@ -512,17 +512,17 @@ export interface EolProductMatch {
 }
 
 export interface MassEolCandidate {
-  fact_sheet_id: string;
-  fact_sheet_name: string;
-  fact_sheet_type: string;
+  card_id: string;
+  card_name: string;
+  card_type: string;
   eol_product: string;
   score: number;
 }
 
 export interface MassEolResult {
-  fact_sheet_id: string;
-  fact_sheet_name: string;
-  fact_sheet_type: string;
+  card_id: string;
+  card_name: string;
+  card_type: string;
   current_eol_product?: string | null;
   current_eol_cycle?: string | null;
   candidates: MassEolCandidate[];
@@ -535,7 +535,7 @@ export interface DiagramSummary {
   type: string;
   initiative_ids: string[];
   thumbnail?: string;
-  fact_sheet_count: number;
+  card_count: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -549,7 +549,7 @@ export interface WebPortal {
   name: string;
   slug: string;
   description?: string;
-  fact_sheet_type: string;
+  card_type: string;
   filters?: Record<string, unknown>;
   display_fields?: string[];
   card_config?: Record<string, unknown>;
@@ -589,7 +589,7 @@ export interface PublicPortal {
   name: string;
   slug: string;
   description?: string;
-  fact_sheet_type: string;
+  card_type: string;
   filters?: Record<string, unknown>;
   display_fields?: string[];
   card_config?: Record<string, unknown>;
@@ -598,7 +598,7 @@ export interface PublicPortal {
   tag_groups: PortalTagGroup[];
 }
 
-export interface PortalFactSheet {
+export interface PortalCard {
   id: string;
   name: string;
   type: string;
@@ -606,8 +606,8 @@ export interface PortalFactSheet {
   description?: string;
   lifecycle?: Record<string, string>;
   attributes?: Record<string, unknown>;
-  quality_seal: string;
-  completion: number;
+  approval_status: string;
+  data_quality: number;
   tags: { id: string; name: string; color?: string; group_name?: string }[];
   relations: {
     type: string;
@@ -616,15 +616,15 @@ export interface PortalFactSheet {
     related_type: string;
     direction: string;
   }[];
-  subscriptions: {
+  stakeholders: {
     role: string;
     display_name: string;
   }[];
   updated_at?: string;
 }
 
-export interface PortalFactSheetListResponse {
-  items: PortalFactSheet[];
+export interface PortalCardListResponse {
+  items: PortalCard[];
   total: number;
   page: number;
   page_size: number;

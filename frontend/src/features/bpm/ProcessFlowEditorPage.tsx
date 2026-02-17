@@ -21,7 +21,7 @@ export default function ProcessFlowEditorPage() {
     <BpmnModeler
       processId={id}
       versionId={versionId}
-      onBack={() => navigate(`/fact-sheets/${id}?tab=1&subtab=${returnSubTab}`)}
+      onBack={() => navigate(`/cards/${id}?tab=1&subtab=${returnSubTab}`)}
       onSaved={() => {}}
     />
   );

@@ -241,7 +241,7 @@ function BpmDashboardContent() {
                     key={p.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/fact-sheets/${p.id}`)}
+                    onClick={() => navigate(`/cards/${p.id}`)}
                   >
                     <TableCell>{p.name}</TableCell>
                     <TableCell>

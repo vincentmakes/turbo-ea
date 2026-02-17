@@ -1,5 +1,5 @@
 /**
- * Helpers for DrawIO fact-sheet shape insertion and extraction.
+ * Helpers for DrawIO card shape insertion and extraction.
  *
  * Insertion uses same-origin access to the DrawIO iframe — we call
  * graph.insertVertex() directly from the parent window, bypassing
@@ -19,9 +19,9 @@ function darken(hex: string, factor = 0.25): string {
   return `#${d(r)}${d(g)}${d(b)}`;
 }
 
-export interface InsertFactSheetOpts {
-  factSheetId: string;
-  factSheetType: string;
+export interface InsertCardOpts {
+  cardId: string;
+  cardType: string;
   name: string;
   color: string;
   x: number;
@@ -29,11 +29,11 @@ export interface InsertFactSheetOpts {
 }
 
 /** Shape data needed for direct mxGraph API insertion */
-export interface FactSheetCellData {
+export interface CardCellData {
   cellId: string;
   label: string;
-  factSheetId: string;
-  factSheetType: string;
+  cardId: string;
+  cardType: string;
   x: number;
   y: number;
   width: number;
@@ -42,12 +42,12 @@ export interface FactSheetCellData {
 }
 
 /**
- * Build the data for inserting a fact sheet shape via the mxGraph API.
+ * Build the data for inserting a card shape via the mxGraph API.
  */
-export function buildFactSheetCellData(opts: InsertFactSheetOpts): FactSheetCellData {
-  const { factSheetId, factSheetType, name, color, x, y } = opts;
+export function buildCardCellData(opts: InsertCardOpts): CardCellData {
+  const { cardId, cardType, name, color, x, y } = opts;
   const stroke = darken(color);
-  const cellId = `fs-${factSheetId.slice(0, 8)}-${Date.now()}`;
+  const cellId = `card-${cardId.slice(0, 8)}-${Date.now()}`;
 
   const style = [
     "rounded=1",
@@ -65,8 +65,8 @@ export function buildFactSheetCellData(opts: InsertFactSheetOpts): FactSheetCell
   return {
     cellId,
     label: name,
-    factSheetId,
-    factSheetType,
+    cardId,
+    cardType,
     x,
     y,
     width: 180,
@@ -76,12 +76,12 @@ export function buildFactSheetCellData(opts: InsertFactSheetOpts): FactSheetCell
 }
 
 /**
- * Insert a fact sheet shape directly into the DrawIO graph via same-origin
+ * Insert a card shape directly into the DrawIO graph via same-origin
  * iframe access.  Returns true on success, false if the graph isn't ready.
  */
-export function insertFactSheetIntoGraph(
+export function insertCardIntoGraph(
   iframe: HTMLIFrameElement,
-  data: FactSheetCellData
+  data: CardCellData
 ): boolean {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,8 +105,8 @@ export function insertFactSheetIntoGraph(
     const xmlDoc = (win.mxUtils as any).createXmlDocument();
     const obj = xmlDoc.createElement("object");
     obj.setAttribute("label", data.label);
-    obj.setAttribute("factSheetId", data.factSheetId);
-    obj.setAttribute("factSheetType", data.factSheetType);
+    obj.setAttribute("cardId", data.cardId);
+    obj.setAttribute("cardType", data.cardType);
 
     model.beginUpdate();
     try {
@@ -156,12 +156,12 @@ export function getVisibleCenter(iframe: HTMLIFrameElement): { x: number; y: num
 }
 
 /**
- * Parse diagram XML and return the set of factSheetId values found.
+ * Parse diagram XML and return the set of cardId values found.
  * Used client-side for display; the backend does its own authoritative parse.
  */
-export function extractFactSheetIds(xml: string): string[] {
+export function extractCardIds(xml: string): string[] {
   const ids: string[] = [];
-  const re = /factSheetId="([^"]+)"/g;
+  const re = /cardId="([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml)) !== null) {
     if (!ids.includes(m[1])) ids.push(m[1]);
@@ -173,7 +173,7 @@ export function extractFactSheetIds(xml: string): string[] {
 /*  Pending (unsynchronised) cell helpers                              */
 /* ------------------------------------------------------------------ */
 
-/** Style for a pending (not-yet-synced) fact sheet cell — dashed border */
+/** Style for a pending (not-yet-synced) card cell — dashed border */
 function buildPendingStyle(color: string): string {
   const stroke = darken(color);
   return [
@@ -185,7 +185,7 @@ function buildPendingStyle(color: string): string {
   ].join(";");
 }
 
-/** Style for a synced (normal) fact sheet cell */
+/** Style for a synced (normal) card cell */
 function buildSyncedStyle(color: string): string {
   const stroke = darken(color);
   return [
@@ -197,10 +197,10 @@ function buildSyncedStyle(color: string): string {
 }
 
 /**
- * Insert a pending (not-yet-synced) fact sheet cell.
+ * Insert a pending (not-yet-synced) card cell.
  * Uses a dashed border to distinguish it from synced cells.
  */
-export function insertPendingFactSheet(
+export function insertPendingCard(
   iframe: HTMLIFrameElement,
   opts: { tempId: string; type: string; name: string; color: string; x: number; y: number },
 ): string | null {
@@ -215,8 +215,8 @@ export function insertPendingFactSheet(
   const xmlDoc = win.mxUtils.createXmlDocument();
   const obj = xmlDoc.createElement("object");
   obj.setAttribute("label", opts.name);
-  obj.setAttribute("factSheetId", opts.tempId);
-  obj.setAttribute("factSheetType", opts.type);
+  obj.setAttribute("cardId", opts.tempId);
+  obj.setAttribute("cardType", opts.type);
   obj.setAttribute("pending", "1");
 
   model.beginUpdate();
@@ -271,13 +271,13 @@ export function stampEdgeAsRelation(
 }
 
 /**
- * Mark a pending cell as synced: update its factSheetId to the real one
+ * Mark a pending cell as synced: update its cardId to the real one
  * and switch from dashed to solid style.
  */
 export function markCellSynced(
   iframe: HTMLIFrameElement,
   cellId: string,
-  realFactSheetId: string,
+  realCardId: string,
   color: string,
 ): boolean {
   const ctx = getMxGraph(iframe);
@@ -292,7 +292,7 @@ export function markCellSynced(
   try {
     const obj = cell.value;
     if (obj?.setAttribute) {
-      obj.setAttribute("factSheetId", realFactSheetId);
+      obj.setAttribute("cardId", realCardId);
       if (obj.removeAttribute) obj.removeAttribute("pending");
     }
     model.setStyle(cell, buildSyncedStyle(color));
@@ -389,15 +389,15 @@ export interface ScannedPendingRel {
   edgeCellId: string;
   relationType: string;
   relationLabel: string;
-  sourceFactSheetId: string;
-  targetFactSheetId: string;
+  sourceCardId: string;
+  targetCardId: string;
   sourceName: string;
   targetName: string;
 }
 
 export interface ScannedSyncedFS {
   cellId: string;
-  factSheetId: string;
+  cardId: string;
   name: string;
   type: string;
 }
@@ -406,16 +406,16 @@ export interface ScannedSyncedFS {
  * Scan the graph for pending and synced items.
  */
 export function scanDiagramItems(iframe: HTMLIFrameElement): {
-  pendingFS: ScannedPendingFS[];
+  pendingCards: ScannedPendingFS[];
   pendingRels: ScannedPendingRel[];
   syncedFS: ScannedSyncedFS[];
 } {
-  const pendingFS: ScannedPendingFS[] = [];
+  const pendingCards: ScannedPendingFS[] = [];
   const pendingRels: ScannedPendingRel[] = [];
   const syncedFS: ScannedSyncedFS[] = [];
 
   const ctx = getMxGraph(iframe);
-  if (!ctx) return { pendingFS, pendingRels, syncedFS };
+  if (!ctx) return { pendingCards, pendingRels, syncedFS };
   const { graph } = ctx;
 
   const cells = graph.getModel().cells || {};
@@ -424,7 +424,7 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
     if (!cell?.value?.getAttribute) continue;
 
     const isPending = cell.value.getAttribute("pending") === "1";
-    const fsId = cell.value.getAttribute("factSheetId");
+    const fsId = cell.value.getAttribute("cardId");
     const relType = cell.value.getAttribute("relationType");
 
     if (relType && isPending) {
@@ -435,31 +435,31 @@ export function scanDiagramItems(iframe: HTMLIFrameElement): {
         edgeCellId: cell.id,
         relationType: relType,
         relationLabel: cell.value.getAttribute("label") || relType,
-        sourceFactSheetId: src?.value?.getAttribute?.("factSheetId") || "",
-        targetFactSheetId: tgt?.value?.getAttribute?.("factSheetId") || "",
+        sourceCardId: src?.value?.getAttribute?.("cardId") || "",
+        targetCardId: tgt?.value?.getAttribute?.("cardId") || "",
         sourceName: src?.value?.getAttribute?.("label") || "?",
         targetName: tgt?.value?.getAttribute?.("label") || "?",
       });
     } else if (fsId && isPending) {
-      // Pending fact sheet vertex
-      pendingFS.push({
+      // Pending card vertex
+      pendingCards.push({
         cellId: cell.id,
         tempId: fsId,
-        type: cell.value.getAttribute("factSheetType") || "",
+        type: cell.value.getAttribute("cardType") || "",
         name: cell.value.getAttribute("label") || "",
       });
     } else if (fsId && !isPending && !cell.value.getAttribute("parentGroupCell")) {
-      // Synced top-level fact sheet vertex
+      // Synced top-level card vertex
       syncedFS.push({
         cellId: cell.id,
-        factSheetId: fsId,
+        cardId: fsId,
         name: cell.value.getAttribute("label") || "",
-        type: cell.value.getAttribute("factSheetType") || "",
+        type: cell.value.getAttribute("cardType") || "",
       });
     }
   }
 
-  return { pendingFS, pendingRels, syncedFS };
+  return { pendingCards, pendingRels, syncedFS };
 }
 
 /** SVG data URI for the "out of sync" resync overlay icon (orange !) */
@@ -514,7 +514,7 @@ export interface ExpandChildData {
 }
 
 /**
- * Add a +/− overlay icon to a fact sheet cell.
+ * Add a +/− overlay icon to a card cell.
  */
 export function addExpandOverlay(
   iframe: HTMLIFrameElement,
@@ -533,7 +533,7 @@ export function addExpandOverlay(
 
   const overlay = new win.mxCellOverlay(
     new win.mxImage(expanded ? MINUS_OVERLAY : PLUS_OVERLAY, 20, 20),
-    expanded ? "Collapse" : "Expand related fact sheets",
+    expanded ? "Collapse" : "Expand related cards",
     win.mxConstants.ALIGN_RIGHT,
     win.mxConstants.ALIGN_MIDDLE,
     new win.mxPoint(0, 0),
@@ -546,14 +546,14 @@ export function addExpandOverlay(
 }
 
 /**
- * Insert child vertices + edges around a parent fact sheet cell.
+ * Insert child vertices + edges around a parent card cell.
  * Children are laid out in a column to the right, grouped by type.
  */
-export function expandFactSheetGroup(
+export function expandCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
   children: ExpandChildData[],
-): Array<{ cellId: string; factSheetId: string }> {
+): Array<{ cellId: string; cardId: string }> {
   const ctx = getMxGraph(iframe);
   if (!ctx) return [];
   const { win, graph } = ctx;
@@ -578,7 +578,7 @@ export function expandFactSheetGroup(
   const startX = geo.x + geo.width + CHILD_GAP_X;
   const startY = geo.y + geo.height / 2 - totalH / 2;
 
-  const inserted: Array<{ cellId: string; factSheetId: string }> = [];
+  const inserted: Array<{ cellId: string; cardId: string }> = [];
   model.beginUpdate();
   try {
     let yOff = 0;
@@ -599,8 +599,8 @@ export function expandFactSheetGroup(
       const xmlDoc = win.mxUtils.createXmlDocument();
       const obj = xmlDoc.createElement("object");
       obj.setAttribute("label", ch.name);
-      obj.setAttribute("factSheetId", ch.id);
-      obj.setAttribute("factSheetType", ch.type);
+      obj.setAttribute("cardId", ch.id);
+      obj.setAttribute("cardType", ch.type);
       obj.setAttribute("parentGroupCell", parentCellId);
 
       const vertex = graph.insertVertex(
@@ -613,7 +613,7 @@ export function expandFactSheetGroup(
         `edgeStyle=entityRelationEdgeStyle;strokeColor=${ch.color};strokeWidth=1.5;endArrow=none;startArrow=none`,
       );
 
-      inserted.push({ cellId: cid, factSheetId: ch.id });
+      inserted.push({ cellId: cid, cardId: ch.id });
       yOff += CHILD_CARD_H;
     }
 
@@ -634,7 +634,7 @@ export function expandFactSheetGroup(
  * Recurses into children that are themselves expanded, so nested expansions
  * are cleaned up correctly.
  */
-export function collapseFactSheetGroup(
+export function collapseCardGroup(
   iframe: HTMLIFrameElement,
   parentCellId: string,
 ): boolean {
@@ -690,12 +690,12 @@ export function collapseFactSheetGroup(
 }
 
 /**
- * Scan all cells and add expand/collapse overlays to every fact sheet cell
+ * Scan all cells and add expand/collapse overlays to every card cell
  * (including children from previous expansions).
  */
-export function refreshFactSheetOverlays(
+export function refreshCardOverlays(
   iframe: HTMLIFrameElement,
-  onToggle: (cellId: string, factSheetId: string, currentlyExpanded: boolean) => void,
+  onToggle: (cellId: string, cardId: string, currentlyExpanded: boolean) => void,
 ): void {
   const ctx = getMxGraph(iframe);
   if (!ctx) return;
@@ -714,7 +714,7 @@ export function refreshFactSheetOverlays(
     const cell = cells[k];
     if (!cell?.value?.getAttribute) continue;
 
-    const fsId = cell.value.getAttribute("factSheetId");
+    const fsId = cell.value.getAttribute("cardId");
     if (!fsId) continue;
 
     let expanded = cell.value.getAttribute("expanded") === "1";
@@ -728,13 +728,13 @@ export function refreshFactSheetOverlays(
 }
 
 /**
- * Return the set of factSheetId values for children currently connected to a
+ * Return the set of cardId values for children currently connected to a
  * parent cell.  A child is "connected" only if its vertex is still present AND
  * it still has at least one edge linking it to the parent.  This catches both
  * vertex deletions (user deleted the child) and edge-only deletions (user
  * deleted the relation line but left the child shape).
  */
-export function getGroupChildFactSheetIds(
+export function getGroupChildCardIds(
   iframe: HTMLIFrameElement,
   parentCellId: string,
 ): Set<string> {
@@ -751,7 +751,7 @@ export function getGroupChildFactSheetIds(
   for (const k of Object.keys(cells)) {
     const c = cells[k];
     if (c?.value?.getAttribute?.("parentGroupCell") !== parentCellId) continue;
-    const fsId = c.value.getAttribute("factSheetId");
+    const fsId = c.value.getAttribute("cardId");
     if (!fsId) continue;
 
     // Verify the child still has an edge to the parent
@@ -764,7 +764,7 @@ export function getGroupChildFactSheetIds(
 }
 
 /**
- * Add a resync overlay (orange "!" icon) at the top-left of a fact sheet cell.
+ * Add a resync overlay (orange "!" icon) at the top-left of a card cell.
  * Indicates the cell's expanded children are out of sync with inventory.
  * Must be called AFTER addExpandOverlay (which clears all overlays first).
  */

@@ -9,27 +9,27 @@ import Tooltip from "@mui/material/Tooltip";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import FactSheetPickerDialog from "./FactSheetPickerDialog";
+import CardPickerDialog from "./CardPickerDialog";
 import CreateOnDiagramDialog from "./CreateOnDiagramDialog";
 import RelationPickerDialog from "./RelationPickerDialog";
 import type { EdgeEndpoints } from "./RelationPickerDialog";
 import DiagramSyncPanel from "./DiagramSyncPanel";
 import type {
-  PendingFactSheet,
+  PendingCard,
   PendingRelation,
   StaleItem,
 } from "./DiagramSyncPanel";
 import {
-  buildFactSheetCellData,
-  insertFactSheetIntoGraph,
+  buildCardCellData,
+  insertCardIntoGraph,
   getVisibleCenter,
   addExpandOverlay,
   addResyncOverlay,
-  expandFactSheetGroup,
-  collapseFactSheetGroup,
-  getGroupChildFactSheetIds,
-  refreshFactSheetOverlays,
-  insertPendingFactSheet,
+  expandCardGroup,
+  collapseCardGroup,
+  getGroupChildCardIds,
+  refreshCardOverlays,
+  insertPendingCard,
   stampEdgeAsRelation,
   markCellSynced,
   markEdgeSynced,
@@ -39,7 +39,7 @@ import {
 } from "./drawio-shapes";
 import type { ExpandChildData } from "./drawio-shapes";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import type { FactSheet, FactSheetType, Relation, RelationType } from "@/types";
+import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  DrawIO configuration                                               */
@@ -81,8 +81,8 @@ interface DrawIOMessage {
     | "exit"
     | "export"
     | "configure"
-    | "insertFactSheet"
-    | "createFactSheet"
+    | "insertCard"
+    | "createCard"
     | "edgeConnected";
   xml?: string;
   data?: string;
@@ -90,8 +90,8 @@ interface DrawIOMessage {
   x?: number;
   y?: number;
   edgeCellId?: string;
-  sourceFactSheetId?: string;
-  targetFactSheetId?: string;
+  sourceCardId?: string;
+  targetCardId?: string;
   sourceType?: string;
   targetType?: string;
   sourceName?: string;
@@ -150,16 +150,16 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
             (mxEvent.getClientY(evt) - offset.top + container.scrollTop) / s - tr.y,
           );
 
-          menu.addItem("Insert Existing Fact Sheet\u2026", null, () => {
+          menu.addItem("Insert Existing Card\u2026", null, () => {
             win.parent.postMessage(
-              JSON.stringify({ event: "insertFactSheet", x: gx, y: gy }),
+              JSON.stringify({ event: "insertCard", x: gx, y: gy }),
               "*",
             );
           });
 
-          menu.addItem("Create New Fact Sheet\u2026", null, () => {
+          menu.addItem("Create New Card\u2026", null, () => {
             win.parent.postMessage(
-              JSON.stringify({ event: "createFactSheet", x: gx, y: gy }),
+              JSON.stringify({ event: "createCard", x: gx, y: gy }),
               "*",
             );
           });
@@ -182,10 +182,10 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
           const tgt = model.getTerminal(edge, false);
           if (!src || !tgt) return;
 
-          const srcFsId = src.value?.getAttribute?.("factSheetId");
-          const tgtFsId = tgt.value?.getAttribute?.("factSheetId");
-          const srcType = src.value?.getAttribute?.("factSheetType");
-          const tgtType = tgt.value?.getAttribute?.("factSheetType");
+          const srcFsId = src.value?.getAttribute?.("cardId");
+          const tgtFsId = tgt.value?.getAttribute?.("cardId");
+          const srcType = src.value?.getAttribute?.("cardType");
+          const tgtType = tgt.value?.getAttribute?.("cardType");
 
           if (srcFsId && tgtFsId && srcType && tgtType) {
             // Resolve colors via stored style (fillColor)
@@ -200,8 +200,8 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
               JSON.stringify({
                 event: "edgeConnected",
                 edgeCellId: edge.id,
-                sourceFactSheetId: srcFsId,
-                targetFactSheetId: tgtFsId,
+                sourceCardId: srcFsId,
+                targetCardId: tgtFsId,
                 sourceType: srcType,
                 targetType: tgtType,
                 sourceName: src.value.getAttribute("label") || "",
@@ -257,7 +257,7 @@ export default function DiagramEditor() {
 
   // Sync panel
   const [syncOpen, setSyncOpen] = useState(false);
-  const [pendingFS, setPendingFS] = useState<PendingFactSheet[]>([]);
+  const [pendingCards, setPendingFS] = useState<PendingCard[]>([]);
   const [pendingRels, setPendingRels] = useState<PendingRelation[]>([]);
   const [staleItems, setStaleItems] = useState<StaleItem[]>([]);
   const [syncing, setSyncing] = useState(false);
@@ -306,30 +306,30 @@ export default function DiagramEditor() {
 
   /** Expand children into the graph and wire up overlays. */
   const doExpand = useCallback(
-    (frame: HTMLIFrameElement, cellId: string, factSheetId: string, children: ExpandChildData[]) => {
+    (frame: HTMLIFrameElement, cellId: string, cardId: string, children: ExpandChildData[]) => {
       const deleted = deletedChildrenRef.current.get(cellId);
       const visible = deleted?.size
         ? children.filter((c) => !deleted.has(c.id))
         : children;
 
       if (visible.length === 0) {
-        setSnackMsg("No related fact sheets");
+        setSnackMsg("No related cards");
         return;
       }
 
-      const inserted = expandFactSheetGroup(frame, cellId, visible);
+      const inserted = expandCardGroup(frame, cellId, visible);
       addExpandOverlay(frame, cellId, true, () =>
-        handleToggleGroup(cellId, factSheetId, true),
+        handleToggleGroup(cellId, cardId, true),
       );
       // If some children were locally removed, show resync icon
       if (deleted?.size) {
         addResyncOverlay(frame, cellId, () =>
-          handleResync(cellId, factSheetId),
+          handleResync(cellId, cardId),
         );
       }
       for (const child of inserted) {
         addExpandOverlay(frame, child.cellId, false, () =>
-          handleToggleGroup(child.cellId, child.factSheetId, false),
+          handleToggleGroup(child.cellId, child.cardId, false),
         );
       }
     },
@@ -338,7 +338,7 @@ export default function DiagramEditor() {
   );
 
   const handleToggleGroup = useCallback(
-    (cellId: string, factSheetId: string, currentlyExpanded: boolean) => {
+    (cellId: string, cardId: string, currentlyExpanded: boolean) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
@@ -346,7 +346,7 @@ export default function DiagramEditor() {
         // Before collapsing, detect children the user removed while expanded
         const cached = expandCacheRef.current.get(cellId);
         if (cached) {
-          const stillPresent = getGroupChildFactSheetIds(frame, cellId);
+          const stillPresent = getGroupChildCardIds(frame, cellId);
           const nowDeleted = cached.filter((c) => !stillPresent.has(c.id)).map((c) => c.id);
           if (nowDeleted.length > 0) {
             const existing = deletedChildrenRef.current.get(cellId) ?? new Set<string>();
@@ -355,30 +355,30 @@ export default function DiagramEditor() {
           }
         }
 
-        collapseFactSheetGroup(frame, cellId);
+        collapseCardGroup(frame, cellId);
         addExpandOverlay(frame, cellId, false, () =>
-          handleToggleGroup(cellId, factSheetId, false),
+          handleToggleGroup(cellId, cardId, false),
         );
         // Keep resync icon if there are local deletions
         if (deletedChildrenRef.current.get(cellId)?.size) {
           addResyncOverlay(frame, cellId, () =>
-            handleResync(cellId, factSheetId),
+            handleResync(cellId, cardId),
           );
         }
       } else {
         // Use cached children if available, otherwise fetch from API
         const cached = expandCacheRef.current.get(cellId);
         if (cached) {
-          doExpand(frame, cellId, factSheetId, cached);
+          doExpand(frame, cellId, cardId, cached);
         } else {
           api
-            .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
+            .get<Relation[]>(`/relations?card_id=${cardId}`)
             .then((rels) => {
               if (!iframeRef.current) return;
               const seen = new Set<string>();
               const children: ExpandChildData[] = [];
               for (const r of rels) {
-                const other = r.source_id === factSheetId ? r.target : r.source;
+                const other = r.source_id === cardId ? r.target : r.source;
                 if (!other || seen.has(other.id)) continue;
                 seen.add(other.id);
                 const t = fsTypesRef.current.find((tp) => tp.key === other.type);
@@ -391,7 +391,7 @@ export default function DiagramEditor() {
                 });
               }
               if (children.length === 0) {
-                setSnackMsg("No related fact sheets");
+                setSnackMsg("No related cards");
                 return;
               }
               children.sort((a, b) => {
@@ -402,7 +402,7 @@ export default function DiagramEditor() {
               });
               // Cache the full API result
               expandCacheRef.current.set(cellId, children);
-              doExpand(iframeRef.current!, cellId, factSheetId, children);
+              doExpand(iframeRef.current!, cellId, cardId, children);
             })
             .catch(() => setSnackMsg("Failed to load relations"));
         }
@@ -414,7 +414,7 @@ export default function DiagramEditor() {
 
   /** Clear local caches and re-fetch relations from inventory. */
   const handleResync = useCallback(
-    (cellId: string, factSheetId: string) => {
+    (cellId: string, cardId: string) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
@@ -423,17 +423,17 @@ export default function DiagramEditor() {
       deletedChildrenRef.current.delete(cellId);
 
       // Collapse first if currently expanded
-      collapseFactSheetGroup(frame, cellId);
+      collapseCardGroup(frame, cellId);
 
       // Re-fetch and expand
       api
-        .get<Relation[]>(`/relations?fact_sheet_id=${factSheetId}`)
+        .get<Relation[]>(`/relations?card_id=${cardId}`)
         .then((rels) => {
           if (!iframeRef.current) return;
           const seen = new Set<string>();
           const children: ExpandChildData[] = [];
           for (const r of rels) {
-            const other = r.source_id === factSheetId ? r.target : r.source;
+            const other = r.source_id === cardId ? r.target : r.source;
             if (!other || seen.has(other.id)) continue;
             seen.add(other.id);
             const t = fsTypesRef.current.find((tp) => tp.key === other.type);
@@ -447,9 +447,9 @@ export default function DiagramEditor() {
           }
           if (children.length === 0) {
             addExpandOverlay(iframeRef.current!, cellId, false, () =>
-              handleToggleGroup(cellId, factSheetId, false),
+              handleToggleGroup(cellId, cardId, false),
             );
-            setSnackMsg("No related fact sheets");
+            setSnackMsg("No related cards");
             return;
           }
           children.sort((a, b) => {
@@ -459,7 +459,7 @@ export default function DiagramEditor() {
             return a.name.localeCompare(b.name);
           });
           expandCacheRef.current.set(cellId, children);
-          doExpand(iframeRef.current!, cellId, factSheetId, children);
+          doExpand(iframeRef.current!, cellId, cardId, children);
           setSnackMsg("Relations restored from inventory");
         })
         .catch(() => setSnackMsg("Failed to resync relations"));
@@ -468,9 +468,9 @@ export default function DiagramEditor() {
     [doExpand],
   );
 
-  /* ---------- Insert existing fact sheet ---------- */
-  const handleInsertFactSheet = useCallback(
-    (fs: FactSheet, fsType: FactSheetType) => {
+  /* ---------- Insert existing card ---------- */
+  const handleInsertCard = useCallback(
+    (card: Card, cardTypeKey: CardType) => {
       const frame = iframeRef.current;
       if (!frame) return;
 
@@ -484,21 +484,21 @@ export default function DiagramEditor() {
         y = center ? center.y - 30 : 100;
       }
 
-      const data = buildFactSheetCellData({
-        factSheetId: fs.id,
-        factSheetType: fs.type,
-        name: fs.name,
-        color: fsType.color,
+      const data = buildCardCellData({
+        cardId: card.id,
+        cardType: card.type,
+        name: card.name,
+        color: cardTypeKey.color,
         x,
         y,
       });
 
-      const ok = insertFactSheetIntoGraph(frame, data);
+      const ok = insertCardIntoGraph(frame, data);
       if (ok) {
         addExpandOverlay(frame, data.cellId, false, () =>
-          handleToggleGroup(data.cellId, fs.id, false),
+          handleToggleGroup(data.cellId, card.id, false),
         );
-        setSnackMsg(`Inserted "${fs.name}"`);
+        setSnackMsg(`Inserted "${card.name}"`);
       } else {
         setSnackMsg("Editor not ready — try again in a moment");
       }
@@ -511,7 +511,7 @@ export default function DiagramEditor() {
     const frame = iframeRef.current;
     if (!frame) return;
 
-    const { pendingFS: pfs, pendingRels: prels, syncedFS: _ } = scanDiagramItems(frame);
+    const { pendingCards: pfs, pendingRels: prels, syncedFS: _ } = scanDiagramItems(frame);
 
     setPendingFS(
       pfs.map((p) => {
@@ -529,7 +529,7 @@ export default function DiagramEditor() {
     setPendingRels(
       prels.map((p) => {
         const srcType = fsTypesRef.current.find((t) =>
-          pfs.some((f) => f.tempId === p.sourceFactSheetId && f.type === t.key),
+          pfs.some((f) => f.tempId === p.sourceCardId && f.type === t.key),
         );
         return {
           edgeCellId: p.edgeCellId,
@@ -539,15 +539,15 @@ export default function DiagramEditor() {
           targetName: p.targetName,
           sourceColor: srcType?.color || "#999",
           targetColor: "#999",
-          sourceFactSheetId: p.sourceFactSheetId,
-          targetFactSheetId: p.targetFactSheetId,
+          sourceCardId: p.sourceCardId,
+          targetCardId: p.targetCardId,
         };
       }),
     );
   }, []);
 
-  /* ---------- Create new (pending) fact sheet ---------- */
-  const handleCreateFactSheet = useCallback(
+  /* ---------- Create new (pending) card ---------- */
+  const handleCreateCard = useCallback(
     (data: { type: string; name: string; description?: string }) => {
       const frame = iframeRef.current;
       if (!frame) return;
@@ -566,7 +566,7 @@ export default function DiagramEditor() {
       const color = typeInfo?.color || "#999";
       const tempId = `pending-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 
-      const cellId = insertPendingFactSheet(frame, {
+      const cellId = insertPendingCard(frame, {
         tempId,
         type: data.type,
         name: data.name,
@@ -618,14 +618,14 @@ export default function DiagramEditor() {
     async (cellId: string) => {
       const frame = iframeRef.current;
       if (!frame) return;
-      const item = pendingFS.find((p) => p.cellId === cellId);
+      const item = pendingCards.find((p) => p.cellId === cellId);
       if (!item) return;
 
       setSyncing(true);
       try {
         const scanned = scanDiagramItems(frame);
-        const raw = scanned.pendingFS.find((p) => p.cellId === cellId);
-        const resp = await api.post<FactSheet>("/fact-sheets", {
+        const raw = scanned.pendingCards.find((p) => p.cellId === cellId);
+        const resp = await api.post<Card>("/cards", {
           type: item.type,
           name: item.name,
         });
@@ -639,9 +639,9 @@ export default function DiagramEditor() {
         if (tempId) {
           const { pendingRels: currentRels } = scanDiagramItems(frame);
           for (const rel of currentRels) {
-            if (rel.sourceFactSheetId === tempId || rel.targetFactSheetId === tempId) {
+            if (rel.sourceCardId === tempId || rel.targetCardId === tempId) {
               // The edge endpoints are already connected to the cell — the cell's
-              // factSheetId attribute was just updated, so the next scan will pick
+              // cardId attribute was just updated, so the next scan will pick
               // up the real ID. No extra action needed.
             }
           }
@@ -649,12 +649,12 @@ export default function DiagramEditor() {
         setSnackMsg(`"${item.name}" pushed to inventory`);
         refreshSyncPanel();
       } catch {
-        setSnackMsg("Failed to create fact sheet");
+        setSnackMsg("Failed to create card");
       } finally {
         setSyncing(false);
       }
     },
-    [pendingFS, handleToggleGroup, refreshSyncPanel],
+    [pendingCards, handleToggleGroup, refreshSyncPanel],
   );
 
   const handleSyncRel = useCallback(
@@ -670,15 +670,15 @@ export default function DiagramEditor() {
         if (!rel) return;
 
         // Both endpoints must have real (non-pending) IDs
-        if (rel.sourceFactSheetId.startsWith("pending-") || rel.targetFactSheetId.startsWith("pending-")) {
-          setSnackMsg("Sync the connected fact sheets first");
+        if (rel.sourceCardId.startsWith("pending-") || rel.targetCardId.startsWith("pending-")) {
+          setSnackMsg("Sync the connected cards first");
           return;
         }
 
         await api.post("/relations", {
           type: rel.relationType,
-          source_id: rel.sourceFactSheetId,
-          target_id: rel.targetFactSheetId,
+          source_id: rel.sourceCardId,
+          target_id: rel.targetCardId,
         });
 
         markEdgeSynced(frame, edgeCellId, "#666");
@@ -699,12 +699,12 @@ export default function DiagramEditor() {
     setSyncing(true);
 
     try {
-      // 1. Sync all pending fact sheets first
-      const { pendingFS: pfs } = scanDiagramItems(frame);
+      // 1. Sync all pending cards first
+      const { pendingCards: pfs } = scanDiagramItems(frame);
       for (const p of pfs) {
         const typeInfo = fsTypesRef.current.find((t) => t.key === p.type);
         try {
-          const resp = await api.post<FactSheet>("/fact-sheets", {
+          const resp = await api.post<Card>("/cards", {
             type: p.type,
             name: p.name,
           });
@@ -720,14 +720,14 @@ export default function DiagramEditor() {
       // 2. Sync all pending relations
       const { pendingRels: prels } = scanDiagramItems(frame);
       for (const r of prels) {
-        if (r.sourceFactSheetId.startsWith("pending-") || r.targetFactSheetId.startsWith("pending-")) {
+        if (r.sourceCardId.startsWith("pending-") || r.targetCardId.startsWith("pending-")) {
           continue; // skip if endpoints still pending
         }
         try {
           await api.post("/relations", {
             type: r.relationType,
-            source_id: r.sourceFactSheetId,
-            target_id: r.targetFactSheetId,
+            source_id: r.sourceCardId,
+            target_id: r.targetCardId,
           });
           markEdgeSynced(frame, r.edgeCellId, "#666");
         } catch {
@@ -771,14 +771,14 @@ export default function DiagramEditor() {
 
       for (const item of syncedFS) {
         try {
-          const fs = await api.get<FactSheet>(`/fact-sheets/${item.factSheetId}`);
-          if (fs.name !== item.name) {
+          const card = await api.get<Card>(`/cards/${item.cardId}`);
+          if (card.name !== item.name) {
             const typeInfo = fsTypesRef.current.find((t) => t.key === item.type);
             stale.push({
               cellId: item.cellId,
-              factSheetId: item.factSheetId,
+              cardId: item.cardId,
               diagramName: item.name,
-              inventoryName: fs.name,
+              inventoryName: card.name,
               typeColor: typeInfo?.color || "#999",
             });
           }
@@ -788,7 +788,7 @@ export default function DiagramEditor() {
       }
 
       setStaleItems(stale);
-      if (stale.length === 0) setSnackMsg("All fact sheets are up to date");
+      if (stale.length === 0) setSnackMsg("All cards are up to date");
     } finally {
       setCheckingUpdates(false);
     }
@@ -835,7 +835,7 @@ export default function DiagramEditor() {
               bootstrapDrawIO(frame);
               setTimeout(() => {
                 if (iframeRef.current) {
-                  refreshFactSheetOverlays(iframeRef.current, handleToggleGroup);
+                  refreshCardOverlays(iframeRef.current, handleToggleGroup);
                 }
               }, 200);
             } else if (attempt < 50) {
@@ -868,12 +868,12 @@ export default function DiagramEditor() {
           }
           break;
 
-        case "insertFactSheet":
+        case "insertCard":
           contextInsertPosRef.current = { x: msg.x ?? 100, y: msg.y ?? 100 };
           setPickerOpen(true);
           break;
 
-        case "createFactSheet":
+        case "createCard":
           contextInsertPosRef.current = { x: msg.x ?? 100, y: msg.y ?? 100 };
           setCreateOpen(true);
           break;
@@ -908,7 +908,7 @@ export default function DiagramEditor() {
   }, [syncOpen, refreshSyncPanel]);
 
   /* ---------- Derived ---------- */
-  const totalPending = pendingFS.length + pendingRels.length;
+  const totalPending = pendingCards.length + pendingRels.length;
 
   /* ---------- Render ---------- */
   if (loading) {
@@ -972,17 +972,17 @@ export default function DiagramEditor() {
       </Box>
 
       {/* Dialogs */}
-      <FactSheetPickerDialog
+      <CardPickerDialog
         open={pickerOpen}
         onClose={() => { setPickerOpen(false); contextInsertPosRef.current = null; }}
-        onInsert={handleInsertFactSheet}
+        onInsert={handleInsertCard}
       />
 
       <CreateOnDiagramDialog
         open={createOpen}
         types={fsTypes}
         onClose={() => { setCreateOpen(false); contextInsertPosRef.current = null; }}
-        onCreate={handleCreateFactSheet}
+        onCreate={handleCreateCard}
       />
 
       <RelationPickerDialog
@@ -996,7 +996,7 @@ export default function DiagramEditor() {
       <DiagramSyncPanel
         open={syncOpen}
         onClose={() => setSyncOpen(false)}
-        pendingFS={pendingFS}
+        pendingCards={pendingCards}
         pendingRels={pendingRels}
         staleItems={staleItems}
         syncing={syncing}

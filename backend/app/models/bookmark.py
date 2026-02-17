@@ -16,7 +16,7 @@ class Bookmark(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    fact_sheet_type: Mapped[str | None] = mapped_column(String(100))
+    card_type: Mapped[str | None] = mapped_column(String(100))
     filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     columns: Mapped[list | None] = mapped_column(JSONB, default=list)
     sort: Mapped[dict | None] = mapped_column(JSONB, default=dict)

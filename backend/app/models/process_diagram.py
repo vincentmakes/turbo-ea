@@ -10,7 +10,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class ProcessDiagram(Base, UUIDMixin, TimestampMixin):
-    """BPMN 2.0 diagram associated with a BusinessProcess fact sheet.
+    """BPMN 2.0 diagram associated with a BusinessProcess card.
     One process has at most one active diagram (latest version).
     """
 
@@ -18,7 +18,7 @@ class ProcessDiagram(Base, UUIDMixin, TimestampMixin):
 
     process_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("fact_sheets.id", ondelete="CASCADE"),
+        ForeignKey("cards.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -30,4 +30,4 @@ class ProcessDiagram(Base, UUIDMixin, TimestampMixin):
         ForeignKey("users.id"),
     )
 
-    process = relationship("FactSheet", lazy="selectin")
+    process = relationship("Card", lazy="selectin")

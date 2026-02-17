@@ -7,10 +7,10 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, UUIDMixin, TimestampMixin
 
 
-class FactSheetType(Base, UUIDMixin, TimestampMixin):
-    """Configurable metamodel: defines a fact sheet type with its field schema."""
+class CardType(Base, UUIDMixin, TimestampMixin):
+    """Configurable metamodel: defines a card type with its field schema."""
 
-    __tablename__ = "fact_sheet_types"
+    __tablename__ = "card_types"
 
     key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
     label: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -21,7 +21,7 @@ class FactSheetType(Base, UUIDMixin, TimestampMixin):
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
-    subscription_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
+    stakeholder_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

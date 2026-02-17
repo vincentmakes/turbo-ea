@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel
 
 
-class FactSheetCreate(BaseModel):
+class CardCreate(BaseModel):
     type: str
     subtype: str | None = None
     name: str
@@ -18,7 +18,7 @@ class FactSheetCreate(BaseModel):
     alias: str | None = None
 
 
-class FactSheetUpdate(BaseModel):
+class CardUpdate(BaseModel):
     name: str | None = None
     subtype: str | None = None
     description: str | None = None
@@ -30,9 +30,9 @@ class FactSheetUpdate(BaseModel):
     alias: str | None = None
 
 
-class FactSheetBulkUpdate(BaseModel):
+class CardBulkUpdate(BaseModel):
     ids: list[str]
-    updates: FactSheetUpdate
+    updates: CardUpdate
 
 
 class TagRef(BaseModel):
@@ -44,7 +44,7 @@ class TagRef(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class SubscriptionRef(BaseModel):
+class StakeholderRef(BaseModel):
     id: str
     user_id: str
     user_display_name: str | None = None
@@ -54,7 +54,7 @@ class SubscriptionRef(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class FactSheetResponse(BaseModel):
+class CardResponse(BaseModel):
     id: str
     type: str
     subtype: str | None = None
@@ -64,8 +64,8 @@ class FactSheetResponse(BaseModel):
     lifecycle: dict | None = None
     attributes: dict | None = None
     status: str
-    quality_seal: str
-    completion: float
+    approval_status: str
+    data_quality: float
     external_id: str | None = None
     alias: str | None = None
     created_by: str | None = None
@@ -73,13 +73,13 @@ class FactSheetResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     tags: list[TagRef] = []
-    subscriptions: list[SubscriptionRef] = []
+    stakeholders: list[StakeholderRef] = []
 
     model_config = {"from_attributes": True}
 
 
-class FactSheetListResponse(BaseModel):
-    items: list[FactSheetResponse]
+class CardListResponse(BaseModel):
+    items: list[CardResponse]
     total: int
     page: int
     page_size: int

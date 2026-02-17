@@ -7,14 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.permissions import (
     ADMIN_PERMISSIONS,
     BPM_ADMIN_PERMISSIONS,
-    DEFAULT_FS_PERMISSIONS_BY_ROLE,
+    DEFAULT_CARD_PERMISSIONS_BY_ROLE,
     MEMBER_PERMISSIONS,
     VIEWER_PERMISSIONS,
 )
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card_type import CardType
 from app.models.relation_type import RelationType
 from app.models.role import Role
-from app.models.subscription_role_definition import SubscriptionRoleDefinition
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 
 # ── Reusable option lists ──────────────────────────────────────────────
 
@@ -137,7 +137,7 @@ PROCESS_FREQUENCY_OPTIONS = [
     {"key": "continuous", "label": "Continuous"},
 ]
 
-# ── 14 Fact Sheet Types (from Meta_Model.xml + BPM) ──────────────────
+# ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [
     # -- Strategy & Transformation layer --
@@ -371,7 +371,7 @@ TYPES = [
                 ],
             },
         ],
-        "subscription_roles": [
+        "stakeholder_roles": [
             {"key": "responsible", "label": "Responsible"},
             {"key": "process_owner", "label": "Process Owner"},
             {"key": "observer", "label": "Observer"},
@@ -702,7 +702,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     ]
 
     # Load existing keys so we can skip or update
-    existing_types_result = await db.execute(select(FactSheetType))
+    existing_types_result = await db.execute(select(CardType))
     existing_types = {t.key: t for t in existing_types_result.scalars().all()}
 
     existing_rels_result = await db.execute(select(RelationType))
@@ -726,7 +726,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             continue
 
         roles = _app_roles if key == "Application" else _default_roles
-        fst = FactSheetType(
+        fst = CardType(
             key=key,
             label=t["label"],
             description=t.get("description"),
@@ -736,7 +736,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             has_hierarchy=t.get("has_hierarchy", False),
             subtypes=t.get("subtypes", []),
             fields_schema=t.get("fields_schema", []),
-            subscription_roles=t.get("subscription_roles", roles),
+            stakeholder_roles=t.get("stakeholder_roles", roles),
             built_in=True,
             is_hidden=t.get("is_hidden", False),
             sort_order=t.get("sort_order", i),
@@ -790,7 +790,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
         {
             "key": "member",
             "label": "Member",
-            "description": "Standard access to create, edit, and manage fact sheets.",
+            "description": "Standard access to create, edit, and manage cards.",
             "is_system": False,
             "is_default": True,
             "color": "#1976d2",
@@ -813,24 +813,24 @@ async def seed_metamodel(db: AsyncSession) -> None:
         if r["key"] not in existing_roles:
             db.add(Role(**r))
 
-    # ── Seed subscription role definitions ────────────────────────────────
-    # Flush first so that any newly-inserted fact_sheet_types rows are
-    # visible to the FK constraint on subscription_role_definitions.
+    # ── Seed stakeholder role definitions ──────────────────────────────────
+    # Flush first so that any newly-inserted card_types rows are
+    # visible to the FK constraint on stakeholder_role_definitions.
     await db.flush()
 
-    existing_srd_result = await db.execute(select(SubscriptionRoleDefinition))
+    existing_srd_result = await db.execute(select(StakeholderRoleDefinition))
     existing_srd_keys = {
-        (s.fact_sheet_type_key, s.key)
+        (s.card_type_key, s.key)
         for s in existing_srd_result.scalars().all()
     }
 
     for t in TYPES:
         type_key = t["key"]
-        # Use the type's explicit subscription_roles if provided,
+        # Use the type's explicit stakeholder_roles if provided,
         # otherwise fall back to the same defaults used when creating
-        # the FactSheetType above.
-        if "subscription_roles" in t:
-            roles_for_type = t["subscription_roles"]
+        # the CardType above.
+        if "stakeholder_roles" in t:
+            roles_for_type = t["stakeholder_roles"]
         elif type_key == "Application":
             roles_for_type = _app_roles
         else:
@@ -840,10 +840,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
             sr_key = sr["key"]
             if (type_key, sr_key) in existing_srd_keys:
                 continue
-            permissions = DEFAULT_FS_PERMISSIONS_BY_ROLE.get(sr_key, {})
+            permissions = DEFAULT_CARD_PERMISSIONS_BY_ROLE.get(sr_key, {})
             db.add(
-                SubscriptionRoleDefinition(
-                    fact_sheet_type_key=type_key,
+                StakeholderRoleDefinition(
+                    card_type_key=type_key,
                     key=sr_key,
                     label=sr["label"],
                     permissions=permissions,

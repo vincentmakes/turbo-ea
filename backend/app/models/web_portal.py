@@ -15,7 +15,7 @@ class WebPortal(Base, UUIDMixin, TimestampMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(200), nullable=False, unique=True, index=True)
     description: Mapped[str | None] = mapped_column(Text)
-    fact_sheet_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    card_type: Mapped[str] = mapped_column(String(100), nullable=False)
     filters: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     display_fields: Mapped[list | None] = mapped_column(JSONB, default=list)
     card_config: Mapped[dict | None] = mapped_column(JSONB, default=dict)

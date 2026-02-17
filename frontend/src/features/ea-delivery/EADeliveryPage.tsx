@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
+import MuiCard from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import Chip from "@mui/material/Chip";
 import Checkbox from "@mui/material/Checkbox";
@@ -37,7 +37,7 @@ import Paper from "@mui/material/Paper";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheet, SoAW, DiagramSummary, Relation } from "@/types";
+import type { Card, SoAW, DiagramSummary, Relation } from "@/types";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -72,7 +72,7 @@ const INITIATIVE_STATUS_LABELS: Record<string, string> = {
 };
 
 interface InitiativeGroup {
-  initiative: FactSheet;
+  initiative: Card;
   diagrams: DiagramSummary[];
   soaws: SoAW[];
 }
@@ -86,7 +86,7 @@ export default function EADeliveryPage() {
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
 
-  const [initiatives, setInitiatives] = useState<FactSheet[]>([]);
+  const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
   const [relations, setRelations] = useState<Relation[]>([]);
@@ -133,8 +133,8 @@ export default function EADeliveryPage() {
     try {
       const statusParam = statusFilter ? `&status=${statusFilter}` : "&status=ACTIVE,ARCHIVED";
       const [initRes, diagRes, soawRes] = await Promise.all([
-        api.get<{ items: FactSheet[] }>(
-          `/fact-sheets?type=Initiative&page_size=500${statusParam}`,
+        api.get<{ items: Card[] }>(
+          `/cards?type=Initiative&page_size=500${statusParam}`,
         ),
         api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
@@ -174,7 +174,7 @@ export default function EADeliveryPage() {
           const batch = initiatives.slice(i, i + batchSize);
           const results = await Promise.all(
             batch.map((init) =>
-              api.get<Relation[]>(`/relations?fact_sheet_id=${init.id}`),
+              api.get<Relation[]>(`/relations?card_id=${init.id}`),
             ),
           );
           if (cancelled) return;
@@ -369,7 +369,7 @@ export default function EADeliveryPage() {
   // ── shared card renderers ──────────────────────────────────────────────
 
   const renderDiagramCard = (d: DiagramSummary, initiativeId?: string) => (
-    <Card key={`d-${d.id}-${initiativeId ?? ""}`} variant="outlined" sx={{ mb: 1 }}>
+    <MuiCard key={`d-${d.id}-${initiativeId ?? ""}`} variant="outlined" sx={{ mb: 1 }}>
       <CardActionArea
         onClick={() => navigate(`/diagrams/${d.id}`)}
         sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
@@ -405,11 +405,11 @@ export default function EADeliveryPage() {
           </Tooltip>
         )}
       </CardActionArea>
-    </Card>
+    </MuiCard>
   );
 
   const renderSoawCard = (s: SoAW) => (
-    <Card key={`s-${s.id}`} variant="outlined" sx={{ mb: 1 }}>
+    <MuiCard key={`s-${s.id}`} variant="outlined" sx={{ mb: 1 }}>
       <CardActionArea
         onClick={() => navigate(`/ea-delivery/soaw/${s.id}`)}
         sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
@@ -454,7 +454,7 @@ export default function EADeliveryPage() {
           <MaterialSymbol icon="more_vert" size={18} />
         </IconButton>
       </CardActionArea>
-    </Card>
+    </MuiCard>
   );
 
   // ── list view renderer ────────────────────────────────────────────────
@@ -521,7 +521,7 @@ export default function EADeliveryPage() {
                       // Remove bottom border when expanded so the sub-row connects visually
                       ...(isRowOpen && { "& > td": { borderBottom: "none" } }),
                     }}
-                    onClick={() => navigate(`/fact-sheets/${init.id}`)}
+                    onClick={() => navigate(`/cards/${init.id}`)}
                   >
                     {/* Name */}
                     <TableCell>
@@ -892,7 +892,7 @@ export default function EADeliveryPage() {
             const artefactCount = initSoaws.length + initDiagrams.length;
 
             return (
-              <Card
+              <MuiCard
                 key={initiative.id}
                 sx={{
                   mb: 2,
@@ -1022,13 +1022,13 @@ export default function EADeliveryPage() {
                     {initSoaws.map(renderSoawCard)}
                   </Box>
                 </Collapse>
-              </Card>
+              </MuiCard>
             );
           })}
 
           {/* Unlinked artefacts */}
           {(unlinkedSoaws.length > 0 || unlinkedDiagrams.length > 0) && (
-            <Card sx={{ mb: 2, borderLeft: "4px solid #999" }}>
+            <MuiCard sx={{ mb: 2, borderLeft: "4px solid #999" }}>
               <Box
                 sx={{
                   display: "flex",
@@ -1064,7 +1064,7 @@ export default function EADeliveryPage() {
                   {unlinkedSoaws.map(renderSoawCard)}
                 </Box>
               </Collapse>
-            </Card>
+            </MuiCard>
           )}
         </>
       )}

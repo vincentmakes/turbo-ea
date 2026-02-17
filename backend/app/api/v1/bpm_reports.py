@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
+from app.models.card import Card
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
 from app.models.relation import Relation
@@ -27,11 +27,11 @@ async def bpm_dashboard(
 ):
     """BPM KPIs: counts, maturity distribution, automation levels, risk."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    # All active BusinessProcess fact sheets
+    # All active BusinessProcess cards
     result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
         )
     )
     processes = result.scalars().all()
@@ -99,7 +99,7 @@ async def capability_process_matrix(
     result = await db.execute(select(Relation).where(Relation.type == "relProcessToBC"))
     rels = result.scalars().all()
 
-    # Load the related fact sheets
+    # Load the related cards
     process_ids = {r.source_id for r in rels}
     cap_ids = {r.target_id for r in rels}
     all_ids = process_ids | cap_ids
@@ -107,11 +107,11 @@ async def capability_process_matrix(
     if not all_ids:
         return {"rows": [], "columns": [], "cells": []}
 
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id.in_(all_ids)))
-    fs_map = {fs.id: fs for fs in fs_result.scalars().all()}
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    card_map = {card.id: card for card in card_result.scalars().all()}
 
-    rows = [{"id": str(pid), "name": fs_map[pid].name} for pid in process_ids if pid in fs_map]
-    columns = [{"id": str(cid), "name": fs_map[cid].name} for cid in cap_ids if cid in fs_map]
+    rows = [{"id": str(pid), "name": card_map[pid].name} for pid in process_ids if pid in card_map]
+    columns = [{"id": str(cid), "name": card_map[cid].name} for cid in cap_ids if cid in card_map]
     cells = [
         {
             "process_id": str(r.source_id),
@@ -175,11 +175,11 @@ async def process_application_matrix(
     if not all_ids:
         return {"rows": [], "columns": [], "cells": []}
 
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id.in_(all_ids)))
-    fs_map = {fs.id: fs for fs in fs_result.scalars().all()}
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    card_map = {card.id: card for card in card_result.scalars().all()}
 
-    rows = [{"id": str(pid), "name": fs_map[pid].name} for pid in process_ids if pid in fs_map]
-    columns = [{"id": str(aid), "name": fs_map[aid].name} for aid in app_ids if aid in fs_map]
+    rows = [{"id": str(pid), "name": card_map[pid].name} for pid in process_ids if pid in card_map]
+    columns = [{"id": str(aid), "name": card_map[aid].name} for aid in app_ids if aid in card_map]
 
     return {"rows": rows, "columns": columns, "cells": cells}
 
@@ -210,15 +210,15 @@ async def process_dependencies(
     if not node_ids:
         return {"nodes": [], "edges": []}
 
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id.in_(node_ids)))
+    card_result = await db.execute(select(Card).where(Card.id.in_(node_ids)))
     nodes = [
         {
-            "id": str(fs.id),
-            "name": fs.name,
-            "subtype": fs.subtype,
-            "attributes": fs.attributes or {},
+            "id": str(card.id),
+            "name": card.name,
+            "subtype": card.subtype,
+            "attributes": card.attributes or {},
         }
-        for fs in fs_result.scalars().all()
+        for card in card_result.scalars().all()
     ]
 
     return {"nodes": nodes, "edges": edges}
@@ -237,9 +237,9 @@ async def capability_heatmap(
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # Load capabilities
     cap_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessCapability",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.type == "BusinessCapability",
+            Card.status == "ACTIVE",
         )
     )
     capabilities = cap_result.scalars().all()
@@ -318,17 +318,17 @@ async def element_application_map(
     if not all_ids:
         return []
 
-    fs_result = await db.execute(select(FactSheet).where(FactSheet.id.in_(all_ids)))
-    fs_map = {str(fs.id): fs.name for fs in fs_result.scalars().all()}
+    card_result = await db.execute(select(Card).where(Card.id.in_(all_ids)))
+    card_map = {str(card.id): card.name for card in card_result.scalars().all()}
 
     result_list = []
     for app_id, elems in grouped.items():
         for elem in elems:
-            elem["process_name"] = fs_map.get(elem["process_id"], "")
+            elem["process_name"] = card_map.get(elem["process_id"], "")
         result_list.append(
             {
                 "application_id": app_id,
-                "application_name": fs_map.get(app_id, ""),
+                "application_name": card_map.get(app_id, ""),
                 "elements": elems,
             }
         )
@@ -343,12 +343,12 @@ async def process_map(
 ):
     """Process landscape map: hierarchy + related apps, data objects, orgs, contexts."""
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
-    # All active BusinessProcess fact sheets
+    # All active BusinessProcess cards
     proc_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     processes = proc_result.scalars().all()
     proc_ids = [p.id for p in processes]
@@ -358,32 +358,32 @@ async def process_map(
 
     # All Applications
     app_result = await db.execute(
-        select(FactSheet).where(FactSheet.type == "Application", FactSheet.status == "ACTIVE")
+        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
     )
     apps = app_result.scalars().all()
     app_map = {a.id: a for a in apps}
 
     # All DataObjects
     do_result = await db.execute(
-        select(FactSheet).where(FactSheet.type == "DataObject", FactSheet.status == "ACTIVE")
+        select(Card).where(Card.type == "DataObject", Card.status == "ACTIVE")
     )
     data_objects = do_result.scalars().all()
     do_map = {d.id: d for d in data_objects}
 
     # All Organizations (for filtering)
     org_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "Organization", FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "Organization", Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     orgs = org_result.scalars().all()
     org_map = {o.id: o for o in orgs}
 
     # All BusinessContexts (for filtering)
     ctx_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessContext", FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "BusinessContext", Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     contexts = ctx_result.scalars().all()
     ctx_map = {c.id: c for c in contexts}
@@ -535,10 +535,10 @@ async def value_stream_matrix(
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # All active BusinessProcesses
     proc_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessProcess",
-            FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "BusinessProcess",
+            Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     processes = proc_result.scalars().all()
     proc_map = {p.id: p for p in processes}
@@ -548,28 +548,28 @@ async def value_stream_matrix(
 
     # All Organizations (rows) — with hierarchy data
     org_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "Organization",
-            FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "Organization",
+            Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     orgs = org_result.scalars().all()
 
     # Value Stream contexts only (columns)
     ctx_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "BusinessContext",
-            FactSheet.subtype == "valueStream",
-            FactSheet.status == "ACTIVE",
-        ).order_by(FactSheet.name)
+        select(Card).where(
+            Card.type == "BusinessContext",
+            Card.subtype == "valueStream",
+            Card.status == "ACTIVE",
+        ).order_by(Card.name)
     )
     contexts = ctx_result.scalars().all()
 
     # All Applications for linking
     app_result = await db.execute(
-        select(FactSheet).where(
-            FactSheet.type == "Application",
-            FactSheet.status == "ACTIVE",
+        select(Card).where(
+            Card.type == "Application",
+            Card.status == "ACTIVE",
         )
     )
     apps = app_result.scalars().all()

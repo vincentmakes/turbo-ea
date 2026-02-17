@@ -1,18 +1,18 @@
 import * as XLSX from "xlsx";
-import type { FactSheet, FactSheetType } from "@/types";
+import type { Card, CardType } from "@/types";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 
 /**
- * Export the given fact sheets to an XLSX file and trigger a download.
+ * Export the given cards to an XLSX file and trigger a download.
  *
  * When a single type is selected its attribute fields are expanded into
  * individual columns.  Otherwise only the core columns are exported.
  */
 export function exportToExcel(
-  factSheets: FactSheet[],
-  typeConfig: FactSheetType | undefined,
-  _allTypes: FactSheetType[],
+  cards: Card[],
+  typeConfig: CardType | undefined,
+  _allTypes: CardType[],
 ) {
   const rows: Record<string, unknown>[] = [];
 
@@ -21,28 +21,28 @@ export function exportToExcel(
     ? typeConfig.fields_schema.flatMap((s) => s.fields)
     : [];
 
-  for (const fs of factSheets) {
+  for (const card of cards) {
     const row: Record<string, unknown> = {
-      id: fs.id,
-      type: fs.type,
-      name: fs.name,
-      description: fs.description ?? "",
-      subtype: fs.subtype ?? "",
-      parent_id: fs.parent_id ?? "",
-      external_id: fs.external_id ?? "",
-      alias: fs.alias ?? "",
-      quality_seal: fs.quality_seal ?? "",
+      id: card.id,
+      type: card.type,
+      name: card.name,
+      description: card.description ?? "",
+      subtype: card.subtype ?? "",
+      parent_id: card.parent_id ?? "",
+      external_id: card.external_id ?? "",
+      alias: card.alias ?? "",
+      approval_status: card.approval_status ?? "",
     };
 
     // Flatten lifecycle phases
-    const lc = fs.lifecycle || {};
+    const lc = card.lifecycle || {};
     for (const phase of LIFECYCLE_PHASES) {
       row[`lifecycle_${phase}`] = lc[phase] ?? "";
     }
 
     // Type-specific attribute columns
     for (const field of attrFields) {
-      const val = (fs.attributes || {})[field.key];
+      const val = (card.attributes || {})[field.key];
       if (field.type === "multiple_select" && Array.isArray(val)) {
         row[`attr_${field.key}`] = val.join(", ");
       } else {
@@ -67,10 +67,10 @@ export function exportToExcel(
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Fact Sheets");
+  XLSX.utils.book_append_sheet(wb, ws, "Cards");
 
   // Build filename
-  const typeLabel = typeConfig?.label ?? "fact_sheets";
+  const typeLabel = typeConfig?.label ?? "cards";
   const date = new Date().toISOString().slice(0, 10);
   XLSX.writeFile(wb, `${typeLabel}_export_${date}.xlsx`);
 }

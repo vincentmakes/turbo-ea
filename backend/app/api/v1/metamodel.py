@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.fact_sheet import FactSheet
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.models.subscription import Subscription
+from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
-def _serialize_type(t: FactSheetType) -> dict:
+def _serialize_type(t: CardType) -> dict:
     return {
         "key": t.key,
         "label": t.label,
@@ -30,7 +30,7 @@ def _serialize_type(t: FactSheetType) -> dict:
         "has_hierarchy": t.has_hierarchy,
         "subtypes": t.subtypes or [],
         "fields_schema": t.fields_schema or [],
-        "subscription_roles": t.subscription_roles or [],
+        "stakeholder_roles": t.stakeholder_roles or [],
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -53,7 +53,7 @@ def _serialize_relation_type(r: RelationType) -> dict:
     }
 
 
-# ── Fact Sheet Types ───────────────────────────────────────────────────
+# ── Card Types ─────────────────────────────────────────────────────────
 
 @router.get("/types")
 async def list_types(
@@ -61,19 +61,19 @@ async def list_types(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    q = select(FactSheetType).order_by(FactSheetType.sort_order)
+    q = select(CardType).order_by(CardType.sort_order)
     if not include_hidden:
-        q = q.where(FactSheetType.is_hidden == False)  # noqa: E712
+        q = q.where(CardType.is_hidden == False)  # noqa: E712
     result = await db.execute(q)
     return [_serialize_type(t) for t in result.scalars().all()]
 
 
 @router.get("/types/{key}")
 async def get_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
+    result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
     if not t:
-        raise HTTPException(404, "Fact sheet type not found")
+        raise HTTPException(404, "Card type not found")
     return _serialize_type(t)
 
 
@@ -81,20 +81,20 @@ async def get_type(key: str, db: AsyncSession = Depends(get_db), user: User = De
 async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     existing = await db.execute(
-        select(FactSheetType).where(FactSheetType.key == body.get("key", ""))
+        select(CardType).where(CardType.key == body.get("key", ""))
     )
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Type key already exists")
 
     # Determine next sort_order
-    max_order = await db.execute(select(func.max(FactSheetType.sort_order)))
+    max_order = await db.execute(select(func.max(CardType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
     default_roles = [
         {"key": "responsible", "label": "Responsible"},
         {"key": "observer", "label": "Observer"},
     ]
-    t = FactSheetType(
+    t = CardType(
         key=body["key"],
         label=body["label"],
         description=body.get("description"),
@@ -104,7 +104,7 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User
         has_hierarchy=body.get("has_hierarchy", False),
         subtypes=body.get("subtypes", []),
         fields_schema=body.get("fields_schema", []),
-        subscription_roles=body.get("subscription_roles", default_roles),
+        stakeholder_roles=body.get("stakeholder_roles", default_roles),
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -118,37 +118,37 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User
 @router.patch("/types/{key}")
 async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
+    result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
     if not t:
         raise HTTPException(404, "Type not found")
 
-    # Prevent removing subscription roles that are in use
-    if "subscription_roles" in body:
-        old_keys = {r["key"] for r in (t.subscription_roles or [])}
-        new_keys = {r["key"] for r in (body["subscription_roles"] or [])}
+    # Prevent removing stakeholder roles that are in use
+    if "stakeholder_roles" in body:
+        old_keys = {r["key"] for r in (t.stakeholder_roles or [])}
+        new_keys = {r["key"] for r in (body["stakeholder_roles"] or [])}
         removed = old_keys - new_keys
         if removed:
-            # Check if any subscriptions use the removed roles on fact sheets of this type
+            # Check if any stakeholders use the removed roles on cards of this type
             in_use = (
                 await db.execute(
-                    select(Subscription.role, func.count(Subscription.id))
-                    .join(FactSheet, Subscription.fact_sheet_id == FactSheet.id)
-                    .where(FactSheet.type == key, Subscription.role.in_(removed))
-                    .group_by(Subscription.role)
+                    select(Stakeholder.role, func.count(Stakeholder.id))
+                    .join(Card, Stakeholder.card_id == Card.id)
+                    .where(Card.type == key, Stakeholder.role.in_(removed))
+                    .group_by(Stakeholder.role)
                 )
             ).all()
             if in_use:
-                details = ", ".join(f"'{r}' ({c} subscription(s))" for r, c in in_use)
+                details = ", ".join(f"'{r}' ({c} stakeholder(s))" for r, c in in_use)
                 raise HTTPException(
                     400,
                     f"Cannot remove roles that are in use: {details}. "
-                    "Remove the subscriptions first.",
+                    "Remove the stakeholder assignments first.",
                 )
 
     updatable = [
         "label", "description", "icon", "color", "category",
-        "has_hierarchy", "subtypes", "fields_schema", "subscription_roles",
+        "has_hierarchy", "subtypes", "fields_schema", "stakeholder_roles",
         "sort_order", "is_hidden",
     ]
     for field in updatable:
@@ -163,14 +163,14 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
 @router.delete("/types/{key}")
 async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(select(FactSheetType).where(FactSheetType.key == key))
+    result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
     if not t:
         raise HTTPException(404, "Type not found")
 
-    # Check for existing fact sheets of this type
+    # Check for existing cards of this type
     count_result = await db.execute(
-        select(func.count()).select_from(FactSheet).where(FactSheet.type == key)
+        select(func.count()).select_from(Card).where(Card.type == key)
     )
     instance_count = count_result.scalar() or 0
 
@@ -183,7 +183,7 @@ async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User =
     if instance_count > 0:
         raise HTTPException(
             400,
-            f"Cannot delete type '{key}': {instance_count} fact sheet(s) exist. "
+            f"Cannot delete type '{key}': {instance_count} card(s) exist. "
             "Delete them first or hide the type instead.",
         )
 
@@ -253,7 +253,7 @@ async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), u
         if not type_key:
             raise HTTPException(400, f"{fk} is required")
         exists = await db.execute(
-            select(FactSheetType.key).where(FactSheetType.key == type_key)
+            select(CardType.key).where(CardType.key == type_key)
         )
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")

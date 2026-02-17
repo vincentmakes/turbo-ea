@@ -1,8 +1,8 @@
 /**
- * ProcessFlowTab — Rendered inside FactSheetDetail for BusinessProcess.
+ * ProcessFlowTab — Rendered inside CardDetail for BusinessProcess.
  *
  * Three sub-tabs:
- *   Published — The current approved process flow (read-only, watermark + seal).
+ *   Published — The current approved process flow (read-only, watermark + approval status).
  *   Drafts    — Work-in-progress flows visible to member/bpm_admin/admin/process_owner/responsible/observer.
  *   Archived  — Previously published versions (read-only list with revision + archival date).
  */
@@ -52,7 +52,7 @@ interface Props {
   initialSubTab?: number;
 }
 
-interface FsOption {
+interface CardOption {
   id: string;
   name: string;
 }
@@ -96,7 +96,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // Element editing state
   const [editingCell, setEditingCell] = useState<{ elementId: string; field: string } | null>(null);
-  const [fsOptions, setFsOptions] = useState<FsOption[]>([]);
+  const [cardOptions, setCardOptions] = useState<CardOption[]>([]);
   const [fsLoading, setFsLoading] = useState(false);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [snack, setSnack] = useState("");
@@ -175,21 +175,21 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Fact sheet search for element editing ─────────────────────────────
 
-  const searchFactSheets = (query: string, type: string) => {
+  const searchCards = (query: string, type: string) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     if (!query || query.length < 2) {
-      setFsOptions([]);
+      setCardOptions([]);
       return;
     }
     setFsLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
-        const res = await api.get<{ items: FsOption[] }>(
-          `/fact-sheets?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
+        const res = await api.get<{ items: CardOption[] }>(
+          `/cards?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
         );
-        setFsOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
+        setCardOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
       } catch {
-        setFsOptions([]);
+        setCardOptions([]);
       } finally {
         setFsLoading(false);
       }
@@ -206,7 +206,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack("Failed to update element");
     }
     setEditingCell(null);
-    setFsOptions([]);
+    setCardOptions([]);
   };
 
   // ── Actions ──────────────────────────────────────────────────────────
@@ -323,7 +323,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setSnack("Failed to update draft element link");
     }
     setEditingCell(null);
-    setFsOptions([]);
+    setCardOptions([]);
   };
 
   const toggleDraftPreview = async (draftId: string) => {
@@ -464,7 +464,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const renderEditableCell = (
     element: ProcessElement,
     field: "application" | "data_object" | "it_component",
-    fsType: string,
+    cardTypeKey: string,
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
     elementId: string,
   ) => {
@@ -476,21 +476,21 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       return (
         <Autocomplete
           size="small"
-          options={fsOptions}
+          options={cardOptions}
           getOptionLabel={(o) => o.name}
           loading={fsLoading}
-          onInputChange={(_, val) => searchFactSheets(val, fsType)}
+          onInputChange={(_, val) => searchCards(val, cardTypeKey)}
           onChange={(_, val) => {
             onUpdate(elementId, { [`${field}_id`]: val?.id || "" });
           }}
-          onBlur={() => { setEditingCell(null); setFsOptions([]); }}
+          onBlur={() => { setEditingCell(null); setCardOptions([]); }}
           openOnFocus
           autoFocus
           sx={{ minWidth: 160 }}
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder={`Search ${fsType}...`}
+              placeholder={`Search ${cardTypeKey}...`}
               variant="outlined"
               size="small"
               autoFocus
@@ -503,7 +503,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     return (
       <Box
-        onClick={() => { setEditingCell({ elementId, field }); setFsOptions([]); }}
+        onClick={() => { setEditingCell({ elementId, field }); setCardOptions([]); }}
         sx={linkCellSx}
       >
         {currentName ? (
@@ -517,7 +517,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">Link {fsType}</Typography>
+            <Typography variant="caption" color="text.disabled">Link {cardTypeKey}</Typography>
           </Box>
         )}
       </Box>

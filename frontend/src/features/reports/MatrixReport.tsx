@@ -228,7 +228,7 @@ export default function MatrixReport() {
                     }}
                     onMouseEnter={() => setHoveredCol(c.id)}
                     onMouseLeave={() => setHoveredCol(null)}
-                    onClick={() => navigate(`/fact-sheets/${c.id}`)}
+                    onClick={() => navigate(`/cards/${c.id}`)}
                   >
                     {c.name.length > 24 ? c.name.slice(0, 23) + "…" : c.name}
                   </th>
@@ -272,7 +272,7 @@ export default function MatrixReport() {
                       }}
                       onMouseEnter={() => setHoveredRow(r.id)}
                       onMouseLeave={() => setHoveredRow(null)}
-                      onClick={() => navigate(`/fact-sheets/${r.id}`)}
+                      onClick={() => navigate(`/cards/${r.id}`)}
                     >
                       <Tooltip title={r.name} placement="right">
                         <span>{r.name}</span>
@@ -408,10 +408,10 @@ export default function MatrixReport() {
               </Typography>
               <Chip size="small" label={`${getCellValue(popover.rowId, popover.colId)} relation(s)`} variant="outlined" sx={{ mb: 1 }} />
               <List dense disablePadding>
-                <ListItemButton onClick={() => { setPopover(null); navigate(`/fact-sheets/${popover.rowId}`); }}>
+                <ListItemButton onClick={() => { setPopover(null); navigate(`/cards/${popover.rowId}`); }}>
                   <ListItemText primary={row?.name} secondary={rowLabel} />
                 </ListItemButton>
-                <ListItemButton onClick={() => { setPopover(null); navigate(`/fact-sheets/${popover.colId}`); }}>
+                <ListItemButton onClick={() => { setPopover(null); navigate(`/cards/${popover.colId}`); }}>
                   <ListItemText primary={col?.name} secondary={colLabel} />
                 </ListItemButton>
               </List>

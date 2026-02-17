@@ -627,7 +627,7 @@ export default function ProcessMapReport() {
   const handleItemClick = useCallback(
     (id: string) => {
       setDrawer(null);
-      navigate(`/fact-sheets/${id}`);
+      navigate(`/cards/${id}`);
     },
     [navigate],
   );
@@ -954,7 +954,7 @@ export default function ProcessMapReport() {
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                label="Open Fact Sheet"
+                label="Open Card"
                 onClick={() => handleItemClick(drawer.id)}
                 sx={{ cursor: "pointer" }}
               />

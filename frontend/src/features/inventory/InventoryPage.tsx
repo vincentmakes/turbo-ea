@@ -23,18 +23,18 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import CreateFactSheetDialog from "@/components/CreateFactSheetDialog";
+import CreateCardDialog from "@/components/CreateCardDialog";
 import InventoryFilterSidebar, { type Filters } from "./InventoryFilterSidebar";
 import ImportDialog from "./ImportDialog";
 import { exportToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
-import type { FactSheet, FactSheetListResponse, FieldDef, Relation, RelationType } from "@/types";
+import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
-const SEAL_COLORS: Record<string, string> = {
+const APPROVAL_STATUS_COLORS: Record<string, string> = {
   DRAFT: "#9e9e9e",
   APPROVED: "#4caf50",
   BROKEN: "#ff9800",
@@ -44,17 +44,17 @@ const SEAL_COLORS: Record<string, string> = {
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
 /**
- * Pre-compute hierarchy display paths from raw fact sheet data.
+ * Pre-compute hierarchy display paths from raw card data.
  * Reads names and parent_ids once into plain-string maps, then builds
  * each path by walking the parent chain.  The result is a Map<id, path>
  * that is completely detached from the original data objects.
  */
-function buildHierarchyPaths(items: FactSheet[]): Map<string, string> {
+function buildHierarchyPaths(items: Card[]): Map<string, string> {
   const names = new Map<string, string>();
   const parents = new Map<string, string>();
-  for (const fs of items) {
-    names.set(fs.id, fs.name);
-    if (fs.parent_id) parents.set(fs.id, fs.parent_id);
+  for (const card of items) {
+    names.set(card.id, card.name);
+    if (card.parent_id) parents.set(card.id, card.parent_id);
   }
 
   const cache = new Map<string, string>();
@@ -75,14 +75,14 @@ function buildHierarchyPaths(items: FactSheet[]): Map<string, string> {
     return path;
   }
 
-  for (const fs of items) {
-    resolve(fs.id, new Set([fs.id]));
+  for (const card of items) {
+    resolve(card.id, new Set([card.id]));
   }
   return cache;
 }
 
 /**
- * Build a lookup: for each relation type, map factSheetId → array of related names.
+ * Build a lookup: for each relation type, map cardId → array of related names.
  * When the selected type is the source, we index by source_id and show target names.
  * When the selected type is the target, we index by target_id and show source names.
  */
@@ -131,20 +131,20 @@ export default function InventoryPage() {
     return {
       types: searchParams.get("type") ? [searchParams.get("type")!] : [],
       search: searchParams.get("search") || "",
-      qualitySeals: searchParams.get("quality_seal") ? [searchParams.get("quality_seal")!] : [],
+      approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
       attributes,
       relations: {},
     };
   });
 
-  const [data, setData] = useState<FactSheet[]>([]);
+  const [data, setData] = useState<Card[]>([]);
   const [, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [gridEditMode, setGridEditMode] = useState(false);
 
-  // Relations data: relTypeKey → Map<factSheetId, relatedNames[]>
+  // Relations data: relTypeKey → Map<cardId, relatedNames[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
 
   // Mass edit state
@@ -186,19 +186,19 @@ export default function InventoryPage() {
       const params = new URLSearchParams();
       if (filters.types.length === 1) params.set("type", filters.types[0]);
       if (filters.search) params.set("search", filters.search);
-      if (filters.qualitySeals.length > 0) {
-        params.set("quality_seal", filters.qualitySeals.join(","));
+      if (filters.approvalStatuses.length > 0) {
+        params.set("approval_status", filters.approvalStatuses.join(","));
       }
       params.set("page_size", "500");
-      const res = await api.get<FactSheetListResponse>(
-        `/fact-sheets?${params}`
+      const res = await api.get<CardListResponse>(
+        `/cards?${params}`
       );
       setData(res.items);
       setTotal(res.total);
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.qualitySeals]);
+  }, [filters.types, filters.search, filters.approvalStatuses]);
 
   useEffect(() => {
     loadData();
@@ -249,14 +249,14 @@ export default function InventoryPage() {
 
     // When multiple types selected, filter client-side (API only supports single type)
     if (filters.types.length > 1) {
-      result = result.filter((fs) => filters.types.includes(fs.type));
+      result = result.filter((card) => filters.types.includes(card.type));
     }
 
     // Attribute filters (client-side)
     const attrEntries = Object.entries(filters.attributes);
     if (attrEntries.length > 0) {
-      result = result.filter((fs) => {
-        const attrs = fs.attributes || {};
+      result = result.filter((card) => {
+        const attrs = card.attributes || {};
         return attrEntries.every(([key, val]) => attrs[key] === val);
       });
     }
@@ -264,11 +264,11 @@ export default function InventoryPage() {
     // Relation filters (client-side)
     const relEntries = Object.entries(filters.relations || {});
     if (relEntries.length > 0) {
-      result = result.filter((fs) => {
+      result = result.filter((card) => {
         return relEntries.every(([relTypeKey, relatedName]) => {
           const index = relationsMap.get(relTypeKey);
           if (!index) return false;
-          const names = index.get(fs.id);
+          const names = index.get(card.id);
           return names?.includes(relatedName) ?? false;
         });
       });
@@ -278,18 +278,18 @@ export default function InventoryPage() {
   }, [data, filters.types, filters.attributes, filters.relations, relationsMap]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
-    const fs = event.data as FactSheet;
+    const card = event.data as Card;
     const field = event.colDef.field!;
     if (field === "name" || field === "description") {
-      await api.patch(`/fact-sheets/${fs.id}`, { [field]: event.newValue });
+      await api.patch(`/cards/${card.id}`, { [field]: event.newValue });
     } else if (field.startsWith("attr_")) {
       const key = field.replace("attr_", "");
       const fieldDef = typeConfig?.fields_schema
         .flatMap((s) => s.fields)
         .find((f) => f.key === key);
       if (fieldDef?.readonly) return;
-      const attrs = { ...fs.attributes, [key]: event.newValue };
-      await api.patch(`/fact-sheets/${fs.id}`, { attributes: attrs });
+      const attrs = { ...card.attributes, [key]: event.newValue };
+      await api.patch(`/cards/${card.id}`, { attributes: attrs });
     }
   };
 
@@ -302,19 +302,19 @@ export default function InventoryPage() {
     attributes?: Record<string, unknown>;
     lifecycle?: Record<string, string>;
   }) => {
-    await api.post("/fact-sheets", createData);
+    await api.post("/cards", createData);
     loadData();
   };
 
   const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {
-    const rows = event.api.getSelectedRows() as FactSheet[];
+    const rows = event.api.getSelectedRows() as Card[];
     setSelectedIds(rows.map((r) => r.id));
   }, []);
 
   // Mass-editable fields for current type
   const massEditableFields = useMemo(() => {
     const fields: { key: string; label: string; fieldDef?: FieldDef; isCore: boolean }[] = [
-      { key: "quality_seal", label: "Quality Seal", isCore: true },
+      { key: "approval_status", label: "Approval Status", isCore: true },
     ];
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
       fields.push({ key: "subtype", label: "Subtype", isCore: true });
@@ -337,13 +337,13 @@ export default function InventoryPage() {
     setMassEditLoading(true);
     setMassEditError("");
     try {
-      if (massEditField === "quality_seal") {
+      if (massEditField === "approval_status") {
         const action = massEditValue === "APPROVED" ? "approve" : massEditValue === "REJECTED" ? "reject" : "reset";
         await Promise.all(
-          selectedIds.map((id) => api.post(`/fact-sheets/${id}/quality-seal?action=${action}`))
+          selectedIds.map((id) => api.post(`/cards/${id}/approval-status?action=${action}`))
         );
       } else if (massEditField === "subtype") {
-        await api.patch("/fact-sheets/bulk", {
+        await api.patch("/cards/bulk", {
           ids: selectedIds,
           updates: { subtype: massEditValue || null },
         });
@@ -353,7 +353,7 @@ export default function InventoryPage() {
           selectedIds.map((id) => {
             const existing = data.find((d) => d.id === id);
             const attrs = { ...(existing?.attributes || {}), [attrKey]: massEditValue || null };
-            return api.patch(`/fact-sheets/${id}`, { attributes: attrs });
+            return api.patch(`/cards/${id}`, { attributes: attrs });
           })
         );
       }
@@ -445,7 +445,7 @@ export default function InventoryPage() {
       {
         headerName: "Lifecycle",
         width: 120,
-        valueGetter: (p: { data: FactSheet }) => {
+        valueGetter: (p: { data: Card }) => {
           const lc = p.data?.lifecycle || {};
           const now = new Date().toISOString().slice(0, 10);
           for (const phase of [
@@ -461,11 +461,11 @@ export default function InventoryPage() {
         },
       },
       {
-        field: "quality_seal",
-        headerName: "Seal",
+        field: "approval_status",
+        headerName: "Approval Status",
         width: 110,
         cellRenderer: (p: { value: string }) => {
-          const color = SEAL_COLORS[p.value];
+          const color = APPROVAL_STATUS_COLORS[p.value];
           if (!color) return "";
           const labels: Record<string, string> = {
             DRAFT: "Draft",
@@ -483,8 +483,8 @@ export default function InventoryPage() {
         },
       },
       {
-        field: "completion",
-        headerName: "Completion",
+        field: "data_quality",
+        headerName: "Data Quality",
         width: 130,
         cellRenderer: (p: { value: number }) => {
           const v = Math.round(p.value || 0);
@@ -529,7 +529,7 @@ export default function InventoryPage() {
             headerName: field.label,
             width: 150,
             editable: gridEditMode && !field.readonly,
-            valueGetter: (p: { data: FactSheet }) =>
+            valueGetter: (p: { data: Card }) =>
               (p.data?.attributes || {})[field.key] ?? "",
             valueSetter: (p) => {
               if (!p.data.attributes) p.data.attributes = {};
@@ -579,12 +579,12 @@ export default function InventoryPage() {
         field: `rel_${rt.key}`,
         headerName,
         width: 180,
-        valueGetter: (p: { data: FactSheet }) => {
+        valueGetter: (p: { data: Card }) => {
           if (!index) return "";
           const names = index.get(p.data?.id);
           return names ? names.join("; ") : "";
         },
-        cellRenderer: (p: { value: string; data: FactSheet }) => {
+        cellRenderer: (p: { value: string; data: Card }) => {
           if (gridEditMode) {
             return (
               <Box
@@ -656,7 +656,7 @@ export default function InventoryPage() {
   const renderMassEditInput = () => {
     if (!currentMassField) return null;
 
-    if (massEditField === "quality_seal") {
+    if (massEditField === "approval_status") {
       return (
         <FormControl fullWidth size="small">
           <InputLabel>Value</InputLabel>
@@ -912,7 +912,7 @@ export default function InventoryPage() {
             onCellValueChanged={handleCellEdit}
             onRowClicked={(e) => {
               if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
-                navigate(`/fact-sheets/${e.data.id}`);
+                navigate(`/cards/${e.data.id}`);
               }
             }}
             getRowId={(p) => p.data.id}
@@ -961,7 +961,7 @@ export default function InventoryPage() {
         </DialogActions>
       </Dialog>
 
-      <CreateFactSheetDialog
+      <CreateCardDialog
         open={createOpen}
         onClose={() => {
           setCreateOpen(false);
@@ -975,7 +975,7 @@ export default function InventoryPage() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onComplete={loadData}
-        existingFactSheets={data}
+        existingCards={data}
         allTypes={types}
         preSelectedType={selectedType || undefined}
       />
@@ -984,8 +984,8 @@ export default function InventoryPage() {
         <RelationCellPopover
           open={relEditOpen}
           onClose={() => { setRelEditOpen(false); setRelEditFsId(""); setRelEditFsName(""); setRelEditRelType(null); }}
-          factSheetId={relEditFsId}
-          factSheetName={relEditFsName}
+          cardId={relEditFsId}
+          cardName={relEditFsName}
           relationType={relEditRelType}
           selectedType={selectedType}
           onRelationsChanged={fetchRelations}

@@ -5,8 +5,8 @@ from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.document import Document
 from app.models.event import Event
-from app.models.fact_sheet import FactSheet
-from app.models.fact_sheet_type import FactSheetType
+from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.notification import Notification
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
@@ -17,10 +17,10 @@ from app.models.relation_type import RelationType
 from app.models.role import Role
 from app.models.soaw import SoAW
 from app.models.sso_invitation import SsoInvitation
-from app.models.subscription import Subscription
-from app.models.subscription_role_definition import SubscriptionRoleDefinition
+from app.models.stakeholder import Stakeholder
+from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
-from app.models.tag import FactSheetTag, Tag, TagGroup
+from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
 from app.models.web_portal import WebPortal
@@ -29,15 +29,15 @@ __all__ = [
     "Base",
     "User",
     "Role",
-    "SubscriptionRoleDefinition",
-    "FactSheetType",
+    "StakeholderRoleDefinition",
+    "CardType",
     "RelationType",
-    "FactSheet",
+    "Card",
     "Relation",
-    "Subscription",
+    "Stakeholder",
     "TagGroup",
     "Tag",
-    "FactSheetTag",
+    "CardTag",
     "Comment",
     "Todo",
     "Event",

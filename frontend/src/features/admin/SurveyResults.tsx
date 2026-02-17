@@ -283,7 +283,7 @@ export default function SurveyResults() {
                   onChange={toggleAll}
                 />
               </TableCell>
-              <TableCell>Fact Sheet</TableCell>
+              <TableCell>Card</TableCell>
               <TableCell>User</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Changes</TableCell>
@@ -309,9 +309,9 @@ export default function SurveyResults() {
                     <Typography
                       variant="body2"
                       sx={{ cursor: "pointer", color: "primary.main", "&:hover": { textDecoration: "underline" } }}
-                      onClick={() => navigate(`/fact-sheets/${r.fact_sheet_id}`)}
+                      onClick={() => navigate(`/cards/${r.card_id}`)}
                     >
-                      {r.fact_sheet_name || r.fact_sheet_id}
+                      {r.card_name || r.card_id}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -372,7 +372,7 @@ export default function SurveyResults() {
         {detailResp && (
           <>
             <DialogTitle>
-              Response: {detailResp.fact_sheet_name} — {detailResp.user_display_name}
+              Response: {detailResp.card_name} — {detailResp.user_display_name}
             </DialogTitle>
             <DialogContent>
               <Table size="small">

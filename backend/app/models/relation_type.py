@@ -8,7 +8,7 @@ from app.models.base import Base, UUIDMixin, TimestampMixin
 
 
 class RelationType(Base, UUIDMixin, TimestampMixin):
-    """Configurable metamodel: defines an allowed relation between two fact sheet types."""
+    """Configurable metamodel: defines an allowed relation between two card types."""
 
     __tablename__ = "relation_types"
 

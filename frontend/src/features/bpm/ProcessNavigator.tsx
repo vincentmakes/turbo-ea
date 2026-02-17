@@ -712,15 +712,15 @@ function DrawerOverview({
   onSwitchNode: (n: ProcNode) => void;
   onDrill: (id: string) => void;
 }) {
-  const [factSheet, setFactSheet] = useState<Record<string, unknown> | null>(null);
+  const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    setFactSheet(null);
+    setCard(null);
     api
-      .get<Record<string, unknown>>(`/fact-sheets/${node.id}`)
-      .then(setFactSheet)
+      .get<Record<string, unknown>>(`/cards/${node.id}`)
+      .then(setCard)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [node.id]);
@@ -767,7 +767,7 @@ function DrawerOverview({
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Open Fact Sheet"
+          label="Open Card"
           onClick={() => onNavigate(node.id)}
           color="primary"
           sx={{ cursor: "pointer" }}
@@ -797,23 +797,23 @@ function DrawerOverview({
       {loading && <LinearProgress sx={{ mb: 2 }} />}
 
       {/* Description */}
-      {factSheet && !!factSheet.description && (
+      {card && !!card.description && (
         <>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Description</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
-            {String(factSheet.description)}
+            {String(card.description)}
           </Typography>
         </>
       )}
 
       {/* Lifecycle */}
-      {factSheet && !!factSheet.lifecycle && Object.keys(factSheet.lifecycle as Record<string, string>).length > 0 && (
+      {card && !!card.lifecycle && Object.keys(card.lifecycle as Record<string, string>).length > 0 && (
         <>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Lifecycle</Typography>
           <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 1 }}>
-            {Object.entries(factSheet.lifecycle as Record<string, string>).map(
+            {Object.entries(card.lifecycle as Record<string, string>).map(
               ([phase, date]) =>
                 date ? (
                   <Chip
@@ -830,11 +830,11 @@ function DrawerOverview({
       )}
 
       {/* Completion & Quality */}
-      {factSheet && (
+      {card && (
         <>
           <Divider sx={{ my: 1.5 }} />
           <Box sx={{ display: "flex", gap: 2, mb: 1, alignItems: "center" }}>
-            {typeof factSheet.completion === "number" && (
+            {typeof card.data_quality === "number" && (
               <Box sx={{ flex: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   Completion
@@ -842,25 +842,25 @@ function DrawerOverview({
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <LinearProgress
                     variant="determinate"
-                    value={factSheet.completion as number}
+                    value={card.data_quality as number}
                     sx={{ flex: 1, height: 6, borderRadius: 3 }}
                   />
                   <Typography variant="caption" sx={{ fontWeight: 600, minWidth: 35 }}>
-                    {Math.round(factSheet.completion as number)}%
+                    {Math.round(card.data_quality as number)}%
                   </Typography>
                 </Box>
               </Box>
             )}
-            {factSheet.quality_seal ? (
+            {card.approval_status ? (
               <Chip
                 size="small"
-                label={String(factSheet.quality_seal)}
+                label={String(card.approval_status)}
                 color={
-                  factSheet.quality_seal === "APPROVED"
+                  card.approval_status === "APPROVED"
                     ? "success"
-                    : factSheet.quality_seal === "REJECTED"
+                    : card.approval_status === "REJECTED"
                       ? "error"
-                      : factSheet.quality_seal === "BROKEN"
+                      : card.approval_status === "BROKEN"
                         ? "warning"
                         : "default"
                 }
@@ -924,14 +924,14 @@ function DrawerOverview({
       )}
 
       {/* Tags */}
-      {factSheet &&
-        Array.isArray(factSheet.tags) &&
-        (factSheet.tags as Array<{ id: string; name: string; color?: string }>).length > 0 && (
+      {card &&
+        Array.isArray(card.tags) &&
+        (card.tags as Array<{ id: string; name: string; color?: string }>).length > 0 && (
           <>
             <Divider sx={{ my: 1.5 }} />
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Tags</Typography>
             <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-              {(factSheet.tags as Array<{ id: string; name: string; color?: string }>).map((tag) => (
+              {(card.tags as Array<{ id: string; name: string; color?: string }>).map((tag) => (
                 <Chip
                   key={tag.id}
                   size="small"
@@ -1930,7 +1930,7 @@ export default function ProcessNavigator() {
       if (path.startsWith("/")) {
         navigate(path);
       } else {
-        navigate(`/fact-sheets/${path}`);
+        navigate(`/cards/${path}`);
       }
     },
     [navigate],
@@ -1972,7 +1972,7 @@ export default function ProcessNavigator() {
       try {
         await Promise.all(
           reordered.map((s, i) =>
-            api.patch(`/fact-sheets/${s.id}`, {
+            api.patch(`/cards/${s.id}`, {
               attributes: { ...(s.attributes || {}), sortOrder: i },
             }),
           ),

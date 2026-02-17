@@ -38,21 +38,21 @@ async def event_stream(request: Request):
 async def list_events(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    fact_sheet_id: str | None = Query(None),
+    card_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
 ):
     await PermissionService.require_permission(db, user, "admin.events")
     q = select(Event).order_by(Event.created_at.desc())
-    if fact_sheet_id:
+    if card_id:
         import uuid as _uuid
-        q = q.where(Event.fact_sheet_id == _uuid.UUID(fact_sheet_id))
+        q = q.where(Event.card_id == _uuid.UUID(card_id))
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     return [
         {
             "id": str(e.id),
-            "fact_sheet_id": str(e.fact_sheet_id) if e.fact_sheet_id else None,
+            "card_id": str(e.card_id) if e.card_id else None,
             "event_type": e.event_type,
             "data": e.data,
             "user_id": str(e.user_id) if e.user_id else None,

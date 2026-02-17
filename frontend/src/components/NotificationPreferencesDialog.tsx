@@ -19,9 +19,9 @@ import type { NotificationPreferences } from "@/types";
 
 const NOTIFICATION_TYPES = [
   { key: "todo_assigned", label: "Todo Assigned" },
-  { key: "fact_sheet_updated", label: "Fact Sheet Updated" },
+  { key: "card_updated", label: "Card Updated" },
   { key: "comment_added", label: "Comment Added" },
-  { key: "quality_seal_changed", label: "Quality Seal Changed" },
+  { key: "approval_status_changed", label: "Approval Status Changed" },
   { key: "soaw_sign_requested", label: "SoAW Signature Requested" },
   { key: "soaw_signed", label: "SoAW Signed" },
   { key: "survey_request", label: "Survey Request", forceEmail: true },

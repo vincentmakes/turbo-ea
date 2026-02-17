@@ -107,7 +107,7 @@ function fmtDate(s: string | undefined): string {
 export default function LifecycleReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
-  const [fsType, setFsType] = useState("");
+  const [cardTypeKey, setCardTypeKey] = useState("");
   const [data, setData] = useState<RoadmapItem[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
   const [sortK, setSortK] = useState("name");
@@ -118,7 +118,7 @@ export default function LifecycleReport() {
   const [useInitiativeDates, setUseInitiativeDates] = useState(false);
   const [initiativeColorBy, setInitiativeColorBy] = useState("initiativeStatus");
 
-  const isInitiativeType = fsType === "Initiative";
+  const isInitiativeType = cardTypeKey === "Initiative";
 
   // Reset initiative toggle when switching away from Initiative type
   useEffect(() => {
@@ -128,9 +128,9 @@ export default function LifecycleReport() {
   }, [isInitiativeType]);
 
   useEffect(() => {
-    const params = fsType ? `?type=${fsType}` : "";
+    const params = cardTypeKey ? `?type=${cardTypeKey}` : "";
     api.get<{ items: RoadmapItem[] }>(`/reports/roadmap${params}`).then((r) => setData(r.items));
-  }, [fsType]);
+  }, [cardTypeKey]);
 
   const { items, totalMin, totalRange, viewMin, contentPct, todayPct, eolCount } = useMemo(() => {
     if (!data || !data.length) return { items: [], totalMin: 0, totalRange: 1, viewMin: 0, contentPct: 100, todayPct: 50, eolCount: 0 };
@@ -238,7 +238,7 @@ export default function LifecycleReport() {
       onViewChange={setView}
       toolbar={
         <>
-          <TextField select size="small" label="Fact Sheet Type" value={fsType} onChange={(e) => setFsType(e.target.value)} sx={{ minWidth: 180 }}>
+          <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">All Types</MenuItem>
             {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
@@ -322,7 +322,7 @@ export default function LifecycleReport() {
                     <Box
                       key={item.id}
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
-                      onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                      onClick={() => navigate(`/cards/${item.id}`)}
                     >
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
@@ -373,7 +373,7 @@ export default function LifecycleReport() {
                         <Box
                           key={item.id}
                           sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
-                          onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                          onClick={() => navigate(`/cards/${item.id}`)}
                         >
                           <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                             <Tooltip title={tipText}>
@@ -413,7 +413,7 @@ export default function LifecycleReport() {
                       <Box
                         key={item.id}
                         sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
-                        onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                        onClick={() => navigate(`/cards/${item.id}`)}
                       >
                         <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                           {segments.map((s, i) => (
@@ -490,7 +490,7 @@ export default function LifecycleReport() {
                   const colorVal = d.attributes?.[initiativeColorBy] as string | undefined;
                   const colorInfo = colorVal ? INITIATIVE_COLORS[initiativeColorBy]?.[colorVal] : null;
                   return (
-                    <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                    <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
                       <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                       <TableCell>{d.type}</TableCell>
                       <TableCell>{fmtDate(d.attributes?.startDate as string)}</TableCell>
@@ -508,7 +508,7 @@ export default function LifecycleReport() {
                 const cp = currentPhase(d.lifecycle);
                 const phase = PHASES.find((p) => p.key === cp);
                 return (
-                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{d.type}</TableCell>
                     <TableCell>

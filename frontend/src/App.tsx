@@ -6,7 +6,7 @@ import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
 import Dashboard from "@/features/dashboard/Dashboard";
 import InventoryPage from "@/features/inventory/InventoryPage";
-import FactSheetDetail from "@/features/fact-sheets/FactSheetDetail";
+import CardDetail from "@/features/cards/CardDetail";
 import PortfolioReport from "@/features/reports/PortfolioReport";
 import CapabilityMapReport from "@/features/reports/CapabilityMapReport";
 import LifecycleReport from "@/features/reports/LifecycleReport";
@@ -94,7 +94,7 @@ function AppRoutes() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/fact-sheets/:id" element={<FactSheetDetail />} />
+              <Route path="/cards/:id" element={<CardDetail />} />
               <Route path="/reports/portfolio" element={<PortfolioReport />} />
               <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
               <Route path="/reports/lifecycle" element={<LifecycleReport />} />
@@ -113,7 +113,7 @@ function AppRoutes() {
               <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
               <Route path="/todos" element={<TodosPage />} />
               <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
-              <Route path="/surveys/:surveyId/respond/:factSheetId" element={<SurveyRespond />} />
+              <Route path="/surveys/:surveyId/respond/:cardId" element={<SurveyRespond />} />
               <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
               <Route path="/admin/tags" element={<TagsAdmin />} />
               <Route path="/admin/users" element={<UsersAdmin />} />

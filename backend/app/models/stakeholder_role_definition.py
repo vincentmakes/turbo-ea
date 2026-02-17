@@ -10,17 +10,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
-class SubscriptionRoleDefinition(Base, UUIDMixin, TimestampMixin):
-    """Per-fact-sheet-type subscription role with granular permissions."""
+class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
+    """Per-card-type stakeholder role with granular permissions."""
 
-    __tablename__ = "subscription_role_definitions"
+    __tablename__ = "stakeholder_role_definitions"
     __table_args__ = (
-        UniqueConstraint("fact_sheet_type_key", "key", name="uq_srd_type_key"),
+        UniqueConstraint("card_type_key", "key", name="uq_srd_type_key"),
     )
 
-    fact_sheet_type_key: Mapped[str] = mapped_column(
+    card_type_key: Mapped[str] = mapped_column(
         String(100),
-        ForeignKey("fact_sheet_types.key", ondelete="CASCADE"),
+        ForeignKey("card_types.key", ondelete="CASCADE"),
         nullable=False,
     )
     key: Mapped[str] = mapped_column(String(50), nullable=False)

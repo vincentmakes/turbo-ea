@@ -88,7 +88,7 @@ function CapabilityProcessMatrix() {
             </TableHead>
             <TableBody>
               {data.rows.map((r: any) => (
-                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${r.id}`)}>
+                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${r.id}`)}>
                   <TableCell>{r.name}</TableCell>
                   {data.columns.map((c: any) => {
                     const cell = data.cells.find(
@@ -147,7 +147,7 @@ function ProcessAppMatrix() {
             </TableHead>
             <TableBody>
               {data.rows.map((r: any) => (
-                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${r.id}`)}>
+                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${r.id}`)}>
                   <TableCell>{r.name}</TableCell>
                   {data.columns.map((c: any) => {
                     const cells = data.cells.filter(
@@ -219,7 +219,7 @@ function ProcessDependencies() {
                   <TableRow key={e.id} hover>
                     <TableCell
                       sx={{ cursor: "pointer", color: "primary.main" }}
-                      onClick={() => navigate(`/fact-sheets/${e.source}`)}
+                      onClick={() => navigate(`/cards/${e.source}`)}
                     >
                       {src?.name || e.source}
                     </TableCell>
@@ -228,7 +228,7 @@ function ProcessDependencies() {
                     </TableCell>
                     <TableCell
                       sx={{ cursor: "pointer", color: "primary.main" }}
-                      onClick={() => navigate(`/fact-sheets/${e.target}`)}
+                      onClick={() => navigate(`/cards/${e.target}`)}
                     >
                       {tgt?.name || e.target}
                     </TableCell>
@@ -271,7 +271,7 @@ function ElementAppMap() {
             <Typography
               variant="subtitle2"
               sx={{ cursor: "pointer", color: "primary.main", mb: 1 }}
-              onClick={() => navigate(`/fact-sheets/${group.application_id}`)}
+              onClick={() => navigate(`/cards/${group.application_id}`)}
             >
               {group.application_name} ({group.elements.length} elements)
             </Typography>
@@ -292,7 +292,7 @@ function ElementAppMap() {
                       <TableCell>{el.element_type}</TableCell>
                       <TableCell
                         sx={{ cursor: "pointer", color: "primary.main" }}
-                        onClick={() => navigate(`/fact-sheets/${el.process_id}`)}
+                        onClick={() => navigate(`/cards/${el.process_id}`)}
                       >
                         {el.process_name}
                       </TableCell>

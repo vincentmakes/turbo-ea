@@ -205,7 +205,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       setSearchLoading(true);
       try {
         const res = await api.get<{ items: SearchResult[] }>(
-          `/fact-sheets?search=${encodeURIComponent(query.trim())}&page_size=10`
+          `/cards?search=${encodeURIComponent(query.trim())}&page_size=10`
         );
         setSearchResults(res.items);
         setSearchOpen(res.items.length > 0);
@@ -242,7 +242,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     setSearchOpen(false);
     setSearchExpanded(false);
     setSearch("");
-    navigate(`/fact-sheets/${id}`);
+    navigate(`/cards/${id}`);
   };
 
   const handleSearch = (e: React.KeyboardEvent) => {
@@ -311,7 +311,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         <TextField
           size="small"
           fullWidth
-          placeholder="Search fact sheets..."
+          placeholder="Search cards..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleSearch}
@@ -346,7 +346,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     setDrawerOpen(false);
                     setSearch("");
                     setSearchResults([]);
-                    navigate(`/fact-sheets/${item.id}`);
+                    navigate(`/cards/${item.id}`);
                   }}
                   sx={{
                     display: "flex",
@@ -502,7 +502,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
                 <MaterialSymbol icon="add" size={20} color="inherit" />
               </ListItemIcon>
-              <ListItemText primary="Create Fact Sheet" />
+              <ListItemText primary="Create Card" />
             </ListItemButton>
           </>
         )}
@@ -680,7 +680,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <TextField
                   size="small"
                   fullWidth={isNarrow && searchExpanded}
-                  placeholder="Search fact sheets..."
+                  placeholder="Search cards..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearch}

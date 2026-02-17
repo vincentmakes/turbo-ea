@@ -84,12 +84,12 @@ export default function MySurveys() {
             {s.items.map((item) => (
               <Card key={item.response_id} variant="outlined" sx={{ mb: 1 }}>
                 <CardActionArea
-                  onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.fact_sheet_id}`)}
+                  onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.card_id}`)}
                   sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
                 >
                   <MaterialSymbol icon="edit_note" size={20} color="#ed6c02" />
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
-                    {item.fact_sheet_name}
+                    {item.card_name}
                   </Typography>
                   <Chip label="Respond" size="small" color="primary" variant="outlined" />
                 </CardActionArea>

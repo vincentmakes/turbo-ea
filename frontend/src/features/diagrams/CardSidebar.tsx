@@ -11,27 +11,27 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { FactSheetType, FactSheet, FactSheetListResponse } from "@/types";
+import type { CardType, Card, CardListResponse } from "@/types";
 
 interface Props {
-  onInsert: (fs: FactSheet, fsType: FactSheetType) => void;
+  onInsert: (card: Card, cardTypeKey: CardType) => void;
 }
 
-export default function FactSheetSidebar({ onInsert }: Props) {
-  const [types, setTypes] = useState<FactSheetType[]>([]);
-  const [factSheets, setFactSheets] = useState<FactSheet[]>([]);
+export default function CardSidebar({ onInsert }: Props) {
+  const [types, setTypes] = useState<CardType[]>([]);
+  const [cards, setCards] = useState<Card[]>([]);
   const [search, setSearch] = useState("");
   const [expandedType, setExpandedType] = useState<string | null>(null);
   const [loadingType, setLoadingType] = useState<string | null>(null);
 
-  // Load fact sheet types on mount
+  // Load card types on mount
   useEffect(() => {
     api
-      .get<FactSheetType[]>("/metamodel/types")
+      .get<CardType[]>("/metamodel/types")
       .then((t) => setTypes(t.filter((x) => !x.is_hidden)));
   }, []);
 
-  // Load fact sheets when a type group is expanded or search changes
+  // Load cards when a type group is expanded or search changes
   useEffect(() => {
     const params = new URLSearchParams({ page_size: "200" });
     if (expandedType) params.set("type", expandedType);
@@ -39,27 +39,27 @@ export default function FactSheetSidebar({ onInsert }: Props) {
 
     // Only fetch when there's an expanded type or a search query
     if (!expandedType && !search.trim()) {
-      setFactSheets([]);
+      setCards([]);
       return;
     }
 
     setLoadingType(expandedType);
     api
-      .get<FactSheetListResponse>(`/fact-sheets?${params}`)
-      .then((r) => setFactSheets(r.items))
+      .get<CardListResponse>(`/cards?${params}`)
+      .then((r) => setCards(r.items))
       .finally(() => setLoadingType(null));
   }, [expandedType, search]);
 
-  // Group fact sheets by type (when searching across all types)
+  // Group cards by type (when searching across all types)
   const grouped = useMemo(() => {
-    const map = new Map<string, FactSheet[]>();
-    for (const fs of factSheets) {
-      const arr = map.get(fs.type) || [];
-      arr.push(fs);
-      map.set(fs.type, arr);
+    const map = new Map<string, Card[]>();
+    for (const card of cards) {
+      const arr = map.get(card.type) || [];
+      arr.push(card);
+      map.set(card.type, arr);
     }
     return map;
-  }, [factSheets]);
+  }, [cards]);
 
   const toggleType = (key: string) => {
     setExpandedType((prev) => (prev === key ? null : key));
@@ -87,7 +87,7 @@ export default function FactSheetSidebar({ onInsert }: Props) {
       {/* Header */}
       <Box sx={{ px: 1.5, py: 1, borderBottom: "1px solid #eee" }}>
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-          Fact Sheets
+          Cards
         </Typography>
         <TextField
           size="small"
@@ -156,23 +156,23 @@ export default function FactSheetSidebar({ onInsert }: Props) {
                       color="text.secondary"
                       sx={{ pl: 5, py: 0.5, display: "block" }}
                     >
-                      No fact sheets found
+                      No cards found
                     </Typography>
                   ) : (
                     <List dense disablePadding>
-                      {items.map((fs) => (
+                      {items.map((card) => (
                         <Tooltip
-                          key={fs.id}
-                          title={`Click to insert "${fs.name}" into diagram`}
+                          key={card.id}
+                          title={`Click to insert "${card.name}" into diagram`}
                           placement="right"
                           arrow
                         >
                           <ListItemButton
                             sx={{ pl: 5, py: 0.25 }}
-                            onClick={() => onInsert(fs, t)}
+                            onClick={() => onInsert(card, t)}
                           >
                             <ListItemText
-                              primary={fs.name}
+                              primary={card.name}
                               primaryTypographyProps={{
                                 variant: "body2",
                                 noWrap: true,

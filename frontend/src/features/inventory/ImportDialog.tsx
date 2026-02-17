@@ -11,7 +11,7 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Collapse from "@mui/material/Collapse";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { FactSheet, FactSheetType } from "@/types";
+import type { Card, CardType } from "@/types";
 import {
   parseWorkbook,
   validateImport,
@@ -24,8 +24,8 @@ interface ImportDialogProps {
   open: boolean;
   onClose: () => void;
   onComplete: () => void;
-  existingFactSheets: FactSheet[];
-  allTypes: FactSheetType[];
+  existingCards: Card[];
+  allTypes: CardType[];
   preSelectedType?: string;
 }
 
@@ -35,7 +35,7 @@ export default function ImportDialog({
   open,
   onClose,
   onComplete,
-  existingFactSheets,
+  existingCards,
   allTypes,
   preSelectedType,
 }: ImportDialogProps) {
@@ -76,7 +76,7 @@ export default function ImportDialog({
     try {
       const buffer = await file.arrayBuffer();
       const rows = parseWorkbook(buffer);
-      const rpt = validateImport(rows, existingFactSheets, allTypes, preSelectedType);
+      const rpt = validateImport(rows, existingCards, allTypes, preSelectedType);
       setReport(rpt);
       setStep("report");
     } catch {
@@ -115,7 +115,7 @@ export default function ImportDialog({
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="upload_file" size={22} />
-        Import Fact Sheets
+        Import Cards
       </DialogTitle>
 
       <DialogContent dividers sx={{ minHeight: 250 }}>
@@ -164,7 +164,7 @@ export default function ImportDialog({
             <Alert severity="info" sx={{ mt: 2 }} icon={<MaterialSymbol icon="info" size={20} />}>
               <Typography variant="body2">
                 <strong>Tip:</strong> Export your current inventory first to get a template
-                with the correct column format and fact sheet IDs.
+                with the correct column format and card IDs.
               </Typography>
             </Alert>
           </>

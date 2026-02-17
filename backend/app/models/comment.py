@@ -12,8 +12,8 @@ from app.models.base import Base, UUIDMixin, TimestampMixin
 class Comment(Base, UUIDMixin, TimestampMixin):
     __tablename__ = "comments"
 
-    fact_sheet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), nullable=False, index=True
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False

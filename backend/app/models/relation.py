@@ -14,13 +14,13 @@ class Relation(Base, UUIDMixin, TimestampMixin):
 
     type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     target_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     description: Mapped[str | None] = mapped_column(Text)
 
-    source = relationship("FactSheet", foreign_keys=[source_id], lazy="selectin")
-    target = relationship("FactSheet", foreign_keys=[target_id], lazy="selectin")
+    source = relationship("Card", foreign_keys=[source_id], lazy="selectin")
+    target = relationship("Card", foreign_keys=[target_id], lazy="selectin")

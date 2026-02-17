@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.tag import FactSheetTag, Tag, TagGroup
+from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.schemas.common import TagCreate, TagGroupCreate
 from app.services.permission_service import PermissionService
@@ -65,9 +65,9 @@ async def create_tag(
     return {"id": str(tag.id), "name": tag.name, "color": tag.color}
 
 
-@router.post("/fact-sheets/{fs_id}/tags", status_code=201)
+@router.post("/cards/{card_id}/tags", status_code=201)
 async def assign_tags(
-    fs_id: str,
+    card_id: str,
     tag_ids: list[str],
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -75,29 +75,29 @@ async def assign_tags(
     await PermissionService.require_permission(db, user, "tags.manage")
     for tid in tag_ids:
         existing = await db.execute(
-            select(FactSheetTag).where(
-                FactSheetTag.fact_sheet_id == uuid.UUID(fs_id),
-                FactSheetTag.tag_id == uuid.UUID(tid),
+            select(CardTag).where(
+                CardTag.card_id == uuid.UUID(card_id),
+                CardTag.tag_id == uuid.UUID(tid),
             )
         )
         if not existing.scalar_one_or_none():
-            db.add(FactSheetTag(fact_sheet_id=uuid.UUID(fs_id), tag_id=uuid.UUID(tid)))
+            db.add(CardTag(card_id=uuid.UUID(card_id), tag_id=uuid.UUID(tid)))
     await db.commit()
     return {"status": "ok"}
 
 
-@router.delete("/fact-sheets/{fs_id}/tags/{tag_id}", status_code=204)
+@router.delete("/cards/{card_id}/tags/{tag_id}", status_code=204)
 async def remove_tag(
-    fs_id: str,
+    card_id: str,
     tag_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
     result = await db.execute(
-        select(FactSheetTag).where(
-            FactSheetTag.fact_sheet_id == uuid.UUID(fs_id),
-            FactSheetTag.tag_id == uuid.UUID(tag_id),
+        select(CardTag).where(
+            CardTag.card_id == uuid.UUID(card_id),
+            CardTag.tag_id == uuid.UUID(tag_id),
         )
     )
     fst = result.scalar_one_or_none()

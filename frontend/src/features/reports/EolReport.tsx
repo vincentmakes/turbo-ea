@@ -411,7 +411,7 @@ export default function EolReport() {
           <MaterialSymbol icon="info" size={40} color="#bdbdbd" />
           <Typography color="text.secondary" sx={{ mt: 1 }}>
             {data.items.length === 0
-              ? "No fact sheets with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section."
+              ? "No cards with EOL data found. Link an Application or IT Component to endoflife.date, or set an End of Life date in the Lifecycle section."
               : "No items match the current filters."}
           </Typography>
         </Paper>
@@ -542,7 +542,7 @@ export default function EolReport() {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/fact-sheets/${app.id}`);
+                              navigate(`/cards/${app.id}`);
                             }}
                           >
                             <MaterialSymbol icon="subdirectory_arrow_right" size={14} color="#90caf9" />
@@ -635,7 +635,7 @@ export default function EolReport() {
                             cursor: "pointer",
                             "&:hover .bar": { filter: "brightness(1.1)" },
                           }}
-                          onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                          onClick={() => navigate(`/cards/${item.id}`)}
                         >
                           <Box
                             sx={{
@@ -878,7 +878,7 @@ export default function EolReport() {
                     key={item.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/fact-sheets/${item.id}`)}
+                    onClick={() => navigate(`/cards/${item.id}`)}
                   >
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>

@@ -42,8 +42,8 @@ function TodosPanel() {
       navigate(todo.link);
       return;
     }
-    if (todo.fact_sheet_id) {
-      navigate(`/fact-sheets/${todo.fact_sheet_id}`);
+    if (todo.card_id) {
+      navigate(`/cards/${todo.card_id}`);
       return;
     }
     toggleStatus(todo);
@@ -94,11 +94,11 @@ function TodosPanel() {
                     variant="body1"
                     sx={{
                       textDecoration: t.status === "done" ? "line-through" : "none",
-                      cursor: (t.is_system && t.link) || t.fact_sheet_id ? "pointer" : "default",
+                      cursor: (t.is_system && t.link) || t.card_id ? "pointer" : "default",
                     }}
                     onClick={() => {
                       if (t.is_system && t.link) navigate(t.link);
-                      else if (t.fact_sheet_id) navigate(`/fact-sheets/${t.fact_sheet_id}`);
+                      else if (t.card_id) navigate(`/cards/${t.card_id}`);
                     }}
                   >
                     {t.description}
@@ -115,11 +115,11 @@ function TodosPanel() {
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
-                    {t.fact_sheet_name && (
+                    {t.card_name && (
                       <Chip
                         size="small"
-                        label={t.fact_sheet_name}
-                        onClick={() => navigate(`/fact-sheets/${t.fact_sheet_id}`)}
+                        label={t.card_name}
+                        onClick={() => navigate(`/cards/${t.card_id}`)}
                         sx={{ cursor: "pointer" }}
                       />
                     )}
@@ -204,12 +204,12 @@ function SurveysPanel() {
             {s.items.map((item) => (
               <Card key={item.response_id} variant="outlined" sx={{ mb: 1 }}>
                 <CardActionArea
-                  onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.fact_sheet_id}`)}
+                  onClick={() => navigate(`/surveys/${s.survey_id}/respond/${item.card_id}`)}
                   sx={{ p: 1.5, display: "flex", justifyContent: "flex-start" }}
                 >
                   <MaterialSymbol icon="edit_note" size={20} color="#ed6c02" />
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
-                    {item.fact_sheet_name}
+                    {item.card_name}
                   </Typography>
                   <Chip label="Respond" size="small" color="primary" variant="outlined" />
                 </CardActionArea>

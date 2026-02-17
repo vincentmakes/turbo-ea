@@ -13,8 +13,8 @@ from app.models.base import Base, UUIDMixin
 class Document(Base, UUIDMixin):
     __tablename__ = "documents"
 
-    fact_sheet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), nullable=False, index=True
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     url: Mapped[str | None] = mapped_column(Text)

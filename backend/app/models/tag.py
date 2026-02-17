@@ -17,7 +17,7 @@ class TagGroup(Base, UUIDMixin):
     description: Mapped[str | None] = mapped_column(Text)
     mode: Mapped[str] = mapped_column(String(20), default="multi")  # single/multi
     create_mode: Mapped[str] = mapped_column(String(20), default="open")  # open/restricted
-    restrict_to_types: Mapped[list | None] = mapped_column(JSONB)  # list of FS type keys, null=all
+    restrict_to_types: Mapped[list | None] = mapped_column(JSONB)  # list of card type keys, null=all
     mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -37,11 +37,11 @@ class Tag(Base, UUIDMixin):
     group = relationship("TagGroup", back_populates="tags", lazy="selectin")
 
 
-class FactSheetTag(Base):
-    __tablename__ = "fact_sheet_tags"
+class CardTag(Base):
+    __tablename__ = "card_tags"
 
-    fact_sheet_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="CASCADE"), primary_key=True
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="CASCADE"), primary_key=True
     )
     tag_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True

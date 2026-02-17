@@ -1,6 +1,6 @@
 /**
  * ProcessAssessmentPanel — Assessment form + history chart.
- * Embedded as a tab in FactSheetDetail for BusinessProcess type.
+ * Embedded as a tab in CardDetail for BusinessProcess type.
  */
 import { useState, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";

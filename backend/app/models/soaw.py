@@ -16,7 +16,7 @@ class SoAW(Base, UUIDMixin, TimestampMixin):
 
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     initiative_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("fact_sheets.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL")
     )
     status: Mapped[str] = mapped_column(String(50), default="draft")
     # Statuses: draft, in_review, approved, signed

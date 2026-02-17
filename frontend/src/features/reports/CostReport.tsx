@@ -101,7 +101,7 @@ export default function CostReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
-  const [fsType, setFsType] = useState("Application");
+  const [cardTypeKey, setCardTypeKey] = useState("Application");
   const [costField, setCostField] = useState("totalAnnualCost");
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
@@ -114,7 +114,7 @@ export default function CostReport() {
   const [timelineDate, setTimelineDate] = useState(todayMs);
   const [sliderTouched, setSliderTouched] = useState(false);
 
-  const typeDef = useMemo(() => types.find((t) => t.key === fsType), [types, fsType]);
+  const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
   const numFields = useMemo(() => (typeDef ? pickNumberFields(typeDef.fields_schema) : []), [typeDef]);
 
   const groupableFields = useMemo(() => {
@@ -127,12 +127,12 @@ export default function CostReport() {
   }, [typeDef]);
 
   useEffect(() => {
-    const p = new URLSearchParams({ type: fsType, cost_field: costField });
+    const p = new URLSearchParams({ type: cardTypeKey, cost_field: costField });
     api.get<{ items: CostItem[]; total: number }>(`/reports/cost-treemap?${p}`).then((r) => {
       setRawItems(r.items);
       setSliderTouched(false);
     });
-  }, [fsType, costField]);
+  }, [cardTypeKey, costField]);
 
   // Compute date range from lifecycle data
   const { dateRange, yearMarks } = useMemo(() => {
@@ -235,7 +235,7 @@ export default function CostReport() {
       onViewChange={setView}
       toolbar={
         <>
-          <TextField select size="small" label="Fact Sheet Type" value={fsType} onChange={(e) => setFsType(e.target.value)} sx={{ minWidth: 150 }}>
+          <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
             {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
           <TextField select size="small" label="Cost Field" value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
@@ -329,7 +329,7 @@ export default function CostReport() {
                       </TableCell>
                     </TableRow>,
                     ...groupSorted.map((d) => (
-                      <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                      <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
                         <TableCell sx={{ fontWeight: 500, pl: 4 }}>{d.name}</TableCell>
                         <TableCell align="right">{fmt.format(d.cost)}</TableCell>
                         <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
@@ -339,7 +339,7 @@ export default function CostReport() {
                 })
               ) : (
                 sorted.map((d) => (
-                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/fact-sheets/${d.id}`)}>
+                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell align="right">{fmt.format(d.cost)}</TableCell>
                     <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>

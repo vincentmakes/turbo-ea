@@ -20,9 +20,9 @@ router = APIRouter(tags=["todos"])
 def _todo_to_dict(t: Todo) -> dict:
     return {
         "id": str(t.id),
-        "fact_sheet_id": str(t.fact_sheet_id) if t.fact_sheet_id else None,
-        "fact_sheet_name": t.fact_sheet.name if t.fact_sheet else None,
-        "fact_sheet_type": t.fact_sheet.type if t.fact_sheet else None,
+        "card_id": str(t.card_id) if t.card_id else None,
+        "card_name": t.card.name if t.card else None,
+        "card_type": t.card.type if t.card else None,
         "description": t.description,
         "status": t.status,
         "link": t.link,
@@ -57,23 +57,23 @@ async def list_all_todos(
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
-@router.get("/fact-sheets/{fs_id}/todos")
-async def list_fact_sheet_todos(fs_id: str, db: AsyncSession = Depends(get_db)):
+@router.get("/cards/{card_id}/todos")
+async def list_card_todos(card_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Todo).where(Todo.fact_sheet_id == uuid.UUID(fs_id)).order_by(Todo.created_at.desc())
+        select(Todo).where(Todo.card_id == uuid.UUID(card_id)).order_by(Todo.created_at.desc())
     )
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
-@router.post("/fact-sheets/{fs_id}/todos", status_code=201)
+@router.post("/cards/{card_id}/todos", status_code=201)
 async def create_todo(
-    fs_id: str,
+    card_id: str,
     body: TodoCreate,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     todo = Todo(
-        fact_sheet_id=uuid.UUID(fs_id),
+        card_id=uuid.UUID(card_id),
         description=body.description,
         assigned_to=uuid.UUID(body.assigned_to) if body.assigned_to else None,
         created_by=user.id,
@@ -91,8 +91,8 @@ async def create_todo(
             title="Todo Assigned",
             message=f'{user.display_name} assigned you a todo: "{body.description[:80]}"',
             link="/todos",
-            data={"todo_id": str(todo.id), "fact_sheet_id": fs_id},
-            fact_sheet_id=uuid.UUID(fs_id),
+            data={"todo_id": str(todo.id), "card_id": card_id},
+            card_id=uuid.UUID(card_id),
         )
 
     await db.commit()
@@ -140,7 +140,7 @@ async def update_todo(
             message=f'{user.display_name} assigned you a todo: "{todo.description[:80]}"',
             link="/todos",
             data={"todo_id": todo_id},
-            fact_sheet_id=todo.fact_sheet_id,
+            card_id=todo.card_id,
         )
 
     await db.commit()
