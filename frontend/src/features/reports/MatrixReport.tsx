@@ -55,8 +55,8 @@ export default function MatrixReport() {
   const [colType, setColType] = useState("BusinessCapability");
   const [data, setData] = useState<MatrixData | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
-  const [sortRows, setSortRows] = useState<SortMode>("alpha");
-  const [sortCols, setSortCols] = useState<SortMode>("alpha");
+  const [sortRows, setSortRows] = useState<SortMode>("hierarchy");
+  const [sortCols, setSortCols] = useState<SortMode>("hierarchy");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ el: HTMLElement; rowId: string; colId: string } | null>(null);
@@ -80,16 +80,19 @@ export default function MatrixReport() {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
   }, [rowType, colType]);
 
-  // Reset hierarchy sort when switching to a non-hierarchical type
+  // Auto-select hierarchy sort when picking a hierarchical type,
+  // reset to alpha when switching to a flat type.
   useEffect(() => {
-    const rMeta = types.find((t) => t.key === rowType);
-    if (sortRows === "hierarchy" && !rMeta?.has_hierarchy) setSortRows("alpha");
-  }, [rowType, types, sortRows]);
+    const meta = types.find((t) => t.key === rowType);
+    if (meta?.has_hierarchy) setSortRows("hierarchy");
+    else if (sortRows === "hierarchy") setSortRows("alpha");
+  }, [rowType, types]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const cMeta = types.find((t) => t.key === colType);
-    if (sortCols === "hierarchy" && !cMeta?.has_hierarchy) setSortCols("alpha");
-  }, [colType, types, sortCols]);
+    const meta = types.find((t) => t.key === colType);
+    if (meta?.has_hierarchy) setSortCols("hierarchy");
+    else if (sortCols === "hierarchy") setSortCols("alpha");
+  }, [colType, types]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build lookup structures
   const intersectionMap = useMemo(() => {
@@ -194,8 +197,9 @@ export default function MatrixReport() {
   const colMeta = types.find((t) => t.key === colType);
   const rowLabel = rowMeta?.label || rowType;
   const colLabel = colMeta?.label || colType;
-  const rowHasHierarchy = !!rowMeta?.has_hierarchy;
-  const colHasHierarchy = !!colMeta?.has_hierarchy;
+  // Detect hierarchy from actual data (items with parent_id) rather than metamodel flag
+  const rowHasHierarchy = data.rows.some((r) => r.parent_id !== null);
+  const colHasHierarchy = data.columns.some((c) => c.parent_id !== null);
 
   // Compute depth for hierarchy indentation
   const getDepth = (item: MatrixItem, items: MatrixItem[]): number => {
@@ -256,8 +260,8 @@ export default function MatrixReport() {
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} />
-        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} />
+        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
+        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
         <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
         <MetricCard label="Coverage" value={`${coverage}%`} icon="percent" />
       </Box>
@@ -288,33 +292,39 @@ export default function MatrixReport() {
                 >
                   {rowLabel} / {colLabel}
                 </th>
-                {sortedCols.map((c) => (
-                  <th
-                    key={c.id}
-                    style={{
-                      position: "sticky",
-                      top: 0,
-                      zIndex: 2,
-                      background: hoveredCol === c.id ? "#e3f2fd" : "#f5f5f5",
-                      padding: "6px 4px",
-                      border: "1px solid #e0e0e0",
-                      fontSize: 10,
-                      fontWeight: 600,
-                      whiteSpace: "nowrap",
-                      writingMode: "vertical-lr",
-                      textOrientation: "mixed",
-                      maxWidth: 36,
-                      minHeight: 100,
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                    onMouseEnter={() => setHoveredCol(c.id)}
-                    onMouseLeave={() => setHoveredCol(null)}
-                    onClick={() => navigate(`/cards/${c.id}`)}
-                  >
-                    {c.name.length > 24 ? c.name.slice(0, 23) + "…" : c.name}
-                  </th>
-                ))}
+                {sortedCols.map((c) => {
+                  const colDepth = sortCols === "hierarchy" ? getDepth(c, data.columns) : 0;
+                  const isColParent = sortCols === "hierarchy" && data.columns.some((x) => x.parent_id === c.id);
+                  const colName = c.name.length > 24 ? c.name.slice(0, 23) + "\u2026" : c.name;
+                  return (
+                    <th
+                      key={c.id}
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: hoveredCol === c.id ? "#e3f2fd" : "#f5f5f5",
+                        padding: "6px 4px",
+                        paddingTop: 6 + colDepth * 14,
+                        border: "1px solid #e0e0e0",
+                        fontSize: 10,
+                        fontWeight: isColParent ? 700 : 600,
+                        whiteSpace: "nowrap",
+                        writingMode: "vertical-lr",
+                        textOrientation: "mixed",
+                        maxWidth: 36,
+                        minHeight: 100,
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                      onMouseEnter={() => setHoveredCol(c.id)}
+                      onMouseLeave={() => setHoveredCol(null)}
+                      onClick={() => navigate(`/cards/${c.id}`)}
+                    >
+                      {colDepth > 0 ? "\u2514 " : ""}{colName}
+                    </th>
+                  );
+                })}
                 <th
                   style={{
                     position: "sticky",
@@ -365,9 +375,12 @@ export default function MatrixReport() {
                     </td>
                     {sortedCols.map((c) => {
                       const val = getCellValue(r.id, c.id);
+                      const isDiagonal = rowType === colType && r.id === c.id;
                       const isHighlighted = hoveredRow === r.id || hoveredCol === c.id;
                       let bg = "#fff";
-                      if (cellMode === "count" && val > 0) {
+                      if (isDiagonal) {
+                        bg = isHighlighted ? "#e8eaf6" : "#f3f4f8";
+                      } else if (cellMode === "count" && val > 0) {
                         bg = heatColor(val, maxCellCount);
                       } else if (val > 0) {
                         bg = isHighlighted ? "#bbdefb" : "#e3f2fd";
@@ -394,14 +407,20 @@ export default function MatrixReport() {
                         >
                           {cellMode === "exists" ? (
                             val > 0 ? (
-                              <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#1976d2", mx: "auto" }} />
+                              <Box sx={{
+                                width: isDiagonal ? 8 : 10,
+                                height: isDiagonal ? 8 : 10,
+                                borderRadius: "50%",
+                                bgcolor: isDiagonal ? "#9e9e9e" : "#1976d2",
+                                mx: "auto",
+                              }} />
                             ) : null
                           ) : val > 0 ? (
                             <Typography
                               variant="caption"
                               sx={{
                                 fontWeight: 600,
-                                color: val > maxCellCount * 0.5 ? "#fff" : "#333",
+                                color: isDiagonal ? "#666" : (val > maxCellCount * 0.5 ? "#fff" : "#333"),
                                 fontSize: 10,
                               }}
                             >
