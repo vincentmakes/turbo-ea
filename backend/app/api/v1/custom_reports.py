@@ -22,6 +22,20 @@ VALID_REPORT_TYPES = {
 }
 
 
+async def _load_report(db: AsyncSession, report_id: uuid.UUID) -> SavedReport | None:
+    """Fresh-load a report with its shares and owner."""
+    result = await db.execute(
+        select(SavedReport)
+        .options(selectinload(SavedReport.shared_with_users))
+        .where(SavedReport.id == report_id)
+    )
+    report = result.scalar_one_or_none()
+    if report:
+        owner_result = await db.execute(select(User).where(User.id == report.owner_id))
+        report.owner = owner_result.scalar_one_or_none()  # type: ignore[attr-defined]
+    return report
+
+
 def _serialize(report: SavedReport, current_user_id: uuid.UUID) -> dict:
     shared_user_ids = [str(u.id) for u in (report.shared_with_users or [])]
     shared_user_names = [
@@ -136,9 +150,10 @@ async def create_saved_report(
 
     db.add(report)
     await db.commit()
-    await db.refresh(report, ["shared_with_users"])
-    report.owner = user  # type: ignore[attr-defined]
-    return _serialize(report, user.id)
+
+    # Re-fetch cleanly to avoid async refresh issues
+    fresh = await _load_report(db, report.id)
+    return _serialize(fresh, user.id)  # type: ignore[arg-type]
 
 
 @router.get("/{report_id}")
@@ -148,12 +163,7 @@ async def get_saved_report(
     user: User = Depends(get_current_user),
 ):
     rid = uuid.UUID(report_id)
-    result = await db.execute(
-        select(SavedReport)
-        .options(selectinload(SavedReport.shared_with_users))
-        .where(SavedReport.id == rid)
-    )
-    report = result.scalar_one_or_none()
+    report = await _load_report(db, rid)
     if not report:
         raise HTTPException(404, "Saved report not found")
 
@@ -163,10 +173,6 @@ async def get_saved_report(
     is_shared = any(u.id == user.id for u in (report.shared_with_users or []))
     if not (is_owner or is_public or is_shared):
         raise HTTPException(403, "Access denied")
-
-    # Load owner
-    owner_result = await db.execute(select(User).where(User.id == report.owner_id))
-    report.owner = owner_result.scalar_one_or_none()  # type: ignore[attr-defined]
 
     return _serialize(report, user.id)
 
@@ -218,9 +224,10 @@ async def update_saved_report(
             report.shared_with_users = []
 
     await db.commit()
-    await db.refresh(report, ["shared_with_users"])
-    report.owner = user  # type: ignore[attr-defined]
-    return _serialize(report, user.id)
+
+    # Re-fetch cleanly to avoid async refresh issues
+    fresh = await _load_report(db, rid)
+    return _serialize(fresh, user.id)  # type: ignore[arg-type]
 
 
 @router.delete("/{report_id}", status_code=204)
