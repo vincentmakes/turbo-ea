@@ -940,7 +940,7 @@ export default function PortalViewer() {
                     );
                   })()}
 
-                  {/* Bottom row: subscribers + data_quality */}
+                  {/* Bottom row: stakeholders + data_quality */}
                   {(show("subscribers", "card") || show("data_quality", "card")) && (
                   <Box
                     sx={{
@@ -952,7 +952,7 @@ export default function PortalViewer() {
                       borderTop: "1px solid #f0f0f0",
                     }}
                   >
-                    {/* Subscribers */}
+                    {/* Stakeholders */}
                     {show("subscribers", "card") && card.stakeholders && card.stakeholders.length > 0 && (
                       <Tooltip
                         title={card.stakeholders
@@ -1319,7 +1319,7 @@ export default function PortalViewer() {
                 );
               })}
 
-              {/* Subscribers */}
+              {/* Stakeholders */}
               {show("subscribers", "detail") && selectedFs.stakeholders &&
                 selectedFs.stakeholders.length > 0 && (
                   <Box sx={{ mb: 3 }}>
@@ -1334,7 +1334,7 @@ export default function PortalViewer() {
                         color: "#888",
                       }}
                     >
-                      Subscribers
+                      Stakeholders
                     </Typography>
                     <Box
                       sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}

@@ -736,7 +736,7 @@ export default function SurveyBuilder() {
 
               {preview.total_cards === 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  No cards matched your filters, or no subscribers were found with the selected roles.
+                  No cards matched your filters, or no stakeholders were found with the selected roles.
                   Go back and adjust your targeting criteria.
                 </Alert>
               )}

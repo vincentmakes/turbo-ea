@@ -38,7 +38,7 @@ const BUILT_IN_PROPERTIES = [
   { key: "description", label: "Description" },
   { key: "lifecycle", label: "Lifecycle" },
   { key: "tags", label: "Tags" },
-  { key: "subscribers", label: "Team / Subscribers" },
+  { key: "subscribers", label: "Team / Stakeholders" },
   { key: "data_quality", label: "Data Quality" },
   { key: "approval_status", label: "Approval Status" },
 ];

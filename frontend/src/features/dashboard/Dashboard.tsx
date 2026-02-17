@@ -120,7 +120,7 @@ export default function Dashboard() {
   if (!data) return <LinearProgress />;
 
   const typeCards = types.filter(
-    (t) => (data.by_type[t.key] ?? 0) > 0 || ["Application", "BusinessCapability", "ITComponent", "Initiative"].includes(t.key),
+    (t) => !t.is_hidden && ((data.by_type[t.key] ?? 0) > 0 || ["Application", "BusinessCapability", "ITComponent", "Initiative"].includes(t.key)),
   );
 
   return (

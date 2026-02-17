@@ -539,7 +539,7 @@ export default function DependencyReport() {
             sx={{ minWidth: 150 }}
           >
             <MenuItem value="">All Types</MenuItem>
-            {types.map((t) => (
+            {types.filter((t) => !t.is_hidden).map((t) => (
               <MenuItem key={t.key} value={t.key}>
                 {t.label}
               </MenuItem>

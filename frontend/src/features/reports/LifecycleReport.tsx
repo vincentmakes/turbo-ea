@@ -264,7 +264,7 @@ export default function LifecycleReport() {
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">All Types</MenuItem>
-            {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
 
           {isInitiativeType && (

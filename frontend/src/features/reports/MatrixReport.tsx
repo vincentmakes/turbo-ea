@@ -396,10 +396,10 @@ export default function MatrixReport() {
       toolbar={
         <>
           <TextField select size="small" label="Rows" value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
           <TextField select size="small" label="Columns" value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
           <TextField select size="small" label="Cell Display" value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 140 }}>
             <MenuItem value="exists">Exists (dot)</MenuItem>
