@@ -2,6 +2,7 @@ from app.models.app_settings import AppSettings
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.comment import Comment
+from app.models.custom_report import SavedReport
 from app.models.diagram import Diagram
 from app.models.document import Document
 from app.models.event import Event
@@ -39,6 +40,7 @@ __all__ = [
     "Tag",
     "CardTag",
     "Comment",
+    "SavedReport",
     "Todo",
     "Event",
     "Document",

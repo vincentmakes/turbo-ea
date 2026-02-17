@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
@@ -9,6 +10,8 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
 interface Props {
@@ -23,6 +26,13 @@ interface Props {
   hasTableToggle?: boolean;
   view?: "chart" | "table";
   onViewChange?: (v: "chart" | "table") => void;
+  /** Called when user clicks "Save Report" — parent should open SaveReportDialog */
+  onSaveReport?: () => void;
+  /** If viewing a saved report, show banner with name and reset option */
+  savedReportName?: string;
+  onResetSavedReport?: () => void;
+  /** The ref to the chart container for thumbnail capture */
+  chartRef?: React.RefObject<HTMLDivElement | null>;
   children: ReactNode;
 }
 
@@ -35,8 +45,13 @@ export default function ReportShell({
   hasTableToggle = true,
   view = "chart",
   onViewChange,
+  onSaveReport,
+  savedReportName,
+  onResetSavedReport,
+  chartRef,
   children,
 }: Props) {
+  const navigate = useNavigate();
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
 
   const handleCopyLink = () => {
@@ -46,6 +61,24 @@ export default function ReportShell({
 
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+      {/* Saved report banner */}
+      {savedReportName && (
+        <Alert
+          severity="info"
+          icon={<MaterialSymbol icon="bookmark" size={20} />}
+          sx={{ mb: 2 }}
+          action={
+            onResetSavedReport && (
+              <Button size="small" onClick={onResetSavedReport} sx={{ textTransform: "none" }}>
+                Reset to defaults
+              </Button>
+            )
+          }
+        >
+          Viewing saved report: <strong>{savedReportName}</strong>
+        </Alert>
+      )}
+
       {/* Title bar */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1, flexWrap: "wrap" }}>
         <MaterialSymbol icon={icon} size={26} color={iconColor} />
@@ -77,9 +110,17 @@ export default function ReportShell({
           </ToggleButtonGroup>
         )}
 
-        <Tooltip title="Export">
+        {onSaveReport && (
+          <Tooltip title="Save report">
+            <IconButton size="small" onClick={onSaveReport}>
+              <MaterialSymbol icon="bookmark_add" size={20} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        <Tooltip title="More actions">
           <IconButton size="small" onClick={(e) => setExportMenu(e.currentTarget)}>
-            <MaterialSymbol icon="download" size={20} />
+            <MaterialSymbol icon="more_vert" size={20} />
           </IconButton>
         </Tooltip>
 
@@ -92,6 +133,15 @@ export default function ReportShell({
             <ListItemIcon><MaterialSymbol icon="link" size={18} /></ListItemIcon>
             <ListItemText>Copy link</ListItemText>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setExportMenu(null);
+              navigate("/reports/saved");
+            }}
+          >
+            <ListItemIcon><MaterialSymbol icon="bookmarks" size={18} /></ListItemIcon>
+            <ListItemText>View all saved reports</ListItemText>
+          </MenuItem>
         </Menu>
       </Box>
 
@@ -103,7 +153,7 @@ export default function ReportShell({
       )}
 
       {/* Main content */}
-      <Box sx={{ minHeight: 300 }}>{children}</Box>
+      <Box ref={chartRef} sx={{ minHeight: 300 }}>{children}</Box>
 
       {/* Legend */}
       {legend && (

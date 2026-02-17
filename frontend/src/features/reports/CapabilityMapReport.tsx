@@ -16,10 +16,12 @@ import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useSavedReport } from "@/hooks/useSavedReport";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -652,6 +654,7 @@ const HOST_OPTS = [
 export default function CapabilityMapReport() {
   const navigate = useNavigate();
   const { fmtShort } = useCurrency();
+  const saved = useSavedReport("capability-map");
 
   // Data
   const [data, setData] = useState<CapItem[] | null>(null);
@@ -675,6 +678,26 @@ export default function CapabilityMapReport() {
   const [filterFunc, setFilterFunc] = useState<string[]>([]);
   const [filterTech, setFilterTech] = useState<string[]>([]);
   const [filterHost, setFilterHost] = useState<string[]>([]);
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.metric) setMetric(cfg.metric as Metric);
+      if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
+      if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
+      if (cfg.colorBy) setColorBy(cfg.colorBy as AppColorBy);
+      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+      if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
+      if (cfg.filterTime) setFilterTime(cfg.filterTime as string[]);
+      if (cfg.filterCrit) setFilterCrit(cfg.filterCrit as string[]);
+      if (cfg.filterFunc) setFilterFunc(cfg.filterFunc as string[]);
+      if (cfg.filterTech) setFilterTech(cfg.filterTech as string[]);
+      if (cfg.filterHost) setFilterHost(cfg.filterHost as string[]);
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate, filterOrgs, filterTime, filterCrit, filterFunc, filterTech, filterHost });
 
   useEffect(() => {
     api
@@ -811,6 +834,9 @@ export default function CapabilityMapReport() {
       icon="grid_view"
       iconColor="#003399"
       hasTableToggle={false}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -1182,6 +1208,12 @@ export default function CapabilityMapReport() {
           </Box>
         )}
       </Drawer>
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="capability-map"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

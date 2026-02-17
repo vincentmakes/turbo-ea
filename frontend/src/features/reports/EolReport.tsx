@@ -17,8 +17,10 @@ import MenuItem from "@mui/material/MenuItem";
 import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -184,6 +186,7 @@ function KpiCard({
 export default function EolReport() {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
+  const saved = useSavedReport("eol");
   const [data, setData] = useState<EolReportData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
   const [filterStatus, setFilterStatus] = useState("");
@@ -193,6 +196,21 @@ export default function EolReport() {
   const [sortD, setSortD] = useState<"asc" | "desc">("asc");
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+      if (cfg.filterStatus) setFilterStatus(cfg.filterStatus as string);
+      if (cfg.filterType) setFilterType(cfg.filterType as string);
+      if (cfg.filterSource) setFilterSource(cfg.filterSource as string);
+      if (cfg.sortK) setSortK(cfg.sortK as string);
+      if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ view, filterStatus, filterType, filterSource, sortK, sortD });
 
   useEffect(() => {
     api.get<EolReportData>("/reports/eol").then(setData);
@@ -299,6 +317,9 @@ export default function EolReport() {
       iconColor="#d32f2f"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           <TextField
@@ -1011,6 +1032,12 @@ export default function EolReport() {
           </Table>
         </Paper>
       )}
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="eol"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

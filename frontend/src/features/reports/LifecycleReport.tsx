@@ -19,8 +19,10 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -107,6 +109,7 @@ function fmtDate(s: string | undefined): string {
 export default function LifecycleReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
+  const saved = useSavedReport("lifecycle");
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [data, setData] = useState<RoadmapItem[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -117,6 +120,21 @@ export default function LifecycleReport() {
   // Initiative-specific controls
   const [useInitiativeDates, setUseInitiativeDates] = useState(false);
   const [initiativeColorBy, setInitiativeColorBy] = useState("initiativeStatus");
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+      if (cfg.sortK) setSortK(cfg.sortK as string);
+      if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+      if (cfg.useInitiativeDates !== undefined) setUseInitiativeDates(cfg.useInitiativeDates as boolean);
+      if (cfg.initiativeColorBy) setInitiativeColorBy(cfg.initiativeColorBy as string);
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ cardTypeKey, view, sortK, sortD, useInitiativeDates, initiativeColorBy });
 
   const isInitiativeType = cardTypeKey === "Initiative";
 
@@ -236,6 +254,9 @@ export default function LifecycleReport() {
       iconColor="#e65100"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
@@ -522,6 +543,12 @@ export default function LifecycleReport() {
           </Table>
         </Paper>
       )}
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="lifecycle"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

@@ -14,9 +14,11 @@ import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
 import { Treemap, ResponsiveContainer, Tooltip as RTooltip } from "recharts";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import TimelineSlider from "@/components/TimelineSlider";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { useCurrency } from "@/hooks/useCurrency";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
@@ -101,6 +103,7 @@ export default function CostReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
+  const saved = useSavedReport("cost");
   const [cardTypeKey, setCardTypeKey] = useState("Application");
   const [costField, setCostField] = useState("totalAnnualCost");
   const [groupBy, setGroupBy] = useState("");
@@ -113,6 +116,22 @@ export default function CostReport() {
   const todayMs = useMemo(() => Date.now(), []);
   const [timelineDate, setTimelineDate] = useState(todayMs);
   const [sliderTouched, setSliderTouched] = useState(false);
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
+      if (cfg.costField) setCostField(cfg.costField as string);
+      if (cfg.groupBy !== undefined) setGroupBy(cfg.groupBy as string);
+      if (cfg.view) setView(cfg.view as "chart" | "table");
+      if (cfg.sortK) setSortK(cfg.sortK as string);
+      if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate });
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
   const numFields = useMemo(() => (typeDef ? pickNumberFields(typeDef.fields_schema) : []), [typeDef]);
@@ -233,6 +252,9 @@ export default function CostReport() {
       iconColor="#2e7d32"
       view={view}
       onViewChange={setView}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
@@ -355,6 +377,12 @@ export default function CostReport() {
           </Table>
         </Paper>
       )}
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="cost"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

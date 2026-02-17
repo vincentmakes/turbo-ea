@@ -13,8 +13,10 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
 import ReportShell from "./ReportShell";
+import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useSavedReport } from "@/hooks/useSavedReport";
 import { api } from "@/api/client";
 
 interface MatrixData {
@@ -39,6 +41,7 @@ function heatColor(value: number, max: number): string {
 export default function MatrixReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
+  const saved = useSavedReport("matrix");
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
   const [data, setData] = useState<MatrixData | null>(null);
@@ -49,6 +52,20 @@ export default function MatrixReport() {
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ el: HTMLElement; rowId: string; colId: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+
+  // Load saved report config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.rowType) setRowType(cfg.rowType as string);
+      if (cfg.colType) setColType(cfg.colType as string);
+      if (cfg.cellMode) setCellMode(cfg.cellMode as CellMode);
+      if (cfg.sortRows) setSortRows(cfg.sortRows as "alpha" | "count");
+      if (cfg.sortCols) setSortCols(cfg.sortCols as "alpha" | "count");
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ rowType, colType, cellMode, sortRows, sortCols });
 
   useEffect(() => {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
@@ -149,6 +166,9 @@ export default function MatrixReport() {
       icon="table_chart"
       iconColor="#6a1b9a"
       hasTableToggle={false}
+      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      savedReportName={saved.savedReportName ?? undefined}
+      onResetSavedReport={saved.resetSavedReport}
       toolbar={
         <>
           <TextField select size="small" label="Rows" value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
@@ -419,6 +439,12 @@ export default function MatrixReport() {
           );
         })()}
       </Popover>
+      <SaveReportDialog
+        open={saved.saveDialogOpen}
+        onClose={() => saved.setSaveDialogOpen(false)}
+        reportType="matrix"
+        config={getConfig()}
+      />
     </ReportShell>
   );
 }

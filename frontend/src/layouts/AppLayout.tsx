@@ -63,6 +63,7 @@ const NAV_ITEMS: NavItemWithPermission[] = [
       { label: "Matrix", icon: "table_chart", path: "/reports/matrix" },
       { label: "Data Quality", icon: "verified", path: "/reports/data-quality" },
       { label: "End of Life", icon: "update", path: "/reports/eol" },
+      { label: "Saved Reports", icon: "bookmarks", path: "/reports/saved" },
     ],
   },
   { label: "BPM", icon: "route", path: "/bpm", permission: "bpm.view" },
@@ -633,21 +634,26 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             open={!!reportsMenu}
             onClose={() => setReportsMenu(null)}
           >
-            {navItems.find((n) => n.children)?.children?.map((child) => (
-              <MenuItem
-                key={child.path}
-                selected={isActive(child.path)}
-                onClick={() => {
-                  navigate(child.path);
-                  setReportsMenu(null);
-                }}
-              >
-                <ListItemIcon>
-                  <MaterialSymbol icon={child.icon} size={18} />
-                </ListItemIcon>
-                <ListItemText>{child.label}</ListItemText>
-              </MenuItem>
-            ))}
+            {navItems.find((n) => n.children)?.children?.map((child, idx, arr) => {
+              const isSavedReports = child.path === "/reports/saved";
+              return (
+                <Box key={child.path}>
+                  {isSavedReports && idx > 0 && <Divider sx={{ my: 0.5 }} />}
+                  <MenuItem
+                    selected={isActive(child.path)}
+                    onClick={() => {
+                      navigate(child.path);
+                      setReportsMenu(null);
+                    }}
+                  >
+                    <ListItemIcon>
+                      <MaterialSymbol icon={child.icon} size={18} />
+                    </ListItemIcon>
+                    <ListItemText>{child.label}</ListItemText>
+                  </MenuItem>
+                </Box>
+              );
+            })}
           </Menu>
 
 
