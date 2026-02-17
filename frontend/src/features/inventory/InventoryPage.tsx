@@ -44,6 +44,15 @@ const APPROVAL_STATUS_COLORS: Record<string, string> = {
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
 
+function getLifecyclePhase(card: Card): string {
+  const lc = card.lifecycle || {};
+  const now = new Date().toISOString().slice(0, 10);
+  for (const phase of ["endOfLife", "phaseOut", "active", "phaseIn", "plan"]) {
+    if (lc[phase] && lc[phase] <= now) return phase;
+  }
+  return "";
+}
+
 /**
  * Pre-compute hierarchy display paths from raw card data.
  * Reads names and parent_ids once into plain-string maps, then builds
@@ -135,6 +144,9 @@ export default function InventoryPage() {
     return {
       types: searchParams.get("type") ? [searchParams.get("type")!] : [],
       search: searchParams.get("search") || "",
+      subtypes: [],
+      lifecyclePhases: [],
+      dataQualityMin: null,
       approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
       showArchived: searchParams.get("show_archived") === "true",
       attributes,
@@ -264,7 +276,7 @@ export default function InventoryPage() {
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
   const hierarchyPaths = useMemo(() => buildHierarchyPaths(data), [data]);
 
-  // Client-side filtering: type multi-select (>1 type) and attribute filters
+  // Client-side filtering
   const filteredData = useMemo(() => {
     let result = data;
 
@@ -273,12 +285,49 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.types.includes(card.type));
     }
 
-    // Attribute filters (client-side)
+    // Subtype filter
+    if (filters.subtypes.length > 0) {
+      result = result.filter((card) => card.subtype && filters.subtypes.includes(card.subtype));
+    }
+
+    // Lifecycle filter
+    if (filters.lifecyclePhases.length > 0) {
+      result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card)));
+    }
+
+    // Data quality filter
+    if (filters.dataQualityMin !== null) {
+      const min = filters.dataQualityMin;
+      if (min === 0) {
+        // "Poor" = below 50
+        result = result.filter((card) => (card.data_quality ?? 0) < 50);
+      } else {
+        result = result.filter((card) => (card.data_quality ?? 0) >= min);
+      }
+    }
+
+    // Attribute filters (client-side) — supports different field types
     const attrEntries = Object.entries(filters.attributes);
     if (attrEntries.length > 0) {
       result = result.filter((card) => {
         const attrs = card.attributes || {};
-        return attrEntries.every(([key, val]) => attrs[key] === val);
+        return attrEntries.every(([key, val]) => {
+          const actual = attrs[key];
+          // number/cost: filter as minimum value
+          if (!isNaN(Number(val)) && val !== "" && typeof actual === "number") {
+            return actual >= Number(val);
+          }
+          // boolean: string comparison
+          if (val === "true" || val === "false") {
+            return String(actual) === val;
+          }
+          // text: case-insensitive contains
+          if (typeof actual === "string" && typeof val === "string") {
+            return actual.toLowerCase().includes(val.toLowerCase());
+          }
+          // exact match fallback (single_select, etc.)
+          return actual === val;
+        });
       });
     }
 
@@ -296,7 +345,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.attributes, filters.relations, relationsMap]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, relationsMap]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const card = event.data as Card;

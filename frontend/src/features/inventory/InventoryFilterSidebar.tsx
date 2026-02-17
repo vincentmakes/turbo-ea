@@ -37,6 +37,9 @@ import type { CardType, Bookmark, FieldDef, RelationType } from "@/types";
 export interface Filters {
   types: string[];
   search: string;
+  subtypes: string[];
+  lifecyclePhases: string[];
+  dataQualityMin: number | null;
   approvalStatuses: string[];
   showArchived: boolean;
   attributes: Record<string, string>; // key → value (single_select only for now)
@@ -63,6 +66,20 @@ const APPROVAL_STATUS_OPTIONS = [
   { key: "REJECTED", label: "Rejected", color: "#f44336" },
 ];
 
+const LIFECYCLE_PHASES = [
+  { key: "plan", label: "Plan", color: "#90a4ae" },
+  { key: "phaseIn", label: "Phase In", color: "#42a5f5" },
+  { key: "active", label: "Active", color: "#66bb6a" },
+  { key: "phaseOut", label: "Phase Out", color: "#ffa726" },
+  { key: "endOfLife", label: "End of Life", color: "#ef5350" },
+];
+
+const DATA_QUALITY_THRESHOLDS = [
+  { key: 80, label: "Good (80%+)", color: "#4caf50" },
+  { key: 50, label: "Medium (50%+)", color: "#ff9800" },
+  { key: 0, label: "Poor (< 50%)", color: "#f44336" },
+];
+
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 500;
 
@@ -86,6 +103,9 @@ export default function InventoryFilterSidebar({
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
     search: true,
+    subtypes: false,
+    lifecycle: false,
+    dataQuality: false,
     approvalStatus: false,
     attributes: false,
     relationships: false,
@@ -111,7 +131,14 @@ export default function InventoryFilterSidebar({
     loadBookmarks();
   }, [loadBookmarks]);
 
-  // Derive attribute filter fields from selected types
+  // Derive subtype options from selected type
+  const subtypeOptions = useMemo(() => {
+    if (filters.types.length !== 1) return [];
+    const t = types.find((t) => t.key === filters.types[0]);
+    return t?.subtypes ?? [];
+  }, [types, filters.types]);
+
+  // Derive attribute filter fields from selected types (all field types)
   const attributeFields = useMemo(() => {
     const selectedTypes = filters.types.length > 0
       ? types.filter((t) => filters.types.includes(t.key))
@@ -121,9 +148,7 @@ export default function InventoryFilterSidebar({
     const fields: FieldDef[] = [];
     for (const section of t.fields_schema) {
       for (const f of section.fields) {
-        if (f.type === "single_select" && f.options && f.options.length > 0) {
-          fields.push(f);
-        }
+        fields.push(f);
       }
     }
     return fields;
@@ -136,7 +161,21 @@ export default function InventoryFilterSidebar({
     const next = filters.types.includes(key)
       ? filters.types.filter((t) => t !== key)
       : [...filters.types, key];
-    onFiltersChange({ ...filters, types: next, attributes: {} });
+    onFiltersChange({ ...filters, types: next, subtypes: [], attributes: {} });
+  };
+
+  const toggleSubtype = (key: string) => {
+    const next = filters.subtypes.includes(key)
+      ? filters.subtypes.filter((s) => s !== key)
+      : [...filters.subtypes, key];
+    onFiltersChange({ ...filters, subtypes: next });
+  };
+
+  const toggleLifecyclePhase = (key: string) => {
+    const next = filters.lifecyclePhases.includes(key)
+      ? filters.lifecyclePhases.filter((p) => p !== key)
+      : [...filters.lifecyclePhases, key];
+    onFiltersChange({ ...filters, lifecyclePhases: next });
   };
 
   const toggleApprovalStatus = (key: string) => {
@@ -179,11 +218,14 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", approvalStatuses: [], showArchived: false, attributes: {}, relations: {} });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {} });
 
   const activeCount =
     filters.types.length +
     (filters.search ? 1 : 0) +
+    filters.subtypes.length +
+    filters.lifecyclePhases.length +
+    (filters.dataQualityMin !== null ? 1 : 0) +
     filters.approvalStatuses.length +
     (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
@@ -199,9 +241,13 @@ export default function InventoryFilterSidebar({
       filters: {
         types: filters.types,
         search: filters.search,
+        subtypes: filters.subtypes,
+        lifecyclePhases: filters.lifecyclePhases,
+        dataQualityMin: filters.dataQualityMin,
         approvalStatuses: filters.approvalStatuses,
         showArchived: filters.showArchived,
         attributes: filters.attributes,
+        relations: filters.relations,
       },
     };
     if (editingBookmark) {
@@ -221,6 +267,9 @@ export default function InventoryFilterSidebar({
       onFiltersChange({
         types: f.types || [],
         search: f.search || "",
+        subtypes: f.subtypes || [],
+        lifecyclePhases: f.lifecyclePhases || [],
+        dataQualityMin: f.dataQualityMin ?? null,
         approvalStatuses: f.approvalStatuses || [],
         showArchived: f.showArchived || false,
         attributes: f.attributes || {},
@@ -419,6 +468,33 @@ export default function InventoryFilterSidebar({
                 </List>
               </Collapse>
 
+              {/* Subtypes (only when single type with subtypes selected) */}
+              {subtypeOptions.length > 0 && (
+                <>
+                  <SectionHeader
+                    label="Subtypes"
+                    icon="label"
+                    expanded={expandedSections.subtypes}
+                    onToggle={() => toggleSection("subtypes")}
+                    count={filters.subtypes.length}
+                  />
+                  <Collapse in={expandedSections.subtypes}>
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                      {subtypeOptions.map((st) => (
+                        <Chip
+                          key={st.key}
+                          label={st.label}
+                          size="small"
+                          onClick={() => toggleSubtype(st.key)}
+                          variant={filters.subtypes.includes(st.key) ? "filled" : "outlined"}
+                          color={filters.subtypes.includes(st.key) ? "primary" : "default"}
+                        />
+                      ))}
+                    </Box>
+                  </Collapse>
+                </>
+              )}
+
               {/* Approval Status */}
               <SectionHeader
                 label="Approval Status"
@@ -468,6 +544,60 @@ export default function InventoryFilterSidebar({
                 </Box>
               )}
 
+              {/* Lifecycle */}
+              <SectionHeader
+                label="Lifecycle"
+                icon="schedule"
+                expanded={expandedSections.lifecycle}
+                onToggle={() => toggleSection("lifecycle")}
+                count={filters.lifecyclePhases.length}
+              />
+              <Collapse in={expandedSections.lifecycle}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                  {LIFECYCLE_PHASES.map((p) => (
+                    <Chip
+                      key={p.key}
+                      label={p.label}
+                      size="small"
+                      onClick={() => toggleLifecyclePhase(p.key)}
+                      variant={filters.lifecyclePhases.includes(p.key) ? "filled" : "outlined"}
+                      sx={
+                        filters.lifecyclePhases.includes(p.key)
+                          ? { bgcolor: p.color, color: "#fff", borderColor: p.color }
+                          : { borderColor: p.color, color: p.color }
+                      }
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+
+              {/* Data Quality */}
+              <SectionHeader
+                label="Data Quality"
+                icon="bar_chart"
+                expanded={expandedSections.dataQuality}
+                onToggle={() => toggleSection("dataQuality")}
+                count={filters.dataQualityMin !== null ? 1 : 0}
+              />
+              <Collapse in={expandedSections.dataQuality}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2, px: 0.5 }}>
+                  {DATA_QUALITY_THRESHOLDS.map((t) => (
+                    <Chip
+                      key={t.key}
+                      label={t.label}
+                      size="small"
+                      onClick={() => onFiltersChange({ ...filters, dataQualityMin: filters.dataQualityMin === t.key ? null : t.key })}
+                      variant={filters.dataQualityMin === t.key ? "filled" : "outlined"}
+                      sx={
+                        filters.dataQualityMin === t.key
+                          ? { bgcolor: t.color, color: "#fff", borderColor: t.color }
+                          : { borderColor: t.color, color: t.color }
+                      }
+                    />
+                  ))}
+                </Box>
+              </Collapse>
+
               {/* Attribute Filters (only when single type selected) */}
               {attributeFields.length > 0 && (
                 <>
@@ -480,38 +610,83 @@ export default function InventoryFilterSidebar({
                   />
                   <Collapse in={expandedSections.attributes}>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
-                      {attributeFields.map((field) => (
-                        <FormControl key={field.key} size="small" fullWidth>
-                          <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
-                          <Select
-                            value={filters.attributes[field.key] || ""}
+                      {attributeFields.map((field) => {
+                        if ((field.type === "single_select" || field.type === "multiple_select") && field.options?.length) {
+                          return (
+                            <FormControl key={field.key} size="small" fullWidth>
+                              <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
+                              <Select
+                                value={filters.attributes[field.key] || ""}
+                                label={field.label}
+                                onChange={(e) => setAttr(field.key, e.target.value as string)}
+                                sx={{ fontSize: 13 }}
+                              >
+                                <MenuItem value="">
+                                  <em>Any</em>
+                                </MenuItem>
+                                {field.options?.map((opt) => (
+                                  <MenuItem key={opt.key} value={opt.key}>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                      {opt.color && (
+                                        <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
+                                      )}
+                                      {opt.label}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                            </FormControl>
+                          );
+                        }
+                        if (field.type === "boolean") {
+                          return (
+                            <FormControl key={field.key} size="small" fullWidth>
+                              <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
+                              <Select
+                                value={filters.attributes[field.key] ?? ""}
+                                label={field.label}
+                                onChange={(e) => setAttr(field.key, e.target.value as string)}
+                                sx={{ fontSize: 13 }}
+                              >
+                                <MenuItem value=""><em>Any</em></MenuItem>
+                                <MenuItem value="true">Yes</MenuItem>
+                                <MenuItem value="false">No</MenuItem>
+                              </Select>
+                            </FormControl>
+                          );
+                        }
+                        if (field.type === "number" || field.type === "cost") {
+                          return (
+                            <TextField
+                              key={field.key}
+                              size="small"
+                              fullWidth
+                              label={field.label}
+                              placeholder="Min value"
+                              type="number"
+                              value={filters.attributes[field.key] || ""}
+                              onChange={(e) => setAttr(field.key, e.target.value)}
+                              sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
+                              InputLabelProps={{ sx: { fontSize: 13 } }}
+                            />
+                          );
+                        }
+                        // text, date, etc. → text search
+                        return (
+                          <TextField
+                            key={field.key}
+                            size="small"
+                            fullWidth
                             label={field.label}
-                            onChange={(e) => setAttr(field.key, e.target.value as string)}
-                            sx={{ fontSize: 13 }}
-                          >
-                            <MenuItem value="">
-                              <em>Any</em>
-                            </MenuItem>
-                            {field.options?.map((opt) => (
-                              <MenuItem key={opt.key} value={opt.key}>
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                  {opt.color && (
-                                    <Box
-                                      sx={{
-                                        width: 10,
-                                        height: 10,
-                                        borderRadius: "50%",
-                                        bgcolor: opt.color,
-                                      }}
-                                    />
-                                  )}
-                                  {opt.label}
-                                </Box>
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      ))}
+                            type={field.type === "date" ? "date" : "text"}
+                            placeholder={field.type === "date" ? "" : "Contains..."}
+                            value={filters.attributes[field.key] || ""}
+                            onChange={(e) => setAttr(field.key, e.target.value)}
+                            sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
+                            InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 13 } }}
+                          />
+                        );
+                      })}
                     </Box>
                   </Collapse>
                 </>
