@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, or_, delete
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -122,22 +122,19 @@ async def create_saved_report(
         thumbnail=body.thumbnail,
         visibility=body.visibility,
     )
-    db.add(report)
-    await db.flush()
-
-    # Handle shared users
+    # Handle shared users via ORM relationship
     if body.shared_with and body.visibility == "shared":
+        user_ids = []
         for uid_str in body.shared_with:
             try:
-                uid = uuid.UUID(uid_str)
+                user_ids.append(uuid.UUID(uid_str))
             except ValueError:
                 continue
-            await db.execute(
-                saved_report_shares.insert().values(
-                    saved_report_id=report.id, user_id=uid
-                )
-            )
+        if user_ids:
+            user_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+            report.shared_with_users = list(user_result.scalars().all())
 
+    db.add(report)
     await db.commit()
     await db.refresh(report, ["shared_with_users"])
     report.owner = user  # type: ignore[attr-defined]
@@ -203,24 +200,22 @@ async def update_saved_report(
     for field, value in data.items():
         setattr(report, field, value)
 
-    # Update shares if provided
+    # Update shares via ORM relationship to avoid session conflicts
     if shared_with is not None:
-        await db.execute(
-            delete(saved_report_shares).where(
-                saved_report_shares.c.saved_report_id == report.id
-            )
-        )
         if report.visibility == "shared" and shared_with:
+            user_ids = []
             for uid_str in shared_with:
                 try:
-                    uid = uuid.UUID(uid_str)
+                    user_ids.append(uuid.UUID(uid_str))
                 except ValueError:
                     continue
-                await db.execute(
-                    saved_report_shares.insert().values(
-                        saved_report_id=report.id, user_id=uid
-                    )
-                )
+            if user_ids:
+                user_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+                report.shared_with_users = list(user_result.scalars().all())
+            else:
+                report.shared_with_users = []
+        else:
+            report.shared_with_users = []
 
     await db.commit()
     await db.refresh(report, ["shared_with_users"])
