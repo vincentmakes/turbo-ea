@@ -258,6 +258,21 @@ async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), u
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")
 
+    # Prevent duplicate source+target pair (ignore hidden/soft-deleted)
+    dup = await db.execute(
+        select(RelationType).where(
+            RelationType.source_type_key == body["source_type_key"],
+            RelationType.target_type_key == body["target_type_key"],
+            RelationType.is_hidden == False,  # noqa: E712
+        )
+    )
+    if dup.scalar_one_or_none():
+        raise HTTPException(
+            400,
+            f"A relation type from '{body['source_type_key']}' to "
+            f"'{body['target_type_key']}' already exists.",
+        )
+
     max_order = await db.execute(select(func.max(RelationType.sort_order)))
     next_order = (max_order.scalar() or 0) + 1
 
@@ -288,9 +303,50 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
     if not r:
         raise HTTPException(404, "Relation type not found")
 
+    # Allow changing source/target only when no instances exist
+    changing_endpoints = (
+        ("source_type_key" in body and body["source_type_key"] != r.source_type_key)
+        or ("target_type_key" in body and body["target_type_key"] != r.target_type_key)
+    )
+    if changing_endpoints:
+        count_result = await db.execute(
+            select(func.count()).select_from(Relation).where(Relation.type == key)
+        )
+        if (count_result.scalar() or 0) > 0:
+            raise HTTPException(
+                400,
+                "Cannot change source/target types: relation instances exist. "
+                "Delete them first.",
+            )
+        # Validate new types exist
+        for fk in ("source_type_key", "target_type_key"):
+            if fk in body:
+                exists = await db.execute(
+                    select(CardType.key).where(CardType.key == body[fk])
+                )
+                if not exists.scalar_one_or_none():
+                    raise HTTPException(400, f"Type '{body[fk]}' does not exist")
+        # Check for duplicate source+target
+        new_src = body.get("source_type_key", r.source_type_key)
+        new_tgt = body.get("target_type_key", r.target_type_key)
+        dup = await db.execute(
+            select(RelationType).where(
+                RelationType.source_type_key == new_src,
+                RelationType.target_type_key == new_tgt,
+                RelationType.key != key,
+                RelationType.is_hidden == False,  # noqa: E712
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(
+                400,
+                f"A relation type from '{new_src}' to '{new_tgt}' already exists.",
+            )
+
     updatable = [
         "label", "reverse_label", "description", "cardinality",
         "attributes_schema", "sort_order", "is_hidden",
+        "source_type_key", "target_type_key",
     ]
     for field in updatable:
         if field in body:
@@ -302,7 +358,12 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
 
 
 @router.delete("/relation-types/{key}")
-async def delete_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_relation_type(
+    key: str,
+    force: bool = Query(False, description="Force-delete even with existing instances"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
@@ -315,18 +376,62 @@ async def delete_relation_type(key: str, db: AsyncSession = Depends(get_db), use
     )
     instance_count = count_result.scalar() or 0
 
+    if instance_count > 0 and not force:
+        raise HTTPException(
+            409,
+            detail={
+                "message": f"Relation type '{key}' has {instance_count} relation instance(s). "
+                "Deleting it will remove all of them.",
+                "instance_count": instance_count,
+                "key": key,
+            },
+        )
+
+    # Delete all relation instances first
+    if instance_count > 0:
+        await db.execute(
+            Relation.__table__.delete().where(Relation.type == key)
+        )
+
     if r.built_in:
+        # Soft-delete built-in types so they can be restored from the seed
         r.is_hidden = True
         await db.commit()
-        return {"status": "hidden", "key": key, "instance_count": instance_count}
-
-    if instance_count > 0:
-        raise HTTPException(
-            400,
-            f"Cannot delete relation type '{key}': {instance_count} relation(s) exist. "
-            "Delete them first or hide the type instead.",
-        )
+        return {"status": "hidden", "key": key, "instances_removed": instance_count}
 
     await db.delete(r)
     await db.commit()
-    return {"status": "deleted", "key": key}
+    return {"status": "deleted", "key": key, "instances_removed": instance_count}
+
+
+@router.post("/relation-types/{key}/restore")
+async def restore_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """Restore a soft-deleted (hidden) built-in relation type."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(RelationType).where(RelationType.key == key))
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(404, "Relation type not found")
+    if not r.is_hidden:
+        raise HTTPException(400, "Relation type is not hidden")
+
+    # Check for duplicate source+target before restoring
+    dup = await db.execute(
+        select(RelationType).where(
+            RelationType.source_type_key == r.source_type_key,
+            RelationType.target_type_key == r.target_type_key,
+            RelationType.key != key,
+            RelationType.is_hidden == False,  # noqa: E712
+        )
+    )
+    if dup.scalar_one_or_none():
+        raise HTTPException(
+            400,
+            f"Cannot restore: a relation type from '{r.source_type_key}' to "
+            f"'{r.target_type_key}' already exists.",
+        )
+
+    r.is_hidden = False
+    await db.commit()
+    await db.refresh(r)
+    return _serialize_relation_type(r)

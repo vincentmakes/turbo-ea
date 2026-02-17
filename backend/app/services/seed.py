@@ -674,7 +674,13 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_types = {t.key: t for t in existing_types_result.scalars().all()}
 
     existing_rels_result = await db.execute(select(RelationType))
-    existing_rels = {r.key for r in existing_rels_result.scalars().all()}
+    existing_rels_list = existing_rels_result.scalars().all()
+    existing_rels = {r.key for r in existing_rels_list}
+    existing_rel_pairs = {
+        (r.source_type_key, r.target_type_key)
+        for r in existing_rels_list
+        if not r.is_hidden
+    }
 
     for i, t in enumerate(TYPES):
         key = t["key"]
@@ -713,6 +719,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
 
     for i, r in enumerate(RELATIONS):
         if r["key"] in existing_rels:
+            continue
+        # Skip if a relation with same source+target already exists
+        pair = (r["source_type_key"], r["target_type_key"])
+        if pair in existing_rel_pairs:
             continue
 
         rt = RelationType(
