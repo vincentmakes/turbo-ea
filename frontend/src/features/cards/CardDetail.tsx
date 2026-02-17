@@ -1814,6 +1814,8 @@ export default function CardDetail() {
     null
   );
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Fetch effective permissions for this card
   useEffect(() => {
@@ -1876,9 +1878,6 @@ export default function CardDetail() {
   };
 
   // ── Archive / Restore / Delete ───────────────────────────────
-  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
   const handleArchive = async () => {
     setArchiveDialogOpen(false);
     const updated = await api.post<Card>(`/cards/${card.id}/archive`);
