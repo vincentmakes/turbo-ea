@@ -473,7 +473,7 @@ export default function MatrixReport() {
                         <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
                           {rowLabel} / {colLabel}
                         </div>
-                        {/* Row depth: vertical -/+ centered vertically, flush right */}
+                        {/* Row depth: horizontal -/+ centered vertically, flush right */}
                         {isHierarchyRowMode && (
                           <div style={{
                             position: "absolute",
@@ -481,9 +481,9 @@ export default function MatrixReport() {
                             top: "50%",
                             transform: "translateY(-50%)",
                             display: "flex",
-                            flexDirection: "column",
+                            flexDirection: "row",
                             alignItems: "center",
-                            gap: 1,
+                            gap: 3,
                           }}>
                             <Tooltip title="Collapse row level" placement="left">
                               <span
@@ -504,7 +504,7 @@ export default function MatrixReport() {
                             </Tooltip>
                           </div>
                         )}
-                        {/* Column depth: horizontal -/+ centered horizontally, flush bottom */}
+                        {/* Column depth: vertical -/+ centered horizontally, flush bottom */}
                         {isHierarchyColMode && (
                           <div style={{
                             position: "absolute",
@@ -512,9 +512,9 @@ export default function MatrixReport() {
                             left: "50%",
                             transform: "translateX(-50%)",
                             display: "flex",
-                            flexDirection: "row",
+                            flexDirection: "column",
                             alignItems: "center",
-                            gap: 3,
+                            gap: 1,
                           }}>
                             <Tooltip title="Collapse column level">
                               <span
