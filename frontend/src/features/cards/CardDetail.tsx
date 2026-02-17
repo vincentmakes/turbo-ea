@@ -1784,6 +1784,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
 const DEFAULT_PERMISSIONS: CardEffectivePermissions["effective"] = {
   can_view: true,
   can_edit: true,
+  can_archive: true,
   can_delete: true,
   can_approval_status: true,
   can_manage_stakeholders: true,
@@ -1874,6 +1875,32 @@ export default function CardDetail() {
     setCard({ ...card, approval_status: newStatus });
   };
 
+  // ── Archive / Restore / Delete ───────────────────────────────
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleArchive = async () => {
+    setArchiveDialogOpen(false);
+    const updated = await api.post<Card>(`/cards/${card.id}/archive`);
+    setCard(updated);
+  };
+
+  const handleRestore = async () => {
+    const updated = await api.post<Card>(`/cards/${card.id}/restore`);
+    setCard(updated);
+  };
+
+  const handleDelete = async () => {
+    setDeleteDialogOpen(false);
+    await api.delete(`/cards/${card.id}`);
+    navigate("/inventory");
+  };
+
+  const isArchived = card.status === "ARCHIVED";
+  const daysUntilPurge = card.archived_at
+    ? Math.max(0, 30 - Math.floor((Date.now() - new Date(card.archived_at).getTime()) / 86400000))
+    : null;
+
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* ── Header ── */}
@@ -1959,6 +1986,96 @@ export default function CardDetail() {
           </Menu>
         )}
       </Box>
+
+      {/* ── Archived banner ── */}
+      {isArchived && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Box sx={{ display: "flex", gap: 1 }}>
+              {perms.can_archive && (
+                <Button size="small" color="inherit" onClick={handleRestore} startIcon={<MaterialSymbol icon="restore" size={18} />}>
+                  Restore
+                </Button>
+              )}
+              {perms.can_delete && (
+                <Button size="small" color="error" onClick={() => setDeleteDialogOpen(true)} startIcon={<MaterialSymbol icon="delete_forever" size={18} />}>
+                  Delete
+                </Button>
+              )}
+            </Box>
+          }
+        >
+          This card is archived.{daysUntilPurge !== null && ` It will be permanently deleted in ${daysUntilPurge} day${daysUntilPurge !== 1 ? "s" : ""}.`}
+        </Alert>
+      )}
+
+      {/* ── Archive / Delete action buttons (active cards) ── */}
+      {!isArchived && (perms.can_archive || perms.can_delete) && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 1 }}>
+          {perms.can_archive && (
+            <Tooltip title="Archive this card">
+              <Button
+                size="small"
+                color="warning"
+                variant="outlined"
+                onClick={() => setArchiveDialogOpen(true)}
+                startIcon={<MaterialSymbol icon="archive" size={18} />}
+              >
+                Archive
+              </Button>
+            </Tooltip>
+          )}
+          {perms.can_delete && (
+            <Tooltip title="Permanently delete this card">
+              <Button
+                size="small"
+                color="error"
+                variant="outlined"
+                onClick={() => setDeleteDialogOpen(true)}
+                startIcon={<MaterialSymbol icon="delete_forever" size={18} />}
+              >
+                Delete
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+      )}
+
+      {/* ── Archive confirmation dialog ── */}
+      <Dialog open={archiveDialogOpen} onClose={() => setArchiveDialogOpen(false)}>
+        <DialogTitle>Archive Card</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to archive <strong>{card.name}</strong>?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Archived cards can be restored within 30 days. After that, they are permanently deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setArchiveDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleArchive}>Archive</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Delete confirmation dialog ── */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Permanently Delete Card</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to permanently delete <strong>{card.name}</strong>?
+          </Typography>
+          <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+            This action cannot be undone. The card and all its relations will be removed.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleDelete}>Delete Permanently</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Top-level tabs ── */}
       <Tabs

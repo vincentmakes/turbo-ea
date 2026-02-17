@@ -30,6 +30,64 @@ def _run_alembic_upgrade(alembic_cfg, revision):
     command.upgrade(alembic_cfg, revision)
 
 
+_PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
+_PURGE_RETENTION_DAYS = 30
+
+
+async def _purge_archived_cards_loop() -> None:
+    """Background loop that permanently deletes cards archived for 30+ days."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import or_, select
+
+    from app.database import async_session
+    from app.models.card import Card
+    from app.models.relation import Relation
+
+    while True:
+        try:
+            await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=_PURGE_RETENTION_DAYS)
+            async with async_session() as db:
+                result = await db.execute(
+                    select(Card).where(
+                        Card.status == "ARCHIVED",
+                        Card.archived_at.isnot(None),
+                        Card.archived_at <= cutoff,
+                    )
+                )
+                cards_to_purge = result.scalars().all()
+                if not cards_to_purge:
+                    continue
+
+                purged_ids = [c.id for c in cards_to_purge]
+                # Delete relations referencing these cards
+                rels = await db.execute(
+                    select(Relation).where(
+                        or_(
+                            Relation.source_id.in_(purged_ids),
+                            Relation.target_id.in_(purged_ids),
+                        )
+                    )
+                )
+                for rel in rels.scalars().all():
+                    await db.delete(rel)
+
+                for card in cards_to_purge:
+                    await db.delete(card)
+
+                await db.commit()
+                logger.info(
+                    "Auto-purged %d archived cards (archived before %s)",
+                    len(purged_ids),
+                    cutoff.isoformat(),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in archived card purge loop")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── C2: Refuse startup with default secret key in non-development envs ──
@@ -169,7 +227,17 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_bpm] Skipped: {result.get('reason', 'unknown')}")
 
+    # Start background task for auto-purging archived cards after 30 days
+    purge_task = asyncio.create_task(_purge_archived_cards_loop())
+
     yield
+
+    # Cancel background purge task on shutdown
+    purge_task.cancel()
+    try:
+        await purge_task
+    except asyncio.CancelledError:
+        pass
 
 
 # ── H6: Conditionally disable OpenAPI docs in production ──

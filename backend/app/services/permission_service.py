@@ -183,6 +183,7 @@ class PermissionService:
         effective = {
             "can_view": is_admin or app_perms.get("inventory.view", False) or card_level.get("card.view", False),
             "can_edit": is_admin or app_perms.get("inventory.edit", False) or card_level.get("card.edit", False),
+            "can_archive": is_admin or app_perms.get("inventory.archive", False) or card_level.get("card.archive", False),
             "can_delete": is_admin or app_perms.get("inventory.delete", False) or card_level.get("card.delete", False),
             "can_approval_status": is_admin or app_perms.get("inventory.approval_status", False) or card_level.get("card.approval_status", False),
             "can_manage_stakeholders": is_admin or app_perms.get("stakeholders.manage", False) or card_level.get("card.manage_stakeholders", False),

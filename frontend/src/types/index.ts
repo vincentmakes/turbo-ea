@@ -55,6 +55,7 @@ export interface CardEffectivePermissions {
   effective: {
     can_view: boolean;
     can_edit: boolean;
+    can_archive: boolean;
     can_delete: boolean;
     can_approval_status: boolean;
     can_manage_stakeholders: boolean;
@@ -181,6 +182,7 @@ export interface Card {
   data_quality: number;
   external_id?: string;
   alias?: string;
+  archived_at?: string;
   created_by?: string;
   updated_by?: string;
   created_at?: string;

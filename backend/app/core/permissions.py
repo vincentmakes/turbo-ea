@@ -13,7 +13,8 @@ APP_PERMISSIONS: dict[str, dict] = {
             "inventory.view": "View card lists and detail pages",
             "inventory.create": "Create new cards",
             "inventory.edit": "Edit any card (overrides stakeholder-level)",
-            "inventory.delete": "Delete or archive cards",
+            "inventory.archive": "Archive and restore cards",
+            "inventory.delete": "Permanently delete cards (admin)",
             "inventory.export": "Export CSV or Excel data",
             "inventory.approval_status": "Approve, reject, or reset approval status on any card",
             "inventory.bulk_edit": "Bulk update multiple cards",
@@ -150,7 +151,8 @@ for group in APP_PERMISSIONS.values():
 CARD_PERMISSIONS: dict[str, str] = {
     "card.view": "View this card's detail page",
     "card.edit": "Edit this card's fields, name, description, lifecycle",
-    "card.delete": "Delete or archive this card",
+    "card.archive": "Archive or restore this card",
+    "card.delete": "Permanently delete this card (admin)",
     "card.approval_status": "Approve, reject, or reset approval status",
     "card.manage_stakeholders": "Add or remove other users' stakeholder assignments",
     "card.manage_relations": "Add or remove relations on this card",
@@ -171,6 +173,7 @@ ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
 
 APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "inventory.edit": "card.edit",
+    "inventory.archive": "card.archive",
     "inventory.delete": "card.delete",
     "inventory.approval_status": "card.approval_status",
     "stakeholders.manage": "card.manage_stakeholders",
@@ -196,7 +199,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "inventory.view": True,
     "inventory.create": True,
     "inventory.edit": True,
-    "inventory.delete": True,
+    "inventory.archive": True,
+    "inventory.delete": False,
     "inventory.export": True,
     "inventory.approval_status": True,
     "inventory.bulk_edit": True,
@@ -241,7 +245,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "inventory.view": True,
     "inventory.create": True,
     "inventory.edit": True,
-    "inventory.delete": True,
+    "inventory.archive": True,
+    "inventory.delete": False,
     "inventory.export": True,
     "inventory.approval_status": True,
     "inventory.bulk_edit": True,
@@ -287,6 +292,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "inventory.view": True,
     "inventory.create": False,
     "inventory.edit": False,
+    "inventory.archive": False,
     "inventory.delete": False,
     "inventory.export": True,
     "inventory.approval_status": False,
@@ -337,7 +343,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
 RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.edit": True,
-    "card.delete": True,
+    "card.archive": True,
+    "card.delete": False,
     "card.approval_status": True,
     "card.manage_stakeholders": True,
     "card.manage_relations": True,
@@ -352,6 +359,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.edit": False,
+    "card.archive": False,
     "card.delete": False,
     "card.approval_status": False,
     "card.manage_stakeholders": False,
@@ -367,6 +375,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.edit": True,
+    "card.archive": False,
     "card.delete": False,
     "card.approval_status": True,
     "card.manage_stakeholders": True,
@@ -382,6 +391,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.edit": True,
+    "card.archive": False,
     "card.delete": False,
     "card.approval_status": False,
     "card.manage_stakeholders": False,
@@ -397,6 +407,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.view": True,
     "card.edit": True,
+    "card.archive": False,
     "card.delete": False,
     "card.approval_status": False,
     "card.manage_stakeholders": False,
