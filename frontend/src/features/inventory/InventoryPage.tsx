@@ -313,6 +313,11 @@ export default function InventoryPage() {
         const attrs = card.attributes || {};
         return attrEntries.every(([key, val]) => {
           const actual = attrs[key];
+          // multi-select: array of allowed values (OR match)
+          if (Array.isArray(val)) {
+            if (val.length === 0) return true;
+            return val.includes(actual as string);
+          }
           // number/cost: filter as minimum value
           if (!isNaN(Number(val)) && val !== "" && typeof actual === "number") {
             return actual >= Number(val);
@@ -325,21 +330,23 @@ export default function InventoryPage() {
           if (typeof actual === "string" && typeof val === "string") {
             return actual.toLowerCase().includes(val.toLowerCase());
           }
-          // exact match fallback (single_select, etc.)
+          // exact match fallback
           return actual === val;
         });
       });
     }
 
-    // Relation filters (client-side)
+    // Relation filters (client-side) — multi-select (OR within a relation type)
     const relEntries = Object.entries(filters.relations || {});
     if (relEntries.length > 0) {
       result = result.filter((card) => {
-        return relEntries.every(([relTypeKey, relatedName]) => {
+        return relEntries.every(([relTypeKey, selectedNames]) => {
+          if (!Array.isArray(selectedNames) || selectedNames.length === 0) return true;
           const index = relationsMap.get(relTypeKey);
           if (!index) return false;
           const names = index.get(card.id);
-          return names?.includes(relatedName) ?? false;
+          if (!names) return false;
+          return selectedNames.some((n) => names.includes(n));
         });
       });
     }

@@ -42,8 +42,8 @@ export interface Filters {
   dataQualityMin: number | null;
   approvalStatuses: string[];
   showArchived: boolean;
-  attributes: Record<string, string>; // key → value (single_select only for now)
-  relations: Record<string, string>; // relTypeKey → related card name
+  attributes: Record<string, string | string[]>; // select fields → string[], text/number → string
+  relations: Record<string, string[]>; // relTypeKey → related card names (multi-select)
 }
 
 interface Props {
@@ -185,17 +185,18 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, approvalStatuses: next });
   };
 
-  const setAttr = (key: string, value: string) => {
+  const setAttr = (key: string, value: string | string[]) => {
     const next = { ...filters.attributes };
-    if (value) next[key] = value;
-    else delete next[key];
+    const empty = Array.isArray(value) ? value.length === 0 : !value;
+    if (empty) delete next[key];
+    else next[key] = value;
     onFiltersChange({ ...filters, attributes: next });
   };
 
-  const setRelFilter = (relTypeKey: string, value: string) => {
+  const setRelFilter = (relTypeKey: string, value: string[]) => {
     const next = { ...(filters.relations || {}) };
-    if (value) next[relTypeKey] = value;
-    else delete next[relTypeKey];
+    if (value.length === 0) delete next[relTypeKey];
+    else next[relTypeKey] = value;
     onFiltersChange({ ...filters, relations: next });
   };
 
@@ -590,20 +591,41 @@ export default function InventoryFilterSidebar({
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
                       {attributeFields.map((field) => {
                         if ((field.type === "single_select" || field.type === "multiple_select") && field.options?.length) {
+                          const selected = (filters.attributes[field.key] ?? []) as string[];
+                          const optionMap = new Map(field.options.map((o) => [o.key, o]));
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
                               <Select
-                                value={filters.attributes[field.key] || ""}
+                                multiple
+                                value={Array.isArray(selected) ? selected : []}
                                 label={field.label}
-                                onChange={(e) => setAttr(field.key, e.target.value as string)}
+                                onChange={(e) => setAttr(field.key, e.target.value as string[])}
                                 sx={{ fontSize: 13 }}
+                                renderValue={(vals) => (
+                                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
+                                    {(vals as string[]).map((v) => {
+                                      const opt = optionMap.get(v);
+                                      return (
+                                        <Chip
+                                          key={v}
+                                          label={opt?.label ?? v}
+                                          size="small"
+                                          sx={{
+                                            height: 20, fontSize: 11,
+                                            ...(opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}),
+                                          }}
+                                          onDelete={() => setAttr(field.key, selected.filter((s) => s !== v))}
+                                          onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                )}
                               >
-                                <MenuItem value="">
-                                  <em>Any</em>
-                                </MenuItem>
                                 {field.options?.map((opt) => (
                                   <MenuItem key={opt.key} value={opt.key}>
+                                    <Checkbox size="small" checked={selected.includes(opt.key)} sx={{ p: 0, mr: 1 }} />
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                       {opt.color && (
                                         <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
@@ -621,7 +643,7 @@ export default function InventoryFilterSidebar({
                             <FormControl key={field.key} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
                               <Select
-                                value={filters.attributes[field.key] ?? ""}
+                                value={(filters.attributes[field.key] as string) ?? ""}
                                 label={field.label}
                                 onChange={(e) => setAttr(field.key, e.target.value as string)}
                                 sx={{ fontSize: 13 }}
@@ -642,7 +664,7 @@ export default function InventoryFilterSidebar({
                               label={field.label}
                               placeholder="Min value"
                               type="number"
-                              value={filters.attributes[field.key] || ""}
+                              value={(filters.attributes[field.key] as string) || ""}
                               onChange={(e) => setAttr(field.key, e.target.value)}
                               sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
                               InputLabelProps={{ sx: { fontSize: 13 } }}
@@ -658,7 +680,7 @@ export default function InventoryFilterSidebar({
                             label={field.label}
                             type={field.type === "date" ? "date" : "text"}
                             placeholder={field.type === "date" ? "" : "Contains..."}
-                            value={filters.attributes[field.key] || ""}
+                            value={(filters.attributes[field.key] as string) || ""}
                             onChange={(e) => setAttr(field.key, e.target.value)}
                             sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
                             InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 13 } }}
@@ -689,20 +711,34 @@ export default function InventoryFilterSidebar({
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
                         const label = otherType?.label || otherTypeKey;
+                        const selected = (filters.relations || {})[rt.key] || [];
                         return (
                           <FormControl key={rt.key} size="small" fullWidth>
                             <InputLabel sx={{ fontSize: 13 }}>{label}</InputLabel>
                             <Select
-                              value={(filters.relations || {})[rt.key] || ""}
+                              multiple
+                              value={selected}
                               label={label}
-                              onChange={(e) => setRelFilter(rt.key, e.target.value as string)}
+                              onChange={(e) => setRelFilter(rt.key, e.target.value as string[])}
                               sx={{ fontSize: 13 }}
+                              renderValue={(vals) => (
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
+                                  {(vals as string[]).map((v) => (
+                                    <Chip
+                                      key={v}
+                                      label={v}
+                                      size="small"
+                                      sx={{ height: 20, fontSize: 11 }}
+                                      onDelete={() => setRelFilter(rt.key, selected.filter((s) => s !== v))}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    />
+                                  ))}
+                                </Box>
+                              )}
                             >
-                              <MenuItem value="">
-                                <em>Any</em>
-                              </MenuItem>
                               {options.map((name) => (
                                 <MenuItem key={name} value={name}>
+                                  <Checkbox size="small" checked={selected.includes(name)} sx={{ p: 0, mr: 1 }} />
                                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                                     {otherType && (
                                       <MaterialSymbol icon={otherType.icon} size={14} color={otherType.color} />
