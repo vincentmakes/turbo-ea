@@ -80,16 +80,18 @@ export default function MatrixReport() {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
   }, [rowType, colType]);
 
-  // Reset hierarchy sort when switching to a non-hierarchical type
+  // Reset hierarchy sort when switching to a type with no hierarchy data
   useEffect(() => {
-    const rMeta = types.find((t) => t.key === rowType);
-    if (sortRows === "hierarchy" && !rMeta?.has_hierarchy) setSortRows("alpha");
-  }, [rowType, types, sortRows]);
+    if (sortRows === "hierarchy" && data && !data.rows.some((r) => r.parent_id !== null)) {
+      setSortRows("alpha");
+    }
+  }, [data, sortRows]);
 
   useEffect(() => {
-    const cMeta = types.find((t) => t.key === colType);
-    if (sortCols === "hierarchy" && !cMeta?.has_hierarchy) setSortCols("alpha");
-  }, [colType, types, sortCols]);
+    if (sortCols === "hierarchy" && data && !data.columns.some((c) => c.parent_id !== null)) {
+      setSortCols("alpha");
+    }
+  }, [data, sortCols]);
 
   // Build lookup structures
   const intersectionMap = useMemo(() => {
@@ -194,8 +196,9 @@ export default function MatrixReport() {
   const colMeta = types.find((t) => t.key === colType);
   const rowLabel = rowMeta?.label || rowType;
   const colLabel = colMeta?.label || colType;
-  const rowHasHierarchy = !!rowMeta?.has_hierarchy;
-  const colHasHierarchy = !!colMeta?.has_hierarchy;
+  // Detect hierarchy from actual data (items with parent_id) rather than metamodel flag
+  const rowHasHierarchy = data.rows.some((r) => r.parent_id !== null);
+  const colHasHierarchy = data.columns.some((c) => c.parent_id !== null);
 
   // Compute depth for hierarchy indentation
   const getDepth = (item: MatrixItem, items: MatrixItem[]): number => {
