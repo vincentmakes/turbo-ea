@@ -115,6 +115,7 @@ export default function InventoryPage() {
   const { types, relationTypes } = useMetamodel();
   const { user } = useAuth();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
+  const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -158,6 +159,12 @@ export default function InventoryPage() {
   const [massEditValue, setMassEditValue] = useState<unknown>("");
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
+
+  // Mass archive / delete state
+  const [massArchiveOpen, setMassArchiveOpen] = useState(false);
+  const [massArchiveLoading, setMassArchiveLoading] = useState(false);
+  const [massDeleteOpen, setMassDeleteOpen] = useState(false);
+  const [massDeleteLoading, setMassDeleteLoading] = useState(false);
 
   // Relation cell dialog state
   const [relEditOpen, setRelEditOpen] = useState(false);
@@ -379,6 +386,34 @@ export default function InventoryPage() {
       setMassEditError(e instanceof Error ? e.message : "Mass edit failed");
     } finally {
       setMassEditLoading(false);
+    }
+  };
+
+  const handleMassArchive = async () => {
+    if (selectedIds.length === 0) return;
+    setMassArchiveLoading(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.post(`/cards/${id}/archive`)));
+      setMassArchiveOpen(false);
+      setSelectedIds([]);
+      gridRef.current?.api?.deselectAll();
+      loadData();
+    } finally {
+      setMassArchiveLoading(false);
+    }
+  };
+
+  const handleMassDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setMassDeleteLoading(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/cards/${id}`)));
+      setMassDeleteOpen(false);
+      setSelectedIds([]);
+      gridRef.current?.api?.deselectAll();
+      loadData();
+    } finally {
+      setMassDeleteLoading(false);
     }
   };
 
@@ -918,6 +953,30 @@ export default function InventoryPage() {
             >
               Mass Edit
             </Button>
+            {canArchive && !filters.showArchived && (
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                sx={{ color: "#e65100", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                startIcon={<MaterialSymbol icon="archive" size={16} />}
+                onClick={() => setMassArchiveOpen(true)}
+              >
+                Archive
+              </Button>
+            )}
+            {canDelete && filters.showArchived && (
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                sx={{ color: "#c62828", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
+                onClick={() => setMassDeleteOpen(true)}
+              >
+                Delete Permanently
+              </Button>
+            )}
             <Button
               size="small"
               variant="outlined"
@@ -940,11 +999,13 @@ export default function InventoryPage() {
             rowData={filteredData}
             columnDefs={columnDefs}
             loading={loading}
-            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: false }}
+            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true }}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={(e) => {
               if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
+                const selected = e.api.getSelectedRows();
+                if (selected.length > 0) return;
                 navigate(`/cards/${e.data.id}`);
               }
             }}
@@ -991,6 +1052,39 @@ export default function InventoryPage() {
             disabled={!massEditField || massEditLoading}
           >
             {massEditLoading ? "Applying..." : `Apply to ${selectedIds.length} items`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mass Archive Confirmation */}
+      <Dialog open={massArchiveOpen} onClose={() => setMassArchiveOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Archive {selectedIds.length} Cards</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to archive {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? Archived cards can be restored within 30 days.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMassArchiveOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleMassArchive} disabled={massArchiveLoading}>
+            {massArchiveLoading ? "Archiving..." : "Archive"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mass Delete Confirmation */}
+      <Dialog open={massDeleteOpen} onClose={() => setMassDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Permanently Delete {selectedIds.length} Cards</DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>This action cannot be undone.</Alert>
+          <Typography>
+            Are you sure you want to permanently delete {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? All related data (relations, comments, documents, etc.) will also be deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMassDeleteOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleMassDelete} disabled={massDeleteLoading}>
+            {massDeleteLoading ? "Deleting..." : "Delete Permanently"}
           </Button>
         </DialogActions>
       </Dialog>
