@@ -357,6 +357,23 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
     return _serialize_relation_type(r)
 
 
+@router.get("/relation-types/{key}/instance-count")
+async def get_relation_type_instance_count(
+    key: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return the number of relation instances using this relation type."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(RelationType).where(RelationType.key == key))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Relation type not found")
+    count_result = await db.execute(
+        select(func.count()).select_from(Relation).where(Relation.type == key)
+    )
+    return {"key": key, "instance_count": count_result.scalar() or 0}
+
+
 @router.delete("/relation-types/{key}")
 async def delete_relation_type(
     key: str,

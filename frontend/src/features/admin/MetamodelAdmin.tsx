@@ -2172,7 +2172,9 @@ export default function MetamodelAdmin() {
   /* --- Delete relation confirmation --- */
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
     key: string;
-    instanceCount: number;
+    label: string;
+    builtIn: boolean;
+    instanceCount: number | null; // null = not yet fetched
   } | null>(null);
 
   /* ---- Data fetching ---- */
@@ -2265,21 +2267,41 @@ export default function MetamodelAdmin() {
     setEditRel(null);
   };
 
-  const handleDeleteRelation = async (key: string, force = false) => {
+  const promptDeleteRelation = (rt: RType) => {
+    setDeleteRelConfirm({
+      key: rt.key,
+      label: `${resolveType(rt.source_type_key)?.label ?? rt.source_type_key} → ${resolveType(rt.target_type_key)?.label ?? rt.target_type_key}`,
+      builtIn: rt.built_in,
+      instanceCount: null,
+    });
+    // Fetch instance count for the warning message
+    api
+      .get<{ instance_count: number }>(`/metamodel/relation-types/${rt.key}/instance-count`)
+      .then((resp) => {
+        setDeleteRelConfirm((prev) =>
+          prev ? { ...prev, instanceCount: resp.instance_count } : null
+        );
+      })
+      .catch(() => {
+        setDeleteRelConfirm((prev) =>
+          prev ? { ...prev, instanceCount: 0 } : null
+        );
+      });
+  };
+
+  const confirmDeleteRelation = async () => {
+    if (!deleteRelConfirm) return;
     try {
-      await api.delete(
-        `/metamodel/relation-types/${key}${force ? "?force=true" : ""}`
+      const resp = await api.delete<{ status?: string }>(
+        `/metamodel/relation-types/${deleteRelConfirm.key}?force=true`
       );
+      if (resp?.status === "hidden") {
+        setShowHiddenRels(true);
+      }
       refresh();
       setDeleteRelConfirm(null);
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 409) {
-        const detail = err.detail as { instance_count?: number } | undefined;
-        setDeleteRelConfirm({
-          key,
-          instanceCount: detail?.instance_count ?? 0,
-        });
-      }
+    } catch {
+      // Shouldn't fail with force=true, but just in case
     }
   };
 
@@ -2685,7 +2707,7 @@ export default function MetamodelAdmin() {
                         <Tooltip title="Delete">
                           <IconButton
                             size="small"
-                            onClick={() => handleDeleteRelation(rt.key)}
+                            onClick={() => promptDeleteRelation(rt)}
                           >
                             <MaterialSymbol icon="delete" size={18} />
                           </IconButton>
@@ -3070,12 +3092,33 @@ export default function MetamodelAdmin() {
         <DialogTitle>Delete Relation Type?</DialogTitle>
         <DialogContent>
           {deleteRelConfirm && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              This relation type has{" "}
-              <strong>{deleteRelConfirm.instanceCount}</strong> relation
-              instance(s) linking cards together. Deleting it will
-              permanently remove all of them.
-            </Alert>
+            <>
+              <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
+                <strong>{deleteRelConfirm.label}</strong>
+              </Typography>
+              {deleteRelConfirm.instanceCount === null ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : deleteRelConfirm.instanceCount > 0 ? (
+                <Alert severity="warning">
+                  This relation type has{" "}
+                  <strong>{deleteRelConfirm.instanceCount}</strong> relation
+                  instance(s) linking cards together. Deleting it will
+                  permanently remove all of them.
+                </Alert>
+              ) : deleteRelConfirm.builtIn ? (
+                <Alert severity="info">
+                  This built-in relation type will be hidden and can be
+                  restored later.
+                </Alert>
+              ) : (
+                <Alert severity="info">
+                  This relation type has no instances and will be permanently
+                  deleted.
+                </Alert>
+              )}
+            </>
           )}
         </DialogContent>
         <DialogActions>
@@ -3083,12 +3126,12 @@ export default function MetamodelAdmin() {
           <Button
             variant="contained"
             color="error"
-            onClick={() =>
-              deleteRelConfirm &&
-              handleDeleteRelation(deleteRelConfirm.key, true)
-            }
+            disabled={deleteRelConfirm?.instanceCount === null}
+            onClick={confirmDeleteRelation}
           >
-            Delete
+            {deleteRelConfirm?.builtIn && deleteRelConfirm.instanceCount === 0
+              ? "Hide"
+              : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
