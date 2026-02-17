@@ -522,28 +522,6 @@ export default function InventoryFilterSidebar({
                 </Box>
               </Collapse>
 
-              {/* Include Archived toggle */}
-              {canArchive && (
-                <Box sx={{ px: 0.5, mb: 1 }}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        size="small"
-                        checked={filters.showArchived}
-                        onChange={(e) => onFiltersChange({ ...filters, showArchived: e.target.checked })}
-                      />
-                    }
-                    label={
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <MaterialSymbol icon="archive" size={16} color="#666" />
-                        <Typography variant="body2" fontSize={12}>Show archived only</Typography>
-                      </Box>
-                    }
-                    sx={{ ml: 0 }}
-                  />
-                </Box>
-              )}
-
               {/* Lifecycle */}
               <SectionHeader
                 label="Lifecycle"
@@ -740,6 +718,28 @@ export default function InventoryFilterSidebar({
                     </Box>
                   </Collapse>
                 </>
+              )}
+
+              {/* Include Archived toggle */}
+              {canArchive && (
+                <Box sx={{ px: 0.5, mb: 1 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={filters.showArchived}
+                        onChange={(e) => onFiltersChange({ ...filters, showArchived: e.target.checked })}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                        <MaterialSymbol icon="archive" size={16} color="#666" />
+                        <Typography variant="body2" fontSize={12}>Show archived only</Typography>
+                      </Box>
+                    }
+                    sx={{ ml: 0 }}
+                  />
+                </Box>
               )}
 
               <Divider sx={{ my: 1 }} />
