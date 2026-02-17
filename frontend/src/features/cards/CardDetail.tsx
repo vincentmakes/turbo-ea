@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -1072,7 +1072,8 @@ function HierarchySection({
 // ── Section: Relations (with CRUD) ──────────────────────────────
 function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
-  const { relationTypes, getType } = useMetamodel();
+  const { types: allTypes, relationTypes, getType } = useMetamodel();
+  const hiddenTypeKeys = useMemo(() => new Set(allTypes.filter((t) => t.is_hidden).map((t) => t.key)), [allTypes]);
   const navigate = useNavigate();
 
   // Add relation dialog state
@@ -1095,7 +1096,12 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
   useEffect(load, [load, refreshKey]);
 
   const relevantRTs = relationTypes.filter(
-    (rt) => rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey
+    (rt) =>
+      !rt.is_hidden &&
+      (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
+      !hiddenTypeKeys.has(
+        rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key
+      )
   );
 
   const selectedRT = relationTypes.find((rt) => rt.key === addRelType);

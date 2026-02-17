@@ -218,7 +218,7 @@ async def get_public_portal(
     )
     rel_types_raw = rel_types_result.scalars().all()
 
-    # Collect all related type keys to batch-fetch their labels
+    # Collect all related type keys to batch-fetch their labels + hidden status
     related_type_keys = set()
     for rt in rel_types_raw:
         if rt.source_type_key != portal.card_type:
@@ -227,13 +227,17 @@ async def get_public_portal(
             related_type_keys.add(rt.target_type_key)
 
     type_labels: dict[str, str] = {}
+    hidden_type_keys: set[str] = set()
     if related_type_keys:
         labels_result = await db.execute(
-            select(CardType.key, CardType.label).where(
+            select(CardType.key, CardType.label, CardType.is_hidden).where(
                 CardType.key.in_(related_type_keys)
             )
         )
-        type_labels = {row.key: row.label for row in labels_result.all()}
+        for row in labels_result.all():
+            type_labels[row.key] = row.label
+            if row.is_hidden:
+                hidden_type_keys.add(row.key)
 
     rel_types = []
     for rt in rel_types_raw:
@@ -242,6 +246,9 @@ async def get_public_portal(
             if rt.source_type_key == portal.card_type
             else rt.source_type_key
         )
+        # Skip relations where the other end type is hidden
+        if other_type in hidden_type_keys:
+            continue
         rel_types.append({
             "key": rt.key,
             "label": rt.label,

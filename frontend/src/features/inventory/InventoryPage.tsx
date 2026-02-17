@@ -172,13 +172,19 @@ export default function InventoryPage() {
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
 
-  // Relevant relation types for the selected type
+  // Relevant relation types for the selected type (excluding hidden types on either end)
+  const hiddenTypeKeys = useMemo(() => new Set(types.filter((t) => t.is_hidden).map((t) => t.key)), [types]);
   const relevantRelTypes = useMemo(() => {
     if (!selectedType) return [];
     return relationTypes.filter(
-      (rt) => !rt.is_hidden && (rt.source_type_key === selectedType || rt.target_type_key === selectedType)
+      (rt) =>
+        !rt.is_hidden &&
+        (rt.source_type_key === selectedType || rt.target_type_key === selectedType) &&
+        !hiddenTypeKeys.has(
+          rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key
+        )
     );
-  }, [selectedType, relationTypes]);
+  }, [selectedType, relationTypes, hiddenTypeKeys]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
