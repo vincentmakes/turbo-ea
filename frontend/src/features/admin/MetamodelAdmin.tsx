@@ -2136,6 +2136,7 @@ export default function MetamodelAdmin() {
   const [relationTypes, setRelationTypes] = useState<RType[]>([]);
   const [loading, setLoading] = useState(true);
   const [showHidden, setShowHidden] = useState(false);
+  const [showHiddenRels, setShowHiddenRels] = useState(false);
 
   /* --- Drawer state --- */
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -2168,13 +2169,21 @@ export default function MetamodelAdmin() {
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<RType | null>(null);
 
+  /* --- Delete relation confirmation --- */
+  const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
+    key: string;
+    label: string;
+    builtIn: boolean;
+    instanceCount: number | null; // null = not yet fetched
+  } | null>(null);
+
   /* ---- Data fetching ---- */
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [t, r] = await Promise.all([
         api.get<FSType[]>("/metamodel/types?include_hidden=true"),
-        api.get<RType[]>("/metamodel/relation-types"),
+        api.get<RType[]>("/metamodel/relation-types?include_hidden=true"),
       ]);
       setTypes(t);
       setRelationTypes(r);
@@ -2196,6 +2205,10 @@ export default function MetamodelAdmin() {
   const displayTypes = showHidden
     ? types
     : types.filter((t) => !t.is_hidden);
+
+  const displayRelationTypes = showHiddenRels
+    ? relationTypes
+    : relationTypes.filter((r) => !r.is_hidden);
 
   const autoRelKey =
     newRel.source_type_key && newRel.target_type_key
@@ -2254,8 +2267,46 @@ export default function MetamodelAdmin() {
     setEditRel(null);
   };
 
-  const handleDeleteRelation = async (key: string) => {
-    await api.delete(`/metamodel/relation-types/${key}`);
+  const promptDeleteRelation = (rt: RType) => {
+    setDeleteRelConfirm({
+      key: rt.key,
+      label: `${resolveType(rt.source_type_key)?.label ?? rt.source_type_key} → ${resolveType(rt.target_type_key)?.label ?? rt.target_type_key}`,
+      builtIn: rt.built_in,
+      instanceCount: null,
+    });
+    // Fetch instance count for the warning message
+    api
+      .get<{ instance_count: number }>(`/metamodel/relation-types/${rt.key}/instance-count`)
+      .then((resp) => {
+        setDeleteRelConfirm((prev) =>
+          prev ? { ...prev, instanceCount: resp.instance_count } : null
+        );
+      })
+      .catch(() => {
+        setDeleteRelConfirm((prev) =>
+          prev ? { ...prev, instanceCount: 0 } : null
+        );
+      });
+  };
+
+  const confirmDeleteRelation = async () => {
+    if (!deleteRelConfirm) return;
+    try {
+      const resp = await api.delete<{ status?: string }>(
+        `/metamodel/relation-types/${deleteRelConfirm.key}?force=true`
+      );
+      if (resp?.status === "hidden") {
+        setShowHiddenRels(true);
+      }
+      refresh();
+      setDeleteRelConfirm(null);
+    } catch {
+      // Shouldn't fail with force=true, but just in case
+    }
+  };
+
+  const handleRestoreRelation = async (key: string) => {
+    await api.post(`/metamodel/relation-types/${key}/restore`);
     refresh();
   };
 
@@ -2483,7 +2534,23 @@ export default function MetamodelAdmin() {
       {/* ============================================================ */}
       {tab === 1 && (
         <Box>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showHiddenRels}
+                  onChange={(e) => setShowHiddenRels(e.target.checked)}
+                />
+              }
+              label="Show hidden relations"
+            />
             <Button
               variant="contained"
               startIcon={<MaterialSymbol icon="add" size={18} />}
@@ -2493,11 +2560,11 @@ export default function MetamodelAdmin() {
             </Button>
           </Box>
 
-          {relationTypes.map((rt) => {
+          {displayRelationTypes.map((rt) => {
             const srcType = resolveType(rt.source_type_key);
             const tgtType = resolveType(rt.target_type_key);
             return (
-              <Card key={rt.key} sx={{ mb: 1 }}>
+              <Card key={rt.key} sx={{ mb: 1, opacity: rt.is_hidden ? 0.5 : 1 }}>
                 <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                   <Box
                     sx={{
@@ -2606,26 +2673,47 @@ export default function MetamodelAdmin() {
                         sx={{ height: 22, fontSize: 11 }}
                       />
                     )}
+                    {rt.is_hidden && (
+                      <Chip
+                        size="small"
+                        label="Hidden"
+                        color="warning"
+                        sx={{ height: 22, fontSize: 11 }}
+                      />
+                    )}
 
-                    <Tooltip title="Edit">
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          setEditRel({ ...rt });
-                          setEditRelOpen(true);
-                        }}
-                      >
-                        <MaterialSymbol icon="edit" size={18} />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleDeleteRelation(rt.key)}
-                      >
-                        <MaterialSymbol icon="delete" size={18} />
-                      </IconButton>
-                    </Tooltip>
+                    {rt.is_hidden ? (
+                      <Tooltip title="Restore">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRestoreRelation(rt.key)}
+                        >
+                          <MaterialSymbol icon="restore" size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setEditRel({ ...rt });
+                              setEditRelOpen(true);
+                            }}
+                          >
+                            <MaterialSymbol icon="edit" size={18} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            onClick={() => promptDeleteRelation(rt)}
+                          >
+                            <MaterialSymbol icon="delete" size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
@@ -2990,6 +3078,62 @@ export default function MetamodelAdmin() {
             </DialogActions>
           </>
         )}
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/*  Delete Relation Confirmation Dialog                          */}
+      {/* ============================================================ */}
+      <Dialog
+        open={!!deleteRelConfirm}
+        onClose={() => setDeleteRelConfirm(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Delete Relation Type?</DialogTitle>
+        <DialogContent>
+          {deleteRelConfirm && (
+            <>
+              <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
+                <strong>{deleteRelConfirm.label}</strong>
+              </Typography>
+              {deleteRelConfirm.instanceCount === null ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : deleteRelConfirm.instanceCount > 0 ? (
+                <Alert severity="warning">
+                  This relation type has{" "}
+                  <strong>{deleteRelConfirm.instanceCount}</strong> relation
+                  instance(s) linking cards together. Deleting it will
+                  permanently remove all of them.
+                </Alert>
+              ) : deleteRelConfirm.builtIn ? (
+                <Alert severity="info">
+                  This built-in relation type will be hidden and can be
+                  restored later.
+                </Alert>
+              ) : (
+                <Alert severity="info">
+                  This relation type has no instances and will be permanently
+                  deleted.
+                </Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteRelConfirm(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteRelConfirm?.instanceCount === null}
+            onClick={confirmDeleteRelation}
+          >
+            {deleteRelConfirm?.builtIn && deleteRelConfirm.instanceCount === 0
+              ? "Hide"
+              : "Delete"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
