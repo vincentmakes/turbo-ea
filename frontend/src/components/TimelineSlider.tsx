@@ -93,16 +93,53 @@ export default function TimelineSlider({
   const responsiveMarks = useResponsiveMarks(cappedMarks, containerRef);
 
   const isAway = Math.abs(value - todayMs) > ONE_DAY_MS;
+  const isPast = value < todayMs - ONE_DAY_MS;
+  const isFuture = value > todayMs + ONE_DAY_MS;
+
+  // Color shifts: amber for past, purple for future, primary for today
+  const PAST_COLOR = "#e68a00";
+  const FUTURE_COLOR = "#7c4dff";
+  const RESET_COLOR = "#ef6c00";
+  const accent = isPast ? PAST_COLOR : isFuture ? FUTURE_COLOR : primary;
 
   return (
     <Box sx={{ width: "100%", maxWidth: 560, pt: 0.5, pb: 2 }}>
       {/* Label row */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-        <MaterialSymbol icon="electric_bolt" size={16} color={primary} />
-        <Typography variant="caption" sx={{ fontWeight: 700, color: primary }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
+        <MaterialSymbol icon="electric_bolt" size={16} color={accent} />
+        <Typography variant="caption" sx={{ fontWeight: 700, color: accent }}>
           Time Travel
         </Typography>
-        <Typography variant="caption" sx={{ fontWeight: 500, color: "text.secondary" }}>
+        {isAway && (
+          <Chip
+            size="small"
+            icon={
+              <MaterialSymbol
+                icon={isPast ? "history" : "update"}
+                size={13}
+                color={accent}
+              />
+            }
+            label={isPast ? "Past" : "Future"}
+            sx={{
+              height: 20,
+              fontSize: "0.65rem",
+              fontWeight: 700,
+              bgcolor: `${accent}18`,
+              color: accent,
+              border: `1px solid ${accent}40`,
+              "& .MuiChip-icon": { ml: 0.5 },
+            }}
+          />
+        )}
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: isAway ? accent : "text.secondary",
+            transition: "color 0.2s",
+          }}
+        >
           {fmtFull(value)}
         </Typography>
         <Box sx={{ flex: 1 }} />
@@ -111,7 +148,15 @@ export default function TimelineSlider({
             size="small"
             label="Reset to today"
             onClick={() => onChange(todayMs)}
-            sx={{ height: 22, fontSize: "0.7rem", bgcolor: `${primary}14`, color: primary }}
+            sx={{
+              height: 22,
+              fontSize: "0.7rem",
+              fontWeight: 600,
+              bgcolor: `${RESET_COLOR}16`,
+              color: RESET_COLOR,
+              border: `1px solid ${RESET_COLOR}40`,
+              "&:hover": { bgcolor: `${RESET_COLOR}28` },
+            }}
           />
         )}
       </Box>
@@ -129,38 +174,43 @@ export default function TimelineSlider({
           valueLabelDisplay="auto"
           valueLabelFormat={fmtTip}
           sx={{
-            color: primary,
+            color: accent,
             height: 6,
+            transition: "color 0.3s",
             "& .MuiSlider-rail": {
               height: 6,
               borderRadius: 3,
-              bgcolor: `${primary}40`,
+              bgcolor: `${accent}40`,
               opacity: 1,
+              transition: "background-color 0.3s",
             },
             "& .MuiSlider-thumb": {
               width: 18,
               height: 18,
-              bgcolor: primary,
+              bgcolor: accent,
               border: "2px solid #fff",
-              boxShadow: `0 0 0 1px ${primary}40`,
+              boxShadow: `0 0 0 1px ${accent}40`,
+              transition: "background-color 0.3s, box-shadow 0.3s",
               "&:hover, &.Mui-focusVisible": {
-                boxShadow: `0 0 0 6px ${primary}24`,
+                boxShadow: `0 0 0 6px ${accent}24`,
               },
             },
             "& .MuiSlider-mark": {
               width: 2,
               height: 10,
-              bgcolor: `${primary}AA`,
+              bgcolor: `${accent}AA`,
               borderRadius: 1,
+              transition: "background-color 0.3s",
             },
             "& .MuiSlider-markActive": {
-              bgcolor: `${primary}AA`,
+              bgcolor: `${accent}AA`,
             },
             "& .MuiSlider-markLabel": {
               fontSize: "0.68rem",
               fontWeight: 600,
-              color: `${primary}E0`,
+              color: `${accent}E0`,
               top: 30,
+              transition: "color 0.3s",
             },
             // Prevent first/last labels from clipping outside container
             "& .MuiSlider-markLabel:first-of-type": {
