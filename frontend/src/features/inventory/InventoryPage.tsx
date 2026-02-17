@@ -29,6 +29,7 @@ import ImportDialog from "./ImportDialog";
 import { exportToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/api/client";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -42,6 +43,15 @@ const APPROVAL_STATUS_COLORS: Record<string, string> = {
 };
 
 const DEFAULT_SIDEBAR_WIDTH = 300;
+
+function getLifecyclePhase(card: Card): string {
+  const lc = card.lifecycle || {};
+  const now = new Date().toISOString().slice(0, 10);
+  for (const phase of ["endOfLife", "phaseOut", "active", "phaseIn", "plan"]) {
+    if (lc[phase] && lc[phase] <= now) return phase;
+  }
+  return "";
+}
 
 /**
  * Pre-compute hierarchy display paths from raw card data.
@@ -112,6 +122,9 @@ export default function InventoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { types, relationTypes } = useMetamodel();
+  const { user } = useAuth();
+  const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
+  const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -131,7 +144,11 @@ export default function InventoryPage() {
     return {
       types: searchParams.get("type") ? [searchParams.get("type")!] : [],
       search: searchParams.get("search") || "",
+      subtypes: [],
+      lifecyclePhases: [],
+      dataQualityMin: null,
       approvalStatuses: searchParams.get("approval_status") ? [searchParams.get("approval_status")!] : [],
+      showArchived: searchParams.get("show_archived") === "true",
       attributes,
       relations: {},
     };
@@ -154,6 +171,12 @@ export default function InventoryPage() {
   const [massEditValue, setMassEditValue] = useState<unknown>("");
   const [massEditError, setMassEditError] = useState("");
   const [massEditLoading, setMassEditLoading] = useState(false);
+
+  // Mass archive / delete state
+  const [massArchiveOpen, setMassArchiveOpen] = useState(false);
+  const [massArchiveLoading, setMassArchiveLoading] = useState(false);
+  const [massDeleteOpen, setMassDeleteOpen] = useState(false);
+  const [massDeleteLoading, setMassDeleteLoading] = useState(false);
 
   // Relation cell dialog state
   const [relEditOpen, setRelEditOpen] = useState(false);
@@ -196,6 +219,9 @@ export default function InventoryPage() {
       if (filters.approvalStatuses.length > 0) {
         params.set("approval_status", filters.approvalStatuses.join(","));
       }
+      if (filters.showArchived) {
+        params.set("status", "ARCHIVED");
+      }
       params.set("page_size", "500");
       const res = await api.get<CardListResponse>(
         `/cards?${params}`
@@ -205,7 +231,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses]);
+  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived]);
 
   useEffect(() => {
     loadData();
@@ -250,7 +276,7 @@ export default function InventoryPage() {
   // that AG Grid holds, so grid-internal writes to data[field] cannot corrupt paths.
   const hierarchyPaths = useMemo(() => buildHierarchyPaths(data), [data]);
 
-  // Client-side filtering: type multi-select (>1 type) and attribute filters
+  // Client-side filtering
   const filteredData = useMemo(() => {
     let result = data;
 
@@ -259,12 +285,49 @@ export default function InventoryPage() {
       result = result.filter((card) => filters.types.includes(card.type));
     }
 
-    // Attribute filters (client-side)
+    // Subtype filter
+    if (filters.subtypes.length > 0) {
+      result = result.filter((card) => card.subtype && filters.subtypes.includes(card.subtype));
+    }
+
+    // Lifecycle filter
+    if (filters.lifecyclePhases.length > 0) {
+      result = result.filter((card) => filters.lifecyclePhases.includes(getLifecyclePhase(card)));
+    }
+
+    // Data quality filter
+    if (filters.dataQualityMin !== null) {
+      const min = filters.dataQualityMin;
+      if (min === 0) {
+        // "Poor" = below 50
+        result = result.filter((card) => (card.data_quality ?? 0) < 50);
+      } else {
+        result = result.filter((card) => (card.data_quality ?? 0) >= min);
+      }
+    }
+
+    // Attribute filters (client-side) — supports different field types
     const attrEntries = Object.entries(filters.attributes);
     if (attrEntries.length > 0) {
       result = result.filter((card) => {
         const attrs = card.attributes || {};
-        return attrEntries.every(([key, val]) => attrs[key] === val);
+        return attrEntries.every(([key, val]) => {
+          const actual = attrs[key];
+          // number/cost: filter as minimum value
+          if (!isNaN(Number(val)) && val !== "" && typeof actual === "number") {
+            return actual >= Number(val);
+          }
+          // boolean: string comparison
+          if (val === "true" || val === "false") {
+            return String(actual) === val;
+          }
+          // text: case-insensitive contains
+          if (typeof actual === "string" && typeof val === "string") {
+            return actual.toLowerCase().includes(val.toLowerCase());
+          }
+          // exact match fallback (single_select, etc.)
+          return actual === val;
+        });
       });
     }
 
@@ -282,7 +345,7 @@ export default function InventoryPage() {
     }
 
     return result;
-  }, [data, filters.types, filters.attributes, filters.relations, relationsMap]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, relationsMap]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const card = event.data as Card;
@@ -372,6 +435,34 @@ export default function InventoryPage() {
       setMassEditError(e instanceof Error ? e.message : "Mass edit failed");
     } finally {
       setMassEditLoading(false);
+    }
+  };
+
+  const handleMassArchive = async () => {
+    if (selectedIds.length === 0) return;
+    setMassArchiveLoading(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.post(`/cards/${id}/archive`)));
+      setMassArchiveOpen(false);
+      setSelectedIds([]);
+      gridRef.current?.api?.deselectAll();
+      loadData();
+    } finally {
+      setMassArchiveLoading(false);
+    }
+  };
+
+  const handleMassDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setMassDeleteLoading(true);
+    try {
+      await Promise.all(selectedIds.map((id) => api.delete(`/cards/${id}`)));
+      setMassDeleteOpen(false);
+      setSelectedIds([]);
+      gridRef.current?.api?.deselectAll();
+      loadData();
+    } finally {
+      setMassDeleteLoading(false);
     }
   };
 
@@ -527,6 +618,23 @@ export default function InventoryPage() {
       }
     );
 
+    // Show status column when archived items are included
+    if (filters.showArchived) {
+      cols.push({
+        field: "status",
+        headerName: "Status",
+        width: 110,
+        cellRenderer: (p: { value: string }) => {
+          if (p.value === "ARCHIVED") {
+            return (
+              <Chip size="small" label="Archived" sx={{ bgcolor: "#9e9e9e", color: "#fff", fontWeight: 500 }} />
+            );
+          }
+          return <Chip size="small" label="Active" variant="outlined" sx={{ fontWeight: 500 }} />;
+        },
+      });
+    }
+
     // Add type-specific attribute columns
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
@@ -657,7 +765,7 @@ export default function InventoryPage() {
     }
 
     return cols;
-  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths]);
+  }, [types, typeConfig, gridEditMode, relevantRelTypes, relationsMap, selectedType, hierarchyPaths, filters.showArchived]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -755,6 +863,7 @@ export default function InventoryPage() {
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
             relationsMap={relationsMap}
+            canArchive={canArchive}
           />
         </Drawer>
       ) : (
@@ -768,6 +877,7 @@ export default function InventoryPage() {
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
+          canArchive={canArchive}
         />
       )}
 
@@ -892,6 +1002,30 @@ export default function InventoryPage() {
             >
               Mass Edit
             </Button>
+            {canArchive && !filters.showArchived && (
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                sx={{ color: "#e65100", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                startIcon={<MaterialSymbol icon="archive" size={16} />}
+                onClick={() => setMassArchiveOpen(true)}
+              >
+                Archive
+              </Button>
+            )}
+            {canDelete && filters.showArchived && (
+              <Button
+                size="small"
+                variant="contained"
+                color="inherit"
+                sx={{ color: "#c62828", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
+                onClick={() => setMassDeleteOpen(true)}
+              >
+                Delete Permanently
+              </Button>
+            )}
             <Button
               size="small"
               variant="outlined"
@@ -914,18 +1048,21 @@ export default function InventoryPage() {
             rowData={filteredData}
             columnDefs={columnDefs}
             loading={loading}
-            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: false }}
+            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" }}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={(e) => {
               if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
+                const selected = e.api.getSelectedRows();
+                if (selected.length > 0) return;
                 navigate(`/cards/${e.data.id}`);
               }
             }}
             getRowId={(p) => p.data.id}
+            getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
             animateRows
             pagination
-            paginationPageSize={100}
+            paginationPageSize={500}
             defaultColDef={{
               sortable: true,
               filter: true,
@@ -964,6 +1101,39 @@ export default function InventoryPage() {
             disabled={!massEditField || massEditLoading}
           >
             {massEditLoading ? "Applying..." : `Apply to ${selectedIds.length} items`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mass Archive Confirmation */}
+      <Dialog open={massArchiveOpen} onClose={() => setMassArchiveOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Archive {selectedIds.length} Cards</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to archive {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? Archived cards can be restored within 30 days.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMassArchiveOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleMassArchive} disabled={massArchiveLoading}>
+            {massArchiveLoading ? "Archiving..." : "Archive"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mass Delete Confirmation */}
+      <Dialog open={massDeleteOpen} onClose={() => setMassDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Permanently Delete {selectedIds.length} Cards</DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>This action cannot be undone.</Alert>
+          <Typography>
+            Are you sure you want to permanently delete {selectedIds.length} card{selectedIds.length !== 1 ? "s" : ""}? All related data (relations, comments, documents, etc.) will also be deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMassDeleteOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleMassDelete} disabled={massDeleteLoading}>
+            {massDeleteLoading ? "Deleting..." : "Delete Permanently"}
           </Button>
         </DialogActions>
       </Dialog>
