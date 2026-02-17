@@ -1012,6 +1012,7 @@ export default function InventoryPage() {
             getRowId={(p) => p.data.id}
             getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
             animateRows
+            pagination
             paginationPageSize={500}
             defaultColDef={{
               sortable: true,
