@@ -31,6 +31,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
+    from sqlalchemy import text
+
+    # Set a lock timeout so Alembic fails fast instead of hanging forever
+    # if a previous crashed instance left a dead connection holding a lock.
+    connection.execute(text("SET lock_timeout = '30s'"))
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()
