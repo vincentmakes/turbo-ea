@@ -408,7 +408,7 @@ export default function CreateCardDialog({
             label="Type"
             onChange={(e) => setSelectedType(e.target.value)}
           >
-            {types.map((t) => (
+            {types.filter((t) => !t.is_hidden).map((t) => (
               <MenuItem key={t.key} value={t.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Box
