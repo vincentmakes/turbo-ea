@@ -999,7 +999,7 @@ export default function InventoryPage() {
             rowData={filteredData}
             columnDefs={columnDefs}
             loading={loading}
-            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" }}
+            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "currentPage" }}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={(e) => {
