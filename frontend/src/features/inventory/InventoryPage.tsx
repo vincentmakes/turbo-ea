@@ -999,7 +999,7 @@ export default function InventoryPage() {
             rowData={filteredData}
             columnDefs={columnDefs}
             loading={loading}
-            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "currentPage" }}
+            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" }}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
             onRowClicked={(e) => {
@@ -1012,8 +1012,7 @@ export default function InventoryPage() {
             getRowId={(p) => p.data.id}
             getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
             animateRows
-            pagination
-            paginationPageSize={100}
+            paginationPageSize={500}
             defaultColDef={{
               sortable: true,
               filter: true,
