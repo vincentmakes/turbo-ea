@@ -1778,7 +1778,7 @@ export default function CardDetail() {
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
   const [relRefresh, setRelRefresh] = useState(0);
-  const [sealMenuAnchor, setSealMenuAnchor] = useState<HTMLElement | null>(
+  const [approvalMenuAnchor, setApprovalMenuAnchor] = useState<HTMLElement | null>(
     null
   );
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
@@ -1831,16 +1831,16 @@ export default function CardDetail() {
     setCard(updated);
   };
 
-  const handleSealAction = async (action: string) => {
-    setSealMenuAnchor(null);
+  const handleApprovalAction = async (action: string) => {
+    setApprovalMenuAnchor(null);
     await api.post(`/cards/${card.id}/approval-status?action=${action}`);
-    const newSeal =
+    const newStatus =
       action === "approve"
         ? "APPROVED"
         : action === "reject"
           ? "REJECTED"
           : "DRAFT";
-    setCard({ ...card, approval_status: newSeal });
+    setCard({ ...card, approval_status: newStatus });
   };
 
   return (
@@ -1891,35 +1891,35 @@ export default function CardDetail() {
             <Button
               size="small"
               variant="outlined"
-              onClick={(e) => setSealMenuAnchor(e.currentTarget)}
+              onClick={(e) => setApprovalMenuAnchor(e.currentTarget)}
               endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
             >
-              Seal
+              Approval Status
             </Button>
           )}
         </Box>
         {perms.can_approval_status && (
           <Menu
-            anchorEl={sealMenuAnchor}
-            open={!!sealMenuAnchor}
-            onClose={() => setSealMenuAnchor(null)}
+            anchorEl={approvalMenuAnchor}
+            open={!!approvalMenuAnchor}
+            onClose={() => setApprovalMenuAnchor(null)}
           >
             <MenuItem
-              onClick={() => handleSealAction("approve")}
+              onClick={() => handleApprovalAction("approve")}
               disabled={card.approval_status === "APPROVED"}
             >
               <MaterialSymbol icon="verified" size={18} color="#4caf50" />
               <Typography sx={{ ml: 1 }}>Approve</Typography>
             </MenuItem>
             <MenuItem
-              onClick={() => handleSealAction("reject")}
+              onClick={() => handleApprovalAction("reject")}
               disabled={card.approval_status === "REJECTED"}
             >
               <MaterialSymbol icon="cancel" size={18} color="#f44336" />
               <Typography sx={{ ml: 1 }}>Reject</Typography>
             </MenuItem>
             <MenuItem
-              onClick={() => handleSealAction("reset")}
+              onClick={() => handleApprovalAction("reset")}
               disabled={card.approval_status === "DRAFT"}
             >
               <MaterialSymbol icon="restart_alt" size={18} color="#666" />

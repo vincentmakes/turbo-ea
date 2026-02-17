@@ -158,7 +158,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
-                <Typography variant="subtitle2" color="text.secondary">Approved Seals</Typography>
+                <Typography variant="subtitle2" color="text.secondary">Approved</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
             </CardContent>
@@ -169,7 +169,7 @@ export default function Dashboard() {
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                 <MaterialSymbol icon="warning" size={24} color="#f57c00" />
-                <Typography variant="subtitle2" color="text.secondary">Broken Seals</Typography>
+                <Typography variant="subtitle2" color="text.secondary">Broken</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
             </CardContent>

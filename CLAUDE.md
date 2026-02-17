@@ -50,7 +50,7 @@ turbo-ea/
 │   │   │   └── v1/
 │   │   │       ├── router.py          # Mounts all API routers
 │   │   │       ├── auth.py            # /auth (login, register, me)
-│   │   │       ├── fact_sheets.py     # /fact-sheets CRUD + hierarchy + quality seal
+│   │   │       ├── fact_sheets.py     # /fact-sheets CRUD + hierarchy + approval status
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types CRUD)
 │   │   │       ├── relations.py       # /relations CRUD
 │   │   │       ├── diagrams.py        # /diagrams CRUD (DrawIO XML storage)
@@ -100,7 +100,7 @@ turbo-ea/
 │   │   ├── components/
 │   │   │   ├── CreateFactSheetDialog.tsx
 │   │   │   ├── LifecycleBadge.tsx
-│   │   │   ├── QualitySealBadge.tsx
+│   │   │   ├── ApprovalStatusBadge.tsx
 │   │   │   ├── MaterialSymbol.tsx
 │   │   │   ├── NotificationBell.tsx       # Navbar notification bell with unread count
 │   │   │   ├── NotificationPreferencesDialog.tsx
@@ -169,7 +169,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `users` | `User` | Email, display_name, password_hash, role (`admin`/`member`/`viewer`), is_active |
 | `fact_sheet_types` | `FactSheetType` | Metamodel: configurable types with key, label, icon, color, category, subtypes (JSONB), fields_schema (JSONB), has_hierarchy, built_in, is_hidden, sort_order |
 | `relation_types` | `RelationType` | Metamodel: allowed relations between types with label, reverse_label, cardinality (`1:1`/`1:n`/`n:m`), attributes_schema (JSONB) |
-| `fact_sheets` | `FactSheet` | The core entity. Type, subtype, name, description, parent_id (self-referential hierarchy), lifecycle (JSONB), attributes (JSONB), status (`ACTIVE`/`ARCHIVED`), quality_seal (`DRAFT`/`APPROVED`/`REJECTED`/`BROKEN`), completion (float 0-100) |
+| `fact_sheets` | `FactSheet` | The core entity. Type, subtype, name, description, parent_id (self-referential hierarchy), lifecycle (JSONB), attributes (JSONB), status (`ACTIVE`/`ARCHIVED`), approval_status (`DRAFT`/`APPROVED`/`REJECTED`/`BROKEN`), data_quality (float 0-100) |
 | `relations` | `Relation` | Links between fact sheets. Type (matches relation_type key), source_id, target_id, attributes (JSONB), description |
 
 ### Supporting Tables
@@ -191,7 +191,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `app_settings` | `AppSettings` | Singleton row (id='default'): email_settings (JSONB), general_settings (JSONB with currency), custom_logo (LargeBinary), custom_logo_mime |
 | `surveys` | `Survey` | Admin-created data-maintenance surveys targeting fact sheet types with filters and field actions |
 | `survey_responses` | `SurveyResponse` | Individual response records (one per fact sheet + user pair per survey) |
-| `notifications` | `Notification` | Per-user notifications with types: todo_assigned, fact_sheet_updated, comment_added, quality_seal_changed, soaw_sign_requested, soaw_signed, subscription_update |
+| `notifications` | `Notification` | Per-user notifications with types: todo_assigned, fact_sheet_updated, comment_added, approval_status_changed, soaw_sign_requested, soaw_signed, subscription_update |
 | `web_portals` | `WebPortal` | Public web portals: configurable views of fact sheets with slug-based URLs, display fields, card config |
 
 ### Migrations
@@ -235,15 +235,15 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/fact-sheets` | Paginated list. Query: `type`, `status`, `search`, `parent_id`, `quality_seal`, `page`, `page_size`, `sort_by`, `sort_dir` |
+| GET | `/fact-sheets` | Paginated list. Query: `type`, `status`, `search`, `parent_id`, `approval_status`, `page`, `page_size`, `sort_by`, `sort_dir` |
 | POST | `/fact-sheets` | Create fact sheet. Auto-computes completion score, syncs capability levels |
 | GET | `/fact-sheets/{id}` | Get single fact sheet with tags + subscriptions |
-| PATCH | `/fact-sheets/{id}` | Update. Breaks quality seal on substantive changes, recalculates completion |
+| PATCH | `/fact-sheets/{id}` | Update. Breaks approval status on substantive changes, recalculates data quality |
 | DELETE | `/fact-sheets/{id}` | Archives (soft-delete: sets status=ARCHIVED) |
 | PATCH | `/fact-sheets/bulk` | Bulk update multiple fact sheets |
 | GET | `/fact-sheets/{id}/hierarchy` | Ancestors (root-first), children, computed level |
 | GET | `/fact-sheets/{id}/history` | Paginated event history |
-| POST | `/fact-sheets/{id}/quality-seal?action=approve|reject|reset` | Manage quality seal |
+| POST | `/fact-sheets/{id}/approval-status?action=approve|reject|reset` | Manage approval status |
 | GET | `/fact-sheets/export/csv` | Export as CSV. `?type=X` to filter |
 | POST | `/fact-sheets/fix-hierarchy-names` | One-time cleanup for hierarchy prefix bug |
 
@@ -260,7 +260,7 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/reports/dashboard` | KPIs: counts by type, avg completion, quality seals, recent events |
+| GET | `/reports/dashboard` | KPIs: counts by type, avg data quality, approval statuses, recent events |
 | GET | `/reports/landscape` | Fact sheets grouped by a related type |
 | GET | `/reports/portfolio` | Bubble chart data: configurable X/Y/size/color axes |
 | GET | `/reports/matrix` | Cross-reference grid between two types |
@@ -458,7 +458,7 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 
 **Real-time Updates** (`hooks/useEventStream.ts`): SSE connection to `/events/stream`. Components use this to refresh on external changes.
 
-**Completion Scoring**: Backend auto-computes `completion` (0-100%) based on `fields_schema` weights. Description and lifecycle each contribute weight 1. Quality seal auto-breaks to `BROKEN` when approved items are edited.
+**Data Quality Scoring**: Backend auto-computes `data_quality` (0-100%) based on `fields_schema` weights. Description and lifecycle each contribute weight 1. Approval status auto-breaks to `BROKEN` when approved items are edited.
 
 **Currency** (`hooks/useCurrency.ts`): Module-level singleton cache. Fetches currency from `/settings/currency` once. Provides `fmt()` (full format), `fmtShort()` (compact), and `symbol` for consistent cost display.
 
@@ -659,7 +659,7 @@ Configurable, public-facing views of the EA landscape accessible without authent
 In-app and email notifications for users.
 
 ### Notification Types
-`todo_assigned`, `fact_sheet_updated`, `comment_added`, `quality_seal_changed`, `soaw_sign_requested`, `soaw_signed`, `subscription_update`
+`todo_assigned`, `fact_sheet_updated`, `comment_added`, `approval_status_changed`, `soaw_sign_requested`, `soaw_signed`, `subscription_update`
 
 ### Components
 - **Backend**: `notification_service.py` creates notifications on relevant events, persists to DB
@@ -689,7 +689,7 @@ In-memory pub/sub using `asyncio.Queue`. Events are:
 1. Persisted to the `events` table (audit trail)
 2. Broadcast to all SSE subscribers in real-time
 
-Event types: `fact_sheet.created`, `fact_sheet.updated`, `fact_sheet.archived`, `fact_sheet.quality_seal.*`, `relation.created`, `relation.deleted`, `comment.created`, `notification.created`, `todo.created`, `todo.updated`, `todo.deleted`, `survey.sent`, `survey.responded`
+Event types: `fact_sheet.created`, `fact_sheet.updated`, `fact_sheet.archived`, `fact_sheet.approval_status.*`, `relation.created`, `relation.deleted`, `comment.created`, `notification.created`, `todo.created`, `todo.updated`, `todo.deleted`, `survey.sent`, `survey.responded`
 
 ### Frontend (`hooks/useEventStream.ts`)
 `EventSource` connection to `/api/v1/events/stream`. Auto-reconnects on error.

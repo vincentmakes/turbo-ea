@@ -462,7 +462,7 @@ export default function InventoryPage() {
       },
       {
         field: "approval_status",
-        headerName: "Seal",
+        headerName: "Approval Status",
         width: 110,
         cellRenderer: (p: { value: string }) => {
           const color = APPROVAL_STATUS_COLORS[p.value];

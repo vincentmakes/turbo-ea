@@ -134,7 +134,7 @@ export default function InventoryFilterSidebar({
     onFiltersChange({ ...filters, types: next, attributes: {} });
   };
 
-  const toggleSeal = (key: string) => {
+  const toggleApprovalStatus = (key: string) => {
     const next = filters.approvalStatuses.includes(key)
       ? filters.approvalStatuses.filter((s) => s !== key)
       : [...filters.approvalStatuses, key];
@@ -426,7 +426,7 @@ export default function InventoryFilterSidebar({
                       key={s.key}
                       label={s.label}
                       size="small"
-                      onClick={() => toggleSeal(s.key)}
+                      onClick={() => toggleApprovalStatus(s.key)}
                       variant={filters.approvalStatuses.includes(s.key) ? "filled" : "outlined"}
                       sx={
                         filters.approvalStatuses.includes(s.key)
