@@ -7,7 +7,7 @@ Drop your screenshots here. The HTML references the following filenames:
 
 ## Product Showcase (between Features and Architecture)
 - `inventory.png` — Inventory page with AG Grid (1100x600)
-- `fact-sheet-detail.png` — Fact sheet detail view (540x400)
+- `card-detail.png` — Card detail view (540x400)
 - `diagram-editor.png` — DrawIO diagram editor (540x400)
 - `end-of-life.png` — End-of-Life tracking view (540x400)
 - `web-portal.png` — Public web portal view (540x400)
