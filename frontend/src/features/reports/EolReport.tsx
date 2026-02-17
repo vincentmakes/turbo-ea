@@ -21,6 +21,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -187,6 +188,7 @@ export default function EolReport() {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
   const saved = useSavedReport("eol");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<EolReportData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
   const [filterStatus, setFilterStatus] = useState("");
@@ -317,7 +319,8 @@ export default function EolReport() {
       iconColor="#d32f2f"
       view={view}
       onViewChange={setView}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -1037,6 +1040,7 @@ export default function EolReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="eol"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );

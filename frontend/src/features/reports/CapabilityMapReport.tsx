@@ -22,6 +22,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -655,6 +656,7 @@ export default function CapabilityMapReport() {
   const navigate = useNavigate();
   const { fmtShort } = useCurrency();
   const saved = useSavedReport("capability-map");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
   // Data
   const [data, setData] = useState<CapItem[] | null>(null);
@@ -834,7 +836,8 @@ export default function CapabilityMapReport() {
       icon="grid_view"
       iconColor="#003399"
       hasTableToggle={false}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -1213,6 +1216,7 @@ export default function CapabilityMapReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="capability-map"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );

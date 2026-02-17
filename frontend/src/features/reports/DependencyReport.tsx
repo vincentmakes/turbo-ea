@@ -22,6 +22,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
 
@@ -344,6 +345,7 @@ export default function DependencyReport() {
   const navigate = useNavigate();
   const { types } = useMetamodel();
   const saved = useSavedReport("dependencies");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [center, setCenter] = useState("");
   const [nodes, setNodes] = useState<GNode[]>([]);
@@ -518,7 +520,8 @@ export default function DependencyReport() {
       iconColor="#6a1b9a"
       view={view}
       onViewChange={setView}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       toolbar={
@@ -1232,6 +1235,7 @@ export default function DependencyReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="dependencies"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );

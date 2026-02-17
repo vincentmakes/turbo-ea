@@ -18,6 +18,7 @@ import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
+import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
 
 interface TypeStat {
@@ -69,6 +70,7 @@ export default function DataQualityReport() {
   const navigate = useNavigate();
   const { types } = useMetamodel();
   const saved = useSavedReport("data-quality");
+  const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<DQData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
@@ -134,7 +136,8 @@ export default function DataQualityReport() {
       iconColor="#2e7d32"
       view={view}
       onViewChange={setView}
-      onSaveReport={() => saved.setSaveDialogOpen(true)}
+      chartRef={chartRef}
+      onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
     >
@@ -387,6 +390,7 @@ export default function DataQualityReport() {
         onClose={() => saved.setSaveDialogOpen(false)}
         reportType="data-quality"
         config={getConfig()}
+        thumbnail={thumbnail}
       />
     </ReportShell>
   );
