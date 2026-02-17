@@ -58,21 +58,26 @@ const ROW_HEADER_COL_WIDTH = 140;
 const LEVEL_COLORS = ["#f0f0f0", "#f5f5f5", "#fafafa", "#fff", "#fff"];
 const CELL_BORDER = "1px solid #e0e0e0";
 
-// Depth level pill button styles
-const levelPillBase: React.CSSProperties = {
+// Depth control icon button styles
+const depthBtnStyle = (disabled: boolean): React.CSSProperties => ({
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: 20,
+  width: 18,
   height: 18,
-  fontSize: 10,
-  fontWeight: 600,
-  borderRadius: 3,
-  cursor: "pointer",
-  border: "1px solid #ccc",
-  transition: "all 0.15s",
+  borderRadius: "50%",
+  cursor: disabled ? "default" : "pointer",
+  opacity: disabled ? 0.3 : 0.7,
+  transition: "opacity 0.15s",
+  flexShrink: 0,
+});
+const depthCounterStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  color: "#555",
   lineHeight: 1,
-  userSelect: "none",
+  whiteSpace: "nowrap",
+  textAlign: "center",
 };
 
 export default function MatrixReport() {
@@ -375,48 +380,7 @@ export default function MatrixReport() {
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
-  // Render level pills in a given direction
-  const renderLevelPills = (
-    maxDepth: number,
-    activeDepth: number,
-    onChange: (depth: number) => void,
-    direction: "horizontal" | "vertical",
-    label: string,
-  ) => (
-    <div style={{
-      display: "flex",
-      flexDirection: direction === "vertical" ? "column" : "row",
-      alignItems: "center",
-      gap: 2,
-    }}>
-      <Tooltip title={`${label} depth`}>
-        <span style={{ display: "inline-flex", alignItems: "center" }}>
-          <MaterialSymbol
-            icon={direction === "vertical" ? "table_rows" : "view_column"}
-            size={12}
-            color="#999"
-          />
-        </span>
-      </Tooltip>
-      {Array.from({ length: maxDepth + 1 }, (_, i) => {
-        const isActive = i === activeDepth;
-        return (
-          <span
-            key={i}
-            onClick={(e) => { e.stopPropagation(); onChange(i); }}
-            style={{
-              ...levelPillBase,
-              background: isActive ? "#1976d2" : "#fff",
-              color: isActive ? "#fff" : "#555",
-              borderColor: isActive ? "#1976d2" : "#ccc",
-            }}
-          >
-            {i}
-          </span>
-        );
-      })}
-    </div>
-  );
+  const hasAnyDepthControl = isHierarchyRowMode || isHierarchyColMode;
 
   return (
     <ReportShell
@@ -507,28 +471,71 @@ export default function MatrixReport() {
                           minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
                         }}
                       >
-                        {/* Corner cell layout: row pills vertical on left, col pills horizontal on bottom */}
-                        <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-                          {/* Vertical row depth pills along left edge */}
-                          {isHierarchyRowMode && renderLevelPills(
-                            rowTreeFull!.maxDepth, effectiveRowDepth,
-                            (d) => setRowExpandedDepth(d), "vertical", "Row",
-                          )}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
-                              {rowLabel} / {colLabel}
-                            </div>
-                            {/* Horizontal column depth pills along bottom */}
-                            {isHierarchyColMode && (
-                              <div style={{ marginTop: 4 }}>
-                                {renderLevelPills(
-                                  colTreeFull!.maxDepth, effectiveColDepth,
-                                  (d) => setColExpandedDepth(d), "horizontal", "Column",
-                                )}
-                              </div>
-                            )}
-                          </div>
+                        <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
+                          {rowLabel} / {colLabel}
                         </div>
+                        {/* Depth controls: row vertical on left, col horizontal on right, separator between */}
+                        {hasAnyDepthControl && (
+                          <>
+                            <div style={{
+                              borderTop: "1px solid #ddd",
+                              marginTop: 5,
+                              paddingTop: 5,
+                              display: "flex",
+                              alignItems: "stretch",
+                              gap: 0,
+                            }}>
+                              {/* Row depth: vertical -/+ stacked (matching row axis ↓) */}
+                              {isHierarchyRowMode && (
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                                  <Tooltip title="Collapse row level" placement="left">
+                                    <span
+                                      style={depthBtnStyle(effectiveRowDepth <= 0)}
+                                      onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
+                                    >
+                                      <MaterialSymbol icon="do_not_disturb_on" size={18} color="#555" />
+                                    </span>
+                                  </Tooltip>
+                                  <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
+                                  <Tooltip title="Expand row level" placement="left">
+                                    <span
+                                      style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
+                                      onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
+                                    >
+                                      <MaterialSymbol icon="add_circle" size={18} color="#555" />
+                                    </span>
+                                  </Tooltip>
+                                </div>
+                              )}
+                              {/* Separator */}
+                              {isHierarchyRowMode && isHierarchyColMode && (
+                                <div style={{ width: 1, background: "#ddd", margin: "0 8px", flexShrink: 0 }} />
+                              )}
+                              {/* Column depth: horizontal -/+ (matching column axis →) */}
+                              {isHierarchyColMode && (
+                                <div style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 3 }}>
+                                  <Tooltip title="Collapse column level">
+                                    <span
+                                      style={depthBtnStyle(effectiveColDepth <= 0)}
+                                      onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
+                                    >
+                                      <MaterialSymbol icon="do_not_disturb_on" size={18} color="#555" />
+                                    </span>
+                                  </Tooltip>
+                                  <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
+                                  <Tooltip title="Expand column level">
+                                    <span
+                                      style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
+                                      onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
+                                    >
+                                      <MaterialSymbol icon="add_circle" size={18} color="#555" />
+                                    </span>
+                                  </Tooltip>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </th>
                     )}
                     {row.map((cell) => {
