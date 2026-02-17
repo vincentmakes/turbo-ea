@@ -634,7 +634,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             open={!!reportsMenu}
             onClose={() => setReportsMenu(null)}
           >
-            {navItems.find((n) => n.children)?.children?.map((child, idx, arr) => {
+            {navItems.find((n) => n.children)?.children?.map((child, idx) => {
               const isSavedReports = child.path === "/reports/saved";
               return (
                 <Box key={child.path}>
