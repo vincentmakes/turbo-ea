@@ -20,13 +20,20 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
 
+interface MatrixItem {
+  id: string;
+  name: string;
+  parent_id: string | null;
+}
+
 interface MatrixData {
-  rows: { id: string; name: string }[];
-  columns: { id: string; name: string }[];
+  rows: MatrixItem[];
+  columns: MatrixItem[];
   intersections: { row_id: string; col_id: string }[];
 }
 
 type CellMode = "exists" | "count";
+type SortMode = "alpha" | "count" | "hierarchy";
 
 const HEAT_COLORS = [
   "#e3f2fd", "#bbdefb", "#90caf9", "#64b5f6", "#42a5f5",
@@ -48,8 +55,8 @@ export default function MatrixReport() {
   const [colType, setColType] = useState("BusinessCapability");
   const [data, setData] = useState<MatrixData | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
-  const [sortRows, setSortRows] = useState<"alpha" | "count">("alpha");
-  const [sortCols, setSortCols] = useState<"alpha" | "count">("alpha");
+  const [sortRows, setSortRows] = useState<SortMode>("alpha");
+  const [sortCols, setSortCols] = useState<SortMode>("alpha");
   const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const [hoveredCol, setHoveredCol] = useState<string | null>(null);
   const [popover, setPopover] = useState<{ el: HTMLElement; rowId: string; colId: string } | null>(null);
@@ -62,8 +69,8 @@ export default function MatrixReport() {
       if (cfg.rowType) setRowType(cfg.rowType as string);
       if (cfg.colType) setColType(cfg.colType as string);
       if (cfg.cellMode) setCellMode(cfg.cellMode as CellMode);
-      if (cfg.sortRows) setSortRows(cfg.sortRows as "alpha" | "count");
-      if (cfg.sortCols) setSortCols(cfg.sortCols as "alpha" | "count");
+      if (cfg.sortRows) setSortRows(cfg.sortRows as SortMode);
+      if (cfg.sortCols) setSortCols(cfg.sortCols as SortMode);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,6 +79,17 @@ export default function MatrixReport() {
   useEffect(() => {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
   }, [rowType, colType]);
+
+  // Reset hierarchy sort when switching to a non-hierarchical type
+  useEffect(() => {
+    const rMeta = types.find((t) => t.key === rowType);
+    if (sortRows === "hierarchy" && !rMeta?.has_hierarchy) setSortRows("alpha");
+  }, [rowType, types, sortRows]);
+
+  useEffect(() => {
+    const cMeta = types.find((t) => t.key === colType);
+    if (sortCols === "hierarchy" && !cMeta?.has_hierarchy) setSortCols("alpha");
+  }, [colType, types, sortCols]);
 
   // Build lookup structures
   const intersectionMap = useMemo(() => {
@@ -113,8 +131,30 @@ export default function MatrixReport() {
     return m;
   }, [data, intersectionMap]);
 
+  // Build hierarchy-sorted list: parents first, children indented underneath
+  const hierarchySort = (items: MatrixItem[]): MatrixItem[] => {
+    const byId = new Map(items.map((i) => [i.id, i]));
+    const children = new Map<string | null, MatrixItem[]>();
+    for (const item of items) {
+      const pid = item.parent_id && byId.has(item.parent_id) ? item.parent_id : null;
+      children.set(pid, [...(children.get(pid) || []), item]);
+    }
+    // Sort each group alphabetically
+    for (const [, group] of children) group.sort((a, b) => a.name.localeCompare(b.name));
+    const result: MatrixItem[] = [];
+    const walk = (parentId: string | null) => {
+      for (const item of children.get(parentId) || []) {
+        result.push(item);
+        walk(item.id);
+      }
+    };
+    walk(null);
+    return result;
+  };
+
   const sortedRows = useMemo(() => {
     if (!data) return [];
+    if (sortRows === "hierarchy") return hierarchySort(data.rows);
     const rows = [...data.rows];
     if (sortRows === "count") rows.sort((a, b) => (rowCounts.get(b.id) || 0) - (rowCounts.get(a.id) || 0));
     else rows.sort((a, b) => a.name.localeCompare(b.name));
@@ -123,6 +163,7 @@ export default function MatrixReport() {
 
   const sortedCols = useMemo(() => {
     if (!data) return [];
+    if (sortCols === "hierarchy") return hierarchySort(data.columns);
     const cols = [...data.columns];
     if (sortCols === "count") cols.sort((a, b) => (colCounts.get(b.id) || 0) - (colCounts.get(a.id) || 0));
     else cols.sort((a, b) => a.name.localeCompare(b.name));
@@ -149,8 +190,24 @@ export default function MatrixReport() {
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
-  const rowLabel = types.find((t) => t.key === rowType)?.label || rowType;
-  const colLabel = types.find((t) => t.key === colType)?.label || colType;
+  const rowMeta = types.find((t) => t.key === rowType);
+  const colMeta = types.find((t) => t.key === colType);
+  const rowLabel = rowMeta?.label || rowType;
+  const colLabel = colMeta?.label || colType;
+  const rowHasHierarchy = !!rowMeta?.has_hierarchy;
+  const colHasHierarchy = !!colMeta?.has_hierarchy;
+
+  // Compute depth for hierarchy indentation
+  const getDepth = (item: MatrixItem, items: MatrixItem[]): number => {
+    const byId = new Map(items.map((i) => [i.id, i]));
+    let depth = 0;
+    let current = item;
+    while (current.parent_id && byId.has(current.parent_id)) {
+      depth++;
+      current = byId.get(current.parent_id)!;
+    }
+    return depth;
+  };
 
   const getCellValue = (rowId: string, colId: string): number => {
     const k = `${rowId}:${colId}`;
@@ -184,21 +241,23 @@ export default function MatrixReport() {
             <MenuItem value="exists">Exists (dot)</MenuItem>
             <MenuItem value="count">Count (heatmap)</MenuItem>
           </TextField>
-          <TextField select size="small" label="Sort Rows" value={sortRows} onChange={(e) => setSortRows(e.target.value as "alpha" | "count")} sx={{ minWidth: 130 }}>
+          <TextField select size="small" label="Sort Rows" value={sortRows} onChange={(e) => setSortRows(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
             <MenuItem value="alpha">A → Z</MenuItem>
             <MenuItem value="count">By count</MenuItem>
+            {rowHasHierarchy && <MenuItem value="hierarchy">Hierarchy</MenuItem>}
           </TextField>
-          <TextField select size="small" label="Sort Columns" value={sortCols} onChange={(e) => setSortCols(e.target.value as "alpha" | "count")} sx={{ minWidth: 130 }}>
+          <TextField select size="small" label="Sort Columns" value={sortCols} onChange={(e) => setSortCols(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
             <MenuItem value="alpha">A → Z</MenuItem>
             <MenuItem value="count">By count</MenuItem>
+            {colHasHierarchy && <MenuItem value="hierarchy">Hierarchy</MenuItem>}
           </TextField>
         </>
       }
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label={rowLabel} value={data.rows.length} icon="rows" />
-        <MetricCard label={colLabel} value={data.columns.length} icon="view_column" />
+        <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} />
+        <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} />
         <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
         <MetricCard label="Coverage" value={`${coverage}%`} icon="percent" />
       </Box>
@@ -275,6 +334,8 @@ export default function MatrixReport() {
             <tbody>
               {sortedRows.map((r) => {
                 const rCount = rowCounts.get(r.id) || 0;
+                const depth = sortRows === "hierarchy" ? getDepth(r, data.rows) : 0;
+                const isParent = sortRows === "hierarchy" && data.rows.some((x) => x.parent_id === r.id);
                 return (
                   <tr key={r.id}>
                     <td
@@ -284,12 +345,13 @@ export default function MatrixReport() {
                         zIndex: 1,
                         background: hoveredRow === r.id ? "#e3f2fd" : "#fff",
                         padding: "6px 10px",
+                        paddingLeft: 10 + depth * 16,
                         border: "1px solid #e0e0e0",
-                        fontWeight: 500,
+                        fontWeight: isParent ? 700 : 500,
                         fontSize: 12,
                         whiteSpace: "nowrap",
                         cursor: "pointer",
-                        maxWidth: 200,
+                        maxWidth: 220,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}
@@ -298,7 +360,7 @@ export default function MatrixReport() {
                       onClick={() => navigate(`/cards/${r.id}`)}
                     >
                       <Tooltip title={r.name} placement="right">
-                        <span>{r.name}</span>
+                        <span>{depth > 0 ? "└ " : ""}{r.name}</span>
                       </Tooltip>
                     </td>
                     {sortedCols.map((c) => {

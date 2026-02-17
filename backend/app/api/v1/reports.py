@@ -427,8 +427,8 @@ async def matrix(
             intersections.add((tid, sid))
 
     return {
-        "rows": [{"id": str(r.id), "name": r.name} for r in rows],
-        "columns": [{"id": str(c.id), "name": c.name} for c in cols],
+        "rows": [{"id": str(r.id), "name": r.name, "parent_id": str(r.parent_id) if r.parent_id else None} for r in rows],
+        "columns": [{"id": str(c.id), "name": c.name, "parent_id": str(c.parent_id) if c.parent_id else None} for c in cols],
         "intersections": [{"row_id": r, "col_id": c} for r, c in intersections],
     }
 
