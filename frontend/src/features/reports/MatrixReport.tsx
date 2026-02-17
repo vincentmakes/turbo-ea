@@ -459,7 +459,7 @@ export default function MatrixReport() {
                           top: 0,
                           zIndex: 4,
                           background: "#f0f0f0",
-                          padding: `6px 8px ${isHierarchyRowMode ? 30 : 6}px ${isHierarchyColMode ? 34 : 8}px`,
+                          padding: `6px ${isHierarchyColMode ? 34 : 8}px ${isHierarchyRowMode ? 30 : 6}px 8px`,
                           borderBottom: CELL_BORDER,
                           borderRight: CELL_BORDER,
                           fontWeight: 600,
@@ -504,11 +504,11 @@ export default function MatrixReport() {
                             </Tooltip>
                           </div>
                         )}
-                        {/* Column depth: vertical -/+ centered vertically, flush left */}
+                        {/* Column depth: vertical -/+ centered vertically, flush right */}
                         {isHierarchyColMode && (
                           <div style={{
                             position: "absolute",
-                            left: 6,
+                            right: 6,
                             top: "50%",
                             transform: "translateY(-50%)",
                             display: "flex",
