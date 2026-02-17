@@ -536,37 +536,6 @@ TYPES = [
             },
         ],
     },
-    {
-        "key": "System",
-        "label": "System",
-        "description": "Technical systems and runtime environments.",
-        "icon": "dns",
-        "color": "#5B738B",
-        "category": "Technical Architecture",
-        "has_hierarchy": False,
-        "subtypes": [],
-        "sort_order": 13,
-        "is_hidden": False,
-        "fields_schema": [
-            {
-                "section": "System Information",
-                "fields": [
-                    {"key": "systemType", "label": "System Type", "type": "single_select", "options": [
-                        {"key": "cluster", "label": "Cluster"},
-                        {"key": "server", "label": "Server"},
-                        {"key": "virtualMachine", "label": "Virtual Machine"},
-                        {"key": "container", "label": "Container"},
-                    ], "weight": 1},
-                    {"key": "environment", "label": "Environment", "type": "single_select", "options": [
-                        {"key": "production", "label": "Production", "color": "#d32f2f"},
-                        {"key": "staging", "label": "Staging", "color": "#ff9800"},
-                        {"key": "development", "label": "Development", "color": "#4caf50"},
-                        {"key": "test", "label": "Test", "color": "#2196f3"},
-                    ], "weight": 1},
-                ],
-            },
-        ],
-    },
 ]
 
 
@@ -585,7 +554,6 @@ RELATIONS = [
     {"key": "relInitiativeToInterface", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Interface", "cardinality": "n:m", "sort_order": 8},
     {"key": "relInitiativeToDataObj", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 9},
     {"key": "relInitiativeToITC", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 10},
-    {"key": "relInitiativeToSystem", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "System", "cardinality": "n:m", "sort_order": 11},
 
     # Organization connections
     {"key": "relOrgToObjective", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 12},
@@ -613,7 +581,6 @@ RELATIONS = [
         {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS},
         {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
     ]},
-    {"key": "relAppToSystem", "label": "runs on", "reverse_label": "runs", "source_type_key": "Application", "target_type_key": "System", "cardinality": "n:m", "sort_order": 22},
 
     # IT Component connections
     {"key": "relITCToTechCat", "label": "belongs to", "reverse_label": "includes", "source_type_key": "ITComponent", "target_type_key": "TechCategory", "cardinality": "n:m", "sort_order": 23, "attributes_schema": [
@@ -627,20 +594,21 @@ RELATIONS = [
 
     # Provider connections
     {"key": "relProviderToInitiative", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Provider", "target_type_key": "Initiative", "cardinality": "n:m", "sort_order": 27},
-    {"key": "relProviderToITC", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 28},
+    {"key": "relProviderToApp", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 28},
+    {"key": "relProviderToITC", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 29},
 
     # Business Context connections
-    {"key": "relBizCtxToBC", "label": "is associated with", "reverse_label": "is associated with", "source_type_key": "BusinessContext", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 29},
+    {"key": "relBizCtxToBC", "label": "is associated with", "reverse_label": "is associated with", "source_type_key": "BusinessContext", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 30},
 
     # BPM — Business Process connections
     {"key": "relProcessToBC", "label": "supports", "reverse_label": "is supported by",
      "source_type_key": "BusinessProcess", "target_type_key": "BusinessCapability",
-     "cardinality": "n:m", "sort_order": 30, "attributes_schema": [
+     "cardinality": "n:m", "sort_order": 31, "attributes_schema": [
          {"key": "supportType", "label": "Support Type", "type": "single_select", "options": SUPPORT_TYPE_OPTIONS},
      ]},
     {"key": "relProcessToApp", "label": "is supported by", "reverse_label": "supports",
      "source_type_key": "BusinessProcess", "target_type_key": "Application",
-     "cardinality": "n:m", "sort_order": 31, "attributes_schema": [
+     "cardinality": "n:m", "sort_order": 32, "attributes_schema": [
          {"key": "usageType", "label": "Usage", "type": "single_select", "options": [
              {"key": "creates", "label": "Creates"},
              {"key": "reads", "label": "Reads"},
@@ -657,7 +625,7 @@ RELATIONS = [
      ]},
     {"key": "relProcessToDataObj", "label": "uses", "reverse_label": "is used by",
      "source_type_key": "BusinessProcess", "target_type_key": "DataObject",
-     "cardinality": "n:m", "sort_order": 32, "attributes_schema": [
+     "cardinality": "n:m", "sort_order": 33, "attributes_schema": [
          {"key": "crudCreate", "label": "Create", "type": "boolean"},
          {"key": "crudRead", "label": "Read", "type": "boolean"},
          {"key": "crudUpdate", "label": "Update", "type": "boolean"},
@@ -665,22 +633,22 @@ RELATIONS = [
      ]},
     {"key": "relProcessToITC", "label": "uses", "reverse_label": "is used by",
      "source_type_key": "BusinessProcess", "target_type_key": "ITComponent",
-     "cardinality": "n:m", "sort_order": 33},
+     "cardinality": "n:m", "sort_order": 34},
     {"key": "relProcessDependency", "label": "depends on", "reverse_label": "is depended on by",
      "source_type_key": "BusinessProcess", "target_type_key": "BusinessProcess",
-     "cardinality": "n:m", "sort_order": 34},
+     "cardinality": "n:m", "sort_order": 35},
     {"key": "relProcessToOrg", "label": "is owned by", "reverse_label": "owns",
      "source_type_key": "BusinessProcess", "target_type_key": "Organization",
-     "cardinality": "n:m", "sort_order": 35},
+     "cardinality": "n:m", "sort_order": 36},
     {"key": "relProcessToInitiative", "label": "is affected by", "reverse_label": "affects",
      "source_type_key": "BusinessProcess", "target_type_key": "Initiative",
-     "cardinality": "n:m", "sort_order": 36},
+     "cardinality": "n:m", "sort_order": 37},
     {"key": "relProcessToObjective", "label": "supports", "reverse_label": "is supported by",
      "source_type_key": "BusinessProcess", "target_type_key": "Objective",
-     "cardinality": "n:m", "sort_order": 37},
+     "cardinality": "n:m", "sort_order": 38},
     {"key": "relProcessToBizCtx", "label": "realizes", "reverse_label": "is realized by",
      "source_type_key": "BusinessProcess", "target_type_key": "BusinessContext",
-     "cardinality": "n:m", "sort_order": 38},
+     "cardinality": "n:m", "sort_order": 39},
 ]
 
 

@@ -1212,33 +1212,6 @@ PLATFORMS = [
 ]
 
 
-# ── Systems ───────────────────────────────────────────────────────
-SYSTEMS = [
-    _fs("sys_prod_k8s", "System", "Production Kubernetes Cluster",
-        desc="AKS cluster (West Europe) running all production microservices.",
-        attrs={"systemType": "cluster", "environment": "production"}),
-    _fs("sys_staging_k8s", "System", "Staging Kubernetes Cluster",
-        desc="AKS cluster for pre-production validation and integration testing.",
-        attrs={"systemType": "cluster", "environment": "staging"}),
-    _fs("sys_dev_env", "System", "Development Environment",
-        desc="Shared development VMs and local K3s clusters for developers.",
-        attrs={"systemType": "virtualMachine", "environment": "development"}),
-    _fs("sys_cicd_farm", "System", "CI/CD Build Farm",
-        desc="Pool of build agents for Jenkins and GitHub Actions runners.",
-        attrs={"systemType": "cluster", "environment": "production"}),
-    _fs("sys_db_prod", "System", "Database Cluster (Production)",
-        desc="Azure SQL and PostgreSQL Flexible Server instances for production workloads.",
-        attrs={"systemType": "cluster", "environment": "production"}),
-    _fs("sys_edge_gw", "System", "Edge Computing Gateway",
-        desc="On-premise edge nodes in factory for low-latency SCADA and IoT pre-processing.",
-        attrs={"systemType": "server", "environment": "production"}),
-    _fs("sys_monitoring", "System", "Monitoring Stack",
-        desc="Datadog, Grafana and PagerDuty infrastructure for observability.",
-        attrs={"systemType": "cluster", "environment": "production"}),
-    _fs("sys_dr", "System", "Backup & Disaster Recovery Site",
-        desc="AWS-based DR site in US-East for business continuity.",
-        attrs={"systemType": "cluster", "environment": "production"}),
-]
 
 
 # ===================================================================
@@ -1328,19 +1301,6 @@ RELATIONS = [
     _rel("relAppToITC", "app_azure_iot", "itc_azure_eh"),
     _rel("relAppToITC", "app_opcenter", "itc_dotnet"),
     _rel("relAppToITC", "app_opcenter", "itc_dell_r760"),
-
-    # ── Application → System (relAppToSystem) ────────────────────
-    _rel("relAppToSystem", "app_nexacloud", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_nexaportal", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_nexaconnect", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_grafana", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_kafka", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_anomaly_ai", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_pred_maint", "sys_prod_k8s"),
-    _rel("relAppToSystem", "app_jenkins", "sys_cicd_farm"),
-    _rel("relAppToSystem", "app_sap_s4", "sys_db_prod"),
-    _rel("relAppToSystem", "app_splunk", "sys_monitoring"),
-    _rel("relAppToSystem", "app_nexascada", "sys_edge_gw"),
 
     # ── Application → Data Object (relAppToDataObj) ──────────────
     _rel("relAppToDataObj", "app_sap_s4", "do_product", {"crudCreate": True, "crudRead": True, "crudUpdate": True, "crudDelete": False}),
@@ -1501,12 +1461,6 @@ RELATIONS = [
     _rel("relInitiativeToDataObj", "init_dw_consolidation", "do_financial_tx"),
     _rel("relInitiativeToDataObj", "init_ai_pred_maint", "do_maint_record"),
 
-    # ── Initiative → System (relInitiativeToSystem) ──────────────
-    _rel("relInitiativeToSystem", "init_iot_modern", "sys_prod_k8s"),
-    _rel("relInitiativeToSystem", "init_iot_modern", "sys_edge_gw"),
-    _rel("relInitiativeToSystem", "init_zero_trust", "sys_prod_k8s"),
-    _rel("relInitiativeToSystem", "init_devops", "sys_cicd_farm"),
-
     # ── Objective → Business Capability (relObjectiveToBC) ───────
     _rel("relObjectiveToBC", "obj_digital_tx", "bc_it"),
     _rel("relObjectiveToBC", "obj_digital_tx", "bc_data_mgmt"),
@@ -1657,6 +1611,33 @@ RELATIONS = [
     _rel("relInterfaceToITC", "if_kafka_ts", "itc_postgres"),
     _rel("relInterfaceToITC", "if_portal_iot", "itc_nginx"),
     _rel("relInterfaceToITC", "if_iot_anomaly", "itc_anomaly_model"),
+
+    # ── Provider → Application (relProviderToApp) ─────────────────
+    _rel("relProviderToApp", "prov_sap", "app_sap_s4"),
+    _rel("relProviderToApp", "prov_sap", "app_sap_ariba"),
+    _rel("relProviderToApp", "prov_sap", "app_sap_sf"),
+    _rel("relProviderToApp", "prov_siemens", "app_teamcenter"),
+    _rel("relProviderToApp", "prov_siemens", "app_nx"),
+    _rel("relProviderToApp", "prov_siemens", "app_opcenter"),
+    _rel("relProviderToApp", "prov_siemens", "app_opcenter_aps"),
+    _rel("relProviderToApp", "prov_salesforce", "app_sf_sales"),
+    _rel("relProviderToApp", "prov_salesforce", "app_sf_service"),
+    _rel("relProviderToApp", "prov_salesforce", "app_sf_cpq"),
+    _rel("relProviderToApp", "prov_microsoft", "app_m365"),
+    _rel("relProviderToApp", "prov_microsoft", "app_teams"),
+    _rel("relProviderToApp", "prov_microsoft", "app_sharepoint"),
+    _rel("relProviderToApp", "prov_microsoft", "app_azure_ad"),
+    _rel("relProviderToApp", "prov_microsoft", "app_azure_iot"),
+    _rel("relProviderToApp", "prov_microsoft", "app_powerbi"),
+    _rel("relProviderToApp", "prov_altium", "app_altium"),
+    _rel("relProviderToApp", "prov_mathworks", "app_matlab"),
+    _rel("relProviderToApp", "prov_atlassian", "app_jira"),
+    _rel("relProviderToApp", "prov_atlassian", "app_bitbucket"),
+    _rel("relProviderToApp", "prov_atlassian", "app_confluence"),
+    _rel("relProviderToApp", "prov_servicenow", "app_servicenow"),
+    _rel("relProviderToApp", "prov_snowflake", "app_snowflake"),
+    _rel("relProviderToApp", "prov_hashicorp", "app_vault"),
+    _rel("relProviderToApp", "prov_datadog", "app_grafana"),
 
     # ── Provider → IT Component (relProviderToITC) ───────────────
     _rel("relProviderToITC", "prov_microsoft", "itc_azure_sql"),
@@ -2000,7 +1981,7 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         ORGANIZATIONS + BUSINESS_CAPABILITIES + BUSINESS_CONTEXTS
         + APPLICATIONS + IT_COMPONENTS + INTERFACES + DATA_OBJECTS
         + TECH_CATEGORIES + PROVIDERS + OBJECTIVES + INITIATIVES
-        + PLATFORMS + SYSTEMS
+        + PLATFORMS
     )
 
     # Build reverse lookup: UUID → ref name
