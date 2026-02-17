@@ -55,9 +55,10 @@ function heatColor(value: number, max: number): string {
 }
 
 // Styling constants
-const HEADER_ROW_HEIGHT = 32;
-const ROW_HEADER_COL_WIDTH = 160;
+const ROW_HEADER_COL_WIDTH = 140;
 const LEVEL_COLORS = ["#f0f0f0", "#f5f5f5", "#fafafa", "#fff", "#fff"];
+// Border style shared by all cells (used with border-collapse: separate)
+const CELL_BORDER = "1px solid #e0e0e0";
 
 export default function MatrixReport() {
   const navigate = useNavigate();
@@ -162,7 +163,6 @@ export default function MatrixReport() {
   const leafRowNodes = useMemo(() => {
     if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
     if (!data) return [];
-    // Non-hierarchy sort: build flat "leaf" nodes
     const items = [...data.rows];
     if (sortRows === "count") {
       const rc = new Map<string, number>();
@@ -221,7 +221,6 @@ export default function MatrixReport() {
     if (prunedColRoots && sortCols === "hierarchy" && colTreeFull && colTreeFull.maxDepth > 0) {
       return buildColumnHeaderRows(prunedColRoots, effectiveColDepth);
     }
-    // Flat: single row
     return [leafColNodes.map((node) => ({
       node, colspan: 1, rowspan: 1, isLeaf: true, isPrunedGroup: false,
     }))];
@@ -232,15 +231,13 @@ export default function MatrixReport() {
     if (prunedRowRoots && sortRows === "hierarchy" && rowTreeFull && rowTreeFull.maxDepth > 0) {
       return buildRowHeaderLayout(prunedRowRoots, effectiveRowDepth);
     }
-    // Flat: single column
     return leafRowNodes.map((node) => [{
       node, rowspan: 1, isLeaf: true, isPrunedGroup: false,
     }]);
   }, [prunedRowRoots, leafRowNodes, sortRows, effectiveRowDepth, rowTreeFull]);
 
-  // Number of row header columns
+  // Number of row header columns & column header rows
   const numRowHeaderCols = rowHeaderLayout.length > 0 ? rowHeaderLayout[0].length : 1;
-  // Number of column header rows
   const numColHeaderRows = columnHeaderRows.length;
 
   // Cell value getter with aggregation support
@@ -250,7 +247,7 @@ export default function MatrixReport() {
     return aggregateCount(rowLeaves, colLeaves, intersectionMap);
   };
 
-  // Max cell count for heatmap scaling (computed against visible leaves)
+  // Max cell count for heatmap scaling
   const maxCellCount = useMemo(() => {
     let max = 0;
     for (const rNode of leafRowNodes) {
@@ -333,6 +330,16 @@ export default function MatrixReport() {
 
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
+  const hasAnyDepthControl = isHierarchyRowMode || isHierarchyColMode;
+
+  // Compute sticky top offsets: measure from thead rows. Each header row gets
+  // accumulated top from the ones above it. We use a ref-based approach would
+  // be ideal but for simplicity we compute from cell heights:
+  // - Group header rows (non-leaf): ~28px
+  // - Leaf header row: taller due to vertical text (~100px+), handled by browser
+  // We stack with top = sum of previous rows' heights. Since the browser manages
+  // actual heights, we use auto-stacking by not setting top on non-first rows.
+  // Instead, we rely on each <tr> in <thead> having its cells sticky.
 
   return (
     <ReportShell
@@ -340,6 +347,7 @@ export default function MatrixReport() {
       icon="table_chart"
       iconColor="#6a1b9a"
       hasTableToggle={false}
+      maxWidth="100%"
       chartRef={chartRef}
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
@@ -366,85 +374,11 @@ export default function MatrixReport() {
             <MenuItem value="count">By count</MenuItem>
             {colHasHierarchy && <MenuItem value="hierarchy">Hierarchy</MenuItem>}
           </TextField>
-
-          {/* Row depth control */}
-          {isHierarchyRowMode && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5, whiteSpace: "nowrap" }}>
-                Row depth:
-              </Typography>
-              <Tooltip title="Collapse row level">
-                <span>
-                  <IconButton
-                    size="small"
-                    disabled={effectiveRowDepth <= 0}
-                    onClick={() => setRowExpandedDepth((prev) => Math.max(0, Math.min(prev, rowTreeFull!.maxDepth) - 1))}
-                  >
-                    <MaterialSymbol icon="remove" size={18} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Chip
-                size="small"
-                label={`${effectiveRowDepth} / ${rowTreeFull!.maxDepth}`}
-                variant="outlined"
-                sx={{ fontWeight: 600, minWidth: 48 }}
-              />
-              <Tooltip title="Expand row level">
-                <span>
-                  <IconButton
-                    size="small"
-                    disabled={effectiveRowDepth >= rowTreeFull!.maxDepth}
-                    onClick={() => setRowExpandedDepth((prev) => Math.min(rowTreeFull!.maxDepth, (prev === Infinity ? rowTreeFull!.maxDepth : prev) + 1))}
-                  >
-                    <MaterialSymbol icon="add" size={18} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </Box>
-          )}
-
-          {/* Column depth control */}
-          {isHierarchyColMode && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", mr: 0.5, whiteSpace: "nowrap" }}>
-                Col depth:
-              </Typography>
-              <Tooltip title="Collapse column level">
-                <span>
-                  <IconButton
-                    size="small"
-                    disabled={effectiveColDepth <= 0}
-                    onClick={() => setColExpandedDepth((prev) => Math.max(0, Math.min(prev, colTreeFull!.maxDepth) - 1))}
-                  >
-                    <MaterialSymbol icon="remove" size={18} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-              <Chip
-                size="small"
-                label={`${effectiveColDepth} / ${colTreeFull!.maxDepth}`}
-                variant="outlined"
-                sx={{ fontWeight: 600, minWidth: 48 }}
-              />
-              <Tooltip title="Expand column level">
-                <span>
-                  <IconButton
-                    size="small"
-                    disabled={effectiveColDepth >= colTreeFull!.maxDepth}
-                    onClick={() => setColExpandedDepth((prev) => Math.min(colTreeFull!.maxDepth, (prev === Infinity ? colTreeFull!.maxDepth : prev) + 1))}
-                  >
-                    <MaterialSymbol icon="add" size={18} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </Box>
-          )}
         </>
       }
     >
-      {/* Summary strip */}
-      <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+      {/* Summary strip — compact single row */}
+      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
         <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
         <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
@@ -456,12 +390,25 @@ export default function MatrixReport() {
           <Typography color="text.secondary">No data found for this combination.</Typography>
         </Box>
       ) : (
-        <Paper variant="outlined" ref={tableRef} sx={{ overflow: "auto", maxHeight: 600 }}>
-          <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
+        <Paper
+          variant="outlined"
+          ref={tableRef}
+          sx={{
+            overflow: "auto",
+            // Use available viewport height minus approximate header space
+            maxHeight: "calc(100vh - 280px)",
+            minHeight: 300,
+          }}
+        >
+          <table style={{
+            borderCollapse: "separate",
+            borderSpacing: 0,
+            minWidth: "100%",
+          }}>
             <thead>
               {columnHeaderRows.map((row, levelIdx) => (
                 <tr key={levelIdx}>
-                  {/* Corner cell: only on first header row */}
+                  {/* Corner cell: only on first header row — contains label + depth controls */}
                   {levelIdx === 0 && (
                     <th
                       rowSpan={numColHeaderRows}
@@ -472,15 +419,98 @@ export default function MatrixReport() {
                         top: 0,
                         zIndex: 4,
                         background: "#f0f0f0",
-                        padding: "8px 12px",
-                        border: "1px solid #e0e0e0",
+                        padding: hasAnyDepthControl ? "6px 8px" : "8px 12px",
+                        borderBottom: CELL_BORDER,
+                        borderRight: CELL_BORDER,
                         fontWeight: 600,
                         fontSize: 11,
                         textAlign: "left",
+                        verticalAlign: "top",
                         minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
                       }}
                     >
-                      {rowLabel} / {colLabel}
+                      <div style={{ marginBottom: hasAnyDepthControl ? 4 : 0 }}>
+                        {rowLabel} / {colLabel}
+                      </div>
+                      {/* Depth controls inside corner cell */}
+                      {hasAnyDepthControl && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                          {isHierarchyRowMode && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                              <span style={{ fontSize: 10, color: "#666", minWidth: 28 }}>Rows</span>
+                              <Tooltip title="Collapse row level">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={effectiveRowDepth <= 0}
+                                    onClick={() => setRowExpandedDepth((prev) => Math.max(0, Math.min(prev, rowTreeFull!.maxDepth) - 1))}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <MaterialSymbol icon="remove" size={14} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, color: "#333",
+                                background: "#fff", borderRadius: 3, padding: "1px 6px",
+                                border: "1px solid #ccc", minWidth: 30, textAlign: "center",
+                                display: "inline-block",
+                              }}>
+                                {effectiveRowDepth}/{rowTreeFull!.maxDepth}
+                              </span>
+                              <Tooltip title="Expand row level">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={effectiveRowDepth >= rowTreeFull!.maxDepth}
+                                    onClick={() => setRowExpandedDepth((prev) => Math.min(rowTreeFull!.maxDepth, (prev === Infinity ? rowTreeFull!.maxDepth : prev) + 1))}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <MaterialSymbol icon="add" size={14} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </div>
+                          )}
+                          {isHierarchyColMode && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                              <span style={{ fontSize: 10, color: "#666", minWidth: 28 }}>Cols</span>
+                              <Tooltip title="Collapse column level">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={effectiveColDepth <= 0}
+                                    onClick={() => setColExpandedDepth((prev) => Math.max(0, Math.min(prev, colTreeFull!.maxDepth) - 1))}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <MaterialSymbol icon="remove" size={14} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                              <span style={{
+                                fontSize: 10, fontWeight: 700, color: "#333",
+                                background: "#fff", borderRadius: 3, padding: "1px 6px",
+                                border: "1px solid #ccc", minWidth: 30, textAlign: "center",
+                                display: "inline-block",
+                              }}>
+                                {effectiveColDepth}/{colTreeFull!.maxDepth}
+                              </span>
+                              <Tooltip title="Expand column level">
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    disabled={effectiveColDepth >= colTreeFull!.maxDepth}
+                                    onClick={() => setColExpandedDepth((prev) => Math.min(colTreeFull!.maxDepth, (prev === Infinity ? colTreeFull!.maxDepth : prev) + 1))}
+                                    sx={{ p: 0.25 }}
+                                  >
+                                    <MaterialSymbol icon="add" size={14} />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </th>
                   )}
                   {row.map((cell) => {
@@ -494,22 +524,22 @@ export default function MatrixReport() {
                         rowSpan={cell.rowspan || 1}
                         style={{
                           position: "sticky",
-                          top: levelIdx * HEADER_ROW_HEIGHT,
+                          top: 0,
                           zIndex: 2,
                           background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[levelIdx] || "#fff"),
-                          padding: isLeafCell ? "6px 4px" : "6px 8px",
-                          border: "1px solid #e0e0e0",
+                          padding: isLeafCell ? "6px 3px" : "4px 6px",
+                          borderBottom: CELL_BORDER,
+                          borderRight: CELL_BORDER,
                           fontSize: isLeafCell ? 10 : 11,
                           fontWeight: isLeafCell ? 600 : 700,
                           whiteSpace: "nowrap",
                           writingMode: isLeafCell ? "vertical-lr" : "initial",
                           textOrientation: isLeafCell ? "mixed" : "initial",
                           textAlign: "center",
-                          maxWidth: isLeafCell ? 36 : undefined,
-                          minHeight: isLeafCell ? 100 : undefined,
+                          maxWidth: isLeafCell ? 32 : undefined,
+                          minHeight: isLeafCell ? 80 : undefined,
                           cursor: "pointer",
                           transition: "background-color 0.15s",
-                          borderLeft: levelIdx === 0 && cell.node.depth === 0 ? "2px solid #64b5f6" : undefined,
                         }}
                         onMouseEnter={() => setHoveredCol(cell.node.item.id)}
                         onMouseLeave={() => setHoveredCol(null)}
@@ -537,8 +567,9 @@ export default function MatrixReport() {
                         top: 0,
                         zIndex: 2,
                         background: "#f0f0f0",
-                        padding: "6px 8px",
-                        border: "1px solid #e0e0e0",
+                        padding: "6px 6px",
+                        borderBottom: CELL_BORDER,
+                        borderRight: CELL_BORDER,
                         fontSize: 10,
                         fontWeight: 700,
                       }}
@@ -558,12 +589,10 @@ export default function MatrixReport() {
                   <tr key={leafRow.item.id}>
                     {/* Row header cells */}
                     {headerCells && headerCells.map((cell, colIdx) => {
-                      if (cell === null) return null; // covered by rowspan above
+                      if (cell === null) return null;
                       const isHighlighted = hoveredRowIds.has(cell.node.item.id)
                         || cell.node.leafDescendants.some((id) => hoveredRowIds.has(id));
 
-                      // For leaf cells that appear at a depth shallower than max,
-                      // span across remaining header columns
                       const isShallowLeaf = cell.isLeaf && colIdx < numRowHeaderCols - 1;
                       const colSpan = isShallowLeaf ? numRowHeaderCols - colIdx : 1;
 
@@ -577,12 +606,11 @@ export default function MatrixReport() {
                             left: colIdx * ROW_HEADER_COL_WIDTH,
                             zIndex: 1,
                             background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[colIdx] || "#fff"),
-                            borderRight: "1px solid #e0e0e0",
-                            borderBottom: "1px solid #e0e0e0",
-                            borderLeft: colIdx === 0 ? "1px solid #e0e0e0" : undefined,
+                            borderRight: CELL_BORDER,
+                            borderBottom: CELL_BORDER,
                             fontWeight: cell.isLeaf ? 500 : 700,
                             fontSize: 12,
-                            padding: "6px 8px",
+                            padding: "4px 6px",
                             maxWidth: colSpan > 1 ? colSpan * ROW_HEADER_COL_WIDTH : ROW_HEADER_COL_WIDTH,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -615,8 +643,6 @@ export default function MatrixReport() {
                       const isDiagonal = rowType === colType && leafRow.item.id === colNode.item.id;
                       const isHighlighted = hoveredRowIds.has(leafRow.item.id) || hoveredColIds.has(colNode.item.id);
                       const isAggregated = leafRow.isPrunedGroup || colNode.isPrunedGroup;
-
-                      // Determine display mode: force count for aggregated cells
                       const displayAsCount = cellMode === "count" || isAggregated;
 
                       let bg = "#fff";
@@ -635,12 +661,14 @@ export default function MatrixReport() {
                           key={colNode.item.id}
                           style={{
                             padding: 0,
-                            border: "1px solid #e0e0e0",
+                            borderRight: CELL_BORDER,
+                            borderBottom: CELL_BORDER,
                             textAlign: "center",
                             verticalAlign: "middle",
                             backgroundColor: bg,
-                            width: 36,
-                            height: 28,
+                            width: 32,
+                            minWidth: 32,
+                            height: 26,
                             cursor: val > 0 ? "pointer" : "default",
                             transition: "background-color 0.15s",
                           }}
@@ -679,8 +707,9 @@ export default function MatrixReport() {
                     {/* Row total */}
                     <td
                       style={{
-                        padding: "4px 8px",
-                        border: "1px solid #e0e0e0",
+                        padding: "3px 6px",
+                        borderRight: CELL_BORDER,
+                        borderBottom: CELL_BORDER,
                         textAlign: "center",
                         fontWeight: 600,
                         fontSize: 11,
@@ -702,8 +731,9 @@ export default function MatrixReport() {
                     left: 0,
                     zIndex: 1,
                     background: "#f0f0f0",
-                    padding: "6px 10px",
-                    border: "1px solid #e0e0e0",
+                    padding: "4px 8px",
+                    borderRight: CELL_BORDER,
+                    borderBottom: CELL_BORDER,
                     fontWeight: 700,
                     fontSize: 11,
                   }}
@@ -714,8 +744,9 @@ export default function MatrixReport() {
                   <td
                     key={cNode.item.id}
                     style={{
-                      padding: "4px",
-                      border: "1px solid #e0e0e0",
+                      padding: "3px",
+                      borderRight: CELL_BORDER,
+                      borderBottom: CELL_BORDER,
                       textAlign: "center",
                       fontWeight: 600,
                       fontSize: 10,
@@ -727,8 +758,9 @@ export default function MatrixReport() {
                 ))}
                 <td
                   style={{
-                    padding: "4px 8px",
-                    border: "1px solid #e0e0e0",
+                    padding: "3px 6px",
+                    borderRight: CELL_BORDER,
+                    borderBottom: CELL_BORDER,
                     textAlign: "center",
                     fontWeight: 700,
                     fontSize: 11,
