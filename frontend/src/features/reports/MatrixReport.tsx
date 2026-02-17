@@ -436,8 +436,6 @@ export default function MatrixReport() {
           ref={tableRef}
           sx={{
             overflow: "auto",
-            maxHeight: "calc(100vh - 280px)",
-            minHeight: 300,
           }}
         >
           <table style={{
