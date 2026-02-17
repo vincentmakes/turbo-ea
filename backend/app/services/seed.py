@@ -226,8 +226,8 @@ TYPES = [
             {
                 "section": "Cost & Timeline",
                 "fields": [
-                    {"key": "costBudget", "label": "Budget", "type": "number", "weight": 1},
-                    {"key": "costActual", "label": "Actual Cost", "type": "number", "weight": 0},
+                    {"key": "costBudget", "label": "Budget", "type": "cost", "weight": 1},
+                    {"key": "costActual", "label": "Actual Cost", "type": "cost", "weight": 0},
                     {"key": "startDate", "label": "Start Date", "type": "date", "weight": 1},
                     {"key": "endDate", "label": "End Date", "type": "date", "weight": 1},
                 ],
@@ -407,7 +407,7 @@ TYPES = [
             {
                 "section": "Cost & Ownership",
                 "fields": [
-                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "number", "weight": 1},
+                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "cost", "weight": 1},
                     {"key": "numberOfUsers", "label": "Number of Users", "type": "number", "weight": 0},
                     {"key": "vendor", "label": "Vendor", "type": "text", "weight": 0},
                     {"key": "productName", "label": "Product Name", "type": "text", "weight": 0},
@@ -493,7 +493,7 @@ TYPES = [
             {
                 "section": "Cost",
                 "fields": [
-                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "number", "weight": 1},
+                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "cost", "weight": 1},
                     {"key": "licenseType", "label": "License Type", "type": "text", "weight": 0},
                 ],
             },
@@ -611,7 +611,7 @@ RELATIONS = [
     ]},
     {"key": "relAppToITC", "label": "uses", "reverse_label": "is used by", "source_type_key": "Application", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 21, "attributes_schema": [
         {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS},
-        {"key": "costTotalAnnual", "label": "Annual Cost", "type": "number"},
+        {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
     ]},
     {"key": "relAppToSystem", "label": "runs on", "reverse_label": "runs", "source_type_key": "Application", "target_type_key": "System", "cardinality": "n:m", "sort_order": 22},
 

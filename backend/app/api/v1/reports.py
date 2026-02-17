@@ -199,7 +199,7 @@ async def portfolio(
     type: str = Query("Application"),
     x_axis: str = Query("functionalFit"),
     y_axis: str = Query("technicalFit"),
-    size_field: str = Query("totalAnnualCost"),
+    size_field: str = Query("costTotalAnnual"),
     color_field: str = Query("businessCriticality"),
 ):
     """Portfolio scatter/bubble chart data."""
@@ -477,7 +477,8 @@ async def cost_report(
     items = []
     total = 0
     for card in sheets:
-        cost = (card.attributes or {}).get("totalAnnualCost", 0) or 0
+        attrs = card.attributes or {}
+        cost = attrs.get("costTotalAnnual", 0) or attrs.get("totalAnnualCost", 0) or 0
         if cost:
             items.append({"id": str(card.id), "name": card.name, "cost": cost})
             total += cost
@@ -490,7 +491,7 @@ async def cost_treemap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     type: str = Query("Application"),
-    cost_field: str = Query("totalAnnualCost"),
+    cost_field: str = Query("costTotalAnnual"),
     group_by: str | None = Query(None),
 ):
     """Cost treemap: items with cost, optionally grouped by a related type."""

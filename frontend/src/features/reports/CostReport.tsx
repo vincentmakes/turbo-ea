@@ -32,9 +32,9 @@ interface CostItem {
   attributes?: Record<string, unknown>;
 }
 
-function pickNumberFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
+function pickCostFields(schema: { fields: FieldDef[] }[]): FieldDef[] {
   const out: FieldDef[] = [];
-  for (const s of schema) for (const f of s.fields) if (f.type === "number") out.push(f);
+  for (const s of schema) for (const f of s.fields) if (f.type === "cost") out.push(f);
   return out;
 }
 
@@ -107,7 +107,7 @@ export default function CostReport() {
   const saved = useSavedReport("cost");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("Application");
-  const [costField, setCostField] = useState("totalAnnualCost");
+  const [costField, setCostField] = useState("costTotalAnnual");
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
@@ -136,7 +136,16 @@ export default function CostReport() {
   const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate });
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
-  const numFields = useMemo(() => (typeDef ? pickNumberFields(typeDef.fields_schema) : []), [typeDef]);
+  const costFields = useMemo(() => (typeDef ? pickCostFields(typeDef.fields_schema) : []), [typeDef]);
+
+  // Auto-select cost field when card type changes
+  useEffect(() => {
+    if (costFields.length === 1) {
+      setCostField(costFields[0].key);
+    } else if (costFields.length > 0 && !costFields.some((f) => f.key === costField)) {
+      setCostField(costFields[0].key);
+    }
+  }, [costFields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const groupableFields = useMemo(() => {
     if (!typeDef) return [];
@@ -263,9 +272,11 @@ export default function CostReport() {
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
             {types.map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Cost Field" value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
-            {numFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
-          </TextField>
+          {costFields.length > 1 && (
+            <TextField select size="small" label="Cost Field" value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
+              {costFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
+            </TextField>
+          )}
 
           {view === "table" && groupableFields.length > 0 && (
             <TextField select size="small" label="Group By" value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>

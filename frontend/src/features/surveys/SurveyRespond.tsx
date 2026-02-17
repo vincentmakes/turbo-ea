@@ -187,7 +187,7 @@ export default function SurveyRespond() {
       );
     }
 
-    if (field.type === "number") {
+    if (field.type === "number" || field.type === "cost") {
       return (
         <TextField
           type="number"

@@ -305,6 +305,7 @@ export default function CreateCardDialog({
           </FormControl>
         );
 
+      case "cost":
       case "number":
         return (
           <TextField

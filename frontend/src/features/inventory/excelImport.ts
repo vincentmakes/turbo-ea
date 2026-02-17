@@ -359,6 +359,7 @@ export function validateImport(
 
       // Validate by field type
       switch (field.type) {
+        case "cost":
         case "number": {
           // Rule 11
           const num = Number(val);

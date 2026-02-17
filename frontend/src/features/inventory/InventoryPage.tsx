@@ -705,7 +705,7 @@ export default function InventoryPage() {
       );
     }
 
-    if (fd.type === "number") {
+    if (fd.type === "number" || fd.type === "cost") {
       return (
         <TextField
           fullWidth
