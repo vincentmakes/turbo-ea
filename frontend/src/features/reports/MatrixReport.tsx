@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -12,6 +12,7 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import MetricCard from "./MetricCard";
@@ -19,12 +20,18 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { api } from "@/api/client";
-
-interface MatrixItem {
-  id: string;
-  name: string;
-  parent_id: string | null;
-}
+import {
+  type MatrixItem,
+  type TreeNode,
+  buildTree,
+  pruneTreeToDepth,
+  getLeafNodes,
+  buildColumnHeaderRows,
+  buildRowHeaderLayout,
+  aggregateCount,
+  getEffectiveLeafIds,
+  buildAllNodesMap,
+} from "./matrixHierarchy";
 
 interface MatrixData {
   rows: MatrixItem[];
@@ -46,6 +53,34 @@ function heatColor(value: number, max: number): string {
   return HEAT_COLORS[idx];
 }
 
+// Styling constants
+const ROW_HEADER_COL_WIDTH = 140;
+const LEVEL_COLORS = ["#f0f0f0", "#f5f5f5", "#fafafa", "#fff", "#fff"];
+const CELL_BORDER = "1px solid #e0e0e0";
+
+// Depth control icon button styles
+const DEPTH_ICON_SIZE = 22;
+const depthBtnStyle = (disabled: boolean): React.CSSProperties => ({
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: DEPTH_ICON_SIZE,
+  height: DEPTH_ICON_SIZE,
+  borderRadius: "50%",
+  cursor: disabled ? "default" : "pointer",
+  opacity: disabled ? 0.3 : 0.75,
+  transition: "opacity 0.15s",
+  flexShrink: 0,
+});
+const depthCounterStyle: React.CSSProperties = {
+  fontSize: 9,
+  fontWeight: 700,
+  color: "#666",
+  lineHeight: 1,
+  whiteSpace: "nowrap",
+  textAlign: "center",
+};
+
 export default function MatrixReport() {
   const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
@@ -62,6 +97,42 @@ export default function MatrixReport() {
   const [popover, setPopover] = useState<{ el: HTMLElement; rowId: string; colId: string } | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
+  // Depth control state (Infinity = fully expanded)
+  const [rowExpandedDepth, setRowExpandedDepth] = useState<number>(Infinity);
+  const [colExpandedDepth, setColExpandedDepth] = useState<number>(Infinity);
+
+  // Sticky header: measure cumulative row heights for multi-row thead
+  const theadRef = useRef<HTMLTableSectionElement>(null);
+  const [headerTopOffsets, setHeaderTopOffsets] = useState<number[]>([0]);
+
+  const measureHeaderOffsets = useCallback(() => {
+    const thead = theadRef.current;
+    if (!thead) return;
+    const rows = thead.querySelectorAll("tr");
+    const offsets: number[] = [0];
+    let cumulative = 0;
+    for (let i = 0; i < rows.length - 1; i++) {
+      cumulative += rows[i].getBoundingClientRect().height;
+      offsets.push(cumulative);
+    }
+    setHeaderTopOffsets((prev) => {
+      // Avoid unnecessary re-renders if offsets haven't changed
+      if (prev.length === offsets.length && prev.every((v, i) => Math.abs(v - offsets[i]) < 0.5)) return prev;
+      return offsets;
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    measureHeaderOffsets();
+  });
+
+  // Also re-measure on resize
+  useEffect(() => {
+    const observer = new ResizeObserver(measureHeaderOffsets);
+    if (theadRef.current) observer.observe(theadRef.current);
+    return () => observer.disconnect();
+  }, [measureHeaderOffsets]);
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -71,27 +142,34 @@ export default function MatrixReport() {
       if (cfg.cellMode) setCellMode(cfg.cellMode as CellMode);
       if (cfg.sortRows) setSortRows(cfg.sortRows as SortMode);
       if (cfg.sortCols) setSortCols(cfg.sortCols as SortMode);
+      if (cfg.rowExpandedDepth !== undefined) setRowExpandedDepth(cfg.rowExpandedDepth as number);
+      if (cfg.colExpandedDepth !== undefined) setColExpandedDepth(cfg.colExpandedDepth as number);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ rowType, colType, cellMode, sortRows, sortCols });
+  const getConfig = () => ({
+    rowType, colType, cellMode, sortRows, sortCols,
+    rowExpandedDepth: effectiveRowDepth,
+    colExpandedDepth: effectiveColDepth,
+  });
 
   useEffect(() => {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
   }, [rowType, colType]);
 
-  // Auto-select hierarchy sort when picking a hierarchical type,
-  // reset to alpha when switching to a flat type.
+  // Reset depth when switching types
   useEffect(() => {
     const meta = types.find((t) => t.key === rowType);
     if (meta?.has_hierarchy) setSortRows("hierarchy");
     else if (sortRows === "hierarchy") setSortRows("alpha");
+    setRowExpandedDepth(Infinity);
   }, [rowType, types]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const meta = types.find((t) => t.key === colType);
     if (meta?.has_hierarchy) setSortCols("hierarchy");
     else if (sortCols === "hierarchy") setSortCols("alpha");
+    setColExpandedDepth(Infinity);
   }, [colType, types]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build lookup structures
@@ -105,90 +183,193 @@ export default function MatrixReport() {
     return m;
   }, [data]);
 
-  // Row/col relation counts for sorting
-  const rowCounts = useMemo(() => {
-    if (!data) return new Map<string, number>();
-    const m = new Map<string, number>();
-    for (const r of data.rows) {
-      let count = 0;
-      for (const c of data.columns) {
-        const k = `${r.id}:${c.id}`;
-        if (intersectionMap.has(k)) count += (intersectionMap.get(k)?.length || 0);
-      }
-      m.set(r.id, count);
-    }
-    return m;
-  }, [data, intersectionMap]);
+  // Build trees from raw data
+  const rowTreeFull = useMemo(() => data ? buildTree(data.rows) : null, [data]);
+  const colTreeFull = useMemo(() => data ? buildTree(data.columns) : null, [data]);
 
-  const colCounts = useMemo(() => {
-    if (!data) return new Map<string, number>();
-    const m = new Map<string, number>();
-    for (const c of data.columns) {
-      let count = 0;
+  // Detect hierarchy from actual data
+  const rowHasHierarchy = data ? data.rows.some((r) => r.parent_id !== null) : false;
+  const colHasHierarchy = data ? data.columns.some((c) => c.parent_id !== null) : false;
+
+  // Effective depth (clamped to actual max)
+  const effectiveRowDepth = rowTreeFull ? Math.min(
+    rowExpandedDepth === Infinity ? rowTreeFull.maxDepth : rowExpandedDepth,
+    rowTreeFull.maxDepth,
+  ) : 0;
+  const effectiveColDepth = colTreeFull ? Math.min(
+    colExpandedDepth === Infinity ? colTreeFull.maxDepth : colExpandedDepth,
+    colTreeFull.maxDepth,
+  ) : 0;
+
+  // Pruned trees based on visible depth (only in hierarchy mode)
+  const prunedRowRoots = useMemo(() => {
+    if (!rowTreeFull || sortRows !== "hierarchy") return null;
+    return pruneTreeToDepth(rowTreeFull.roots, effectiveRowDepth);
+  }, [rowTreeFull, effectiveRowDepth, sortRows]);
+
+  const prunedColRoots = useMemo(() => {
+    if (!colTreeFull || sortCols !== "hierarchy") return null;
+    return pruneTreeToDepth(colTreeFull.roots, effectiveColDepth);
+  }, [colTreeFull, effectiveColDepth, sortCols]);
+
+  // Get pruned leaf nodes
+  const leafRowNodes = useMemo(() => {
+    if (prunedRowRoots) return getLeafNodes(prunedRowRoots);
+    if (!data) return [];
+    const items = [...data.rows];
+    if (sortRows === "count") {
+      const rc = new Map<string, number>();
       for (const r of data.rows) {
-        const k = `${r.id}:${c.id}`;
-        if (intersectionMap.has(k)) count += (intersectionMap.get(k)?.length || 0);
+        let count = 0;
+        for (const c of data.columns) {
+          count += intersectionMap.get(`${r.id}:${c.id}`)?.length || 0;
+        }
+        rc.set(r.id, count);
       }
-      m.set(c.id, count);
+      items.sort((a, b) => (rc.get(b.id) || 0) - (rc.get(a.id) || 0));
+    } else {
+      items.sort((a, b) => a.name.localeCompare(b.name));
     }
-    return m;
-  }, [data, intersectionMap]);
+    return items.map((item): TreeNode => ({
+      item, children: [], depth: 0, leafCount: 1,
+      leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
+    }));
+  }, [prunedRowRoots, data, sortRows, intersectionMap]);
 
-  // Build hierarchy-sorted list: parents first, children indented underneath
-  const hierarchySort = (items: MatrixItem[]): MatrixItem[] => {
-    const byId = new Map(items.map((i) => [i.id, i]));
-    const children = new Map<string | null, MatrixItem[]>();
-    for (const item of items) {
-      const pid = item.parent_id && byId.has(item.parent_id) ? item.parent_id : null;
-      children.set(pid, [...(children.get(pid) || []), item]);
-    }
-    // Sort each group alphabetically
-    for (const [, group] of children) group.sort((a, b) => a.name.localeCompare(b.name));
-    const result: MatrixItem[] = [];
-    const walk = (parentId: string | null) => {
-      for (const item of children.get(parentId) || []) {
-        result.push(item);
-        walk(item.id);
+  const leafColNodes = useMemo(() => {
+    if (prunedColRoots) return getLeafNodes(prunedColRoots);
+    if (!data) return [];
+    const items = [...data.columns];
+    if (sortCols === "count") {
+      const cc = new Map<string, number>();
+      for (const c of data.columns) {
+        let count = 0;
+        for (const r of data.rows) {
+          count += intersectionMap.get(`${r.id}:${c.id}`)?.length || 0;
+        }
+        cc.set(c.id, count);
       }
-    };
-    walk(null);
-    return result;
+      items.sort((a, b) => (cc.get(b.id) || 0) - (cc.get(a.id) || 0));
+    } else {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return items.map((item): TreeNode => ({
+      item, children: [], depth: 0, leafCount: 1,
+      leafDescendants: [item.id], isPrunedGroup: false, originalLeafCount: 1,
+    }));
+  }, [prunedColRoots, data, sortCols, intersectionMap]);
+
+  // Node maps for aggregation lookups
+  const allRowNodesMap = useMemo(
+    () => prunedRowRoots ? buildAllNodesMap(prunedRowRoots) : new Map<string, TreeNode>(),
+    [prunedRowRoots],
+  );
+  const allColNodesMap = useMemo(
+    () => prunedColRoots ? buildAllNodesMap(prunedColRoots) : new Map<string, TreeNode>(),
+    [prunedColRoots],
+  );
+
+  // Column header rows (multi-row <thead>)
+  const columnHeaderRows = useMemo(() => {
+    if (prunedColRoots && sortCols === "hierarchy" && colTreeFull && colTreeFull.maxDepth > 0) {
+      return buildColumnHeaderRows(prunedColRoots, effectiveColDepth);
+    }
+    return [leafColNodes.map((node) => ({
+      node, colspan: 1, rowspan: 1, isLeaf: true, isPrunedGroup: false,
+    }))];
+  }, [prunedColRoots, leafColNodes, sortCols, effectiveColDepth, colTreeFull]);
+
+  // Row header layout (multi-column)
+  const rowHeaderLayout = useMemo(() => {
+    if (prunedRowRoots && sortRows === "hierarchy" && rowTreeFull && rowTreeFull.maxDepth > 0) {
+      return buildRowHeaderLayout(prunedRowRoots, effectiveRowDepth);
+    }
+    return leafRowNodes.map((node) => [{
+      node, rowspan: 1, isLeaf: true, isPrunedGroup: false,
+    }]);
+  }, [prunedRowRoots, leafRowNodes, sortRows, effectiveRowDepth, rowTreeFull]);
+
+  // Number of row header columns & column header rows
+  const numRowHeaderCols = rowHeaderLayout.length > 0 ? rowHeaderLayout[0].length : 1;
+  const numColHeaderRows = columnHeaderRows.length;
+
+  // Cell value getter with aggregation support
+  const getCellValue = (rowNode: TreeNode, colNode: TreeNode): number => {
+    const rowLeaves = getEffectiveLeafIds(rowNode);
+    const colLeaves = getEffectiveLeafIds(colNode);
+    return aggregateCount(rowLeaves, colLeaves, intersectionMap);
   };
 
-  const sortedRows = useMemo(() => {
-    if (!data) return [];
-    if (sortRows === "hierarchy") return hierarchySort(data.rows);
-    const rows = [...data.rows];
-    if (sortRows === "count") rows.sort((a, b) => (rowCounts.get(b.id) || 0) - (rowCounts.get(a.id) || 0));
-    else rows.sort((a, b) => a.name.localeCompare(b.name));
-    return rows;
-  }, [data, sortRows, rowCounts]);
+  // Max cell count for heatmap scaling
+  const maxCellCount = useMemo(() => {
+    let max = 0;
+    for (const rNode of leafRowNodes) {
+      for (const cNode of leafColNodes) {
+        const val = getCellValue(rNode, cNode);
+        if (val > max) max = val;
+      }
+    }
+    return max;
+  }, [leafRowNodes, leafColNodes, intersectionMap]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sortedCols = useMemo(() => {
-    if (!data) return [];
-    if (sortCols === "hierarchy") return hierarchySort(data.columns);
-    const cols = [...data.columns];
-    if (sortCols === "count") cols.sort((a, b) => (colCounts.get(b.id) || 0) - (colCounts.get(a.id) || 0));
-    else cols.sort((a, b) => a.name.localeCompare(b.name));
-    return cols;
-  }, [data, sortCols, colCounts]);
+  // Row totals
+  const rowTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const rNode of leafRowNodes) {
+      let total = 0;
+      for (const cNode of leafColNodes) {
+        total += getCellValue(rNode, cNode);
+      }
+      m.set(rNode.item.id, total);
+    }
+    return m;
+  }, [leafRowNodes, leafColNodes, intersectionMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Column totals
+  const colTotals = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const cNode of leafColNodes) {
+      let total = 0;
+      for (const rNode of leafRowNodes) {
+        total += getCellValue(rNode, cNode);
+      }
+      m.set(cNode.item.id, total);
+    }
+    return m;
+  }, [leafRowNodes, leafColNodes, intersectionMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Grand total
+  const grandTotal = useMemo(() => {
+    let total = 0;
+    for (const [, v] of rowTotals) total += v;
+    return total;
+  }, [rowTotals]);
 
   // Stats
   const totalIntersections = data?.intersections.length || 0;
   const maxPossible = (data?.rows.length || 0) * (data?.columns.length || 0);
   const coverage = maxPossible > 0 ? ((totalIntersections / maxPossible) * 100).toFixed(1) : "0";
-  const maxCellCount = useMemo(() => {
-    let max = 0;
-    if (!data) return max;
-    for (const r of data.rows) {
-      for (const c of data.columns) {
-        const k = `${r.id}:${c.id}`;
-        const len = intersectionMap.get(k)?.length || 0;
-        if (len > max) max = len;
-      }
-    }
-    return max;
-  }, [data, intersectionMap]);
+
+  // Hover helpers
+  const getHoveredRowIds = (id: string | null): Set<string> => {
+    if (!id) return new Set();
+    const node = allRowNodesMap.get(id);
+    if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
+    return new Set([id]);
+  };
+  const getHoveredColIds = (id: string | null): Set<string> => {
+    if (!id) return new Set();
+    const node = allColNodesMap.get(id);
+    if (node && node.leafDescendants.length > 0) return new Set(node.leafDescendants);
+    return new Set([id]);
+  };
+  const hoveredRowIds = useMemo(() => getHoveredRowIds(hoveredRow), [hoveredRow, allRowNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hoveredColIds = useMemo(() => getHoveredColIds(hoveredCol), [hoveredCol, allColNodesMap]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCellClick = (e: React.MouseEvent<HTMLTableCellElement>, rowNode: TreeNode, colNode: TreeNode) => {
+    const val = getCellValue(rowNode, colNode);
+    if (val > 0) setPopover({ el: e.currentTarget, rowId: rowNode.item.id, colId: colNode.item.id });
+  };
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -197,31 +378,9 @@ export default function MatrixReport() {
   const colMeta = types.find((t) => t.key === colType);
   const rowLabel = rowMeta?.label || rowType;
   const colLabel = colMeta?.label || colType;
-  // Detect hierarchy from actual data (items with parent_id) rather than metamodel flag
-  const rowHasHierarchy = data.rows.some((r) => r.parent_id !== null);
-  const colHasHierarchy = data.columns.some((c) => c.parent_id !== null);
 
-  // Compute depth for hierarchy indentation
-  const getDepth = (item: MatrixItem, items: MatrixItem[]): number => {
-    const byId = new Map(items.map((i) => [i.id, i]));
-    let depth = 0;
-    let current = item;
-    while (current.parent_id && byId.has(current.parent_id)) {
-      depth++;
-      current = byId.get(current.parent_id)!;
-    }
-    return depth;
-  };
-
-  const getCellValue = (rowId: string, colId: string): number => {
-    const k = `${rowId}:${colId}`;
-    return intersectionMap.get(k)?.length || 0;
-  };
-
-  const handleCellClick = (e: React.MouseEvent<HTMLTableCellElement>, rowId: string, colId: string) => {
-    const val = getCellValue(rowId, colId);
-    if (val > 0) setPopover({ el: e.currentTarget, rowId, colId });
-  };
+  const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
+  const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
 
   return (
     <ReportShell
@@ -229,6 +388,7 @@ export default function MatrixReport() {
       icon="table_chart"
       iconColor="#6a1b9a"
       hasTableToggle={false}
+      maxWidth="100%"
       chartRef={chartRef}
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
@@ -259,7 +419,7 @@ export default function MatrixReport() {
       }
     >
       {/* Summary strip */}
-      <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+      <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
         <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
         <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
@@ -271,141 +431,290 @@ export default function MatrixReport() {
           <Typography color="text.secondary">No data found for this combination.</Typography>
         </Box>
       ) : (
-        <Paper variant="outlined" ref={tableRef} sx={{ overflow: "auto", maxHeight: 600 }}>
-          <table style={{ borderCollapse: "collapse", minWidth: "100%" }}>
-            <thead>
-              <tr>
-                <th
-                  style={{
-                    position: "sticky",
-                    left: 0,
-                    top: 0,
-                    zIndex: 3,
-                    background: "#f5f5f5",
-                    padding: "8px 12px",
-                    border: "1px solid #e0e0e0",
-                    fontWeight: 600,
-                    fontSize: 11,
-                    textAlign: "left",
-                    minWidth: 140,
-                  }}
-                >
-                  {rowLabel} / {colLabel}
-                </th>
-                {sortedCols.map((c) => {
-                  const colDepth = sortCols === "hierarchy" ? getDepth(c, data.columns) : 0;
-                  const isColParent = sortCols === "hierarchy" && data.columns.some((x) => x.parent_id === c.id);
-                  const colName = c.name.length > 24 ? c.name.slice(0, 23) + "\u2026" : c.name;
-                  return (
-                    <th
-                      key={c.id}
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: hoveredCol === c.id ? "#e3f2fd" : "#f5f5f5",
-                        padding: "6px 4px",
-                        paddingTop: 6 + colDepth * 14,
-                        border: "1px solid #e0e0e0",
-                        fontSize: 10,
-                        fontWeight: isColParent ? 700 : 600,
-                        whiteSpace: "nowrap",
-                        writingMode: "vertical-lr",
-                        textOrientation: "mixed",
-                        maxWidth: 36,
-                        minHeight: 100,
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                      onMouseEnter={() => setHoveredCol(c.id)}
-                      onMouseLeave={() => setHoveredCol(null)}
-                      onClick={() => navigate(`/cards/${c.id}`)}
-                    >
-                      {colDepth > 0 ? "\u2514 " : ""}{colName}
-                    </th>
-                  );
-                })}
-                <th
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    zIndex: 2,
-                    background: "#f5f5f5",
-                    padding: "6px 8px",
-                    border: "1px solid #e0e0e0",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  Σ
-                </th>
-              </tr>
+        <Paper
+          variant="outlined"
+          ref={tableRef}
+          sx={{
+            overflow: "auto",
+          }}
+        >
+          <table style={{
+            borderCollapse: "separate",
+            borderSpacing: 0,
+            width: "max-content",
+          }}>
+            <thead ref={theadRef}>
+              {columnHeaderRows.map((row, levelIdx) => {
+                const stickyTop = headerTopOffsets[levelIdx] ?? 0;
+                return (
+                  <tr key={levelIdx}>
+                    {/* Corner cell: first header row only */}
+                    {levelIdx === 0 && (
+                      <th
+                        rowSpan={numColHeaderRows}
+                        colSpan={numRowHeaderCols}
+                        style={{
+                          position: "sticky",
+                          left: 0,
+                          top: 0,
+                          zIndex: 4,
+                          background: "#f0f0f0",
+                          padding: `6px ${isHierarchyColMode ? 34 : 8}px ${isHierarchyRowMode ? 30 : 6}px 8px`,
+                          borderBottom: CELL_BORDER,
+                          borderRight: CELL_BORDER,
+                          fontWeight: 600,
+                          fontSize: 11,
+                          textAlign: "left",
+                          verticalAlign: "top",
+                          minWidth: numRowHeaderCols * ROW_HEADER_COL_WIDTH,
+                        }}
+                      >
+                        {/* Label at top-left */}
+                        <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.3 }}>
+                          {rowLabel} / {colLabel}
+                        </div>
+                        {/* Row depth: horizontal -/+ centered horizontally, flush bottom */}
+                        {isHierarchyRowMode && (
+                          <div style={{
+                            position: "absolute",
+                            bottom: 4,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            display: "flex",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 3,
+                          }}>
+                            <Tooltip title="Collapse rows">
+                              <span
+                                style={depthBtnStyle(effectiveRowDepth <= 0)}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
+                              >
+                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color="#555" />
+                              </span>
+                            </Tooltip>
+                            <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
+                            <Tooltip title="Expand rows">
+                              <span
+                                style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
+                              >
+                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color="#555" />
+                              </span>
+                            </Tooltip>
+                          </div>
+                        )}
+                        {/* Column depth: vertical -/+ centered vertically, flush right */}
+                        {isHierarchyColMode && (
+                          <div style={{
+                            position: "absolute",
+                            right: 6,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 1,
+                          }}>
+                            <Tooltip title="Collapse columns" placement="right">
+                              <span
+                                style={depthBtnStyle(effectiveColDepth <= 0)}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
+                              >
+                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color="#555" />
+                              </span>
+                            </Tooltip>
+                            <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
+                            <Tooltip title="Expand columns" placement="right">
+                              <span
+                                style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
+                                onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
+                              >
+                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color="#555" />
+                              </span>
+                            </Tooltip>
+                          </div>
+                        )}
+                      </th>
+                    )}
+                    {row.map((cell) => {
+                      const isLeafCell = cell.isLeaf;
+                      const isHighlighted = hoveredColIds.has(cell.node.item.id)
+                        || cell.node.leafDescendants.some((id) => hoveredColIds.has(id));
+                      return (
+                        <th
+                          key={cell.node.item.id}
+                          colSpan={cell.colspan}
+                          rowSpan={cell.rowspan || 1}
+                          style={{
+                            position: "sticky",
+                            top: stickyTop,
+                            zIndex: 3,
+                            background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[levelIdx] || "#fff"),
+                            padding: isLeafCell ? "6px 3px" : "4px 6px",
+                            borderBottom: CELL_BORDER,
+                            borderRight: CELL_BORDER,
+                            fontSize: isLeafCell ? 10 : 11,
+                            fontWeight: isLeafCell ? 600 : 700,
+                            whiteSpace: "nowrap",
+                            writingMode: isLeafCell ? "vertical-lr" : "initial",
+                            textOrientation: isLeafCell ? "mixed" : "initial",
+                            textAlign: "center",
+                            maxWidth: isLeafCell ? 32 : undefined,
+                            minHeight: isLeafCell ? 80 : undefined,
+                            cursor: "pointer",
+                            transition: "background-color 0.15s",
+                          }}
+                          onMouseEnter={() => setHoveredCol(cell.node.item.id)}
+                          onMouseLeave={() => setHoveredCol(null)}
+                          onClick={() => navigate(`/cards/${cell.node.item.id}`)}
+                        >
+                          {isLeafCell
+                            ? (cell.node.item.name.length > 24
+                              ? cell.node.item.name.slice(0, 23) + "\u2026"
+                              : cell.node.item.name)
+                            : cell.node.item.name}
+                          {cell.isPrunedGroup && (
+                            <span style={{ opacity: 0.6, fontSize: 9, marginLeft: 2 }}>
+                              ({cell.node.originalLeafCount})
+                            </span>
+                          )}
+                        </th>
+                      );
+                    })}
+                    {/* Sigma column header: first row only */}
+                    {levelIdx === 0 && (
+                      <th
+                        rowSpan={numColHeaderRows}
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 3,
+                          background: "#f0f0f0",
+                          padding: "6px 6px",
+                          borderBottom: CELL_BORDER,
+                          borderRight: CELL_BORDER,
+                          fontSize: 10,
+                          fontWeight: 700,
+                        }}
+                      >
+                        &Sigma;
+                      </th>
+                    )}
+                  </tr>
+                );
+              })}
             </thead>
             <tbody>
-              {sortedRows.map((r) => {
-                const rCount = rowCounts.get(r.id) || 0;
-                const depth = sortRows === "hierarchy" ? getDepth(r, data.rows) : 0;
-                const isParent = sortRows === "hierarchy" && data.rows.some((x) => x.parent_id === r.id);
+              {leafRowNodes.map((leafRow, rowIdx) => {
+                const rTotal = rowTotals.get(leafRow.item.id) || 0;
+                const headerCells = rowHeaderLayout[rowIdx];
+
                 return (
-                  <tr key={r.id}>
-                    <td
-                      style={{
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 1,
-                        background: hoveredRow === r.id ? "#e3f2fd" : "#fff",
-                        padding: "6px 10px",
-                        paddingLeft: 10 + depth * 16,
-                        border: "1px solid #e0e0e0",
-                        fontWeight: isParent ? 700 : 500,
-                        fontSize: 12,
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                        maxWidth: 220,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                      onMouseEnter={() => setHoveredRow(r.id)}
-                      onMouseLeave={() => setHoveredRow(null)}
-                      onClick={() => navigate(`/cards/${r.id}`)}
-                    >
-                      <Tooltip title={r.name} placement="right">
-                        <span>{depth > 0 ? "└ " : ""}{r.name}</span>
-                      </Tooltip>
-                    </td>
-                    {sortedCols.map((c) => {
-                      const val = getCellValue(r.id, c.id);
-                      const isDiagonal = rowType === colType && r.id === c.id;
-                      const isHighlighted = hoveredRow === r.id || hoveredCol === c.id;
+                  <tr key={leafRow.item.id}>
+                    {/* Row header cells */}
+                    {headerCells && headerCells.map((cell, colIdx) => {
+                      if (cell === null) return null;
+                      const isHighlighted = hoveredRowIds.has(cell.node.item.id)
+                        || cell.node.leafDescendants.some((id) => hoveredRowIds.has(id));
+
+                      const isShallowLeaf = cell.isLeaf && colIdx < numRowHeaderCols - 1;
+                      const colSpan = isShallowLeaf ? numRowHeaderCols - colIdx : 1;
+
+                      return (
+                        <td
+                          key={`rh-${colIdx}-${cell.node.item.id}`}
+                          rowSpan={cell.rowspan}
+                          colSpan={colSpan}
+                          style={{
+                            position: "sticky",
+                            left: colIdx * ROW_HEADER_COL_WIDTH,
+                            zIndex: 1,
+                            background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[colIdx] || "#fff"),
+                            borderRight: CELL_BORDER,
+                            borderBottom: CELL_BORDER,
+                            fontWeight: cell.isLeaf ? 500 : 700,
+                            fontSize: 12,
+                            padding: "4px 6px",
+                            maxWidth: colSpan > 1 ? colSpan * ROW_HEADER_COL_WIDTH : ROW_HEADER_COL_WIDTH,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            cursor: "pointer",
+                            verticalAlign: "top",
+                            transition: "background-color 0.15s",
+                          }}
+                          onMouseEnter={() => setHoveredRow(cell.node.item.id)}
+                          onMouseLeave={() => setHoveredRow(null)}
+                          onClick={() => navigate(`/cards/${cell.node.item.id}`)}
+                        >
+                          <Tooltip title={cell.node.item.name} placement="right">
+                            <span>
+                              {cell.node.item.name}
+                              {cell.isPrunedGroup && (
+                                <span style={{ opacity: 0.6, fontSize: 10, marginLeft: 4 }}>
+                                  ({cell.node.originalLeafCount})
+                                </span>
+                              )}
+                            </span>
+                          </Tooltip>
+                        </td>
+                      );
+                    })}
+
+                    {/* Intersection cells */}
+                    {leafColNodes.map((colNode) => {
+                      const val = getCellValue(leafRow, colNode);
+                      const isDiagonal = rowType === colType && leafRow.item.id === colNode.item.id;
+                      const isHighlighted = hoveredRowIds.has(leafRow.item.id) || hoveredColIds.has(colNode.item.id);
+                      const isAggregated = leafRow.isPrunedGroup || colNode.isPrunedGroup;
+                      const displayAsCount = cellMode === "count" || isAggregated;
+
                       let bg = "#fff";
                       if (isDiagonal) {
                         bg = isHighlighted ? "#e8eaf6" : "#f3f4f8";
-                      } else if (cellMode === "count" && val > 0) {
+                      } else if (displayAsCount && val > 0) {
                         bg = heatColor(val, maxCellCount);
                       } else if (val > 0) {
                         bg = isHighlighted ? "#bbdefb" : "#e3f2fd";
                       } else if (isHighlighted) {
                         bg = "#fafafa";
                       }
+
                       return (
                         <td
-                          key={c.id}
+                          key={colNode.item.id}
                           style={{
                             padding: 0,
-                            border: "1px solid #e0e0e0",
+                            borderRight: CELL_BORDER,
+                            borderBottom: CELL_BORDER,
                             textAlign: "center",
                             verticalAlign: "middle",
                             backgroundColor: bg,
-                            width: 36,
-                            height: 28,
+                            width: 32,
+                            minWidth: 32,
+                            height: 26,
                             cursor: val > 0 ? "pointer" : "default",
                             transition: "background-color 0.15s",
                           }}
-                          onMouseEnter={() => { setHoveredRow(r.id); setHoveredCol(c.id); }}
+                          onMouseEnter={() => { setHoveredRow(leafRow.item.id); setHoveredCol(colNode.item.id); }}
                           onMouseLeave={() => { setHoveredRow(null); setHoveredCol(null); }}
-                          onClick={(e) => handleCellClick(e, r.id, c.id)}
+                          onClick={(e) => handleCellClick(e, leafRow, colNode)}
                         >
-                          {cellMode === "exists" ? (
+                          {displayAsCount ? (
+                            val > 0 ? (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  fontWeight: 600,
+                                  color: isDiagonal ? "#666" : (val > maxCellCount * 0.5 ? "#fff" : "#333"),
+                                  fontSize: 10,
+                                }}
+                              >
+                                {val}
+                              </Typography>
+                            ) : null
+                          ) : (
                             val > 0 ? (
                               <Box sx={{
                                 width: isDiagonal ? 8 : 10,
@@ -415,78 +724,75 @@ export default function MatrixReport() {
                                 mx: "auto",
                               }} />
                             ) : null
-                          ) : val > 0 ? (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                fontWeight: 600,
-                                color: isDiagonal ? "#666" : (val > maxCellCount * 0.5 ? "#fff" : "#333"),
-                                fontSize: 10,
-                              }}
-                            >
-                              {val}
-                            </Typography>
-                          ) : null}
+                          )}
                         </td>
                       );
                     })}
+
+                    {/* Row total */}
                     <td
                       style={{
-                        padding: "4px 8px",
-                        border: "1px solid #e0e0e0",
+                        padding: "3px 6px",
+                        borderRight: CELL_BORDER,
+                        borderBottom: CELL_BORDER,
                         textAlign: "center",
                         fontWeight: 600,
                         fontSize: 11,
                         background: "#fafafa",
                       }}
                     >
-                      {rCount}
+                      {rTotal}
                     </td>
                   </tr>
                 );
               })}
+
               {/* Column totals row */}
               <tr>
                 <td
+                  colSpan={numRowHeaderCols}
                   style={{
                     position: "sticky",
                     left: 0,
                     zIndex: 1,
-                    background: "#f5f5f5",
-                    padding: "6px 10px",
-                    border: "1px solid #e0e0e0",
+                    background: "#f0f0f0",
+                    padding: "4px 8px",
+                    borderRight: CELL_BORDER,
+                    borderBottom: CELL_BORDER,
                     fontWeight: 700,
                     fontSize: 11,
                   }}
                 >
-                  Σ Total
+                  &Sigma; Total
                 </td>
-                {sortedCols.map((c) => (
+                {leafColNodes.map((cNode) => (
                   <td
-                    key={c.id}
+                    key={cNode.item.id}
                     style={{
-                      padding: "4px",
-                      border: "1px solid #e0e0e0",
+                      padding: "3px",
+                      borderRight: CELL_BORDER,
+                      borderBottom: CELL_BORDER,
                       textAlign: "center",
                       fontWeight: 600,
                       fontSize: 10,
                       background: "#f5f5f5",
                     }}
                   >
-                    {colCounts.get(c.id) || 0}
+                    {colTotals.get(cNode.item.id) || 0}
                   </td>
                 ))}
                 <td
                   style={{
-                    padding: "4px 8px",
-                    border: "1px solid #e0e0e0",
+                    padding: "3px 6px",
+                    borderRight: CELL_BORDER,
+                    borderBottom: CELL_BORDER,
                     textAlign: "center",
                     fontWeight: 700,
                     fontSize: 11,
                     background: "#eee",
                   }}
                 >
-                  {totalIntersections}
+                  {grandTotal}
                 </td>
               </tr>
             </tbody>
@@ -505,12 +811,15 @@ export default function MatrixReport() {
         {popover && (() => {
           const row = data.rows.find((r) => r.id === popover.rowId);
           const col = data.columns.find((c) => c.id === popover.colId);
+          const rowNode = leafRowNodes.find((n) => n.item.id === popover.rowId);
+          const colNode = leafColNodes.find((n) => n.item.id === popover.colId);
+          const val = rowNode && colNode ? getCellValue(rowNode, colNode) : 0;
           return (
             <Box sx={{ p: 1.5, minWidth: 200 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
                 {row?.name} × {col?.name}
               </Typography>
-              <Chip size="small" label={`${getCellValue(popover.rowId, popover.colId)} relation(s)`} variant="outlined" sx={{ mb: 1 }} />
+              <Chip size="small" label={`${val} relation(s)`} variant="outlined" sx={{ mb: 1 }} />
               <List dense disablePadding>
                 <ListItemButton onClick={() => { setPopover(null); navigate(`/cards/${popover.rowId}`); }}>
                   <ListItemText primary={row?.name} secondary={rowLabel} />

@@ -33,6 +33,8 @@ interface Props {
   onResetSavedReport?: () => void;
   /** The ref to the chart container for thumbnail capture */
   chartRef?: React.RefObject<HTMLDivElement | null>;
+  /** Override the max width of the report container (default 1200) */
+  maxWidth?: number | string;
   children: ReactNode;
 }
 
@@ -49,6 +51,7 @@ export default function ReportShell({
   savedReportName,
   onResetSavedReport,
   chartRef,
+  maxWidth = 1200,
   children,
 }: Props) {
   const navigate = useNavigate();
@@ -60,7 +63,7 @@ export default function ReportShell({
   };
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+    <Box sx={{ maxWidth, mx: "auto" }}>
       {/* Saved report banner */}
       {savedReportName && (
         <Alert
