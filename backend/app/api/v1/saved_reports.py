@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.custom_report import SavedReport, saved_report_shares
+from app.models.saved_report import SavedReport, saved_report_shares
 from app.models.user import User
 from app.schemas.common import SavedReportCreate, SavedReportUpdate
 from app.services.permission_service import PermissionService
@@ -62,7 +62,7 @@ def _serialize(report: SavedReport, current_user_id: uuid.UUID) -> dict:
 
 @router.get("")
 async def list_saved_reports(
-    filter: str = Query("all", regex="^(all|my|shared|public)$"),
+    filter: str = Query("all", pattern="^(all|my|shared|public)$"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
