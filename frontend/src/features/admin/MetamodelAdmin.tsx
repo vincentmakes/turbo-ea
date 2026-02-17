@@ -34,7 +34,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { api, ApiError } from "@/api/client";
+import { api } from "@/api/client";
 import type {
   CardType as FSType,
   RelationType as RType,
