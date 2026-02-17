@@ -7,6 +7,7 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import ListSubheader from "@mui/material/ListSubheader";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import TextField from "@mui/material/TextField";
@@ -110,6 +111,9 @@ export default function InventoryFilterSidebar({
     attributes: false,
     relationships: false,
   });
+
+  // Search-within-dropdown state: keyed by field key or relation type key
+  const [dropdownSearch, setDropdownSearch] = useState<Record<string, string>>({});
 
   // Views state
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -593,6 +597,10 @@ export default function InventoryFilterSidebar({
                         if ((field.type === "single_select" || field.type === "multiple_select") && field.options?.length) {
                           const selected = (filters.attributes[field.key] ?? []) as string[];
                           const optionMap = new Map(field.options.map((o) => [o.key, o]));
+                          const searchTerm = (dropdownSearch[field.key] || "").toLowerCase();
+                          const filteredOpts = searchTerm
+                            ? field.options.filter((o) => o.label.toLowerCase().includes(searchTerm))
+                            : field.options;
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
                               <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
@@ -601,7 +609,9 @@ export default function InventoryFilterSidebar({
                                 value={Array.isArray(selected) ? selected : []}
                                 label={field.label}
                                 onChange={(e) => setAttr(field.key, e.target.value as string[])}
+                                onClose={() => setDropdownSearch((s) => ({ ...s, [field.key]: "" }))}
                                 sx={{ fontSize: 13 }}
+                                MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
                                 renderValue={(vals) => (
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
                                     {(vals as string[]).map((v) => {
@@ -623,7 +633,26 @@ export default function InventoryFilterSidebar({
                                   </Box>
                                 )}
                               >
-                                {field.options?.map((opt) => (
+                                <ListSubheader sx={{ p: 0.5, lineHeight: "unset" }}>
+                                  <TextField
+                                    size="small"
+                                    autoFocus
+                                    placeholder="Search…"
+                                    fullWidth
+                                    value={dropdownSearch[field.key] || ""}
+                                    onChange={(e) => setDropdownSearch((s) => ({ ...s, [field.key]: e.target.value }))}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    InputProps={{
+                                      startAdornment: (
+                                        <InputAdornment position="start">
+                                          <MaterialSymbol icon="search" size={18} />
+                                        </InputAdornment>
+                                      ),
+                                      sx: { fontSize: 13 },
+                                    }}
+                                  />
+                                </ListSubheader>
+                                {filteredOpts.map((opt) => (
                                   <MenuItem key={opt.key} value={opt.key}>
                                     <Checkbox size="small" checked={selected.includes(opt.key)} sx={{ p: 0, mr: 1 }} />
                                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -634,6 +663,13 @@ export default function InventoryFilterSidebar({
                                     </Box>
                                   </MenuItem>
                                 ))}
+                                {filteredOpts.length === 0 && (
+                                  <MenuItem disabled>
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                                      No matches
+                                    </Typography>
+                                  </MenuItem>
+                                )}
                               </Select>
                             </FormControl>
                           );
@@ -712,6 +748,11 @@ export default function InventoryFilterSidebar({
                         const otherType = types.find((t) => t.key === otherTypeKey);
                         const label = otherType?.label || otherTypeKey;
                         const selected = (filters.relations || {})[rt.key] || [];
+                        const searchKey = `rel_${rt.key}`;
+                        const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
+                        const filteredOpts = searchTerm
+                          ? options.filter((n) => n.toLowerCase().includes(searchTerm))
+                          : options;
                         return (
                           <FormControl key={rt.key} size="small" fullWidth>
                             <InputLabel sx={{ fontSize: 13 }}>{label}</InputLabel>
@@ -720,7 +761,9 @@ export default function InventoryFilterSidebar({
                               value={selected}
                               label={label}
                               onChange={(e) => setRelFilter(rt.key, e.target.value as string[])}
+                              onClose={() => setDropdownSearch((s) => ({ ...s, [searchKey]: "" }))}
                               sx={{ fontSize: 13 }}
+                              MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
                               renderValue={(vals) => (
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
                                   {(vals as string[]).map((v) => (
@@ -736,7 +779,26 @@ export default function InventoryFilterSidebar({
                                 </Box>
                               )}
                             >
-                              {options.map((name) => (
+                              <ListSubheader sx={{ p: 0.5, lineHeight: "unset" }}>
+                                <TextField
+                                  size="small"
+                                  autoFocus
+                                  placeholder="Search…"
+                                  fullWidth
+                                  value={dropdownSearch[searchKey] || ""}
+                                  onChange={(e) => setDropdownSearch((s) => ({ ...s, [searchKey]: e.target.value }))}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                  InputProps={{
+                                    startAdornment: (
+                                      <InputAdornment position="start">
+                                        <MaterialSymbol icon="search" size={18} />
+                                      </InputAdornment>
+                                    ),
+                                    sx: { fontSize: 13 },
+                                  }}
+                                />
+                              </ListSubheader>
+                              {filteredOpts.map((name) => (
                                 <MenuItem key={name} value={name}>
                                   <Checkbox size="small" checked={selected.includes(name)} sx={{ p: 0, mr: 1 }} />
                                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -747,6 +809,13 @@ export default function InventoryFilterSidebar({
                                   </Box>
                                 </MenuItem>
                               ))}
+                              {filteredOpts.length === 0 && (
+                                <MenuItem disabled>
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                                    No matches
+                                  </Typography>
+                                </MenuItem>
+                              )}
                             </Select>
                           </FormControl>
                         );
