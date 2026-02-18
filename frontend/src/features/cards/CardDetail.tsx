@@ -132,6 +132,22 @@ function safeString(value: unknown): string {
   try { return JSON.stringify(value); } catch { return "[invalid]"; }
 }
 
+// Consistent chip style for all select fields (same fixed width for visual alignment)
+// Base chip style — width is computed per-field from the longest option label
+const SELECT_CHIP_BASE = {
+  maxWidth: "100%",
+  justifyContent: "center",
+  "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
+} as const;
+
+/** Compute a uniform chip width for a field based on its longest option label. */
+function chipWidthForField(options: FieldDef["options"]): number {
+  if (!options || options.length === 0) return 180;
+  const maxLen = Math.max(...options.map((o) => o.label.length));
+  // ~7.5px per char + 28px chip padding, clamped between 180 and 300
+  return Math.max(180, Math.min(300, Math.round(maxLen * 7.5 + 28)));
+}
+
 // ── Read-only field value renderer ──────────────────────────────
 function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
 
@@ -145,22 +161,20 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
   }
 
   if (field.type === "single_select" && field.options) {
+    const w = chipWidthForField(field.options);
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip
-        size="small"
-        label={opt.label}
-        sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
-      />
+      <Chip size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={`Unknown option key: ${strVal}`}>
-        <Chip size="small" label={strVal} variant="outlined" color="warning" />
+        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
       </Tooltip>
     );
   }
 
   if (field.type === "multiple_select" && field.options) {
+    const w = chipWidthForField(field.options);
     const arr = Array.isArray(value) ? value : [value];
     return (
       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
@@ -168,14 +182,9 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip
-              key={key + i}
-              size="small"
-              label={opt.label}
-              sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
-            />
+            <Chip key={key + i} size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" />
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
         })}
       </Box>
@@ -359,27 +368,39 @@ function DescriptionSection({
   card,
   onSave,
   canEdit = true,
+  initialExpanded = true,
+  extraFields,
+  currencyFmt,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
+  initialExpanded?: boolean;
+  extraFields?: FieldDef[];
+  currencyFmt?: Intl.NumberFormat;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
+  const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
 
   useEffect(() => {
     setName(card.name);
     setDescription(card.description || "");
-  }, [card.name, card.description]);
+    setAttrs(card.attributes || {});
+  }, [card.name, card.description, card.attributes]);
 
   const save = async () => {
-    await onSave({ name, description });
+    const updates: Record<string, unknown> = { name, description };
+    if (extraFields && extraFields.length > 0) {
+      updates.attributes = { ...(card.attributes || {}), ...attrs };
+    }
+    await onSave(updates);
     setEditing(false);
   };
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} color="#666" />
@@ -418,12 +439,18 @@ function DescriptionSection({
               size="small"
               sx={{ mb: 2 }}
             />
+            {extraFields && extraFields.map((field) => (
+              <Box key={field.key} sx={{ mb: 2 }}>
+                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} />
+              </Box>
+            ))}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
                 onClick={() => {
                   setName(card.name);
                   setDescription(card.description || "");
+                  setAttrs(card.attributes || {});
                   setEditing(false);
                 }}
               >
@@ -435,9 +462,21 @@ function DescriptionSection({
             </Box>
           </Box>
         ) : (
-          <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap">
-            {card.description || "No description provided."}
-          </Typography>
+          <Box>
+            <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap" sx={{ mb: extraFields?.length ? 1 : 0 }}>
+              {card.description || "No description provided."}
+            </Typography>
+            {extraFields && extraFields.length > 0 && (
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+                {extraFields.map((field) => (
+                  <Box key={field.key} sx={{ display: "contents" }}>
+                    <Typography variant="body2" color="text.secondary">{field.label}</Typography>
+                    <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         )}
       </AccordionDetails>
     </Accordion>
@@ -449,10 +488,12 @@ function LifecycleSection({
   card,
   onSave,
   canEdit = true,
+  initialExpanded = true,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
+  initialExpanded?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
@@ -469,7 +510,7 @@ function LifecycleSection({
   };
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} color="#666" />
@@ -593,13 +634,15 @@ function AttributeSection({
   onRelationChange,
   canEdit = true,
   calculatedFieldKeys = [],
+  initialExpanded,
 }: {
-  section: { section: string; fields: FieldDef[] };
+  section: { section: string; fields: FieldDef[]; defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
   canEdit?: boolean;
   calculatedFieldKeys?: string[];
+  initialExpanded?: boolean;
 }) {
   const { fmt, symbol } = useCurrency();
   const [editing, setEditing] = useState(false);
@@ -628,8 +671,124 @@ function AttributeSection({
     return v != null && v !== "" && v !== false;
   }).length;
 
+  const is2Col = section.columns === 2;
+
+  // Build ordered column items: each item is either a group or a standalone field
+  type ColumnItem = { kind: "field"; field: FieldDef } | { kind: "group"; name: string; fields: FieldDef[] };
+
+  const buildColumnItems = (colNum: 0 | 1): ColumnItem[] => {
+    const items: ColumnItem[] = [];
+    const seenGroups = new Set<string>();
+    for (const field of section.fields) {
+      const fieldCol = is2Col ? (field.column ?? 0) : 0;
+      if (fieldCol !== colNum) continue;
+      if (field.group) {
+        if (seenGroups.has(field.group)) continue;
+        seenGroups.add(field.group);
+        // Collect all fields in this group that belong to this column
+        const gFields = section.fields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
+        items.push({ kind: "group", name: field.group, fields: gFields });
+      } else {
+        items.push({ kind: "field", field });
+      }
+    }
+    return items;
+  };
+
+  const col0Items = buildColumnItems(0);
+  const col1Items = is2Col ? buildColumnItems(1) : [];
+
+  const expanded = initialExpanded ?? (section.defaultExpanded !== false);
+
+  // Read-only field grid
+  const renderReadGrid = (fields: FieldDef[]) => (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+      {fields.map((field) => (
+        <Box key={field.key} sx={{ display: "contents" }}>
+          <Typography variant="body2" color="text.secondary">
+            {field.label}
+            {calculatedFieldKeys.includes(field.key) ? (
+              <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : field.readonly ? (
+              <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : null}
+          </Typography>
+          <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} />
+        </Box>
+      ))}
+    </Box>
+  );
+
+  // Edit field list
+  const renderEditFields = (fields: FieldDef[]) => (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+      {fields.map((field) =>
+        field.readonly || calculatedFieldKeys.includes(field.key) ? (
+          <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{field.label}</Typography>
+            <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
+            <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+          </Box>
+        ) : isVendorField(field) ? (
+          <VendorField
+            key={field.key}
+            value={(attrs[field.key] as string) ?? ""}
+            onChange={(v) => setAttr(field.key, v)}
+            cardTypeKey={card.type}
+            fsId={card.id}
+            onRelationChange={onRelationChange}
+          />
+        ) : (
+          <FieldEditor
+            key={field.key}
+            field={field}
+            value={attrs[field.key]}
+            onChange={(v) => setAttr(field.key, v)}
+            currencySymbol={symbol}
+          />
+        )
+      )}
+    </Box>
+  );
+
+  // Render a list of column items (groups + standalone fields)
+  const renderColumnItems = (items: ColumnItem[], isEdit: boolean) => (
+    <>
+      {items.map((item, i) => {
+        if (item.kind === "group") {
+          return (
+            <Box key={`group-${item.name}`} sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: i > 0 ? 1 : 0 }}>
+                {item.name}
+              </Typography>
+              {isEdit ? renderEditFields(item.fields) : renderReadGrid(item.fields)}
+            </Box>
+          );
+        }
+        return (
+          <Box key={item.field.key} sx={{ mb: isEdit ? 2.5 : 0.5 }}>
+            {isEdit ? renderEditFields([item.field]) : renderReadGrid([item.field])}
+          </Box>
+        );
+      })}
+    </>
+  );
+
+  // Render the full section body with column layout
+  const renderSectionBody = (isEdit: boolean) => {
+    if (!is2Col) return renderColumnItems(col0Items, isEdit);
+    return (
+      <Box sx={{ display: "flex", gap: 3, flexDirection: { xs: "column", sm: "row" } }}>
+        <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
+        {col1Items.length > 0 && (
+          <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
+        )}
+      </Box>
+    );
+  };
+
   return (
-    <Accordion disableGutters>
+    <Accordion defaultExpanded={expanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="tune" size={20} color="#666" />
@@ -655,37 +814,8 @@ function AttributeSection({
       <AccordionDetails>
         {editing && canEdit ? (
           <Box>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
-              {section.fields.map((field) =>
-                field.readonly || calculatedFieldKeys.includes(field.key) ? (
-                  <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
-                      {field.label}
-                    </Typography>
-                    <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
-                    <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
-                  </Box>
-                ) : isVendorField(field) ? (
-                  <VendorField
-                    key={field.key}
-                    value={(attrs[field.key] as string) ?? ""}
-                    onChange={(v) => setAttr(field.key, v)}
-                    cardTypeKey={card.type}
-                    fsId={card.id}
-                    onRelationChange={onRelationChange}
-                  />
-                ) : (
-                  <FieldEditor
-                    key={field.key}
-                    field={field}
-                    value={attrs[field.key]}
-                    onChange={(v) => setAttr(field.key, v)}
-                    currencySymbol={symbol}
-                  />
-                )
-              )}
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            {renderSectionBody(true)}
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}>
               <Button
                 size="small"
                 onClick={() => {
@@ -701,32 +831,8 @@ function AttributeSection({
             </Box>
           </Box>
         ) : (
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" },
-              rowGap: 1,
-              columnGap: 2,
-              alignItems: { sm: "center" },
-            }}
-          >
-            {section.fields.map((field) => (
-              <Box key={field.key} sx={{ display: "contents" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {field.label}
-                  {calculatedFieldKeys.includes(field.key) ? (
-                    <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  ) : field.readonly ? (
-                    <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  ) : null}
-                </Typography>
-                <FieldValue
-                  field={field}
-                  value={(card.attributes || {})[field.key]}
-                  currencyFmt={fmt}
-                />
-              </Box>
-            ))}
+          <Box>
+            {renderSectionBody(false)}
           </Box>
         )}
       </AccordionDetails>
@@ -741,10 +847,12 @@ function HierarchySection({
   card,
   onUpdate,
   canEdit = true,
+  initialExpanded = true,
 }: {
   card: Card;
   onUpdate: () => void;
   canEdit?: boolean;
+  initialExpanded?: boolean;
 }) {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
@@ -880,7 +988,7 @@ function HierarchySection({
   const levelColor = LEVEL_COLORS[Math.min(level - 1, LEVEL_COLORS.length - 1)];
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} color="#666" />
@@ -1162,7 +1270,7 @@ function HierarchySection({
 }
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
-function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean }) {
+function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true, initialExpanded = false }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean; initialExpanded?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
@@ -1275,7 +1383,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
     .filter(({ rels }) => rels.length > 0);
 
   return (
-    <Accordion disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} color="#666" />
@@ -1831,43 +1939,156 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
 }
 
 // ── Tab: History ────────────────────────────────────────────────
+const EVENT_META: Record<string, { label: string; icon: string; color: string }> = {
+  "card.created": { label: "Created", icon: "add_circle", color: "#4caf50" },
+  "card.updated": { label: "Updated", icon: "edit", color: "#1976d2" },
+  "card.archived": { label: "Archived", icon: "archive", color: "#ff9800" },
+  "card.restored": { label: "Restored", icon: "restore", color: "#4caf50" },
+  "card.deleted": { label: "Deleted", icon: "delete", color: "#f44336" },
+  "card.approval_status.approve": { label: "Approved", icon: "verified", color: "#4caf50" },
+  "card.approval_status.reject": { label: "Rejected", icon: "cancel", color: "#f44336" },
+  "card.approval_status.reset": { label: "Reset to Draft", icon: "restart_alt", color: "#9e9e9e" },
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name", description: "Description", subtype: "Subtype",
+  lifecycle: "Lifecycle", parent_id: "Parent", alias: "Alias",
+  external_id: "External ID", approval_status: "Approval Status",
+};
+
+function fmtVal(val: unknown): string {
+  if (val == null || val === "") return "—";
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (Array.isArray(val)) return val.map(fmtVal).join(", ");
+  if (typeof val === "object") {
+    const entries = Object.entries(val as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
+    if (entries.length === 0) return "—";
+    return entries.map(([k, v]) => `${PHASE_LABELS[k] || k}: ${v}`).join(", ");
+  }
+  return String(val);
+}
+
+interface ChangeRow { field: string; oldVal: string; newVal: string }
+
+function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
+  const rows: ChangeRow[] = [];
+  for (const [field, change] of Object.entries(changes)) {
+    if (!change || typeof change !== "object" || !("old" in change) || !("new" in change)) {
+      // Legacy stringified format — skip non-parsable
+      continue;
+    }
+    const c = change as { old: unknown; new: unknown };
+    if (field === "attributes" && typeof c.old === "object" && typeof c.new === "object") {
+      const oldA = (c.old || {}) as Record<string, unknown>;
+      const newA = (c.new || {}) as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(oldA), ...Object.keys(newA)])) {
+        if (JSON.stringify(oldA[key]) !== JSON.stringify(newA[key])) {
+          rows.push({ field: key, oldVal: fmtVal(oldA[key]), newVal: fmtVal(newA[key]) });
+        }
+      }
+    } else if (field === "lifecycle" && typeof c.old === "object" && typeof c.new === "object") {
+      const oldL = (c.old || {}) as Record<string, unknown>;
+      const newL = (c.new || {}) as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(oldL), ...Object.keys(newL)])) {
+        if (oldL[key] !== newL[key]) {
+          rows.push({ field: PHASE_LABELS[key] || key, oldVal: fmtVal(oldL[key]), newVal: fmtVal(newL[key]) });
+        }
+      }
+    } else {
+      rows.push({ field: FIELD_LABELS[field] || field, oldVal: fmtVal(c.old), newVal: fmtVal(c.new) });
+    }
+  }
+  return rows;
+}
+
 function HistoryTab({ fsId }: { fsId: string }) {
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
-    api
-      .get<EventEntry[]>(`/cards/${fsId}/history`)
-      .then(setEvents)
-      .catch(() => {});
+    api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
   }, [fsId]);
+
+  if (events.length === 0) {
+    return <Typography color="text.secondary" variant="body2">No history yet.</Typography>;
+  }
 
   return (
     <Box>
-      {events.length === 0 && (
-        <Typography color="text.secondary" variant="body2">
-          No history yet.
-        </Typography>
-      )}
-      {events.map((e) => (
-        <MuiCard key={e.id} sx={{ mb: 1 }}>
-          <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Chip size="small" label={e.event_type} />
-              <Typography variant="body2">
-                {e.user_display_name || "System"}
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ ml: "auto" }}
-              >
-                {e.created_at
-                  ? new Date(e.created_at).toLocaleString()
-                  : ""}
-              </Typography>
+      {events.map((e) => {
+        const meta = EVENT_META[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
+        const changes = e.data?.changes as Record<string, unknown> | undefined;
+        const rows = changes ? parseChanges(changes) : [];
+
+        return (
+          <Box key={e.id} sx={{ display: "flex", gap: 1.5, mb: 2 }}>
+            {/* Timeline dot */}
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 0.25 }}>
+              <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: meta.color + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <MaterialSymbol icon={meta.icon} size={16} color={meta.color} />
+              </Box>
+              <Box sx={{ width: 2, flex: 1, bgcolor: "divider", mt: 0.5 }} />
             </Box>
-          </CardContent>
-        </MuiCard>
-      ))}
+
+            {/* Content */}
+            <Box sx={{ flex: 1, pb: 1, minWidth: 0 }}>
+              {/* Header row */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                <Typography variant="body2" fontWeight={600}>{meta.label}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  by {e.user_display_name || "System"}
+                </Typography>
+                <Typography variant="caption" color="text.disabled" sx={{ ml: "auto", whiteSpace: "nowrap" }}>
+                  {e.created_at ? new Date(e.created_at).toLocaleString() : ""}
+                </Typography>
+              </Box>
+
+              {/* Change rows */}
+              {rows.length > 0 && (
+                <Box sx={{ mt: 0.75, display: "flex", flexDirection: "column", gap: 0.25 }}>
+                  {rows.map((row, i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        display: "flex", alignItems: "center", gap: 1,
+                        bgcolor: "action.hover", borderRadius: 1, px: 1, py: 0.5,
+                      }}
+                    >
+                      <Typography variant="caption" fontWeight={600} sx={{ minWidth: 90, color: "text.secondary", flexShrink: 0 }}>
+                        {row.field}
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flexWrap: "wrap" }}>
+                        {row.oldVal !== "—" && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#c62828", bgcolor: "#ffebee", borderRadius: 0.5, px: 0.75, py: 0.125,
+                              textDecoration: "line-through", maxWidth: 250, overflow: "hidden",
+                              textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}
+                          >
+                            {row.oldVal}
+                          </Typography>
+                        )}
+                        <MaterialSymbol icon="arrow_right_alt" size={16} color="#9e9e9e" />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "#1b5e20", bgcolor: "#e8f5e9", borderRadius: 0.5, px: 0.75, py: 0.125,
+                            fontWeight: 500, maxWidth: 250, overflow: "hidden",
+                            textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}
+                        >
+                          {row.newVal}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Box>
+        );
+      })}
     </Box>
   );
 }
@@ -1909,6 +2130,9 @@ export default function CardDetail() {
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Currency hook — must be before early returns to satisfy Rules of Hooks
+  const { fmt: currencyFmt } = useCurrency();
 
   // Fetch effective permissions for this card
   useEffect(() => {
@@ -1965,6 +2189,104 @@ export default function CardDetail() {
     console.error("[CardDetail] calcFieldKeys error", err);
     calcFieldKeys = [];
   }
+
+  // Section config: controls default expanded / hidden for built-in sections
+  const sc = typeConfig?.section_config || {};
+  const secExpanded = (key: string, fallback = true) => sc[key]?.defaultExpanded !== false ? fallback : false;
+  const secHidden = (key: string) => !!sc[key]?.hidden;
+
+  // Section ordering: custom sections exclude __description, which feeds DescriptionSection
+  const customSections = (typeConfig?.fields_schema || []).filter((s) => s.section !== "__description");
+  const descExtraSection = (typeConfig?.fields_schema || []).find((s) => s.section === "__description");
+  const descExtraFields = descExtraSection?.fields || [];
+
+  // Build section order from config or default
+  const sectionOrder = (() => {
+    const raw = (sc as Record<string, unknown>).__order as string[] | undefined;
+    if (raw && Array.isArray(raw) && raw.length > 0) {
+      const customKeys = customSections.map((_, i) => `custom:${i}`);
+      const existing = new Set(raw);
+      const result = [...raw];
+      for (const k of customKeys) {
+        if (!existing.has(k)) result.push(k);
+      }
+      if (!typeConfig?.has_hierarchy) return result.filter((k) => k !== "hierarchy");
+      return result;
+    }
+    const order: string[] = ["description", "eol", "lifecycle"];
+    customSections.forEach((_, i) => order.push(`custom:${i}`));
+    if (typeConfig?.has_hierarchy) order.push("hierarchy");
+    order.push("relations");
+    return order;
+  })();
+
+  // Render a section by its key (used in the ordered section loop)
+  const renderSection = (key: string) => {
+    if (secHidden(key)) return null;
+    const exp = secExpanded(key, key === "relations" ? false : true);
+
+    if (key === "description") {
+      return (
+        <ErrorBoundary key={key} label="Description" inline>
+          <DescriptionSection
+            card={card}
+            onSave={handleUpdate}
+            canEdit={perms.can_edit}
+            initialExpanded={exp}
+            extraFields={descExtraFields.length > 0 ? descExtraFields : undefined}
+            currencyFmt={currencyFmt}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "eol") {
+      return (
+        <ErrorBoundary key={key} label="End of Life" inline>
+          <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={exp ? undefined : false} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "lifecycle") {
+      return (
+        <ErrorBoundary key={key} label="Lifecycle" inline>
+          <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "hierarchy") {
+      return (
+        <ErrorBoundary key={key} label="Hierarchy" inline>
+          <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "relations") {
+      return (
+        <ErrorBoundary key={key} label="Relations" inline>
+          <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key.startsWith("custom:")) {
+      const idx = parseInt(key.split(":")[1], 10);
+      const section = customSections[idx];
+      if (!section) return null;
+      return (
+        <ErrorBoundary key={key} label={section.section}>
+          <AttributeSection
+            section={section}
+            card={card}
+            onSave={handleUpdate}
+            onRelationChange={() => setRelRefresh((n) => n + 1)}
+            canEdit={perms.can_edit}
+            calculatedFieldKeys={calcFieldKeys}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    return null;
+  };
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
@@ -2204,33 +2526,7 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <ErrorBoundary label="Description" inline>
-                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="End of Life" inline>
-                <EolLinkSection card={card} onSave={handleUpdate} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Lifecycle" inline>
-                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              {typeConfig?.fields_schema.map((section) => (
-                <ErrorBoundary key={section.section} label={section.section}>
-                  <AttributeSection
-                    section={section}
-                    card={card}
-                    onSave={handleUpdate}
-                    onRelationChange={() => setRelRefresh((n) => n + 1)}
-                    canEdit={perms.can_edit}
-                    calculatedFieldKeys={calcFieldKeys}
-                  />
-                </ErrorBoundary>
-              ))}
-              <ErrorBoundary label="Hierarchy" inline>
-                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Relations" inline>
-                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
-              </ErrorBoundary>
+              {sectionOrder.map(renderSection)}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Process Flow"><MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard></ErrorBoundary>}
@@ -2244,33 +2540,7 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <ErrorBoundary label="Description" inline>
-                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="End of Life" inline>
-                <EolLinkSection card={card} onSave={handleUpdate} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Lifecycle" inline>
-                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              {typeConfig?.fields_schema.map((section) => (
-                <ErrorBoundary key={section.section} label={section.section}>
-                  <AttributeSection
-                    section={section}
-                    card={card}
-                    onSave={handleUpdate}
-                    onRelationChange={() => setRelRefresh((n) => n + 1)}
-                    canEdit={perms.can_edit}
-                    calculatedFieldKeys={calcFieldKeys}
-                  />
-                </ErrorBoundary>
-              ))}
-              <ErrorBoundary label="Hierarchy" inline>
-                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Relations" inline>
-                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
-              </ErrorBoundary>
+              {sectionOrder.map(renderSection)}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}

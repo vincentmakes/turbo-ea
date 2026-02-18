@@ -35,6 +35,7 @@ def _serialize_type(t: CardType) -> dict:
         "subtypes": t.subtypes or [],
         "fields_schema": t.fields_schema or [],
         "stakeholder_roles": t.stakeholder_roles or [],
+        "section_config": t.section_config or {},
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
@@ -336,7 +337,7 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
     updatable = [
         "label", "description", "icon", "color", "category",
         "has_hierarchy", "subtypes", "fields_schema", "stakeholder_roles",
-        "sort_order", "is_hidden",
+        "section_config", "sort_order", "is_hidden",
     ]
     for field in updatable:
         if field in body:

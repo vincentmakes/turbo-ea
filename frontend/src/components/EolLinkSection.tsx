@@ -289,6 +289,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
           alignItems: { sm: "center" },
         }}
       >
+        {/* Note: chips use fixed 140px width for visual consistency */}
         {cycle.releaseDate && (
           <Box sx={{ display: "contents" }}>
             <Typography variant="body2" color="text.secondary">
@@ -321,10 +322,14 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
             size="small"
             label={supportInfo.label}
             sx={{
+              width: 180,
+              maxWidth: "100%",
+              justifyContent: "center",
               bgcolor: supportInfo.color + "20",
               color: supportInfo.color,
               fontWeight: 500,
               height: 22,
+              "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
             }}
           />
         </Box>
@@ -336,10 +341,14 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
             size="small"
             label={eolInfo.label}
             sx={{
+              width: 180,
+              maxWidth: "100%",
+              justifyContent: "center",
               bgcolor: eolInfo.color + "20",
               color: eolInfo.color,
               fontWeight: 500,
               height: 22,
+              "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
             }}
           />
         </Box>
@@ -375,9 +384,10 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
 interface EolLinkSectionProps {
   card: Card;
   onSave: (updates: Record<string, unknown>) => Promise<void>;
+  initialExpanded?: boolean;
 }
 
-export default function EolLinkSection({ card, onSave }: EolLinkSectionProps) {
+export default function EolLinkSection({ card, onSave, initialExpanded }: EolLinkSectionProps) {
   const eolProduct = (card.attributes?.eol_product as string) || "";
   const eolCycle = (card.attributes?.eol_cycle as string) || "";
   const isLinked = !!(eolProduct && eolCycle);
@@ -460,7 +470,7 @@ export default function EolLinkSection({ card, onSave }: EolLinkSectionProps) {
   };
 
   return (
-    <Accordion disableGutters defaultExpanded={isLinked}>
+    <Accordion disableGutters defaultExpanded={initialExpanded ?? isLinked}>
       <AccordionSummary
         expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
       >
