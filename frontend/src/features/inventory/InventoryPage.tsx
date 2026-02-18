@@ -222,7 +222,7 @@ export default function InventoryPage() {
       if (filters.showArchived) {
         params.set("status", "ARCHIVED");
       }
-      params.set("page_size", "500");
+      params.set("page_size", "10000");
       const res = await api.get<CardListResponse>(
         `/cards?${params}`
       );
@@ -1068,8 +1068,6 @@ export default function InventoryPage() {
             getRowId={(p) => p.data.id}
             getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
             animateRows
-            pagination
-            paginationPageSize={500}
             defaultColDef={{
               sortable: true,
               filter: true,
