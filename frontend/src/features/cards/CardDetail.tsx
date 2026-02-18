@@ -41,6 +41,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
 import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
@@ -122,11 +123,26 @@ const PHASE_LABELS: Record<string, string> = {
   endOfLife: "End of Life",
 };
 
+// ── Safe string coercion (never returns an object/array) ────────
+function safeString(value: unknown): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(safeString).join(", ");
+  try { return JSON.stringify(value); } catch { return "[invalid]"; }
+}
+
 // ── Read-only field value renderer ──────────────────────────────
 function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
   const { fmt } = useCurrency();
+
+  if (value == null || value === "") {
+    return <Typography variant="body2" color="text.secondary">—</Typography>;
+  }
+
   if (field.type === "single_select" && field.options) {
-    const opt = field.options.find((o) => o.key === value);
+    const strVal = typeof value === "string" ? value : safeString(value);
+    const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
       <Chip
         size="small"
@@ -134,11 +150,34 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
         sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
       />
     ) : (
-      <Typography variant="body2" color="text.secondary">
-        —
-      </Typography>
+      <Tooltip title={`Unknown option key: ${strVal}`}>
+        <Chip size="small" label={strVal} variant="outlined" color="warning" />
+      </Tooltip>
     );
   }
+
+  if (field.type === "multiple_select" && field.options) {
+    const arr = Array.isArray(value) ? value : [value];
+    return (
+      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+        {arr.map((v, i) => {
+          const key = typeof v === "string" ? v : safeString(v);
+          const opt = field.options!.find((o) => o.key === key);
+          return opt ? (
+            <Chip
+              key={key + i}
+              size="small"
+              label={opt.label}
+              sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+            />
+          ) : (
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" />
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (field.type === "boolean") {
     return (
       <MaterialSymbol
@@ -149,16 +188,15 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
     );
   }
   if (field.type === "cost") {
+    const num = Number(value);
     return (
       <Typography variant="body2">
-        {value != null && value !== "" ? fmt.format(Number(value)) : "—"}
+        {!isNaN(num) ? fmt.format(num) : safeString(value)}
       </Typography>
     );
   }
   return (
-    <Typography variant="body2">
-      {value != null && value !== "" ? String(value) : "—"}
-    </Typography>
+    <Typography variant="body2">{safeString(value) || "—"}</Typography>
   );
 }
 
@@ -173,13 +211,18 @@ function FieldEditor({
   onChange: (v: unknown) => void;
 }) {
   const { symbol } = useCurrency();
+
+  // Sanitize: ensure value passed to MUI is always the expected primitive type
+  const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
+  const numVal = typeof value === "number" ? value : (value != null && value !== "" ? Number(value) : "");
+
   switch (field.type) {
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>{field.label}</InputLabel>
           <Select
-            value={(value as string) ?? ""}
+            value={strVal}
             label={field.label}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
@@ -206,13 +249,49 @@ function FieldEditor({
           </Select>
         </FormControl>
       );
+    case "multiple_select": {
+      const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
+      return (
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>{field.label}</InputLabel>
+          <Select
+            multiple
+            value={arrVal}
+            label={field.label}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange(typeof v === "string" ? v.split(",") : v);
+            }}
+            renderValue={(selected) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {(selected as string[]).map((key) => {
+                  const opt = field.options?.find((o) => o.key === key);
+                  return <Chip key={key} size="small" label={opt?.label || key} sx={{ height: 22 }} />;
+                })}
+              </Box>
+            )}
+          >
+            {field.options?.map((opt) => (
+              <MenuItem key={opt.key} value={opt.key}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {opt.color && (
+                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
+                  )}
+                  {opt.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
     case "cost":
       return (
         <TextField
           size="small"
           label={field.label}
           type="number"
-          value={value ?? ""}
+          value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
@@ -226,7 +305,7 @@ function FieldEditor({
           size="small"
           label={field.label}
           type="number"
-          value={value ?? ""}
+          value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
@@ -251,7 +330,7 @@ function FieldEditor({
           size="small"
           label={field.label}
           type="date"
-          value={(value as string) ?? ""}
+          value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 200 }}
@@ -262,7 +341,7 @@ function FieldEditor({
         <TextField
           size="small"
           label={field.label}
-          value={(value as string) ?? ""}
+          value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}
         />
@@ -2118,15 +2197,16 @@ export default function CardDetail() {
               <EolLinkSection card={card} onSave={handleUpdate} />
               <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
-                <AttributeSection
-                  key={section.section}
-                  section={section}
-                  card={card}
-                  onSave={handleUpdate}
-                  onRelationChange={() => setRelRefresh((n) => n + 1)}
-                  canEdit={perms.can_edit}
-                  calculatedFieldKeys={calcFieldKeys}
-                />
+                <ErrorBoundary key={section.section} label={section.section}>
+                  <AttributeSection
+                    section={section}
+                    card={card}
+                    onSave={handleUpdate}
+                    onRelationChange={() => setRelRefresh((n) => n + 1)}
+                    canEdit={perms.can_edit}
+                    calculatedFieldKeys={calcFieldKeys}
+                  />
+                </ErrorBoundary>
               ))}
               <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
               <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
@@ -2147,15 +2227,16 @@ export default function CardDetail() {
               <EolLinkSection card={card} onSave={handleUpdate} />
               <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
               {typeConfig?.fields_schema.map((section) => (
-                <AttributeSection
-                  key={section.section}
-                  section={section}
-                  card={card}
-                  onSave={handleUpdate}
-                  onRelationChange={() => setRelRefresh((n) => n + 1)}
-                  canEdit={perms.can_edit}
-                  calculatedFieldKeys={calcFieldKeys}
-                />
+                <ErrorBoundary key={section.section} label={section.section}>
+                  <AttributeSection
+                    section={section}
+                    card={card}
+                    onSave={handleUpdate}
+                    onRelationChange={() => setRelRefresh((n) => n + 1)}
+                    canEdit={perms.can_edit}
+                    calculatedFieldKeys={calcFieldKeys}
+                  />
+                </ErrorBoundary>
               ))}
               <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
               <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
