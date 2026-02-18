@@ -6,6 +6,7 @@ and a context builder that loads card data + relations for formula execution.
 """
 from __future__ import annotations
 
+import ast
 import logging
 import re
 from datetime import datetime, timezone
@@ -286,13 +287,64 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
 # ── Evaluation engine ────────────────────────────────────────────────
 
 
+class _LazyIfEval(EvalWithCompoundTypes):
+    """Evaluator subclass that makes ``IF(cond, a, b)`` short-circuit.
+
+    Without this, all three arguments are evaluated eagerly (normal Python
+    function-call semantics), so ``IF(x is None, 0, x + 1)`` would crash
+    when ``x`` is ``None`` because ``x + 1`` is evaluated regardless.
+    """
+
+    def _eval_call(self, node):  # type: ignore[override]
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "IF"
+            and len(node.args) == 3
+            and not node.keywords
+        ):
+            cond = self._eval(node.args[0])
+            return self._eval(node.args[1]) if cond else self._eval(node.args[2])
+        return super()._eval_call(node)
+
+
 def _evaluate_formula(formula: str, context: dict[str, Any]) -> Any:
-    """Evaluate a formula string in a sandboxed environment."""
-    evaluator = EvalWithCompoundTypes(
-        names=context,
+    """Evaluate a formula string in a sandboxed environment.
+
+    Supports multi-line formulas with intermediate variable assignments::
+
+        bf = MAP_SCORE(data.businessFit, {"excellent": 4, ...})
+        tf = MAP_SCORE(data.technicalFit, {"excellent": 4, ...})
+        IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), ...)
+
+    Assignment lines (``name = expr``) store the result in the context so
+    subsequent lines can reference them.  The value of the *last* line is
+    returned as the formula result.  ``IF()`` calls are lazily evaluated
+    (only the taken branch is computed).
+    """
+    lines = [ln.strip() for ln in formula.strip().splitlines()]
+    lines = [ln for ln in lines if ln and not ln.startswith("#")]
+
+    if not lines:
+        raise ValueError("Empty formula")
+
+    evaluator = _LazyIfEval(
+        names=dict(context),  # copy — assignments mutate this
         functions=SAFE_FUNCTIONS,
     )
-    return evaluator.eval(formula)
+
+    result = None
+    for line in lines:
+        # Detect assignment: ``varname = expression``  (but NOT ``==``)
+        m = re.match(r"^([a-zA-Z_]\w*)\s*=(?!=)\s*(.+)$", line)
+        if m:
+            var_name, expression = m.group(1), m.group(2)
+            value = evaluator.eval(expression)
+            evaluator.names[var_name] = value
+            result = value
+        else:
+            result = evaluator.eval(line)
+
+    return result
 
 
 async def execute_calculation(
