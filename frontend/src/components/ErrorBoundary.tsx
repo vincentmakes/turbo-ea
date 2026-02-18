@@ -15,6 +15,7 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  componentStack: string | null;
 }
 
 /**
@@ -22,14 +23,20 @@ interface State {
  * crashing the entire page. Use `inline` for small sections.
  */
 export default class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+  state: State = { hasError: false, error: null, componentStack: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error(`[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ""}]`, error, info.componentStack);
+    this.setState({ componentStack: info.componentStack || null });
+    console.error(
+      `[ErrorBoundary${this.props.label ? ` ${this.props.label}` : ""}]`,
+      "\n  Error:", error?.message || String(error),
+      "\n  Stack:", error?.stack?.split("\n").slice(0, 5).join("\n"),
+      "\n  Component Stack:", info.componentStack,
+    );
   }
 
   handleReset = () => {
@@ -76,6 +83,11 @@ export default class ErrorBoundary extends Component<Props, State> {
         <Typography variant="caption" color="text.secondary" component="pre" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
           {this.state.error?.message}
         </Typography>
+        {this.state.componentStack && (
+          <Typography variant="caption" color="text.secondary" component="pre" sx={{ whiteSpace: "pre-wrap", mb: 1, fontSize: "0.65rem", maxHeight: 200, overflow: "auto" }}>
+            {this.state.componentStack}
+          </Typography>
+        )}
         <Button size="small" variant="outlined" color="error" onClick={this.handleReset}>
           Retry
         </Button>

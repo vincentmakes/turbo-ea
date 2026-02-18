@@ -133,8 +133,7 @@ function safeString(value: unknown): string {
 }
 
 // ── Read-only field value renderer ──────────────────────────────
-function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
-  const { fmt } = useCurrency();
+function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
 
   if (value == null || value === "") {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
@@ -192,11 +191,11 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
       />
     );
   }
-  if (field.type === "cost") {
+  if (field.type === "cost" && currencyFmt) {
     const num = Number(value);
     return (
       <Typography variant="body2">
-        {!isNaN(num) ? fmt.format(num) : safeString(value)}
+        {!isNaN(num) ? currencyFmt.format(num) : safeString(value)}
       </Typography>
     );
   }
@@ -210,12 +209,13 @@ function FieldEditor({
   field,
   value,
   onChange,
+  currencySymbol,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
+  currencySymbol?: string;
 }) {
-  const { symbol } = useCurrency();
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
   const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
@@ -300,7 +300,7 @@ function FieldEditor({
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
-          slotProps={{ input: { startAdornment: <InputAdornment position="start">{symbol}</InputAdornment> } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start">{currencySymbol || "$"}</InputAdornment> } }}
           sx={{ minWidth: 200 }}
         />
       );
@@ -601,6 +601,7 @@ function AttributeSection({
   canEdit?: boolean;
   calculatedFieldKeys?: string[];
 }) {
+  const { fmt, symbol } = useCurrency();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
@@ -661,7 +662,7 @@ function AttributeSection({
                     <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
                       {field.label}
                     </Typography>
-                    <FieldValue field={field} value={attrs[field.key]} />
+                    <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
                     <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
                   </Box>
                 ) : isVendorField(field) ? (
@@ -679,6 +680,7 @@ function AttributeSection({
                     field={field}
                     value={attrs[field.key]}
                     onChange={(v) => setAttr(field.key, v)}
+                    currencySymbol={symbol}
                   />
                 )
               )}
@@ -721,6 +723,7 @@ function AttributeSection({
                 <FieldValue
                   field={field}
                   value={(card.attributes || {})[field.key]}
+                  currencyFmt={fmt}
                 />
               </Box>
             ))}
@@ -1949,6 +1952,31 @@ export default function CardDetail() {
     );
 
   const typeConfig = getType(card.type);
+
+  // ── Diagnostic logging for React #310 investigation ──
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof window !== "undefined" && !(window as any).__cdLogOnce) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__cdLogOnce = true;
+    console.group("[CardDetail] Diagnostic dump");
+    console.log("card.type:", typeof card.type, card.type);
+    console.log("card.name:", typeof card.name, card.name);
+    console.log("card.subtype:", typeof card.subtype, card.subtype);
+    console.log("card.lifecycle:", typeof card.lifecycle, card.lifecycle);
+    console.log("card.approval_status:", typeof card.approval_status, card.approval_status);
+    console.log("card.data_quality:", typeof card.data_quality, card.data_quality);
+    console.log("card.attributes keys:", card.attributes ? Object.keys(card.attributes) : "null");
+    if (card.attributes) {
+      for (const [k, v] of Object.entries(card.attributes)) {
+        if (typeof v === "object" && v !== null) {
+          console.warn(`  attr "${k}" is an OBJECT:`, JSON.stringify(v));
+        }
+      }
+    }
+    console.log("typeConfig:", typeConfig?.key, "fields_schema sections:", typeConfig?.fields_schema?.length);
+    console.groupEnd();
+  }
+
   const calcFieldKeys = useMemo(() => {
     try {
       if (!card) return [];

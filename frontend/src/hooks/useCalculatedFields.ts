@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "@/api/client";
 import type { CalculatedFieldsMap } from "@/types";
 
@@ -40,9 +40,12 @@ export function useCalculatedFields() {
     };
   }, []);
 
-  const isCalculated = (typeKey: string, fieldKey: string): boolean => {
-    return (fields[typeKey] || []).includes(fieldKey);
-  };
+  const isCalculated = useCallback(
+    (typeKey: string, fieldKey: string): boolean => {
+      return (fields[typeKey] || []).includes(fieldKey);
+    },
+    [fields],
+  );
 
   return { calculatedFields: fields, loading, isCalculated };
 }
