@@ -407,15 +407,36 @@ function VisualFieldLayout({
   const collisionDetection: CollisionDetection = useCallback((args) => {
     const pointer = pointerWithin(args);
     if (pointer.length > 0) {
-      // Prefer group containers over column containers
       const groupHit = pointer.find((c) => String(c.id).startsWith("group:"));
-      // If dragging a group, don't drop into another group
       const activeType = args.active.data.current?.type;
-      if (groupHit && activeType !== "group") return [groupHit];
+
+      if (groupHit && activeType !== "group") {
+        const groupId = String(groupHit.id);
+        const activeId = String(args.active.id);
+        const groupItems = containers[groupId] || [];
+
+        // If the active field is already in this group, prefer field-level
+        // collisions so reordering within the group works
+        if (groupItems.includes(activeId)) {
+          const fieldHits = pointer.filter(
+            (c) => !String(c.id).startsWith("group:") && !String(c.id).startsWith("col-"),
+          );
+          if (fieldHits.length > 0) {
+            return closestCenter({
+              ...args,
+              droppableContainers: args.droppableContainers.filter((c) =>
+                fieldHits.some((p) => p.id === c.id),
+              ),
+            });
+          }
+        }
+        // Field coming from outside the group → target the group container
+        return [groupHit];
+      }
       return closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => pointer.some((p) => p.id === c.id)) });
     }
     return rectIntersection(args);
-  }, []);
+  }, [containers]);
 
   // Persist containers to backend
   const saveContainers = useCallback(async (c: Containers) => {
