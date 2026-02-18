@@ -1163,10 +1163,10 @@ export default function CalculationsAdmin() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: "auto", p: { xs: 2, sm: 3 } }}>
+    <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MaterialSymbol icon="calculate" size={28} />
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+        <MaterialSymbol icon="calculate" size={22} />
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
           Calculated Fields
         </Typography>
         <Box sx={{ flex: 1 }} />

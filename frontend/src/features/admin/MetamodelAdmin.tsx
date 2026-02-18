@@ -33,7 +33,9 @@ import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
+import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
@@ -286,12 +288,10 @@ function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, o
                     sx={{ flex: 1 }}
                     helperText=" "
                   />
-                  <TextField
-                    size="small"
-                    type="color"
+                  <ColorPicker
+                    compact
                     value={opt.color || "#1976d2"}
-                    onChange={(e) => updateOption(idx, { color: e.target.value })}
-                    sx={{ width: 56, p: 0 }}
+                    onChange={(c) => updateOption(idx, { color: c })}
                   />
                   <IconButton size="small" onClick={() => promptRemoveOption(idx)}>
                     <MaterialSymbol icon="close" size={18} />
@@ -674,26 +674,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
                         rows={2}
                         fullWidth
                       />
-                      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                        <TextField
-                          size="small"
-                          label="Color"
-                          type="color"
-                          value={editForm.color}
-                          onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                          sx={{ width: 120 }}
-                        />
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            bgcolor: editForm.color,
-                            border: "1px solid",
-                            borderColor: "divider",
-                          }}
-                        />
-                      </Box>
+                      <ColorPicker
+                        value={editForm.color}
+                        onChange={(c) => setEditForm({ ...editForm, color: c })}
+                        label="Color"
+                      />
                       {renderPermissionEditor(editForm.permissions, (key, val) =>
                         setEditForm({
                           ...editForm,
@@ -784,26 +769,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
                 rows={2}
                 fullWidth
               />
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <TextField
-                  size="small"
-                  label="Color"
-                  type="color"
-                  value={createForm.color}
-                  onChange={(e) => setCreateForm({ ...createForm, color: e.target.value })}
-                  sx={{ width: 120 }}
-                />
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    bgcolor: createForm.color,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                />
-              </Box>
+              <ColorPicker
+                value={createForm.color}
+                onChange={(c) => setCreateForm({ ...createForm, color: c })}
+                label="Color"
+              />
               {renderPermissionEditor(createForm.permissions, (key, val) =>
                 setCreateForm({
                   ...createForm,
@@ -1194,29 +1164,12 @@ function TypeDetailDrawer({
               <MaterialSymbol icon={icon} size={24} color={color} />
             </Box>
           </Box>
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <TextField
-              size="small"
-              label="Color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              sx={{ width: 120 }}
-            />
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                bgcolor: color,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {color}
-            </Typography>
-          </Box>
+          <ColorPicker
+            value={color}
+            onChange={setColor}
+            disabled={!!cardTypeKey?.built_in}
+            label={cardTypeKey?.built_in ? "Color (built-in)" : "Color"}
+          />
           <FormControlLabel
             control={
               <Switch
@@ -2486,6 +2439,7 @@ export default function MetamodelAdmin() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Card Types" />
         <Tab label="Relation Types" />
+        <Tab label="Calculations" />
         <Tab label="Metamodel Graph" />
       </Tabs>
 
@@ -2877,9 +2831,14 @@ export default function MetamodelAdmin() {
       )}
 
       {/* ============================================================ */}
-      {/*  TAB 2 -- Metamodel Graph                                    */}
+      {/*  TAB 2 -- Calculations                                       */}
       {/* ============================================================ */}
-      {tab === 2 && (
+      {tab === 2 && <CalculationsAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 3 -- Metamodel Graph                                    */}
+      {/* ============================================================ */}
+      {tab === 3 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}
@@ -2942,14 +2901,13 @@ export default function MetamodelAdmin() {
             onChange={(e) => setNewType({ ...newType, icon: e.target.value })}
             sx={{ mb: 2 }}
           />
-          <TextField
-            fullWidth
-            label="Color"
-            type="color"
-            value={newType.color}
-            onChange={(e) => setNewType({ ...newType, color: e.target.value })}
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ mb: 2 }}>
+            <ColorPicker
+              value={newType.color}
+              onChange={(c) => setNewType({ ...newType, color: c })}
+              label="Color"
+            />
+          </Box>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Category</InputLabel>
             <Select

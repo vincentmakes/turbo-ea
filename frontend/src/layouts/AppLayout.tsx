@@ -79,7 +79,6 @@ const ADMIN_ITEMS: (NavItem & { permission?: string })[] = [
   { label: "Users", icon: "group", path: "/admin/users", permission: "admin.users" },
   { label: "Surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
   { label: "Settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
-  { label: "Calculations", icon: "calculate", path: "/admin/calculations", permission: "admin.metamodel" },
   { label: "EOL Search", icon: "update", path: "/admin/eol", permission: "eol.manage" },
   { label: "Web Portals", icon: "language", path: "/admin/web-portals", permission: "web_portals.manage" },
 ];
