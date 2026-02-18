@@ -191,6 +191,15 @@ export default function InventoryPage() {
     }
   }, [searchParams]);
 
+  // Sync ?search= URL param into filters when navigating to inventory from elsewhere (e.g. toolbar)
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || "";
+    if (urlSearch !== filters.search) {
+      setFilters((prev) => ({ ...prev, search: urlSearch }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Derive the single selected type for column rendering (only when exactly one type selected)
   const selectedType = filters.types.length === 1 ? filters.types[0] : "";
   const typeConfig = types.find((t) => t.key === selectedType);
