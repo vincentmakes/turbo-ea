@@ -13,6 +13,7 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.user import User
 from app.schemas.relation import CardRef, RelationCreate, RelationResponse, RelationUpdate
+from app.services.calculation_engine import run_calculations_for_card
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -78,6 +79,15 @@ async def create_relation(
         {"id": str(rel.id), "type": rel.type, "source_id": body.source_id, "target_id": body.target_id},
         db=db, card_id=uuid.UUID(body.source_id), user_id=user.id,
     )
+
+    # Run calculated fields for both source and target cards
+    source_card = await db.get(Card, uuid.UUID(body.source_id))
+    target_card = await db.get(Card, uuid.UUID(body.target_id))
+    if source_card:
+        await run_calculations_for_card(db, source_card)
+    if target_card:
+        await run_calculations_for_card(db, target_card)
+
     await db.commit()
     await db.refresh(rel)
     return _rel_to_response(rel)
@@ -97,6 +107,15 @@ async def update_relation(
         raise HTTPException(404, "Relation not found")
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(rel, field, value)
+
+    # Run calculated fields for both source and target cards
+    source_card = await db.get(Card, rel.source_id)
+    target_card = await db.get(Card, rel.target_id)
+    if source_card:
+        await run_calculations_for_card(db, source_card)
+    if target_card:
+        await run_calculations_for_card(db, target_card)
+
     await db.commit()
     await db.refresh(rel)
     return _rel_to_response(rel)
@@ -113,10 +132,21 @@ async def delete_relation(
     rel = result.scalar_one_or_none()
     if not rel:
         raise HTTPException(404, "Relation not found")
+    source_id = rel.source_id
+    target_id = rel.target_id
     await event_bus.publish(
         "relation.deleted",
         {"id": str(rel.id), "type": rel.type},
-        db=db, card_id=rel.source_id, user_id=user.id,
+        db=db, card_id=source_id, user_id=user.id,
     )
     await db.delete(rel)
+
+    # Run calculated fields for both source and target cards
+    source_card = await db.get(Card, source_id)
+    target_card = await db.get(Card, target_id)
+    if source_card:
+        await run_calculations_for_card(db, source_card)
+    if target_card:
+        await run_calculations_for_card(db, target_card)
+
     await db.commit()

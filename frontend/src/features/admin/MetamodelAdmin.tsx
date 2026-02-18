@@ -33,6 +33,9 @@ import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import ColorPicker from "@/components/ColorPicker";
+import KeyInput, { isValidKey } from "@/components/KeyInput";
+import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
@@ -122,15 +125,36 @@ function truncate(text: string, max: number): string {
 interface FieldEditorProps {
   open: boolean;
   field: FieldDef;
+  typeKey: string;
+  fieldKey: string;
   onClose: () => void;
   onSave: (field: FieldDef) => void;
+  /** True if this field is the target of an active calculation */
+  isCalculated?: boolean;
 }
 
-function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEditorProps) {
+function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
   const [field, setField] = useState<FieldDef>(initial);
 
+  // Track which option keys existed before editing — these are locked
+  const originalOptionKeys = useMemo(
+    () => new Set((initial.options || []).map((o) => o.key).filter(Boolean)),
+    [initial],
+  );
+
+  // Option deletion confirmation
+  const [deleteOptConfirm, setDeleteOptConfirm] = useState<{
+    idx: number;
+    optionKey: string;
+    optionLabel: string;
+    cardCount: number | null; // null = loading
+  } | null>(null);
+
   useEffect(() => {
-    if (open) setField({ ...initial });
+    if (open) {
+      setField({ ...initial });
+      setDeleteOptConfirm(null);
+    }
   }, [open, initial]);
 
   const isSelect = field.type === "single_select" || field.type === "multiple_select";
@@ -152,19 +176,52 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
     const opts = [...(field.options || [])];
     opts.splice(idx, 1);
     setField({ ...field, options: opts });
+    setDeleteOptConfirm(null);
+  };
+
+  const promptRemoveOption = (idx: number) => {
+    const opt = (field.options || [])[idx];
+    if (!opt) return;
+
+    // New options (not yet saved) can be removed without confirmation
+    if (!originalOptionKeys.has(opt.key)) {
+      removeOption(idx);
+      return;
+    }
+
+    // Existing option — check usage
+    setDeleteOptConfirm({ idx, optionKey: opt.key, optionLabel: opt.label, cardCount: null });
+    if (typeKey && fieldKey) {
+      api
+        .get<{ card_count: number }>(
+          `/metamodel/types/${typeKey}/option-usage?field_key=${encodeURIComponent(fieldKey)}&option_key=${encodeURIComponent(opt.key)}`,
+        )
+        .then((r) => setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: r.card_count } : null)))
+        .catch(() => setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null)));
+    } else {
+      setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null));
+    }
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
       <DialogContent>
-        <TextField
+        {isCalculated && (
+          <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
+            This field is managed by a calculation. The field type is locked
+            to prevent breaking the formula. Labels and colors can be changed freely.
+          </Alert>
+        )}
+        <KeyInput
           fullWidth
           label="Key"
           value={field.key}
-          onChange={(e) => setField({ ...field, key: e.target.value })}
+          onChange={(v) => setField({ ...field, key: v })}
           sx={{ mt: 1, mb: 2 }}
-          disabled={!!initial.key}
+          size="small"
+          locked={!!initial.key}
+          lockedReason="Field key cannot be changed after creation"
         />
         <TextField
           fullWidth
@@ -178,6 +235,7 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
           <Select
             value={field.type}
             label="Type"
+            disabled={!!isCalculated}
             onChange={(e) =>
               setField({ ...field, type: e.target.value as FieldDef["type"] })
             }
@@ -218,34 +276,63 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
               Options
             </Typography>
             {(field.options || []).map((opt, idx) => (
-              <Box
-                key={idx}
-                sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}
-              >
-                <TextField
-                  size="small"
-                  label="Key"
-                  value={opt.key}
-                  onChange={(e) => updateOption(idx, { key: e.target.value })}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  size="small"
-                  label="Label"
-                  value={opt.label}
-                  onChange={(e) => updateOption(idx, { label: e.target.value })}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  size="small"
-                  type="color"
-                  value={opt.color || "#1976d2"}
-                  onChange={(e) => updateOption(idx, { color: e.target.value })}
-                  sx={{ width: 56, p: 0 }}
-                />
-                <IconButton size="small" onClick={() => removeOption(idx)}>
-                  <MaterialSymbol icon="close" size={18} />
-                </IconButton>
+              <Box key={idx}>
+                <Box
+                  sx={{ display: "flex", gap: 1, mb: deleteOptConfirm?.idx === idx ? 0.5 : 1, alignItems: "flex-start" }}
+                >
+                  <KeyInput
+                    size="small"
+                    label="Key"
+                    value={opt.key}
+                    onChange={(v) => updateOption(idx, { key: v })}
+                    sx={{ flex: 1 }}
+                    locked={originalOptionKeys.has(opt.key)}
+                    lockedReason="Key is locked"
+                  />
+                  <TextField
+                    size="small"
+                    label="Label"
+                    value={opt.label}
+                    onChange={(e) => updateOption(idx, { label: e.target.value })}
+                    sx={{ flex: 1 }}
+                    helperText=" "
+                  />
+                  <ColorPicker
+                    compact
+                    value={opt.color || "#1976d2"}
+                    onChange={(c) => updateOption(idx, { color: c })}
+                  />
+                  <IconButton size="small" onClick={() => promptRemoveOption(idx)}>
+                    <MaterialSymbol icon="close" size={18} />
+                  </IconButton>
+                </Box>
+                {deleteOptConfirm?.idx === idx && (
+                  <Alert
+                    severity={deleteOptConfirm.cardCount === null ? "info" : deleteOptConfirm.cardCount > 0 ? "warning" : "info"}
+                    sx={{ mb: 1, py: 0.5 }}
+                    action={
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <Button size="small" color="inherit" onClick={() => setDeleteOptConfirm(null)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          disabled={deleteOptConfirm.cardCount === null}
+                          onClick={() => removeOption(idx)}
+                        >
+                          Remove
+                        </Button>
+                      </Box>
+                    }
+                  >
+                    {deleteOptConfirm.cardCount === null
+                      ? "Checking usage..."
+                      : deleteOptConfirm.cardCount > 0
+                        ? `"${deleteOptConfirm.optionLabel}" is used by ${deleteOptConfirm.cardCount} card(s). Their value will be cleared on save.`
+                        : `No cards use "${deleteOptConfirm.optionLabel}". Safe to remove.`}
+                  </Alert>
+                )}
               </Box>
             ))}
             <Button
@@ -263,7 +350,7 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
         <Button
           variant="contained"
           onClick={() => onSave(field)}
-          disabled={!field.key || !field.label}
+          disabled={!field.key || !field.label || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
         >
           Save
         </Button>
@@ -596,26 +683,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
                         rows={2}
                         fullWidth
                       />
-                      <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                        <TextField
-                          size="small"
-                          label="Color"
-                          type="color"
-                          value={editForm.color}
-                          onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                          sx={{ width: 120 }}
-                        />
-                        <Box
-                          sx={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: "50%",
-                            bgcolor: editForm.color,
-                            border: "1px solid",
-                            borderColor: "divider",
-                          }}
-                        />
-                      </Box>
+                      <ColorPicker
+                        value={editForm.color}
+                        onChange={(c) => setEditForm({ ...editForm, color: c })}
+                        label="Color"
+                      />
                       {renderPermissionEditor(editForm.permissions, (key, val) =>
                         setEditForm({
                           ...editForm,
@@ -681,13 +753,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
               New Stakeholder Role
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <TextField
+              <KeyInput
                 size="small"
                 label="Key"
                 value={createForm.key}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, key: e.target.value.replace(/\s+/g, "_").toLowerCase() })
-                }
+                onChange={(v) => setCreateForm({ ...createForm, key: v })}
                 placeholder="e.g. data_steward"
                 fullWidth
               />
@@ -708,26 +778,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
                 rows={2}
                 fullWidth
               />
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <TextField
-                  size="small"
-                  label="Color"
-                  type="color"
-                  value={createForm.color}
-                  onChange={(e) => setCreateForm({ ...createForm, color: e.target.value })}
-                  sx={{ width: 120 }}
-                />
-                <Box
-                  sx={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    bgcolor: createForm.color,
-                    border: "1px solid",
-                    borderColor: "divider",
-                  }}
-                />
-              </Box>
+              <ColorPicker
+                value={createForm.color}
+                onChange={(c) => setCreateForm({ ...createForm, color: c })}
+                label="Color"
+              />
               {renderPermissionEditor(createForm.permissions, (key, val) =>
                 setCreateForm({
                   ...createForm,
@@ -816,9 +871,28 @@ function TypeDetailDrawer({
   const [editingFieldIdx, setEditingFieldIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<FieldDef>(emptyField());
 
+  /* --- Field deletion confirmation --- */
+  const [deleteFieldConfirm, setDeleteFieldConfirm] = useState<{
+    sectionIdx: number;
+    fieldIdx: number;
+    fieldKey: string;
+    fieldLabel: string;
+    cardCount: number | null; // null = loading
+  } | null>(null);
+
   /* --- Add section --- */
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+
+  /* --- Calculated fields map (type_key → field_keys[]) --- */
+  const [calculatedFieldKeys, setCalculatedFieldKeys] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open || !cardTypeKey) return;
+    api
+      .get<Record<string, string[]>>("/calculations/calculated-fields")
+      .then((map) => setCalculatedFieldKeys(map[cardTypeKey.key] || []))
+      .catch(() => setCalculatedFieldKeys([]));
+  }, [open, cardTypeKey]);
 
   /* Initialise local state from the type whenever the drawer opens or the type changes */
   useEffect(() => {
@@ -832,6 +906,7 @@ function TypeDetailDrawer({
       setError(null);
       setAddSubOpen(false);
       setAddSectionOpen(false);
+      setDeleteFieldConfirm(null);
     }
   }, [cardTypeKey]);
 
@@ -926,7 +1001,27 @@ function TypeDetailDrawer({
     }
   };
 
-  const handleDeleteField = async (sectionIdx: number, fieldIdx: number) => {
+  const promptDeleteField = (sectionIdx: number, fieldIdx: number) => {
+    const field = cardTypeKey.fields_schema[sectionIdx].fields[fieldIdx];
+    setDeleteFieldConfirm({
+      sectionIdx,
+      fieldIdx,
+      fieldKey: field.key,
+      fieldLabel: field.label,
+      cardCount: null,
+    });
+    api
+      .get<{ card_count: number }>(
+        `/metamodel/types/${cardTypeKey.key}/field-usage?field_key=${encodeURIComponent(field.key)}`,
+      )
+      .then((r) => setDeleteFieldConfirm((prev) => (prev ? { ...prev, cardCount: r.card_count } : null)))
+      .catch(() => setDeleteFieldConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null)));
+  };
+
+  const confirmDeleteField = async () => {
+    if (!deleteFieldConfirm) return;
+    const { sectionIdx, fieldIdx } = deleteFieldConfirm;
+    setDeleteFieldConfirm(null);
     try {
       const schema: SectionDef[] = cardTypeKey.fields_schema.map((s) => ({
         ...s,
@@ -1088,29 +1183,12 @@ function TypeDetailDrawer({
               <MaterialSymbol icon={icon} size={24} color={color} />
             </Box>
           </Box>
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <TextField
-              size="small"
-              label="Color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              sx={{ width: 120 }}
-            />
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: "50%",
-                bgcolor: color,
-                border: "1px solid",
-                borderColor: "divider",
-              }}
-            />
-            <Typography variant="body2" color="text.secondary">
-              {color}
-            </Typography>
-          </Box>
+          <ColorPicker
+            value={color}
+            onChange={setColor}
+            disabled={!!cardTypeKey?.built_in}
+            label={cardTypeKey?.built_in ? "Color (built-in)" : "Color"}
+          />
           <FormControlLabel
             control={
               <Switch
@@ -1148,11 +1226,11 @@ function TypeDetailDrawer({
           <Box
             sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, mb: 2 }}
           >
-            <TextField
+            <KeyInput
               size="small"
               label="Key"
               value={newSubKey}
-              onChange={(e) => setNewSubKey(e.target.value)}
+              onChange={setNewSubKey}
               sx={{ flex: 1 }}
             />
             <TextField
@@ -1166,7 +1244,7 @@ function TypeDetailDrawer({
               size="small"
               variant="contained"
               onClick={handleAddSubtype}
-              disabled={!newSubKey || !newSubLabel}
+              disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}
             >
               Add
             </Button>
@@ -1241,7 +1319,7 @@ function TypeDetailDrawer({
                         </IconButton>
                         <IconButton
                           size="small"
-                          onClick={() => handleDeleteField(si, fi)}
+                          onClick={() => promptDeleteField(si, fi)}
                         >
                           <MaterialSymbol icon="delete" size={18} />
                         </IconButton>
@@ -1427,10 +1505,49 @@ function TypeDetailDrawer({
         </Button>
       </Box>
 
+      {/* --- Field deletion confirmation dialog --- */}
+      <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Field</DialogTitle>
+        <DialogContent>
+          {deleteFieldConfirm && (
+            <>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Are you sure you want to delete the field <strong>"{deleteFieldConfirm.fieldLabel}"</strong> ({deleteFieldConfirm.fieldKey})?
+              </Typography>
+              {deleteFieldConfirm.cardCount === null ? (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Checking how many cards use this field...
+                </Alert>
+              ) : deleteFieldConfirm.cardCount > 0 ? (
+                <Alert severity="warning">
+                  <strong>{deleteFieldConfirm.cardCount} card(s)</strong> have data for this field. Deleting it will permanently remove that data from all of them.
+                </Alert>
+              ) : (
+                <Alert severity="info">No cards have data for this field. It can be safely deleted.</Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteFieldConfirm(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteFieldConfirm?.cardCount === null}
+            onClick={confirmDeleteField}
+          >
+            Delete Field
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* --- Field editor dialog (rendered inside the drawer portal) --- */}
       <FieldEditorDialog
         open={fieldDialogOpen}
         field={editingField}
+        typeKey={cardTypeKey.key}
+        fieldKey={editingField.key}
+        isCalculated={calculatedFieldKeys.includes(editingField.key)}
         onClose={() => setFieldDialogOpen(false)}
         onSave={handleSaveField}
       />
@@ -2342,6 +2459,7 @@ export default function MetamodelAdmin() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Card Types" />
         <Tab label="Relation Types" />
+        <Tab label="Calculations" />
         <Tab label="Metamodel Graph" />
       </Tabs>
 
@@ -2733,9 +2851,14 @@ export default function MetamodelAdmin() {
       )}
 
       {/* ============================================================ */}
-      {/*  TAB 2 -- Metamodel Graph                                    */}
+      {/*  TAB 2 -- Calculations                                       */}
       {/* ============================================================ */}
-      {tab === 2 && (
+      {tab === 2 && <CalculationsAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 3 -- Metamodel Graph                                    */}
+      {/* ============================================================ */}
+      {tab === 3 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}
@@ -2767,12 +2890,13 @@ export default function MetamodelAdmin() {
       >
         <DialogTitle>Create Card Type</DialogTitle>
         <DialogContent>
-          <TextField
+          <KeyInput
             fullWidth
-            label="Key (e.g., MyCustomType)"
+            label="Key (e.g. my_custom_type)"
             value={newType.key}
-            onChange={(e) => setNewType({ ...newType, key: e.target.value })}
+            onChange={(v) => setNewType({ ...newType, key: v })}
             sx={{ mt: 1, mb: 2 }}
+            size="small"
           />
           <TextField
             fullWidth
@@ -2797,14 +2921,13 @@ export default function MetamodelAdmin() {
             onChange={(e) => setNewType({ ...newType, icon: e.target.value })}
             sx={{ mb: 2 }}
           />
-          <TextField
-            fullWidth
-            label="Color"
-            type="color"
-            value={newType.color}
-            onChange={(e) => setNewType({ ...newType, color: e.target.value })}
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ mb: 2 }}>
+            <ColorPicker
+              value={newType.color}
+              onChange={(c) => setNewType({ ...newType, color: c })}
+              label="Color"
+            />
+          </Box>
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Category</InputLabel>
             <Select
@@ -2838,7 +2961,7 @@ export default function MetamodelAdmin() {
           <Button
             variant="contained"
             onClick={handleCreateType}
-            disabled={!newType.key || !newType.label}
+            disabled={!newType.key || !newType.label || !isValidKey(newType.key)}
           >
             Create
           </Button>
@@ -2932,13 +3055,13 @@ export default function MetamodelAdmin() {
             </Select>
           </FormControl>
 
-          <TextField
+          <KeyInput
             fullWidth
             label="Key"
             value={newRel.key || autoRelKey}
-            onChange={(e) => setNewRel({ ...newRel, key: e.target.value })}
+            onChange={(v) => setNewRel({ ...newRel, key: v })}
             sx={{ mb: 2 }}
-            helperText="Auto-generated from source + target"
+            size="small"
           />
           <TextField
             fullWidth
@@ -2985,7 +3108,8 @@ export default function MetamodelAdmin() {
               !newRel.source_type_key ||
               !newRel.target_type_key ||
               !(newRel.key || autoRelKey) ||
-              !newRel.label
+              !newRel.label ||
+              !isValidKey(newRel.key || autoRelKey)
             }
           >
             Create

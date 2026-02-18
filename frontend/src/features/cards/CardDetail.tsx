@@ -41,8 +41,10 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
 import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { useCurrency } from "@/hooks/useCurrency";
 import type {
   Card,
@@ -121,11 +123,30 @@ const PHASE_LABELS: Record<string, string> = {
   endOfLife: "End of Life",
 };
 
+// ── Safe string coercion (never returns an object/array) ────────
+function safeString(value: unknown): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(safeString).join(", ");
+  try { return JSON.stringify(value); } catch { return "[invalid]"; }
+}
+
 // ── Read-only field value renderer ──────────────────────────────
-function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
-  const { fmt } = useCurrency();
+function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
+
+  if (value == null || value === "") {
+    return <Typography variant="body2" color="text.secondary">—</Typography>;
+  }
+
+  // Guard: if value is an object/array and the field type doesn't expect it, coerce to string
+  if (typeof value === "object" && !Array.isArray(value) && field.type !== "multiple_select") {
+    return <Typography variant="body2">{safeString(value)}</Typography>;
+  }
+
   if (field.type === "single_select" && field.options) {
-    const opt = field.options.find((o) => o.key === value);
+    const strVal = typeof value === "string" ? value : safeString(value);
+    const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
       <Chip
         size="small"
@@ -133,11 +154,34 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
         sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
       />
     ) : (
-      <Typography variant="body2" color="text.secondary">
-        —
-      </Typography>
+      <Tooltip title={`Unknown option key: ${strVal}`}>
+        <Chip size="small" label={strVal} variant="outlined" color="warning" />
+      </Tooltip>
     );
   }
+
+  if (field.type === "multiple_select" && field.options) {
+    const arr = Array.isArray(value) ? value : [value];
+    return (
+      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+        {arr.map((v, i) => {
+          const key = typeof v === "string" ? v : safeString(v);
+          const opt = field.options!.find((o) => o.key === key);
+          return opt ? (
+            <Chip
+              key={key + i}
+              size="small"
+              label={opt.label}
+              sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+            />
+          ) : (
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" />
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (field.type === "boolean") {
     return (
       <MaterialSymbol
@@ -147,17 +191,16 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
       />
     );
   }
-  if (field.type === "cost") {
+  if (field.type === "cost" && currencyFmt) {
+    const num = Number(value);
     return (
       <Typography variant="body2">
-        {value != null && value !== "" ? fmt.format(Number(value)) : "—"}
+        {!isNaN(num) ? currencyFmt.format(num) : safeString(value)}
       </Typography>
     );
   }
   return (
-    <Typography variant="body2">
-      {value != null && value !== "" ? String(value) : "—"}
-    </Typography>
+    <Typography variant="body2">{safeString(value) || "—"}</Typography>
   );
 }
 
@@ -166,19 +209,25 @@ function FieldEditor({
   field,
   value,
   onChange,
+  currencySymbol,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
+  currencySymbol?: string;
 }) {
-  const { symbol } = useCurrency();
+
+  // Sanitize: ensure value passed to MUI is always the expected primitive type
+  const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
+  const numVal = typeof value === "number" ? value : (value != null && value !== "" ? Number(value) : "");
+
   switch (field.type) {
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>{field.label}</InputLabel>
           <Select
-            value={(value as string) ?? ""}
+            value={strVal}
             label={field.label}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
@@ -205,17 +254,53 @@ function FieldEditor({
           </Select>
         </FormControl>
       );
+    case "multiple_select": {
+      const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
+      return (
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>{field.label}</InputLabel>
+          <Select
+            multiple
+            value={arrVal}
+            label={field.label}
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange(typeof v === "string" ? v.split(",") : v);
+            }}
+            renderValue={(selected) => (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                {(selected as string[]).map((key) => {
+                  const opt = field.options?.find((o) => o.key === key);
+                  return <Chip key={key} size="small" label={opt?.label || key} sx={{ height: 22 }} />;
+                })}
+              </Box>
+            )}
+          >
+            {field.options?.map((opt) => (
+              <MenuItem key={opt.key} value={opt.key}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  {opt.color && (
+                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
+                  )}
+                  {opt.label}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      );
+    }
     case "cost":
       return (
         <TextField
           size="small"
           label={field.label}
           type="number"
-          value={value ?? ""}
+          value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
-          slotProps={{ input: { startAdornment: <InputAdornment position="start">{symbol}</InputAdornment> } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start">{currencySymbol || "$"}</InputAdornment> } }}
           sx={{ minWidth: 200 }}
         />
       );
@@ -225,7 +310,7 @@ function FieldEditor({
           size="small"
           label={field.label}
           type="number"
-          value={value ?? ""}
+          value={numVal}
           onChange={(e) =>
             onChange(e.target.value ? Number(e.target.value) : undefined)
           }
@@ -250,7 +335,7 @@ function FieldEditor({
           size="small"
           label={field.label}
           type="date"
-          value={(value as string) ?? ""}
+          value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 200 }}
@@ -261,7 +346,7 @@ function FieldEditor({
         <TextField
           size="small"
           label={field.label}
-          value={(value as string) ?? ""}
+          value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}
         />
@@ -507,13 +592,16 @@ function AttributeSection({
   onSave,
   onRelationChange,
   canEdit = true,
+  calculatedFieldKeys = [],
 }: {
   section: { section: string; fields: FieldDef[] };
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
   canEdit?: boolean;
+  calculatedFieldKeys?: string[];
 }) {
+  const { fmt, symbol } = useCurrency();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
@@ -569,13 +657,13 @@ function AttributeSection({
           <Box>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
               {section.fields.map((field) =>
-                field.readonly ? (
+                field.readonly || calculatedFieldKeys.includes(field.key) ? (
                   <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
                       {field.label}
                     </Typography>
-                    <FieldValue field={field} value={attrs[field.key]} />
-                    <Chip size="small" label="auto" sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+                    <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
+                    <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
                   </Box>
                 ) : isVendorField(field) ? (
                   <VendorField
@@ -592,6 +680,7 @@ function AttributeSection({
                     field={field}
                     value={attrs[field.key]}
                     onChange={(v) => setAttr(field.key, v)}
+                    currencySymbol={symbol}
                   />
                 )
               )}
@@ -625,13 +714,16 @@ function AttributeSection({
               <Box key={field.key} sx={{ display: "contents" }}>
                 <Typography variant="body2" color="text.secondary">
                   {field.label}
-                  {field.readonly && (
+                  {calculatedFieldKeys.includes(field.key) ? (
+                    <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+                  ) : field.readonly ? (
                     <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  )}
+                  ) : null}
                 </Typography>
                 <FieldValue
                   field={field}
                   value={(card.attributes || {})[field.key]}
+                  currencyFmt={fmt}
                 />
               </Box>
             ))}
@@ -1805,6 +1897,7 @@ export default function CardDetail() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
+  const { isCalculated } = useCalculatedFields();
   const [card, setCard] = useState<Card | null>(null);
   const [tab, setTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -1859,6 +1952,19 @@ export default function CardDetail() {
     );
 
   const typeConfig = getType(card.type);
+
+  // ── Computed calculated field keys (no useMemo — investigating #310) ──
+  let calcFieldKeys: string[] = [];
+  try {
+    for (const section of typeConfig?.fields_schema || []) {
+      for (const field of section.fields || []) {
+        if (isCalculated(card.type, field.key)) calcFieldKeys.push(field.key);
+      }
+    }
+  } catch (err) {
+    console.error("[CardDetail] calcFieldKeys error", err);
+    calcFieldKeys = [];
+  }
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
@@ -1934,7 +2040,7 @@ export default function CardDetail() {
             <Typography variant="body2" color="text.secondary">
               {typeConfig?.label || card.type}
             </Typography>
-            {card.subtype && (
+            {card.subtype && typeof card.subtype === "string" && (
               <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />
             )}
           </Box>
@@ -2098,55 +2204,79 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection card={card} onSave={handleUpdate} />
-              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <ErrorBoundary label="Description" inline>
+                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="End of Life" inline>
+                <EolLinkSection card={card} onSave={handleUpdate} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Lifecycle" inline>
+                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
               {typeConfig?.fields_schema.map((section) => (
-                <AttributeSection
-                  key={section.section}
-                  section={section}
-                  card={card}
-                  onSave={handleUpdate}
-                  onRelationChange={() => setRelRefresh((n) => n + 1)}
-                  canEdit={perms.can_edit}
-                />
+                <ErrorBoundary key={section.section} label={section.section}>
+                  <AttributeSection
+                    section={section}
+                    card={card}
+                    onSave={handleUpdate}
+                    onRelationChange={() => setRelRefresh((n) => n + 1)}
+                    canEdit={perms.can_edit}
+                    calculatedFieldKeys={calcFieldKeys}
+                  />
+                </ErrorBoundary>
               ))}
-              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <ErrorBoundary label="Hierarchy" inline>
+                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Relations" inline>
+                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              </ErrorBoundary>
             </Box>
           )}
-          {tab === 1 && <MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard>}
-          {tab === 2 && <MuiCard><CardContent><ProcessAssessmentPanel processId={card.id} /></CardContent></MuiCard>}
-          {tab === 3 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
-          {tab === 4 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
-          {tab === 5 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
-          {tab === 6 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 1 && <ErrorBoundary label="Process Flow"><MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 2 && <ErrorBoundary label="Assessments"><MuiCard><CardContent><ProcessAssessmentPanel processId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 3 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 4 && <ErrorBoundary label="Todos"><MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 5 && <ErrorBoundary label="Stakeholders"><MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 6 && <ErrorBoundary label="History"><MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
         </>
       ) : (
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection card={card} onSave={handleUpdate} />
-              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <ErrorBoundary label="Description" inline>
+                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="End of Life" inline>
+                <EolLinkSection card={card} onSave={handleUpdate} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Lifecycle" inline>
+                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
               {typeConfig?.fields_schema.map((section) => (
-                <AttributeSection
-                  key={section.section}
-                  section={section}
-                  card={card}
-                  onSave={handleUpdate}
-                  onRelationChange={() => setRelRefresh((n) => n + 1)}
-                  canEdit={perms.can_edit}
-                />
+                <ErrorBoundary key={section.section} label={section.section}>
+                  <AttributeSection
+                    section={section}
+                    card={card}
+                    onSave={handleUpdate}
+                    onRelationChange={() => setRelRefresh((n) => n + 1)}
+                    canEdit={perms.can_edit}
+                    calculatedFieldKeys={calcFieldKeys}
+                  />
+                </ErrorBoundary>
               ))}
-              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <ErrorBoundary label="Hierarchy" inline>
+                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Relations" inline>
+                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              </ErrorBoundary>
             </Box>
           )}
-          {tab === 1 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
-          {tab === 2 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
-          {tab === 3 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
-          {tab === 4 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 1 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 2 && <ErrorBoundary label="Todos"><MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 3 && <ErrorBoundary label="Stakeholders"><MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 4 && <ErrorBoundary label="History"><MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
         </>
       )}
     </Box>

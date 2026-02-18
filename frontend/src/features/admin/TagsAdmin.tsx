@@ -3,6 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import ColorPicker from "@/components/ColorPicker";
 import Button from "@mui/material/Button";
 import TextField from "@mui/material/TextField";
 import Dialog from "@mui/material/Dialog";
@@ -85,7 +86,7 @@ export default function TagsAdmin() {
         <DialogTitle>Add Tag</DialogTitle>
         <DialogContent>
           <TextField fullWidth label="Tag Name" value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
-          <TextField fullWidth label="Color" type="color" value={tagColor} onChange={(e) => setTagColor(e.target.value)} />
+          <ColorPicker value={tagColor} onChange={setTagColor} label="Color" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddTagGroupId(null)}>Cancel</Button>

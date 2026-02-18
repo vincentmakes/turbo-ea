@@ -1,6 +1,7 @@
 from app.models.app_settings import AppSettings
 from app.models.base import Base
 from app.models.bookmark import Bookmark
+from app.models.calculation import Calculation
 from app.models.comment import Comment
 from app.models.saved_report import SavedReport
 from app.models.diagram import Diagram
@@ -45,6 +46,7 @@ __all__ = [
     "Event",
     "Document",
     "Bookmark",
+    "Calculation",
     "Diagram",
     "SoAW",
     "Notification",
