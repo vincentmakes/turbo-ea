@@ -350,7 +350,7 @@ function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, o
         <Button
           variant="contained"
           onClick={() => onSave(field)}
-          disabled={!field.key || !field.label || !isValidKey(field.key) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key)))}
+          disabled={!field.key || !field.label || (!initial.key && !isValidKey(field.key)) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key) && !originalOptionKeys.has(o.key)))}
         >
           Save
         </Button>
