@@ -147,16 +147,16 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
   if (field.type === "single_select" && field.options) {
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
-    return opt ? (
-      <Chip
-        size="small"
-        label={opt.label}
-        sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
-      />
-    ) : (
-      <Tooltip title={`Unknown option key: ${strVal}`}>
-        <Chip size="small" label={strVal} variant="outlined" color="warning" />
-      </Tooltip>
+    return (
+      <Box sx={{ display: "flex" }}>
+        {opt ? (
+          <Chip size="small" label={opt.label} sx={{ maxWidth: 180, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+        ) : (
+          <Tooltip title={`Unknown option key: ${strVal}`}>
+            <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ maxWidth: 180 }} />
+          </Tooltip>
+        )}
+      </Box>
     );
   }
 
@@ -167,16 +167,10 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
         {arr.map((v, i) => {
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
-          const chipSx = { maxWidth: 160, "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" } };
           return opt ? (
-            <Chip
-              key={key + i}
-              size="small"
-              label={opt.label}
-              sx={opt.color ? { bgcolor: opt.color, color: "#fff", ...chipSx } : chipSx}
-            />
+            <Chip key={key + i} size="small" label={opt.label} sx={{ maxWidth: 180, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={chipSx} />
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ maxWidth: 180 }} />
           );
         })}
       </Box>
@@ -705,7 +699,8 @@ function AttributeSection({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" },
+              gridTemplateColumns: { xs: "1fr", sm: "180px auto" },
+              justifyContent: "start",
               rowGap: 1,
               columnGap: 2,
               alignItems: { sm: "center" },
@@ -1832,8 +1827,7 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
 }
 
 // ── Tab: History ────────────────────────────────────────────────
-// ── Human-readable event labels ─────────────────────────────────
-const EVENT_LABELS: Record<string, { label: string; icon: string; color: string }> = {
+const EVENT_META: Record<string, { label: string; icon: string; color: string }> = {
   "card.created": { label: "Created", icon: "add_circle", color: "#4caf50" },
   "card.updated": { label: "Updated", icon: "edit", color: "#1976d2" },
   "card.archived": { label: "Archived", icon: "archive", color: "#ff9800" },
@@ -1841,141 +1835,146 @@ const EVENT_LABELS: Record<string, { label: string; icon: string; color: string 
   "card.deleted": { label: "Deleted", icon: "delete", color: "#f44336" },
   "card.approval_status.approve": { label: "Approved", icon: "verified", color: "#4caf50" },
   "card.approval_status.reject": { label: "Rejected", icon: "cancel", color: "#f44336" },
-  "card.approval_status.reset": { label: "Reset to Draft", icon: "restart_alt", color: "#666" },
+  "card.approval_status.reset": { label: "Reset to Draft", icon: "restart_alt", color: "#9e9e9e" },
 };
 
 const FIELD_LABELS: Record<string, string> = {
-  name: "Name",
-  description: "Description",
-  subtype: "Subtype",
-  lifecycle: "Lifecycle",
-  attributes: "Attributes",
-  parent_id: "Parent",
-  alias: "Alias",
-  external_id: "External ID",
-  approval_status: "Approval Status",
+  name: "Name", description: "Description", subtype: "Subtype",
+  lifecycle: "Lifecycle", parent_id: "Parent", alias: "Alias",
+  external_id: "External ID", approval_status: "Approval Status",
 };
 
-function formatChangeValue(val: unknown): string {
-  if (val == null || val === "") return "(empty)";
+function fmtVal(val: unknown): string {
+  if (val == null || val === "") return "—";
   if (typeof val === "string") return val;
   if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (Array.isArray(val)) return val.map(fmtVal).join(", ");
   if (typeof val === "object") {
-    // Lifecycle object: show dates
-    if (!Array.isArray(val)) {
-      const entries = Object.entries(val as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
-      if (entries.length === 0) return "(empty)";
-      return entries.map(([k, v]) => `${PHASE_LABELS[k] || k}: ${v}`).join(", ");
-    }
-    return JSON.stringify(val);
+    const entries = Object.entries(val as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
+    if (entries.length === 0) return "—";
+    return entries.map(([k, v]) => `${PHASE_LABELS[k] || k}: ${v}`).join(", ");
   }
   return String(val);
 }
 
-function ChangeDetails({ changes }: { changes: Record<string, unknown> }) {
-  const entries = Object.entries(changes);
-  if (entries.length === 0) return null;
+interface ChangeRow { field: string; oldVal: string; newVal: string }
 
-  // Handle "attributes" as a special case: diff individual attribute keys
-  const rows: { field: string; oldVal: string; newVal: string }[] = [];
-
-  for (const [field, change] of entries) {
-    if (change && typeof change === "object" && "old" in change && "new" in change) {
-      const c = change as { old: unknown; new: unknown };
-      if (field === "attributes" && typeof c.old === "object" && typeof c.new === "object") {
-        // Diff attribute keys
-        const oldAttrs = (c.old || {}) as Record<string, unknown>;
-        const newAttrs = (c.new || {}) as Record<string, unknown>;
-        const allKeys = new Set([...Object.keys(oldAttrs), ...Object.keys(newAttrs)]);
-        for (const key of allKeys) {
-          const ov = oldAttrs[key];
-          const nv = newAttrs[key];
-          if (JSON.stringify(ov) !== JSON.stringify(nv)) {
-            rows.push({ field: key, oldVal: formatChangeValue(ov), newVal: formatChangeValue(nv) });
-          }
+function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
+  const rows: ChangeRow[] = [];
+  for (const [field, change] of Object.entries(changes)) {
+    if (!change || typeof change !== "object" || !("old" in change) || !("new" in change)) {
+      // Legacy stringified format — skip non-parsable
+      continue;
+    }
+    const c = change as { old: unknown; new: unknown };
+    if (field === "attributes" && typeof c.old === "object" && typeof c.new === "object") {
+      const oldA = (c.old || {}) as Record<string, unknown>;
+      const newA = (c.new || {}) as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(oldA), ...Object.keys(newA)])) {
+        if (JSON.stringify(oldA[key]) !== JSON.stringify(newA[key])) {
+          rows.push({ field: key, oldVal: fmtVal(oldA[key]), newVal: fmtVal(newA[key]) });
         }
-      } else {
-        rows.push({
-          field: FIELD_LABELS[field] || field,
-          oldVal: formatChangeValue(c.old),
-          newVal: formatChangeValue(c.new),
-        });
+      }
+    } else if (field === "lifecycle" && typeof c.old === "object" && typeof c.new === "object") {
+      const oldL = (c.old || {}) as Record<string, unknown>;
+      const newL = (c.new || {}) as Record<string, unknown>;
+      for (const key of new Set([...Object.keys(oldL), ...Object.keys(newL)])) {
+        if (oldL[key] !== newL[key]) {
+          rows.push({ field: PHASE_LABELS[key] || key, oldVal: fmtVal(oldL[key]), newVal: fmtVal(newL[key]) });
+        }
       }
     } else {
-      // Legacy format (stringified changes)
-      rows.push({ field: FIELD_LABELS[field] || field, oldVal: "", newVal: String(change) });
+      rows.push({ field: FIELD_LABELS[field] || field, oldVal: fmtVal(c.old), newVal: fmtVal(c.new) });
     }
   }
-
-  if (rows.length === 0) return null;
-
-  return (
-    <Box sx={{ mt: 0.75, pl: 1, borderLeft: "2px solid", borderColor: "divider" }}>
-      {rows.map((row, i) => (
-        <Box key={i} sx={{ display: "flex", alignItems: "baseline", gap: 0.5, py: 0.25, flexWrap: "wrap" }}>
-          <Typography variant="caption" fontWeight={600} sx={{ color: "text.secondary", minWidth: 80 }}>
-            {row.field}
-          </Typography>
-          {row.oldVal && (
-            <Typography variant="caption" sx={{ color: "#d32f2f", textDecoration: "line-through", wordBreak: "break-word", maxWidth: 300 }}>
-              {row.oldVal}
-            </Typography>
-          )}
-          {row.oldVal && row.newVal && (
-            <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
-          )}
-          {row.newVal && (
-            <Typography variant="caption" sx={{ color: "#2e7d32", wordBreak: "break-word", maxWidth: 300 }}>
-              {row.newVal}
-            </Typography>
-          )}
-        </Box>
-      ))}
-    </Box>
-  );
+  return rows;
 }
 
 function HistoryTab({ fsId }: { fsId: string }) {
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
-    api
-      .get<EventEntry[]>(`/cards/${fsId}/history`)
-      .then(setEvents)
-      .catch(() => {});
+    api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
   }, [fsId]);
+
+  if (events.length === 0) {
+    return <Typography color="text.secondary" variant="body2">No history yet.</Typography>;
+  }
 
   return (
     <Box>
-      {events.length === 0 && (
-        <Typography color="text.secondary" variant="body2">
-          No history yet.
-        </Typography>
-      )}
       {events.map((e) => {
-        const meta = EVENT_LABELS[e.event_type] || { label: e.event_type, icon: "info", color: "#666" };
+        const meta = EVENT_META[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
+        const rows = changes ? parseChanges(changes) : [];
+
         return (
-          <MuiCard key={e.id} sx={{ mb: 1 }}>
-            <CardContent sx={{ py: 1, "&:last-child": { pb: 1 } }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon={meta.icon} size={18} color={meta.color} />
-                <Chip size="small" label={meta.label} sx={{ bgcolor: meta.color + "18", color: meta.color, fontWeight: 600, height: 22 }} />
-                <Typography variant="body2">
-                  {e.user_display_name || "System"}
+          <Box key={e.id} sx={{ display: "flex", gap: 1.5, mb: 2 }}>
+            {/* Timeline dot */}
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 0.25 }}>
+              <Box sx={{ width: 28, height: 28, borderRadius: "50%", bgcolor: meta.color + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <MaterialSymbol icon={meta.icon} size={16} color={meta.color} />
+              </Box>
+              <Box sx={{ width: 2, flex: 1, bgcolor: "divider", mt: 0.5 }} />
+            </Box>
+
+            {/* Content */}
+            <Box sx={{ flex: 1, pb: 1, minWidth: 0 }}>
+              {/* Header row */}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                <Typography variant="body2" fontWeight={600}>{meta.label}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  by {e.user_display_name || "System"}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: "auto", whiteSpace: "nowrap" }}
-                >
-                  {e.created_at
-                    ? new Date(e.created_at).toLocaleString()
-                    : ""}
+                <Typography variant="caption" color="text.disabled" sx={{ ml: "auto", whiteSpace: "nowrap" }}>
+                  {e.created_at ? new Date(e.created_at).toLocaleString() : ""}
                 </Typography>
               </Box>
-              {changes && <ChangeDetails changes={changes} />}
-            </CardContent>
-          </MuiCard>
+
+              {/* Change rows */}
+              {rows.length > 0 && (
+                <Box sx={{ mt: 0.75, display: "flex", flexDirection: "column", gap: 0.25 }}>
+                  {rows.map((row, i) => (
+                    <Box
+                      key={i}
+                      sx={{
+                        display: "flex", alignItems: "center", gap: 1,
+                        bgcolor: "action.hover", borderRadius: 1, px: 1, py: 0.5,
+                      }}
+                    >
+                      <Typography variant="caption" fontWeight={600} sx={{ minWidth: 90, color: "text.secondary", flexShrink: 0 }}>
+                        {row.field}
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flexWrap: "wrap" }}>
+                        {row.oldVal !== "—" && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: "#c62828", bgcolor: "#ffebee", borderRadius: 0.5, px: 0.75, py: 0.125,
+                              textDecoration: "line-through", maxWidth: 250, overflow: "hidden",
+                              textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            }}
+                          >
+                            {row.oldVal}
+                          </Typography>
+                        )}
+                        <MaterialSymbol icon="arrow_right_alt" size={16} color="#9e9e9e" />
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: "#1b5e20", bgcolor: "#e8f5e9", borderRadius: 0.5, px: 0.75, py: 0.125,
+                            fontWeight: 500, maxWidth: 250, overflow: "hidden",
+                            textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}
+                        >
+                          {row.newVal}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Box>
         );
       })}
     </Box>

@@ -1303,23 +1303,24 @@ function TypeDetailDrawer({
                 label={section.fields.length}
                 sx={{ height: 20, fontSize: 11 }}
               />
-              <Tooltip title={section.defaultExpanded === false ? "Section collapsed by default in card details — click to expand" : "Section expanded by default in card details — click to collapse"}>
-                <IconButton
-                  size="small"
-                  sx={{ ml: 1 }}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    const schema = [...cardTypeKey.fields_schema];
-                    schema[si] = { ...schema[si], defaultExpanded: section.defaultExpanded === false };
-                    await api.patch(`/metamodel/types/${cardTypeKey.key}`, { fields_schema: schema });
-                    onRefresh();
-                  }}
-                >
-                  <MaterialSymbol icon={section.defaultExpanded === false ? "unfold_more" : "unfold_less"} size={18} color={section.defaultExpanded === false ? "#f57c00" : "#666"} />
-                </IconButton>
-              </Tooltip>
             </AccordionSummary>
             <AccordionDetails sx={{ pt: 0 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={section.defaultExpanded === false}
+                    onChange={async () => {
+                      const schema = [...cardTypeKey.fields_schema];
+                      schema[si] = { ...schema[si], defaultExpanded: section.defaultExpanded === false };
+                      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { fields_schema: schema });
+                      onRefresh();
+                    }}
+                  />
+                }
+                label={<Typography variant="body2" color="text.secondary">Collapsed by default in card details</Typography>}
+                sx={{ mb: 1 }}
+              />
               <List dense disablePadding>
                 {section.fields.map((f, fi) => (
                   <ListItem
