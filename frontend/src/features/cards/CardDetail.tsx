@@ -43,6 +43,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import InputAdornment from "@mui/material/InputAdornment";
 import ProcessFlowTab from "@/features/bpm/ProcessFlowTab";
 import ProcessAssessmentPanel from "@/features/bpm/ProcessAssessmentPanel";
+import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { useCurrency } from "@/hooks/useCurrency";
 import type {
   Card,
@@ -507,12 +508,14 @@ function AttributeSection({
   onSave,
   onRelationChange,
   canEdit = true,
+  calculatedFieldKeys = [],
 }: {
   section: { section: string; fields: FieldDef[] };
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
   canEdit?: boolean;
+  calculatedFieldKeys?: string[];
 }) {
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
@@ -569,13 +572,13 @@ function AttributeSection({
           <Box>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
               {section.fields.map((field) =>
-                field.readonly ? (
+                field.readonly || calculatedFieldKeys.includes(field.key) ? (
                   <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
                       {field.label}
                     </Typography>
                     <FieldValue field={field} value={attrs[field.key]} />
-                    <Chip size="small" label="auto" sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+                    <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
                   </Box>
                 ) : isVendorField(field) ? (
                   <VendorField
@@ -625,9 +628,11 @@ function AttributeSection({
               <Box key={field.key} sx={{ display: "contents" }}>
                 <Typography variant="body2" color="text.secondary">
                   {field.label}
-                  {field.readonly && (
+                  {calculatedFieldKeys.includes(field.key) ? (
+                    <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+                  ) : field.readonly ? (
                     <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  )}
+                  ) : null}
                 </Typography>
                 <FieldValue
                   field={field}
@@ -1805,6 +1810,7 @@ export default function CardDetail() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
+  const { isCalculated } = useCalculatedFields();
   const [card, setCard] = useState<Card | null>(null);
   const [tab, setTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -1859,6 +1865,16 @@ export default function CardDetail() {
     );
 
   const typeConfig = getType(card.type);
+  const calcFieldKeys = useMemo(() => {
+    if (!card) return [];
+    const keys: string[] = [];
+    for (const section of typeConfig?.fields_schema || []) {
+      for (const field of section.fields) {
+        if (isCalculated(card.type, field.key)) keys.push(field.key);
+      }
+    }
+    return keys;
+  }, [card, typeConfig, isCalculated]);
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
@@ -2109,6 +2125,7 @@ export default function CardDetail() {
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
                   canEdit={perms.can_edit}
+                  calculatedFieldKeys={calcFieldKeys}
                 />
               ))}
               <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
@@ -2137,6 +2154,7 @@ export default function CardDetail() {
                   onSave={handleUpdate}
                   onRelationChange={() => setRelRefresh((n) => n + 1)}
                   canEdit={perms.can_edit}
+                  calculatedFieldKeys={calcFieldKeys}
                 />
               ))}
               <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />

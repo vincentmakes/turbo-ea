@@ -27,6 +27,7 @@ from app.schemas.card import (
     TagRef,
 )
 from app.services import notification_service
+from app.services.calculation_engine import run_calculations_for_card
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -288,6 +289,9 @@ async def create_card(
     # Compute data quality score
     card.data_quality = await _calc_data_quality(db, card)
 
+    # Run calculated fields
+    await run_calculations_for_card(db, card)
+
     await event_bus.publish(
         "card.created",
         {"id": str(card.id), "type": card.type, "name": card.name},
@@ -397,6 +401,9 @@ async def update_card(
 
         # Recalculate completion
         card.data_quality = await _calc_data_quality(db, card)
+
+        # Run calculated fields
+        await run_calculations_for_card(db, card)
 
         await event_bus.publish(
             "card.updated",

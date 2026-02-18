@@ -191,6 +191,26 @@ export interface Card {
   stakeholders: StakeholderRef[];
 }
 
+export interface Calculation {
+  id: string;
+  name: string;
+  description?: string;
+  target_type_key: string;
+  target_field_key: string;
+  formula: string;
+  is_active: boolean;
+  execution_order: number;
+  last_error?: string;
+  last_run_at?: string;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface CalculatedFieldsMap {
+  [typeKey: string]: string[];
+}
+
 export interface HierarchyNode {
   id: string;
   name: string;

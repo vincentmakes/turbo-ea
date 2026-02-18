@@ -19,6 +19,7 @@ dependencies = [
     "PyJWT>=2.9.0",
     "cryptography>=42.0.0",
     "slowapi>=0.1.9",
+    "simpleeval>=1.0.0",
 ]
 
 [project.optional-dependencies]
