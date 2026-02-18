@@ -405,9 +405,25 @@ async def update_card(
         # Run calculated fields
         await run_calculations_for_card(db, card)
 
+        def _serialize_val(v: object) -> object:
+            """Convert a value to something JSON-serialisable."""
+            if v is None or isinstance(v, (str, int, float, bool)):
+                return v
+            if isinstance(v, (dict, list)):
+                return v
+            if isinstance(v, uuid.UUID):
+                return str(v)
+            if isinstance(v, datetime):
+                return v.isoformat()
+            return str(v)
+
+        serialised_changes = {
+            k: {"old": _serialize_val(v["old"]), "new": _serialize_val(v["new"])}
+            for k, v in changes.items()
+        }
         await event_bus.publish(
             "card.updated",
-            {"id": str(card.id), "changes": {k: str(v) for k, v in changes.items()}},
+            {"id": str(card.id), "changes": serialised_changes},
             db=db, card_id=card.id, user_id=user.id,
         )
 

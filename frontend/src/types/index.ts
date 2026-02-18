@@ -115,6 +115,7 @@ export interface SubtypeDef {
 export interface SectionDef {
   section: string;
   fields: FieldDef[];
+  defaultExpanded?: boolean;
 }
 
 export interface StakeholderRoleDefinition {
