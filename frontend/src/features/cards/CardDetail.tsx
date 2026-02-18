@@ -721,7 +721,7 @@ function AttributeSection({
 
   // Edit field list
   const renderEditFields = (fields: FieldDef[]) => (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
       {fields.map((field) =>
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
