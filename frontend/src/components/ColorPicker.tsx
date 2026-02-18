@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Popover from "@mui/material/Popover";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
@@ -30,6 +31,22 @@ const PRESET_COLORS = [
   "#78716c", "#475569", "#57534e", "#1e293b", "#292524",
 ];
 
+const RECENT_KEY = "turboea-recent-colors";
+const MAX_RECENT = 10;
+
+function loadRecent(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRecent(colors: string[]) {
+  localStorage.setItem(RECENT_KEY, JSON.stringify(colors.slice(0, MAX_RECENT)));
+}
+
 interface ColorPickerProps {
   value: string;
   onChange: (color: string) => void;
@@ -47,8 +64,33 @@ export default function ColorPicker({
   label,
 }: ColorPickerProps) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const [draft, setDraft] = useState(value);
+  const [recent, setRecent] = useState<string[]>(loadRecent);
   const open = Boolean(anchorEl);
   const size = compact ? 24 : 28;
+
+  // Sync draft when the external value changes or popover opens
+  useEffect(() => {
+    if (open) setDraft(value);
+  }, [open, value]);
+
+  const handleSave = useCallback(() => {
+    onChange(draft);
+    // Push to recent (deduplicate, most recent first)
+    const updated = [draft, ...recent.filter((c) => c !== draft)].slice(0, MAX_RECENT);
+    setRecent(updated);
+    saveRecent(updated);
+    setAnchorEl(null);
+  }, [draft, onChange, recent]);
+
+  const handleCancel = useCallback(() => {
+    setDraft(value);
+    setAnchorEl(null);
+  }, [value]);
+
+  const handleRecentClick = (color: string) => {
+    setDraft(color);
+  };
 
   return (
     <>
@@ -104,17 +146,72 @@ export default function ColorPicker({
       <Popover
         open={open}
         anchorEl={anchorEl}
-        onClose={() => setAnchorEl(null)}
+        onClose={handleCancel}
         anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "left" }}
         slotProps={{ paper: { sx: { p: 0, overflow: "visible" } } }}
       >
-        <Sketch
-          color={value}
-          disableAlpha
-          presetColors={PRESET_COLORS}
-          onChange={(color) => onChange(color.hex)}
-        />
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
+          {/* Recent colors row */}
+          {recent.length > 0 && (
+            <Box sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 0.5, fontSize: "0.68rem", textTransform: "uppercase", letterSpacing: 0.5 }}
+              >
+                Recent
+              </Typography>
+              <Box sx={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                {recent.map((c) => (
+                  <Tooltip key={c} title={c} placement="top" arrow>
+                    <Box
+                      onClick={() => handleRecentClick(c)}
+                      sx={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 0.5,
+                        bgcolor: c,
+                        cursor: "pointer",
+                        border: c === draft ? "2px solid" : "1px solid",
+                        borderColor: c === draft ? "primary.main" : "divider",
+                        transition: "transform 0.1s",
+                        "&:hover": { transform: "scale(1.2)" },
+                      }}
+                    />
+                  </Tooltip>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* Sketch picker */}
+          <Sketch
+            color={draft}
+            disableAlpha
+            presetColors={PRESET_COLORS}
+            onChange={(color) => setDraft(color.hex)}
+          />
+
+          {/* Save / Cancel buttons */}
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 1,
+              px: 1.5,
+              pb: 1.5,
+              pt: 0.5,
+            }}
+          >
+            <Button size="small" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button size="small" variant="contained" onClick={handleSave}>
+              Save
+            </Button>
+          </Box>
+        </Box>
       </Popover>
     </>
   );
