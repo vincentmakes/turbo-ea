@@ -119,6 +119,7 @@ export interface SectionDef {
   fields: FieldDef[];
   defaultExpanded?: boolean;
   columns?: 1 | 2;
+  groups?: string[];
 }
 
 export interface StakeholderRoleDefinition {

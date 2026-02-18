@@ -98,7 +98,7 @@ function fieldTypeColor(type: string): string {
 
 type Containers = Record<string, string[]>;
 
-function fieldsToContainers(fields: FieldDef[], columns: 1 | 2): Containers {
+function fieldsToContainers(fields: FieldDef[], columns: 1 | 2, explicitGroups?: string[]): Containers {
   const c: Containers = { "col-0": [] };
   if (columns === 2) c["col-1"] = [];
 
@@ -121,6 +121,16 @@ function fieldsToContainers(fields: FieldDef[], columns: 1 | 2): Containers {
       c[colKey].push(field.key);
     }
   }
+
+  // Add explicit empty groups that weren't created from fields
+  for (const g of explicitGroups || []) {
+    const gid = `group:${g}`;
+    if (!c[gid]) {
+      c[gid] = [];
+      c["col-0"].push(gid);
+    }
+  }
+
   return c;
 }
 
@@ -170,24 +180,26 @@ function FieldCard({
   return (
     <Box
       sx={{
-        display: "flex", alignItems: "center", gap: 0.5,
-        px: 1, py: 0.5,
+        display: "flex", alignItems: "center", gap: 0.75,
+        px: 1.25, py: 0.75,
         bgcolor: isDragging ? "primary.50" : "background.paper",
         border: 1, borderColor: isDragging ? "primary.main" : "grey.200",
-        borderRadius: 1, fontSize: "0.8rem",
+        borderRadius: 1,
         "&:hover .field-actions": { opacity: 1 },
       }}
     >
-      <Typography variant="body2" fontWeight={500} sx={{ flex: 1, fontSize: "0.8rem" }} noWrap>
+      {field.required && (
+        <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "#1976d2", flexShrink: 0 }} />
+      )}
+      <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }} noWrap>
         {field.label}
-        {isProtected && <Chip component="span" size="small" label="req" sx={{ ml: 0.5, height: 14, fontSize: "0.5rem" }} />}
-        {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 14, fontSize: "0.5rem" }} />}
+        {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.6rem" }} />}
       </Typography>
-      <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 16, fontSize: "0.55rem" }} />
+      <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 18, fontSize: "0.6rem" }} />
       {(!isProtected && (onEdit || onDelete)) && (
-        <Box className="field-actions" sx={{ display: "flex", opacity: 0, transition: "opacity 0.15s" }}>
-          {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={14} /></IconButton>}
-          {onDelete && <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={14} /></IconButton>}
+        <Box className="field-actions" sx={{ display: "flex", gap: 0.25, opacity: 0, transition: "opacity 0.15s" }}>
+          {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={16} /></IconButton>}
+          {onDelete && <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={16} /></IconButton>}
         </Box>
       )}
     </Box>
@@ -209,10 +221,10 @@ function SortableFieldCard({
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   return (
-    <Box ref={setNodeRef} style={style} sx={{ mb: 0.5 }}>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+    <Box ref={setNodeRef} style={style} sx={{ mb: 0.75 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", flexShrink: 0, "&:active": { cursor: "grabbing" } }}>
-          <MaterialSymbol icon="drag_indicator" size={14} color="#bbb" />
+          <MaterialSymbol icon="drag_indicator" size={16} color="#bbb" />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <FieldCard field={field} isCalc={isCalc} onEdit={onEdit} onDelete={onDelete} isDragging={isDragging} />
@@ -240,37 +252,37 @@ function SortableGroupCard({
   const { setNodeRef: innerRef, isOver } = useDroppable({ id });
 
   return (
-    <Box ref={setNodeRef} style={style} sx={{ mb: 0.5 }}>
+    <Box ref={setNodeRef} style={style} sx={{ mb: 0.75 }}>
       <Box
         sx={{
           border: 2, borderColor: isOver ? "primary.main" : "grey.300",
-          borderRadius: 1, borderStyle: "dashed",
+          borderRadius: 1.5, borderStyle: "dashed",
           bgcolor: isOver ? "primary.50" : "grey.50",
           transition: "border-color 0.2s, background-color 0.2s",
         }}
       >
         {/* Group header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1, py: 0.25, borderBottom: 1, borderColor: "grey.200", bgcolor: "grey.100", borderRadius: "4px 4px 0 0" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1.25, py: 0.5, borderBottom: 1, borderColor: "grey.200", bgcolor: "grey.100", borderRadius: "6px 6px 0 0" }}>
           <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", "&:active": { cursor: "grabbing" } }}>
-            <MaterialSymbol icon="drag_indicator" size={14} color="#999" />
+            <MaterialSymbol icon="drag_indicator" size={16} color="#999" />
           </Box>
-          <MaterialSymbol icon="workspaces" size={14} color="#666" />
-          <Typography variant="caption" fontWeight={600} sx={{ flex: 1, color: "text.secondary" }}>
+          <MaterialSymbol icon="workspaces" size={16} color="#666" />
+          <Typography variant="body2" fontWeight={600} sx={{ flex: 1, color: "text.secondary" }}>
             {groupName}
           </Typography>
           {onRemove && (
             <Tooltip title="Remove group (fields move to column)">
-              <IconButton size="small" onClick={onRemove} sx={{ p: 0.125 }}>
-                <MaterialSymbol icon="close" size={12} />
+              <IconButton size="small" onClick={onRemove} sx={{ p: 0.25 }}>
+                <MaterialSymbol icon="close" size={14} />
               </IconButton>
             </Tooltip>
           )}
         </Box>
         {/* Group body (droppable) */}
-        <Box ref={innerRef} sx={{ p: 0.5, minHeight: 32 }}>
+        <Box ref={innerRef} sx={{ p: 0.75, minHeight: 40 }}>
           {children}
           {(!children || (Array.isArray(children) && (children as React.ReactNode[]).every(c => c == null))) && (
-            <Typography variant="caption" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 0.5 }}>
+            <Typography variant="body2" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 1 }}>
               Drag fields here
             </Typography>
           )}
@@ -291,19 +303,19 @@ function DroppableColumn({ id, label, children, isEmpty }: {
     <Box
       ref={setNodeRef}
       sx={{
-        flex: 1, minHeight: 80, p: 1,
+        flex: 1, minHeight: 80, p: 1.5,
         border: 2, borderColor: isOver ? "primary.main" : "grey.300",
-        borderStyle: "dashed", borderRadius: 1.5,
+        borderStyle: "dashed", borderRadius: 2,
         bgcolor: isOver ? "primary.50" : "transparent",
         transition: "border-color 0.2s, background-color 0.2s",
       }}
     >
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+      <Typography variant="body2" fontWeight={600} color="text.secondary" sx={{ mb: 1, display: "block" }}>
         {label}
       </Typography>
       {children}
       {isEmpty && (
-        <Typography variant="caption" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 2 }}>
+        <Typography variant="body2" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 2.5 }}>
           Drag fields here
         </Typography>
       )}
@@ -328,7 +340,7 @@ function VisualFieldLayout({
   promptDeleteField: (si: number, fi: number) => void;
 }) {
   const cols = section.columns || 1;
-  const [containers, setContainers] = useState<Containers>(() => fieldsToContainers(section.fields, cols));
+  const [containers, setContainers] = useState<Containers>(() => fieldsToContainers(section.fields, cols, section.groups));
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
   const [cloned, setCloned] = useState<Containers | null>(null);
   const [addingGroup, setAddingGroup] = useState(false);
@@ -342,8 +354,8 @@ function VisualFieldLayout({
 
   // Sync containers when section data changes from outside
   useEffect(() => {
-    setContainers(fieldsToContainers(section.fields, cols));
-  }, [section.fields, cols]);
+    setContainers(fieldsToContainers(section.fields, cols, section.groups));
+  }, [section.fields, cols, section.groups]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -373,8 +385,10 @@ function VisualFieldLayout({
   // Persist containers to backend
   const saveContainers = useCallback(async (c: Containers) => {
     const newFields = containersToFields(c, fieldMap);
+    // Extract all group names (including empty groups) so they survive round-trips
+    const groups = Object.keys(c).filter(k => k.startsWith("group:")).map(k => k.slice(6));
     const schema = [...fieldsSchema];
-    schema[sectionIdx] = { ...schema[sectionIdx], fields: newFields };
+    schema[sectionIdx] = { ...schema[sectionIdx], fields: newFields, groups };
     await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
     onRefresh();
   }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh]);
@@ -460,7 +474,8 @@ function VisualFieldLayout({
       const newC: Containers = { ...c, "col-0": merged };
       delete newC["col-1"];
       const newFields = containersToFields(newC, fieldMap);
-      schema[sectionIdx] = { ...schema[sectionIdx], columns: 1, fields: newFields };
+      const groups = Object.keys(newC).filter(k => k.startsWith("group:")).map(k => k.slice(6));
+      schema[sectionIdx] = { ...schema[sectionIdx], columns: 1, fields: newFields, groups };
     } else {
       schema[sectionIdx] = { ...schema[sectionIdx], columns: val as 1 | 2 };
     }
@@ -548,40 +563,40 @@ function VisualFieldLayout({
   const activeGroup = activeId && String(activeId).startsWith("group:") ? String(activeId).slice(6) : null;
 
   return (
-    <Box sx={{ pb: 1, px: 1 }}>
+    <Box sx={{ pb: 1.5, px: 1.5 }}>
       {/* Toolbar: column toggle + group add */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-        <ToggleButtonGroup size="small" exclusive value={cols} onChange={handleColumnChange} sx={{ height: 28 }}>
-          <ToggleButton value={1} sx={{ px: 1, py: 0, fontSize: "0.7rem" }}>
-            <MaterialSymbol icon="view_agenda" size={14} />&nbsp;1 Col
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+        <ToggleButtonGroup size="small" exclusive value={cols} onChange={handleColumnChange} sx={{ height: 30 }}>
+          <ToggleButton value={1} sx={{ px: 1.25, py: 0, fontSize: "0.8rem" }}>
+            <MaterialSymbol icon="view_agenda" size={16} />&nbsp;1 Col
           </ToggleButton>
-          <ToggleButton value={2} sx={{ px: 1, py: 0, fontSize: "0.7rem" }}>
-            <MaterialSymbol icon="view_column" size={14} />&nbsp;2 Col
+          <ToggleButton value={2} sx={{ px: 1.25, py: 0, fontSize: "0.8rem" }}>
+            <MaterialSymbol icon="view_column" size={16} />&nbsp;2 Col
           </ToggleButton>
         </ToggleButtonGroup>
 
         <Box sx={{ flex: 1 }} />
 
         {addingGroup ? (
-          <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+          <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }}>
             <TextField
               size="small" placeholder="Group name" autoFocus
               value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAddGroup(); }}
-              sx={{ width: 130, "& input": { py: 0.25, fontSize: "0.75rem" } }}
+              sx={{ width: 150 }}
             />
             <Button size="small" onClick={handleAddGroup} disabled={!newGroupName}>Add</Button>
             <IconButton size="small" onClick={() => { setAddingGroup(false); setNewGroupName(""); }}>
-              <MaterialSymbol icon="close" size={14} />
+              <MaterialSymbol icon="close" size={16} />
             </IconButton>
           </Box>
         ) : (
-          <Button size="small" startIcon={<MaterialSymbol icon="workspaces" size={14} />} onClick={() => setAddingGroup(true)}>
+          <Button size="small" startIcon={<MaterialSymbol icon="workspaces" size={16} />} onClick={() => setAddingGroup(true)}>
             Group
           </Button>
         )}
 
-        <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={() => openAddField(sectionIdx)}>
+        <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => openAddField(sectionIdx)}>
           Field
         </Button>
       </Box>
@@ -595,7 +610,7 @@ function VisualFieldLayout({
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <Box sx={{ display: "flex", gap: 1.5 }}>
+        <Box sx={{ display: "flex", gap: 2 }}>
           {/* Column 1 */}
           <SortableContext id="col-0" items={containers["col-0"] || []} strategy={verticalListSortingStrategy}>
             <DroppableColumn id="col-0" label="Column 1" isEmpty={(containers["col-0"] || []).length === 0}>
@@ -678,9 +693,9 @@ function DescriptionFieldsPanel({
   ];
 
   return (
-    <Box sx={{ pb: 1, px: 1 }}>
+    <Box sx={{ pb: 1.5, px: 1.5 }}>
       {builtinFields.map((f) => (
-        <Box key={f.key} sx={{ mb: 0.5 }}>
+        <Box key={f.key} sx={{ mb: 0.75 }}>
           <FieldCard field={f} isProtected />
         </Box>
       ))}
@@ -724,32 +739,32 @@ function SortableSectionItem({
   const canExpand = (info.isCustom || sectionKey === "description") && !cfg.hidden;
 
   return (
-    <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1, mb: 0.75, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
-      <Box sx={{ display: "flex", alignItems: "center", px: 1, py: 0.5, gap: 0.5 }}>
+    <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1.5, mb: 1, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
+      <Box sx={{ display: "flex", alignItems: "center", px: 1.5, py: 0.75, gap: 0.75 }}>
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
-          <MaterialSymbol icon="drag_indicator" size={18} color="#999" />
+          <MaterialSymbol icon="drag_indicator" size={20} color="#999" />
         </Box>
-        <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
-          <MaterialSymbol icon={info.icon} size={18} color={cfg.hidden ? "#bbb" : "#666"} />
+        <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.75, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
+          <MaterialSymbol icon={info.icon} size={20} color={cfg.hidden ? "#bbb" : "#666"} />
           <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.label}</Typography>
         </Box>
         <Tooltip title="Collapsed by default">
           <FormControlLabel
             control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
-            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Collapsed</Typography>}
+            label={<Typography variant="caption" color="text.secondary">Collapsed</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
         <Tooltip title="Hidden from card detail">
           <FormControlLabel
             control={<Switch size="small" checked={!!cfg.hidden} onChange={onToggleHidden} />}
-            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Hidden</Typography>}
+            label={<Typography variant="caption" color="text.secondary">Hidden</Typography>}
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
         {canExpand && (
           <IconButton size="small" onClick={onToggleExpand}>
-            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
+            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />
           </IconButton>
         )}
       </Box>
@@ -845,10 +860,10 @@ export default function CardLayoutEditor({
 
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>
         Card Layout
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Drag sections to reorder. Expand to manage fields, columns, and groups.
       </Typography>
 

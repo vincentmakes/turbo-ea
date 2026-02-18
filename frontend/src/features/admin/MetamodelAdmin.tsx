@@ -1036,7 +1036,7 @@ function TypeDetailDrawer({
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="xl"
+      maxWidth="lg"
       PaperProps={{ sx: { height: "90vh", maxHeight: "90vh" } }}
     >
       {/* ---------- Header ---------- */}
@@ -1047,6 +1047,7 @@ function TypeDetailDrawer({
           justifyContent: "space-between",
           px: 3, py: 1.5,
           borderBottom: 1, borderColor: "divider",
+          flexShrink: 0,
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -1098,61 +1099,62 @@ function TypeDetailDrawer({
       </Box>
 
       {error && (
-        <Alert severity="error" sx={{ mx: 3, mt: 1 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mx: 3, mt: 1.5 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* ---------- Two-panel body ---------- */}
-      <Box sx={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* ===== Left panel: Type settings ===== */}
-        <Box sx={{ width: 360, minWidth: 320, borderRight: 1, borderColor: "divider", overflow: "auto", p: 2.5 }}>
-          {/* Editable fields */}
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 3 }}>
+      {/* ---------- Single scrollable body ---------- */}
+      <Box sx={{ flex: 1, overflow: "auto", px: 4, py: 3 }}>
+        {/* ── Type Properties ── */}
+        <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
+          Type Properties
+        </Typography>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 2.5, mb: 1.5 }}>
+          <TextField
+            size="small"
+            label="Label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+          />
+          <TextField
+            size="small"
+            label="Category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            helperText="e.g. Business Architecture"
+          />
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
             <TextField
               size="small"
-              label="Label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              label="Icon"
+              value={icon}
+              onChange={(e) => setIcon(e.target.value)}
+              sx={{ flex: 1 }}
+              helperText="Material Symbols name"
             />
-            <TextField
-              size="small"
-              label="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              multiline
-              rows={2}
-            />
-            <TextField
-              size="small"
-              label="Category"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              helperText="Strategy & Transformation, Business Architecture, Application & Data, Technical Architecture"
-            />
-            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-              <TextField
-                size="small"
-                label="Icon name"
-                value={icon}
-                onChange={(e) => setIcon(e.target.value)}
-                sx={{ flex: 1 }}
-                helperText="Material Symbols Outlined"
-              />
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 1,
-                  bgcolor: "action.hover",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialSymbol icon={icon} size={24} color={color} />
-              </Box>
+            <Box
+              sx={{
+                width: 40, height: 40, borderRadius: 1,
+                bgcolor: "action.hover",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0, mt: 0.25,
+              }}
+            >
+              <MaterialSymbol icon={icon} size={24} color={color} />
             </Box>
+          </Box>
+        </Box>
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>
+          <TextField
+            size="small"
+            label="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            multiline
+            rows={2}
+          />
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             <ColorPicker
               value={color}
               onChange={setColor}
@@ -1160,191 +1162,129 @@ function TypeDetailDrawer({
               label={cardTypeKey?.built_in ? "Color (built-in)" : "Color"}
             />
             <FormControlLabel
-              control={
-                <Switch
-                  checked={hasHierarchy}
-                  onChange={(e) => setHasHierarchy(e.target.checked)}
-                />
-              }
+              control={<Switch checked={hasHierarchy} onChange={(e) => setHasHierarchy(e.target.checked)} />}
               label="Supports Hierarchy (Parent / Child)"
             />
           </Box>
+        </Box>
 
-          <Divider sx={{ mb: 2 }} />
-
+        {/* ── Subtypes + Relations (side by side) ── */}
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 3 }}>
           {/* Subtypes */}
-          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-            Subtypes
-          </Typography>
-          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1 }}>
-            {(cardTypeKey.subtypes || []).map((s) => (
-              <Chip
-                key={s.key}
-                label={`${s.label} (${s.key})`}
-                onDelete={() => handleRemoveSubtype(s.key)}
-                variant="outlined"
-                size="small"
-              />
-            ))}
-            {(!cardTypeKey.subtypes || cardTypeKey.subtypes.length === 0) && (
-              <Typography variant="body2" color="text.secondary">
-                No subtypes defined
-              </Typography>
+          <Box>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+              Subtypes
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
+              {(cardTypeKey.subtypes || []).map((s) => (
+                <Chip
+                  key={s.key}
+                  label={`${s.label} (${s.key})`}
+                  onDelete={() => handleRemoveSubtype(s.key)}
+                  variant="outlined"
+                  size="small"
+                />
+              ))}
+              {(!cardTypeKey.subtypes || cardTypeKey.subtypes.length === 0) && (
+                <Typography variant="body2" color="text.secondary">
+                  No subtypes defined
+                </Typography>
+              )}
+            </Box>
+            {addSubOpen ? (
+              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                <KeyInput
+                  size="small"
+                  label="Key"
+                  value={newSubKey}
+                  onChange={setNewSubKey}
+                  sx={{ flex: 1 }}
+                />
+                <TextField
+                  size="small"
+                  label="Label"
+                  value={newSubLabel}
+                  onChange={(e) => setNewSubLabel(e.target.value)}
+                  sx={{ flex: 1 }}
+                />
+                <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}>
+                  Add
+                </Button>
+                <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); }}>
+                  <MaterialSymbol icon="close" size={18} />
+                </IconButton>
+              </Box>
+            ) : (
+              <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSubOpen(true)}>
+                Add Subtype
+              </Button>
             )}
           </Box>
-          {addSubOpen ? (
-            <Box
-              sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, mb: 2 }}
-            >
-              <KeyInput
-                size="small"
-                label="Key"
-                value={newSubKey}
-                onChange={setNewSubKey}
-                sx={{ flex: 1 }}
-              />
-              <TextField
-                size="small"
-                label="Label"
-                value={newSubLabel}
-                onChange={(e) => setNewSubLabel(e.target.value)}
-                sx={{ flex: 1 }}
-              />
-              <Button
-                size="small"
-                variant="contained"
-                onClick={handleAddSubtype}
-                disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}
-              >
-                Add
-              </Button>
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setAddSubOpen(false);
-                  setNewSubKey("");
-                  setNewSubLabel("");
-                }}
-              >
-                <MaterialSymbol icon="close" size={18} />
-              </IconButton>
-            </Box>
-          ) : (
-            <Button
-              size="small"
-              startIcon={<MaterialSymbol icon="add" size={16} />}
-              onClick={() => setAddSubOpen(true)}
-              sx={{ mb: 2 }}
-            >
-              Add Subtype
-            </Button>
-          )}
-
-          <Divider sx={{ mb: 2 }} />
-
-          {/* Stakeholder Roles */}
-          <StakeholderRolePanel
-            typeKey={cardTypeKey.key}
-            onError={(msg) => setError(msg)}
-          />
-
-          <Divider sx={{ mb: 2 }} />
 
           {/* Relations */}
-          <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-            Relations
-          </Typography>
-          <List dense disablePadding>
-            {connectedRelations.map((r) => {
-              const isSource = r.source_type_key === cardTypeKey.key;
-              const otherKey = isSource
-                ? r.target_type_key
-                : r.source_type_key;
-              const otherType = types.find((t) => t.key === otherKey);
-              return (
-                <ListItem key={r.key} sx={{ pl: 0 }}>
-                  <ListItemText
-                    primary={
-                      <Box
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 0.5,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <Typography variant="body2" fontWeight={500} sx={{ fontSize: "0.8rem" }}>
-                          {isSource
-                            ? r.label
-                            : r.reverse_label || r.label}
-                        </Typography>
-                        <MaterialSymbol
-                          icon={isSource ? "arrow_forward" : "arrow_back"}
-                          size={14}
-                          color="#999"
-                        />
-                        {otherType && (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 0.5,
-                            }}
-                          >
-                            <Box
-                              sx={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: "50%",
-                                bgcolor: otherType.color,
-                                flexShrink: 0,
-                              }}
-                            />
-                            <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
-                              {otherType.label}
-                            </Typography>
-                          </Box>
-                        )}
-                        <Chip
-                          size="small"
-                          label={r.cardinality}
-                          variant="outlined"
-                          sx={{ height: 18, fontSize: 10 }}
-                        />
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              );
-            })}
-          </List>
-          {connectedRelations.length === 0 && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              No relations connected to this type.
+          <Box>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
+              Relations
             </Typography>
-          )}
-          <Button
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={16} />}
-            onClick={() => onCreateRelation(cardTypeKey.key)}
-          >
-            Add Relation
-          </Button>
+            {connectedRelations.length > 0 ? (
+              <List dense disablePadding sx={{ mb: 1 }}>
+                {connectedRelations.map((r) => {
+                  const isSource = r.source_type_key === cardTypeKey.key;
+                  const otherKey = isSource ? r.target_type_key : r.source_type_key;
+                  const otherType = types.find((t) => t.key === otherKey);
+                  return (
+                    <ListItem key={r.key} sx={{ pl: 0, py: 0.25 }}>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                            <Typography variant="body2" fontWeight={500}>
+                              {isSource ? r.label : r.reverse_label || r.label}
+                            </Typography>
+                            <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
+                            {otherType && (
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
+                                <Typography variant="body2">{otherType.label}</Typography>
+                              </Box>
+                            )}
+                            <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
+                          </Box>
+                        }
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                No relations connected to this type.
+              </Typography>
+            )}
+            <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => onCreateRelation(cardTypeKey.key)}>
+              Add Relation
+            </Button>
+          </Box>
         </Box>
 
-        {/* ===== Right panel: Card Layout editor ===== */}
-        <Box sx={{ flex: 1, overflow: "auto", p: 2.5 }}>
-          {cardTypeKey && (
-            <CardLayoutEditor
-              cardType={cardTypeKey}
-              onRefresh={onRefresh}
-              openAddField={openAddField}
-              openEditField={openEditField}
-              promptDeleteField={promptDeleteField}
-              calculatedFieldKeys={calculatedFieldKeys}
-            />
-          )}
-        </Box>
+        {/* ── Stakeholder Roles ── */}
+        <StakeholderRolePanel
+          typeKey={cardTypeKey.key}
+          onError={(msg) => setError(msg)}
+        />
+
+        <Divider sx={{ my: 3 }} />
+
+        {/* ── Card Layout ── */}
+        {cardTypeKey && (
+          <CardLayoutEditor
+            cardType={cardTypeKey}
+            onRefresh={onRefresh}
+            openAddField={openAddField}
+            openEditField={openEditField}
+            promptDeleteField={promptDeleteField}
+            calculatedFieldKeys={calculatedFieldKeys}
+          />
+        )}
       </Box>
 
       {/* --- Field deletion confirmation dialog --- */}
