@@ -24,7 +24,6 @@ import EADeliveryPage from "@/features/ea-delivery/EADeliveryPage";
 import SoAWEditor from "@/features/ea-delivery/SoAWEditor";
 import SoAWPreview from "@/features/ea-delivery/SoAWPreview";
 import MetamodelAdmin from "@/features/admin/MetamodelAdmin";
-import TagsAdmin from "@/features/admin/TagsAdmin";
 import UsersAdmin from "@/features/admin/UsersAdmin";
 import SettingsAdmin from "@/features/admin/SettingsAdmin";
 import SurveysAdmin from "@/features/admin/SurveysAdmin";
@@ -32,7 +31,6 @@ import SurveyBuilder from "@/features/admin/SurveyBuilder";
 import SurveyResults from "@/features/admin/SurveyResults";
 import EolAdmin from "@/features/admin/EolAdmin";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
-import RolesAdmin from "@/features/admin/RolesAdmin";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
 import SsoCallback from "@/features/auth/SsoCallback";
@@ -118,7 +116,6 @@ function AppRoutes() {
               <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
               <Route path="/surveys/:surveyId/respond/:cardId" element={<SurveyRespond />} />
               <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
-              <Route path="/admin/tags" element={<TagsAdmin />} />
               <Route path="/admin/users" element={<UsersAdmin />} />
               <Route path="/admin/settings" element={<SettingsAdmin />} />
               <Route path="/admin/eol" element={<EolAdmin />} />
@@ -126,7 +123,6 @@ function AppRoutes() {
               <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
               <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
               <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
-              <Route path="/admin/roles" element={<RolesAdmin />} />
               <Route path="/admin/web-portals" element={<WebPortalsAdmin />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>

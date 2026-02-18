@@ -34,6 +34,7 @@ import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
+import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
@@ -2253,6 +2254,7 @@ export default function MetamodelAdmin() {
         <Tab label="Card Types" />
         <Tab label="Relation Types" />
         <Tab label="Calculations" />
+        <Tab label="Tags" />
         <Tab label="Metamodel Graph" />
       </Tabs>
 
@@ -2649,9 +2651,14 @@ export default function MetamodelAdmin() {
       {tab === 2 && <CalculationsAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 3 -- Metamodel Graph                                    */}
+      {/*  TAB 3 -- Tags                                               */}
       {/* ============================================================ */}
-      {tab === 3 && (
+      {tab === 3 && <TagsAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 4 -- Metamodel Graph                                    */}
+      {/* ============================================================ */}
+      {tab === 4 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}
