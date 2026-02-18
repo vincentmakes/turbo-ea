@@ -18,9 +18,6 @@ import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Chip from "@mui/material/Chip";
-import Accordion from "@mui/material/Accordion";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import AccordionDetails from "@mui/material/AccordionDetails";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
@@ -36,6 +33,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
+import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
@@ -97,18 +95,6 @@ const LABEL_H = 20;
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function fieldTypeColor(type: FieldDef["type"]): string {
-  const map: Record<string, string> = {
-    text: "#1976d2",
-    number: "#ed6c02",
-    boolean: "#9c27b0",
-    date: "#2e7d32",
-    single_select: "#0288d1",
-    multiple_select: "#7b1fa2",
-  };
-  return map[type] || "#757575";
-}
 
 function emptyField(): FieldDef {
   return { key: "", label: "", type: "text", required: false, weight: 0 };
@@ -881,8 +867,6 @@ function TypeDetailDrawer({
   } | null>(null);
 
   /* --- Add section --- */
-  const [addSectionOpen, setAddSectionOpen] = useState(false);
-  const [newSectionName, setNewSectionName] = useState("");
 
   /* --- Calculated fields map (type_key → field_keys[]) --- */
   const [calculatedFieldKeys, setCalculatedFieldKeys] = useState<string[]>([]);
@@ -905,7 +889,6 @@ function TypeDetailDrawer({
       setHasHierarchy(cardTypeKey.has_hierarchy);
       setError(null);
       setAddSubOpen(false);
-      setAddSectionOpen(false);
       setDeleteFieldConfirm(null);
     }
   }, [cardTypeKey]);
@@ -1037,23 +1020,6 @@ function TypeDetailDrawer({
     }
   };
 
-  const handleAddSection = async () => {
-    if (!newSectionName) return;
-    try {
-      const schema: SectionDef[] = [
-        ...cardTypeKey.fields_schema,
-        { section: newSectionName, fields: [] },
-      ];
-      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
-        fields_schema: schema,
-      });
-      onRefresh();
-      setNewSectionName("");
-      setAddSectionOpen(false);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to add section");
-    }
-  };
 
   /* --- Hide / Unhide --- */
   const handleToggleHidden = async () => {
@@ -1280,221 +1246,19 @@ function TypeDetailDrawer({
 
         <Divider sx={{ mb: 2 }} />
 
-        {/* ---------- Fields ---------- */}
-        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-          Fields
-        </Typography>
-        {cardTypeKey.fields_schema.map((section, si) => (
-          <Accordion
-            key={si}
-            defaultExpanded
-            variant="outlined"
-            disableGutters
-            sx={{ mb: 1, "&:before": { display: "none" } }}
-          >
-            <AccordionSummary
-              expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
-            >
-              <Typography fontWeight={600} sx={{ mr: 1 }}>
-                {section.section}
-              </Typography>
-              <Chip
-                size="small"
-                label={section.fields.length}
-                sx={{ height: 20, fontSize: 11 }}
-              />
-            </AccordionSummary>
-            <AccordionDetails sx={{ pt: 0 }}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={section.defaultExpanded === false}
-                    onChange={async () => {
-                      const schema = [...cardTypeKey.fields_schema];
-                      schema[si] = { ...schema[si], defaultExpanded: section.defaultExpanded === false };
-                      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { fields_schema: schema });
-                      onRefresh();
-                    }}
-                  />
-                }
-                label={<Typography variant="body2" color="text.secondary">Collapsed by default in card details</Typography>}
-                sx={{ mb: 1 }}
-              />
-              <List dense disablePadding>
-                {section.fields.map((f, fi) => (
-                  <ListItem
-                    key={f.key}
-                    secondaryAction={
-                      <Box sx={{ display: "flex", gap: 0.25 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => openEditField(si, fi)}
-                        >
-                          <MaterialSymbol icon="edit" size={18} />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => promptDeleteField(si, fi)}
-                        >
-                          <MaterialSymbol icon="delete" size={18} />
-                        </IconButton>
-                      </Box>
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                        >
-                          <Typography variant="body2" fontWeight={500}>
-                            {f.label}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            label={f.type}
-                            sx={{
-                              bgcolor: fieldTypeColor(f.type),
-                              color: "#fff",
-                              height: 20,
-                              fontSize: 11,
-                            }}
-                          />
-                          {f.required && (
-                            <Chip
-                              size="small"
-                              label="Required"
-                              color="error"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: 11 }}
-                            />
-                          )}
-                        </Box>
-                      }
-                      secondary={`Weight: ${f.weight ?? 0}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-              <Button
-                size="small"
-                startIcon={<MaterialSymbol icon="add" size={16} />}
-                onClick={() => openAddField(si)}
-                sx={{ mt: 0.5 }}
-              >
-                Add Field
-              </Button>
-            </AccordionDetails>
-          </Accordion>
-        ))}
-        {cardTypeKey.fields_schema.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            No field sections yet.
-          </Typography>
-        )}
-        {addSectionOpen ? (
-          <Box
-            sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, mb: 2 }}
-          >
-            <TextField
-              size="small"
-              label="Section Name"
-              value={newSectionName}
-              onChange={(e) => setNewSectionName(e.target.value)}
-              sx={{ flex: 1 }}
-            />
-            <Button
-              size="small"
-              variant="contained"
-              onClick={handleAddSection}
-              disabled={!newSectionName}
-            >
-              Add
-            </Button>
-            <IconButton
-              size="small"
-              onClick={() => {
-                setAddSectionOpen(false);
-                setNewSectionName("");
-              }}
-            >
-              <MaterialSymbol icon="close" size={18} />
-            </IconButton>
-          </Box>
-        ) : (
-          <Button
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={16} />}
-            onClick={() => setAddSectionOpen(true)}
-            sx={{ mb: 2 }}
-          >
-            Add Section
-          </Button>
+        {/* ---------- Card Layout (unified sections + fields) ---------- */}
+        {cardTypeKey && (
+          <CardLayoutEditor
+            cardType={cardTypeKey}
+            onRefresh={onRefresh}
+            openAddField={openAddField}
+            openEditField={openEditField}
+            promptDeleteField={promptDeleteField}
+            calculatedFieldKeys={calculatedFieldKeys}
+          />
         )}
 
-        <Divider sx={{ mb: 2 }} />
-
-        {/* ---------- Card Layout (built-in sections) ---------- */}
-        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-          Card Layout
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Configure visibility and default state of built-in sections in the card detail view.
-        </Typography>
-        {(() => {
-          const secCfg = cardTypeKey.section_config || {};
-          const builtInSections = [
-            { key: "description", label: "Description", icon: "description" },
-            { key: "eol", label: "End of Life", icon: "update" },
-            { key: "lifecycle", label: "Lifecycle", icon: "timeline" },
-            { key: "hierarchy", label: "Hierarchy", icon: "account_tree", onlyIf: cardTypeKey.has_hierarchy },
-            { key: "relations", label: "Relations", icon: "hub" },
-          ];
-          const updateSecCfg = async (sectionKey: string, patch: Record<string, boolean>) => {
-            const updated = { ...secCfg, [sectionKey]: { ...(secCfg[sectionKey] || {}), ...patch } };
-            await api.patch(`/metamodel/types/${cardTypeKey.key}`, { section_config: updated });
-            onRefresh();
-          };
-          return (
-            <List dense disablePadding sx={{ mb: 2 }}>
-              {builtInSections.filter((s) => s.onlyIf !== false).map((s) => {
-                const cfg = secCfg[s.key] || {};
-                return (
-                  <ListItem key={s.key} sx={{ pl: 0 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
-                      <MaterialSymbol icon={s.icon} size={18} color="#666" />
-                      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 100 }}>{s.label}</Typography>
-                    </Box>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={cfg.defaultExpanded === false}
-                          disabled={!!cfg.hidden}
-                          onChange={() => updateSecCfg(s.key, { defaultExpanded: cfg.defaultExpanded === false })}
-                        />
-                      }
-                      label={<Typography variant="caption" color="text.secondary">Collapsed</Typography>}
-                      sx={{ mr: 2 }}
-                    />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          size="small"
-                          checked={!!cfg.hidden}
-                          onChange={() => updateSecCfg(s.key, { hidden: !cfg.hidden })}
-                        />
-                      }
-                      label={<Typography variant="caption" color="text.secondary">Hidden</Typography>}
-                    />
-                  </ListItem>
-                );
-              })}
-            </List>
-          );
-        })()}
-
-        <Divider sx={{ mb: 2 }} />
+        <Divider sx={{ my: 2 }} />
 
         {/* ---------- Relations ---------- */}
         <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>

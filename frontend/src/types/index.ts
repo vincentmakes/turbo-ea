@@ -105,6 +105,8 @@ export interface FieldDef {
   required?: boolean;
   weight?: number;
   readonly?: boolean;
+  group?: string;
+  column?: 0 | 1;
 }
 
 export interface SubtypeDef {
@@ -116,6 +118,7 @@ export interface SectionDef {
   section: string;
   fields: FieldDef[];
   defaultExpanded?: boolean;
+  columns?: 1 | 2;
 }
 
 export interface StakeholderRoleDefinition {
@@ -126,6 +129,7 @@ export interface StakeholderRoleDefinition {
 export interface SectionConfig {
   defaultExpanded?: boolean;
   hidden?: boolean;
+  __order?: string[];
 }
 
 export interface CardType {

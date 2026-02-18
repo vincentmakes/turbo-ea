@@ -359,23 +359,33 @@ function DescriptionSection({
   onSave,
   canEdit = true,
   initialExpanded = true,
+  extraFields,
+  currencyFmt,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
   initialExpanded?: boolean;
+  extraFields?: FieldDef[];
+  currencyFmt?: Intl.NumberFormat;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
+  const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
 
   useEffect(() => {
     setName(card.name);
     setDescription(card.description || "");
-  }, [card.name, card.description]);
+    setAttrs(card.attributes || {});
+  }, [card.name, card.description, card.attributes]);
 
   const save = async () => {
-    await onSave({ name, description });
+    const updates: Record<string, unknown> = { name, description };
+    if (extraFields && extraFields.length > 0) {
+      updates.attributes = { ...(card.attributes || {}), ...attrs };
+    }
+    await onSave(updates);
     setEditing(false);
   };
 
@@ -419,12 +429,18 @@ function DescriptionSection({
               size="small"
               sx={{ mb: 2 }}
             />
+            {extraFields && extraFields.map((field) => (
+              <Box key={field.key} sx={{ mb: 2 }}>
+                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} />
+              </Box>
+            ))}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
                 onClick={() => {
                   setName(card.name);
                   setDescription(card.description || "");
+                  setAttrs(card.attributes || {});
                   setEditing(false);
                 }}
               >
@@ -436,9 +452,21 @@ function DescriptionSection({
             </Box>
           </Box>
         ) : (
-          <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap">
-            {card.description || "No description provided."}
-          </Typography>
+          <Box>
+            <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap" sx={{ mb: extraFields?.length ? 1 : 0 }}>
+              {card.description || "No description provided."}
+            </Typography>
+            {extraFields && extraFields.length > 0 && (
+              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+                {extraFields.map((field) => (
+                  <Box key={field.key} sx={{ display: "contents" }}>
+                    <Typography variant="body2" color="text.secondary">{field.label}</Typography>
+                    <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         )}
       </AccordionDetails>
     </Accordion>
@@ -596,13 +624,15 @@ function AttributeSection({
   onRelationChange,
   canEdit = true,
   calculatedFieldKeys = [],
+  initialExpanded,
 }: {
-  section: { section: string; fields: FieldDef[]; defaultExpanded?: boolean };
+  section: { section: string; fields: FieldDef[]; defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
   canEdit?: boolean;
   calculatedFieldKeys?: string[];
+  initialExpanded?: boolean;
 }) {
   const { fmt, symbol } = useCurrency();
   const [editing, setEditing] = useState(false);
@@ -631,8 +661,92 @@ function AttributeSection({
     return v != null && v !== "" && v !== false;
   }).length;
 
+  const is2Col = section.columns === 2;
+
+  // Group fields while preserving order
+  const groupOrder: string[] = [];
+  const groupedFields: Record<string, FieldDef[]> = {};
+  for (const field of section.fields) {
+    const g = field.group || "";
+    if (!groupedFields[g]) {
+      groupedFields[g] = [];
+      groupOrder.push(g);
+    }
+    groupedFields[g].push(field);
+  }
+
+  const expanded = initialExpanded ?? (section.defaultExpanded !== false);
+
+  // Read-only field grid
+  const renderReadGrid = (fields: FieldDef[]) => (
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+      {fields.map((field) => (
+        <Box key={field.key} sx={{ display: "contents" }}>
+          <Typography variant="body2" color="text.secondary">
+            {field.label}
+            {calculatedFieldKeys.includes(field.key) ? (
+              <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : field.readonly ? (
+              <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+            ) : null}
+          </Typography>
+          <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} />
+        </Box>
+      ))}
+    </Box>
+  );
+
+  // Edit field list
+  const renderEditFields = (fields: FieldDef[]) => (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {fields.map((field) =>
+        field.readonly || calculatedFieldKeys.includes(field.key) ? (
+          <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{field.label}</Typography>
+            <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
+            <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+          </Box>
+        ) : isVendorField(field) ? (
+          <VendorField
+            key={field.key}
+            value={(attrs[field.key] as string) ?? ""}
+            onChange={(v) => setAttr(field.key, v)}
+            cardTypeKey={card.type}
+            fsId={card.id}
+            onRelationChange={onRelationChange}
+          />
+        ) : (
+          <FieldEditor
+            key={field.key}
+            field={field}
+            value={attrs[field.key]}
+            onChange={(v) => setAttr(field.key, v)}
+            currencySymbol={symbol}
+          />
+        )
+      )}
+    </Box>
+  );
+
+  // Render group content (handles 2-column layout)
+  const renderGroupContent = (fields: FieldDef[], isEdit: boolean) => {
+    if (!is2Col) return isEdit ? renderEditFields(fields) : renderReadGrid(fields);
+    const col0 = fields.filter((f) => (f.column ?? 0) === 0);
+    const col1 = fields.filter((f) => f.column === 1);
+    return (
+      <Box sx={{ display: "flex", gap: 3, flexDirection: { xs: "column", sm: "row" } }}>
+        <Box sx={{ flex: 1 }}>{isEdit ? renderEditFields(col0) : renderReadGrid(col0)}</Box>
+        {col1.length > 0 && (
+          <Box sx={{ flex: 1 }}>{isEdit ? renderEditFields(col1) : renderReadGrid(col1)}</Box>
+        )}
+      </Box>
+    );
+  };
+
+  const groupHeaderSx = { fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: 1 };
+
   return (
-    <Accordion defaultExpanded={section.defaultExpanded !== false} disableGutters>
+    <Accordion defaultExpanded={expanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="tune" size={20} color="#666" />
@@ -658,37 +772,13 @@ function AttributeSection({
       <AccordionDetails>
         {editing && canEdit ? (
           <Box>
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 2 }}>
-              {section.fields.map((field) =>
-                field.readonly || calculatedFieldKeys.includes(field.key) ? (
-                  <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>
-                      {field.label}
-                    </Typography>
-                    <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
-                    <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
-                  </Box>
-                ) : isVendorField(field) ? (
-                  <VendorField
-                    key={field.key}
-                    value={(attrs[field.key] as string) ?? ""}
-                    onChange={(v) => setAttr(field.key, v)}
-                    cardTypeKey={card.type}
-                    fsId={card.id}
-                    onRelationChange={onRelationChange}
-                  />
-                ) : (
-                  <FieldEditor
-                    key={field.key}
-                    field={field}
-                    value={attrs[field.key]}
-                    onChange={(v) => setAttr(field.key, v)}
-                    currencySymbol={symbol}
-                  />
-                )
-              )}
-            </Box>
-            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+            {groupOrder.map((g) => (
+              <Box key={g || "__ungrouped"}>
+                {g && <Typography variant="subtitle2" sx={groupHeaderSx}>{g}</Typography>}
+                {renderGroupContent(groupedFields[g], true)}
+              </Box>
+            ))}
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}>
               <Button
                 size="small"
                 onClick={() => {
@@ -704,30 +794,11 @@ function AttributeSection({
             </Box>
           </Box>
         ) : (
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" },
-              rowGap: 1,
-              columnGap: 2,
-              alignItems: { sm: "center" },
-            }}
-          >
-            {section.fields.map((field) => (
-              <Box key={field.key} sx={{ display: "contents" }}>
-                <Typography variant="body2" color="text.secondary">
-                  {field.label}
-                  {calculatedFieldKeys.includes(field.key) ? (
-                    <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  ) : field.readonly ? (
-                    <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
-                  ) : null}
-                </Typography>
-                <FieldValue
-                  field={field}
-                  value={(card.attributes || {})[field.key]}
-                  currencyFmt={fmt}
-                />
+          <Box>
+            {groupOrder.map((g) => (
+              <Box key={g || "__ungrouped"}>
+                {g && <Typography variant="subtitle2" sx={groupHeaderSx}>{g}</Typography>}
+                {renderGroupContent(groupedFields[g], false)}
               </Box>
             ))}
           </Box>
@@ -2089,6 +2160,102 @@ export default function CardDetail() {
   const secExpanded = (key: string, fallback = true) => sc[key]?.defaultExpanded !== false ? fallback : false;
   const secHidden = (key: string) => !!sc[key]?.hidden;
 
+  // Currency for description extra fields
+  const { fmt: currencyFmt } = useCurrency();
+
+  // Section ordering: custom sections exclude __description, which feeds DescriptionSection
+  const customSections = (typeConfig?.fields_schema || []).filter((s) => s.section !== "__description");
+  const descExtraSection = (typeConfig?.fields_schema || []).find((s) => s.section === "__description");
+  const descExtraFields = descExtraSection?.fields || [];
+
+  // Build section order from config or default
+  const sectionOrder = (() => {
+    const raw = (sc as Record<string, unknown>).__order as string[] | undefined;
+    if (raw && Array.isArray(raw) && raw.length > 0) {
+      const customKeys = customSections.map((_, i) => `custom:${i}`);
+      const existing = new Set(raw);
+      const result = [...raw];
+      for (const k of customKeys) {
+        if (!existing.has(k)) result.push(k);
+      }
+      if (!typeConfig?.has_hierarchy) return result.filter((k) => k !== "hierarchy");
+      return result;
+    }
+    const order: string[] = ["description", "eol", "lifecycle"];
+    customSections.forEach((_, i) => order.push(`custom:${i}`));
+    if (typeConfig?.has_hierarchy) order.push("hierarchy");
+    order.push("relations");
+    return order;
+  })();
+
+  // Render a section by its key (used in the ordered section loop)
+  const renderSection = (key: string) => {
+    if (secHidden(key)) return null;
+    const exp = secExpanded(key, key === "relations" ? false : true);
+
+    if (key === "description") {
+      return (
+        <ErrorBoundary key={key} label="Description" inline>
+          <DescriptionSection
+            card={card}
+            onSave={handleUpdate}
+            canEdit={perms.can_edit}
+            initialExpanded={exp}
+            extraFields={descExtraFields.length > 0 ? descExtraFields : undefined}
+            currencyFmt={currencyFmt}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "eol") {
+      return (
+        <ErrorBoundary key={key} label="End of Life" inline>
+          <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={exp ? undefined : false} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "lifecycle") {
+      return (
+        <ErrorBoundary key={key} label="Lifecycle" inline>
+          <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "hierarchy") {
+      return (
+        <ErrorBoundary key={key} label="Hierarchy" inline>
+          <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "relations") {
+      return (
+        <ErrorBoundary key={key} label="Relations" inline>
+          <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={exp} />
+        </ErrorBoundary>
+      );
+    }
+    if (key.startsWith("custom:")) {
+      const idx = parseInt(key.split(":")[1], 10);
+      const section = customSections[idx];
+      if (!section) return null;
+      return (
+        <ErrorBoundary key={key} label={section.section}>
+          <AttributeSection
+            section={section}
+            card={card}
+            onSave={handleUpdate}
+            onRelationChange={() => setRelRefresh((n) => n + 1)}
+            canEdit={perms.can_edit}
+            calculatedFieldKeys={calcFieldKeys}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    return null;
+  };
+
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
     setCard(updated);
@@ -2327,43 +2494,7 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {!secHidden("description") && (
-                <ErrorBoundary label="Description" inline>
-                  <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("description")} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("eol") && (
-                <ErrorBoundary label="End of Life" inline>
-                  <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={secExpanded("eol") ? undefined : false} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("lifecycle") && (
-                <ErrorBoundary label="Lifecycle" inline>
-                  <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("lifecycle")} />
-                </ErrorBoundary>
-              )}
-              {typeConfig?.fields_schema.map((section) => (
-                <ErrorBoundary key={section.section} label={section.section}>
-                  <AttributeSection
-                    section={section}
-                    card={card}
-                    onSave={handleUpdate}
-                    onRelationChange={() => setRelRefresh((n) => n + 1)}
-                    canEdit={perms.can_edit}
-                    calculatedFieldKeys={calcFieldKeys}
-                  />
-                </ErrorBoundary>
-              ))}
-              {!secHidden("hierarchy") && (
-                <ErrorBoundary label="Hierarchy" inline>
-                  <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={secExpanded("hierarchy")} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("relations") && (
-                <ErrorBoundary label="Relations" inline>
-                  <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={secExpanded("relations", false)} />
-                </ErrorBoundary>
-              )}
+              {sectionOrder.map(renderSection)}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Process Flow"><MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard></ErrorBoundary>}
@@ -2377,43 +2508,7 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              {!secHidden("description") && (
-                <ErrorBoundary label="Description" inline>
-                  <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("description")} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("eol") && (
-                <ErrorBoundary label="End of Life" inline>
-                  <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={secExpanded("eol") ? undefined : false} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("lifecycle") && (
-                <ErrorBoundary label="Lifecycle" inline>
-                  <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("lifecycle")} />
-                </ErrorBoundary>
-              )}
-              {typeConfig?.fields_schema.map((section) => (
-                <ErrorBoundary key={section.section} label={section.section}>
-                  <AttributeSection
-                    section={section}
-                    card={card}
-                    onSave={handleUpdate}
-                    onRelationChange={() => setRelRefresh((n) => n + 1)}
-                    canEdit={perms.can_edit}
-                    calculatedFieldKeys={calcFieldKeys}
-                  />
-                </ErrorBoundary>
-              ))}
-              {!secHidden("hierarchy") && (
-                <ErrorBoundary label="Hierarchy" inline>
-                  <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={secExpanded("hierarchy")} />
-                </ErrorBoundary>
-              )}
-              {!secHidden("relations") && (
-                <ErrorBoundary label="Relations" inline>
-                  <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={secExpanded("relations", false)} />
-                </ErrorBoundary>
-              )}
+              {sectionOrder.map(renderSection)}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
