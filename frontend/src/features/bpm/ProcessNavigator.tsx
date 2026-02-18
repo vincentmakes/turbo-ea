@@ -1803,11 +1803,22 @@ export default function ProcessNavigator() {
   const [reordering, setReordering] = useState(false);
   const [rowOrder, setRowOrder] = useState<string[]>(["management", "core", "support"]);
 
-  // ── URL-synced state ──
-  const viewParam = (searchParams.get("view") as ViewMode) || "house";
+  // ── Load defaults from localStorage (URL params take priority) ──
+  const STORAGE_KEY = "turboea-report:process-navigator";
+  const [localConfig] = useState<Record<string, unknown> | null>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore */ }
+    return null;
+  });
+
+  // ── URL-synced state (with localStorage fallback) ──
+  const hasUrlParams = searchParams.toString().length > 0;
+  const viewParam = (searchParams.get("view") as ViewMode) || (!hasUrlParams && localConfig?.viewMode as ViewMode) || "house";
   const searchParam = searchParams.get("search") || "";
-  const levelParam = parseInt(searchParams.get("level") || "2", 10);
-  const overlayParam = (searchParams.get("overlay") as ColorOverlay) || "processType";
+  const levelParam = parseInt(searchParams.get("level") || (!hasUrlParams && localConfig?.displayLevel != null ? String(localConfig.displayLevel) : "2"), 10);
+  const overlayParam = (searchParams.get("overlay") as ColorOverlay) || (!hasUrlParams && localConfig?.overlay as ColorOverlay) || "processType";
   const zoomParam = searchParams.get("zoom") || null;
   const drawerParam = searchParams.get("open") || null;
 
@@ -1896,6 +1907,29 @@ export default function ProcessNavigator() {
     if (drawerNode) params.open = drawerNode.id;
     setSearchParams(params, { replace: true });
   }, [viewMode, search, displayLevel, overlay, zoomNodeId, drawerNode, setSearchParams]);
+
+  // ── Auto-persist to localStorage ──
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        viewMode,
+        displayLevel,
+        overlay,
+      }));
+    } catch { /* ignore */ }
+  }, [viewMode, displayLevel, overlay, STORAGE_KEY]);
+
+  // ── Reset all parameters to defaults ──
+  const handleReset = useCallback(() => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    setViewMode("house");
+    setSearch("");
+    setDisplayLevel(2);
+    setOverlay("processType");
+    setZoomNodeId(null);
+    setDrawerNode(null);
+    setOrgFilter([]);
+  }, [STORAGE_KEY]);
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
@@ -2097,6 +2131,12 @@ export default function ProcessNavigator() {
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
+
+        <Tooltip title="Reset to defaults">
+          <IconButton size="small" onClick={handleReset}>
+            <MaterialSymbol icon="restart_alt" size={20} />
+          </IconButton>
+        </Tooltip>
       </Box>
 
       {/* ── Toolbar (House view only) ── */}

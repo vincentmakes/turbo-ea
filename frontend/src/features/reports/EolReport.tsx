@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -214,6 +214,23 @@ export default function EolReport() {
 
   const getConfig = () => ({ view, filterStatus, filterType, filterSource, sortK, sortD });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [view, filterStatus, filterType, filterSource, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setView("chart");
+    setFilterStatus("");
+    setFilterType("");
+    setFilterSource("");
+    setSortK("status");
+    setSortD("asc");
+    setExpandedItem(null);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     api.get<EolReportData>("/reports/eol").then(setData);
   }, []);
@@ -323,6 +340,7 @@ export default function EolReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           <TextField

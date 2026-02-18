@@ -105,41 +105,6 @@ interface DrawerData {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Well-known option colors for common Application fields */
-const KNOWN_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
-  timeModel: {
-    tolerate: { label: "Tolerate", color: "#ff9800" },
-    invest: { label: "Invest", color: "#4caf50" },
-    migrate: { label: "Migrate", color: "#2196f3" },
-    eliminate: { label: "Eliminate", color: "#d32f2f" },
-  },
-  businessCriticality: {
-    missionCritical: { label: "Mission Critical", color: "#d32f2f" },
-    businessCritical: { label: "Business Critical", color: "#f57c00" },
-    businessOperational: { label: "Business Operational", color: "#fbc02d" },
-    administrativeService: { label: "Administrative", color: "#9e9e9e" },
-  },
-  functionalSuitability: {
-    perfect: { label: "Perfect", color: "#2e7d32" },
-    appropriate: { label: "Appropriate", color: "#66bb6a" },
-    insufficient: { label: "Insufficient", color: "#f57c00" },
-    unreasonable: { label: "Unreasonable", color: "#d32f2f" },
-  },
-  technicalSuitability: {
-    fullyAppropriate: { label: "Fully Appropriate", color: "#2e7d32" },
-    adequate: { label: "Adequate", color: "#66bb6a" },
-    unreasonable: { label: "Unreasonable", color: "#f57c00" },
-    inappropriate: { label: "Inappropriate", color: "#d32f2f" },
-  },
-  hostingType: {
-    onPremise: { label: "On-Premise", color: "#5c6bc0" },
-    cloudSaaS: { label: "Cloud (SaaS)", color: "#26a69a" },
-    cloudPaaS: { label: "Cloud (PaaS)", color: "#42a5f5" },
-    cloudIaaS: { label: "Cloud (IaaS)", color: "#7e57c2" },
-    hybrid: { label: "Hybrid", color: "#ff7043" },
-  },
-};
-
 const UNSET_COLOR = "#e0e0e0";
 const DEFAULT_APP_COLOR = "#0f7eb5";
 
@@ -165,10 +130,6 @@ function getAppColor(
   if (!colorBy) return DEFAULT_APP_COLOR;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return UNSET_COLOR;
-  // Check known colors first
-  const known = KNOWN_COLORS[colorBy]?.[val];
-  if (known) return known.color;
-  // Fall back to field option color from schema
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.color || UNSET_COLOR;
@@ -182,8 +143,6 @@ function getAppColorLabel(
   if (!colorBy) return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return "Not set";
-  const known = KNOWN_COLORS[colorBy]?.[val];
-  if (known) return known.label;
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.label || val;
@@ -208,13 +167,13 @@ function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
   return true;
 }
 
-function isLightColor(color: string): boolean {
-  return (
-    color === UNSET_COLOR ||
-    color === "#fbc02d" ||
-    color === "#ff9800" ||
-    color === "#66bb6a"
-  );
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  if (c.length < 6) return true;
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
 /* ------------------------------------------------------------------ */
@@ -222,8 +181,8 @@ function isLightColor(color: string): boolean {
 /* ------------------------------------------------------------------ */
 
 interface FilterState {
-  orgIds: string[];
   attributeFilters: Record<string, string[]>;
+  relationFilters: Record<string, string[]>;
   timelineDate: number;
   search: string;
 }
@@ -233,14 +192,19 @@ function matchesFilters(
   filters: FilterState,
 ): boolean {
   if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
-  if (
-    filters.orgIds.length > 0 &&
-    !filters.orgIds.some((o) => app.org_ids.includes(o))
-  )
-    return false;
+  // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(filters.attributeFilters)) {
     if (vals.length > 0 && !vals.includes(attrs[key] as string)) return false;
+  }
+  // Relation filters (e.g. Organization, Platform, etc.)
+  for (const [typeKey, ids] of Object.entries(filters.relationFilters)) {
+    if (ids.length > 0) {
+      const hasMatch = app.relations.some(
+        (r) => r.related_type === typeKey && ids.includes(r.related_id),
+      );
+      if (!hasMatch) return false;
+    }
   }
   if (
     filters.search &&
@@ -501,8 +465,9 @@ function FilterSelect({
                 bgcolor: opt?.color ?? undefined,
                 color: opt?.color ? "#fff" : undefined,
                 fontWeight: 500,
-                fontSize: "0.72rem",
-                maxWidth: 120,
+                fontSize: "0.7rem",
+                height: 22,
+                maxWidth: 110,
               }}
             />
           );
@@ -515,7 +480,7 @@ function FilterSelect({
           placeholder={value.length === 0 ? "All" : ""}
         />
       )}
-      sx={{ width: 200 }}
+      sx={{ width: 180 }}
     />
   );
 }
@@ -535,14 +500,16 @@ export default function PortfolioReport() {
   const [drawer, setDrawer] = useState<DrawerData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
-  // Controls
-  const [groupByRaw, setGroupByRaw] = useState("attr:businessCriticality");
-  const [colorBy, setColorBy] = useState("timeModel");
+  // Controls — defaults are set dynamically after data loads
+  const [groupByRaw, setGroupByRaw] = useState("");
+  const [colorBy, setColorBy] = useState("");
   const [search, setSearch] = useState("");
+  const [defaultsApplied, setDefaultsApplied] = useState(false);
 
   // Filters
-  const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
+  const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Timeline
   const todayMs = useMemo(() => Date.now(), []);
@@ -560,15 +527,39 @@ export default function PortfolioReport() {
       if (cfg.groupByRaw) setGroupByRaw(cfg.groupByRaw as string);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
       if (cfg.search != null) setSearch(cfg.search as string);
-      if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
+      if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      // Backwards compat: old saved configs may have filterOrgs
+      if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
       if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
+      setDefaultsApplied(true);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ view, groupByRaw, colorBy, search, filterOrgs, attrFilters, timelineDate, sortK, sortD });
+  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD });
+
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setView("chart");
+    setGroupByRaw("");
+    setColorBy("");
+    setSearch("");
+    setAttrFilters({});
+    setRelationFilters({});
+    setShowAllRelFilters(false);
+    setTimelineDate(Date.now());
+    setSortK("name");
+    setSortD("asc");
+    setDefaultsApplied(false);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch data
   useEffect(() => {
@@ -608,10 +599,23 @@ export default function PortfolioReport() {
     return opts;
   }, [data, selectFields, metamodelTypes]);
 
+  // Apply defaults once data is available
+  useEffect(() => {
+    if (!data || defaultsApplied) return;
+    // Set defaults from first available options
+    if (!groupByRaw && groupByOptions.length > 0) {
+      setGroupByRaw(groupByOptions[0].key);
+    }
+    if (!colorBy && selectFields.length > 0) {
+      setColorBy(selectFields[0].key);
+    }
+    setDefaultsApplied(true);
+  }, [data, groupByOptions, selectFields, defaultsApplied]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Ensure groupByRaw has a valid default
   const groupByKey = useMemo(() => {
-    if (groupByOptions.find((o) => o.key === groupByRaw)) return groupByRaw;
-    return groupByOptions[0]?.key || "attr:businessCriticality";
+    if (groupByRaw && groupByOptions.find((o) => o.key === groupByRaw)) return groupByRaw;
+    return groupByOptions[0]?.key || "";
   }, [groupByRaw, groupByOptions]);
 
   const groupByMode = useMemo<GroupByMode>(() => {
@@ -677,12 +681,12 @@ export default function PortfolioReport() {
   // Build filters state
   const filters = useMemo<FilterState>(
     () => ({
-      orgIds: filterOrgs,
       attributeFilters: attrFilters,
+      relationFilters,
       timelineDate,
       search,
     }),
-    [filterOrgs, attrFilters, timelineDate, search],
+    [attrFilters, relationFilters, timelineDate, search],
   );
 
   // Filtered apps
@@ -706,11 +710,9 @@ export default function PortfolioReport() {
     return { total, withEol };
   }, [filteredApps]);
 
-  // Color legend
+  // Color legend — built dynamically from schema
   const colorLegend = useMemo(() => {
     if (!colorBy) return null;
-    const known = KNOWN_COLORS[colorBy];
-    if (known) return Object.values(known);
     const fd = selectFields.find((f) => f.key === colorBy);
     if (!fd?.options) return null;
     return fd.options
@@ -719,13 +721,13 @@ export default function PortfolioReport() {
   }, [colorBy, selectFields]);
 
   const hasActiveFilters =
-    filterOrgs.length > 0 ||
     Object.values(attrFilters).some((v) => v.length > 0) ||
+    Object.values(relationFilters).some((v) => v.length > 0) ||
     search.length > 0;
 
   const clearFilters = useCallback(() => {
-    setFilterOrgs([]);
     setAttrFilters({});
+    setRelationFilters({});
     setSearch("");
     setTimelineDate(todayMs);
   }, [todayMs]);
@@ -742,10 +744,22 @@ export default function PortfolioReport() {
     setDrawer({ label: g.label, apps: g.apps });
   }, []);
 
-  const orgOptions = useMemo(
-    () => (data?.organizations || []).map((o) => ({ key: o.id, label: o.name })),
-    [data],
-  );
+  // Build relation filter options from groupable_types
+  const relationFilterOptions = useMemo(() => {
+    if (!data) return [];
+    const out: { typeKey: string; label: string; icon: string; options: { key: string; label: string }[] }[] = [];
+    for (const [typeKey, members] of Object.entries(data.groupable_types)) {
+      if (members.length === 0) continue;
+      const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
+      out.push({
+        typeKey,
+        label: typeMeta?.label || typeKey,
+        icon: typeMeta?.icon || "link",
+        options: members.map((m) => ({ key: m.id, label: m.name })),
+      });
+    }
+    return out;
+  }, [data, metamodelTypes]);
 
   // Table helpers
   const tableSort = (k: string) => {
@@ -787,6 +801,7 @@ export default function PortfolioReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -876,62 +891,147 @@ export default function PortfolioReport() {
           )}
 
           {/* Row 2: Filters */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              flexWrap: "wrap",
-              width: "100%",
-              pt: 0.5,
-            }}
-          >
-            <MaterialSymbol icon="filter_alt" size={18} color="#999" />
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{ fontWeight: 600 }}
+          <Box sx={{ width: "100%", pt: 0.5 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                mb: 1,
+              }}
             >
-              Filters:
-            </Typography>
-
-            {orgOptions.length > 0 && (
-              <FilterSelect
-                label="Organization"
-                options={orgOptions}
-                value={filterOrgs}
-                onChange={setFilterOrgs}
-              />
-            )}
-
-            {selectFields
-              .filter((f) => f.options && f.options.length > 0)
-              .slice(0, 5)
-              .map((f) => (
-                <FilterSelect
-                  key={f.key}
-                  label={f.label}
-                  options={(f.options || []).map((o) => ({
-                    key: o.key,
-                    label: o.label,
-                    color: o.color || KNOWN_COLORS[f.key]?.[o.key]?.color,
-                  }))}
-                  value={attrFilters[f.key] || []}
-                  onChange={(v) =>
-                    setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                  }
+              <MaterialSymbol icon="filter_alt" size={16} color="#999" />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontWeight: 600 }}
+              >
+                Application Filters
+              </Typography>
+              {hasActiveFilters && (
+                <Chip
+                  size="small"
+                  label="Clear all"
+                  variant="outlined"
+                  onDelete={clearFilters}
+                  sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
                 />
-              ))}
+              )}
+            </Box>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                flexWrap: "wrap",
+              }}
+            >
+              {/* Related By section */}
+              {relationFilterOptions.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "#f8f9fb",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    Related By
+                  </Typography>
+                  {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                    <FilterSelect
+                      key={rf.typeKey}
+                      label={rf.label}
+                      options={rf.options}
+                      value={relationFilters[rf.typeKey] || []}
+                      onChange={(v) =>
+                        setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                      }
+                    />
+                  ))}
+                  {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Tooltip title={`Show ${relationFilterOptions.length - 2} more relation filters`}>
+                      <Chip
+                        size="small"
+                        icon={<MaterialSymbol icon="add" size={14} />}
+                        label={`${relationFilterOptions.length - 2} more`}
+                        onClick={() => setShowAllRelFilters(true)}
+                        sx={{
+                          height: 26,
+                          fontSize: "0.72rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          bgcolor: "#fff",
+                          border: "1px dashed #bbb",
+                          "&:hover": { bgcolor: "#f0f0f0" },
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                  {showAllRelFilters && relationFilterOptions.length > 2 && (
+                    <Chip
+                      size="small"
+                      label="Less"
+                      onClick={() => setShowAllRelFilters(false)}
+                      sx={{
+                        height: 26,
+                        fontSize: "0.72rem",
+                        cursor: "pointer",
+                        bgcolor: "#fff",
+                        border: "1px solid #ddd",
+                      }}
+                    />
+                  )}
+                </Box>
+              )}
 
-            {hasActiveFilters && (
-              <Chip
-                size="small"
-                label="Clear all"
-                variant="outlined"
-                onDelete={clearFilters}
-                sx={{ fontSize: "0.72rem" }}
-              />
-            )}
+              {/* Own Fields section */}
+              {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "#f8fbf8",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    Fields
+                  </Typography>
+                  {selectFields
+                    .filter((f) => f.options && f.options.length > 0)
+                    .map((f) => (
+                      <FilterSelect
+                        key={f.key}
+                        label={f.label}
+                        options={(f.options || []).map((o) => ({
+                          key: o.key,
+                          label: o.label,
+                          color: o.color,
+                        }))}
+                        value={attrFilters[f.key] || []}
+                        onChange={(v) =>
+                          setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                        }
+                      />
+                    ))}
+                </Box>
+              )}
+            </Box>
           </Box>
         </>
       }
@@ -1314,11 +1414,15 @@ export default function PortfolioReport() {
               {drawer.apps
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((a) => {
-                  const attrs = a.attributes || {};
-                  const critVal = attrs.businessCriticality as
-                    | string
-                    | undefined;
-                  const timeVal = attrs.timeModel as string | undefined;
+                  // Build secondary text dynamically from active color/group fields
+                  const parts: string[] = [];
+                  if (a.subtype) parts.push(a.subtype);
+                  if (colorBy) {
+                    const lbl = getAppColorLabel(a, colorBy, selectFields);
+                    if (lbl && lbl !== "Not set") parts.push(lbl);
+                  }
+                  if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+
                   return (
                     <ListItemButton
                       key={a.id}
@@ -1326,20 +1430,7 @@ export default function PortfolioReport() {
                     >
                       <ListItemText
                         primary={a.name}
-                        secondary={
-                          [
-                            a.subtype,
-                            critVal &&
-                              KNOWN_COLORS.businessCriticality?.[critVal]
-                                ?.label,
-                            timeVal &&
-                              KNOWN_COLORS.timeModel?.[timeVal]?.label,
-                            a.lifecycle?.endOfLife &&
-                              `EOL: ${a.lifecycle.endOfLife}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" \u00B7 ") || undefined
-                        }
+                        secondary={parts.join(" \u00B7 ") || undefined}
                       />
                       {colorBy && (
                         <Box

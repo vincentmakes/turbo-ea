@@ -21,12 +21,31 @@ import TimelineSlider from "@/components/TimelineSlider";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
+
+interface FieldOption {
+  key: string;
+  label: string;
+  color?: string;
+}
+
+interface FieldDef {
+  key: string;
+  label: string;
+  type: string;
+  options?: FieldOption[];
+}
+
+interface SectionDef {
+  section: string;
+  fields: FieldDef[];
+}
 
 interface AppData {
   id: string;
@@ -35,6 +54,13 @@ interface AppData {
   attributes?: Record<string, unknown>;
   lifecycle?: Record<string, string>;
   org_ids: string[];
+  related_by_type?: Record<string, string[]>;
+}
+
+interface FilterableTypeRef {
+  id: string;
+  name: string;
+  type: string;
 }
 
 interface CapItem {
@@ -48,20 +74,9 @@ interface CapItem {
   apps: AppData[];
 }
 
-interface OrgRef {
-  id: string;
-  name: string;
-}
+// Removed OrgRef — now using filterable_types from the API
 
 type Metric = "app_count" | "total_cost" | "risk_count";
-
-type AppColorBy =
-  | "none"
-  | "timeModel"
-  | "businessCriticality"
-  | "functionalSuitability"
-  | "technicalSuitability"
-  | "hostingType";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -73,50 +88,6 @@ const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
   { key: "risk_count", label: "Risk (EOL count)", icon: "warning" },
 ];
 
-const APP_COLOR_OPTIONS: { key: AppColorBy; label: string }[] = [
-  { key: "none", label: "No color" },
-  { key: "timeModel", label: "TIME Model" },
-  { key: "businessCriticality", label: "Business Criticality" },
-  { key: "functionalSuitability", label: "Functional Suitability" },
-  { key: "technicalSuitability", label: "Technical Suitability" },
-  { key: "hostingType", label: "Hosting Type" },
-];
-
-/** Well-known option colors from the seed metamodel */
-const ATTRIBUTE_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
-  timeModel: {
-    tolerate: { label: "Tolerate", color: "#ff9800" },
-    invest: { label: "Invest", color: "#4caf50" },
-    migrate: { label: "Migrate", color: "#2196f3" },
-    eliminate: { label: "Eliminate", color: "#d32f2f" },
-  },
-  businessCriticality: {
-    missionCritical: { label: "Mission Critical", color: "#d32f2f" },
-    businessCritical: { label: "Business Critical", color: "#f57c00" },
-    businessOperational: { label: "Business Operational", color: "#fbc02d" },
-    administrativeService: { label: "Administrative", color: "#9e9e9e" },
-  },
-  functionalSuitability: {
-    perfect: { label: "Perfect", color: "#2e7d32" },
-    appropriate: { label: "Appropriate", color: "#66bb6a" },
-    insufficient: { label: "Insufficient", color: "#f57c00" },
-    unreasonable: { label: "Unreasonable", color: "#d32f2f" },
-  },
-  technicalSuitability: {
-    fullyAppropriate: { label: "Fully Appropriate", color: "#2e7d32" },
-    adequate: { label: "Adequate", color: "#66bb6a" },
-    unreasonable: { label: "Unreasonable", color: "#f57c00" },
-    inappropriate: { label: "Inappropriate", color: "#d32f2f" },
-  },
-  hostingType: {
-    onPremise: { label: "On-Premise", color: "#5c6bc0" },
-    cloudSaaS: { label: "Cloud (SaaS)", color: "#26a69a" },
-    cloudPaaS: { label: "Cloud (PaaS)", color: "#42a5f5" },
-    cloudIaaS: { label: "Cloud (IaaS)", color: "#7e57c2" },
-    hybrid: { label: "Hybrid", color: "#ff7043" },
-  },
-};
-
 const UNSET_COLOR = "#e0e0e0";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
@@ -124,6 +95,13 @@ const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+function pickSelectFields(schema: SectionDef[]): FieldDef[] {
+  const out: FieldDef[] = [];
+  for (const s of schema)
+    for (const f of s.fields) if (f.type === "single_select") out.push(f);
+  return out;
+}
 
 function parseDate(s: string | undefined): number | null {
   if (!s) return null;
@@ -165,63 +143,64 @@ function heatColor(value: number, max: number, metric: Metric): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function getAppColor(app: AppData, colorBy: AppColorBy): string {
-  if (colorBy === "none") return "#0f7eb5";
+function getAppColor(
+  app: AppData,
+  colorBy: string,
+  selectFields: FieldDef[],
+): string {
+  if (!colorBy || colorBy === "none") return "#0f7eb5";
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return UNSET_COLOR;
-  return ATTRIBUTE_COLORS[colorBy]?.[val]?.color ?? UNSET_COLOR;
+  const fd = selectFields.find((f) => f.key === colorBy);
+  const opt = fd?.options?.find((o) => o.key === val);
+  return opt?.color || UNSET_COLOR;
 }
 
-function getAppColorLabel(app: AppData, colorBy: AppColorBy): string | null {
-  if (colorBy === "none") return null;
+function getAppColorLabel(
+  app: AppData,
+  colorBy: string,
+  selectFields: FieldDef[],
+): string | null {
+  if (!colorBy || colorBy === "none") return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
   if (!val) return "Not set";
-  return ATTRIBUTE_COLORS[colorBy]?.[val]?.label ?? val;
+  const fd = selectFields.find((f) => f.key === colorBy);
+  const opt = fd?.options?.find((o) => o.key === val);
+  return opt?.label || val;
 }
 
-/** Filter an app based on active filters */
+/** Compute perceived luminance to decide text color */
+function isLightColor(hex: string): boolean {
+  const c = hex.replace("#", "");
+  if (c.length < 6) return true;
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+}
+
+/** Filter an app based on active attribute and relation filters */
 function matchesFilters(
   app: AppData,
-  filters: FilterState,
+  attrFilters: Record<string, string[]>,
+  relationFilters: Record<string, string[]>,
+  timelineDate: number,
 ): boolean {
-  // Timeline filter
-  if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
-  if (filters.orgIds.length > 0 && !filters.orgIds.some((o) => app.org_ids.includes(o)))
-    return false;
+  if (!isAppAliveAtDate(app, timelineDate)) return false;
+  // Attribute filters
   const attrs = app.attributes || {};
-  if (filters.timeModel.length > 0 && !filters.timeModel.includes(attrs.timeModel as string))
-    return false;
-  if (
-    filters.businessCriticality.length > 0 &&
-    !filters.businessCriticality.includes(attrs.businessCriticality as string)
-  )
-    return false;
-  if (
-    filters.functionalSuitability.length > 0 &&
-    !filters.functionalSuitability.includes(attrs.functionalSuitability as string)
-  )
-    return false;
-  if (
-    filters.technicalSuitability.length > 0 &&
-    !filters.technicalSuitability.includes(attrs.technicalSuitability as string)
-  )
-    return false;
-  if (
-    filters.hostingType.length > 0 &&
-    !filters.hostingType.includes(attrs.hostingType as string)
-  )
-    return false;
+  for (const [key, vals] of Object.entries(attrFilters)) {
+    if (vals.length > 0 && !vals.includes(attrs[key] as string)) return false;
+  }
+  // Relation filters (e.g. Organization, Platform, etc.)
+  const byType = app.related_by_type || {};
+  for (const [typeKey, ids] of Object.entries(relationFilters)) {
+    if (ids.length > 0) {
+      const appRelIds = byType[typeKey] || app.org_ids || [];
+      if (!ids.some((id) => appRelIds.includes(id))) return false;
+    }
+  }
   return true;
-}
-
-interface FilterState {
-  orgIds: string[];
-  timeModel: string[];
-  businessCriticality: string[];
-  functionalSuitability: string[];
-  technicalSuitability: string[];
-  hostingType: string[];
-  timelineDate: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -243,10 +222,18 @@ interface CapNode extends CapItem {
   deepRiskCount: number;
 }
 
-function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
+function buildTree(
+  items: CapItem[],
+  attrFilters: Record<string, string[]>,
+  relationFilters: Record<string, string[]>,
+  timelineDate: number,
+  costFieldKeys: string[],
+): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
-    const filteredApps = item.apps.filter((a) => matchesFilters(a, filters));
+    const filteredApps = item.apps.filter((a) =>
+      matchesFilters(a, attrFilters, relationFilters, timelineDate),
+    );
     nodeMap.set(item.id, {
       ...item,
       children: [],
@@ -291,7 +278,10 @@ function buildTree(items: CapItem[], filters: FilterState): CapNode[] {
     n.deepCost = 0;
     n.deepRiskCount = 0;
     for (const app of map.values()) {
-      n.deepCost += ((app.attributes?.totalAnnualCost as number) || 0);
+      const attrs = app.attributes || {};
+      for (const ck of costFieldKeys) {
+        n.deepCost += (attrs[ck] as number) || 0;
+      }
       if (app.lifecycle?.endOfLife) n.deepRiskCount++;
     }
     return map;
@@ -339,15 +329,17 @@ function getMaxLevel(nodes: CapNode[]): number {
 function AppChip({
   app,
   colorBy,
+  selectFields,
   onClick,
 }: {
   app: AppData;
-  colorBy: AppColorBy;
+  colorBy: string;
+  selectFields: FieldDef[];
   onClick: () => void;
 }) {
-  const color = getAppColor(app, colorBy);
-  const colorLabel = getAppColorLabel(app, colorBy);
-  const isLight = color === UNSET_COLOR || color === "#fbc02d" || color === "#ff9800";
+  const color = getAppColor(app, colorBy, selectFields);
+  const colorLabel = getAppColorLabel(app, colorBy, selectFields);
+  const light = isLightColor(color);
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
   return (
@@ -361,7 +353,7 @@ function AppChip({
         }}
         sx={{
           bgcolor: color,
-          color: isLight ? "#333" : "#fff",
+          color: light ? "#333" : "#fff",
           fontWeight: 500,
           fontSize: "0.7rem",
           maxWidth: 160,
@@ -378,6 +370,7 @@ function CapabilityCard({
   displayLevel,
   showApps,
   colorBy,
+  selectFields,
   metric,
   maxVal,
   onCapClick,
@@ -387,7 +380,8 @@ function CapabilityCard({
   node: CapNode;
   displayLevel: number;
   showApps: boolean;
-  colorBy: AppColorBy;
+  colorBy: string;
+  selectFields: FieldDef[];
   metric: Metric;
   maxVal: number;
   onCapClick: (cap: CapNode) => void;
@@ -467,6 +461,7 @@ function CapabilityCard({
                   key={app.id}
                   app={app}
                   colorBy={colorBy}
+                  selectFields={selectFields}
                   onClick={() => onAppClick(app.id)}
                 />
               ))}
@@ -535,6 +530,7 @@ function CapabilityCard({
                 key={app.id}
                 app={app}
                 colorBy={colorBy}
+                selectFields={selectFields}
                 onClick={() => onAppClick(app.id)}
               />
             ))}
@@ -550,6 +546,7 @@ function CapabilityCard({
               displayLevel={displayLevel}
               showApps={showApps}
               colorBy={colorBy}
+              selectFields={selectFields}
               metric={metric}
               maxVal={maxVal}
               onCapClick={onCapClick}
@@ -582,6 +579,7 @@ function FilterSelect({
     <Autocomplete
       multiple
       size="small"
+      limitTags={1}
       options={options.map((o) => o.key)}
       getOptionLabel={(key) => options.find((o) => o.key === key)?.label ?? key}
       value={value}
@@ -600,53 +598,25 @@ function FilterSelect({
                 bgcolor: opt?.color ?? undefined,
                 color: opt?.color ? "#fff" : undefined,
                 fontWeight: 500,
-                fontSize: "0.72rem",
+                fontSize: "0.7rem",
+                height: 22,
+                maxWidth: 110,
               }}
             />
           );
         })
       }
-      renderInput={(params) => <TextField {...params} label={label} />}
-      sx={{ minWidth: 180, maxWidth: 280 }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={value.length === 0 ? "All" : ""}
+        />
+      )}
+      sx={{ width: 180 }}
     />
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Filter option constants                                            */
-/* ------------------------------------------------------------------ */
-
-const TIME_OPTS = [
-  { key: "tolerate", label: "Tolerate", color: "#ff9800" },
-  { key: "invest", label: "Invest", color: "#4caf50" },
-  { key: "migrate", label: "Migrate", color: "#2196f3" },
-  { key: "eliminate", label: "Eliminate", color: "#d32f2f" },
-];
-const CRIT_OPTS = [
-  { key: "missionCritical", label: "Mission Critical", color: "#d32f2f" },
-  { key: "businessCritical", label: "Business Critical", color: "#f57c00" },
-  { key: "businessOperational", label: "Business Operational", color: "#fbc02d" },
-  { key: "administrativeService", label: "Administrative", color: "#9e9e9e" },
-];
-const FUNC_OPTS = [
-  { key: "perfect", label: "Perfect", color: "#2e7d32" },
-  { key: "appropriate", label: "Appropriate", color: "#66bb6a" },
-  { key: "insufficient", label: "Insufficient", color: "#f57c00" },
-  { key: "unreasonable", label: "Unreasonable", color: "#d32f2f" },
-];
-const TECH_OPTS = [
-  { key: "fullyAppropriate", label: "Fully Appropriate", color: "#2e7d32" },
-  { key: "adequate", label: "Adequate", color: "#66bb6a" },
-  { key: "unreasonable", label: "Unreasonable", color: "#f57c00" },
-  { key: "inappropriate", label: "Inappropriate", color: "#d32f2f" },
-];
-const HOST_OPTS = [
-  { key: "onPremise", label: "On-Premise" },
-  { key: "cloudSaaS", label: "Cloud (SaaS)" },
-  { key: "cloudPaaS", label: "Cloud (PaaS)" },
-  { key: "cloudIaaS", label: "Cloud (IaaS)" },
-  { key: "hybrid", label: "Hybrid" },
-];
 
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
@@ -655,31 +625,30 @@ const HOST_OPTS = [
 export default function CapabilityMapReport() {
   const navigate = useNavigate();
   const { fmtShort } = useCurrency();
+  const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
   // Data
   const [data, setData] = useState<CapItem[] | null>(null);
-  const [organizations, setOrganizations] = useState<OrgRef[]>([]);
+  const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
+  const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [drawer, setDrawer] = useState<CapNode | null>(null);
 
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
   const [displayLevel, setDisplayLevel] = useState(2);
   const [showApps, setShowApps] = useState(false);
-  const [colorBy, setColorBy] = useState<AppColorBy>("none");
+  const [colorBy, setColorBy] = useState("");
 
   // Timeline slider
   const todayMs = useMemo(() => Date.now(), []);
   const [timelineDate, setTimelineDate] = useState(todayMs);
 
-  // Filters
-  const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
-  const [filterTime, setFilterTime] = useState<string[]>([]);
-  const [filterCrit, setFilterCrit] = useState<string[]>([]);
-  const [filterFunc, setFilterFunc] = useState<string[]>([]);
-  const [filterTech, setFilterTech] = useState<string[]>([]);
-  const [filterHost, setFilterHost] = useState<string[]>([]);
+  // Dynamic filters
+  const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
+  const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Load saved report config
   useEffect(() => {
@@ -688,27 +657,71 @@ export default function CapabilityMapReport() {
       if (cfg.metric) setMetric(cfg.metric as Metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
-      if (cfg.colorBy) setColorBy(cfg.colorBy as AppColorBy);
+      if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
       if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
-      if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
-      if (cfg.filterTime) setFilterTime(cfg.filterTime as string[]);
-      if (cfg.filterCrit) setFilterCrit(cfg.filterCrit as string[]);
-      if (cfg.filterFunc) setFilterFunc(cfg.filterFunc as string[]);
-      if (cfg.filterTech) setFilterTech(cfg.filterTech as string[]);
-      if (cfg.filterHost) setFilterHost(cfg.filterHost as string[]);
+      if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
+      if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      // Backwards compat
+      if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate, filterOrgs, filterTime, filterCrit, filterFunc, filterTech, filterHost });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters });
+
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setMetric("app_count");
+    setDisplayLevel(2);
+    setShowApps(false);
+    setColorBy("");
+    setTimelineDate(Date.now());
+    setAttrFilters({});
+    setRelationFilters({});
+    setShowAllRelFilters(false);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Derived: select fields from schema
+  const selectFields = useMemo(() => pickSelectFields(fieldsSchema), [fieldsSchema]);
+
+  // Color-by options: all single_select fields + "none"
+  const colorByOptions = useMemo(() => {
+    const opts: { key: string; label: string }[] = [
+      { key: "none", label: "No color" },
+    ];
+    for (const f of selectFields) {
+      opts.push({ key: f.key, label: f.label });
+    }
+    return opts;
+  }, [selectFields]);
+
+  // Detect cost field keys from schema for deep cost computation
+  const costFieldKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (const s of fieldsSchema)
+      for (const f of s.fields)
+        if (f.type === "cost") keys.push(f.key);
+    return keys;
+  }, [fieldsSchema]);
 
   useEffect(() => {
     api
-      .get<{ items: CapItem[]; organizations: OrgRef[] }>(
+      .get<{
+        items: CapItem[];
+        filterable_types?: Record<string, FilterableTypeRef[]>;
+        fields_schema?: SectionDef[];
+      }>(
         `/reports/capability-heatmap?metric=${metric}`,
       )
       .then((r) => {
         setData(r.items);
-        setOrganizations(r.organizations ?? []);
+        if (r.filterable_types) setFilterableTypes(r.filterable_types);
+        if (r.fields_schema) setFieldsSchema(r.fields_schema);
       });
   }, [metric]);
 
@@ -750,28 +763,14 @@ export default function CapabilityMapReport() {
     );
   }, [data]);
 
-  const filters = useMemo<FilterState>(
-    () => ({
-      orgIds: filterOrgs,
-      timeModel: filterTime,
-      businessCriticality: filterCrit,
-      functionalSuitability: filterFunc,
-      technicalSuitability: filterTech,
-      hostingType: filterHost,
-      timelineDate,
-    }),
-    [filterOrgs, filterTime, filterCrit, filterFunc, filterTech, filterHost, timelineDate],
-  );
-
   const hasActiveFilters =
-    filterOrgs.length > 0 ||
-    filterTime.length > 0 ||
-    filterCrit.length > 0 ||
-    filterFunc.length > 0 ||
-    filterTech.length > 0 ||
-    filterHost.length > 0;
+    Object.values(attrFilters).some((v) => v.length > 0) ||
+    Object.values(relationFilters).some((v) => v.length > 0);
 
-  const tree = useMemo(() => (data ? buildTree(data, filters) : []), [data, filters]);
+  const tree = useMemo(
+    () => (data ? buildTree(data, attrFilters, relationFilters, timelineDate, costFieldKeys) : []),
+    [data, attrFilters, relationFilters, timelineDate, costFieldKeys],
+  );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
   // Compute max metric value for heatmap coloring
@@ -800,10 +799,26 @@ export default function CapabilityMapReport() {
     [navigate],
   );
 
-  const orgOptions = useMemo(
-    () => organizations.map((o) => ({ key: o.id, label: o.name })),
-    [organizations],
-  );
+  // Build relation filter options from filterable_types with metamodel labels
+  const relationFilterOptions = useMemo(() => {
+    const out: { typeKey: string; label: string; options: { key: string; label: string }[] }[] = [];
+    for (const [typeKey, members] of Object.entries(filterableTypes)) {
+      if (members.length === 0) continue;
+      const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
+      out.push({
+        typeKey,
+        label: typeMeta?.label || typeKey,
+        options: members.map((m) => ({ key: m.id, label: m.name })),
+      });
+    }
+    // Sort so Organization comes first if present
+    out.sort((a, b) => {
+      if (a.typeKey === "Organization") return -1;
+      if (b.typeKey === "Organization") return 1;
+      return a.typeKey.localeCompare(b.typeKey);
+    });
+    return out;
+  }, [filterableTypes, metamodelTypes]);
 
   // Level picker options
   const levelOptions = useMemo(() => {
@@ -815,13 +830,15 @@ export default function CapabilityMapReport() {
     return opts;
   }, [maxLvl]);
 
-  // Color legend
+  // Color legend — built dynamically from schema
   const colorLegend = useMemo(() => {
-    if (colorBy === "none") return null;
-    const map = ATTRIBUTE_COLORS[colorBy];
-    if (!map) return null;
-    return Object.values(map);
-  }, [colorBy]);
+    if (!colorBy || colorBy === "none") return null;
+    const fd = selectFields.find((f) => f.key === colorBy);
+    if (!fd?.options) return null;
+    return fd.options
+      .filter((o) => o.color)
+      .map((o) => ({ label: o.label, color: o.color! }));
+  }, [colorBy, selectFields]);
 
   if (data === null)
     return (
@@ -840,6 +857,7 @@ export default function CapabilityMapReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -893,11 +911,11 @@ export default function CapabilityMapReport() {
               select
               size="small"
               label="Color Apps By"
-              value={colorBy}
-              onChange={(e) => setColorBy(e.target.value as AppColorBy)}
+              value={colorBy || "none"}
+              onChange={(e) => setColorBy(e.target.value === "none" ? "" : e.target.value)}
               sx={{ minWidth: 180 }}
             >
-              {APP_COLOR_OPTIONS.map((o) => (
+              {colorByOptions.map((o) => (
                 <MenuItem key={o.key} value={o.key}>
                   {o.label}
                 </MenuItem>
@@ -916,78 +934,148 @@ export default function CapabilityMapReport() {
             />
           )}
 
-          {/* Row 2: Application filters */}
+          {/* Row 2: Dynamic application filters */}
           {(showApps || hasActiveFilters) && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                flexWrap: "wrap",
-                width: "100%",
-                pt: 0.5,
-              }}
-            >
-              <MaterialSymbol icon="filter_alt" size={18} color="#999" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                App Filters:
-              </Typography>
+            <Box sx={{ width: "100%", pt: 0.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 1,
+                }}
+              >
+                <MaterialSymbol icon="filter_alt" size={16} color="#999" />
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Application Filters
+                </Typography>
+                {hasActiveFilters && (
+                  <Chip
+                    size="small"
+                    label="Clear all"
+                    variant="outlined"
+                    onDelete={() => {
+                      setAttrFilters({});
+                      setRelationFilters({});
+                    }}
+                    sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
+                  />
+                )}
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* Related By section */}
+                {relationFilterOptions.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "#f8f9fb",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      Related By
+                    </Typography>
+                    {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                      <FilterSelect
+                        key={rf.typeKey}
+                        label={rf.label}
+                        options={rf.options}
+                        value={relationFilters[rf.typeKey] || []}
+                        onChange={(v) =>
+                          setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                        }
+                      />
+                    ))}
+                    {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                      <Tooltip title={`Show ${relationFilterOptions.length - 2} more relation filters`}>
+                        <Chip
+                          size="small"
+                          icon={<MaterialSymbol icon="add" size={14} />}
+                          label={`${relationFilterOptions.length - 2} more`}
+                          onClick={() => setShowAllRelFilters(true)}
+                          sx={{
+                            height: 26,
+                            fontSize: "0.72rem",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            bgcolor: "#fff",
+                            border: "1px dashed #bbb",
+                            "&:hover": { bgcolor: "#f0f0f0" },
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                    {showAllRelFilters && relationFilterOptions.length > 2 && (
+                      <Chip
+                        size="small"
+                        label="Less"
+                        onClick={() => setShowAllRelFilters(false)}
+                        sx={{
+                          height: 26,
+                          fontSize: "0.72rem",
+                          cursor: "pointer",
+                          bgcolor: "#fff",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
 
-              {organizations.length > 0 && (
-                <FilterSelect
-                  label="Organization"
-                  options={orgOptions}
-                  value={filterOrgs}
-                  onChange={setFilterOrgs}
-                />
-              )}
-              <FilterSelect
-                label="TIME Model"
-                options={TIME_OPTS}
-                value={filterTime}
-                onChange={setFilterTime}
-              />
-              <FilterSelect
-                label="Business Criticality"
-                options={CRIT_OPTS}
-                value={filterCrit}
-                onChange={setFilterCrit}
-              />
-              <FilterSelect
-                label="Functional Fit"
-                options={FUNC_OPTS}
-                value={filterFunc}
-                onChange={setFilterFunc}
-              />
-              <FilterSelect
-                label="Technical Fit"
-                options={TECH_OPTS}
-                value={filterTech}
-                onChange={setFilterTech}
-              />
-              <FilterSelect
-                label="Hosting"
-                options={HOST_OPTS}
-                value={filterHost}
-                onChange={setFilterHost}
-              />
-
-              {hasActiveFilters && (
-                <Chip
-                  size="small"
-                  label="Clear all"
-                  variant="outlined"
-                  onDelete={() => {
-                    setFilterOrgs([]);
-                    setFilterTime([]);
-                    setFilterCrit([]);
-                    setFilterFunc([]);
-                    setFilterTech([]);
-                    setFilterHost([]);
-                  }}
-                  sx={{ fontSize: "0.72rem" }}
-                />
-              )}
+                {/* Own Fields section */}
+                {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "#f8fbf8",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      Fields
+                    </Typography>
+                    {selectFields
+                      .filter((f) => f.options && f.options.length > 0)
+                      .map((f) => (
+                        <FilterSelect
+                          key={f.key}
+                          label={f.label}
+                          options={(f.options || []).map((o) => ({
+                            key: o.key,
+                            label: o.label,
+                            color: o.color,
+                          }))}
+                          value={attrFilters[f.key] || []}
+                          onChange={(v) =>
+                            setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                          }
+                        />
+                      ))}
+                  </Box>
+                )}
+              </Box>
             </Box>
           )}
         </>
@@ -1019,11 +1107,11 @@ export default function CapabilityMapReport() {
             </Typography>
           </Box>
 
-          {/* App color legend */}
-          {showApps && colorLegend && (
+          {/* App color legend — dynamic from schema */}
+          {showApps && colorBy && colorLegend && colorLegend.length > 0 && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: 2 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                {APP_COLOR_OPTIONS.find((o) => o.key === colorBy)?.label}:
+                {colorByOptions.find((o) => o.key === colorBy)?.label}:
               </Typography>
               {colorLegend.map((item) => (
                 <Box
@@ -1089,6 +1177,7 @@ export default function CapabilityMapReport() {
               displayLevel={displayLevel}
               showApps={showApps}
               colorBy={colorBy}
+              selectFields={selectFields}
               metric={metric}
               maxVal={maxVal}
               onCapClick={setDrawer}
@@ -1161,30 +1250,28 @@ export default function CapabilityMapReport() {
               {Array.from(drawer.deepUniqueApps.values())
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((a) => {
-                  const timeVal = (a.attributes || {}).timeModel as string | undefined;
-                  const critVal = (a.attributes || {}).businessCriticality as string | undefined;
+                  // Build secondary text dynamically from colorBy field
+                  const parts: string[] = [];
+                  if (colorBy && colorBy !== "none") {
+                    const lbl = getAppColorLabel(a, colorBy, selectFields);
+                    if (lbl && lbl !== "Not set") parts.push(lbl);
+                  }
+                  if (a.lifecycle?.endOfLife)
+                    parts.push(`EOL: ${a.lifecycle.endOfLife}`);
+
                   return (
                     <ListItemButton key={a.id} onClick={() => handleAppClick(a.id)}>
                       <ListItemText
                         primary={a.name}
-                        secondary={
-                          [
-                            critVal &&
-                              ATTRIBUTE_COLORS.businessCriticality?.[critVal]?.label,
-                            timeVal && ATTRIBUTE_COLORS.timeModel?.[timeVal]?.label,
-                            a.lifecycle?.endOfLife && `EOL: ${a.lifecycle.endOfLife}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" \u00B7 ") || undefined
-                        }
+                        secondary={parts.join(" \u00B7 ") || undefined}
                       />
-                      {colorBy !== "none" && (
+                      {colorBy && colorBy !== "none" && (
                         <Box
                           sx={{
                             width: 12,
                             height: 12,
                             borderRadius: "50%",
-                            bgcolor: getAppColor(a, colorBy),
+                            bgcolor: getAppColor(a, colorBy, selectFields),
                             flexShrink: 0,
                             ml: 1,
                           }}

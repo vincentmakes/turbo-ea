@@ -153,6 +153,23 @@ export default function MatrixReport() {
     colExpandedDepth: effectiveColDepth,
   });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [rowType, colType, cellMode, sortRows, sortCols, rowExpandedDepth, colExpandedDepth]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setRowType("Application");
+    setColType("BusinessCapability");
+    setCellMode("exists");
+    setSortRows("hierarchy");
+    setSortCols("hierarchy");
+    setRowExpandedDepth(Infinity);
+    setColExpandedDepth(Infinity);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     api.get<MatrixData>(`/reports/matrix?row_type=${rowType}&col_type=${colType}`).then(setData);
   }, [rowType, colType]);
@@ -393,6 +410,7 @@ export default function MatrixReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           <TextField select size="small" label="Rows" value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>

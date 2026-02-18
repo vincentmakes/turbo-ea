@@ -377,6 +377,21 @@ export default function DependencyReport() {
 
   const getConfig = () => ({ cardTypeKey, center, view });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [cardTypeKey, center, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setCardTypeKey("");
+    setCenter("");
+    setView("chart");
+    setPickerSearch("");
+    setPickerTypeFilter(null);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch data
   useEffect(() => {
     setLoading(true);
@@ -524,6 +539,7 @@ export default function DependencyReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           <TextField

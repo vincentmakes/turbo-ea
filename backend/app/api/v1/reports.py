@@ -475,6 +475,18 @@ async def cost_report(
 ):
     """Cost aggregation report."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+
+    # Detect cost fields from type schema
+    type_result = await db.execute(
+        select(CardType).where(CardType.key == type)
+    )
+    type_def = type_result.scalars().first()
+    cost_field_keys = []
+    for section in (type_def.fields_schema if type_def else []):
+        for field in section.get("fields", []):
+            if field.get("type") == "cost":
+                cost_field_keys.append(field["key"])
+
     result = await db.execute(
         select(Card).where(Card.type == type, Card.status == "ACTIVE")
     )
@@ -483,7 +495,9 @@ async def cost_report(
     total = 0
     for card in sheets:
         attrs = card.attributes or {}
-        cost = attrs.get("costTotalAnnual", 0) or attrs.get("totalAnnualCost", 0) or 0
+        cost = 0
+        for ck in cost_field_keys:
+            cost += attrs.get(ck, 0) or 0
         if cost:
             items.append({"id": str(card.id), "name": card.name, "cost": cost})
             total += cost
@@ -582,6 +596,20 @@ async def capability_heatmap(
     caps = caps_result.scalars().all()
     cap_ids = [c.id for c in caps]
 
+    # Get Application type schema for dynamic field resolution
+    app_type_result = await db.execute(
+        select(CardType).where(CardType.key == "Application")
+    )
+    app_type = app_type_result.scalars().first()
+    app_fields_schema = app_type.fields_schema if app_type else []
+
+    # Detect cost fields from schema
+    cost_field_keys = []
+    for section in (app_fields_schema or []):
+        for field in section.get("fields", []):
+            if field.get("type") == "cost":
+                cost_field_keys.append(field["key"])
+
     # Get related applications via relations
     apps_result = await db.execute(
         select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
@@ -589,48 +617,82 @@ async def capability_heatmap(
     apps = apps_result.scalars().all()
     app_map = {str(a.id): a for a in apps}
 
-    # Get all organizations for filtering
-    orgs_result = await db.execute(
-        select(Card).where(
-            Card.type == "Organization", Card.status == "ACTIVE",
-        ).order_by(Card.name)
-    )
-    orgs = orgs_result.scalars().all()
-
-    # Get relations linking caps↔apps and orgs↔apps
-    all_ids = cap_ids + [o.id for o in orgs]
+    # Get ALL relations touching applications (for dynamic filtering by any related type)
+    app_ids = [a.id for a in apps]
     rels_result = await db.execute(
         select(Relation).where(
-            (Relation.source_id.in_(all_ids)) | (Relation.target_id.in_(all_ids))
+            (Relation.source_id.in_(cap_ids + app_ids))
+            | (Relation.target_id.in_(cap_ids + app_ids))
         )
     )
     rels = rels_result.scalars().all()
 
-    # Build cap_id -> [app_card] and app_id -> [org_id] mappings
-    cap_apps: dict[str, list] = {str(c.id): [] for c in caps}
-    org_ids = {str(o.id) for o in orgs}
-    app_orgs: dict[str, set[str]] = {}
+    # Collect IDs of all related non-application cards
+    related_ids: set[str] = set()
+    app_id_set = {str(a.id) for a in apps}
+    cap_id_set = {str(c.id) for c in caps}
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
-        if sid in cap_apps and tid in app_map:
+        if sid in app_id_set:
+            related_ids.add(tid)
+        elif tid in app_id_set:
+            related_ids.add(sid)
+    related_ids -= app_id_set
+    related_ids -= cap_id_set
+
+    # Fetch related cards in bulk
+    related_map: dict[str, dict] = {}
+    if related_ids:
+        rel_cards_result = await db.execute(
+            select(Card).where(Card.id.in_(list(related_ids)), Card.status == "ACTIVE")
+        )
+        for card in rel_cards_result.scalars().all():
+            related_map[str(card.id)] = {"id": str(card.id), "name": card.name, "type": card.type}
+
+    # Build cap_id -> [app_card] and app -> {type: [related_id]} mappings
+    cap_apps: dict[str, list] = {str(c.id): [] for c in caps}
+    app_related: dict[str, dict[str, list[str]]] = {}  # app_id -> {type_key: [related_id, ...]}
+    for r in rels:
+        sid, tid = str(r.source_id), str(r.target_id)
+        if sid in cap_id_set and tid in app_map:
             cap_apps[sid].append(app_map[tid])
-        elif tid in cap_apps and sid in app_map:
+        elif tid in cap_id_set and sid in app_map:
             cap_apps[tid].append(app_map[sid])
-        # org -> app relations
-        if sid in org_ids and tid in app_map:
-            app_orgs.setdefault(tid, set()).add(sid)
-        elif tid in org_ids and sid in app_map:
-            app_orgs.setdefault(sid, set()).add(tid)
+        # app -> related card relations (for filtering)
+        if sid in app_id_set and tid in related_map:
+            app_related.setdefault(sid, {}).setdefault(related_map[tid]["type"], []).append(tid)
+        elif tid in app_id_set and sid in related_map:
+            app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
 
     def _app_to_dict(a):
+        aid = str(a.id)
+        by_type = app_related.get(aid, {})
         return {
-            "id": str(a.id),
+            "id": aid,
             "name": a.name,
             "subtype": a.subtype,
             "attributes": a.attributes,
             "lifecycle": a.lifecycle,
-            "org_ids": sorted(app_orgs.get(str(a.id), set())),
+            "org_ids": sorted(by_type.get("Organization", [])),
+            "related_by_type": {k: sorted(v) for k, v in by_type.items()},
         }
+
+    # Collect relation filter options grouped by type (visible types only)
+    all_type_keys_result = await db.execute(
+        select(CardType).where(CardType.is_hidden.is_(False))
+    )
+    visible_type_keys = {t.key for t in all_type_keys_result.scalars().all()}
+
+    filterable_types: dict[str, list[dict]] = {}
+    for rd in related_map.values():
+        ft = rd["type"]
+        if ft not in visible_type_keys:
+            continue
+        if ft not in filterable_types:
+            filterable_types[ft] = []
+        filterable_types[ft].append(rd)
+    for members in filterable_types.values():
+        members.sort(key=lambda x: x["name"])
 
     # Build hierarchy-aware data
     items = []
@@ -639,12 +701,12 @@ async def capability_heatmap(
         linked_apps = cap_apps.get(cid, [])
         app_count = len(linked_apps)
 
-        total_cost = sum(
-            (a.attributes or {}).get("costTotalAnnual", 0)
-            or (a.attributes or {}).get("totalAnnualCost", 0)
-            or 0
-            for a in linked_apps
-        )
+        total_cost = 0.0
+        for a in linked_apps:
+            attrs = a.attributes or {}
+            for ck in cost_field_keys:
+                v = attrs.get(ck, 0) or 0
+                total_cost += v
 
         risk_count = sum(
             1 for a in linked_apps
@@ -662,12 +724,12 @@ async def capability_heatmap(
             "apps": [_app_to_dict(a) for a in linked_apps],
         })
 
-    organizations = [
-        {"id": str(o.id), "name": o.name}
-        for o in orgs
-    ]
-
-    return {"items": items, "metric": metric, "organizations": organizations}
+    return {
+        "items": items,
+        "metric": metric,
+        "filterable_types": filterable_types,
+        "fields_schema": app_fields_schema,
+    }
 
 
 @router.get("/dependencies")

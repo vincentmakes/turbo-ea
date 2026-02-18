@@ -3,15 +3,21 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import type { SavedReport } from "@/types";
 
+const STORAGE_PREFIX = "turboea-report:";
+
 /**
  * Hook for loading and saving report configurations.
  *
- * Usage in a report component:
- *   const { savedReport, saveDialogOpen, setSaveDialogOpen, getConfig, applyConfig, resetSavedReport } = useSavedReport("portfolio");
+ * Supports three layers of persistence (in priority order):
+ *   1. URL saved report (?saved_report_id=...) — fetched from backend
+ *   2. localStorage auto-save — persisted on every config change
+ *   3. Component defaults — used when neither of the above exists
  *
- * - On mount, if URL has ?saved_report_id=..., fetches and returns the config
- * - `applyConfig` is called once after the saved config is fetched
- * - `getConfig` should be called when user wants to save
+ * Usage in a report component:
+ *   const saved = useSavedReport("portfolio");
+ *   // On mount: cfg = saved.consumeConfig()  — returns saved or local config
+ *   // On change: saved.persistConfig(getConfig()) — auto-saves to localStorage
+ *   // On reset:  saved.resetAll() — clears localStorage + URL saved report
  */
 export function useSavedReport(reportType: string) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,9 +25,21 @@ export function useSavedReport(reportType: string) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadedConfig, setLoadedConfig] = useState<Record<string, unknown> | null>(null);
   const appliedRef = useRef(false);
+  const persistReadyRef = useRef(false);
 
+  const STORAGE_KEY = STORAGE_PREFIX + reportType;
   const savedReportId = searchParams.get("saved_report_id");
 
+  // Load localStorage config synchronously during initial state
+  const [localConfig] = useState<Record<string, unknown> | null>(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch { /* ignore corrupt data */ }
+    return null;
+  });
+
+  // Fetch URL saved report from backend
   useEffect(() => {
     if (!savedReportId) {
       setSavedReport(null);
@@ -52,15 +70,56 @@ export function useSavedReport(reportType: string) {
 
   /**
    * Call this in your component to consume the loaded config exactly once.
-   * Returns the config if not yet applied, or null otherwise.
+   * Priority: URL saved report > localStorage > null.
+   * Returns null if already consumed or if waiting for a URL saved report.
    */
   const consumeConfig = useCallback((): Record<string, unknown> | null => {
-    if (loadedConfig && !appliedRef.current) {
-      appliedRef.current = true;
-      return loadedConfig;
-    }
+    if (appliedRef.current) return null;
+
+    // If we have a URL saved report ID but the API hasn't returned yet, wait
+    if (savedReportId && !loadedConfig) return null;
+
+    appliedRef.current = true;
+    persistReadyRef.current = true;
+
+    // URL saved report takes precedence
+    if (loadedConfig) return loadedConfig;
+
+    // Fall back to localStorage
+    if (localConfig) return localConfig;
+
     return null;
-  }, [loadedConfig]);
+  }, [loadedConfig, localConfig, savedReportId]);
+
+  /**
+   * Auto-persist config to localStorage. Only writes after consumeConfig
+   * has been called (prevents overwriting stored config with defaults on mount).
+   */
+  const persistConfig = useCallback((config: Record<string, unknown>) => {
+    if (!persistReadyRef.current) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+    } catch { /* quota exceeded or private browsing */ }
+  }, [STORAGE_KEY]);
+
+  /**
+   * Clear both localStorage and URL saved report. Used by the reset button.
+   */
+  const resetAll = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch { /* ignore */ }
+    // Also clear URL saved report if present
+    if (savedReportId) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("saved_report_id");
+      setSearchParams(newParams, { replace: true });
+    }
+    setSavedReport(null);
+    setLoadedConfig(null);
+    appliedRef.current = false;
+    persistReadyRef.current = false;
+  }, [STORAGE_KEY, savedReportId, searchParams, setSearchParams]);
 
   return {
     savedReport,
@@ -70,6 +129,8 @@ export function useSavedReport(reportType: string) {
     loadedConfig,
     consumeConfig,
     resetSavedReport,
+    persistConfig,
+    resetAll,
     reportType,
   };
 }
