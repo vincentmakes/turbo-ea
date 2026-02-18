@@ -844,6 +844,7 @@ function TypeDetailDrawer({
   const [hasHierarchy, setHasHierarchy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   /* --- Subtype inline add --- */
   const [addSubOpen, setAddSubOpen] = useState(false);
@@ -901,6 +902,7 @@ function TypeDetailDrawer({
   /* --- Save header --- */
   const handleSaveHeader = async () => {
     setSaving(true);
+    setSaved(false);
     try {
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
@@ -912,6 +914,8 @@ function TypeDetailDrawer({
       });
       onRefresh();
       setError(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
@@ -1089,8 +1093,9 @@ function TypeDetailDrawer({
             size="small"
             onClick={handleSaveHeader}
             disabled={saving}
+            color={saved ? "success" : "primary"}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? "Saving..." : saved ? "Saved!" : "Save"}
           </Button>
           <IconButton onClick={onClose}>
             <MaterialSymbol icon="close" size={22} />

@@ -237,9 +237,10 @@ function SortableFieldCard({
 // ── SortableGroupCard ────────────────────────────────────────────
 
 function SortableGroupCard({
-  id, groupName, children, onRemove,
+  id, groupName, children, onRename, onRemove,
 }: {
   id: string; groupName: string; children: React.ReactNode;
+  onRename?: (newName: string) => void;
   onRemove?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -250,6 +251,14 @@ function SortableGroupCard({
 
   // Inner droppable for accepting fields when group is empty
   const { setNodeRef: innerRef, isOver } = useDroppable({ id });
+
+  const [renaming, setRenaming] = useState(false);
+  const [rname, setRname] = useState(groupName);
+
+  const commitRename = () => {
+    if (rname && rname !== groupName && onRename) onRename(rname);
+    setRenaming(false);
+  };
 
   return (
     <Box ref={setNodeRef} style={style} sx={{ mb: 0.75 }}>
@@ -267,9 +276,30 @@ function SortableGroupCard({
             <MaterialSymbol icon="drag_indicator" size={16} color="#999" />
           </Box>
           <MaterialSymbol icon="workspaces" size={16} color="#666" />
-          <Typography variant="body2" fontWeight={600} sx={{ flex: 1, color: "text.secondary" }}>
-            {groupName}
-          </Typography>
+          {renaming ? (
+            <TextField
+              size="small" autoFocus value={rname}
+              onChange={(e) => setRname(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") { setRname(groupName); setRenaming(false); } }}
+              sx={{ flex: 1, "& input": { py: 0.25, fontSize: "0.85rem" } }}
+            />
+          ) : (
+            <Typography
+              variant="body2" fontWeight={600}
+              sx={{ flex: 1, color: "text.secondary", cursor: onRename ? "pointer" : "default" }}
+              onDoubleClick={onRename ? () => { setRname(groupName); setRenaming(true); } : undefined}
+            >
+              {groupName}
+            </Typography>
+          )}
+          {!renaming && onRename && (
+            <Tooltip title="Rename group">
+              <IconButton size="small" onClick={() => { setRname(groupName); setRenaming(true); }} sx={{ p: 0.25 }}>
+                <MaterialSymbol icon="edit" size={14} />
+              </IconButton>
+            </Tooltip>
+          )}
           {onRemove && (
             <Tooltip title="Remove group (fields move to column)">
               <IconButton size="small" onClick={onRemove} sx={{ p: 0.25 }}>
@@ -362,10 +392,15 @@ function VisualFieldLayout({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Find which container holds an item
+  // Find which container holds an item (for fields: returns group or column; for groups: returns self)
   const findContainer = useCallback((id: string): string | undefined => {
     if (id in containers) return id;
     return Object.keys(containers).find((k) => containers[k].includes(id));
+  }, [containers]);
+
+  // Find which column a group lives in
+  const findGroupColumn = useCallback((groupId: string): string | undefined => {
+    return ["col-0", "col-1"].find((ck) => (containers[ck] || []).includes(groupId));
   }, [containers]);
 
   // Custom collision detection: prioritize groups (inner containers) over columns
@@ -404,30 +439,42 @@ function VisualFieldLayout({
 
     const activeStr = String(active.id);
     const overStr = String(over.id);
+    const activeType = active.data.current?.type;
+
+    if (activeType === "group") {
+      // Group movement: find source column, resolve target column
+      const fromCol = findGroupColumn(activeStr);
+      const toCol = overStr.startsWith("col-") ? overStr : findGroupColumn(overStr);
+      if (!fromCol || !toCol || fromCol === toCol) return;
+
+      setContainers((prev) => {
+        const fromItems = [...(prev[fromCol] || [])];
+        const toItems = [...(prev[toCol] || [])];
+        const activeIdx = fromItems.indexOf(activeStr);
+        if (activeIdx === -1) return prev;
+        fromItems.splice(activeIdx, 1);
+        // Insert at end of target column or near the over item
+        const overIdx = toItems.indexOf(overStr);
+        toItems.splice(overIdx >= 0 ? overIdx : toItems.length, 0, activeStr);
+        return { ...prev, [fromCol]: fromItems, [toCol]: toItems };
+      });
+      return;
+    }
+
+    // Field movement: use findContainer (returns group or column)
     const from = findContainer(activeStr);
     const to = findContainer(overStr);
-
     if (!from || !to || from === to) return;
-
-    // Prevent groups from being dropped into other groups
-    const activeType = active.data.current?.type;
-    if (activeType === "group" && to.startsWith("group:")) return;
 
     setContainers((prev) => {
       const fromItems = [...(prev[from] || [])];
       const toItems = [...(prev[to] || [])];
       const activeIdx = fromItems.indexOf(activeStr);
       if (activeIdx === -1) return prev;
-
-      // Remove from source
       fromItems.splice(activeIdx, 1);
-
-      // Insert in target
       const overIdx = toItems.indexOf(overStr);
       const insertAt = overStr in prev ? toItems.length : (overIdx >= 0 ? overIdx : toItems.length);
-
       toItems.splice(insertAt, 0, activeStr);
-
       return { ...prev, [from]: fromItems, [to]: toItems };
     });
   };
@@ -440,6 +487,28 @@ function VisualFieldLayout({
 
     const activeStr = String(active.id);
     const overStr = String(over.id);
+    const activeType = active.data.current?.type;
+
+    // For groups, find the column they live in for same-container reordering
+    if (activeType === "group") {
+      const col = findGroupColumn(activeStr);
+      const overCol = findGroupColumn(overStr);
+      if (col && col === overCol) {
+        const items = containers[col];
+        const oldIdx = items.indexOf(activeStr);
+        const newIdx = items.indexOf(overStr);
+        if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+          const updated = { ...containers, [col]: arrayMove(items, oldIdx, newIdx) };
+          setContainers(updated);
+          saveContainers(updated);
+          return;
+        }
+      }
+      saveContainers(containers);
+      return;
+    }
+
+    // For fields, use findContainer
     const container = findContainer(activeStr);
     const overContainer = findContainer(overStr);
 
@@ -510,6 +579,25 @@ function VisualFieldLayout({
     await saveContainers(updated);
   };
 
+  // Rename a group
+  const handleRenameGroup = async (oldGid: string, newName: string) => {
+    const newGid = `group:${newName}`;
+    if (newGid === oldGid || containers[newGid]) return; // no-op or already exists
+
+    const updated: Containers = {};
+    for (const [k, v] of Object.entries(containers)) {
+      if (k === oldGid) {
+        // Rename the group container
+        updated[newGid] = v;
+      } else {
+        // Replace old gid reference in column items
+        updated[k] = v.map((item) => (item === oldGid ? newGid : item));
+      }
+    }
+    setContainers(updated);
+    await saveContainers(updated);
+  };
+
   // Find field index in the original section.fields for edit/delete callbacks
   const findFieldIdx = (fieldKey: string) => section.fields.findIndex((f) => f.key === fieldKey);
 
@@ -525,6 +613,7 @@ function VisualFieldLayout({
             <SortableGroupCard
               id={itemId}
               groupName={gname}
+              onRename={(newName) => handleRenameGroup(itemId, newName)}
               onRemove={() => handleRemoveGroup(itemId)}
             >
               {groupItems.map((fk) => {
