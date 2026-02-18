@@ -30,10 +30,11 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
+import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import type { Calculation, CardType, FieldDef, RelationType } from "@/types";
+import type { Calculation, Card as CardItem, CardType, FieldDef, RelationType } from "@/types";
 
 // ── Suggestion types ───────────────────────────────────────────────
 
@@ -942,25 +943,54 @@ interface TestDialogProps {
 }
 
 function TestDialog({ open, calculation, onClose }: TestDialogProps) {
-  const [cardId, setCardId] = useState("");
+  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [options, setOptions] = useState<CardItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ success: boolean; error?: string; computed_value?: unknown; card_name?: string } | null>(null);
 
+  const { types } = useMetamodel();
+
   useEffect(() => {
     if (open) {
-      setCardId("");
+      setSelectedCard(null);
+      setSearchInput("");
+      setOptions([]);
       setResult(null);
     }
   }, [open]);
 
+  // Debounced card search
+  useEffect(() => {
+    if (!searchInput || searchInput.length < 2 || !calculation?.target_type_key) {
+      setOptions([]);
+      return;
+    }
+    setSearchLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get<{ items: CardItem[] }>(
+          `/cards?type=${encodeURIComponent(calculation.target_type_key)}&search=${encodeURIComponent(searchInput)}&page_size=15`,
+        );
+        setOptions(res.items);
+      } catch {
+        setOptions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput, calculation?.target_type_key]);
+
   const handleTest = async () => {
-    if (!calculation || !cardId) return;
+    if (!calculation || !selectedCard) return;
     setTesting(true);
     setResult(null);
     try {
       const res = await api.post<{ success: boolean; error?: string; computed_value?: unknown; card_name?: string }>(
         `/calculations/${calculation.id}/test`,
-        { card_id: cardId }
+        { card_id: selectedCard.id }
       );
       setResult(res);
     } catch (e: unknown) {
@@ -970,22 +1000,63 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
     }
   };
 
+  const typeLabel = types.find((t) => t.key === calculation?.target_type_key)?.label || calculation?.target_type_key || "card";
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>Test Calculation: {calculation?.name}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Enter a card ID to test this formula against. The result will not be saved.
+            Search for a {typeLabel} to test this formula against. The result will not be saved.
           </Typography>
-          <TextField
-            label="Card ID (UUID)"
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-            fullWidth
-            placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+          <Autocomplete
+            options={options}
+            value={selectedCard}
+            onChange={(_, val) => {
+              setSelectedCard(val);
+              setResult(null);
+            }}
+            inputValue={searchInput}
+            onInputChange={(_, val, reason) => {
+              if (reason === "input") setSearchInput(val);
+            }}
+            getOptionLabel={(opt) => opt.name}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            loading={searchLoading}
+            noOptionsText={searchInput.length < 2 ? "Type to search..." : "No cards found"}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                <Box sx={{ display: "flex", flexDirection: "column" }}>
+                  <Typography variant="body2">{option.name}</Typography>
+                  {option.subtype && (
+                    <Typography variant="caption" color="text.secondary">
+                      {option.subtype}
+                    </Typography>
+                  )}
+                </Box>
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={`Search ${typeLabel}`}
+                placeholder={`Type a ${typeLabel.toLowerCase()} name...`}
+                slotProps={{
+                  input: {
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {searchLoading ? <CircularProgress color="inherit" size={16} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  },
+                }}
+              />
+            )}
           />
-          <Button variant="contained" onClick={handleTest} disabled={testing || !cardId}>
+          <Button variant="contained" onClick={handleTest} disabled={testing || !selectedCard}>
             {testing ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
             Test
           </Button>
