@@ -28,6 +28,7 @@ import ReportShell from "./ReportShell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useSavedReport } from "@/hooks/useSavedReport";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -555,6 +556,7 @@ function FilterSelect({
 export default function ProcessMapReport() {
   const navigate = useNavigate();
   const { fmtShort } = useCurrency();
+  const saved = useSavedReport("process-map");
 
   // Data
   const [data, setData] = useState<ProcItem[] | null>(null);
@@ -573,6 +575,36 @@ export default function ProcessMapReport() {
   // Filters
   const [filterOrgs, setFilterOrgs] = useState<string[]>([]);
   const [filterCtxs, setFilterCtxs] = useState<string[]>([]);
+
+  // Load saved/local config
+  useEffect(() => {
+    const cfg = saved.consumeConfig();
+    if (cfg) {
+      if (cfg.metric) setMetric(cfg.metric as Metric);
+      if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
+      if (cfg.showRelated) setShowRelated(cfg.showRelated as ShowRelated);
+      if (cfg.filterOrgs) setFilterOrgs(cfg.filterOrgs as string[]);
+      if (cfg.filterCtxs) setFilterCtxs(cfg.filterCtxs as string[]);
+    }
+  }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getConfig = () => ({ metric, displayLevel, showRelated, filterOrgs, filterCtxs });
+
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [metric, displayLevel, showRelated, filterOrgs, filterCtxs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setMetric("maturity");
+    setDisplayLevel(2);
+    setShowRelated("none");
+    setZoomNodeId(null);
+    setFilterOrgs([]);
+    setFilterCtxs([]);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     api.get<{ items: ProcItem[]; organizations: RefItem[]; business_contexts: RefItem[] }>(
@@ -683,6 +715,7 @@ export default function ProcessMapReport() {
       icon="account_tree"
       iconColor="#e65100"
       hasTableToggle={false}
+      onReset={handleReset}
       toolbar={
         <>
           {/* Row 1: Main controls */}
