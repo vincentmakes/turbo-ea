@@ -579,6 +579,7 @@ function FilterSelect({
     <Autocomplete
       multiple
       size="small"
+      limitTags={1}
       options={options.map((o) => o.key)}
       getOptionLabel={(key) => options.find((o) => o.key === key)?.label ?? key}
       value={value}
@@ -597,14 +598,22 @@ function FilterSelect({
                 bgcolor: opt?.color ?? undefined,
                 color: opt?.color ? "#fff" : undefined,
                 fontWeight: 500,
-                fontSize: "0.72rem",
+                fontSize: "0.7rem",
+                height: 22,
+                maxWidth: 110,
               }}
             />
           );
         })
       }
-      renderInput={(params) => <TextField {...params} label={label} />}
-      sx={{ minWidth: 180, maxWidth: 280 }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label={label}
+          placeholder={value.length === 0 ? "All" : ""}
+        />
+      )}
+      sx={{ width: 180 }}
     />
   );
 }
@@ -639,6 +648,7 @@ export default function CapabilityMapReport() {
   // Dynamic filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Load saved report config
   useEffect(() => {
@@ -907,66 +917,146 @@ export default function CapabilityMapReport() {
 
           {/* Row 2: Dynamic application filters */}
           {(showApps || hasActiveFilters) && (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1.5,
-                flexWrap: "wrap",
-                width: "100%",
-                pt: 0.5,
-              }}
-            >
-              <MaterialSymbol icon="filter_alt" size={18} color="#999" />
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                App Filters:
-              </Typography>
-
-              {/* Relation-based filters (Organization, Platform, etc.) */}
-              {relationFilterOptions.slice(0, 3).map((rf) => (
-                <FilterSelect
-                  key={rf.typeKey}
-                  label={rf.label}
-                  options={rf.options}
-                  value={relationFilters[rf.typeKey] || []}
-                  onChange={(v) =>
-                    setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
-                  }
-                />
-              ))}
-
-              {/* Attribute-based filters */}
-              {selectFields
-                .filter((f) => f.options && f.options.length > 0)
-                .slice(0, 6)
-                .map((f) => (
-                  <FilterSelect
-                    key={f.key}
-                    label={f.label}
-                    options={(f.options || []).map((o) => ({
-                      key: o.key,
-                      label: o.label,
-                      color: o.color,
-                    }))}
-                    value={attrFilters[f.key] || []}
-                    onChange={(v) =>
-                      setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
-                    }
+            <Box sx={{ width: "100%", pt: 0.5 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  mb: 1,
+                }}
+              >
+                <MaterialSymbol icon="filter_alt" size={16} color="#999" />
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  Application Filters
+                </Typography>
+                {hasActiveFilters && (
+                  <Chip
+                    size="small"
+                    label="Clear all"
+                    variant="outlined"
+                    onDelete={() => {
+                      setAttrFilters({});
+                      setRelationFilters({});
+                    }}
+                    sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
                   />
-                ))}
+                )}
+              </Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* Related By section */}
+                {relationFilterOptions.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "#f8f9fb",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      Related By
+                    </Typography>
+                    {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
+                      <FilterSelect
+                        key={rf.typeKey}
+                        label={rf.label}
+                        options={rf.options}
+                        value={relationFilters[rf.typeKey] || []}
+                        onChange={(v) =>
+                          setRelationFilters((prev) => ({ ...prev, [rf.typeKey]: v }))
+                        }
+                      />
+                    ))}
+                    {!showAllRelFilters && relationFilterOptions.length > 2 && (
+                      <Tooltip title={`Show ${relationFilterOptions.length - 2} more relation filters`}>
+                        <Chip
+                          size="small"
+                          icon={<MaterialSymbol icon="add" size={14} />}
+                          label={`${relationFilterOptions.length - 2} more`}
+                          onClick={() => setShowAllRelFilters(true)}
+                          sx={{
+                            height: 26,
+                            fontSize: "0.72rem",
+                            fontWeight: 500,
+                            cursor: "pointer",
+                            bgcolor: "#fff",
+                            border: "1px dashed #bbb",
+                            "&:hover": { bgcolor: "#f0f0f0" },
+                          }}
+                        />
+                      </Tooltip>
+                    )}
+                    {showAllRelFilters && relationFilterOptions.length > 2 && (
+                      <Chip
+                        size="small"
+                        label="Less"
+                        onClick={() => setShowAllRelFilters(false)}
+                        sx={{
+                          height: 26,
+                          fontSize: "0.72rem",
+                          cursor: "pointer",
+                          bgcolor: "#fff",
+                          border: "1px solid #ddd",
+                        }}
+                      />
+                    )}
+                  </Box>
+                )}
 
-              {hasActiveFilters && (
-                <Chip
-                  size="small"
-                  label="Clear all"
-                  variant="outlined"
-                  onDelete={() => {
-                    setAttrFilters({});
-                    setRelationFilters({});
-                  }}
-                  sx={{ fontSize: "0.72rem" }}
-                />
-              )}
+                {/* Own Fields section */}
+                {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "#f8fbf8",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      Fields
+                    </Typography>
+                    {selectFields
+                      .filter((f) => f.options && f.options.length > 0)
+                      .map((f) => (
+                        <FilterSelect
+                          key={f.key}
+                          label={f.label}
+                          options={(f.options || []).map((o) => ({
+                            key: o.key,
+                            label: o.label,
+                            color: o.color,
+                          }))}
+                          value={attrFilters[f.key] || []}
+                          onChange={(v) =>
+                            setAttrFilters((prev) => ({ ...prev, [f.key]: v }))
+                          }
+                        />
+                      ))}
+                  </Box>
+                )}
+              </Box>
             </Box>
           )}
         </>
