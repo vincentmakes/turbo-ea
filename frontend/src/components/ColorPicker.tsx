@@ -69,9 +69,12 @@ export default function ColorPicker({
   const open = Boolean(anchorEl);
   const size = compact ? 24 : 28;
 
-  // Sync draft when the external value changes or popover opens
+  // Sync draft + recent colors when the popover opens
   useEffect(() => {
-    if (open) setDraft(value);
+    if (open) {
+      setDraft(value);
+      setRecent(loadRecent());
+    }
   }, [open, value]);
 
   const handleSave = useCallback(() => {
