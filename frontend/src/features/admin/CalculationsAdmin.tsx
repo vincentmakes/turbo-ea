@@ -143,7 +143,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
             <Typography variant="caption" fontWeight={600} gutterBottom>
               Example Formulas
             </Typography>
-            <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "grey.50", p: 1, borderRadius: 1, overflow: "auto" }}>
+            <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "grey.50", p: 1, borderRadius: 1, overflow: "auto", whiteSpace: "pre-wrap" }}>
               {`# Total Budget
 COALESCE(data.budgetCapEx, 0) + COALESCE(data.budgetOpEx, 0)
 
@@ -152,7 +152,25 @@ relation_count.relAppToITC
 
 # Weighted score
 scores = {"perfect": 4, "good": 3, "adequate": 2, "poor": 1}
-MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5`}
+MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5
+
+# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
+# Assumes single_select fields: businessFit and technicalFit
+# with options: excellent, adequate, insufficient, unreasonable.
+#
+# Scoring: Map each dimension to 1-4 numeric scale.
+# Business Fit  = Y-axis (how well does it serve the business?)
+# Technical Fit = X-axis (how healthy is the technology?)
+#
+# Quadrant logic (threshold at score 2.5):
+#   Invest    = high business + high technical
+#   Migrate   = high business + low technical
+#   Tolerate  = low business  + high technical
+#   Eliminate = low business  + low technical
+#
+bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))`}
             </Box>
           </Box>
         </Box>
