@@ -31,6 +31,8 @@ interface Props {
   /** If viewing a saved report, show banner with name and reset option */
   savedReportName?: string;
   onResetSavedReport?: () => void;
+  /** Called when user clicks the reset icon — resets all parameters to defaults */
+  onReset?: () => void;
   /** The ref to the chart container for thumbnail capture */
   chartRef?: React.RefObject<HTMLDivElement | null>;
   /** Override the max width of the report container (default 1200) */
@@ -50,6 +52,7 @@ export default function ReportShell({
   onSaveReport,
   savedReportName,
   onResetSavedReport,
+  onReset,
   chartRef,
   maxWidth = 1200,
   children,
@@ -117,6 +120,14 @@ export default function ReportShell({
           <Tooltip title="Save report">
             <IconButton size="small" onClick={onSaveReport}>
               <MaterialSymbol icon="bookmark_add" size={20} />
+            </IconButton>
+          </Tooltip>
+        )}
+
+        {onReset && (
+          <Tooltip title="Reset to defaults">
+            <IconButton size="small" onClick={onReset}>
+              <MaterialSymbol icon="restart_alt" size={20} />
             </IconButton>
           </Tooltip>
         )}

@@ -668,6 +668,24 @@ export default function CapabilityMapReport() {
 
   const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setMetric("app_count");
+    setDisplayLevel(2);
+    setShowApps(false);
+    setColorBy("");
+    setTimelineDate(Date.now());
+    setAttrFilters({});
+    setRelationFilters({});
+    setShowAllRelFilters(false);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Derived: select fields from schema
   const selectFields = useMemo(() => pickSelectFields(fieldsSchema), [fieldsSchema]);
 
@@ -839,6 +857,7 @@ export default function CapabilityMapReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           {/* Row 1: Main controls */}

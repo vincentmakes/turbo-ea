@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -127,6 +127,22 @@ export default function LifecycleReport() {
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getConfig = () => ({ cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy });
+
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [cardTypeKey, view, sortK, sortD, useCustomDates, customColorBy]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setCardTypeKey("");
+    setView("chart");
+    setSortK("name");
+    setSortD("asc");
+    setUseCustomDates(false);
+    setCustomColorBy("");
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive date fields and single_select fields from selected type's schema
   const selectedType = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
@@ -301,6 +317,7 @@ export default function LifecycleReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>

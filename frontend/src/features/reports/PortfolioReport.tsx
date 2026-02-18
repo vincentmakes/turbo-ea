@@ -540,6 +540,27 @@ export default function PortfolioReport() {
 
   const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setView("chart");
+    setGroupByRaw("");
+    setColorBy("");
+    setSearch("");
+    setAttrFilters({});
+    setRelationFilters({});
+    setShowAllRelFilters(false);
+    setTimelineDate(Date.now());
+    setSortK("name");
+    setSortD("asc");
+    setDefaultsApplied(false);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch data
   useEffect(() => {
     api
@@ -780,6 +801,7 @@ export default function PortfolioReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           {/* Row 1: Main controls */}

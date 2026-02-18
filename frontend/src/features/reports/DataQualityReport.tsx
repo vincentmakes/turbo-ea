@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -84,6 +84,17 @@ export default function DataQualityReport() {
 
   const getConfig = () => ({ view });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setView("chart");
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     api.get<DQData>("/reports/data-quality").then(setData);
   }, []);
@@ -140,6 +151,7 @@ export default function DataQualityReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
     >
       {/* Alerts */}
       {alerts.length > 0 && (

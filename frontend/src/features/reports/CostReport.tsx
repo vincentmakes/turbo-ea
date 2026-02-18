@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -135,6 +135,24 @@ export default function CostReport() {
 
   const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate });
 
+  // Auto-persist config to localStorage
+  useEffect(() => {
+    saved.persistConfig(getConfig());
+  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset all parameters to defaults
+  const handleReset = useCallback(() => {
+    saved.resetAll();
+    setCardTypeKey("Application");
+    setCostField("costTotalAnnual");
+    setGroupBy("");
+    setView("chart");
+    setSortK("cost");
+    setSortD("desc");
+    setTimelineDate(Date.now());
+    setSliderTouched(false);
+  }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
   const costFields = useMemo(() => (typeDef ? pickCostFields(typeDef.fields_schema) : []), [typeDef]);
 
@@ -267,6 +285,7 @@ export default function CostReport() {
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
+      onReset={handleReset}
       toolbar={
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
