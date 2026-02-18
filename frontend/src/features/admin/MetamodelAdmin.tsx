@@ -24,6 +24,7 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
+import Snackbar from "@mui/material/Snackbar";
 import Divider from "@mui/material/Divider";
 import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -844,7 +845,7 @@ function TypeDetailDrawer({
   const [hasHierarchy, setHasHierarchy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [snack, setSnack] = useState("");
 
   /* --- Subtype inline add --- */
   const [addSubOpen, setAddSubOpen] = useState(false);
@@ -902,7 +903,6 @@ function TypeDetailDrawer({
   /* --- Save header --- */
   const handleSaveHeader = async () => {
     setSaving(true);
-    setSaved(false);
     try {
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
         label,
@@ -914,8 +914,7 @@ function TypeDetailDrawer({
       });
       onRefresh();
       setError(null);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSnack("Type saved");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
@@ -1093,9 +1092,8 @@ function TypeDetailDrawer({
             size="small"
             onClick={handleSaveHeader}
             disabled={saving}
-            color={saved ? "success" : "primary"}
           >
-            {saving ? "Saving..." : saved ? "Saved!" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </Button>
           <IconButton onClick={onClose}>
             <MaterialSymbol icon="close" size={22} />
@@ -1337,6 +1335,14 @@ function TypeDetailDrawer({
         isCalculated={calculatedFieldKeys.includes(editingField.key)}
         onClose={() => setFieldDialogOpen(false)}
         onSave={handleSaveField}
+      />
+
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={4000}
+        onClose={() => setSnack("")}
+        message={snack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
     </Dialog>
   );
