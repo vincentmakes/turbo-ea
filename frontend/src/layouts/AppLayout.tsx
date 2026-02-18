@@ -74,7 +74,7 @@ const NAV_ITEMS: NavItemWithPermission[] = [
 
 const ADMIN_ITEMS: (NavItem & { permission?: string })[] = [
   { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
-  { label: "Users", icon: "group", path: "/admin/users", permission: "admin.users" },
+  { label: "Users & Roles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { label: "Surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
   { label: "Settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
   { label: "EOL Search", icon: "update", path: "/admin/eol", permission: "eol.manage" },
