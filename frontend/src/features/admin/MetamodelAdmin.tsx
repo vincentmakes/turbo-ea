@@ -1434,6 +1434,68 @@ function TypeDetailDrawer({
 
         <Divider sx={{ mb: 2 }} />
 
+        {/* ---------- Card Layout (built-in sections) ---------- */}
+        <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+          Card Layout
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Configure visibility and default state of built-in sections in the card detail view.
+        </Typography>
+        {(() => {
+          const secCfg = cardTypeKey.section_config || {};
+          const builtInSections = [
+            { key: "description", label: "Description", icon: "description" },
+            { key: "eol", label: "End of Life", icon: "update" },
+            { key: "lifecycle", label: "Lifecycle", icon: "timeline" },
+            { key: "hierarchy", label: "Hierarchy", icon: "account_tree", onlyIf: cardTypeKey.has_hierarchy },
+            { key: "relations", label: "Relations", icon: "hub" },
+          ];
+          const updateSecCfg = async (sectionKey: string, patch: Record<string, boolean>) => {
+            const updated = { ...secCfg, [sectionKey]: { ...(secCfg[sectionKey] || {}), ...patch } };
+            await api.patch(`/metamodel/types/${cardTypeKey.key}`, { section_config: updated });
+            onRefresh();
+          };
+          return (
+            <List dense disablePadding sx={{ mb: 2 }}>
+              {builtInSections.filter((s) => s.onlyIf !== false).map((s) => {
+                const cfg = secCfg[s.key] || {};
+                return (
+                  <ListItem key={s.key} sx={{ pl: 0 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
+                      <MaterialSymbol icon={s.icon} size={18} color="#666" />
+                      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 100 }}>{s.label}</Typography>
+                    </Box>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={cfg.defaultExpanded === false}
+                          disabled={!!cfg.hidden}
+                          onChange={() => updateSecCfg(s.key, { defaultExpanded: cfg.defaultExpanded === false })}
+                        />
+                      }
+                      label={<Typography variant="caption" color="text.secondary">Collapsed</Typography>}
+                      sx={{ mr: 2 }}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={!!cfg.hidden}
+                          onChange={() => updateSecCfg(s.key, { hidden: !cfg.hidden })}
+                        />
+                      }
+                      label={<Typography variant="caption" color="text.secondary">Hidden</Typography>}
+                    />
+                  </ListItem>
+                );
+              })}
+            </List>
+          );
+        })()}
+
+        <Divider sx={{ mb: 2 }} />
+
         {/* ---------- Relations ---------- */}
         <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
           Relations

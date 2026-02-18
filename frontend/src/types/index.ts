@@ -123,6 +123,11 @@ export interface StakeholderRoleDefinition {
   label: string;
 }
 
+export interface SectionConfig {
+  defaultExpanded?: boolean;
+  hidden?: boolean;
+}
+
 export interface CardType {
   key: string;
   label: string;
@@ -134,6 +139,7 @@ export interface CardType {
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];
+  section_config?: Record<string, SectionConfig>;
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;

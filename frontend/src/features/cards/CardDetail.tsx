@@ -132,6 +132,14 @@ function safeString(value: unknown): string {
   try { return JSON.stringify(value); } catch { return "[invalid]"; }
 }
 
+// Consistent chip style for all select fields (same fixed width for visual alignment)
+const SELECT_CHIP_SX = {
+  width: 140,
+  maxWidth: "100%",
+  justifyContent: "center",
+  "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
+} as const;
+
 // ── Read-only field value renderer ──────────────────────────────
 function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
 
@@ -147,16 +155,12 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
   if (field.type === "single_select" && field.options) {
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
-    return (
-      <Box sx={{ display: "flex" }}>
-        {opt ? (
-          <Chip size="small" label={opt.label} sx={{ maxWidth: 180, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
-        ) : (
-          <Tooltip title={`Unknown option key: ${strVal}`}>
-            <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ maxWidth: 180 }} />
-          </Tooltip>
-        )}
-      </Box>
+    return opt ? (
+      <Chip size="small" label={opt.label} sx={{ ...SELECT_CHIP_SX, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+    ) : (
+      <Tooltip title={`Unknown option key: ${strVal}`}>
+        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={SELECT_CHIP_SX} />
+      </Tooltip>
     );
   }
 
@@ -168,9 +172,9 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={opt.label} sx={{ maxWidth: 180, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={opt.label} sx={{ ...SELECT_CHIP_SX, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ maxWidth: 180 }} />
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={SELECT_CHIP_SX} />
           );
         })}
       </Box>
@@ -354,10 +358,12 @@ function DescriptionSection({
   card,
   onSave,
   canEdit = true,
+  initialExpanded = true,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
+  initialExpanded?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(card.name);
@@ -374,7 +380,7 @@ function DescriptionSection({
   };
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="description" size={20} color="#666" />
@@ -444,10 +450,12 @@ function LifecycleSection({
   card,
   onSave,
   canEdit = true,
+  initialExpanded = true,
 }: {
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   canEdit?: boolean;
+  initialExpanded?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
@@ -464,7 +472,7 @@ function LifecycleSection({
   };
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} color="#666" />
@@ -699,8 +707,7 @@ function AttributeSection({
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "180px auto" },
-              justifyContent: "start",
+              gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" },
               rowGap: 1,
               columnGap: 2,
               alignItems: { sm: "center" },
@@ -737,10 +744,12 @@ function HierarchySection({
   card,
   onUpdate,
   canEdit = true,
+  initialExpanded = true,
 }: {
   card: Card;
   onUpdate: () => void;
   canEdit?: boolean;
+  initialExpanded?: boolean;
 }) {
   const navigate = useNavigate();
   const { getType } = useMetamodel();
@@ -876,7 +885,7 @@ function HierarchySection({
   const levelColor = LEVEL_COLORS[Math.min(level - 1, LEVEL_COLORS.length - 1)];
 
   return (
-    <Accordion defaultExpanded disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="account_tree" size={20} color="#666" />
@@ -1158,7 +1167,7 @@ function HierarchySection({
 }
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
-function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean }) {
+function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true, initialExpanded = false }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean; initialExpanded?: boolean }) {
   const [relations, setRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
@@ -1271,7 +1280,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
     .filter(({ rels }) => rels.length > 0);
 
   return (
-    <Accordion disableGutters>
+    <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} color="#666" />
@@ -2075,6 +2084,11 @@ export default function CardDetail() {
     calcFieldKeys = [];
   }
 
+  // Section config: controls default expanded / hidden for built-in sections
+  const sc = typeConfig?.section_config || {};
+  const secExpanded = (key: string, fallback = true) => sc[key]?.defaultExpanded !== false ? fallback : false;
+  const secHidden = (key: string) => !!sc[key]?.hidden;
+
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
     setCard(updated);
@@ -2313,15 +2327,21 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <ErrorBoundary label="Description" inline>
-                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="End of Life" inline>
-                <EolLinkSection card={card} onSave={handleUpdate} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Lifecycle" inline>
-                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
+              {!secHidden("description") && (
+                <ErrorBoundary label="Description" inline>
+                  <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("description")} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("eol") && (
+                <ErrorBoundary label="End of Life" inline>
+                  <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={secExpanded("eol") ? undefined : false} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("lifecycle") && (
+                <ErrorBoundary label="Lifecycle" inline>
+                  <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("lifecycle")} />
+                </ErrorBoundary>
+              )}
               {typeConfig?.fields_schema.map((section) => (
                 <ErrorBoundary key={section.section} label={section.section}>
                   <AttributeSection
@@ -2334,12 +2354,16 @@ export default function CardDetail() {
                   />
                 </ErrorBoundary>
               ))}
-              <ErrorBoundary label="Hierarchy" inline>
-                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Relations" inline>
-                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
-              </ErrorBoundary>
+              {!secHidden("hierarchy") && (
+                <ErrorBoundary label="Hierarchy" inline>
+                  <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={secExpanded("hierarchy")} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("relations") && (
+                <ErrorBoundary label="Relations" inline>
+                  <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={secExpanded("relations", false)} />
+                </ErrorBoundary>
+              )}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Process Flow"><MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard></ErrorBoundary>}
@@ -2353,15 +2377,21 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <ErrorBoundary label="Description" inline>
-                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="End of Life" inline>
-                <EolLinkSection card={card} onSave={handleUpdate} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Lifecycle" inline>
-                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              </ErrorBoundary>
+              {!secHidden("description") && (
+                <ErrorBoundary label="Description" inline>
+                  <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("description")} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("eol") && (
+                <ErrorBoundary label="End of Life" inline>
+                  <EolLinkSection card={card} onSave={handleUpdate} initialExpanded={secExpanded("eol") ? undefined : false} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("lifecycle") && (
+                <ErrorBoundary label="Lifecycle" inline>
+                  <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} initialExpanded={secExpanded("lifecycle")} />
+                </ErrorBoundary>
+              )}
               {typeConfig?.fields_schema.map((section) => (
                 <ErrorBoundary key={section.section} label={section.section}>
                   <AttributeSection
@@ -2374,12 +2404,16 @@ export default function CardDetail() {
                   />
                 </ErrorBoundary>
               ))}
-              <ErrorBoundary label="Hierarchy" inline>
-                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              </ErrorBoundary>
-              <ErrorBoundary label="Relations" inline>
-                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
-              </ErrorBoundary>
+              {!secHidden("hierarchy") && (
+                <ErrorBoundary label="Hierarchy" inline>
+                  <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} initialExpanded={secExpanded("hierarchy")} />
+                </ErrorBoundary>
+              )}
+              {!secHidden("relations") && (
+                <ErrorBoundary label="Relations" inline>
+                  <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} initialExpanded={secExpanded("relations", false)} />
+                </ErrorBoundary>
+              )}
             </Box>
           )}
           {tab === 1 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
