@@ -134,16 +134,16 @@ function highlightLine(line: string): string {
 
 /** CSS for syntax highlighting classes. */
 const HL_STYLES = `
-  .hl-comment { color: #6a9955; font-style: italic; }
-  .hl-string { color: #ce9178; }
-  .hl-number { color: #b5cea8; }
-  .hl-function { color: #dcdcaa; }
-  .hl-builtin { color: #dcdcaa; opacity: 0.85; }
-  .hl-keyword { color: #c586c0; }
-  .hl-constant { color: #569cd6; }
-  .hl-context { color: #4ec9b0; }
-  .hl-property { color: #9cdcfe; }
-  .hl-punct { color: #808080; }
+  .hl-comment { color: #6a737d; font-style: italic; }
+  .hl-string { color: #b31d28; }
+  .hl-number { color: #005cc5; }
+  .hl-function { color: #6f42c1; }
+  .hl-builtin { color: #6f42c1; opacity: 0.85; }
+  .hl-keyword { color: #d73a49; }
+  .hl-constant { color: #005cc5; }
+  .hl-context { color: #22863a; }
+  .hl-property { color: #005cc5; }
+  .hl-punct { color: #6a737d; }
 `;
 
 // ── FormulaEditor with autocomplete ────────────────────────────────
@@ -383,7 +383,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           border: "1px solid",
           borderColor: "divider",
           borderRadius: 1,
-          bgcolor: "#1e1e1e",
+          bgcolor: "#fafbfc",
           overflow: "hidden",
           "&:focus-within": { borderColor: "primary.main", boxShadow: (t) => `0 0 0 1px ${t.palette.primary.main}` },
         }}
@@ -393,14 +393,14 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           sx={{
             py: "10px",
             px: 1,
-            bgcolor: "#1e1e1e",
-            borderRight: "1px solid #333",
+            bgcolor: "#f0f1f3",
+            borderRight: "1px solid #dfe2e5",
             userSelect: "none",
             flexShrink: 0,
             fontFamily: "monospace",
             fontSize: "0.82rem",
             lineHeight: "1.5",
-            color: "#858585",
+            color: "#959da5",
             textAlign: "right",
             minWidth: 36,
           }}
@@ -427,8 +427,8 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
               fontSize: "0.82rem",
               lineHeight: "1.5",
               minHeight: 160,
-              color: "#d4d4d4",
-              caretColor: "#d4d4d4",
+              color: "#24292e",
+              caretColor: "#24292e",
             }}
           />
         </Box>
@@ -550,8 +550,10 @@ function HighlightedCodeBlock({ code }: { code: string }) {
     <Box
       sx={{
         display: "flex",
-        bgcolor: "#1e1e1e",
+        bgcolor: "#fafbfc",
         borderRadius: 1,
+        border: "1px solid",
+        borderColor: "divider",
         overflow: "auto",
         fontSize: "0.7rem",
         lineHeight: "1.55",
@@ -563,10 +565,11 @@ function HighlightedCodeBlock({ code }: { code: string }) {
         sx={{
           py: 1,
           px: 1,
-          color: "#858585",
+          color: "#959da5",
           textAlign: "right",
           userSelect: "none",
-          borderRight: "1px solid #333",
+          borderRight: "1px solid #dfe2e5",
+          bgcolor: "#f0f1f3",
           flexShrink: 0,
           minWidth: 28,
         }}
@@ -578,7 +581,7 @@ function HighlightedCodeBlock({ code }: { code: string }) {
       </Box>
       <Box
         component="pre"
-        sx={{ py: 1, px: 1.5, m: 0, color: "#d4d4d4", whiteSpace: "pre-wrap", flex: 1 }}
+        sx={{ py: 1, px: 1.5, m: 0, color: "#24292e", whiteSpace: "pre-wrap", flex: 1 }}
         dangerouslySetInnerHTML={{ __html: highlightFormula(code) }}
       />
     </Box>
@@ -977,16 +980,17 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
               setSelectedCard(val);
               setResult(null);
             }}
-            inputValue={searchInput}
             onInputChange={(_, val, reason) => {
               if (reason === "input") setSearchInput(val);
+              else if (reason === "clear") setSearchInput("");
             }}
+            filterOptions={(x) => x}
             getOptionLabel={(opt) => opt.name}
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
             loading={searchLoading}
             noOptionsText={searchInput.length < 2 ? "Type to search..." : "No cards found"}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
+            renderOption={({ key, ...optProps }, option) => (
+              <li key={option.id} {...optProps}>
                 <Box sx={{ display: "flex", flexDirection: "column" }}>
                   <Typography variant="body2">{option.name}</Typography>
                   {option.subtype && (

@@ -293,6 +293,9 @@ async def test_calculation(
             f"Card type '{card.type}' does not match target '{calc.target_type_key}'",
         )
 
+    # Save card name before rollback expires the ORM object
+    card_name = card.name
+
     # Execute without saving
     success, error = await execute_calculation(db, calc, card)
     computed_value = (card.attributes or {}).get(calc.target_field_key)
@@ -304,7 +307,7 @@ async def test_calculation(
         "success": success,
         "error": error,
         "computed_value": computed_value,
-        "card_name": card.name,
+        "card_name": card_name,
     }
 
 
