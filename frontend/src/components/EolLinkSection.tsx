@@ -322,7 +322,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
             size="small"
             label={supportInfo.label}
             sx={{
-              width: 140,
+              width: 180,
               maxWidth: "100%",
               justifyContent: "center",
               bgcolor: supportInfo.color + "20",
@@ -341,7 +341,7 @@ function EolCycleDetails({ cycle }: { cycle: EolCycle }) {
             size="small"
             label={eolInfo.label}
             sx={{
-              width: 140,
+              width: 180,
               maxWidth: "100%",
               justifyContent: "center",
               bgcolor: eolInfo.color + "20",

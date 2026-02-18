@@ -133,12 +133,20 @@ function safeString(value: unknown): string {
 }
 
 // Consistent chip style for all select fields (same fixed width for visual alignment)
-const SELECT_CHIP_SX = {
-  width: 140,
+// Base chip style — width is computed per-field from the longest option label
+const SELECT_CHIP_BASE = {
   maxWidth: "100%",
   justifyContent: "center",
   "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
 } as const;
+
+/** Compute a uniform chip width for a field based on its longest option label. */
+function chipWidthForField(options: FieldDef["options"]): number {
+  if (!options || options.length === 0) return 180;
+  const maxLen = Math.max(...options.map((o) => o.label.length));
+  // ~7.5px per char + 28px chip padding, clamped between 180 and 300
+  return Math.max(180, Math.min(300, Math.round(maxLen * 7.5 + 28)));
+}
 
 // ── Read-only field value renderer ──────────────────────────────
 function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
@@ -153,18 +161,20 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
   }
 
   if (field.type === "single_select" && field.options) {
+    const w = chipWidthForField(field.options);
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={opt.label} sx={{ ...SELECT_CHIP_SX, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={`Unknown option key: ${strVal}`}>
-        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={SELECT_CHIP_SX} />
+        <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
       </Tooltip>
     );
   }
 
   if (field.type === "multiple_select" && field.options) {
+    const w = chipWidthForField(field.options);
     const arr = Array.isArray(value) ? value : [value];
     return (
       <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
@@ -172,9 +182,9 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={opt.label} sx={{ ...SELECT_CHIP_SX, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
-            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={SELECT_CHIP_SX} />
+            <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
         })}
       </Box>
@@ -2099,6 +2109,9 @@ export default function CardDetail() {
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Currency hook — must be before early returns to satisfy Rules of Hooks
+  const { fmt: currencyFmt } = useCurrency();
+
   // Fetch effective permissions for this card
   useEffect(() => {
     if (!id) return;
@@ -2159,9 +2172,6 @@ export default function CardDetail() {
   const sc = typeConfig?.section_config || {};
   const secExpanded = (key: string, fallback = true) => sc[key]?.defaultExpanded !== false ? fallback : false;
   const secHidden = (key: string) => !!sc[key]?.hidden;
-
-  // Currency for description extra fields
-  const { fmt: currencyFmt } = useCurrency();
 
   // Section ordering: custom sections exclude __description, which feeds DescriptionSection
   const customSections = (typeConfig?.fields_schema || []).filter((s) => s.section !== "__description");

@@ -138,11 +138,16 @@ function SortableSectionItem({
         <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", alignItems: "center", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
           <MaterialSymbol icon="drag_indicator" size={18} color="#999" />
         </Box>
-        {/* Section icon + name */}
-        <MaterialSymbol icon={info.icon} size={18} color={cfg.hidden ? "#bbb" : "#666"} />
-        <Typography variant="body2" fontWeight={600} sx={{ flex: 1, color: cfg.hidden ? "text.disabled" : "text.primary" }}>
-          {info.label}
-        </Typography>
+        {/* Section icon + name (clickable to expand/collapse) */}
+        <Box
+          onClick={(info.isCustom || sectionKey === "description") && !cfg.hidden ? onToggleExpand : undefined}
+          sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1, cursor: (info.isCustom || sectionKey === "description") && !cfg.hidden ? "pointer" : "default" }}
+        >
+          <MaterialSymbol icon={info.icon} size={18} color={cfg.hidden ? "#bbb" : "#666"} />
+          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>
+            {info.label}
+          </Typography>
+        </Box>
         {/* Collapsed toggle */}
         <Tooltip title="Collapsed by default">
           <FormControlLabel
@@ -315,8 +320,10 @@ function SectionFieldsPanel({
 
   const [newGroupName, setNewGroupName] = useState("");
   const [addingGroup, setAddingGroup] = useState(false);
+  const [localGroups, setLocalGroups] = useState<string[]>([]);
 
-  const groups = [...new Set(section.fields.map((f) => f.group).filter(Boolean))] as string[];
+  const persistedGroups = [...new Set(section.fields.map((f) => f.group).filter(Boolean))] as string[];
+  const groups = [...new Set([...persistedGroups, ...localGroups])];
   const showColumn = section.columns === 2;
 
   const handleFieldDragEnd = async (event: DragEndEvent) => {
@@ -350,12 +357,11 @@ function SectionFieldsPanel({
     onRefresh();
   };
 
-  const handleAddGroup = async () => {
-    if (!newGroupName) return;
-    // Just track the group name - it'll be used when assigning fields
+  const handleAddGroup = () => {
+    if (!newGroupName || groups.includes(newGroupName)) return;
+    setLocalGroups((prev) => [...prev, newGroupName]);
     setAddingGroup(false);
     setNewGroupName("");
-    // No-op: groups are implicit from field.group values
   };
 
   const fieldIds = section.fields.map((_, i) => `field-${sectionIdx}-${i}`);
@@ -557,7 +563,13 @@ export default function CardLayoutEditor({
   const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
   const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy);
 
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  // Auto-expand all editable sections (custom + description) for easier editing
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    initial.add("description");
+    customSections.forEach((_, i) => initial.add(`custom:${i}`));
+    return initial;
+  });
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
 
