@@ -44,6 +44,106 @@ interface Suggestion {
   category: string;   // grouping label
 }
 
+// ── Syntax highlighting ───────────────────────────────────────────
+
+const FORMULA_FUNCTIONS = new Set([
+  "IF", "SUM", "AVG", "MIN", "MAX", "COUNT", "ROUND", "ABS",
+  "COALESCE", "LOWER", "UPPER", "CONCAT", "CONTAINS", "PLUCK",
+  "FILTER", "MAP_SCORE",
+]);
+const FORMULA_BUILTINS = new Set([
+  "len", "str", "int", "float", "bool", "abs", "round", "min", "max", "sum",
+]);
+const FORMULA_KEYWORDS = new Set(["is", "not", "or", "and", "in"]);
+const FORMULA_CONSTANTS = new Set(["None", "True", "False"]);
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Simple tokenizer that produces syntax-highlighted HTML. */
+function highlightFormula(code: string): string {
+  // Process line by line to handle # comments
+  return code.split("\n").map((line) => {
+    const commentIdx = findCommentStart(line);
+    if (commentIdx === 0) return `<span class="hl-comment">${escapeHtml(line)}</span>`;
+    const codePart = commentIdx >= 0 ? line.slice(0, commentIdx) : line;
+    const commentPart = commentIdx >= 0 ? line.slice(commentIdx) : "";
+    return highlightLine(codePart) +
+      (commentPart ? `<span class="hl-comment">${escapeHtml(commentPart)}</span>` : "");
+  }).join("\n");
+}
+
+/** Find the start of a # comment (not inside a string). */
+function findCommentStart(line: string): number {
+  let inStr: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inStr) {
+      if (ch === inStr && line[i - 1] !== "\\") inStr = null;
+    } else if (ch === '"' || ch === "'") {
+      inStr = ch;
+    } else if (ch === "#") {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/** Highlight a single line of code (no comments). */
+function highlightLine(line: string): string {
+  // Regex that matches tokens in order of priority
+  const rx = /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|(\.?\b[a-zA-Z_]\w*\b)|([>=<!]=|[+\-*/%<>=,(){}:[\]])/g;
+  let result = "";
+  let lastIdx = 0;
+  let m;
+  while ((m = rx.exec(line)) !== null) {
+    if (m.index > lastIdx) result += escapeHtml(line.slice(lastIdx, m.index));
+    if (m[1]) { // string
+      result += `<span class="hl-string">${escapeHtml(m[1])}</span>`;
+    } else if (m[2]) { // number
+      result += `<span class="hl-number">${escapeHtml(m[2])}</span>`;
+    } else if (m[3]) { // word
+      const word = m[3];
+      if (word.startsWith(".")) {
+        // .property access — highlight the dot as punctuation, word as property
+        result += `<span class="hl-punct">.</span><span class="hl-property">${escapeHtml(word.slice(1))}</span>`;
+      } else if (FORMULA_FUNCTIONS.has(word)) {
+        result += `<span class="hl-function">${escapeHtml(word)}</span>`;
+      } else if (FORMULA_BUILTINS.has(word)) {
+        result += `<span class="hl-builtin">${escapeHtml(word)}</span>`;
+      } else if (FORMULA_CONSTANTS.has(word)) {
+        result += `<span class="hl-constant">${escapeHtml(word)}</span>`;
+      } else if (FORMULA_KEYWORDS.has(word)) {
+        result += `<span class="hl-keyword">${escapeHtml(word)}</span>`;
+      } else if (word === "data" || word === "relations" || word === "relation_count" || word === "children" || word === "children_count") {
+        result += `<span class="hl-context">${escapeHtml(word)}</span>`;
+      } else {
+        result += escapeHtml(word);
+      }
+    } else if (m[4]) { // operator / punctuation
+      result += `<span class="hl-punct">${escapeHtml(m[4])}</span>`;
+    }
+    lastIdx = rx.lastIndex;
+  }
+  if (lastIdx < line.length) result += escapeHtml(line.slice(lastIdx));
+  return result;
+}
+
+/** CSS for syntax highlighting classes. */
+const HL_STYLES = `
+  .hl-comment { color: #6a9955; font-style: italic; }
+  .hl-string { color: #ce9178; }
+  .hl-number { color: #b5cea8; }
+  .hl-function { color: #dcdcaa; }
+  .hl-builtin { color: #dcdcaa; opacity: 0.85; }
+  .hl-keyword { color: #c586c0; }
+  .hl-constant { color: #569cd6; }
+  .hl-context { color: #4ec9b0; }
+  .hl-property { color: #9cdcfe; }
+  .hl-punct { color: #808080; }
+`;
+
 // ── FormulaEditor with autocomplete ────────────────────────────────
 
 interface FormulaEditorProps {
@@ -55,6 +155,7 @@ interface FormulaEditorProps {
 
 function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const highlightRef = useRef<HTMLPreElement | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [cursorToken, setCursorToken] = useState({ prefix: "", token: "" });
@@ -241,7 +342,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
   }, [value, onChange, getTokenAtCursor]);
 
   // Handle keyboard navigation in the suggestions list
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!showSuggestions || filteredSuggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -260,29 +361,117 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     }
   };
 
+  // Sync scroll between textarea and highlight overlay
+  const handleScroll = () => {
+    if (textareaRef.current && highlightRef.current) {
+      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
+      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
+
+  const lineCount = (value || "\n").split("\n").length;
+  const highlighted = highlightFormula(value || "");
+
   return (
     <Box sx={{ position: "relative" }}>
-      <TextField
-        label="Formula"
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onBlur={() => {
-          // Delay hiding so click on suggestion works
-          setTimeout(() => setShowSuggestions(false), 200);
+      <style>{HL_STYLES}</style>
+      <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
+        Formula *
+      </Typography>
+      <Box
+        sx={{
+          display: "flex",
+          border: "1px solid",
+          borderColor: "divider",
+          borderRadius: 1,
+          bgcolor: "#1e1e1e",
+          overflow: "hidden",
+          "&:focus-within": { borderColor: "primary.main", boxShadow: (t) => `0 0 0 1px ${t.palette.primary.main}` },
         }}
-        multiline
-        rows={6}
-        required
-        fullWidth
-        inputRef={textareaRef}
-        placeholder="Start typing — suggestions appear for fields, functions, and relations"
-        slotProps={{
-          input: {
-            sx: { fontFamily: "monospace", fontSize: "0.85rem" },
-          },
-        }}
-      />
+      >
+        {/* Line numbers gutter */}
+        <Box
+          sx={{
+            py: "10px",
+            px: 1,
+            bgcolor: "#1e1e1e",
+            borderRight: "1px solid #333",
+            userSelect: "none",
+            flexShrink: 0,
+            fontFamily: "monospace",
+            fontSize: "0.82rem",
+            lineHeight: "1.5",
+            color: "#858585",
+            textAlign: "right",
+            minWidth: 36,
+          }}
+          aria-hidden
+        >
+          {Array.from({ length: lineCount }, (_, i) => (
+            <div key={i}>{i + 1}</div>
+          ))}
+        </Box>
+
+        {/* Editor area: textarea (input) + pre (highlight overlay) */}
+        <Box sx={{ position: "relative", flex: 1, minHeight: 160 }}>
+          {/* Syntax highlight overlay */}
+          <Box
+            component="pre"
+            ref={highlightRef}
+            aria-hidden
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              m: 0,
+              py: "10px",
+              px: "10px",
+              fontFamily: "monospace",
+              fontSize: "0.82rem",
+              lineHeight: "1.5",
+              color: "#d4d4d4",
+              pointerEvents: "none",
+              overflow: "hidden",
+              whiteSpace: "pre",
+              wordWrap: "normal",
+            }}
+            dangerouslySetInnerHTML={{ __html: highlighted + "\n" }}
+          />
+          {/* Actual textarea (transparent text, visible caret) */}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+            spellCheck={false}
+            placeholder="Start typing — suggestions appear for fields, functions, and relations"
+            style={{
+              position: "relative",
+              width: "100%",
+              minHeight: 160,
+              resize: "vertical",
+              margin: 0,
+              padding: 10,
+              fontFamily: "monospace",
+              fontSize: "0.82rem",
+              lineHeight: "1.5",
+              color: "transparent",
+              caretColor: "#d4d4d4",
+              backgroundColor: "transparent",
+              border: "none",
+              outline: "none",
+              whiteSpace: "pre",
+              wordWrap: "normal",
+              overflow: "auto",
+              boxSizing: "border-box",
+            }}
+          />
+        </Box>
+      </Box>
       <Popper
         open={showSuggestions && filteredSuggestions.length > 0}
         anchorEl={textareaRef.current}
@@ -360,6 +549,77 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           </Box>
         </Paper>
       </Popper>
+    </Box>
+  );
+}
+
+// ── Highlighted Code Block (read-only, with line numbers) ─────────
+
+const EXAMPLE_FORMULAS = `# Total Budget
+COALESCE(data.budgetCapEx, 0) + COALESCE(data.budgetOpEx, 0)
+
+# Count related applications
+relation_count.relAppToITC
+
+# Weighted score
+scores = {"perfect": 4, "good": 3, "adequate": 2, "poor": 1}
+MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5
+
+# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
+# Assumes single_select fields: businessFit and technicalFit
+# with options: excellent, adequate, insufficient, unreasonable.
+#
+# Scoring: Map each dimension to 1-4 numeric scale.
+# Business Fit  = Y-axis (how well does it serve the business?)
+# Technical Fit = X-axis (how healthy is the technology?)
+#
+# Quadrant logic (threshold at score 2.5):
+#   Invest    = high business + high technical
+#   Migrate   = high business + low technical
+#   Tolerate  = low business  + high technical
+#   Eliminate = low business  + low technical
+#
+bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))`;
+
+function HighlightedCodeBlock({ code }: { code: string }) {
+  const lines = code.split("\n");
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        bgcolor: "#1e1e1e",
+        borderRadius: 1,
+        overflow: "auto",
+        fontSize: "0.7rem",
+        lineHeight: "1.55",
+        fontFamily: "monospace",
+      }}
+    >
+      <style>{HL_STYLES}</style>
+      <Box
+        sx={{
+          py: 1,
+          px: 1,
+          color: "#858585",
+          textAlign: "right",
+          userSelect: "none",
+          borderRight: "1px solid #333",
+          flexShrink: 0,
+          minWidth: 28,
+        }}
+        aria-hidden
+      >
+        {lines.map((_, i) => (
+          <div key={i}>{i + 1}</div>
+        ))}
+      </Box>
+      <Box
+        component="pre"
+        sx={{ py: 1, px: 1.5, m: 0, color: "#d4d4d4", whiteSpace: "pre-wrap", flex: 1 }}
+        dangerouslySetInnerHTML={{ __html: highlightFormula(code) }}
+      />
     </Box>
   );
 }
@@ -474,35 +734,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
             <Typography variant="caption" fontWeight={600} gutterBottom>
               Example Formulas
             </Typography>
-            <Box component="pre" sx={{ fontSize: "0.7rem", bgcolor: "grey.50", p: 1, borderRadius: 1, overflow: "auto", whiteSpace: "pre-wrap" }}>
-              {`# Total Budget
-COALESCE(data.budgetCapEx, 0) + COALESCE(data.budgetOpEx, 0)
-
-# Count related applications
-relation_count.relAppToITC
-
-# Weighted score
-scores = {"perfect": 4, "good": 3, "adequate": 2, "poor": 1}
-MAP_SCORE(data.stability, scores) * 0.5 + MAP_SCORE(data.security, scores) * 0.5
-
-# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
-# Assumes single_select fields: businessFit and technicalFit
-# with options: excellent, adequate, insufficient, unreasonable.
-#
-# Scoring: Map each dimension to 1-4 numeric scale.
-# Business Fit  = Y-axis (how well does it serve the business?)
-# Technical Fit = X-axis (how healthy is the technology?)
-#
-# Quadrant logic (threshold at score 2.5):
-#   Invest    = high business + high technical
-#   Migrate   = high business + low technical
-#   Tolerate  = low business  + high technical
-#   Eliminate = low business  + low technical
-#
-bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
-IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))`}
-            </Box>
+            <HighlightedCodeBlock code={EXAMPLE_FORMULAS} />
           </Box>
         </Box>
       </AccordionDetails>
