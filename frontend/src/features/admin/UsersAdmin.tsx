@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import Table from "@mui/material/Table";
 import TableHead from "@mui/material/TableHead";
 import TableBody from "@mui/material/TableBody";
@@ -28,6 +30,7 @@ import Stack from "@mui/material/Stack";
 import { api } from "@/api/client";
 import type { User, SsoInvitation, AppRole } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import RolesAdmin from "@/features/admin/RolesAdmin";
 
 interface InviteFormState {
   email: string;
@@ -53,6 +56,7 @@ interface EditFormState {
 }
 
 export default function UsersAdmin() {
+  const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -322,18 +326,28 @@ export default function UsersAdmin() {
 
   return (
     <Box>
+      <Typography variant="h5" fontWeight={600} sx={{ mb: 2 }}>
+        User Management
+      </Typography>
+
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+        <Tab label="Users" />
+        <Tab label="Roles" />
+      </Tabs>
+
+      {/* ============================================================ */}
+      {/*  TAB 0 -- Users                                              */}
+      {/* ============================================================ */}
+      {tab === 0 && (<Box>
       {/* Header */}
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
-          mb: 3,
+          mb: 2,
         }}
       >
-        <Typography variant="h5" fontWeight={600}>
-          User Management
-        </Typography>
         <Button
           variant="contained"
           startIcon={<MaterialSymbol icon="person_add" size={20} />}
@@ -784,6 +798,12 @@ export default function UsersAdmin() {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>)}
+
+      {/* ============================================================ */}
+      {/*  TAB 1 -- Roles                                              */}
+      {/* ============================================================ */}
+      {tab === 1 && <RolesAdmin />}
     </Box>
   );
 }
