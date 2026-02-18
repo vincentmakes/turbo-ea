@@ -181,11 +181,16 @@ async def update_calculation(
         raise HTTPException(404, "Calculation not found")
 
     updates = body.model_dump(exclude_unset=True)
+
+    # Track whether formula or target actually changed (not just resent)
+    formula_changed = "formula" in updates and updates["formula"] != calc.formula
+    target_changed = "target_field_key" in updates and updates["target_field_key"] != calc.target_field_key
+
     for field, value in updates.items():
         setattr(calc, field, value)
 
-    # If the calculation is active and the formula or target changed, re-check cycles
-    if calc.is_active and ("formula" in updates or "target_field_key" in updates):
+    # Only re-check cycles when formula or target field actually changed
+    if calc.is_active and (formula_changed or target_changed):
         cycle = await detect_cycles(db, calc)
         if cycle:
             raise HTTPException(

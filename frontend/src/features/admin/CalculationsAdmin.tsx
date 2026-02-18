@@ -1080,24 +1080,18 @@ export default function CalculationsAdmin() {
   }, [fetchCalculations]);
 
   const handleSave = async (data: Partial<Calculation>) => {
+    const payload = {
+      name: data.name,
+      description: data.description || null,
+      target_type_key: data.target_type_key,
+      target_field_key: data.target_field_key,
+      formula: data.formula,
+      execution_order: data.execution_order,
+    };
     if (data.id) {
-      await api.patch(`/calculations/${data.id}`, {
-        name: data.name,
-        description: data.description,
-        target_type_key: data.target_type_key,
-        target_field_key: data.target_field_key,
-        formula: data.formula,
-        execution_order: data.execution_order,
-      });
+      await api.patch(`/calculations/${data.id}`, payload);
     } else {
-      await api.post("/calculations", {
-        name: data.name,
-        description: data.description,
-        target_type_key: data.target_type_key,
-        target_field_key: data.target_field_key,
-        formula: data.formula,
-        execution_order: data.execution_order,
-      });
+      await api.post("/calculations", payload);
     }
     await fetchCalculations();
   };

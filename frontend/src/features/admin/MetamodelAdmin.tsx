@@ -129,9 +129,11 @@ interface FieldEditorProps {
   fieldKey: string;
   onClose: () => void;
   onSave: (field: FieldDef) => void;
+  /** True if this field is the target of an active calculation */
+  isCalculated?: boolean;
 }
 
-function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave }: FieldEditorProps) {
+function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
   const [field, setField] = useState<FieldDef>(initial);
 
   // Track which option keys existed before editing — these are locked
@@ -205,6 +207,12 @@ function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, o
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
       <DialogContent>
+        {isCalculated && (
+          <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
+            This field is managed by a calculation. The field type is locked
+            to prevent breaking the formula. Labels and colors can be changed freely.
+          </Alert>
+        )}
         <KeyInput
           fullWidth
           label="Key"
@@ -227,6 +235,7 @@ function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, o
           <Select
             value={field.type}
             label="Type"
+            disabled={!!isCalculated}
             onChange={(e) =>
               setField({ ...field, type: e.target.value as FieldDef["type"] })
             }
@@ -874,6 +883,16 @@ function TypeDetailDrawer({
   /* --- Add section --- */
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
+
+  /* --- Calculated fields map (type_key → field_keys[]) --- */
+  const [calculatedFieldKeys, setCalculatedFieldKeys] = useState<string[]>([]);
+  useEffect(() => {
+    if (!open || !cardTypeKey) return;
+    api
+      .get<Record<string, string[]>>("/calculations/calculated-fields")
+      .then((map) => setCalculatedFieldKeys(map[cardTypeKey.key] || []))
+      .catch(() => setCalculatedFieldKeys([]));
+  }, [open, cardTypeKey]);
 
   /* Initialise local state from the type whenever the drawer opens or the type changes */
   useEffect(() => {
@@ -1528,6 +1547,7 @@ function TypeDetailDrawer({
         field={editingField}
         typeKey={cardTypeKey.key}
         fieldKey={editingField.key}
+        isCalculated={calculatedFieldKeys.includes(editingField.key)}
         onClose={() => setFieldDialogOpen(false)}
         onSave={handleSaveField}
       />
