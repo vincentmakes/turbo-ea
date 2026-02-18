@@ -200,7 +200,7 @@ async def list_cards(
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=500),
+    page_size: int = Query(10000, ge=1, le=10000),
     sort_by: str = Query("name"),
     sort_dir: str = Query("asc"),
 ):
