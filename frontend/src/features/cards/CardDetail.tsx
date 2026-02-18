@@ -766,7 +766,7 @@ function AttributeSection({
           );
         }
         return (
-          <Box key={item.field.key} sx={{ mb: 0.5 }}>
+          <Box key={item.field.key} sx={{ mb: isEdit ? 2.5 : 0.5 }}>
             {isEdit ? renderEditFields([item.field]) : renderReadGrid([item.field])}
           </Box>
         );
