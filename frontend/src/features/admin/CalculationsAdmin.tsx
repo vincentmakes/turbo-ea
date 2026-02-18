@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -28,10 +28,341 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import CircularProgress from "@mui/material/CircularProgress";
+import Paper from "@mui/material/Paper";
+import Popper from "@mui/material/Popper";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import type { Calculation, CardType, FieldDef, RelationType } from "@/types";
+
+// ── Suggestion types ───────────────────────────────────────────────
+
+interface Suggestion {
+  insert: string;     // text to insert
+  label: string;      // display label
+  detail?: string;    // secondary text (type, description)
+  category: string;   // grouping label
+}
+
+// ── FormulaEditor with autocomplete ────────────────────────────────
+
+interface FormulaEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+  cardType: CardType | null;
+  relationTypes: RelationType[];
+}
+
+function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [cursorToken, setCursorToken] = useState({ prefix: "", token: "" });
+  const suppressRef = useRef(false);
+
+  // Build the full suggestion catalog based on selected card type
+  const allSuggestions = useMemo(() => {
+    const items: Suggestion[] = [];
+
+    // Top-level context variables
+    items.push(
+      { insert: "data", label: "data", detail: "Card fields object", category: "Context" },
+      { insert: "relations", label: "relations", detail: "Related cards by type", category: "Context" },
+      { insert: "relation_count", label: "relation_count", detail: "Relation counts by type", category: "Context" },
+      { insert: "children", label: "children", detail: "Child cards list", category: "Context" },
+      { insert: "children_count", label: "children_count", detail: "Number of children", category: "Context" },
+      { insert: "None", label: "None", detail: "Null value", category: "Constants" },
+      { insert: "True", label: "True", detail: "Boolean true", category: "Constants" },
+      { insert: "False", label: "False", detail: "Boolean false", category: "Constants" },
+    );
+
+    // Functions
+    const fns: [string, string, string][] = [
+      ["IF", "IF(cond, true_val, false_val)", "Conditional"],
+      ["SUM", "SUM(list)", "Sum numbers"],
+      ["AVG", "AVG(list)", "Average"],
+      ["MIN", "MIN(list)", "Minimum"],
+      ["MAX", "MAX(list)", "Maximum"],
+      ["COUNT", "COUNT(list)", "List length"],
+      ["ROUND", "ROUND(num, decimals)", "Round number"],
+      ["ABS", "ABS(num)", "Absolute value"],
+      ["COALESCE", "COALESCE(v1, v2, ...)", "First non-null"],
+      ["LOWER", "LOWER(s)", "Lowercase"],
+      ["UPPER", "UPPER(s)", "Uppercase"],
+      ["CONCAT", "CONCAT(s1, s2, ...)", "Join strings"],
+      ["CONTAINS", "CONTAINS(s, sub)", "Substring check"],
+      ["PLUCK", "PLUCK(list, key)", "Extract field"],
+      ["FILTER", "FILTER(list, key, val)", "Filter list"],
+      ["MAP_SCORE", 'MAP_SCORE(val, {"a":1,...})', "Map to score"],
+    ];
+    for (const [name, sig, desc] of fns) {
+      items.push({ insert: name + "(", label: name, detail: `${sig} — ${desc}`, category: "Functions" });
+    }
+
+    // Python builtins
+    for (const b of ["len(", "str(", "int(", "float(", "bool(", "abs(", "round(", "min(", "max(", "sum("]) {
+      const name = b.replace("(", "");
+      items.push({ insert: b, label: name, detail: `Python ${name}()`, category: "Built-ins" });
+    }
+
+    return items;
+  }, []);
+
+  // Data fields for the selected card type (used after "data.")
+  const dataFieldSuggestions = useMemo(() => {
+    const items: Suggestion[] = [
+      { insert: "name", label: "name", detail: "Card name (text)", category: "Card Fields" },
+      { insert: "description", label: "description", detail: "Description (text)", category: "Card Fields" },
+      { insert: "status", label: "status", detail: "ACTIVE / ARCHIVED", category: "Card Fields" },
+      { insert: "subtype", label: "subtype", detail: "Card subtype", category: "Card Fields" },
+      { insert: "approval_status", label: "approval_status", detail: "DRAFT / APPROVED / ...", category: "Card Fields" },
+      { insert: "lifecycle", label: "lifecycle", detail: "Lifecycle dates object", category: "Card Fields" },
+    ];
+    if (cardType) {
+      for (const section of cardType.fields_schema || []) {
+        for (const f of section.fields) {
+          items.push({
+            insert: f.key,
+            label: f.key,
+            detail: `${f.label} (${f.type})`,
+            category: section.section,
+          });
+        }
+      }
+    }
+    return items;
+  }, [cardType]);
+
+  // Relation type keys (used after "relations." and "relation_count.")
+  const relationKeySuggestions = useMemo(() => {
+    if (!cardType) return [];
+    return relationTypes
+      .filter((rt) => rt.source_type_key === cardType.key || rt.target_type_key === cardType.key)
+      .map((rt) => ({
+        insert: rt.key,
+        label: rt.key,
+        detail: `${rt.label} (${rt.source_type_key} → ${rt.target_type_key})`,
+        category: "Relation Types",
+      }));
+  }, [cardType, relationTypes]);
+
+  // Extract the token being typed at cursor position
+  const getTokenAtCursor = useCallback((text: string, pos: number) => {
+    // Walk backwards to find token start
+    const before = text.slice(0, pos);
+    // Match the last word-like token, possibly with dots (e.g. "data.bus", "relation_count.rel")
+    const match = before.match(/([\w.]+)$/);
+    if (!match) return { prefix: "", token: "" };
+    const full = match[1];
+    // Split by last dot to determine prefix context
+    const dotIdx = full.lastIndexOf(".");
+    if (dotIdx >= 0) {
+      return { prefix: full.slice(0, dotIdx), token: full.slice(dotIdx + 1) };
+    }
+    return { prefix: "", token: full };
+  }, []);
+
+  // Compute filtered suggestions based on current token
+  const filteredSuggestions = useMemo(() => {
+    const { prefix, token } = cursorToken;
+    const lower = token.toLowerCase();
+
+    let pool: Suggestion[];
+    if (prefix === "data") {
+      pool = dataFieldSuggestions;
+    } else if (prefix === "relations" || prefix === "relation_count") {
+      pool = relationKeySuggestions;
+    } else if (prefix) {
+      // Nested access like "relations.relAppToITC." — no suggestions for deeper nesting
+      return [];
+    } else {
+      pool = allSuggestions;
+    }
+
+    if (!lower) return prefix ? pool.slice(0, 20) : []; // Show all after dot, nothing without typing
+    return pool.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 12);
+  }, [cursorToken, allSuggestions, dataFieldSuggestions, relationKeySuggestions]);
+
+  // Handle text changes
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue);
+
+    if (suppressRef.current) {
+      suppressRef.current = false;
+      return;
+    }
+
+    const pos = e.target.selectionStart ?? newValue.length;
+    const tokenInfo = getTokenAtCursor(newValue, pos);
+    setCursorToken(tokenInfo);
+    setSelectedIdx(0);
+
+    // Show suggestions when there's a prefix with dot, or when typing 2+ chars
+    const shouldShow = tokenInfo.prefix
+      ? true
+      : tokenInfo.token.length >= 2;
+    setShowSuggestions(shouldShow && filteredSuggestions.length > 0);
+  };
+
+  // Update showSuggestions when filteredSuggestions changes
+  useEffect(() => {
+    if (filteredSuggestions.length === 0) {
+      setShowSuggestions(false);
+    } else if (cursorToken.prefix || cursorToken.token.length >= 2) {
+      setShowSuggestions(true);
+    }
+  }, [filteredSuggestions, cursorToken]);
+
+  // Insert a suggestion at the cursor position
+  const applySuggestion = useCallback((suggestion: Suggestion) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const pos = textarea.selectionStart ?? value.length;
+    const tokenInfo = getTokenAtCursor(value, pos);
+    const tokenLen = tokenInfo.token.length;
+
+    const before = value.slice(0, pos - tokenLen);
+    const after = value.slice(pos);
+    const newValue = before + suggestion.insert + after;
+    const newCursorPos = before.length + suggestion.insert.length;
+
+    suppressRef.current = true;
+    onChange(newValue);
+    setShowSuggestions(false);
+    setCursorToken({ prefix: "", token: "" });
+
+    // Restore focus and cursor position
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    });
+  }, [value, onChange, getTokenAtCursor]);
+
+  // Handle keyboard navigation in the suggestions list
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!showSuggestions || filteredSuggestions.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIdx((prev) => Math.min(prev + 1, filteredSuggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIdx((prev) => Math.max(prev - 1, 0));
+    } else if (e.key === "Tab" || e.key === "Enter") {
+      if (showSuggestions && filteredSuggestions[selectedIdx]) {
+        e.preventDefault();
+        applySuggestion(filteredSuggestions[selectedIdx]);
+      }
+    } else if (e.key === "Escape") {
+      setShowSuggestions(false);
+    }
+  };
+
+  return (
+    <Box sx={{ position: "relative" }}>
+      <TextField
+        label="Formula"
+        value={value}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          // Delay hiding so click on suggestion works
+          setTimeout(() => setShowSuggestions(false), 200);
+        }}
+        multiline
+        rows={6}
+        required
+        fullWidth
+        inputRef={textareaRef}
+        placeholder="Start typing — suggestions appear for fields, functions, and relations"
+        slotProps={{
+          input: {
+            sx: { fontFamily: "monospace", fontSize: "0.85rem" },
+          },
+        }}
+      />
+      <Popper
+        open={showSuggestions && filteredSuggestions.length > 0}
+        anchorEl={textareaRef.current}
+        placement="bottom-start"
+        sx={{ zIndex: 1500, width: textareaRef.current?.offsetWidth || 400 }}
+        modifiers={[{ name: "offset", options: { offset: [0, 4] } }]}
+      >
+        <Paper
+          elevation={8}
+          sx={{
+            maxHeight: 240,
+            overflow: "auto",
+            border: "1px solid",
+            borderColor: "divider",
+            py: 0.5,
+          }}
+        >
+          {filteredSuggestions.map((s, i) => (
+            <Box
+              key={s.insert + s.category}
+              onMouseDown={(e) => {
+                e.preventDefault(); // prevent blur
+                applySuggestion(s);
+              }}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 1.5,
+                py: 0.5,
+                cursor: "pointer",
+                bgcolor: i === selectedIdx ? "action.selected" : "transparent",
+                "&:hover": { bgcolor: "action.hover" },
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  fontFamily: "monospace",
+                  fontSize: "0.8rem",
+                  fontWeight: i === selectedIdx ? 600 : 400,
+                  minWidth: 0,
+                  flexShrink: 0,
+                }}
+              >
+                {s.label}
+              </Typography>
+              {s.detail && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  noWrap
+                  sx={{ flexShrink: 1, minWidth: 0 }}
+                >
+                  {s.detail}
+                </Typography>
+              )}
+              <Typography
+                variant="caption"
+                sx={{
+                  ml: "auto",
+                  flexShrink: 0,
+                  color: "text.disabled",
+                  fontSize: "0.65rem",
+                }}
+              >
+                {s.category}
+              </Typography>
+            </Box>
+          ))}
+          <Box sx={{ px: 1.5, pt: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
+            <Typography variant="caption" color="text.disabled">
+              Tab or Enter to insert &middot; Esc to dismiss
+            </Typography>
+          </Box>
+        </Paper>
+      </Popper>
+    </Box>
+  );
+}
 
 // ── Formula Reference Panel ────────────────────────────────────────
 
@@ -317,22 +648,14 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
             sx={{ maxWidth: 180 }}
           />
 
-          <TextField
-            label="Formula"
+          <FormulaEditor
             value={form.formula || ""}
-            onChange={(e) => {
-              setForm({ ...form, formula: e.target.value });
+            onChange={(v) => {
+              setForm({ ...form, formula: v });
               setValidationResult(null);
             }}
-            multiline
-            rows={6}
-            required
-            fullWidth
-            slotProps={{
-              input: {
-                sx: { fontFamily: "monospace", fontSize: "0.85rem" },
-              },
-            }}
+            cardType={selectedType || null}
+            relationTypes={relationTypes}
           />
 
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
