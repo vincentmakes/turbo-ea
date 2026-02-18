@@ -378,9 +378,10 @@ export default function InventoryPage() {
     parent_id?: string;
     attributes?: Record<string, unknown>;
     lifecycle?: Record<string, string>;
-  }) => {
-    await api.post("/cards", createData);
+  }): Promise<string> => {
+    const card = await api.post<Card>("/cards", createData);
     loadData();
+    return card.id;
   };
 
   const handleSelectionChanged = useCallback((event: SelectionChangedEvent) => {

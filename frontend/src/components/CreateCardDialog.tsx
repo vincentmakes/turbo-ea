@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -40,7 +41,7 @@ interface Props {
     parent_id?: string;
     attributes?: Record<string, unknown>;
     lifecycle?: Record<string, string>;
-  }) => Promise<void>;
+  }) => Promise<string>;
   initialType?: string;
 }
 
@@ -55,6 +56,7 @@ export default function CreateCardDialog({
   onCreate,
   initialType,
 }: Props) {
+  const navigate = useNavigate();
   const { types } = useMetamodel();
 
   const [selectedType, setSelectedType] = useState(initialType || "");
@@ -249,7 +251,7 @@ export default function CreateCardDialog({
         }
       }
 
-      await onCreate({
+      const newId = await onCreate({
         type: selectedType,
         subtype: subtype || undefined,
         name: name.trim(),
@@ -260,6 +262,7 @@ export default function CreateCardDialog({
         lifecycle,
       });
       onClose();
+      navigate(`/cards/${newId}`);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to create card";
