@@ -339,7 +339,7 @@ export default function InventoryFilterSidebar({
             label={activeCount}
             size="small"
             color="primary"
-            sx={{ mt: 1, minWidth: 24, height: 20, fontSize: 11 }}
+            sx={{ mt: 1, minWidth: 24, height: 20, fontSize: 12 }}
           />
         )}
       </Box>
@@ -377,7 +377,7 @@ export default function InventoryFilterSidebar({
             onChange={(_, v) => setTab(v)}
             sx={{
               minHeight: 36,
-              "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 13 },
+              "& .MuiTab-root": { minHeight: 36, py: 0, textTransform: "none", fontSize: 14 },
             }}
           >
             <Tab label="Filters" />
@@ -463,7 +463,7 @@ export default function InventoryFilterSidebar({
                         <ListItemText
                           primary={t.label}
                           primaryTypographyProps={{
-                            fontSize: 13,
+                            fontSize: 14,
                             ml: 0.75,
                             noWrap: true,
                           }}
@@ -603,14 +603,14 @@ export default function InventoryFilterSidebar({
                             : field.options;
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
                               <Select
                                 multiple
                                 value={Array.isArray(selected) ? selected : []}
                                 label={field.label}
                                 onChange={(e) => setAttr(field.key, e.target.value as string[])}
                                 onClose={() => setDropdownSearch((s) => ({ ...s, [field.key]: "" }))}
-                                sx={{ fontSize: 13 }}
+                                sx={{ fontSize: 14 }}
                                 MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
                                 renderValue={(vals) => (
                                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
@@ -622,7 +622,7 @@ export default function InventoryFilterSidebar({
                                           label={opt?.label ?? v}
                                           size="small"
                                           sx={{
-                                            height: 20, fontSize: 11,
+                                            height: 20, fontSize: 12,
                                             ...(opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}),
                                           }}
                                           onDelete={() => setAttr(field.key, selected.filter((s) => s !== v))}
@@ -648,7 +648,7 @@ export default function InventoryFilterSidebar({
                                           <MaterialSymbol icon="search" size={18} />
                                         </InputAdornment>
                                       ),
-                                      sx: { fontSize: 13 },
+                                      sx: { fontSize: 14 },
                                     }}
                                   />
                                 </ListSubheader>
@@ -665,7 +665,7 @@ export default function InventoryFilterSidebar({
                                 ))}
                                 {filteredOpts.length === 0 && (
                                   <MenuItem disabled>
-                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
                                       No matches
                                     </Typography>
                                   </MenuItem>
@@ -677,12 +677,12 @@ export default function InventoryFilterSidebar({
                         if (field.type === "boolean") {
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 13 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
                               <Select
                                 value={(filters.attributes[field.key] as string) ?? ""}
                                 label={field.label}
                                 onChange={(e) => setAttr(field.key, e.target.value as string)}
-                                sx={{ fontSize: 13 }}
+                                sx={{ fontSize: 14 }}
                               >
                                 <MenuItem value=""><em>Any</em></MenuItem>
                                 <MenuItem value="true">Yes</MenuItem>
@@ -702,8 +702,8 @@ export default function InventoryFilterSidebar({
                               type="number"
                               value={(filters.attributes[field.key] as string) || ""}
                               onChange={(e) => setAttr(field.key, e.target.value)}
-                              sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
-                              InputLabelProps={{ sx: { fontSize: 13 } }}
+                              sx={{ "& .MuiInputBase-input": { fontSize: 14 } }}
+                              InputLabelProps={{ sx: { fontSize: 14 } }}
                             />
                           );
                         }
@@ -718,8 +718,8 @@ export default function InventoryFilterSidebar({
                             placeholder={field.type === "date" ? "" : "Contains..."}
                             value={(filters.attributes[field.key] as string) || ""}
                             onChange={(e) => setAttr(field.key, e.target.value)}
-                            sx={{ "& .MuiInputBase-input": { fontSize: 13 } }}
-                            InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 13 } }}
+                            sx={{ "& .MuiInputBase-input": { fontSize: 14 } }}
+                            InputLabelProps={{ shrink: field.type === "date" ? true : undefined, sx: { fontSize: 14 } }}
                           />
                         );
                       })}
@@ -755,14 +755,14 @@ export default function InventoryFilterSidebar({
                           : options;
                         return (
                           <FormControl key={rt.key} size="small" fullWidth>
-                            <InputLabel sx={{ fontSize: 13 }}>{label}</InputLabel>
+                            <InputLabel sx={{ fontSize: 14 }}>{label}</InputLabel>
                             <Select
                               multiple
                               value={selected}
                               label={label}
                               onChange={(e) => setRelFilter(rt.key, e.target.value as string[])}
                               onClose={() => setDropdownSearch((s) => ({ ...s, [searchKey]: "" }))}
-                              sx={{ fontSize: 13 }}
+                              sx={{ fontSize: 14 }}
                               MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
                               renderValue={(vals) => (
                                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
@@ -771,7 +771,7 @@ export default function InventoryFilterSidebar({
                                       key={v}
                                       label={v}
                                       size="small"
-                                      sx={{ height: 20, fontSize: 11 }}
+                                      sx={{ height: 20, fontSize: 12 }}
                                       onDelete={() => setRelFilter(rt.key, selected.filter((s) => s !== v))}
                                       onMouseDown={(e) => e.stopPropagation()}
                                     />
@@ -794,7 +794,7 @@ export default function InventoryFilterSidebar({
                                         <MaterialSymbol icon="search" size={18} />
                                       </InputAdornment>
                                     ),
-                                    sx: { fontSize: 13 },
+                                    sx: { fontSize: 14 },
                                   }}
                                 />
                               </ListSubheader>
@@ -811,7 +811,7 @@ export default function InventoryFilterSidebar({
                               ))}
                               {filteredOpts.length === 0 && (
                                 <MenuItem disabled>
-                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
                                     No matches
                                   </Typography>
                                 </MenuItem>
@@ -839,7 +839,7 @@ export default function InventoryFilterSidebar({
                     label={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
                         <MaterialSymbol icon="archive" size={16} color="#666" />
-                        <Typography variant="body2" fontSize={12}>Show archived only</Typography>
+                        <Typography variant="body2" fontSize={13}>Show archived only</Typography>
                       </Box>
                     }
                     sx={{ ml: 0 }}
@@ -854,7 +854,7 @@ export default function InventoryFilterSidebar({
                     size="small"
                     onClick={clearAll}
                     startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
-                    sx={{ textTransform: "none", fontSize: 12 }}
+                    sx={{ textTransform: "none", fontSize: 13 }}
                   >
                     Clear all ({activeCount})
                   </Button>
@@ -868,7 +868,7 @@ export default function InventoryFilterSidebar({
                     setSaveDialogOpen(true);
                   }}
                   startIcon={<MaterialSymbol icon="bookmark_add" size={16} />}
-                  sx={{ textTransform: "none", fontSize: 12, ml: "auto" }}
+                  sx={{ textTransform: "none", fontSize: 13, ml: "auto" }}
                 >
                   Save view
                 </Button>
@@ -885,7 +885,7 @@ export default function InventoryFilterSidebar({
                   mb: 1,
                 }}
               >
-                <Typography variant="body2" fontWeight={600} fontSize={13}>
+                <Typography variant="body2" fontWeight={600} fontSize={14}>
                   Saved Views
                 </Typography>
                 <Button
@@ -896,7 +896,7 @@ export default function InventoryFilterSidebar({
                     setSaveDialogOpen(true);
                   }}
                   startIcon={<MaterialSymbol icon="add" size={16} />}
-                  sx={{ textTransform: "none", fontSize: 12 }}
+                  sx={{ textTransform: "none", fontSize: 13 }}
                 >
                   Save current
                 </Button>
@@ -906,7 +906,7 @@ export default function InventoryFilterSidebar({
                 <Typography
                   variant="body2"
                   color="text.secondary"
-                  sx={{ textAlign: "center", py: 4, fontSize: 13 }}
+                  sx={{ textAlign: "center", py: 4, fontSize: 14 }}
                 >
                   No saved views yet.
                   <br />
@@ -939,7 +939,7 @@ export default function InventoryFilterSidebar({
                         </ListItemIcon>
                         <ListItemText
                           primary={bm.name}
-                          primaryTypographyProps={{ fontSize: 13, noWrap: true }}
+                          primaryTypographyProps={{ fontSize: 14, noWrap: true }}
                           secondary={
                             matchedType
                               ? matchedType.label
@@ -947,7 +947,7 @@ export default function InventoryFilterSidebar({
                               ? `${bmTypes.length} types`
                               : "All types"
                           }
-                          secondaryTypographyProps={{ fontSize: 11 }}
+                          secondaryTypographyProps={{ fontSize: 12 }}
                         />
                         <Box
                           sx={{ display: "flex", gap: 0.25, ml: 0.5 }}
@@ -1073,11 +1073,11 @@ function SectionHeader({
         color="#666"
       />
       <MaterialSymbol icon={icon} size={16} color="#666" />
-      <Typography variant="body2" fontWeight={600} fontSize={12} sx={{ flex: 1 }}>
+      <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
         {label}
       </Typography>
       {count != null && count > 0 && (
-        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />
+        <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
       )}
     </Box>
   );
