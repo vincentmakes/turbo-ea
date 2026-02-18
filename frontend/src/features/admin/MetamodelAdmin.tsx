@@ -200,7 +200,7 @@ function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, o
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
       <DialogContent>
         <KeyInput
