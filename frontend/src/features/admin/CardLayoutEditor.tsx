@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
@@ -8,21 +8,25 @@ import Switch from "@mui/material/Switch";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
-import Divider from "@mui/material/Divider";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
+  rectIntersection,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   DragEndEvent,
+  DragOverEvent,
+  DragStartEvent,
+  DragOverlay,
+  type CollisionDetection,
+  type UniqueIdentifier,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -37,7 +41,7 @@ import type { CardType, SectionDef, FieldDef, SectionConfig } from "@/types";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
-// ── Built-in section definitions ────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────
 
 const BUILTIN_SECTIONS: { key: string; label: string; icon: string; onlyIf?: (t: CardType) => boolean }[] = [
   { key: "description", label: "Description", icon: "description" },
@@ -49,30 +53,23 @@ const BUILTIN_SECTIONS: { key: string; label: string; icon: string; onlyIf?: (t:
 
 const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "relations"];
 
+// ── Helpers ──────────────────────────────────────────────────────
+
 function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: SectionDef[], hasHierarchy: boolean): string[] {
   const raw = cfg?.__order as unknown as string[] | undefined;
   if (raw && Array.isArray(raw) && raw.length > 0) {
-    // Validate: ensure all custom sections are present, add missing ones
     const customKeys = customSections.map((_, i) => `custom:${i}`);
     const existing = new Set(raw);
     const result = [...raw];
-    for (const k of customKeys) {
-      if (!existing.has(k)) result.push(k);
-    }
-    // Filter out hierarchy if not applicable
+    for (const k of customKeys) { if (!existing.has(k)) result.push(k); }
     if (!hasHierarchy) return result.filter((k) => k !== "hierarchy");
     return result;
   }
-  // Default: description, eol, lifecycle, [custom sections], hierarchy, relations
   const order: string[] = [];
   for (const key of DEFAULT_ORDER) {
-    if (key === "__custom__") {
-      customSections.forEach((_, i) => order.push(`custom:${i}`));
-    } else if (key === "hierarchy" && !hasHierarchy) {
-      // skip
-    } else {
-      order.push(key);
-    }
+    if (key === "__custom__") customSections.forEach((_, i) => order.push(`custom:${i}`));
+    else if (key === "hierarchy" && !hasHierarchy) { /* skip */ }
+    else order.push(key);
   }
   return order;
 }
@@ -89,199 +86,6 @@ function getSectionInfo(key: string, customSections: SectionDef[], type: CardTyp
   return { label: builtin.label, icon: builtin.icon, isCustom: false, idx: -1, section: null };
 }
 
-// ── Sortable Section Item ───────────────────────────────────────
-
-function SortableSectionItem({
-  id,
-  sectionKey,
-  info,
-  cfg,
-  expanded,
-  onToggleExpand,
-  onToggleCollapsed,
-  onToggleHidden,
-  onToggleColumns,
-  children,
-}: {
-  id: string;
-  sectionKey: string;
-  info: { label: string; icon: string; isCustom: boolean };
-  cfg: SectionConfig;
-  expanded: boolean;
-  onToggleExpand: () => void;
-  onToggleCollapsed: () => void;
-  onToggleHidden: () => void;
-  onToggleColumns?: () => void;
-  children?: React.ReactNode;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <Box
-      ref={setNodeRef}
-      style={style}
-      sx={{
-        border: 1,
-        borderColor: cfg.hidden ? "action.disabled" : "divider",
-        borderRadius: 1,
-        mb: 0.75,
-        bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper",
-      }}
-    >
-      <Box sx={{ display: "flex", alignItems: "center", px: 1, py: 0.5, gap: 0.5 }}>
-        {/* Drag handle */}
-        <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", alignItems: "center", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
-          <MaterialSymbol icon="drag_indicator" size={18} color="#999" />
-        </Box>
-        {/* Section icon + name (clickable to expand/collapse) */}
-        <Box
-          onClick={(info.isCustom || sectionKey === "description") && !cfg.hidden ? onToggleExpand : undefined}
-          sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1, cursor: (info.isCustom || sectionKey === "description") && !cfg.hidden ? "pointer" : "default" }}
-        >
-          <MaterialSymbol icon={info.icon} size={18} color={cfg.hidden ? "#bbb" : "#666"} />
-          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>
-            {info.label}
-          </Typography>
-        </Box>
-        {/* Collapsed toggle */}
-        <Tooltip title="Collapsed by default">
-          <FormControlLabel
-            control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
-            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Collapsed</Typography>}
-            sx={{ mr: 0, ml: 0 }}
-          />
-        </Tooltip>
-        {/* Hidden toggle */}
-        <Tooltip title="Hidden from card detail">
-          <FormControlLabel
-            control={<Switch size="small" checked={!!cfg.hidden} onChange={onToggleHidden} />}
-            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Hidden</Typography>}
-            sx={{ mr: 0, ml: 0 }}
-          />
-        </Tooltip>
-        {/* Column layout toggle (only for custom + description) */}
-        {onToggleColumns && !cfg.hidden && (
-          <Tooltip title={`Switch to ${(info as unknown as { section?: SectionDef }).section?.columns === 2 ? "1 column" : "2 columns"} layout`}>
-            <IconButton size="small" onClick={onToggleColumns}>
-              <MaterialSymbol icon={(info as unknown as { section?: SectionDef }).section?.columns === 2 ? "view_column" : "view_agenda"} size={16} />
-            </IconButton>
-          </Tooltip>
-        )}
-        {/* Expand to show fields */}
-        {info.isCustom && !cfg.hidden && (
-          <IconButton size="small" onClick={onToggleExpand}>
-            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
-          </IconButton>
-        )}
-        {/* Description section - also expandable for adding fields */}
-        {sectionKey === "description" && !cfg.hidden && (
-          <IconButton size="small" onClick={onToggleExpand}>
-            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
-          </IconButton>
-        )}
-      </Box>
-      {expanded && !cfg.hidden && children}
-    </Box>
-  );
-}
-
-// ── Sortable Field Item ─────────────────────────────────────────
-
-function SortableFieldItem({
-  id,
-  field,
-  isProtected,
-  isCalculated,
-  onEdit,
-  onDelete,
-  onGroupChange,
-  onColumnChange,
-  showColumn,
-  groups,
-}: {
-  id: string;
-  field: FieldDef;
-  isProtected?: boolean;
-  isCalculated?: boolean;
-  onEdit?: () => void;
-  onDelete?: () => void;
-  onGroupChange?: (group: string | undefined) => void;
-  onColumnChange?: (col: 0 | 1) => void;
-  showColumn?: boolean;
-  groups: string[];
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-  const [groupAnchor, setGroupAnchor] = useState<HTMLElement | null>(null);
-
-  return (
-    <Box
-      ref={setNodeRef}
-      style={style}
-      sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1.5, py: 0.25, "&:hover": { bgcolor: "action.hover" }, borderRadius: 0.5 }}
-    >
-      <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", "&:active": { cursor: "grabbing" } }}>
-        <MaterialSymbol icon="drag_indicator" size={16} color="#ccc" />
-      </Box>
-      <Typography variant="body2" fontWeight={500} sx={{ minWidth: 80, flex: 1 }}>
-        {field.label}
-        {isProtected && <Chip component="span" size="small" label="required" sx={{ ml: 0.5, height: 16, fontSize: "0.55rem" }} />}
-        {isCalculated && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.55rem" }} />}
-      </Typography>
-      <Chip size="small" label={field.type} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 18, fontSize: 10 }} />
-      {field.group && (
-        <Chip size="small" label={field.group} variant="outlined" sx={{ height: 18, fontSize: 10 }} />
-      )}
-      {showColumn && (
-        <Tooltip title="Column">
-          <Chip
-            size="small"
-            label={`C${(field.column ?? 0) + 1}`}
-            variant="outlined"
-            onClick={() => onColumnChange?.(field.column === 1 ? 0 : 1)}
-            sx={{ height: 18, fontSize: 10, cursor: "pointer" }}
-          />
-        </Tooltip>
-      )}
-      {/* Group menu */}
-      {onGroupChange && (
-        <>
-          <Tooltip title="Assign to group">
-            <IconButton size="small" onClick={(e) => setGroupAnchor(e.currentTarget)}>
-              <MaterialSymbol icon="workspaces" size={14} color="#999" />
-            </IconButton>
-          </Tooltip>
-          <Menu anchorEl={groupAnchor} open={!!groupAnchor} onClose={() => setGroupAnchor(null)}>
-            <MenuItem onClick={() => { onGroupChange(undefined); setGroupAnchor(null); }}>
-              <em>No group</em>
-            </MenuItem>
-            {groups.map((g) => (
-              <MenuItem key={g} selected={field.group === g} onClick={() => { onGroupChange(g); setGroupAnchor(null); }}>
-                {g}
-              </MenuItem>
-            ))}
-          </Menu>
-        </>
-      )}
-      {!isProtected && onEdit && (
-        <IconButton size="small" onClick={onEdit}><MaterialSymbol icon="edit" size={16} /></IconButton>
-      )}
-      {!isProtected && onDelete && (
-        <IconButton size="small" onClick={onDelete}><MaterialSymbol icon="delete" size={16} /></IconButton>
-      )}
-    </Box>
-  );
-}
-
 function fieldTypeColor(type: string): string {
   const map: Record<string, string> = {
     text: "#1976d2", number: "#7b1fa2", cost: "#e65100", boolean: "#2e7d32",
@@ -290,18 +94,228 @@ function fieldTypeColor(type: string): string {
   return map[type] || "#666";
 }
 
-// ── Section Fields Panel (inside expanded section) ──────────────
+// ── Container ↔ Fields conversion ────────────────────────────────
 
-function SectionFieldsPanel({
-  sectionIdx,
-  section,
-  typeKey,
-  fieldsSchema,
-  calculatedFieldKeys,
-  onRefresh,
-  openAddField,
-  openEditField,
-  promptDeleteField,
+type Containers = Record<string, string[]>;
+
+function fieldsToContainers(fields: FieldDef[], columns: 1 | 2): Containers {
+  const c: Containers = { "col-0": [] };
+  if (columns === 2) c["col-1"] = [];
+
+  const groupCol = new Map<string, string>(); // group name → column key
+
+  for (const field of fields) {
+    const colKey = columns === 2 && field.column === 1 ? "col-1" : "col-0";
+
+    if (field.group) {
+      const gid = `group:${field.group}`;
+      if (!c[gid]) {
+        c[gid] = [];
+        // Place group in the column of its first field
+        const targetCol = groupCol.get(field.group) ?? colKey;
+        c[targetCol].push(gid);
+        groupCol.set(field.group, targetCol);
+      }
+      c[gid].push(field.key);
+    } else {
+      c[colKey].push(field.key);
+    }
+  }
+  return c;
+}
+
+function containersToFields(containers: Containers, fieldMap: Map<string, FieldDef>): FieldDef[] {
+  const result: FieldDef[] = [];
+  const seen = new Set<string>();
+
+  const processCol = (colKey: string, colNum: 0 | 1) => {
+    for (const itemId of containers[colKey] || []) {
+      if (itemId.startsWith("group:")) {
+        const gname = itemId.slice(6);
+        for (const fk of containers[itemId] || []) {
+          if (seen.has(fk)) continue;
+          const f = fieldMap.get(fk);
+          if (f) { result.push({ ...f, group: gname, column: colNum }); seen.add(fk); }
+        }
+      } else {
+        if (seen.has(itemId)) continue;
+        const f = fieldMap.get(itemId);
+        if (f) { result.push({ ...f, group: undefined, column: colNum }); seen.add(itemId); }
+      }
+    }
+  };
+
+  processCol("col-0", 0);
+  processCol("col-1", 1);
+  return result;
+}
+
+// ── FieldCard (display component, used by sortable wrapper + overlay) ──
+
+function FieldCard({
+  field,
+  isCalc,
+  isProtected,
+  onEdit,
+  onDelete,
+  isDragging,
+}: {
+  field: FieldDef;
+  isCalc?: boolean;
+  isProtected?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  isDragging?: boolean;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "flex", alignItems: "center", gap: 0.5,
+        px: 1, py: 0.5,
+        bgcolor: isDragging ? "primary.50" : "background.paper",
+        border: 1, borderColor: isDragging ? "primary.main" : "grey.200",
+        borderRadius: 1, fontSize: "0.8rem",
+        "&:hover .field-actions": { opacity: 1 },
+      }}
+    >
+      <Typography variant="body2" fontWeight={500} sx={{ flex: 1, fontSize: "0.8rem" }} noWrap>
+        {field.label}
+        {isProtected && <Chip component="span" size="small" label="req" sx={{ ml: 0.5, height: 14, fontSize: "0.5rem" }} />}
+        {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 14, fontSize: "0.5rem" }} />}
+      </Typography>
+      <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 16, fontSize: "0.55rem" }} />
+      {(!isProtected && (onEdit || onDelete)) && (
+        <Box className="field-actions" sx={{ display: "flex", opacity: 0, transition: "opacity 0.15s" }}>
+          {onEdit && <IconButton size="small" onClick={onEdit} sx={{ p: 0.25 }}><MaterialSymbol icon="edit" size={14} /></IconButton>}
+          {onDelete && <IconButton size="small" onClick={onDelete} sx={{ p: 0.25 }}><MaterialSymbol icon="delete" size={14} /></IconButton>}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// ── SortableFieldCard ────────────────────────────────────────────
+
+function SortableFieldCard({
+  id, field, isCalc, onEdit, onDelete,
+}: {
+  id: string; field: FieldDef; isCalc?: boolean;
+  onEdit?: () => void; onDelete?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    data: { type: "field", field },
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  return (
+    <Box ref={setNodeRef} style={style} sx={{ mb: 0.5 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
+        <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", flexShrink: 0, "&:active": { cursor: "grabbing" } }}>
+          <MaterialSymbol icon="drag_indicator" size={14} color="#bbb" />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <FieldCard field={field} isCalc={isCalc} onEdit={onEdit} onDelete={onDelete} isDragging={isDragging} />
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+// ── SortableGroupCard ────────────────────────────────────────────
+
+function SortableGroupCard({
+  id, groupName, children, onRemove,
+}: {
+  id: string; groupName: string; children: React.ReactNode;
+  onRemove?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    data: { type: "group", groupName },
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  // Inner droppable for accepting fields when group is empty
+  const { setNodeRef: innerRef, isOver } = useDroppable({ id });
+
+  return (
+    <Box ref={setNodeRef} style={style} sx={{ mb: 0.5 }}>
+      <Box
+        sx={{
+          border: 2, borderColor: isOver ? "primary.main" : "grey.300",
+          borderRadius: 1, borderStyle: "dashed",
+          bgcolor: isOver ? "primary.50" : "grey.50",
+          transition: "border-color 0.2s, background-color 0.2s",
+        }}
+      >
+        {/* Group header */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1, py: 0.25, borderBottom: 1, borderColor: "grey.200", bgcolor: "grey.100", borderRadius: "4px 4px 0 0" }}>
+          <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", "&:active": { cursor: "grabbing" } }}>
+            <MaterialSymbol icon="drag_indicator" size={14} color="#999" />
+          </Box>
+          <MaterialSymbol icon="workspaces" size={14} color="#666" />
+          <Typography variant="caption" fontWeight={600} sx={{ flex: 1, color: "text.secondary" }}>
+            {groupName}
+          </Typography>
+          {onRemove && (
+            <Tooltip title="Remove group (fields move to column)">
+              <IconButton size="small" onClick={onRemove} sx={{ p: 0.125 }}>
+                <MaterialSymbol icon="close" size={12} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+        {/* Group body (droppable) */}
+        <Box ref={innerRef} sx={{ p: 0.5, minHeight: 32 }}>
+          {children}
+          {(!children || (Array.isArray(children) && (children as React.ReactNode[]).every(c => c == null))) && (
+            <Typography variant="caption" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 0.5 }}>
+              Drag fields here
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+// ── DroppableColumn ──────────────────────────────────────────────
+
+function DroppableColumn({ id, label, children, isEmpty }: {
+  id: string; label: string; children: React.ReactNode; isEmpty: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <Box
+      ref={setNodeRef}
+      sx={{
+        flex: 1, minHeight: 80, p: 1,
+        border: 2, borderColor: isOver ? "primary.main" : "grey.300",
+        borderStyle: "dashed", borderRadius: 1.5,
+        bgcolor: isOver ? "primary.50" : "transparent",
+        transition: "border-color 0.2s, background-color 0.2s",
+      }}
+    >
+      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+        {label}
+      </Typography>
+      {children}
+      {isEmpty && (
+        <Typography variant="caption" color="text.disabled" sx={{ display: "block", textAlign: "center", py: 2 }}>
+          Drag fields here
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// ── VisualFieldLayout (per-section visual DnD editor) ────────────
+
+function VisualFieldLayout({
+  sectionIdx, section, typeKey, fieldsSchema, calculatedFieldKeys,
+  onRefresh, openAddField, openEditField, promptDeleteField,
 }: {
   sectionIdx: number;
   section: SectionDef;
@@ -313,157 +327,319 @@ function SectionFieldsPanel({
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
 }) {
+  const cols = section.columns || 1;
+  const [containers, setContainers] = useState<Containers>(() => fieldsToContainers(section.fields, cols));
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
+  const [cloned, setCloned] = useState<Containers | null>(null);
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+
+  const fieldMap = useMemo(() => {
+    const m = new Map<string, FieldDef>();
+    for (const f of section.fields) m.set(f.key, f);
+    return m;
+  }, [section.fields]);
+
+  // Sync containers when section data changes from outside
+  useEffect(() => {
+    setContainers(fieldsToContainers(section.fields, cols));
+  }, [section.fields, cols]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const [newGroupName, setNewGroupName] = useState("");
-  const [addingGroup, setAddingGroup] = useState(false);
-  const [localGroups, setLocalGroups] = useState<string[]>([]);
+  // Find which container holds an item
+  const findContainer = useCallback((id: string): string | undefined => {
+    if (id in containers) return id;
+    return Object.keys(containers).find((k) => containers[k].includes(id));
+  }, [containers]);
 
-  const persistedGroups = [...new Set(section.fields.map((f) => f.group).filter(Boolean))] as string[];
-  const groups = [...new Set([...persistedGroups, ...localGroups])];
-  const showColumn = section.columns === 2;
+  // Custom collision detection: prioritize groups (inner containers) over columns
+  const collisionDetection: CollisionDetection = useCallback((args) => {
+    const pointer = pointerWithin(args);
+    if (pointer.length > 0) {
+      // Prefer group containers over column containers
+      const groupHit = pointer.find((c) => String(c.id).startsWith("group:"));
+      // If dragging a group, don't drop into another group
+      const activeType = args.active.data.current?.type;
+      if (groupHit && activeType !== "group") return [groupHit];
+      return closestCenter({ ...args, droppableContainers: args.droppableContainers.filter((c) => pointer.some((p) => p.id === c.id)) });
+    }
+    return rectIntersection(args);
+  }, []);
 
-  const handleFieldDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIdx = section.fields.findIndex((_, i) => `field-${sectionIdx}-${i}` === active.id);
-    const newIdx = section.fields.findIndex((_, i) => `field-${sectionIdx}-${i}` === over.id);
-    if (oldIdx === -1 || newIdx === -1) return;
-    const newFields = arrayMove(section.fields, oldIdx, newIdx);
+  // Persist containers to backend
+  const saveContainers = useCallback(async (c: Containers) => {
+    const newFields = containersToFields(c, fieldMap);
     const schema = [...fieldsSchema];
     schema[sectionIdx] = { ...schema[sectionIdx], fields: newFields };
     await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
     onRefresh();
+  }, [fieldMap, fieldsSchema, sectionIdx, typeKey, onRefresh]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id);
+    setCloned(JSON.parse(JSON.stringify(containers)));
   };
 
-  const handleFieldGroupChange = async (fi: number, group: string | undefined) => {
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeStr = String(active.id);
+    const overStr = String(over.id);
+    const from = findContainer(activeStr);
+    const to = findContainer(overStr);
+
+    if (!from || !to || from === to) return;
+
+    // Prevent groups from being dropped into other groups
+    const activeType = active.data.current?.type;
+    if (activeType === "group" && to.startsWith("group:")) return;
+
+    setContainers((prev) => {
+      const fromItems = [...(prev[from] || [])];
+      const toItems = [...(prev[to] || [])];
+      const activeIdx = fromItems.indexOf(activeStr);
+      if (activeIdx === -1) return prev;
+
+      // Remove from source
+      fromItems.splice(activeIdx, 1);
+
+      // Insert in target
+      const overIdx = toItems.indexOf(overStr);
+      const insertAt = overStr in prev ? toItems.length : (overIdx >= 0 ? overIdx : toItems.length);
+
+      toItems.splice(insertAt, 0, activeStr);
+
+      return { ...prev, [from]: fromItems, [to]: toItems };
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) { if (cloned) setContainers(cloned); return; }
+
+    const activeStr = String(active.id);
+    const overStr = String(over.id);
+    const container = findContainer(activeStr);
+    const overContainer = findContainer(overStr);
+
+    if (container && container === overContainer) {
+      const items = containers[container];
+      const oldIdx = items.indexOf(activeStr);
+      const newIdx = items.indexOf(overStr);
+      if (oldIdx !== -1 && newIdx !== -1 && oldIdx !== newIdx) {
+        const updated = { ...containers, [container]: arrayMove(items, oldIdx, newIdx) };
+        setContainers(updated);
+        saveContainers(updated);
+        return;
+      }
+    }
+    // Cross-container move already handled in onDragOver — just save
+    saveContainers(containers);
+  };
+
+  const handleDragCancel = () => {
+    if (cloned) setContainers(cloned);
+    setActiveId(null);
+  };
+
+  // Column count change
+  const handleColumnChange = async (_: unknown, val: number | null) => {
+    if (!val || val === cols) return;
     const schema = [...fieldsSchema];
-    const fields = [...schema[sectionIdx].fields];
-    fields[fi] = { ...fields[fi], group };
-    schema[sectionIdx] = { ...schema[sectionIdx], fields };
+    if (val === 1 && cols === 2) {
+      // Merge col-1 into col-0
+      const c = containers as Containers;
+      const merged = [...(c["col-0"] || []), ...(c["col-1"] || [])];
+      const newC: Containers = { ...c, "col-0": merged };
+      delete newC["col-1"];
+      const newFields = containersToFields(newC, fieldMap);
+      schema[sectionIdx] = { ...schema[sectionIdx], columns: 1, fields: newFields };
+    } else {
+      schema[sectionIdx] = { ...schema[sectionIdx], columns: val as 1 | 2 };
+    }
     await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
     onRefresh();
   };
 
-  const handleFieldColumnChange = async (fi: number, col: 0 | 1) => {
-    const schema = [...fieldsSchema];
-    const fields = [...schema[sectionIdx].fields];
-    fields[fi] = { ...fields[fi], column: col };
-    schema[sectionIdx] = { ...schema[sectionIdx], fields };
-    await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-    onRefresh();
-  };
-
-  const handleAddGroup = () => {
-    if (!newGroupName || groups.includes(newGroupName)) return;
-    setLocalGroups((prev) => [...prev, newGroupName]);
+  // Add a new group
+  const handleAddGroup = async () => {
+    if (!newGroupName) return;
+    const gid = `group:${newGroupName}`;
+    if (containers[gid]) return; // already exists
+    const updated = { ...containers, [gid]: [], "col-0": [...(containers["col-0"] || []), gid] };
+    setContainers(updated);
     setAddingGroup(false);
     setNewGroupName("");
+    await saveContainers(updated);
   };
 
-  const fieldIds = section.fields.map((_, i) => `field-${sectionIdx}-${i}`);
+  // Remove a group (move its fields back to the column)
+  const handleRemoveGroup = async (gid: string) => {
+    const groupFields = containers[gid] || [];
+    // Find which column the group is in
+    const colKey = ["col-0", "col-1"].find((ck) => (containers[ck] || []).includes(gid)) || "col-0";
+    const colItems = [...(containers[colKey] || [])];
+    const gIdx = colItems.indexOf(gid);
+    // Replace the group with its fields
+    colItems.splice(gIdx, 1, ...groupFields);
+    const updated = { ...containers, [colKey]: colItems };
+    delete updated[gid];
+    setContainers(updated);
+    await saveContainers(updated);
+  };
+
+  // Find field index in the original section.fields for edit/delete callbacks
+  const findFieldIdx = (fieldKey: string) => section.fields.findIndex((f) => f.key === fieldKey);
+
+  // Render items in a container (column or inside a group)
+  const renderItems = (containerId: string) => {
+    const items = containers[containerId] || [];
+    return items.map((itemId) => {
+      if (itemId.startsWith("group:")) {
+        const gname = itemId.slice(6);
+        const groupItems = containers[itemId] || [];
+        return (
+          <SortableContext key={itemId} id={itemId} items={groupItems} strategy={verticalListSortingStrategy}>
+            <SortableGroupCard
+              id={itemId}
+              groupName={gname}
+              onRemove={() => handleRemoveGroup(itemId)}
+            >
+              {groupItems.map((fk) => {
+                const f = fieldMap.get(fk);
+                if (!f) return null;
+                const fi = findFieldIdx(fk);
+                return (
+                  <SortableFieldCard
+                    key={fk} id={fk} field={f}
+                    isCalc={calculatedFieldKeys.includes(fk)}
+                    onEdit={fi >= 0 ? () => openEditField(sectionIdx, fi) : undefined}
+                    onDelete={fi >= 0 ? () => promptDeleteField(sectionIdx, fi) : undefined}
+                  />
+                );
+              })}
+            </SortableGroupCard>
+          </SortableContext>
+        );
+      }
+      const f = fieldMap.get(itemId);
+      if (!f) return null;
+      const fi = findFieldIdx(itemId);
+      return (
+        <SortableFieldCard
+          key={itemId} id={itemId} field={f}
+          isCalc={calculatedFieldKeys.includes(itemId)}
+          onEdit={fi >= 0 ? () => openEditField(sectionIdx, fi) : undefined}
+          onDelete={fi >= 0 ? () => promptDeleteField(sectionIdx, fi) : undefined}
+        />
+      );
+    });
+  };
+
+  // Determine what the active dragged item is for the DragOverlay
+  const activeField = activeId && !String(activeId).startsWith("group:") ? fieldMap.get(String(activeId)) : null;
+  const activeGroup = activeId && String(activeId).startsWith("group:") ? String(activeId).slice(6) : null;
 
   return (
-    <Box sx={{ pb: 1 }}>
-      {/* Column layout toggle */}
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, pb: 0.5 }}>
-        <FormControl size="small" sx={{ minWidth: 120 }}>
-          <InputLabel sx={{ fontSize: "0.75rem" }}>Columns</InputLabel>
-          <Select
-            value={section.columns || 1}
-            label="Columns"
-            sx={{ height: 28, fontSize: "0.75rem" }}
-            onChange={async (e) => {
-              const schema = [...fieldsSchema];
-              schema[sectionIdx] = { ...schema[sectionIdx], columns: e.target.value as 1 | 2 };
-              await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
-              onRefresh();
-            }}
-          >
-            <MenuItem value={1}>1 Column</MenuItem>
-            <MenuItem value={2}>2 Columns</MenuItem>
-          </Select>
-        </FormControl>
-        {groups.length > 0 && (
-          <Typography variant="caption" color="text.secondary">
-            Groups: {groups.join(", ")}
-          </Typography>
-        )}
-      </Box>
-      <Divider sx={{ mb: 0.5 }} />
-      {/* Field list with DnD */}
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd}>
-        <SortableContext items={fieldIds} strategy={verticalListSortingStrategy}>
-          {section.fields.map((f, fi) => (
-            <SortableFieldItem
-              key={`field-${sectionIdx}-${fi}`}
-              id={`field-${sectionIdx}-${fi}`}
-              field={f}
-              isCalculated={calculatedFieldKeys.includes(f.key)}
-              onEdit={() => openEditField(sectionIdx, fi)}
-              onDelete={() => promptDeleteField(sectionIdx, fi)}
-              onGroupChange={(g) => handleFieldGroupChange(fi, g)}
-              onColumnChange={(c) => handleFieldColumnChange(fi, c)}
-              showColumn={showColumn}
-              groups={groups}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
-      {/* Add field / group buttons */}
-      <Box sx={{ display: "flex", gap: 1, px: 1.5, pt: 0.5 }}>
-        <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={() => openAddField(sectionIdx)}>
-          Field
-        </Button>
+    <Box sx={{ pb: 1, px: 1 }}>
+      {/* Toolbar: column toggle + group add */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+        <ToggleButtonGroup size="small" exclusive value={cols} onChange={handleColumnChange} sx={{ height: 28 }}>
+          <ToggleButton value={1} sx={{ px: 1, py: 0, fontSize: "0.7rem" }}>
+            <MaterialSymbol icon="view_agenda" size={14} />&nbsp;1 Col
+          </ToggleButton>
+          <ToggleButton value={2} sx={{ px: 1, py: 0, fontSize: "0.7rem" }}>
+            <MaterialSymbol icon="view_column" size={14} />&nbsp;2 Col
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        <Box sx={{ flex: 1 }} />
+
         {addingGroup ? (
           <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
-            <TextField size="small" placeholder="Group name" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} sx={{ width: 120, "& input": { py: 0.25, fontSize: "0.75rem" } }} />
+            <TextField
+              size="small" placeholder="Group name" autoFocus
+              value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddGroup(); }}
+              sx={{ width: 130, "& input": { py: 0.25, fontSize: "0.75rem" } }}
+            />
             <Button size="small" onClick={handleAddGroup} disabled={!newGroupName}>Add</Button>
-            <IconButton size="small" onClick={() => { setAddingGroup(false); setNewGroupName(""); }}><MaterialSymbol icon="close" size={14} /></IconButton>
+            <IconButton size="small" onClick={() => { setAddingGroup(false); setNewGroupName(""); }}>
+              <MaterialSymbol icon="close" size={14} />
+            </IconButton>
           </Box>
         ) : (
           <Button size="small" startIcon={<MaterialSymbol icon="workspaces" size={14} />} onClick={() => setAddingGroup(true)}>
             Group
           </Button>
         )}
+
+        <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={() => openAddField(sectionIdx)}>
+          Field
+        </Button>
       </Box>
+
+      {/* Visual layout */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <Box sx={{ display: "flex", gap: 1.5 }}>
+          {/* Column 1 */}
+          <SortableContext id="col-0" items={containers["col-0"] || []} strategy={verticalListSortingStrategy}>
+            <DroppableColumn id="col-0" label="Column 1" isEmpty={(containers["col-0"] || []).length === 0}>
+              {renderItems("col-0")}
+            </DroppableColumn>
+          </SortableContext>
+
+          {/* Column 2 */}
+          {cols === 2 && (
+            <SortableContext id="col-1" items={containers["col-1"] || []} strategy={verticalListSortingStrategy}>
+              <DroppableColumn id="col-1" label="Column 2" isEmpty={(containers["col-1"] || []).length === 0}>
+                {renderItems("col-1")}
+              </DroppableColumn>
+            </SortableContext>
+          )}
+        </Box>
+
+        <DragOverlay dropAnimation={null}>
+          {activeField && <FieldCard field={activeField} isDragging />}
+          {activeGroup && (
+            <Box sx={{ border: 2, borderColor: "primary.main", borderStyle: "dashed", borderRadius: 1, p: 1, bgcolor: "primary.50", minWidth: 120 }}>
+              <Typography variant="caption" fontWeight={600}>{activeGroup}</Typography>
+            </Box>
+          )}
+        </DragOverlay>
+      </DndContext>
     </Box>
   );
 }
 
-// ── Description Section Fields (name + description are protected) ──
+// ── DescriptionFieldsPanel ───────────────────────────────────────
 
 function DescriptionFieldsPanel({
-  typeKey,
-  fieldsSchema,
-  calculatedFieldKeys,
-  onRefresh,
-  openAddField,
-  openEditField,
-  promptDeleteField,
+  typeKey, fieldsSchema, calculatedFieldKeys,
+  onRefresh, openAddField, openEditField, promptDeleteField,
 }: {
-  typeKey: string;
-  fieldsSchema: SectionDef[];
-  calculatedFieldKeys: string[];
+  typeKey: string; fieldsSchema: SectionDef[]; calculatedFieldKeys: string[];
   onRefresh: () => void;
   openAddField: (si: number) => void;
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
 }) {
-  // Description section is stored as the first section in fields_schema with key "__description"
-  // or we find it by convention. For backward compat, we create it if missing.
   const descIdx = fieldsSchema.findIndex((s) => s.section === "__description");
   const descSection = descIdx >= 0 ? fieldsSchema[descIdx] : null;
-
-  // Built-in fields (not stored in schema - rendered directly in CardDetail)
-  const builtinFields: FieldDef[] = [
-    { key: "__name", label: "Name", type: "text", required: true, weight: 0 },
-    { key: "__description", label: "Description", type: "text", required: false, weight: 1 },
-  ];
-
   const customFields = descSection?.fields || [];
   const actualDescIdx = descIdx >= 0 ? descIdx : -1;
 
@@ -476,7 +652,6 @@ function DescriptionFieldsPanel({
     if (actualDescIdx < 0) return;
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    // Only custom fields are draggable
     const oldIdx = customFields.findIndex((_, i) => `desc-field-${i}` === active.id);
     const newIdx = customFields.findIndex((_, i) => `desc-field-${i}` === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
@@ -491,55 +666,99 @@ function DescriptionFieldsPanel({
     if (actualDescIdx >= 0) {
       openAddField(actualDescIdx);
     } else {
-      // Create __description section
       const schema: SectionDef[] = [...fieldsSchema, { section: "__description", fields: [] }];
       await api.patch(`/metamodel/types/${typeKey}`, { fields_schema: schema });
       onRefresh();
-      // After refresh, user can add fields
     }
   };
 
+  const builtinFields: FieldDef[] = [
+    { key: "__name", label: "Name", type: "text", required: true, weight: 0 },
+    { key: "__description", label: "Description", type: "text", required: false, weight: 1 },
+  ];
+
   return (
-    <Box sx={{ pb: 1 }}>
-      {/* Built-in fields (not draggable/editable) */}
+    <Box sx={{ pb: 1, px: 1 }}>
       {builtinFields.map((f) => (
-        <Box key={f.key} sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1.5, py: 0.25 }}>
-          <Box sx={{ width: 22 }} /> {/* placeholder for drag handle */}
-          <Typography variant="body2" fontWeight={500} sx={{ flex: 1, color: "text.secondary" }}>
-            {f.label}
-            <Chip component="span" size="small" label="built-in" sx={{ ml: 0.5, height: 16, fontSize: "0.55rem" }} />
-          </Typography>
-          <Chip size="small" label={f.type} sx={{ bgcolor: fieldTypeColor(f.type), color: "#fff", height: 18, fontSize: 10 }} />
+        <Box key={f.key} sx={{ mb: 0.5 }}>
+          <FieldCard field={f} isProtected />
         </Box>
       ))}
-      {/* Custom fields in description section */}
       {customFields.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd}>
           <SortableContext items={customFields.map((_, i) => `desc-field-${i}`)} strategy={verticalListSortingStrategy}>
             {customFields.map((f, fi) => (
-              <SortableFieldItem
-                key={`desc-field-${fi}`}
-                id={`desc-field-${fi}`}
-                field={f}
-                isCalculated={calculatedFieldKeys.includes(f.key)}
+              <SortableFieldCard
+                key={`desc-field-${fi}`} id={`desc-field-${fi}`} field={f}
+                isCalc={calculatedFieldKeys.includes(f.key)}
                 onEdit={() => openEditField(actualDescIdx, fi)}
                 onDelete={() => promptDeleteField(actualDescIdx, fi)}
-                groups={[]}
               />
             ))}
           </SortableContext>
         </DndContext>
       )}
-      <Box sx={{ px: 1.5, pt: 0.5 }}>
-        <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={addFieldToDescription}>
-          Field
-        </Button>
-      </Box>
+      <Button size="small" startIcon={<MaterialSymbol icon="add" size={14} />} onClick={addFieldToDescription} sx={{ mt: 0.5 }}>
+        Field
+      </Button>
     </Box>
   );
 }
 
-// ── Main Component ──────────────────────────────────────────────
+// ── SortableSectionItem ──────────────────────────────────────────
+
+function SortableSectionItem({
+  id, sectionKey, info, cfg, expanded, onToggleExpand,
+  onToggleCollapsed, onToggleHidden, children,
+}: {
+  id: string; sectionKey: string;
+  info: { label: string; icon: string; isCustom: boolean };
+  cfg: SectionConfig; expanded: boolean;
+  onToggleExpand: () => void;
+  onToggleCollapsed: () => void;
+  onToggleHidden: () => void;
+  children?: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const canExpand = (info.isCustom || sectionKey === "description") && !cfg.hidden;
+
+  return (
+    <Box ref={setNodeRef} style={style} sx={{ border: 1, borderColor: cfg.hidden ? "action.disabled" : "divider", borderRadius: 1, mb: 0.75, bgcolor: cfg.hidden ? "action.disabledBackground" : "background.paper" }}>
+      <Box sx={{ display: "flex", alignItems: "center", px: 1, py: 0.5, gap: 0.5 }}>
+        <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", mr: 0.5, "&:active": { cursor: "grabbing" } }}>
+          <MaterialSymbol icon="drag_indicator" size={18} color="#999" />
+        </Box>
+        <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.5, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
+          <MaterialSymbol icon={info.icon} size={18} color={cfg.hidden ? "#bbb" : "#666"} />
+          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.label}</Typography>
+        </Box>
+        <Tooltip title="Collapsed by default">
+          <FormControlLabel
+            control={<Switch size="small" checked={cfg.defaultExpanded === false} disabled={!!cfg.hidden} onChange={onToggleCollapsed} />}
+            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Collapsed</Typography>}
+            sx={{ mr: 0, ml: 0 }}
+          />
+        </Tooltip>
+        <Tooltip title="Hidden from card detail">
+          <FormControlLabel
+            control={<Switch size="small" checked={!!cfg.hidden} onChange={onToggleHidden} />}
+            label={<Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>Hidden</Typography>}
+            sx={{ mr: 0, ml: 0 }}
+          />
+        </Tooltip>
+        {canExpand && (
+          <IconButton size="small" onClick={onToggleExpand}>
+            <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={18} />
+          </IconButton>
+        )}
+      </Box>
+      {expanded && !cfg.hidden && children}
+    </Box>
+  );
+}
+
+// ── Main CardLayoutEditor ────────────────────────────────────────
 
 interface CardLayoutEditorProps {
   cardType: CardType;
@@ -551,19 +770,12 @@ interface CardLayoutEditorProps {
 }
 
 export default function CardLayoutEditor({
-  cardType,
-  onRefresh,
-  openAddField,
-  openEditField,
-  promptDeleteField,
-  calculatedFieldKeys,
+  cardType, onRefresh, openAddField, openEditField, promptDeleteField, calculatedFieldKeys,
 }: CardLayoutEditorProps) {
   const secCfg = (cardType.section_config || {}) as Record<string, SectionConfig> & { __order?: string[] };
-  // Filter out __description from the visible custom sections list
   const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
   const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy);
 
-  // Auto-expand all editable sections (custom + description) for easier editing
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
     initial.add("description");
@@ -596,7 +808,6 @@ export default function CardLayoutEditor({
     await persistSectionConfig({ [sectionKey]: { ...(secCfg[sectionKey] || {}), ...prop } });
   };
 
-  // Map custom:N keys back to fields_schema indices (excluding __description)
   const customToSchemaIdx = (customIdx: number) => {
     let count = 0;
     for (let i = 0; i < cardType.fields_schema.length; i++) {
@@ -620,8 +831,7 @@ export default function CardLayoutEditor({
   const handleAddSection = async () => {
     if (!newSectionName) return;
     const schema = [...cardType.fields_schema, { section: newSectionName, fields: [] }];
-    // Also update order to include new section
-    const newCustomIdx = customSections.length; // will be appended
+    const newCustomIdx = customSections.length;
     const newOrder = [...sectionOrder, `custom:${newCustomIdx}`];
     await api.patch(`/metamodel/types/${cardType.key}`, {
       fields_schema: schema,
@@ -630,14 +840,7 @@ export default function CardLayoutEditor({
     onRefresh();
     setNewSectionName("");
     setAddSectionOpen(false);
-  };
-
-  const handleToggleColumns = async (sectionIdx: number) => {
-    const schema = [...cardType.fields_schema];
-    const current = schema[sectionIdx].columns || 1;
-    schema[sectionIdx] = { ...schema[sectionIdx], columns: current === 2 ? 1 : 2 };
-    await api.patch(`/metamodel/types/${cardType.key}`, { fields_schema: schema });
-    onRefresh();
+    setExpandedSections((prev) => new Set([...prev, `custom:${newCustomIdx}`]));
   };
 
   return (
@@ -646,7 +849,7 @@ export default function CardLayoutEditor({
         Card Layout
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Drag to reorder sections. Expand sections to manage fields.
+        Drag sections to reorder. Expand to manage fields, columns, and groups.
       </Typography>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSectionDragEnd}>
@@ -654,30 +857,21 @@ export default function CardLayoutEditor({
           {sectionOrder.map((key) => {
             const info = getSectionInfo(key, customSections, cardType);
             if (!info) return null;
-            // For custom sections, get the section_config by key OR by section name
             const cfgForSection = key.startsWith("custom:")
               ? (secCfg[key] || secCfg[info.label] || {})
               : (secCfg[key] || {});
-
-            // Get actual schema index for custom sections
             const schemaIdx = info.isCustom ? customToSchemaIdx(info.idx) : -1;
 
             return (
               <SortableSectionItem
-                key={key}
-                id={key}
-                sectionKey={key}
-                info={info}
-                cfg={cfgForSection}
+                key={key} id={key} sectionKey={key} info={info} cfg={cfgForSection}
                 expanded={expandedSections.has(key)}
                 onToggleExpand={() => toggleExpand(key)}
                 onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: cfgForSection.defaultExpanded === false })}
                 onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
-                onToggleColumns={info.isCustom && schemaIdx >= 0 ? () => handleToggleColumns(schemaIdx) : undefined}
               >
-                {/* Render fields for custom sections */}
                 {info.isCustom && info.section && schemaIdx >= 0 && (
-                  <SectionFieldsPanel
+                  <VisualFieldLayout
                     sectionIdx={schemaIdx}
                     section={info.section}
                     typeKey={cardType.key}
@@ -689,7 +883,6 @@ export default function CardLayoutEditor({
                     promptDeleteField={promptDeleteField}
                   />
                 )}
-                {/* Render fields for description section */}
                 {key === "description" && (
                   <DescriptionFieldsPanel
                     typeKey={cardType.key}
@@ -707,14 +900,11 @@ export default function CardLayoutEditor({
         </SortableContext>
       </DndContext>
 
-      {/* Add section */}
       {addSectionOpen ? (
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1 }}>
-          <TextField
-            size="small"
-            placeholder="Section name"
-            value={newSectionName}
+          <TextField size="small" placeholder="Section name" value={newSectionName} autoFocus
             onChange={(e) => setNewSectionName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleAddSection(); }}
             sx={{ flex: 1 }}
           />
           <Button size="small" variant="contained" onClick={handleAddSection} disabled={!newSectionName}>Add</Button>

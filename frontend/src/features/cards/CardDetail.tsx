@@ -673,17 +673,30 @@ function AttributeSection({
 
   const is2Col = section.columns === 2;
 
-  // Group fields while preserving order
-  const groupOrder: string[] = [];
-  const groupedFields: Record<string, FieldDef[]> = {};
-  for (const field of section.fields) {
-    const g = field.group || "";
-    if (!groupedFields[g]) {
-      groupedFields[g] = [];
-      groupOrder.push(g);
+  // Build ordered column items: each item is either a group or a standalone field
+  type ColumnItem = { kind: "field"; field: FieldDef } | { kind: "group"; name: string; fields: FieldDef[] };
+
+  const buildColumnItems = (colNum: 0 | 1): ColumnItem[] => {
+    const items: ColumnItem[] = [];
+    const seenGroups = new Set<string>();
+    for (const field of section.fields) {
+      const fieldCol = is2Col ? (field.column ?? 0) : 0;
+      if (fieldCol !== colNum) continue;
+      if (field.group) {
+        if (seenGroups.has(field.group)) continue;
+        seenGroups.add(field.group);
+        // Collect all fields in this group that belong to this column
+        const gFields = section.fields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
+        items.push({ kind: "group", name: field.group, fields: gFields });
+      } else {
+        items.push({ kind: "field", field });
+      }
     }
-    groupedFields[g].push(field);
-  }
+    return items;
+  };
+
+  const col0Items = buildColumnItems(0);
+  const col1Items = is2Col ? buildColumnItems(1) : [];
 
   const expanded = initialExpanded ?? (section.defaultExpanded !== false);
 
@@ -738,22 +751,41 @@ function AttributeSection({
     </Box>
   );
 
-  // Render group content (handles 2-column layout)
-  const renderGroupContent = (fields: FieldDef[], isEdit: boolean) => {
-    if (!is2Col) return isEdit ? renderEditFields(fields) : renderReadGrid(fields);
-    const col0 = fields.filter((f) => (f.column ?? 0) === 0);
-    const col1 = fields.filter((f) => f.column === 1);
+  // Render a list of column items (groups + standalone fields)
+  const renderColumnItems = (items: ColumnItem[], isEdit: boolean) => (
+    <>
+      {items.map((item, i) => {
+        if (item.kind === "group") {
+          return (
+            <Box key={`group-${item.name}`} sx={{ mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: i > 0 ? 1 : 0 }}>
+                {item.name}
+              </Typography>
+              {isEdit ? renderEditFields(item.fields) : renderReadGrid(item.fields)}
+            </Box>
+          );
+        }
+        return (
+          <Box key={item.field.key} sx={{ mb: 0.5 }}>
+            {isEdit ? renderEditFields([item.field]) : renderReadGrid([item.field])}
+          </Box>
+        );
+      })}
+    </>
+  );
+
+  // Render the full section body with column layout
+  const renderSectionBody = (isEdit: boolean) => {
+    if (!is2Col) return renderColumnItems(col0Items, isEdit);
     return (
       <Box sx={{ display: "flex", gap: 3, flexDirection: { xs: "column", sm: "row" } }}>
-        <Box sx={{ flex: 1 }}>{isEdit ? renderEditFields(col0) : renderReadGrid(col0)}</Box>
-        {col1.length > 0 && (
-          <Box sx={{ flex: 1 }}>{isEdit ? renderEditFields(col1) : renderReadGrid(col1)}</Box>
+        <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
+        {col1Items.length > 0 && (
+          <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
         )}
       </Box>
     );
   };
-
-  const groupHeaderSx = { fontWeight: 600, color: "text.secondary", borderBottom: 1, borderColor: "divider", pb: 0.5, mb: 1, mt: 1 };
 
   return (
     <Accordion defaultExpanded={expanded} disableGutters>
@@ -782,12 +814,7 @@ function AttributeSection({
       <AccordionDetails>
         {editing && canEdit ? (
           <Box>
-            {groupOrder.map((g) => (
-              <Box key={g || "__ungrouped"}>
-                {g && <Typography variant="subtitle2" sx={groupHeaderSx}>{g}</Typography>}
-                {renderGroupContent(groupedFields[g], true)}
-              </Box>
-            ))}
+            {renderSectionBody(true)}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}>
               <Button
                 size="small"
@@ -805,12 +832,7 @@ function AttributeSection({
           </Box>
         ) : (
           <Box>
-            {groupOrder.map((g) => (
-              <Box key={g || "__ungrouped"}>
-                {g && <Typography variant="subtitle2" sx={groupHeaderSx}>{g}</Typography>}
-                {renderGroupContent(groupedFields[g], false)}
-              </Box>
-            ))}
+            {renderSectionBody(false)}
           </Box>
         )}
       </AccordionDetails>
