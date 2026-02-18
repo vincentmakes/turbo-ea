@@ -1953,45 +1953,18 @@ export default function CardDetail() {
 
   const typeConfig = getType(card.type);
 
-  // ── Diagnostic logging for React #310 investigation ──
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (typeof window !== "undefined" && !(window as any).__cdLogOnce) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__cdLogOnce = true;
-    console.group("[CardDetail] Diagnostic dump");
-    console.log("card.type:", typeof card.type, card.type);
-    console.log("card.name:", typeof card.name, card.name);
-    console.log("card.subtype:", typeof card.subtype, card.subtype);
-    console.log("card.lifecycle:", typeof card.lifecycle, card.lifecycle);
-    console.log("card.approval_status:", typeof card.approval_status, card.approval_status);
-    console.log("card.data_quality:", typeof card.data_quality, card.data_quality);
-    console.log("card.attributes keys:", card.attributes ? Object.keys(card.attributes) : "null");
-    if (card.attributes) {
-      for (const [k, v] of Object.entries(card.attributes)) {
-        if (typeof v === "object" && v !== null) {
-          console.warn(`  attr "${k}" is an OBJECT:`, JSON.stringify(v));
-        }
+  // ── Computed calculated field keys (no useMemo — investigating #310) ──
+  let calcFieldKeys: string[] = [];
+  try {
+    for (const section of typeConfig?.fields_schema || []) {
+      for (const field of section.fields || []) {
+        if (isCalculated(card.type, field.key)) calcFieldKeys.push(field.key);
       }
     }
-    console.log("typeConfig:", typeConfig?.key, "fields_schema sections:", typeConfig?.fields_schema?.length);
-    console.groupEnd();
+  } catch (err) {
+    console.error("[CardDetail] calcFieldKeys error", err);
+    calcFieldKeys = [];
   }
-
-  const calcFieldKeys = useMemo(() => {
-    try {
-      if (!card) return [];
-      const keys: string[] = [];
-      for (const section of typeConfig?.fields_schema || []) {
-        for (const field of section.fields || []) {
-          if (isCalculated(card.type, field.key)) keys.push(field.key);
-        }
-      }
-      return keys;
-    } catch (err) {
-      console.error("[CardDetail] calcFieldKeys error", err);
-      return [];
-    }
-  }, [card, typeConfig, isCalculated]);
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
     const updated = await api.patch<Card>(`/cards/${card.id}`, updates);
