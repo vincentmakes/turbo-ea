@@ -32,6 +32,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.0",
+    "react-simple-code-editor": "^0.14.1",
     "recharts": "^3.7.0",
     "xlsx": "^0.18.5"
   },

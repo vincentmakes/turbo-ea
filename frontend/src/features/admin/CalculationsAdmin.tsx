@@ -31,6 +31,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
 import Popper from "@mui/material/Popper";
 import Autocomplete from "@mui/material/Autocomplete";
+import CodeEditor from "react-simple-code-editor";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -154,13 +155,19 @@ interface FormulaEditorProps {
   relationTypes: RelationType[];
 }
 
+const TEXTAREA_ID = "formula-editor-textarea";
+
 function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const highlightRef = useRef<HTMLPreElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [cursorToken, setCursorToken] = useState({ prefix: "", token: "" });
   const suppressRef = useRef(false);
+
+  const getTextarea = useCallback(
+    () => document.getElementById(TEXTAREA_ID) as HTMLTextAreaElement | null,
+    [],
+  );
 
   // Build the full suggestion catalog based on selected card type
   const allSuggestions = useMemo(() => {
@@ -285,27 +292,28 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     return pool.filter((s) => s.label.toLowerCase().includes(lower)).slice(0, 12);
   }, [cursorToken, allSuggestions, dataFieldSuggestions, relationKeySuggestions]);
 
-  // Handle text changes
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    onChange(newValue);
-
-    if (suppressRef.current) {
-      suppressRef.current = false;
-      return;
-    }
-
-    const pos = e.target.selectionStart ?? newValue.length;
-    const tokenInfo = getTokenAtCursor(newValue, pos);
-    setCursorToken(tokenInfo);
-    setSelectedIdx(0);
-
-    // Show suggestions when there's a prefix with dot, or when typing 2+ chars
-    const shouldShow = tokenInfo.prefix
-      ? true
-      : tokenInfo.token.length >= 2;
-    setShowSuggestions(shouldShow && filteredSuggestions.length > 0);
-  };
+  // Handle value change from the code editor
+  const handleValueChange = useCallback(
+    (newValue: string) => {
+      onChange(newValue);
+      if (suppressRef.current) {
+        suppressRef.current = false;
+        return;
+      }
+      // Read cursor position after the editor updates
+      requestAnimationFrame(() => {
+        const ta = getTextarea();
+        if (!ta) return;
+        const pos = ta.selectionStart ?? newValue.length;
+        const tokenInfo = getTokenAtCursor(newValue, pos);
+        setCursorToken(tokenInfo);
+        setSelectedIdx(0);
+        const shouldShow = tokenInfo.prefix ? true : tokenInfo.token.length >= 2;
+        setShowSuggestions(shouldShow);
+      });
+    },
+    [onChange, getTextarea, getTokenAtCursor],
+  );
 
   // Update showSuggestions when filteredSuggestions changes
   useEffect(() => {
@@ -318,7 +326,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
 
   // Insert a suggestion at the cursor position
   const applySuggestion = useCallback((suggestion: Suggestion) => {
-    const textarea = textareaRef.current;
+    const textarea = getTextarea();
     if (!textarea) return;
 
     const pos = textarea.selectionStart ?? value.length;
@@ -335,15 +343,14 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     setShowSuggestions(false);
     setCursorToken({ prefix: "", token: "" });
 
-    // Restore focus and cursor position
     requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(newCursorPos, newCursorPos);
     });
-  }, [value, onChange, getTokenAtCursor]);
+  }, [value, onChange, getTokenAtCursor, getTextarea]);
 
   // Handle keyboard navigation in the suggestions list
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showSuggestions || filteredSuggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -362,19 +369,10 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     }
   };
 
-  // Sync scroll between textarea and highlight overlay
-  const handleScroll = () => {
-    if (textareaRef.current && highlightRef.current) {
-      highlightRef.current.scrollTop = textareaRef.current.scrollTop;
-      highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  };
-
   const lineCount = (value || "\n").split("\n").length;
-  const highlighted = highlightFormula(value || "");
 
   return (
-    <Box sx={{ position: "relative" }}>
+    <Box sx={{ position: "relative" }} ref={containerRef}>
       <style>{HL_STYLES}</style>
       <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
         Formula *
@@ -413,71 +411,33 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           ))}
         </Box>
 
-        {/* Editor area: textarea (input) + pre (highlight overlay) */}
-        <Box sx={{ position: "relative", flex: 1, minHeight: 160 }}>
-          {/* Syntax highlight overlay */}
-          <Box
-            component="pre"
-            ref={highlightRef}
-            aria-hidden
-            sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              m: 0,
-              py: "10px",
-              px: "10px",
-              fontFamily: "monospace",
-              fontSize: "0.82rem",
-              lineHeight: "1.5",
-              color: "#d4d4d4",
-              pointerEvents: "none",
-              overflow: "hidden",
-              whiteSpace: "pre",
-              wordWrap: "normal",
-            }}
-            dangerouslySetInnerHTML={{ __html: highlighted + "\n" }}
-          />
-          {/* Actual textarea (transparent text, visible caret) */}
-          <textarea
-            ref={textareaRef}
+        {/* Code editor */}
+        <Box sx={{ flex: 1, minHeight: 160, overflow: "auto" }}>
+          <CodeEditor
             value={value}
-            onChange={handleChange}
+            onValueChange={handleValueChange}
+            highlight={highlightFormula}
             onKeyDown={handleKeyDown}
-            onScroll={handleScroll}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-            spellCheck={false}
+            textareaId={TEXTAREA_ID}
             placeholder="Start typing — suggestions appear for fields, functions, and relations"
+            padding={10}
             style={{
-              position: "relative",
-              width: "100%",
-              minHeight: 160,
-              resize: "vertical",
-              margin: 0,
-              padding: 10,
               fontFamily: "monospace",
               fontSize: "0.82rem",
               lineHeight: "1.5",
-              color: "transparent",
+              minHeight: 160,
+              color: "#d4d4d4",
               caretColor: "#d4d4d4",
-              backgroundColor: "transparent",
-              border: "none",
-              outline: "none",
-              whiteSpace: "pre",
-              wordWrap: "normal",
-              overflow: "auto",
-              boxSizing: "border-box",
             }}
           />
         </Box>
       </Box>
       <Popper
         open={showSuggestions && filteredSuggestions.length > 0}
-        anchorEl={textareaRef.current}
+        anchorEl={containerRef.current}
         placement="bottom-start"
-        sx={{ zIndex: 1500, width: textareaRef.current?.offsetWidth || 400 }}
+        sx={{ zIndex: 1500, width: containerRef.current?.offsetWidth || 400 }}
         modifiers={[{ name: "offset", options: { offset: [0, 4] } }]}
       >
         <Paper
