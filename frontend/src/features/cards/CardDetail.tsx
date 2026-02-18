@@ -140,6 +140,11 @@ function FieldValue({ field, value }: { field: FieldDef; value: unknown }) {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
   }
 
+  // Guard: if value is an object/array and the field type doesn't expect it, coerce to string
+  if (typeof value === "object" && !Array.isArray(value) && field.type !== "multiple_select") {
+    return <Typography variant="body2">{safeString(value)}</Typography>;
+  }
+
   if (field.type === "single_select" && field.options) {
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
@@ -1945,14 +1950,19 @@ export default function CardDetail() {
 
   const typeConfig = getType(card.type);
   const calcFieldKeys = useMemo(() => {
-    if (!card) return [];
-    const keys: string[] = [];
-    for (const section of typeConfig?.fields_schema || []) {
-      for (const field of section.fields) {
-        if (isCalculated(card.type, field.key)) keys.push(field.key);
+    try {
+      if (!card) return [];
+      const keys: string[] = [];
+      for (const section of typeConfig?.fields_schema || []) {
+        for (const field of section.fields || []) {
+          if (isCalculated(card.type, field.key)) keys.push(field.key);
+        }
       }
+      return keys;
+    } catch (err) {
+      console.error("[CardDetail] calcFieldKeys error", err);
+      return [];
     }
-    return keys;
   }, [card, typeConfig, isCalculated]);
 
   const handleUpdate = async (updates: Record<string, unknown>) => {
@@ -2029,7 +2039,7 @@ export default function CardDetail() {
             <Typography variant="body2" color="text.secondary">
               {typeConfig?.label || card.type}
             </Typography>
-            {card.subtype && (
+            {card.subtype && typeof card.subtype === "string" && (
               <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />
             )}
           </Box>
@@ -2193,9 +2203,15 @@ export default function CardDetail() {
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection card={card} onSave={handleUpdate} />
-              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <ErrorBoundary label="Description" inline>
+                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="End of Life" inline>
+                <EolLinkSection card={card} onSave={handleUpdate} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Lifecycle" inline>
+                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
               {typeConfig?.fields_schema.map((section) => (
                 <ErrorBoundary key={section.section} label={section.section}>
                   <AttributeSection
@@ -2208,24 +2224,34 @@ export default function CardDetail() {
                   />
                 </ErrorBoundary>
               ))}
-              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <ErrorBoundary label="Hierarchy" inline>
+                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Relations" inline>
+                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              </ErrorBoundary>
             </Box>
           )}
-          {tab === 1 && <MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard>}
-          {tab === 2 && <MuiCard><CardContent><ProcessAssessmentPanel processId={card.id} /></CardContent></MuiCard>}
-          {tab === 3 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
-          {tab === 4 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
-          {tab === 5 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
-          {tab === 6 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 1 && <ErrorBoundary label="Process Flow"><MuiCard><CardContent><ProcessFlowTab processId={card.id} processName={card.name} initialSubTab={initialSubTab} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 2 && <ErrorBoundary label="Assessments"><MuiCard><CardContent><ProcessAssessmentPanel processId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 3 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 4 && <ErrorBoundary label="Todos"><MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 5 && <ErrorBoundary label="Stakeholders"><MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 6 && <ErrorBoundary label="History"><MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
         </>
       ) : (
         <>
           {tab === 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-              <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
-              <EolLinkSection card={card} onSave={handleUpdate} />
-              <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              <ErrorBoundary label="Description" inline>
+                <DescriptionSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="End of Life" inline>
+                <EolLinkSection card={card} onSave={handleUpdate} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Lifecycle" inline>
+                <LifecycleSection card={card} onSave={handleUpdate} canEdit={perms.can_edit} />
+              </ErrorBoundary>
               {typeConfig?.fields_schema.map((section) => (
                 <ErrorBoundary key={section.section} label={section.section}>
                   <AttributeSection
@@ -2238,14 +2264,18 @@ export default function CardDetail() {
                   />
                 </ErrorBoundary>
               ))}
-              <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
-              <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              <ErrorBoundary label="Hierarchy" inline>
+                <HierarchySection card={card} onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canEdit={perms.can_edit} />
+              </ErrorBoundary>
+              <ErrorBoundary label="Relations" inline>
+                <RelationsSection fsId={card.id} cardTypeKey={card.type} refreshKey={relRefresh} canManageRelations={perms.can_manage_relations} />
+              </ErrorBoundary>
             </Box>
           )}
-          {tab === 1 && <MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard>}
-          {tab === 2 && <MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard>}
-          {tab === 3 && <MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard>}
-          {tab === 4 && <MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard>}
+          {tab === 1 && <ErrorBoundary label="Comments"><MuiCard><CardContent><CommentsTab fsId={card.id} canCreateComments={perms.can_create_comments} canManageComments={perms.can_manage_comments} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 2 && <ErrorBoundary label="Todos"><MuiCard><CardContent><TodosTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 3 && <ErrorBoundary label="Stakeholders"><MuiCard><CardContent><StakeholdersTab card={card} onRefresh={() => api.get<Card>(`/cards/${card.id}`).then(setCard)} canManageStakeholders={perms.can_manage_stakeholders} /></CardContent></MuiCard></ErrorBoundary>}
+          {tab === 4 && <ErrorBoundary label="History"><MuiCard><CardContent><HistoryTab fsId={card.id} /></CardContent></MuiCard></ErrorBoundary>}
         </>
       )}
     </Box>

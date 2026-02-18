@@ -33,6 +33,7 @@ import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import KeyInput, { isValidKey } from "@/components/KeyInput";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import type {
@@ -129,6 +130,12 @@ interface FieldEditorProps {
 function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEditorProps) {
   const [field, setField] = useState<FieldDef>(initial);
 
+  // Track which option keys existed before editing — these are locked
+  const originalOptionKeys = useMemo(
+    () => new Set((initial.options || []).map((o) => o.key).filter(Boolean)),
+    [initial],
+  );
+
   useEffect(() => {
     if (open) setField({ ...initial });
   }, [open, initial]);
@@ -158,13 +165,15 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
       <DialogContent>
-        <TextField
+        <KeyInput
           fullWidth
           label="Key"
           value={field.key}
-          onChange={(e) => setField({ ...field, key: e.target.value })}
+          onChange={(v) => setField({ ...field, key: v })}
           sx={{ mt: 1, mb: 2 }}
-          disabled={!!initial.key}
+          size="small"
+          locked={!!initial.key}
+          lockedReason="Field key cannot be changed after creation"
         />
         <TextField
           fullWidth
@@ -222,12 +231,14 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
                 key={idx}
                 sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}
               >
-                <TextField
+                <KeyInput
                   size="small"
                   label="Key"
                   value={opt.key}
-                  onChange={(e) => updateOption(idx, { key: e.target.value })}
+                  onChange={(v) => updateOption(idx, { key: v })}
                   sx={{ flex: 1 }}
+                  locked={originalOptionKeys.has(opt.key)}
+                  lockedReason="Option key is in use — delete and re-create to change"
                 />
                 <TextField
                   size="small"
@@ -263,7 +274,7 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
         <Button
           variant="contained"
           onClick={() => onSave(field)}
-          disabled={!field.key || !field.label}
+          disabled={!field.key || !field.label || !isValidKey(field.key) || (isSelect && (field.options || []).some((o) => o.key && !isValidKey(o.key)))}
         >
           Save
         </Button>
@@ -681,13 +692,11 @@ function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
               New Stakeholder Role
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <TextField
+              <KeyInput
                 size="small"
                 label="Key"
                 value={createForm.key}
-                onChange={(e) =>
-                  setCreateForm({ ...createForm, key: e.target.value.replace(/\s+/g, "_").toLowerCase() })
-                }
+                onChange={(v) => setCreateForm({ ...createForm, key: v })}
                 placeholder="e.g. data_steward"
                 fullWidth
               />
@@ -1148,11 +1157,11 @@ function TypeDetailDrawer({
           <Box
             sx={{ display: "flex", gap: 1, alignItems: "center", mt: 1, mb: 2 }}
           >
-            <TextField
+            <KeyInput
               size="small"
               label="Key"
               value={newSubKey}
-              onChange={(e) => setNewSubKey(e.target.value)}
+              onChange={setNewSubKey}
               sx={{ flex: 1 }}
             />
             <TextField
@@ -1166,7 +1175,7 @@ function TypeDetailDrawer({
               size="small"
               variant="contained"
               onClick={handleAddSubtype}
-              disabled={!newSubKey || !newSubLabel}
+              disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}
             >
               Add
             </Button>
@@ -2767,12 +2776,13 @@ export default function MetamodelAdmin() {
       >
         <DialogTitle>Create Card Type</DialogTitle>
         <DialogContent>
-          <TextField
+          <KeyInput
             fullWidth
-            label="Key (e.g., MyCustomType)"
+            label="Key (e.g. my_custom_type)"
             value={newType.key}
-            onChange={(e) => setNewType({ ...newType, key: e.target.value })}
+            onChange={(v) => setNewType({ ...newType, key: v })}
             sx={{ mt: 1, mb: 2 }}
+            size="small"
           />
           <TextField
             fullWidth
@@ -2838,7 +2848,7 @@ export default function MetamodelAdmin() {
           <Button
             variant="contained"
             onClick={handleCreateType}
-            disabled={!newType.key || !newType.label}
+            disabled={!newType.key || !newType.label || !isValidKey(newType.key)}
           >
             Create
           </Button>
@@ -2932,13 +2942,13 @@ export default function MetamodelAdmin() {
             </Select>
           </FormControl>
 
-          <TextField
+          <KeyInput
             fullWidth
             label="Key"
             value={newRel.key || autoRelKey}
-            onChange={(e) => setNewRel({ ...newRel, key: e.target.value })}
+            onChange={(v) => setNewRel({ ...newRel, key: v })}
             sx={{ mb: 2 }}
-            helperText="Auto-generated from source + target"
+            size="small"
           />
           <TextField
             fullWidth
@@ -2985,7 +2995,8 @@ export default function MetamodelAdmin() {
               !newRel.source_type_key ||
               !newRel.target_type_key ||
               !(newRel.key || autoRelKey) ||
-              !newRel.label
+              !newRel.label ||
+              !isValidKey(newRel.key || autoRelKey)
             }
           >
             Create

@@ -7,6 +7,7 @@ import LoginPage from "@/features/auth/LoginPage";
 import Dashboard from "@/features/dashboard/Dashboard";
 import InventoryPage from "@/features/inventory/InventoryPage";
 import CardDetail from "@/features/cards/CardDetail";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import PortfolioReport from "@/features/reports/PortfolioReport";
 import CapabilityMapReport from "@/features/reports/CapabilityMapReport";
 import LifecycleReport from "@/features/reports/LifecycleReport";
@@ -96,7 +97,7 @@ function AppRoutes() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/cards/:id" element={<CardDetail />} />
+              <Route path="/cards/:id" element={<ErrorBoundary label="Card Detail"><CardDetail /></ErrorBoundary>} />
               <Route path="/reports/portfolio" element={<PortfolioReport />} />
               <Route path="/reports/capability-map" element={<CapabilityMapReport />} />
               <Route path="/reports/lifecycle" element={<LifecycleReport />} />
