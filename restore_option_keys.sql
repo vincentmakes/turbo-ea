@@ -4,7 +4,7 @@
 -- ============================================================
 -- Run this against the turboea database.
 -- These queries restore the original LeanIX seed option keys
--- in the metamodel (fact_sheet_types.fields_schema and
+-- in the metamodel (card_types.fields_schema and
 -- relation_types.attributes_schema).
 -- ============================================================
 
@@ -25,7 +25,7 @@ DECLARE
     {"key": "unreasonable", "label": "Unreasonable", "color": "#d32f2f"}
   ]'::jsonb;
 BEGIN
-  SELECT fields_schema INTO _schema FROM fact_sheet_types WHERE key = 'Application';
+  SELECT fields_schema INTO _schema FROM card_types WHERE key = 'Application';
   IF _schema IS NULL THEN
     RAISE NOTICE 'Application type not found, skipping functionalSuitability in Application';
     RETURN;
@@ -45,7 +45,7 @@ BEGIN
   END LOOP;
 
   IF _found THEN
-    UPDATE fact_sheet_types SET fields_schema = _schema WHERE key = 'Application';
+    UPDATE card_types SET fields_schema = _schema WHERE key = 'Application';
     RAISE NOTICE 'Restored functionalSuitability options in Application type';
   ELSE
     RAISE NOTICE 'functionalSuitability field not found in Application type';
@@ -68,7 +68,7 @@ DECLARE
     {"key": "inappropriate", "label": "Inappropriate", "color": "#d32f2f"}
   ]'::jsonb;
 BEGIN
-  SELECT fields_schema INTO _schema FROM fact_sheet_types WHERE key = 'Application';
+  SELECT fields_schema INTO _schema FROM card_types WHERE key = 'Application';
   IF _schema IS NULL THEN
     RAISE NOTICE 'Application type not found, skipping technicalSuitability in Application';
     RETURN;
@@ -88,7 +88,7 @@ BEGIN
   END LOOP;
 
   IF _found THEN
-    UPDATE fact_sheet_types SET fields_schema = _schema WHERE key = 'Application';
+    UPDATE card_types SET fields_schema = _schema WHERE key = 'Application';
     RAISE NOTICE 'Restored technicalSuitability options in Application type';
   ELSE
     RAISE NOTICE 'technicalSuitability field not found in Application type';
@@ -111,7 +111,7 @@ DECLARE
     {"key": "inappropriate", "label": "Inappropriate", "color": "#d32f2f"}
   ]'::jsonb;
 BEGIN
-  SELECT fields_schema INTO _schema FROM fact_sheet_types WHERE key = 'ITComponent';
+  SELECT fields_schema INTO _schema FROM card_types WHERE key = 'ITComponent';
   IF _schema IS NULL THEN
     RAISE NOTICE 'ITComponent type not found, skipping';
     RETURN;
@@ -131,7 +131,7 @@ BEGIN
   END LOOP;
 
   IF _found THEN
-    UPDATE fact_sheet_types SET fields_schema = _schema WHERE key = 'ITComponent';
+    UPDATE card_types SET fields_schema = _schema WHERE key = 'ITComponent';
     RAISE NOTICE 'Restored technicalSuitability options in ITComponent type';
   ELSE
     RAISE NOTICE 'technicalSuitability field not found in ITComponent type';
@@ -225,7 +225,7 @@ END $$;
 SELECT
   key AS type_key,
   s->'fields' AS fields
-FROM fact_sheet_types,
+FROM card_types,
   jsonb_array_elements(fields_schema) AS s
 WHERE key = 'Application'
   AND s->>'section' = 'Application Information';
@@ -234,7 +234,7 @@ WHERE key = 'Application'
 SELECT
   key AS type_key,
   s->'fields' AS fields
-FROM fact_sheet_types,
+FROM card_types,
   jsonb_array_elements(fields_schema) AS s
 WHERE key = 'ITComponent'
   AND s->>'section' = 'Component Information';

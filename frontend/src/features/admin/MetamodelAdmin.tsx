@@ -123,11 +123,13 @@ function truncate(text: string, max: number): string {
 interface FieldEditorProps {
   open: boolean;
   field: FieldDef;
+  typeKey: string;
+  fieldKey: string;
   onClose: () => void;
   onSave: (field: FieldDef) => void;
 }
 
-function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEditorProps) {
+function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave }: FieldEditorProps) {
   const [field, setField] = useState<FieldDef>(initial);
 
   // Track which option keys existed before editing — these are locked
@@ -136,8 +138,19 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
     [initial],
   );
 
+  // Option deletion confirmation
+  const [deleteOptConfirm, setDeleteOptConfirm] = useState<{
+    idx: number;
+    optionKey: string;
+    optionLabel: string;
+    cardCount: number | null; // null = loading
+  } | null>(null);
+
   useEffect(() => {
-    if (open) setField({ ...initial });
+    if (open) {
+      setField({ ...initial });
+      setDeleteOptConfirm(null);
+    }
   }, [open, initial]);
 
   const isSelect = field.type === "single_select" || field.type === "multiple_select";
@@ -159,6 +172,31 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
     const opts = [...(field.options || [])];
     opts.splice(idx, 1);
     setField({ ...field, options: opts });
+    setDeleteOptConfirm(null);
+  };
+
+  const promptRemoveOption = (idx: number) => {
+    const opt = (field.options || [])[idx];
+    if (!opt) return;
+
+    // New options (not yet saved) can be removed without confirmation
+    if (!originalOptionKeys.has(opt.key)) {
+      removeOption(idx);
+      return;
+    }
+
+    // Existing option — check usage
+    setDeleteOptConfirm({ idx, optionKey: opt.key, optionLabel: opt.label, cardCount: null });
+    if (typeKey && fieldKey) {
+      api
+        .get<{ card_count: number }>(
+          `/metamodel/types/${typeKey}/option-usage?field_key=${encodeURIComponent(fieldKey)}&option_key=${encodeURIComponent(opt.key)}`,
+        )
+        .then((r) => setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: r.card_count } : null)))
+        .catch(() => setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null)));
+    } else {
+      setDeleteOptConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null));
+    }
   };
 
   return (
@@ -227,36 +265,64 @@ function FieldEditorDialog({ open, field: initial, onClose, onSave }: FieldEdito
               Options
             </Typography>
             {(field.options || []).map((opt, idx) => (
-              <Box
-                key={idx}
-                sx={{ display: "flex", gap: 1, mb: 1, alignItems: "center" }}
-              >
-                <KeyInput
-                  size="small"
-                  label="Key"
-                  value={opt.key}
-                  onChange={(v) => updateOption(idx, { key: v })}
-                  sx={{ flex: 1 }}
-                  locked={originalOptionKeys.has(opt.key)}
-                  lockedReason="Option key is in use — delete and re-create to change"
-                />
-                <TextField
-                  size="small"
-                  label="Label"
-                  value={opt.label}
-                  onChange={(e) => updateOption(idx, { label: e.target.value })}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  size="small"
-                  type="color"
-                  value={opt.color || "#1976d2"}
-                  onChange={(e) => updateOption(idx, { color: e.target.value })}
-                  sx={{ width: 56, p: 0 }}
-                />
-                <IconButton size="small" onClick={() => removeOption(idx)}>
-                  <MaterialSymbol icon="close" size={18} />
-                </IconButton>
+              <Box key={idx}>
+                <Box
+                  sx={{ display: "flex", gap: 1, mb: deleteOptConfirm?.idx === idx ? 0.5 : 1, alignItems: "center" }}
+                >
+                  <KeyInput
+                    size="small"
+                    label="Key"
+                    value={opt.key}
+                    onChange={(v) => updateOption(idx, { key: v })}
+                    sx={{ flex: 1 }}
+                    locked={originalOptionKeys.has(opt.key)}
+                    lockedReason="Option key is in use — delete and re-create to change"
+                  />
+                  <TextField
+                    size="small"
+                    label="Label"
+                    value={opt.label}
+                    onChange={(e) => updateOption(idx, { label: e.target.value })}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    size="small"
+                    type="color"
+                    value={opt.color || "#1976d2"}
+                    onChange={(e) => updateOption(idx, { color: e.target.value })}
+                    sx={{ width: 56, p: 0 }}
+                  />
+                  <IconButton size="small" onClick={() => promptRemoveOption(idx)}>
+                    <MaterialSymbol icon="close" size={18} />
+                  </IconButton>
+                </Box>
+                {deleteOptConfirm?.idx === idx && (
+                  <Alert
+                    severity={deleteOptConfirm.cardCount === null ? "info" : deleteOptConfirm.cardCount > 0 ? "warning" : "info"}
+                    sx={{ mb: 1, py: 0.5 }}
+                    action={
+                      <Box sx={{ display: "flex", gap: 0.5 }}>
+                        <Button size="small" color="inherit" onClick={() => setDeleteOptConfirm(null)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          size="small"
+                          color="error"
+                          disabled={deleteOptConfirm.cardCount === null}
+                          onClick={() => removeOption(idx)}
+                        >
+                          Remove
+                        </Button>
+                      </Box>
+                    }
+                  >
+                    {deleteOptConfirm.cardCount === null
+                      ? "Checking usage..."
+                      : deleteOptConfirm.cardCount > 0
+                        ? `"${deleteOptConfirm.optionLabel}" is used by ${deleteOptConfirm.cardCount} card(s). Their value will be cleared on save.`
+                        : `No cards use "${deleteOptConfirm.optionLabel}". Safe to remove.`}
+                  </Alert>
+                )}
               </Box>
             ))}
             <Button
@@ -825,6 +891,15 @@ function TypeDetailDrawer({
   const [editingFieldIdx, setEditingFieldIdx] = useState<number | null>(null);
   const [editingField, setEditingField] = useState<FieldDef>(emptyField());
 
+  /* --- Field deletion confirmation --- */
+  const [deleteFieldConfirm, setDeleteFieldConfirm] = useState<{
+    sectionIdx: number;
+    fieldIdx: number;
+    fieldKey: string;
+    fieldLabel: string;
+    cardCount: number | null; // null = loading
+  } | null>(null);
+
   /* --- Add section --- */
   const [addSectionOpen, setAddSectionOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState("");
@@ -841,6 +916,7 @@ function TypeDetailDrawer({
       setError(null);
       setAddSubOpen(false);
       setAddSectionOpen(false);
+      setDeleteFieldConfirm(null);
     }
   }, [cardTypeKey]);
 
@@ -935,7 +1011,27 @@ function TypeDetailDrawer({
     }
   };
 
-  const handleDeleteField = async (sectionIdx: number, fieldIdx: number) => {
+  const promptDeleteField = (sectionIdx: number, fieldIdx: number) => {
+    const field = cardTypeKey.fields_schema[sectionIdx].fields[fieldIdx];
+    setDeleteFieldConfirm({
+      sectionIdx,
+      fieldIdx,
+      fieldKey: field.key,
+      fieldLabel: field.label,
+      cardCount: null,
+    });
+    api
+      .get<{ card_count: number }>(
+        `/metamodel/types/${cardTypeKey.key}/field-usage?field_key=${encodeURIComponent(field.key)}`,
+      )
+      .then((r) => setDeleteFieldConfirm((prev) => (prev ? { ...prev, cardCount: r.card_count } : null)))
+      .catch(() => setDeleteFieldConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null)));
+  };
+
+  const confirmDeleteField = async () => {
+    if (!deleteFieldConfirm) return;
+    const { sectionIdx, fieldIdx } = deleteFieldConfirm;
+    setDeleteFieldConfirm(null);
     try {
       const schema: SectionDef[] = cardTypeKey.fields_schema.map((s) => ({
         ...s,
@@ -1250,7 +1346,7 @@ function TypeDetailDrawer({
                         </IconButton>
                         <IconButton
                           size="small"
-                          onClick={() => handleDeleteField(si, fi)}
+                          onClick={() => promptDeleteField(si, fi)}
                         >
                           <MaterialSymbol icon="delete" size={18} />
                         </IconButton>
@@ -1436,10 +1532,48 @@ function TypeDetailDrawer({
         </Button>
       </Box>
 
+      {/* --- Field deletion confirmation dialog --- */}
+      <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete Field</DialogTitle>
+        <DialogContent>
+          {deleteFieldConfirm && (
+            <>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Are you sure you want to delete the field <strong>"{deleteFieldConfirm.fieldLabel}"</strong> ({deleteFieldConfirm.fieldKey})?
+              </Typography>
+              {deleteFieldConfirm.cardCount === null ? (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Checking how many cards use this field...
+                </Alert>
+              ) : deleteFieldConfirm.cardCount > 0 ? (
+                <Alert severity="warning">
+                  <strong>{deleteFieldConfirm.cardCount} card(s)</strong> have data for this field. Deleting it will permanently remove that data from all of them.
+                </Alert>
+              ) : (
+                <Alert severity="info">No cards have data for this field. It can be safely deleted.</Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteFieldConfirm(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteFieldConfirm?.cardCount === null}
+            onClick={confirmDeleteField}
+          >
+            Delete Field
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* --- Field editor dialog (rendered inside the drawer portal) --- */}
       <FieldEditorDialog
         open={fieldDialogOpen}
         field={editingField}
+        typeKey={cardTypeKey.key}
+        fieldKey={editingField.key}
         onClose={() => setFieldDialogOpen(false)}
         onSave={handleSaveField}
       />

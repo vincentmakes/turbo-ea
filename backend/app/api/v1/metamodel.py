@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -13,6 +15,8 @@ from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
 from app.models.user import User
 from app.services.permission_service import PermissionService
+
+logger = logging.getLogger("turboea.metamodel")
 
 router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
@@ -53,6 +57,102 @@ def _serialize_relation_type(r: RelationType) -> dict:
     }
 
 
+async def _cleanup_removed_fields_and_options(
+    db: AsyncSession,
+    type_key: str,
+    old_schema: list[dict],
+    new_schema: list[dict],
+) -> None:
+    """Clean up card attribute data when fields or options are removed.
+
+    - Removed fields: strip the key from attributes JSONB on all cards of this type.
+    - Removed options on single_select: set the value to null.
+    - Removed options on multiple_select: filter the value out of the array.
+    """
+    # Build lookup: field_key -> field definition
+    old_fields: dict[str, dict] = {}
+    for section in old_schema:
+        for f in section.get("fields", []):
+            old_fields[f["key"]] = f
+
+    new_fields: dict[str, dict] = {}
+    for section in new_schema:
+        for f in section.get("fields", []):
+            new_fields[f["key"]] = f
+
+    # 1) Removed fields — delete the key from attributes JSONB
+    removed_field_keys = set(old_fields.keys()) - set(new_fields.keys())
+    for fk in removed_field_keys:
+        result = await db.execute(
+            text(
+                "UPDATE cards SET attributes = attributes - :field_key "
+                "WHERE type = :type_key AND attributes ? :field_key"
+            ),
+            {"type_key": type_key, "field_key": fk},
+        )
+        if result.rowcount:
+            logger.info(
+                "Cleaned up removed field '%s' from %d card(s) of type '%s'",
+                fk, result.rowcount, type_key,
+            )
+
+    # 2) Removed options — null out single_select, filter out multiple_select
+    for fk, new_field in new_fields.items():
+        old_field = old_fields.get(fk)
+        if not old_field:
+            continue  # new field, nothing to clean up
+        field_type = old_field.get("type", "text")
+        if field_type not in ("single_select", "multiple_select"):
+            continue
+
+        old_option_keys = {o["key"] for o in old_field.get("options", [])}
+        new_option_keys = {o["key"] for o in new_field.get("options", [])}
+        removed_opts = old_option_keys - new_option_keys
+        if not removed_opts:
+            continue
+
+        for opt_key in removed_opts:
+            if field_type == "single_select":
+                # Set to null where the current value matches
+                result = await db.execute(
+                    text(
+                        "UPDATE cards SET attributes = attributes - :field_key "
+                        "WHERE type = :type_key AND attributes ->> :field_key = :opt_key"
+                    ),
+                    {"type_key": type_key, "field_key": fk, "opt_key": opt_key},
+                )
+            else:
+                # multiple_select: remove the option from the array
+                result = await db.execute(
+                    text(
+                        "UPDATE cards "
+                        "SET attributes = jsonb_set("
+                        "  attributes, ARRAY[:field_key],"
+                        "  COALESCE("
+                        "    (SELECT jsonb_agg(elem) "
+                        "     FROM jsonb_array_elements("
+                        "       attributes->:field_key) elem"
+                        "     WHERE elem #>> '{}' != :opt_key),"
+                        "    '[]'::jsonb"
+                        "  )"
+                        ") WHERE type = :type_key "
+                        "AND attributes->:field_key "
+                        "@> (:opt_json)::jsonb"
+                    ),
+                    {
+                        "type_key": type_key,
+                        "field_key": fk,
+                        "opt_key": opt_key,
+                        "opt_json": f'["{opt_key}"]',
+                    },
+                )
+            if result.rowcount:
+                logger.info(
+                    "Cleaned up removed option '%s' from field '%s' on %d card(s) of type '%s'",
+                    opt_key, fk, result.rowcount, type_key,
+                )
+
+
 # ── Card Types ─────────────────────────────────────────────────────────
 
 @router.get("/types")
@@ -75,6 +175,87 @@ async def get_type(key: str, db: AsyncSession = Depends(get_db), user: User = De
     if not t:
         raise HTTPException(404, "Card type not found")
     return _serialize_type(t)
+
+
+@router.get("/types/{key}/field-usage")
+async def get_field_usage(
+    key: str,
+    field_key: str = Query(..., description="The field key to check"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return how many active cards have a non-null value for a given field."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Card type not found")
+
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(Card)
+        .where(
+            Card.type == key,
+            Card.status == "ACTIVE",
+            Card.attributes[field_key] != None,  # noqa: E711
+        )
+    )
+    return {"field_key": field_key, "card_count": count_result.scalar() or 0}
+
+
+@router.get("/types/{key}/option-usage")
+async def get_option_usage(
+    key: str,
+    field_key: str = Query(..., description="The field key"),
+    option_key: str = Query(..., description="The option key to check"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return how many active cards use a specific option value."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    t = result.scalar_one_or_none()
+    if not t:
+        raise HTTPException(404, "Card type not found")
+
+    # Determine the field type from the schema
+    field_type = "single_select"
+    for section in t.fields_schema or []:
+        for f in section.get("fields", []):
+            if f.get("key") == field_key:
+                field_type = f.get("type", "single_select")
+                break
+
+    if field_type == "multiple_select":
+        # JSONB array contains: attributes->'fieldKey' @> '["optionKey"]'
+        count_result = await db.execute(
+            text(
+                "SELECT count(*) FROM cards "
+                "WHERE type = :type_key AND status = 'ACTIVE' "
+                "AND attributes->:field_key @> :option_json::jsonb"
+            ),
+            {
+                "type_key": key,
+                "field_key": field_key,
+                "option_json": f'["{option_key}"]',
+            },
+        )
+    else:
+        # single_select: attributes->>'fieldKey' = 'optionKey'
+        count_result = await db.execute(
+            select(func.count())
+            .select_from(Card)
+            .where(
+                Card.type == key,
+                Card.status == "ACTIVE",
+                Card.attributes[field_key].astext == option_key,
+            )
+        )
+
+    return {
+        "field_key": field_key,
+        "option_key": option_key,
+        "card_count": count_result.scalar() or 0,
+    }
 
 
 @router.post("/types", status_code=201)
@@ -145,6 +326,12 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
                     f"Cannot remove roles that are in use: {details}. "
                     "Remove the stakeholder assignments first.",
                 )
+
+    # ── Clean up card attributes when fields or options are removed ──
+    if "fields_schema" in body:
+        await _cleanup_removed_fields_and_options(
+            db, key, t.fields_schema or [], body["fields_schema"] or [],
+        )
 
     updatable = [
         "label", "description", "icon", "color", "category",
