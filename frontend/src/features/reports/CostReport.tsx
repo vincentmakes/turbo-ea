@@ -241,6 +241,22 @@ export default function CostReport() {
     return [...map.values()].sort((a, b) => b.cost - a.cost);
   }, [items, groupBy, groupedField]);
 
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    const typeLabel = types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey;
+    params.push({ label: "Type", value: typeLabel });
+    if (costFields.length > 1) {
+      const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
+      params.push({ label: "Cost Field", value: cfLabel });
+    }
+    if (groupBy) {
+      const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
+      params.push({ label: "Group by", value: gLabel });
+    }
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    return params;
+  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, view]);
+
   if (ml || rawItems === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -273,22 +289,6 @@ export default function CostReport() {
       </Paper>
     );
   };
-
-  const printParams = useMemo(() => {
-    const params: { label: string; value: string }[] = [];
-    const typeLabel = types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey;
-    params.push({ label: "Type", value: typeLabel });
-    if (costFields.length > 1) {
-      const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
-      params.push({ label: "Cost Field", value: cfLabel });
-    }
-    if (groupBy) {
-      const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
-      params.push({ label: "Group by", value: gLabel });
-    }
-    if (view === "table") params.push({ label: "View", value: "Table" });
-    return params;
-  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, view]);
 
   return (
     <ReportShell

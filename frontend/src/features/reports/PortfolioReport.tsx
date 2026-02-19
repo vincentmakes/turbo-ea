@@ -780,13 +780,6 @@ export default function PortfolioReport() {
     });
   }, [filteredApps, sortK, sortD]);
 
-  if (!data)
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-
   const groupByLabel =
     groupByOptions.find((o) => o.key === groupByKey)?.label || "Group";
 
@@ -802,6 +795,13 @@ export default function PortfolioReport() {
     if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
     return params;
   }, [groupByLabel, colorBy, colorByLabel, search, view, activeFilterCount]);
+
+  if (!data)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
 
   return (
     <ReportShell

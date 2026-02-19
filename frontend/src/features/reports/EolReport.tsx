@@ -317,18 +317,6 @@ export default function EolReport() {
     el.scrollLeft = Math.max(0, scrollTarget);
   }, [filteredItems.length, todayPct]);
 
-  if (!data)
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-
-  const sort = (k: string) => {
-    setSortD(sortK === k && sortD === "asc" ? "desc" : "asc");
-    setSortK(k);
-  };
-
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     if (filterStatus) {
@@ -340,6 +328,18 @@ export default function EolReport() {
     if (view === "table") params.push({ label: "View", value: "Table" });
     return params;
   }, [filterStatus, filterType, filterSource, view]);
+
+  if (!data)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+
+  const sort = (k: string) => {
+    setSortD(sortK === k && sortD === "asc" ? "desc" : "asc");
+    setSortK(k);
+  };
 
   return (
     <ReportShell

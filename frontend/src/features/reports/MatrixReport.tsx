@@ -388,16 +388,10 @@ export default function MatrixReport() {
     if (val > 0) setPopover({ el: e.currentTarget, rowId: rowNode.item.id, colId: colNode.item.id });
   };
 
-  if (ml || data === null)
-    return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
-
   const rowMeta = types.find((t) => t.key === rowType);
   const colMeta = types.find((t) => t.key === colType);
   const rowLabel = rowMeta?.label || rowType;
   const colLabel = colMeta?.label || colType;
-
-  const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
-  const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? "A\u2192Z" : m === "count" ? "By count" : "Hierarchy";
   const printParams = useMemo(() => {
@@ -409,6 +403,12 @@ export default function MatrixReport() {
     params.push({ label: "Sort Columns", value: sortModeLabel(sortCols) });
     return params;
   }, [rowLabel, colLabel, cellMode, sortRows, sortCols]);
+
+  if (ml || data === null)
+    return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
+
+  const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
+  const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
 
   return (
     <ReportShell

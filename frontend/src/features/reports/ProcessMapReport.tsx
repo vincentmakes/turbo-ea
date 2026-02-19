@@ -702,13 +702,6 @@ export default function ProcessMapReport() {
     return null;
   }, [metric]);
 
-  if (data === null)
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-
   const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? "Applications" : "Data Objects";
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -727,6 +720,13 @@ export default function ProcessMapReport() {
     }
     return params;
   }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions]);
+
+  if (data === null)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
 
   return (
     <ReportShell

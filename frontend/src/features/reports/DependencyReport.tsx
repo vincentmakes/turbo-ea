@@ -518,16 +518,6 @@ export default function DependencyReport() {
     [nodes, cardTypeKey],
   );
 
-  if (loading)
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
-
-  /* ================================================================ */
-  /*  RENDER                                                           */
-  /* ================================================================ */
   const centerNode = nodes.find((n) => n.id === center);
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -539,6 +529,17 @@ export default function DependencyReport() {
     if (view === "table") params.push({ label: "View", value: "Table" });
     return params;
   }, [cardTypeKey, types, centerNode, view]);
+
+  if (loading)
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
+      </Box>
+    );
+
+  /* ================================================================ */
+  /*  RENDER                                                           */
+  /* ================================================================ */
 
   return (
     <ReportShell
