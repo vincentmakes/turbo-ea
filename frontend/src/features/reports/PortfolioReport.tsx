@@ -28,6 +28,7 @@ import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useTimeline } from "@/hooks/useTimeline";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -512,8 +513,7 @@ export default function PortfolioReport() {
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Timeline
-  const todayMs = useMemo(() => Date.now(), []);
-  const [timelineDate, setTimelineDate] = useState(todayMs);
+  const tl = useTimeline();
 
   // Table sort
   const [sortK, setSortK] = useState("name");
@@ -531,19 +531,19 @@ export default function PortfolioReport() {
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Backwards compat: old saved configs may have filterOrgs
       if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
-      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+      tl.restore(cfg.timelineDate as number | undefined);
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
       setDefaultsApplied(true);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD });
+  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate: tl.persistValue, sortK, sortD });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -555,7 +555,7 @@ export default function PortfolioReport() {
     setAttrFilters({});
     setRelationFilters({});
     setShowAllRelFilters(false);
-    setTimelineDate(Date.now());
+    tl.reset();
     setSortK("name");
     setSortD("asc");
     setDefaultsApplied(false);
@@ -638,7 +638,7 @@ export default function PortfolioReport() {
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
-    const now = todayMs;
+    const now = tl.todayMs;
     const pad3y = 3 * 365.25 * 86400000;
     const empty = {
       dateRange: { min: now - pad3y, max: now + pad3y },
@@ -676,17 +676,17 @@ export default function PortfolioReport() {
     }
 
     return { dateRange: { min: minD, max: maxD }, yearMarks: marks, hasLifecycleData: hasLC };
-  }, [data, todayMs]);
+  }, [data, tl.todayMs]);
 
   // Build filters state
   const filters = useMemo<FilterState>(
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
-      timelineDate,
+      timelineDate: tl.timelineDate,
       search,
     }),
-    [attrFilters, relationFilters, timelineDate, search],
+    [attrFilters, relationFilters, tl.timelineDate, search],
   );
 
   // Filtered apps
@@ -729,8 +729,8 @@ export default function PortfolioReport() {
     setAttrFilters({});
     setRelationFilters({});
     setSearch("");
-    setTimelineDate(todayMs);
-  }, [todayMs]);
+    tl.reset();
+  }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAppClick = useCallback(
     (id: string) => {
@@ -780,15 +780,29 @@ export default function PortfolioReport() {
     });
   }, [filteredApps, sortK, sortD]);
 
+  const groupByLabel =
+    groupByOptions.find((o) => o.key === groupByKey)?.label || "Group";
+
+  const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    params.push({ label: "Group by", value: groupByLabel });
+    if (colorBy) params.push({ label: "Color by", value: colorByLabel });
+    if (search) params.push({ label: "Search", value: search });
+    if (tl.printParam) params.push(tl.printParam);
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    return params;
+  }, [groupByLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount]);
+
   if (!data)
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
-
-  const groupByLabel =
-    groupByOptions.find((o) => o.key === groupByKey)?.label || "Group";
 
   return (
     <ReportShell
@@ -802,6 +816,7 @@ export default function PortfolioReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -882,11 +897,11 @@ export default function PortfolioReport() {
           {/* Timeline slider */}
           {hasLifecycleData && (
             <TimelineSlider
-              value={timelineDate}
-              onChange={setTimelineDate}
+              value={tl.timelineDate}
+              onChange={tl.setTimelineDate}
               dateRange={dateRange}
               yearMarks={yearMarks}
-              todayMs={todayMs}
+              todayMs={tl.todayMs}
             />
           )}
 
@@ -1140,6 +1155,7 @@ export default function PortfolioReport() {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* Group cards grid */}
               <Box
+                className="report-print-grid-4"
                 sx={{
                   display: "grid",
                   gridTemplateColumns: {

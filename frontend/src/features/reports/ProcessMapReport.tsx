@@ -702,6 +702,25 @@ export default function ProcessMapReport() {
     return null;
   }, [metric]);
 
+  const showRelatedLabel = showRelated === "none" ? "" : showRelated === "apps" ? "Applications" : "Data Objects";
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
+    params.push({ label: "Metric", value: metricLabel });
+    const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
+    params.push({ label: "Depth", value: depthLabel });
+    if (showRelated !== "none") params.push({ label: "Show Related", value: showRelatedLabel });
+    if (filterOrgs.length > 0) {
+      const orgNames = filterOrgs.map((id) => orgOptions.find((o) => o.key === id)?.label || id).join(", ");
+      params.push({ label: "Organization", value: orgNames });
+    }
+    if (filterCtxs.length > 0) {
+      const ctxNames = filterCtxs.map((id) => ctxOptions.find((o) => o.key === id)?.label || id).join(", ");
+      params.push({ label: "Business Context", value: ctxNames });
+    }
+    return params;
+  }, [metric, displayLevel, showRelated, showRelatedLabel, filterOrgs, orgOptions, filterCtxs, ctxOptions, levelOptions]);
+
   if (data === null)
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -716,6 +735,7 @@ export default function ProcessMapReport() {
       iconColor="#e65100"
       hasTableToggle={false}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -881,6 +901,7 @@ export default function ProcessMapReport() {
         </Box>
       ) : (
         <Box
+          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
           sx={{
             display: "grid",
             gridTemplateColumns: {

@@ -272,6 +272,19 @@ export default function LifecycleReport() {
     el.scrollLeft = el.scrollWidth * viewMinPct;
   }, [items.length, viewMin, totalMin, totalRange]);
 
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    const typeLabel = cardTypeKey ? (types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey) : "All Types";
+    params.push({ label: "Type", value: typeLabel });
+    if (useCustomDates) params.push({ label: "Mode", value: "Date Range" });
+    if (useCustomDates && customColorBy) {
+      const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
+      params.push({ label: "Color by", value: cLabel });
+    }
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    return params;
+  }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view]);
+
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
 
@@ -318,6 +331,7 @@ export default function LifecycleReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>

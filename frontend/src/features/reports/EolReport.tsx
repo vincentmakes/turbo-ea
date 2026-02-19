@@ -317,6 +317,18 @@ export default function EolReport() {
     el.scrollLeft = Math.max(0, scrollTarget);
   }, [filteredItems.length, todayPct]);
 
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    if (filterStatus) {
+      const statusLabel = STATUS_CONFIG[filterStatus as keyof typeof STATUS_CONFIG]?.label || filterStatus;
+      params.push({ label: "Status", value: statusLabel });
+    }
+    if (filterType) params.push({ label: "Type", value: filterType === "ITComponent" ? "IT Component" : filterType });
+    if (filterSource) params.push({ label: "Source", value: filterSource === "api" ? "endoflife.date" : "Manual" });
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    return params;
+  }, [filterStatus, filterType, filterSource, view]);
+
   if (!data)
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -341,6 +353,7 @@ export default function EolReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           <TextField

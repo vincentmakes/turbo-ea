@@ -24,6 +24,7 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useTimeline } from "@/hooks/useTimeline";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -642,8 +643,7 @@ export default function CapabilityMapReport() {
   const [colorBy, setColorBy] = useState("");
 
   // Timeline slider
-  const todayMs = useMemo(() => Date.now(), []);
-  const [timelineDate, setTimelineDate] = useState(todayMs);
+  const tl = useTimeline();
 
   // Dynamic filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
@@ -658,7 +658,7 @@ export default function CapabilityMapReport() {
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
-      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+      tl.restore(cfg.timelineDate as number | undefined);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Backwards compat
@@ -666,12 +666,12 @@ export default function CapabilityMapReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, timelineDate, attrFilters, relationFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -680,7 +680,7 @@ export default function CapabilityMapReport() {
     setDisplayLevel(2);
     setShowApps(false);
     setColorBy("");
-    setTimelineDate(Date.now());
+    tl.reset();
     setAttrFilters({});
     setRelationFilters({});
     setShowAllRelFilters(false);
@@ -727,7 +727,7 @@ export default function CapabilityMapReport() {
 
   // Compute date range from all app lifecycle dates
   const { dateRange, yearMarks } = useMemo(() => {
-    const now = todayMs;
+    const now = tl.todayMs;
     const pad3y = 3 * 365.25 * 86400000;
     if (!data)
       return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
@@ -754,7 +754,7 @@ export default function CapabilityMapReport() {
       if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
     }
     return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [data, todayMs]);
+  }, [data, tl.todayMs]);
 
   const hasLifecycleData = useMemo(() => {
     if (!data) return false;
@@ -768,8 +768,8 @@ export default function CapabilityMapReport() {
     Object.values(relationFilters).some((v) => v.length > 0);
 
   const tree = useMemo(
-    () => (data ? buildTree(data, attrFilters, relationFilters, timelineDate, costFieldKeys) : []),
-    [data, attrFilters, relationFilters, timelineDate, costFieldKeys],
+    () => (data ? buildTree(data, attrFilters, relationFilters, tl.timelineDate, costFieldKeys) : []),
+    [data, attrFilters, relationFilters, tl.timelineDate, costFieldKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -840,6 +840,23 @@ export default function CapabilityMapReport() {
       .map((o) => ({ label: o.label, color: o.color! }));
   }, [colorBy, selectFields]);
 
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
+    params.push({ label: "Metric", value: metricLabel });
+    const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
+    params.push({ label: "Depth", value: depthLabel });
+    if (showApps) params.push({ label: "Show Apps", value: "Yes" });
+    if (showApps && colorBy && colorBy !== "none") {
+      const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
+      params.push({ label: "Color by", value: cLabel });
+    }
+    if (tl.printParam) params.push(tl.printParam);
+    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    return params;
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, tl.printParam, activeFilterCount]);
+
   if (data === null)
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -858,6 +875,7 @@ export default function CapabilityMapReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -926,11 +944,11 @@ export default function CapabilityMapReport() {
           {/* Timeline slider */}
           {hasLifecycleData && (
             <TimelineSlider
-              value={timelineDate}
-              onChange={setTimelineDate}
+              value={tl.timelineDate}
+              onChange={tl.setTimelineDate}
               dateRange={dateRange}
               yearMarks={yearMarks}
-              todayMs={todayMs}
+              todayMs={tl.todayMs}
             />
           )}
 
@@ -1159,6 +1177,7 @@ export default function CapabilityMapReport() {
         </Box>
       ) : (
         <Box
+          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
           sx={{
             display: "grid",
             gridTemplateColumns: {
