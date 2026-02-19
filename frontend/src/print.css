@@ -1,0 +1,85 @@
+/* ------------------------------------------------------------------ */
+/*  Print / Save-as-PDF styles for reports                             */
+/* ------------------------------------------------------------------ */
+
+@media print {
+  /* Force landscape and tighten margins */
+  @page {
+    size: landscape;
+    margin: 12mm 10mm;
+  }
+
+  /* Hide the app navbar and mobile drawer */
+  header.MuiAppBar-root,
+  nav.MuiDrawer-root {
+    display: none !important;
+  }
+
+  /* Remove the top padding that accounts for the fixed navbar */
+  main.app-main-content {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Hide report interactive toolbar (dropdowns, toggles, filters) */
+  .report-toolbar {
+    display: none !important;
+  }
+
+  /* Hide action buttons (save, reset, more, chart/table toggle) */
+  .report-actions {
+    display: none !important;
+  }
+
+  /* Hide the saved-report banner */
+  .report-saved-banner {
+    display: none !important;
+  }
+
+  /* Hide legend unless it's useful — keep it but shrink */
+  .report-legend {
+    margin-top: 8px !important;
+  }
+
+  /* Show the print-only parameter header */
+  .report-print-params {
+    display: flex !important;
+  }
+
+  /* Remove max-width constraint so content fills the page */
+  .report-container {
+    max-width: none !important;
+  }
+
+  /* Avoid page breaks inside chart containers */
+  .report-chart-area {
+    break-inside: avoid;
+  }
+
+  /* Remove box shadows and unnecessary borders */
+  .MuiPaper-root {
+    box-shadow: none !important;
+  }
+
+  /* Ensure SVG charts print correctly */
+  svg {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Preserve background colors in print */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Remove any overflow hidden that might clip content */
+  .report-chart-area {
+    overflow: visible !important;
+  }
+}
+
+/* Print parameter header — hidden on screen, shown in print */
+.report-print-params {
+  display: none;
+}

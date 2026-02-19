@@ -916,6 +916,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       {/* Main content */}
       <Box
         component="main"
+        className="app-main-content"
         sx={{
           flexGrow: 1,
           bgcolor: "#fafbfc",

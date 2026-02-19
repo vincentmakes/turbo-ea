@@ -528,6 +528,18 @@ export default function DependencyReport() {
   /* ================================================================ */
   /*  RENDER                                                           */
   /* ================================================================ */
+  const centerNode = nodes.find((n) => n.id === center);
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    if (cardTypeKey) {
+      const typeLabel = types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey;
+      params.push({ label: "Type", value: typeLabel });
+    }
+    if (centerNode) params.push({ label: "Center", value: centerNode.name });
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    return params;
+  }, [cardTypeKey, types, centerNode, view]);
+
   return (
     <ReportShell
       title="Dependencies"
@@ -540,6 +552,7 @@ export default function DependencyReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           <TextField

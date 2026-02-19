@@ -840,6 +840,22 @@ export default function CapabilityMapReport() {
       .map((o) => ({ label: o.label, color: o.color! }));
   }, [colorBy, selectFields]);
 
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    const metricLabel = METRIC_OPTIONS.find((o) => o.key === metric)?.label || metric;
+    params.push({ label: "Metric", value: metricLabel });
+    const depthLabel = levelOptions.find((o) => o.value === displayLevel)?.label || "";
+    params.push({ label: "Depth", value: depthLabel });
+    if (showApps) params.push({ label: "Show Apps", value: "Yes" });
+    if (showApps && colorBy && colorBy !== "none") {
+      const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
+      params.push({ label: "Color by", value: cLabel });
+    }
+    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    return params;
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, activeFilterCount]);
+
   if (data === null)
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -858,6 +874,7 @@ export default function CapabilityMapReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           {/* Row 1: Main controls */}

@@ -399,6 +399,17 @@ export default function MatrixReport() {
   const isHierarchyRowMode = sortRows === "hierarchy" && rowHasHierarchy && rowTreeFull !== null && rowTreeFull.maxDepth > 0;
   const isHierarchyColMode = sortCols === "hierarchy" && colHasHierarchy && colTreeFull !== null && colTreeFull.maxDepth > 0;
 
+  const sortModeLabel = (m: SortMode) => m === "alpha" ? "A\u2192Z" : m === "count" ? "By count" : "Hierarchy";
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    params.push({ label: "Rows", value: rowLabel });
+    params.push({ label: "Columns", value: colLabel });
+    params.push({ label: "Cell", value: cellMode === "exists" ? "Exists (dot)" : "Count (heatmap)" });
+    params.push({ label: "Sort Rows", value: sortModeLabel(sortRows) });
+    params.push({ label: "Sort Columns", value: sortModeLabel(sortCols) });
+    return params;
+  }, [rowLabel, colLabel, cellMode, sortRows, sortCols]);
+
   return (
     <ReportShell
       title="Matrix"
@@ -407,6 +418,7 @@ export default function MatrixReport() {
       hasTableToggle={false}
       maxWidth="100%"
       chartRef={chartRef}
+      printParams={printParams}
       onSaveReport={captureAndSave}
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}

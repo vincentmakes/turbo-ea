@@ -790,6 +790,19 @@ export default function PortfolioReport() {
   const groupByLabel =
     groupByOptions.find((o) => o.key === groupByKey)?.label || "Group";
 
+  const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+
+  const printParams = useMemo(() => {
+    const params: { label: string; value: string }[] = [];
+    params.push({ label: "Group by", value: groupByLabel });
+    if (colorBy) params.push({ label: "Color by", value: colorByLabel });
+    if (search) params.push({ label: "Search", value: search });
+    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    return params;
+  }, [groupByLabel, colorBy, colorByLabel, search, view, activeFilterCount]);
+
   return (
     <ReportShell
       title="Application Portfolio"
@@ -802,6 +815,7 @@ export default function PortfolioReport() {
       savedReportName={saved.savedReportName ?? undefined}
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
+      printParams={printParams}
       toolbar={
         <>
           {/* Row 1: Main controls */}
