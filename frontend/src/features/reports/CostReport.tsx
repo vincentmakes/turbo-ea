@@ -21,6 +21,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useTimeline } from "@/hooks/useTimeline";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
 
@@ -115,8 +116,7 @@ export default function CostReport() {
   const [sortD, setSortD] = useState<"asc" | "desc">("desc");
 
   // Timeline slider
-  const todayMs = useMemo(() => Date.now(), []);
-  const [timelineDate, setTimelineDate] = useState(todayMs);
+  const tl = useTimeline();
   const [sliderTouched, setSliderTouched] = useState(false);
 
   // Load saved report config
@@ -129,16 +129,16 @@ export default function CostReport() {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
-      if (cfg.timelineDate) setTimelineDate(cfg.timelineDate as number);
+      tl.restore(cfg.timelineDate as number | undefined);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate });
+  const getConfig = () => ({ cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate: tl.persistValue });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, costField, groupBy, view, sortK, sortD, tl.timelineDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -149,7 +149,7 @@ export default function CostReport() {
     setView("chart");
     setSortK("cost");
     setSortD("desc");
-    setTimelineDate(Date.now());
+    tl.reset();
     setSliderTouched(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -184,7 +184,7 @@ export default function CostReport() {
 
   // Compute date range from lifecycle data
   const { dateRange, yearMarks } = useMemo(() => {
-    const now = todayMs;
+    const now = tl.todayMs;
     const pad3y = 3 * 365.25 * 86400000;
     if (!rawItems || rawItems.length === 0)
       return { dateRange: { min: now - pad3y, max: now + pad3y }, yearMarks: [] as { value: number; label: string }[] };
@@ -208,7 +208,7 @@ export default function CostReport() {
       if (t >= minD && t <= maxD) marks.push({ value: t, label: String(y) });
     }
     return { dateRange: { min: minD, max: maxD }, yearMarks: marks };
-  }, [rawItems, todayMs]);
+  }, [rawItems, tl.todayMs]);
 
   const hasLifecycleData = useMemo(() => {
     if (!rawItems) return false;
@@ -218,10 +218,10 @@ export default function CostReport() {
   // Filter items by timeline date and compute groups
   const { items, total } = useMemo(() => {
     if (!rawItems) return { items: [] as CostItem[], total: 0 };
-    const filtered = rawItems.filter((item) => isItemAliveAtDate(item.lifecycle, timelineDate));
+    const filtered = rawItems.filter((item) => isItemAliveAtDate(item.lifecycle, tl.timelineDate));
     const t = filtered.reduce((sum, item) => sum + item.cost, 0);
     return { items: filtered, total: t };
-  }, [rawItems, timelineDate]);
+  }, [rawItems, tl.timelineDate]);
 
   const groupedField = useMemo(() => groupableFields.find((f) => f.key === groupBy), [groupableFields, groupBy]);
 
@@ -253,10 +253,10 @@ export default function CostReport() {
       const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
       params.push({ label: "Group by", value: gLabel });
     }
-    if (timelineDate !== todayMs) params.push({ label: "Time travel", value: new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) });
+    if (tl.printParam) params.push(tl.printParam);
     if (view === "table") params.push({ label: "View", value: "Table" });
     return params;
-  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, timelineDate, todayMs, view]);
+  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, tl.printParam, view]);
 
   if (ml || rawItems === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -324,11 +324,11 @@ export default function CostReport() {
 
           {hasLifecycleData && (
             <TimelineSlider
-              value={timelineDate}
-              onChange={(v) => { setSliderTouched(true); setTimelineDate(v); }}
+              value={tl.timelineDate}
+              onChange={(v) => { setSliderTouched(true); tl.setTimelineDate(v); }}
               dateRange={dateRange}
               yearMarks={yearMarks}
-              todayMs={todayMs}
+              todayMs={tl.todayMs}
             />
           )}
         </>
