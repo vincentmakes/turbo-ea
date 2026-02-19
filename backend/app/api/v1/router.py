@@ -29,6 +29,7 @@ from app.api.v1 import (
     todos,
     users,
     web_portals,
+    servicenow,
 )
 
 api_router = APIRouter()
@@ -60,3 +61,4 @@ api_router.include_router(bpm_workflow.router)
 api_router.include_router(roles.router)
 api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
+api_router.include_router(servicenow.router)

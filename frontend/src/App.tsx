@@ -32,6 +32,7 @@ import SurveyResults from "@/features/admin/SurveyResults";
 import EolAdmin from "@/features/admin/EolAdmin";
 import SurveyRespond from "@/features/surveys/SurveyRespond";
 import WebPortalsAdmin from "@/features/admin/WebPortalsAdmin";
+import ServiceNowAdmin from "@/features/admin/ServiceNowAdmin";
 import PortalViewer from "@/features/web-portals/PortalViewer";
 import SsoCallback from "@/features/auth/SsoCallback";
 import SetPasswordPage from "@/features/auth/SetPasswordPage";
@@ -124,6 +125,7 @@ function AppRoutes() {
               <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
               <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
               <Route path="/admin/web-portals" element={<WebPortalsAdmin />} />
+              <Route path="/admin/servicenow" element={<ServiceNowAdmin />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </AppLayout>

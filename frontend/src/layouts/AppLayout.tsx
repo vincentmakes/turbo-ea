@@ -79,6 +79,7 @@ const ADMIN_ITEMS: (NavItem & { permission?: string })[] = [
   { label: "Settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
   { label: "EOL Search", icon: "update", path: "/admin/eol", permission: "eol.manage" },
   { label: "Web Portals", icon: "language", path: "/admin/web-portals", permission: "web_portals.manage" },
+  { label: "ServiceNow", icon: "sync", path: "/admin/servicenow", permission: "servicenow.manage" },
 ];
 
 interface PermissionMap {
