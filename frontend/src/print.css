@@ -59,6 +59,23 @@
     max-width: none !important;
   }
 
+  /* ---- Force grid columns to match desktop layout ---- */
+  /* MUI responsive breakpoints collapse during print because the print
+     viewport is narrower than the lg breakpoint (1200px). Override with
+     the intended column counts so print matches screen. */
+  .report-print-grid-4 {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .report-print-grid-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Tighten grid gap for print compactness */
+  .report-print-grid-3,
+  .report-print-grid-4 {
+    gap: 8px !important;
+  }
+
   /* ---- Compact spacing to fit content on page 1 ---- */
 
   /* Shrink title bar */
@@ -89,6 +106,12 @@
   /* Compact metric / KPI card strips */
   .report-chart-area > .MuiBox-root:first-child {
     margin-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  /* Make Recharts charts more compact */
+  .report-chart-area .recharts-responsive-container {
+    max-height: 350px !important;
   }
 
   /* Allow content to flow across pages, but avoid breaks inside cards */

@@ -901,6 +901,7 @@ export default function ProcessMapReport() {
         </Box>
       ) : (
         <Box
+          className={displayLevel <= 1 ? "report-print-grid-4" : "report-print-grid-3"}
           sx={{
             display: "grid",
             gridTemplateColumns: {

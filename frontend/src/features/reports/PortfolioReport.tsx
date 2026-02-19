@@ -1155,6 +1155,7 @@ export default function PortfolioReport() {
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {/* Group cards grid */}
               <Box
+                className="report-print-grid-4"
                 sx={{
                   display: "grid",
                   gridTemplateColumns: {
