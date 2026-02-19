@@ -125,6 +125,8 @@ export default function InventoryPage() {
   const { user } = useAuth();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
   const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
+  const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
+  const canOdataBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.odata"]);
   const gridRef = useRef<AgGridReact>(null);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -881,6 +883,9 @@ export default function InventoryPage() {
             relevantRelTypes={relevantRelTypes}
             relationsMap={relationsMap}
             canArchive={canArchive}
+            canShareBookmarks={canShareBookmarks}
+            canOdataBookmarks={canOdataBookmarks}
+            currentUserId={user?.id}
           />
         </Drawer>
       ) : (
@@ -895,6 +900,9 @@ export default function InventoryPage() {
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
           canArchive={canArchive}
+          canShareBookmarks={canShareBookmarks}
+          canOdataBookmarks={canOdataBookmarks}
+          currentUserId={user?.id}
         />
       )}
 

@@ -109,6 +109,11 @@ class TagResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BookmarkShareEntry(BaseModel):
+    user_id: str
+    can_edit: bool = False
+
+
 class BookmarkCreate(BaseModel):
     name: str
     card_type: str | None = None
@@ -116,6 +121,9 @@ class BookmarkCreate(BaseModel):
     columns: list | None = None
     sort: dict | None = None
     is_default: bool = False
+    visibility: str = "private"
+    odata_enabled: bool = False
+    shared_with: list[BookmarkShareEntry] | None = None
 
 
 class BookmarkUpdate(BaseModel):
@@ -125,6 +133,9 @@ class BookmarkUpdate(BaseModel):
     columns: list | None = None
     sort: dict | None = None
     is_default: bool | None = None
+    visibility: str | None = None
+    odata_enabled: bool | None = None
+    shared_with: list[BookmarkShareEntry] | None = None
 
 
 class BookmarkResponse(BaseModel):
@@ -135,6 +146,14 @@ class BookmarkResponse(BaseModel):
     columns: list | None = None
     sort: dict | None = None
     is_default: bool
+    visibility: str = "private"
+    odata_enabled: bool = False
+    owner_id: str | None = None
+    owner_name: str | None = None
+    is_owner: bool = True
+    can_edit: bool = True
+    shared_with: list[dict] | None = None
+    odata_url: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
