@@ -1,21 +1,70 @@
 # Turbo EA
 
-Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — fact sheet types, fields, subtypes, and relations are all data, not code.
+Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
 ## Features
 
-- **Configurable Metamodel** — 13 built-in fact sheet types across 4 architecture layers (Strategy, Business, Application, Technical). Add custom types, fields, subtypes, and relation types from the admin UI.
-- **Inventory Management** — AG Grid-powered data table with search, filtering, column customization, and Excel import/export.
-- **Interactive Reports** — Portfolio bubble chart, capability heatmap, lifecycle roadmap, dependency graph, cost treemap, matrix cross-reference, data quality dashboard, and EOL risk report.
-- **Diagram Editor** — Self-hosted DrawIO integration for creating architecture diagrams linked to your fact sheets.
-- **EA Delivery** — TOGAF-compliant Statement of Architecture Work (SoAW) editor with DOCX export.
-- **Data Maintenance Surveys** — Admin-driven workflows for keeping fact sheet data accurate at scale.
-- **Web Portals** — Public, slug-based views of your EA landscape (no login required for viewers).
-- **Notifications & Events** — Real-time SSE updates, in-app notifications, and optional SMTP email alerts.
-- **Role-Based Access** — Admin, Member, and Viewer roles with per-fact-sheet subscription roles.
-- **End-of-Life Tracking** — Integration with endoflife.date for monitoring technology lifecycle status.
+### Core EA Management
+
+- **Configurable Metamodel** — 13 built-in card types across 4 architecture layers (Strategy, Business, Application, Technical). Add custom types, fields, subtypes, and relation types from the admin UI. Interactive metamodel graph visualization with hover highlighting.
+- **Inventory Management** — AG Grid-powered data table with search, dynamic multi-select filtering for all columns (subtype, lifecycle, data quality, attributes), column customization, Excel import/export, mass archive/delete, and select-all across filtered rows.
+- **Card Detail Pages** — Full detail view with fields, lifecycle, hierarchy, relations, stakeholders, comments, todos, documents, and event history. Approval workflow (Draft/Approved/Rejected/Broken) with auto-breaking on substantive edits. Auto-computed data quality scoring (0–100%) based on field weights.
+- **Hierarchy Support** — Parent-child trees for hierarchical card types. Business Capabilities enforce max 5-level depth with auto-computed capability levels.
+
+### Reporting & Analytics
+
+- **Interactive Reports** — Portfolio bubble chart, capability heatmap, lifecycle roadmap, dependency graph, cost treemap, matrix cross-reference, data quality dashboard, and EOL risk report. All report filters, colors, and grouping are dynamically generated from card type field schemas with auto-persist to localStorage.
+- **Time-Travel** — View any report as it appeared at a historical date using a timeline slider with year-level granularity.
+- **Saved Reports** — Save report configurations (filters, axes, colors, grouping), share with other users (edit/view permissions), and generate OData feeds for programmatic access.
+- **Print-to-PDF** — Native browser print for all reports with optimized compact layout, white background, and time-travel date display.
+- **Matrix Hierarchical Headers** — Matrix report supports hierarchical grouped headers with collapsible row/column depth controls.
+
+### Business Process Management (BPM)
+
+- **BPMN 2.0 Editor** — Full process flow modeling with a built-in BPMN editor and viewer, template chooser, and process navigator.
+- **Process Flow Versioning** — Draft, published, and archived states for process diagrams with approval workflows and stakeholder sign-offs.
+- **Element Linking** — Link BPMN process elements to EA cards (applications, IT components, etc.) for traceability between processes and the IT landscape.
+- **Process Assessments** — Record maturity assessments (efficiency, effectiveness, compliance, automation) with 1–5 scoring, action items, and historical tracking.
+- **BPM Reports** — Process map, capability-process matrix, process-application matrix, process dependencies, and element-application map.
+
+### Diagrams & Documents
+
+- **Diagram Editor** — Self-hosted DrawIO integration for creating architecture diagrams linked to your cards. Shapes are colored by card type with synced/pending states.
+- **EA Delivery** — TOGAF-compliant Statement of Architecture Work (SoAW) editor with rich text editing (TipTap), version history, sign-off requests, and DOCX export.
+
+### Data Governance
+
+- **Data Maintenance Surveys** — Admin-driven workflows for keeping card data accurate at scale. Target by card type with tag/relation/attribute filters. Users maintain or confirm field values; admins review and apply changes in bulk.
+- **Calculated Fields** — Admin-configurable formula engine for computed fields. Supports IF, SUM, AVG, MIN, MAX, COUNT, ROUND, COALESCE, FILTER, MAP_SCORE with syntax-highlighted editor, inline autocomplete, and cycle detection.
+- **End-of-Life Tracking** — Integration with endoflife.date for monitoring technology lifecycle status. Fuzzy product search, mass search/link for IT components, and dedicated EOL report.
+- **Data Quality Scoring** — Auto-calculated completeness percentage based on field schema weights. Data quality report shows by-type stats, orphaned/stale counts, and worst items.
+
+### Collaboration
+
+- **Notifications & Events** — Real-time SSE updates, in-app notification bell with unread counts, and optional SMTP email alerts. Notification types: todo assigned, card updated, comment added, approval status changed, SoAW sign requested/signed, stakeholder updates.
+- **Threaded Comments** — Full threaded comment system on cards with edit and delete.
+- **Todos** — Task management linked to cards with assignment, due dates, and status tracking. Badge counts for open todos shown in navigation.
+- **Stakeholders** — Per-card stakeholder roles (responsible, observer, technical/business application owner) with configurable custom roles per card type.
+- **Documents** — URL/link attachments on cards.
+- **Tags** — Hierarchical tag groups with single/multi-select modes and open/restricted creation. Filter-by-tag across inventory and reports.
+
+### Integrations
+
+- **ServiceNow Integration** — Bidirectional sync with ServiceNow. Connection management, field mapping with transform rules, direction control (Turbo EA → SNOW, SNOW → Turbo EA, or bidirectional), staged record review before applying, and encrypted credential storage.
+- **SSO / Single Sign-On** — SSO callback handling with password setup flow for invited users.
+- **Web Portals** — Public, slug-based views of your EA landscape (no login required). Configurable card type display, field selection, card layout, per-portal logo toggle, and relation-based filtering.
+- **OData Feeds** — Generate OData-compatible feeds from saved views and saved reports for consumption by external tools (Excel, Power BI, etc.).
+
+### Administration
+
+- **Custom RBAC Roles** — Admin-configurable roles beyond the 3 built-in roles (admin/member/viewer) with 50+ granular permissions for both app-level and card-level actions.
+- **Card Layout Editor** — Drag-and-drop visual editor for customizing card detail page layouts with section ordering, field grouping, 2-column support, and collapsible sections.
+- **Saved Views with Sharing** — Save inventory filter/column/sort configurations with private, public, or shared visibility. Share with specific users with edit/view permissions.
+- **Custom Branding** — Upload a custom logo (max 2 MB; PNG, JPEG, SVG, WebP, GIF) and favicon. Per-portal logo visibility toggle.
+- **Currency Settings** — Global display currency for all cost values with compact formatting.
+- **SMTP Email Configuration** — Configure SMTP settings from the admin UI with test email support.
 
 ## Screenshots
 
@@ -24,12 +73,15 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 | | |
 |---|---|
-| ![Inventory](marketing-site/assets/screenshots/inventory.png) | ![Fact Sheet Detail](marketing-site/assets/screenshots/fact-sheet-detail.png) |
+| ![Inventory](marketing-site/assets/screenshots/inventory.png) | ![Card Detail](marketing-site/assets/screenshots/card-detail.png) |
 | ![Portfolio Report](marketing-site/assets/screenshots/portfolio-report.png) | ![Capability Heatmap](marketing-site/assets/screenshots/capability-heatmap.png) |
 | ![Lifecycle Roadmap](marketing-site/assets/screenshots/lifecycle-roadmap.png) | ![Dependency Graph](marketing-site/assets/screenshots/dependency-graph.png) |
 | ![Cost Treemap](marketing-site/assets/screenshots/cost-treemap.png) | ![Matrix Report](marketing-site/assets/screenshots/matrix-report.png) |
 | ![Data Quality](marketing-site/assets/screenshots/data-quality.png) | ![End of Life](marketing-site/assets/screenshots/end-of-life.png) |
 | ![Diagram Editor](marketing-site/assets/screenshots/diagram-editor.png) | ![Web Portal](marketing-site/assets/screenshots/web-portal.png) |
+| ![BPMN Editor](marketing-site/assets/screenshots/bpmn-editor.png) | ![BPMN Viewer](marketing-site/assets/screenshots/bpmn-viewer.png) |
+| ![BPM Process Navigator](marketing-site/assets/screenshots/bpm-process-navigator.png) | ![BPM Capability Heatmap](marketing-site/assets/screenshots/bpm-capability-heatmap.png) |
+| ![Process Assessment](marketing-site/assets/screenshots/process-assessment.png) | ![Process Element Linker](marketing-site/assets/screenshots/process-element-linker.png) |
 
 </details>
 
@@ -293,10 +345,10 @@ turbo-ea/
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/          # All API route handlers
-│   │   ├── core/            # JWT + password hashing
+│   │   ├── core/            # JWT, password hashing, permissions, calculation engine
 │   │   ├── models/          # SQLAlchemy ORM models
 │   │   ├── schemas/         # Pydantic request/response models
-│   │   ├── services/        # Business logic, seeding, events, notifications
+│   │   ├── services/        # Business logic, seeding, events, notifications, email
 │   │   ├── config.py        # Settings from env vars
 │   │   ├── database.py      # Async engine + session factory
 │   │   └── main.py          # FastAPI app entrypoint
@@ -308,9 +360,24 @@ turbo-ea/
 ├── frontend/
 │   ├── src/
 │   │   ├── api/             # Fetch wrapper with JWT
-│   │   ├── hooks/           # Auth, metamodel, SSE, currency hooks
+│   │   ├── hooks/           # Auth, metamodel, SSE, currency, timeline hooks
 │   │   ├── components/      # Shared UI components
-│   │   ├── features/        # Page-level features (dashboard, inventory, reports, etc.)
+│   │   ├── features/
+│   │   │   ├── admin/       # Metamodel, users & roles, settings, surveys,
+│   │   │   │                # EOL, web portals, ServiceNow, card layout,
+│   │   │   │                # calculations, tags
+│   │   │   ├── auth/        # Login, SSO callback, password setup
+│   │   │   ├── bpm/         # BPMN editor, viewer, process navigator,
+│   │   │   │                # assessments, element linker, BPM reports
+│   │   │   ├── cards/       # Card detail page
+│   │   │   ├── dashboard/   # KPI cards + recent activity
+│   │   │   ├── diagrams/    # DrawIO editor + shape system
+│   │   │   ├── ea-delivery/ # SoAW editor + preview + DOCX export
+│   │   │   ├── inventory/   # AG Grid table + Excel import/export
+│   │   │   ├── reports/     # 9 report types + saved reports
+│   │   │   ├── surveys/     # Survey response page
+│   │   │   ├── todos/       # Todos + surveys combined page
+│   │   │   └── web-portals/ # Public portal viewer
 │   │   ├── types/           # TypeScript interfaces
 │   │   └── App.tsx          # Routes + MUI theme
 │   ├── drawio-config/       # DrawIO customization
@@ -328,4 +395,4 @@ turbo-ea/
 
 ## License
 
-All rights reserved. This software is proprietary.
+MIT License. See [LICENSE](LICENSE) for details.
