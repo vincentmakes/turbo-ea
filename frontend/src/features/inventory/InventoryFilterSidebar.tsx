@@ -59,6 +59,8 @@ interface Props {
   relevantRelTypes?: RelationType[];
   relationsMap?: Map<string, Map<string, string[]>>;
   canArchive?: boolean;
+  canShareBookmarks?: boolean;
+  canOdataBookmarks?: boolean;
   currentUserId?: string;
 }
 
@@ -101,6 +103,8 @@ export default function InventoryFilterSidebar({
   relevantRelTypes = [],
   relationsMap,
   canArchive = false,
+  canShareBookmarks = false,
+  canOdataBookmarks = false,
   currentUserId,
 }: Props) {
   const [tab, setTab] = useState(0);
@@ -1067,38 +1071,40 @@ export default function InventoryFilterSidebar({
             </Typography>
           )}
 
-          {/* Visibility */}
-          <TextField
-            select
-            label="Visibility"
-            value={dialogVisibility}
-            onChange={(e) => setDialogVisibility(e.target.value as "private" | "public" | "shared")}
-            fullWidth
-            size="small"
-            disabled={editingBookmark != null && !editingBookmark.is_owner}
-          >
-            <MenuItem value="private">
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="lock" size={16} />
-                Private — Only me
-              </Box>
-            </MenuItem>
-            <MenuItem value="public">
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="public" size={16} />
-                Public — All users
-              </Box>
-            </MenuItem>
-            <MenuItem value="shared">
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <MaterialSymbol icon="group" size={16} />
-                Shared — Specific users
-              </Box>
-            </MenuItem>
-          </TextField>
+          {/* Visibility — only shown when user has bookmarks.share permission */}
+          {canShareBookmarks && (
+            <TextField
+              select
+              label="Visibility"
+              value={dialogVisibility}
+              onChange={(e) => setDialogVisibility(e.target.value as "private" | "public" | "shared")}
+              fullWidth
+              size="small"
+              disabled={editingBookmark != null && !editingBookmark.is_owner}
+            >
+              <MenuItem value="private">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <MaterialSymbol icon="lock" size={16} />
+                  Private — Only me
+                </Box>
+              </MenuItem>
+              <MenuItem value="public">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <MaterialSymbol icon="public" size={16} />
+                  Public — All users
+                </Box>
+              </MenuItem>
+              <MenuItem value="shared">
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <MaterialSymbol icon="group" size={16} />
+                  Shared — Specific users
+                </Box>
+              </MenuItem>
+            </TextField>
+          )}
 
           {/* User picker when shared */}
-          {dialogVisibility === "shared" && (
+          {canShareBookmarks && dialogVisibility === "shared" && (
             <>
               <Autocomplete
                 multiple
@@ -1155,25 +1161,27 @@ export default function InventoryFilterSidebar({
             </>
           )}
 
-          {/* OData toggle */}
-          <FormControlLabel
-            control={
-              <Switch
-                size="small"
-                checked={dialogOdata}
-                onChange={(e) => setDialogOdata(e.target.checked)}
-                disabled={editingBookmark != null && !editingBookmark.is_owner}
-              />
-            }
-            label={
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                <MaterialSymbol icon="cloud" size={16} color="#666" />
-                <Typography variant="body2" fontSize={13}>Enable OData feed</Typography>
-              </Box>
-            }
-            sx={{ ml: 0 }}
-          />
-          {dialogOdata && editingBookmark?.odata_url && (
+          {/* OData toggle — only shown when user has bookmarks.odata permission */}
+          {canOdataBookmarks && (
+            <FormControlLabel
+              control={
+                <Switch
+                  size="small"
+                  checked={dialogOdata}
+                  onChange={(e) => setDialogOdata(e.target.checked)}
+                  disabled={editingBookmark != null && !editingBookmark.is_owner}
+                />
+              }
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                  <MaterialSymbol icon="cloud" size={16} color="#666" />
+                  <Typography variant="body2" fontSize={13}>Enable OData feed</Typography>
+                </Box>
+              }
+              sx={{ ml: 0 }}
+            />
+          )}
+          {canOdataBookmarks && dialogOdata && editingBookmark?.odata_url && (
             <Box sx={{ bgcolor: "#f5f5f5", borderRadius: 1, p: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                 OData Feed URL (requires authentication)

@@ -98,24 +98,28 @@ def _serialize(
     return result
 
 
-async def _sync_shares(db: AsyncSession, bm: Bookmark, shared_with: list | None) -> None:
+async def _sync_shares(
+    db: AsyncSession, bm: Bookmark, shared_with: list | None,
+) -> None:
     """Sync bookmark_shares junction table with can_edit flag.
-    Accepts list of BookmarkShareEntry objects or dicts with user_id/can_edit."""
+
+    Accepts list of BookmarkShareEntry objects or dicts with
+    user_id / can_edit keys.
+    """
     # Clear existing shares
     await db.execute(
-        bookmark_shares.delete().where(bookmark_shares.c.bookmark_id == bm.id)
+        bookmark_shares.delete().where(
+            bookmark_shares.c.bookmark_id == bm.id
+        )
     )
 
     if not shared_with or bm.visibility != "shared":
-        # Also clear the relationship cache
-        bm.shared_with_users = []
         return
 
-    user_ids = []
+    user_ids: list[uuid.UUID] = []
     can_edit_map: dict[uuid.UUID, bool] = {}
     for entry in shared_with:
         try:
-            # Handle both Pydantic models and dicts
             if isinstance(entry, dict):
                 uid = uuid.UUID(entry["user_id"])
                 can_edit_map[uid] = entry.get("can_edit", False)
@@ -127,11 +131,12 @@ async def _sync_shares(db: AsyncSession, bm: Bookmark, shared_with: list | None)
             continue
 
     if not user_ids:
-        bm.shared_with_users = []
         return
 
     # Verify users exist
-    user_result = await db.execute(select(User).where(User.id.in_(user_ids)))
+    user_result = await db.execute(
+        select(User).where(User.id.in_(user_ids))
+    )
     valid_users = list(user_result.scalars().all())
 
     # Insert share rows with can_edit
@@ -143,8 +148,6 @@ async def _sync_shares(db: AsyncSession, bm: Bookmark, shared_with: list | None)
                 can_edit=can_edit_map.get(u.id, False),
             )
         )
-
-    bm.shared_with_users = valid_users
 
 
 @router.get("")
@@ -228,6 +231,18 @@ async def create_bookmark(
     if body.visibility not in VALID_VISIBILITY:
         raise HTTPException(400, "visibility must be private, public, or shared")
 
+    # Check sharing permission
+    if body.visibility in ("public", "shared"):
+        await PermissionService.require_permission(
+            db, user, "bookmarks.share",
+        )
+
+    # Check OData permission
+    if body.odata_enabled:
+        await PermissionService.require_permission(
+            db, user, "bookmarks.odata",
+        )
+
     bm = Bookmark(
         user_id=user.id,
         name=body.name,
@@ -295,6 +310,20 @@ async def update_bookmark(
 
     if "visibility" in data and data["visibility"] not in VALID_VISIBILITY:
         raise HTTPException(400, "visibility must be private, public, or shared")
+
+    # Check sharing permission when changing to public/shared
+    new_vis = data.get("visibility", bm.visibility)
+    if new_vis in ("public", "shared"):
+        await PermissionService.require_permission(
+            db, user, "bookmarks.share",
+        )
+
+    # Check OData permission when enabling
+    new_odata = data.get("odata_enabled", bm.odata_enabled)
+    if new_odata:
+        await PermissionService.require_permission(
+            db, user, "bookmarks.odata",
+        )
 
     shared_with = data.pop("shared_with", None)
 
