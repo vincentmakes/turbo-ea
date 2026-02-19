@@ -791,10 +791,11 @@ export default function PortfolioReport() {
     params.push({ label: "Group by", value: groupByLabel });
     if (colorBy) params.push({ label: "Color by", value: colorByLabel });
     if (search) params.push({ label: "Search", value: search });
+    if (timelineDate !== todayMs) params.push({ label: "Time travel", value: new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) });
     if (view === "table") params.push({ label: "View", value: "Table" });
     if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
     return params;
-  }, [groupByLabel, colorBy, colorByLabel, search, view, activeFilterCount]);
+  }, [groupByLabel, colorBy, colorByLabel, search, timelineDate, todayMs, view, activeFilterCount]);
 
   if (!data)
     return (

@@ -42,6 +42,13 @@
     display: none !important;
   }
 
+  /* Hide MUI tooltips / poppers that may be open at print time */
+  .MuiTooltip-popper,
+  .MuiPopover-root,
+  .MuiModal-root {
+    display: none !important;
+  }
+
   /* Show the print-only parameter header */
   .report-print-params {
     display: flex !important;

@@ -852,9 +852,10 @@ export default function CapabilityMapReport() {
       const cLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
       params.push({ label: "Color by", value: cLabel });
     }
+    if (timelineDate !== todayMs) params.push({ label: "Time travel", value: new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) });
     if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
     return params;
-  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, activeFilterCount]);
+  }, [metric, displayLevel, showApps, colorBy, colorByOptions, levelOptions, timelineDate, todayMs, activeFilterCount]);
 
   if (data === null)
     return (

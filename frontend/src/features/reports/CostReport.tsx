@@ -253,9 +253,10 @@ export default function CostReport() {
       const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
       params.push({ label: "Group by", value: gLabel });
     }
+    if (timelineDate !== todayMs) params.push({ label: "Time travel", value: new Date(timelineDate).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) });
     if (view === "table") params.push({ label: "View", value: "Table" });
     return params;
-  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, view]);
+  }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, timelineDate, todayMs, view]);
 
   if (ml || rawItems === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
