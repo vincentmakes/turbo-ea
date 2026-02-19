@@ -33,13 +33,13 @@ ServiceNow CMDB and Enterprise Architecture tools serve different but complement
 | **Strength** | Automated discovery, ITSM workflows, operational accuracy | Business context, capability mapping, lifecycle planning, assessments |
 | **Typical data** | Hostnames, IPs, install status, assignment groups, contracts | Business criticality, functional fit, technical debt, strategic roadmap |
 
-**The integration bridges this gap**: ServiceNow provides the *operational truth* (what applications and infrastructure exist, their technical details, go-live dates), while Turbo EA adds the *strategic layer* (how those applications support business capabilities, their lifecycle plans, EA assessments).
+**Turbo EA is the system of record** for your architecture landscape — names, descriptions, lifecycle plans, assessments, and business context all live here. ServiceNow supplements Turbo EA with operational and technical metadata (hostnames, IPs, SLA data, install status) that comes from automated discovery and ITSM workflows. The integration keeps these two systems connected while respecting that Turbo EA leads.
 
 ### What You Can Do
 
-- **Pull sync** — Import CIs from ServiceNow into Turbo EA as cards (e.g., applications, servers, software)
-- **Push sync** — Export EA assessments and metadata back to ServiceNow (e.g., business criticality, technical fit scores)
-- **Bidirectional sync** — Different fields owned by different systems, kept in sync automatically
+- **Pull sync** — Seed Turbo EA with CIs from ServiceNow, then take ownership. Ongoing pulls only update operational fields (IPs, status, SLAs) that SNOW discovers automatically
+- **Push sync** — Export EA-curated data back to ServiceNow (names, descriptions, assessments, lifecycle plans) so ITSM teams see EA context
+- **Bidirectional sync** — Turbo EA leads most fields; SNOW leads a small set of operational/technical fields. Both systems stay in sync
 - **Identity mapping** — Persistent cross-reference tracking (sys_id <-> card UUID) ensures records stay linked across syncs
 
 ---
@@ -80,20 +80,22 @@ Start small. The most common integration points are:
 
 ### 2. Which system is the source of truth for each field?
 
-This is the most important decision. A common mistake is setting everything to "SNOW leads" — but EA teams maintain valuable data that shouldn't be overwritten by ServiceNow.
+This is the most important decision. The default should be **Turbo EA leads** — the EA tool is the system of record for your architecture landscape. ServiceNow should only lead for a narrow set of operational and technical fields that come from automated discovery or ITSM workflows. Everything else — names, descriptions, assessments, lifecycle planning, costs — is owned and curated by the EA team in Turbo EA.
 
-**Industry best practice — the "split ownership" model:**
+**Recommended model — "Turbo EA leads, SNOW supplements":**
 
 | Field Type | Source of Truth | Why |
 |------------|----------------|-----|
-| **Names and basic info** | SNOW leads | CMDB has discovery-validated names |
-| **Technical metadata** | SNOW leads | IPs, OS versions, hostnames come from automated discovery |
-| **Go-live / retirement dates** | SNOW leads | Change management tracks these in ServiceNow |
-| **Business criticality** | Turbo leads | EA team's strategic assessment, not in CMDB |
-| **Functional / technical fit** | Turbo leads | TIME model scores are an EA concern |
-| **Cost data** | Depends | If CMDB has contracts -> SNOW leads; if EA tracks budgets -> Turbo leads |
-| **Description** | Turbo leads | EA descriptions are richer and more strategic than CMDB short_descriptions |
-| **Lifecycle planning** | Turbo leads | Future phases (phaseOut, endOfLife) are EA planning data |
+| **Names and descriptions** | **Turbo leads** | EA team curates authoritative names and writes strategic descriptions; CMDB names can be messy or auto-generated |
+| **Business criticality** | **Turbo leads** | EA team's strategic assessment — not operational data |
+| **Functional / technical fit** | **Turbo leads** | TIME model scores are an EA concern |
+| **Lifecycle (all phases)** | **Turbo leads** | Plan, phaseIn, active, phaseOut, endOfLife — all EA planning data |
+| **Cost data** | **Turbo leads** | EA tracks total cost of ownership; CMDB may have contract line items but EA owns the consolidated view |
+| **Hosting type, category** | **Turbo leads** | EA classifies applications by hosting model for strategic analysis |
+| **Technical metadata** | SNOW leads | IPs, OS versions, hostnames, serial numbers — automated discovery data that EA doesn't maintain |
+| **SLA / operational status** | SNOW leads | Install status, SLA targets, availability metrics — ITSM operational data |
+| **Assignment group / support** | SNOW leads | Operational ownership tracked in ServiceNow workflows |
+| **Discovery dates** | SNOW leads | First/last discovered, last scan — CMDB automation metadata |
 
 ### 3. How often should you sync?
 
@@ -376,27 +378,34 @@ Mapping: Application <-> `cmdb_ci_business_app`, **Bidirectional**
 
 | Field | Direction | Pull does... | Push does... |
 |-------|-----------|-------------|-------------|
-| `name` | SNOW leads | Imports CMDB name -> card name | Skips (CMDB owns names) |
-| `description` | Turbo leads | Skips (EA team writes descriptions) | Pushes description -> SNOW |
-| `lifecycle.active` | SNOW leads | Imports go-live date | Skips |
-| `attributes.businessCriticality` | Turbo leads | Skips (EA assessment) | Pushes assessment -> SNOW custom field |
-| `attributes.hostingType` | SNOW leads | Imports hosting type | Skips |
+| `name` | **Turbo leads** | Skips (EA curates names) | Pushes EA name -> SNOW |
+| `description` | **Turbo leads** | Skips (EA writes descriptions) | Pushes description -> SNOW |
+| `lifecycle.active` | **Turbo leads** | Skips (EA manages lifecycle) | Pushes go-live date -> SNOW |
+| `attributes.businessCriticality` | **Turbo leads** | Skips (EA assessment) | Pushes assessment -> SNOW custom field |
+| `attributes.ipAddress` | SNOW leads | Imports IP from discovery | Skips (operational data) |
+| `attributes.installStatus` | SNOW leads | Imports operational status | Skips (ITSM data) |
 
-**Key insight**: The table-level direction determines *what buttons appear*. The field-level direction determines *which fields actually transfer* during each operation. A bidirectional mapping with mixed field directions is the most powerful configuration.
+**Key insight**: The table-level direction determines *what buttons appear*. The field-level direction determines *which fields actually transfer* during each operation. A bidirectional mapping where Turbo EA leads most fields and SNOW only leads operational/technical fields is the most powerful configuration.
 
 ### Best Practice: Field Direction by Data Type
 
+The default should be **Turbo leads** for the vast majority of fields. Only set SNOW leads for operational and technical metadata that comes from automated discovery or ITSM workflows.
+
 | Data Category | Recommended Direction | Rationale |
 |---------------|----------------------|-----------|
-| Names, identifiers | SNOW leads | CMDB discovery provides authoritative naming |
-| Technical metadata (OS, IP, hostname) | SNOW leads | Automated discovery in SNOW is more accurate |
-| Go-live and retirement dates | SNOW leads | Change management tracks these in SNOW |
-| Short description -> description | SNOW leads or Turbo leads | EA often writes richer descriptions |
-| Business criticality (TIME model) | **Turbo leads** | This is an EA assessment, not operational data |
-| Functional/technical suitability | **Turbo leads** | EA-specific scoring |
-| Cost data | Depends | SNOW if from contracts; Turbo if from EA budgeting |
-| Lifecycle planning dates (phaseOut, endOfLife) | **Turbo leads** | Future planning is EA's responsibility |
-| Vendor/provider info | SNOW leads | CMDB vendor registry is usually authoritative |
+| **Names, display labels** | **Turbo leads** | EA team curates authoritative, clean names — CMDB names are often auto-generated or inconsistent |
+| **Description** | **Turbo leads** | EA descriptions capture strategic context, business value, and architectural significance |
+| **Business criticality (TIME model)** | **Turbo leads** | Core EA assessment — not operational data |
+| **Functional/technical suitability** | **Turbo leads** | EA-specific scoring and roadmap classification |
+| **Lifecycle (all phases)** | **Turbo leads** | Plan, phaseIn, active, phaseOut, endOfLife are all EA planning decisions |
+| **Cost data** | **Turbo leads** | EA tracks total cost of ownership and budget allocation |
+| **Hosting type, classification** | **Turbo leads** | Strategic categorization maintained by architects |
+| **Vendor/provider info** | **Turbo leads** | EA manages vendor strategy, contracts, and risk — SNOW may have a vendor name but EA owns the relationship |
+| Technical metadata (OS, IP, hostname) | SNOW leads | Automated discovery data — EA doesn't maintain this |
+| SLA targets, availability metrics | SNOW leads | Operational data from ITSM workflows |
+| Install status, operational state | SNOW leads | CMDB tracks whether a CI is installed, retired, etc. |
+| Assignment group, support team | SNOW leads | Operational ownership managed in ServiceNow |
+| Discovery metadata (first/last seen) | SNOW leads | CMDB automation timestamps |
 
 ---
 
@@ -493,7 +502,7 @@ Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
 
 ### Recipe 1: Applications from CMDB (Most Common)
 
-**Goal**: Import the application landscape from ServiceNow as a starting point for EA management.
+**Goal**: Import the application landscape from ServiceNow, then take ownership of names, descriptions, assessments, and lifecycle in Turbo EA. SNOW only leads operational fields.
 
 **Mapping:**
 
@@ -501,7 +510,7 @@ Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
 |---------|-------|
 | Card Type | Application |
 | SNOW Table | `cmdb_ci_business_app` |
-| Direction | ServiceNow -> Turbo EA (or Bidirectional if pushing assessments back) |
+| Direction | Bidirectional |
 | Mode | Conservative |
 | Filter | `active=true^install_status=1` |
 
@@ -509,12 +518,14 @@ Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
 
 | Turbo EA Field | SNOW Field | Direction | Transform | ID? |
 |----------------|------------|-----------|-----------|-----|
-| `name` | `name` | SNOW leads | Direct | Yes |
-| `description` | `short_description` | SNOW leads | Direct | |
-| `lifecycle.active` | `go_live_date` | SNOW leads | Date | |
-| `lifecycle.endOfLife` | `retirement_date` | SNOW leads | Date | |
-| `attributes.businessCriticality` | `busines_criticality` | SNOW leads | Value Map | |
-| `attributes.hostingType` | `hosting_type` | SNOW leads | Direct | |
+| `name` | `name` | **Turbo leads** | Direct | Yes |
+| `description` | `short_description` | **Turbo leads** | Direct | |
+| `lifecycle.active` | `go_live_date` | **Turbo leads** | Date | |
+| `lifecycle.endOfLife` | `retirement_date` | **Turbo leads** | Date | |
+| `attributes.businessCriticality` | `busines_criticality` | **Turbo leads** | Value Map | |
+| `attributes.hostingType` | `hosting_type` | **Turbo leads** | Direct | |
+| `attributes.installStatus` | `install_status` | SNOW leads | Direct | |
+| `attributes.ipAddress` | `ip_address` | SNOW leads | Direct | |
 
 Value map config for `businessCriticality`:
 
@@ -529,13 +540,15 @@ Value map config for `businessCriticality`:
 }
 ```
 
-**After import**: Map applications to Business Capabilities in Turbo EA, add functional/technical suitability assessments, and set lifecycle phases — these are the EA-specific enrichments that ServiceNow doesn't have.
+**First sync tip**: On the very first pull, SNOW values populate all fields (since cards don't exist yet). After that, Turbo leads fields are owned by the EA team — subsequent pulls only update the operational SNOW-leads fields (install status, IP), while the EA team manages everything else directly in Turbo EA.
+
+**After import**: Refine application names, write strategic descriptions, map to Business Capabilities, add functional/technical suitability assessments, and set lifecycle phases — all of this is now owned by Turbo EA and will be pushed back to ServiceNow on push syncs.
 
 ---
 
 ### Recipe 2: IT Components (Servers)
 
-**Goal**: Import server infrastructure for infrastructure mapping and dependency analysis.
+**Goal**: Import server infrastructure for infrastructure mapping and dependency analysis. Servers are more operational than applications, so more fields come from SNOW — but Turbo EA still leads names and descriptions.
 
 **Mapping:**
 
@@ -543,7 +556,7 @@ Value map config for `businessCriticality`:
 |---------|-------|
 | Card Type | ITComponent |
 | SNOW Table | `cmdb_ci_server` |
-| Direction | ServiceNow -> Turbo EA |
+| Direction | Bidirectional |
 | Mode | Conservative |
 | Filter | `active=true^hardware_statusNOT IN6,7` |
 
@@ -551,11 +564,15 @@ Value map config for `businessCriticality`:
 
 | Turbo EA Field | SNOW Field | Direction | Transform | ID? |
 |----------------|------------|-----------|-----------|-----|
-| `name` | `name` | SNOW leads | Direct | Yes |
-| `description` | `short_description` | SNOW leads | Direct | |
-| `attributes.manufacturer` | `manufacturer.name` | SNOW leads | Direct | |
+| `name` | `name` | **Turbo leads** | Direct | Yes |
+| `description` | `short_description` | **Turbo leads** | Direct | |
+| `attributes.manufacturer` | `manufacturer.name` | **Turbo leads** | Direct | |
 | `attributes.operatingSystem` | `os` | SNOW leads | Direct | |
 | `attributes.ipAddress` | `ip_address` | SNOW leads | Direct | |
+| `attributes.serialNumber` | `serial_number` | SNOW leads | Direct | |
+| `attributes.hostname` | `host_name` | SNOW leads | Direct | |
+
+**Note**: For servers, operational/discovery fields like OS, IP, serial number, and hostname naturally come from SNOW's automated discovery. But the EA team still owns the display name (which may differ from the hostname) and description for strategic context.
 
 **After import**: Link IT Components to Applications using relations, which feeds the dependency graph and infrastructure reports.
 
@@ -563,7 +580,7 @@ Value map config for `businessCriticality`:
 
 ### Recipe 3: Software Products with EOL Tracking
 
-**Goal**: Import software products and combine with Turbo EA's endoflife.date integration.
+**Goal**: Import software products and combine with Turbo EA's endoflife.date integration. Turbo EA leads on names, descriptions, and vendor — version is a factual field that SNOW can lead on.
 
 **Mapping:**
 
@@ -571,7 +588,7 @@ Value map config for `businessCriticality`:
 |---------|-------|
 | Card Type | ITComponent |
 | SNOW Table | `cmdb_ci_spkg` |
-| Direction | ServiceNow -> Turbo EA |
+| Direction | Bidirectional |
 | Mode | Conservative |
 | Filter | `active=true` |
 
@@ -579,10 +596,10 @@ Value map config for `businessCriticality`:
 
 | Turbo EA Field | SNOW Field | Direction | Transform | ID? |
 |----------------|------------|-----------|-----------|-----|
-| `name` | `name` | SNOW leads | Direct | Yes |
-| `description` | `short_description` | SNOW leads | Direct | |
+| `name` | `name` | **Turbo leads** | Direct | Yes |
+| `description` | `short_description` | **Turbo leads** | Direct | |
 | `attributes.version` | `version` | SNOW leads | Direct | |
-| `attributes.vendor` | `manufacturer.name` | SNOW leads | Direct | |
+| `attributes.vendor` | `manufacturer.name` | **Turbo leads** | Direct | |
 
 **After import**: Go to **Admin > EOL** and use Mass Search to automatically match imported IT Components against endoflife.date products. This gives you automated EOL risk tracking that combines CMDB inventory with public lifecycle data.
 
@@ -590,7 +607,7 @@ Value map config for `businessCriticality`:
 
 ### Recipe 4: Vendors / Providers (Bidirectional)
 
-**Goal**: Keep the vendor registry in sync. CMDB has authoritative vendor data; EA adds strategic assessments.
+**Goal**: Keep the vendor registry in sync. Turbo EA owns vendor names, descriptions, and strategic context. SNOW supplements with operational contact data.
 
 **Mapping:**
 
@@ -606,12 +623,12 @@ Value map config for `businessCriticality`:
 
 | Turbo EA Field | SNOW Field | Direction | Transform | ID? |
 |----------------|------------|-----------|-----------|-----|
-| `name` | `name` | SNOW leads | Direct | Yes |
+| `name` | `name` | **Turbo leads** | Direct | Yes |
 | `description` | `notes` | **Turbo leads** | Direct | |
-| `attributes.website` | `website` | SNOW leads | Direct | |
+| `attributes.website` | `website` | **Turbo leads** | Direct | |
 | `attributes.contactEmail` | `email` | SNOW leads | Direct | |
 
-**Why Turbo leads for description**: The EA team writes strategic notes about vendor relationships, contract status, and risk — this is richer than CMDB notes. Setting `description` to Turbo leads prevents ServiceNow from overwriting these strategic assessments.
+**Why Turbo leads for most fields**: The EA team curates vendor strategy, manages relationships, and tracks risk — this includes the vendor's display name, description, and web presence. SNOW leads only on operational contact data that may be updated by procurement or asset management teams.
 
 ---
 
