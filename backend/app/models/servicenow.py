@@ -46,6 +46,7 @@ class SnowMapping(UUIDMixin, TimestampMixin, Base):
     max_deletion_ratio: Mapped[float] = mapped_column(Float, default=0.5)
     filter_query: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    skip_staging: Mapped[bool] = mapped_column(Boolean, default=False)
 
     connection: Mapped[SnowConnection] = relationship(back_populates="mappings")
     field_mappings: Mapped[list[SnowFieldMapping]] = relationship(

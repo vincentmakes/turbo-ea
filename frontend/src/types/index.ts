@@ -835,6 +835,7 @@ export interface SnowMapping {
   sync_mode: string;
   max_deletion_ratio: number;
   filter_query?: string | null;
+  skip_staging: boolean;
   is_active: boolean;
   field_mappings: SnowFieldMapping[];
   created_at?: string;

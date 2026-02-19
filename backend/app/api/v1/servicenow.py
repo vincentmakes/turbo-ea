@@ -89,6 +89,7 @@ class MappingCreate(BaseModel):
     sync_mode: str = Field("conservative", pattern=r"^(additive|conservative|strict)$")
     max_deletion_ratio: float = Field(0.5, ge=0.0, le=1.0)
     filter_query: str | None = None
+    skip_staging: bool = False
     field_mappings: list[FieldMappingIn] = []
 
 
@@ -99,6 +100,7 @@ class MappingUpdate(BaseModel):
     sync_mode: str | None = None
     max_deletion_ratio: float | None = None
     filter_query: str | None = None
+    skip_staging: bool | None = None
     is_active: bool | None = None
     field_mappings: list[FieldMappingIn] | None = None
 
@@ -122,6 +124,7 @@ class MappingOut(BaseModel):
     sync_mode: str
     max_deletion_ratio: float
     filter_query: str | None = None
+    skip_staging: bool = False
     is_active: bool
     field_mappings: list[FieldMappingOut] = []
     created_at: str | None = None
@@ -193,6 +196,7 @@ def _mapping_to_out(mapping: SnowMapping) -> MappingOut:
         sync_mode=mapping.sync_mode,
         max_deletion_ratio=mapping.max_deletion_ratio,
         filter_query=mapping.filter_query,
+        skip_staging=mapping.skip_staging,
         is_active=mapping.is_active,
         field_mappings=[
             FieldMappingOut(
@@ -477,6 +481,7 @@ async def create_mapping(
         sync_mode=body.sync_mode,
         max_deletion_ratio=body.max_deletion_ratio,
         filter_query=body.filter_query,
+        skip_staging=body.skip_staging,
     )
     db.add(mapping)
     await db.flush()
@@ -553,6 +558,8 @@ async def update_mapping(
         mapping.max_deletion_ratio = body.max_deletion_ratio
     if body.filter_query is not None:
         mapping.filter_query = body.filter_query
+    if body.skip_staging is not None:
+        mapping.skip_staging = body.skip_staging
     if body.is_active is not None:
         mapping.is_active = body.is_active
 

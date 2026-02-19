@@ -1,146 +1,203 @@
-# ServiceNow Integration — Administrator Guide
+# ServiceNow Integration — Setup & Best Practices Guide
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Prerequisites](#prerequisites)
-3. [Setting Up a Connection](#setting-up-a-connection)
-4. [Configuring Type Mappings](#configuring-type-mappings)
-5. [Field Mapping Reference](#field-mapping-reference)
-6. [Running Syncs](#running-syncs)
-7. [Sync Modes and Deletion Safety](#sync-modes-and-deletion-safety)
-8. [Recommended Mapping Recipes](#recommended-mapping-recipes)
-9. [Security Best Practices](#security-best-practices)
-10. [Operational Runbook](#operational-runbook)
-11. [Troubleshooting](#troubleshooting)
-12. [API Reference (Quick)](#api-reference-quick)
+1. [Why Integrate ServiceNow with Turbo EA?](#why-integrate-servicenow-with-turbo-ea)
+2. [Integration Architecture](#integration-architecture)
+3. [Planning Your Integration](#planning-your-integration)
+4. [Step 1: ServiceNow Prerequisites](#step-1-servicenow-prerequisites)
+5. [Step 2: Create a Connection](#step-2-create-a-connection)
+6. [Step 3: Design Your Mappings](#step-3-design-your-mappings)
+7. [Step 4: Configure Field Mappings](#step-4-configure-field-mappings)
+8. [Step 5: Run Your First Sync](#step-5-run-your-first-sync)
+9. [Understanding Sync Direction vs Field Direction](#understanding-sync-direction-vs-field-direction)
+10. [Skip Staging — When to Use It](#skip-staging--when-to-use-it)
+11. [Sync Modes and Deletion Safety](#sync-modes-and-deletion-safety)
+12. [Recommended Recipes by Type](#recommended-recipes-by-type)
+13. [Transform Types Reference](#transform-types-reference)
+14. [Security Best Practices](#security-best-practices)
+15. [Operational Runbook](#operational-runbook)
+16. [Troubleshooting](#troubleshooting)
+17. [API Reference (Quick)](#api-reference-quick)
 
 ---
 
-## Overview
+## Why Integrate ServiceNow with Turbo EA?
 
-The ServiceNow integration connects Turbo EA's enterprise architecture
-repository with your ServiceNow CMDB (Configuration Management Database).
-This enables:
+ServiceNow CMDB and Enterprise Architecture tools serve different but complementary purposes:
 
-- **Pull sync** — Import CIs from ServiceNow into Turbo EA as cards
-- **Push sync** — Export Turbo EA cards back to ServiceNow tables
-- **Bidirectional sync** — Keep both systems in sync with per-field ownership
-- **Identity mapping** — Persistent cross-reference tracking between records
-- **Staged changes** — Review what will change before applying (optional)
+| | ServiceNow CMDB | Turbo EA |
+|--|-----------------|----------|
+| **Focus** | IT operations — what's running, who owns it, what incidents occurred | Strategic planning — what should the landscape look like in 3 years? |
+| **Maintained by** | IT Operations, Asset Management | EA Team, Business Architects |
+| **Strength** | Automated discovery, ITSM workflows, operational accuracy | Business context, capability mapping, lifecycle planning, assessments |
+| **Typical data** | Hostnames, IPs, install status, assignment groups, contracts | Business criticality, functional fit, technical debt, strategic roadmap |
 
-### Architecture
+**The integration bridges this gap**: ServiceNow provides the *operational truth* (what applications and infrastructure exist, their technical details, go-live dates), while Turbo EA adds the *strategic layer* (how those applications support business capabilities, their lifecycle plans, EA assessments).
+
+### What You Can Do
+
+- **Pull sync** — Import CIs from ServiceNow into Turbo EA as cards (e.g., applications, servers, software)
+- **Push sync** — Export EA assessments and metadata back to ServiceNow (e.g., business criticality, technical fit scores)
+- **Bidirectional sync** — Different fields owned by different systems, kept in sync automatically
+- **Identity mapping** — Persistent cross-reference tracking (sys_id <-> card UUID) ensures records stay linked across syncs
+
+---
+
+## Integration Architecture
 
 ```
-┌──────────────────┐        HTTPS / Table API         ┌──────────────────┐
-│   Turbo EA       │ ◄───────────────────────────────► │  ServiceNow      │
-│                  │                                    │                  │
-│  Cards           │  Pull: SNOW CIs → Turbo Cards     │  CMDB CIs        │
-│  (Application,   │  Push: Turbo Cards → SNOW CIs     │  (cmdb_ci_appl,  │
-│   ITComponent,   │                                    │   cmdb_ci_server, │
-│   Provider, ...) │  Identity Map tracks sys_id↔UUID   │   core_company)  │
-└──────────────────┘                                    └──────────────────┘
++------------------+         HTTPS / Table API          +------------------+
+|   Turbo EA       | <--------------------------------> |  ServiceNow      |
+|                  |                                     |                  |
+|  Cards           |  Pull: SNOW CIs -> Turbo Cards      |  CMDB CIs        |
+|  (Application,   |  Push: Turbo Cards -> SNOW CIs      |  (cmdb_ci_appl,  |
+|   ITComponent,   |                                     |   cmdb_ci_server, |
+|   Provider, ...) |  Identity Map tracks sys_id <-> UUID |   core_company)  |
++------------------+                                     +------------------+
 ```
 
----
-
-## Prerequisites
-
-### ServiceNow Side
-
-1. **A service account** with the following minimum roles:
-
-   | Role | Purpose |
-   |------|---------|
-   | `itil` | Read access to CMDB tables |
-   | `cmdb_read` | Read Configuration Items |
-   | `rest_api_explorer` | (Optional) Helpful for testing queries |
-   | `import_admin` | (Push sync only) Write access to target tables |
-
-2. **Network connectivity** — The Turbo EA backend must reach your
-   ServiceNow instance over HTTPS (port 443). Ensure firewall rules
-   and any IP allowlists are configured.
-
-3. **Instance URL** — The full URL of your instance:
-   - `https://company.service-now.com`
-   - `https://company.servicenowservices.com`
-
-### Turbo EA Side
-
-1. **Admin access** with the `servicenow.manage` permission. The default
-   admin role has this. For other roles, grant it via Admin > Users & Roles.
-
-2. **Metamodel configured** — The card types you want to sync should
-   already exist in Turbo EA with appropriate `fields_schema`. The
-   integration maps ServiceNow columns to these fields.
+The integration uses ServiceNow's Table API over HTTPS. Credentials are encrypted at rest using Fernet (AES-128-CBC) derived from your `SECRET_KEY`. All sync operations are logged as events with `source: "servicenow_sync"` for a complete audit trail.
 
 ---
 
-## Setting Up a Connection
+## Planning Your Integration
 
-Navigate to **Admin > ServiceNow** and open the **Connections** tab.
+Before configuring anything, answer these questions:
 
-### Step 1: Create the Connection
+### 1. Which card types need data from ServiceNow?
 
-Click **Add Connection** and fill in:
+Start small. The most common integration points are:
+
+| Priority | Turbo EA Type | ServiceNow Source | Why |
+|----------|---------------|-------------------|-----|
+| **High** | Application | `cmdb_ci_business_app` | Applications are the core of EA — CMDB has authoritative names, owners, and status |
+| **High** | ITComponent (Software) | `cmdb_ci_spkg` | Software products feed into EOL tracking and tech radar |
+| **Medium** | ITComponent (Hardware) | `cmdb_ci_server` | Server landscape for infrastructure mapping |
+| **Medium** | Provider | `core_company` | Vendor registry for cost and relationship management |
+| **Lower** | Interface | `cmdb_ci_endpoint` | Integration endpoints (often maintained manually in EA) |
+| **Lower** | DataObject | `cmdb_ci_database` | Database instances |
+
+### 2. Which system is the source of truth for each field?
+
+This is the most important decision. A common mistake is setting everything to "SNOW leads" — but EA teams maintain valuable data that shouldn't be overwritten by ServiceNow.
+
+**Industry best practice — the "split ownership" model:**
+
+| Field Type | Source of Truth | Why |
+|------------|----------------|-----|
+| **Names and basic info** | SNOW leads | CMDB has discovery-validated names |
+| **Technical metadata** | SNOW leads | IPs, OS versions, hostnames come from automated discovery |
+| **Go-live / retirement dates** | SNOW leads | Change management tracks these in ServiceNow |
+| **Business criticality** | Turbo leads | EA team's strategic assessment, not in CMDB |
+| **Functional / technical fit** | Turbo leads | TIME model scores are an EA concern |
+| **Cost data** | Depends | If CMDB has contracts -> SNOW leads; if EA tracks budgets -> Turbo leads |
+| **Description** | Turbo leads | EA descriptions are richer and more strategic than CMDB short_descriptions |
+| **Lifecycle planning** | Turbo leads | Future phases (phaseOut, endOfLife) are EA planning data |
+
+### 3. How often should you sync?
+
+| Scenario | Frequency | Notes |
+|----------|-----------|-------|
+| Initial import | Once | Additive mode, review carefully |
+| Active landscape management | Daily | Automated via cron during off-hours |
+| Compliance reporting | Weekly | Before generating reports |
+| Ad-hoc | As needed | Before major EA reviews or presentations |
+
+---
+
+## Step 1: ServiceNow Prerequisites
+
+### Create a Service Account
+
+In ServiceNow, create a dedicated service account (never use personal accounts):
+
+| Role | Purpose | Required? |
+|------|---------|-----------|
+| `itil` | Read access to CMDB tables | Yes |
+| `cmdb_read` | Read Configuration Items | Yes |
+| `rest_api_explorer` | Helpful for testing queries | Recommended |
+| `import_admin` | Write access to target tables | Only for push sync |
+
+**Best practice**: Create a custom role with read-only access to only the specific tables you plan to sync. The `itil` role is broad — a custom scoped role limits blast radius.
+
+### Network Requirements
+
+- Turbo EA backend must reach your SNOW instance over HTTPS (port 443)
+- Configure firewall rules and IP allowlists
+- Instance URL format: `https://company.service-now.com` or `https://company.servicenowservices.com`
+
+### Choose Authentication Method
+
+| Method | Pros | Cons | Recommendation |
+|--------|------|------|----------------|
+| **Basic Auth** | Simple setup | Credentials sent every request | Development/testing only |
+| **OAuth 2.0** | Token-based, scoped, audit-friendly | More setup steps | **Recommended for production** |
+
+For OAuth 2.0:
+1. In ServiceNow: **System OAuth > Application Registry**
+2. Create a new OAuth API endpoint for external clients
+3. Note the Client ID and Client Secret
+4. Rotate secrets on a 90-day cycle
+
+---
+
+## Step 2: Create a Connection
+
+Navigate to **Admin > ServiceNow > Connections** tab.
+
+### Create and Test
+
+1. Click **Add Connection**
+2. Fill in:
 
 | Field | Example Value | Notes |
 |-------|---------------|-------|
-| Name | `Production CMDB` | Descriptive label |
+| Name | `Production CMDB` | Descriptive label for your team |
 | Instance URL | `https://company.service-now.com` | Must use HTTPS |
-| Auth Type | `Basic Auth` | Or OAuth 2.0 (see below) |
-| Username | `svc_turboea` | ServiceNow service account |
-| Password | `••••••••` | Encrypted at rest via Fernet |
+| Auth Type | Basic Auth or OAuth 2.0 | OAuth recommended for production |
+| Credentials | (per auth type) | Encrypted at rest via Fernet |
 
-### Step 2: Test the Connection
+3. Click **Create**, then click the **test icon** (wifi symbol) to verify connectivity
 
-After saving, click the **wifi icon** next to the connection. The system
-sends a lightweight request to `sys_db_object` (limit 1).
-
-- **Green "Connected" chip** — Credentials work, instance is reachable
+- **Green "Connected" chip** — Ready to go
 - **Red "Failed" chip** — Check credentials, network, and URL
 
-### OAuth 2.0 Authentication (Recommended)
+### Multiple Connections
 
-For production deployments, OAuth 2.0 provides token-based auth with
-scoped access and audit-friendly logging:
+You can create multiple connections for:
+- **Production** vs **development** instances
+- **Regional** SNOW instances (e.g., EMEA, APAC)
+- **Different teams** with separate service accounts
 
-1. In ServiceNow, go to **System OAuth > Application Registry**
-2. Create a new OAuth API endpoint for external clients
-3. Note the Client ID and Client Secret
-4. In Turbo EA, set Auth Type to **OAuth 2.0** and enter the credentials
-
-> **Industry best practice**: Use OAuth 2.0 with a dedicated application
-> registration rather than Basic Auth. Basic Auth sends credentials on
-> every request, while OAuth uses short-lived tokens. Rotate client
-> secrets on a 90-day cycle.
+Each mapping references a specific connection.
 
 ---
 
-## Configuring Type Mappings
+## Step 3: Design Your Mappings
 
-Switch to the **Mappings** tab. A mapping defines which Turbo EA card
-type corresponds to which ServiceNow table.
+Switch to the **Mappings** tab. A mapping connects one Turbo EA card type to one ServiceNow table.
 
 ### Create a Mapping
 
 Click **Add Mapping** and configure:
 
-| Field | Example | Description |
-|-------|---------|-------------|
-| Connection | Production CMDB | Which ServiceNow instance |
-| Card Type | Application | Turbo EA card type to sync |
-| SNOW Table | `cmdb_ci_business_app` | The ServiceNow CMDB table |
-| Sync Direction | ServiceNow > Turbo EA | Pull, Push, or Bidirectional |
-| Sync Mode | Conservative | How to handle deletions |
-| Max Deletion Ratio | 50% | Safety threshold for bulk deletes |
-| Filter Query | `active=true^install_status=1` | Optional SNOW encoded query |
+| Field | Description | Example |
+|-------|-------------|---------|
+| **Connection** | Which ServiceNow instance to use | Production CMDB |
+| **Card Type** | The Turbo EA card type to sync | Application |
+| **SNOW Table** | The ServiceNow table API name | `cmdb_ci_business_app` |
+| **Sync Direction** | Which operations are available (see below) | ServiceNow -> Turbo EA |
+| **Sync Mode** | How to handle deletions | Conservative |
+| **Max Deletion Ratio** | Safety threshold for bulk deletes | 50% |
+| **Filter Query** | ServiceNow encoded query to limit scope | `active=true^install_status=1` |
+| **Skip Staging** | Apply changes directly without review | Off (recommended for initial sync) |
 
-### Common ServiceNow Table Mappings
+### Common SNOW Table Mappings
 
 | Turbo EA Type | ServiceNow Table | Description |
 |---------------|------------------|-------------|
-| Application | `cmdb_ci_business_app` | Business applications |
+| Application | `cmdb_ci_business_app` | Business applications (most common) |
 | Application | `cmdb_ci_appl` | General application CIs |
 | ITComponent (Software) | `cmdb_ci_spkg` | Software packages |
 | ITComponent (Hardware) | `cmdb_ci_server` | Physical/virtual servers |
@@ -151,18 +208,18 @@ Click **Add Mapping** and configure:
 | System | `cmdb_ci_computer` | Computer CIs |
 | Organization | `cmn_department` | Departments |
 
-### Filter Query Syntax
+### Filter Query Examples
 
-The filter query uses ServiceNow's encoded query syntax:
+Always filter to avoid importing stale or retired records:
 
 ```
-# Only active CIs
+# Only active CIs (minimum recommended filter)
 active=true
 
 # Active CIs with install status "Installed"
 active=true^install_status=1
 
-# Applications in production
+# Applications in production use
 active=true^used_for=Production
 
 # CIs updated in the last 30 days
@@ -175,115 +232,64 @@ active=true^assignment_group.name=IT Operations
 active=true^install_statusNOT IN7,8
 ```
 
-> **Best practice**: Always include `active=true` at minimum. CMDB tables
-> often contain thousands of retired records that should not be imported.
+**Best practice**: Always include `active=true` at minimum. CMDB tables often contain thousands of retired or decommissioned records that should not be imported into your EA landscape.
 
 ---
 
-## Field Mapping Reference
+## Step 4: Configure Field Mappings
 
-Each mapping contains **field mappings** that define how individual
-columns translate between ServiceNow and Turbo EA.
+Each mapping contains **field mappings** that define how individual fields translate between the two systems. The Turbo EA Field input provides autocomplete suggestions based on the selected card type — including core fields, lifecycle dates, and all custom attributes from the type's schema.
 
-### Adding Field Mappings
+### Adding Fields
 
-For each field, configure:
+For each field mapping, you configure:
 
-| Setting | Options | Description |
-|---------|---------|-------------|
-| Turbo EA Field | Any field path | Dot-notated path (see below) |
-| SNOW Field | Column name | ServiceNow column API name |
-| Direction | SNOW leads / Turbo leads | Which system owns this field |
-| Transform | Direct / Value Map / Date / Boolean | How to transform |
-| Identity | Checkbox | Used for matching during initial sync |
+| Setting | Description |
+|---------|-------------|
+| **Turbo EA Field** | Field path in Turbo EA (autocomplete suggests options based on card type) |
+| **SNOW Field** | ServiceNow column API name (e.g., `name`, `short_description`) |
+| **Direction** | Per-field source of truth: SNOW leads or Turbo leads |
+| **Transform** | How to convert values: Direct, Value Map, Date, Boolean |
+| **Identity** (ID checkbox) | Used for matching records during initial sync |
 
 ### Turbo EA Field Paths
 
-Fields use dot notation to target different parts of a card:
+The autocomplete groups fields by section. Here's the full path reference:
 
 | Path | Target | Example Value |
 |------|--------|---------------|
 | `name` | Card display name | `"SAP S/4HANA"` |
-| `description` | Card description | `"Core ERP system"` |
+| `description` | Card description | `"Core ERP system for financials"` |
 | `lifecycle.plan` | Lifecycle: Plan date | `"2024-01-15"` |
-| `lifecycle.phaseIn` | Lifecycle: Phase In | `"2024-03-01"` |
-| `lifecycle.active` | Lifecycle: Active | `"2024-06-01"` |
-| `lifecycle.phaseOut` | Lifecycle: Phase Out | `"2028-12-31"` |
-| `lifecycle.endOfLife` | Lifecycle: End of Life | `"2029-06-30"` |
-| `attributes.<key>` | Custom attribute | As defined in `fields_schema` |
+| `lifecycle.phaseIn` | Lifecycle: Phase In date | `"2024-03-01"` |
+| `lifecycle.active` | Lifecycle: Active date | `"2024-06-01"` |
+| `lifecycle.phaseOut` | Lifecycle: Phase Out date | `"2028-12-31"` |
+| `lifecycle.endOfLife` | Lifecycle: End of Life date | `"2029-06-30"` |
+| `attributes.<key>` | Any custom attribute from the card type's fields schema | Varies by field type |
 
-For example, if the Application type has a field with key
-`businessCriticality`, map it as `attributes.businessCriticality`.
+For example, if your Application type has a field with key `businessCriticality`, select `attributes.businessCriticality` from the dropdown.
 
-### Transform Types
+### Identity Fields — How Matching Works
 
-**Direct** (default) — Pass the value through unchanged. Use for text
-fields that have the same format in both systems.
+Mark one or more fields as **Identity** (key icon). These are used during the first sync to match ServiceNow records to existing Turbo EA cards:
 
-**Value Map** — Translates enumerated values. Requires a config:
+1. **Identity map lookup** — If a sys_id <-> card UUID link already exists, use it
+2. **Exact name match** — Match on the identity field value (e.g., matching by application name)
+3. **Fuzzy match** — If no exact match, use SequenceMatcher with 85% similarity threshold
 
-```json
-{
-  "mapping": {
-    "1": "missionCritical",
-    "2": "businessCritical",
-    "3": "businessOperational",
-    "4": "administrativeService"
-  }
-}
-```
+**Best practice**: Always mark the `name` field as an identity field. If names differ between systems (e.g., SNOW includes version numbers like "SAP S/4HANA v2.1" but Turbo EA has "SAP S/4HANA"), clean them up before the first sync for better match quality.
 
-The mapping reverses automatically when pushing from Turbo EA to SNOW.
-
-**Date Format** — Truncates ServiceNow datetime values
-(`2024-06-15 14:30:00`) to date-only (`2024-06-15`). Use for lifecycle
-phase dates.
-
-**Boolean** — Converts between ServiceNow string booleans (`"true"`,
-`"1"`, `"yes"`) and native booleans.
-
-### Identity Fields
-
-Mark one or more fields as **Identity** (key icon). These are used
-during the first sync to match ServiceNow records to existing cards:
-
-1. **Exact match** on the field value (e.g., matching by name)
-2. **Fuzzy match** using SequenceMatcher with 85% similarity threshold
-
-> **Best practice**: Always mark the `name` field as an identity field.
-> If names differ between systems (e.g., SNOW includes version numbers),
-> clean them up before the first sync for better match quality.
-
-### Per-Field Direction
-
-Each field has its own direction, independent of the overall mapping:
-
-| Direction | Meaning |
-|-----------|---------|
-| **SNOW leads** | ServiceNow is source of truth. Imported during pull, skipped during push. |
-| **Turbo leads** | Turbo EA is source of truth. Exported during push, skipped during pull. |
-
-This enables **bidirectional sync** where different fields are owned by
-different systems:
-
-```
-name                  → SNOW leads   (CMDB is authoritative for names)
-description           → Turbo leads  (EA team maintains descriptions)
-businessCriticality   → Turbo leads  (EA assessment, not in SNOW)
-lifecycle.active      → SNOW leads   (CMDB tracks go-live dates)
-costTotalAnnual       → SNOW leads   (Financial data from SNOW)
-```
+After the first sync establishes identity map links, subsequent syncs use the persistent identity map and don't rely on name matching.
 
 ---
 
-## Running Syncs
+## Step 5: Run Your First Sync
 
 Switch to the **Sync Dashboard** tab.
 
 ### Triggering a Sync
 
-For each active mapping, you see Pull and/or Push buttons depending on
-the configured sync direction:
+For each active mapping, you see Pull and/or Push buttons depending on the configured sync direction:
 
 - **Pull** (cloud download icon) — Fetches data from SNOW into Turbo EA
 - **Push** (cloud upload icon) — Sends Turbo EA data to ServiceNow
@@ -293,18 +299,20 @@ the configured sync direction:
 ```
 1. FETCH     Retrieve all matching records from SNOW (batches of 500)
 2. MATCH     Match each record to an existing card:
-             a) Identity map (persistent sys_id ↔ card UUID lookup)
+             a) Identity map (persistent sys_id <-> card UUID lookup)
              b) Exact name match on identity fields
              c) Fuzzy name match (85% similarity threshold)
-3. TRANSFORM Apply field mappings to convert SNOW → Turbo EA format
+3. TRANSFORM Apply field mappings to convert SNOW -> Turbo EA format
 4. DIFF      Compare transformed data against existing card fields
 5. STAGE     Assign an action to each record:
-             • create — New, no matching card found
-             • update — Match found, fields differ
-             • skip   — Match found, no differences
-             • delete — In identity map but absent from SNOW
+             - create: New, no matching card found
+             - update: Match found, fields differ
+             - skip:   Match found, no differences
+             - delete: In identity map but absent from SNOW
 6. APPLY     Execute staged actions (create/update/archive cards)
 ```
+
+When **Skip Staging** is enabled, steps 5 and 6 merge — actions are applied directly without writing staged records.
 
 ### Reviewing Sync Results
 
@@ -322,29 +330,116 @@ The **Sync History** table shows after each run:
 | Errors | Records that failed to process |
 | Duration | Wall-clock time |
 
-Click the **list icon** on any run to inspect individual staged records,
-including the field-level diff for each update.
+Click the **list icon** on any run to inspect individual staged records, including the field-level diff for each update.
 
-### Manual Review Mode
+### Recommended First Sync Procedure
 
-To review changes before applying, trigger via the API with
-`auto_apply=false`:
-
-```bash
-# 1. Trigger pull sync without auto-apply
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  "$BASE_URL/api/v1/servicenow/sync/pull/$MAPPING_ID?auto_apply=false"
-
-# 2. Review staged records
-curl -H "Authorization: Bearer $TOKEN" \
-  "$BASE_URL/api/v1/servicenow/sync/runs/$RUN_ID/staged"
-
-# 3. Apply when satisfied
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  "$BASE_URL/api/v1/servicenow/sync/runs/$RUN_ID/apply"
 ```
+1. Set mapping to ADDITIVE mode with staging ON
+2. Run pull sync
+3. Review staged records — check creates look correct
+4. Go to Inventory, verify imported cards
+5. Adjust field mappings or filter query if needed
+6. Run again until satisfied
+7. Switch to CONSERVATIVE mode for ongoing use
+8. After several successful runs, enable Skip Staging
+```
+
+---
+
+## Understanding Sync Direction vs Field Direction
+
+This is the most commonly misunderstood concept. There are **two levels of direction** that work together:
+
+### Table-Level: Sync Direction
+
+Set on the mapping itself. Controls **which sync operations are available** on the Sync Dashboard:
+
+| Sync Direction | Pull button? | Push button? | Use when... |
+|----------------|-------------|-------------|-------------|
+| **ServiceNow -> Turbo EA** | Yes | No | CMDB is the master source, you just import |
+| **Turbo EA -> ServiceNow** | No | Yes | EA tool enriches CMDB with assessments |
+| **Bidirectional** | Yes | Yes | Both systems contribute different fields |
+
+### Field-Level: Direction
+
+Set **per field mapping**. Controls **which system's value wins** during a sync run:
+
+| Field Direction | During Pull (SNOW -> Turbo) | During Push (Turbo -> SNOW) |
+|-----------------|--------------------------|---------------------------|
+| **SNOW leads** | Value is imported from ServiceNow | Value is **skipped** (not pushed) |
+| **Turbo leads** | Value is **skipped** (not overwritten) | Value is exported to ServiceNow |
+
+### How They Work Together — Example
+
+Mapping: Application <-> `cmdb_ci_business_app`, **Bidirectional**
+
+| Field | Direction | Pull does... | Push does... |
+|-------|-----------|-------------|-------------|
+| `name` | SNOW leads | Imports CMDB name -> card name | Skips (CMDB owns names) |
+| `description` | Turbo leads | Skips (EA team writes descriptions) | Pushes description -> SNOW |
+| `lifecycle.active` | SNOW leads | Imports go-live date | Skips |
+| `attributes.businessCriticality` | Turbo leads | Skips (EA assessment) | Pushes assessment -> SNOW custom field |
+| `attributes.hostingType` | SNOW leads | Imports hosting type | Skips |
+
+**Key insight**: The table-level direction determines *what buttons appear*. The field-level direction determines *which fields actually transfer* during each operation. A bidirectional mapping with mixed field directions is the most powerful configuration.
+
+### Best Practice: Field Direction by Data Type
+
+| Data Category | Recommended Direction | Rationale |
+|---------------|----------------------|-----------|
+| Names, identifiers | SNOW leads | CMDB discovery provides authoritative naming |
+| Technical metadata (OS, IP, hostname) | SNOW leads | Automated discovery in SNOW is more accurate |
+| Go-live and retirement dates | SNOW leads | Change management tracks these in SNOW |
+| Short description -> description | SNOW leads or Turbo leads | EA often writes richer descriptions |
+| Business criticality (TIME model) | **Turbo leads** | This is an EA assessment, not operational data |
+| Functional/technical suitability | **Turbo leads** | EA-specific scoring |
+| Cost data | Depends | SNOW if from contracts; Turbo if from EA budgeting |
+| Lifecycle planning dates (phaseOut, endOfLife) | **Turbo leads** | Future planning is EA's responsibility |
+| Vendor/provider info | SNOW leads | CMDB vendor registry is usually authoritative |
+
+---
+
+## Skip Staging — When to Use It
+
+By default, pull syncs follow a **stage-then-apply** workflow:
+
+```
+Fetch -> Match -> Transform -> Diff -> STAGE -> Review -> APPLY
+```
+
+Records are written to a staging table, allowing you to review what will change before applying. This is visible in the Sync Dashboard under "View staged records."
+
+### Skip Staging Mode
+
+When you enable **Skip Staging** on a mapping, records are applied directly:
+
+```
+Fetch -> Match -> Transform -> Diff -> APPLY DIRECTLY
+```
+
+No staged records are created — changes happen immediately.
+
+| | Staging (default) | Skip Staging |
+|--|-------------------|-------------|
+| **Review step** | Yes — inspect diffs before applying | No — changes apply immediately |
+| **Staged records table** | Populated with create/update/delete entries | Not populated |
+| **Audit trail** | Staged records + event history | Event history only |
+| **Performance** | Slightly slower (writes staging rows) | Slightly faster |
+| **Undo** | Can abort before applying | Must manually revert |
+
+### When to Use Each
+
+| Scenario | Recommendation |
+|----------|---------------|
+| First-time import | **Use staging** — Review what gets created before applying |
+| New or changed mapping | **Use staging** — Verify field transforms produce correct output |
+| Stable, well-tested mapping | **Skip staging** — No need to review every run |
+| Automated daily syncs (cron) | **Skip staging** — Unattended runs can't wait for review |
+| Large CMDB (10,000+ CIs) | **Skip staging** — Avoids creating thousands of staging rows |
+| Compliance-sensitive environment | **Use staging** — Maintain full audit trail in staging table |
+
+**Best practice**: Start with staging enabled for your first several syncs. Once you're confident the mapping produces correct results, enable skip staging for automated runs.
 
 ---
 
@@ -354,76 +449,72 @@ curl -X POST \
 
 | Mode | Creates | Updates | Deletes | Best For |
 |------|---------|---------|---------|----------|
-| **Additive** | Yes | Yes | **Never** | Initial imports, low-risk |
-| **Conservative** | Yes | Yes | Only cards **created by sync** | Default, ongoing syncs |
-| **Strict** | Yes | Yes | All linked cards | Full mirror of SNOW |
+| **Additive** | Yes | Yes | **Never** | Initial imports, low-risk environments |
+| **Conservative** | Yes | Yes | Only cards **created by sync** | Default for ongoing syncs |
+| **Strict** | Yes | Yes | All linked cards | Full mirror of CMDB |
 
-**Additive** never removes cards from Turbo EA, making it the safest
-option for first-time imports and environments where Turbo EA may
-contain cards not present in ServiceNow.
+**Additive** never removes cards from Turbo EA, making it the safest option for first-time imports and environments where Turbo EA contains cards not present in ServiceNow (manually created cards, cards from other sources).
 
-**Conservative** (default) tracks whether each card was originally
-created by the sync engine. Only those cards can be auto-archived if
-they disappear from ServiceNow. Cards created manually in Turbo EA
-are never touched.
+**Conservative** (default) tracks whether each card was originally created by the sync engine. Only those cards can be auto-archived if they disappear from ServiceNow. Cards created manually in Turbo EA or imported from other sources are never touched.
 
-**Strict** archives any linked card whose corresponding ServiceNow CI
-no longer appears in the query results, regardless of who created it.
+**Strict** archives any linked card whose corresponding ServiceNow CI no longer appears in the query results, regardless of who created it. Use this only when ServiceNow is the absolute source of truth and you want Turbo EA to mirror it exactly.
 
-### Max Deletion Ratio
+### Max Deletion Ratio — Safety Net
 
-As a safety net, the engine **skips all deletions** if the count
-exceeds the configured ratio:
+As a safety net, the engine **skips all deletions** if the count exceeds the configured ratio:
 
 ```
-deletions / total_linked > max_deletion_ratio  →  SKIP ALL DELETIONS
+deletions / total_linked > max_deletion_ratio  ->  SKIP ALL DELETIONS
 ```
 
-| Scenario (10 linked records) | Deletions | Ratio | 50% Threshold | Result |
-|------------------------------|-----------|-------|---------------|--------|
-| 3 CIs removed from SNOW | 3 | 30% | Under | Deletions proceed |
-| 6 CIs removed from SNOW | 6 | 60% | **Over** | All deletions skipped |
-| SNOW returns empty (outage) | 10 | 100% | **Over** | All deletions skipped |
+Example with 10 linked records and 50% threshold:
 
-This prevents catastrophic data loss from:
-- Filter query changes that accidentally exclude records
-- Temporary ServiceNow outages returning empty results
-- Misconfigured table names
+| Scenario | Deletions | Ratio | Result |
+|----------|-----------|-------|--------|
+| 3 CIs removed normally | 3 / 10 = 30% | Under threshold | Deletions proceed |
+| 6 CIs removed at once | 6 / 10 = 60% | **Over threshold** | All deletions skipped |
+| SNOW returns empty (outage) | 10 / 10 = 100% | **Over threshold** | All deletions skipped |
 
-> **Industry best practice**: Start with **additive** mode for your first
-> sync. After verifying import quality, switch to **conservative**. Only
-> use **strict** when ServiceNow is the definitive source and you want
-> Turbo EA to mirror it exactly. Keep the deletion ratio at 50% or lower
-> for tables with fewer than 100 records.
+This prevents catastrophic data loss from filter query changes, temporary ServiceNow outages, or misconfigured table names.
+
+**Best practice**: Keep the deletion ratio at **50% or lower** for tables with fewer than 100 records. For large tables (1,000+), you can safely set it to 25%.
+
+### Recommended Progression
+
+```
+Week 1:   ADDITIVE mode, staging ON, run manually, review every record
+Week 2-4: CONSERVATIVE mode, staging ON, run daily, spot-check results
+Month 2+: CONSERVATIVE mode, staging OFF (skip), automated daily cron
+```
 
 ---
 
-## Recommended Mapping Recipes
+## Recommended Recipes by Type
 
-### Recipe 1: Applications from CMDB
+### Recipe 1: Applications from CMDB (Most Common)
 
-Import business applications from ServiceNow into Turbo EA.
+**Goal**: Import the application landscape from ServiceNow as a starting point for EA management.
 
-**Mapping settings:**
+**Mapping:**
 
 | Setting | Value |
 |---------|-------|
 | Card Type | Application |
 | SNOW Table | `cmdb_ci_business_app` |
-| Direction | ServiceNow > Turbo EA |
+| Direction | ServiceNow -> Turbo EA (or Bidirectional if pushing assessments back) |
 | Mode | Conservative |
 | Filter | `active=true^install_status=1` |
 
 **Field mappings:**
 
-| Turbo EA Field | SNOW Field | Dir | Transform | ID |
-|---------------|------------|-----|-----------|-----|
-| `name` | `name` | SNOW | Direct | Yes |
-| `description` | `short_description` | SNOW | Direct | |
-| `lifecycle.active` | `go_live_date` | SNOW | Date | |
-| `lifecycle.endOfLife` | `retirement_date` | SNOW | Date | |
-| `attributes.businessCriticality` | `busines_criticality` | SNOW | Value Map | |
-| `attributes.hostingType` | `hosting_type` | SNOW | Direct | |
+| Turbo EA Field | SNOW Field | Direction | Transform | ID? |
+|----------------|------------|-----------|-----------|-----|
+| `name` | `name` | SNOW leads | Direct | Yes |
+| `description` | `short_description` | SNOW leads | Direct | |
+| `lifecycle.active` | `go_live_date` | SNOW leads | Date | |
+| `lifecycle.endOfLife` | `retirement_date` | SNOW leads | Date | |
+| `attributes.businessCriticality` | `busines_criticality` | SNOW leads | Value Map | |
+| `attributes.hostingType` | `hosting_type` | SNOW leads | Direct | |
 
 Value map config for `businessCriticality`:
 
@@ -438,39 +529,70 @@ Value map config for `businessCriticality`:
 }
 ```
 
+**After import**: Map applications to Business Capabilities in Turbo EA, add functional/technical suitability assessments, and set lifecycle phases — these are the EA-specific enrichments that ServiceNow doesn't have.
+
 ---
 
 ### Recipe 2: IT Components (Servers)
 
-Import server CIs to track infrastructure in the EA landscape.
+**Goal**: Import server infrastructure for infrastructure mapping and dependency analysis.
 
-**Mapping settings:**
+**Mapping:**
 
 | Setting | Value |
 |---------|-------|
 | Card Type | ITComponent |
 | SNOW Table | `cmdb_ci_server` |
-| Direction | ServiceNow > Turbo EA |
+| Direction | ServiceNow -> Turbo EA |
 | Mode | Conservative |
 | Filter | `active=true^hardware_statusNOT IN6,7` |
 
 **Field mappings:**
 
-| Turbo EA Field | SNOW Field | Dir | Transform | ID |
-|---------------|------------|-----|-----------|-----|
-| `name` | `name` | SNOW | Direct | Yes |
-| `description` | `short_description` | SNOW | Direct | |
-| `attributes.manufacturer` | `manufacturer.name` | SNOW | Direct | |
-| `attributes.operatingSystem` | `os` | SNOW | Direct | |
-| `attributes.ipAddress` | `ip_address` | SNOW | Direct | |
+| Turbo EA Field | SNOW Field | Direction | Transform | ID? |
+|----------------|------------|-----------|-----------|-----|
+| `name` | `name` | SNOW leads | Direct | Yes |
+| `description` | `short_description` | SNOW leads | Direct | |
+| `attributes.manufacturer` | `manufacturer.name` | SNOW leads | Direct | |
+| `attributes.operatingSystem` | `os` | SNOW leads | Direct | |
+| `attributes.ipAddress` | `ip_address` | SNOW leads | Direct | |
+
+**After import**: Link IT Components to Applications using relations, which feeds the dependency graph and infrastructure reports.
 
 ---
 
-### Recipe 3: Vendors / Providers (Bidirectional)
+### Recipe 3: Software Products with EOL Tracking
 
-Keep the provider landscape in sync with ServiceNow's vendor registry.
+**Goal**: Import software products and combine with Turbo EA's endoflife.date integration.
 
-**Mapping settings:**
+**Mapping:**
+
+| Setting | Value |
+|---------|-------|
+| Card Type | ITComponent |
+| SNOW Table | `cmdb_ci_spkg` |
+| Direction | ServiceNow -> Turbo EA |
+| Mode | Conservative |
+| Filter | `active=true` |
+
+**Field mappings:**
+
+| Turbo EA Field | SNOW Field | Direction | Transform | ID? |
+|----------------|------------|-----------|-----------|-----|
+| `name` | `name` | SNOW leads | Direct | Yes |
+| `description` | `short_description` | SNOW leads | Direct | |
+| `attributes.version` | `version` | SNOW leads | Direct | |
+| `attributes.vendor` | `manufacturer.name` | SNOW leads | Direct | |
+
+**After import**: Go to **Admin > EOL** and use Mass Search to automatically match imported IT Components against endoflife.date products. This gives you automated EOL risk tracking that combines CMDB inventory with public lifecycle data.
+
+---
+
+### Recipe 4: Vendors / Providers (Bidirectional)
+
+**Goal**: Keep the vendor registry in sync. CMDB has authoritative vendor data; EA adds strategic assessments.
+
+**Mapping:**
 
 | Setting | Value |
 |---------|-------|
@@ -482,69 +604,75 @@ Keep the provider landscape in sync with ServiceNow's vendor registry.
 
 **Field mappings:**
 
-| Turbo EA Field | SNOW Field | Dir | Transform | ID |
-|---------------|------------|-----|-----------|-----|
-| `name` | `name` | SNOW | Direct | Yes |
-| `description` | `notes` | Turbo | Direct | |
-| `attributes.website` | `website` | SNOW | Direct | |
-| `attributes.contactEmail` | `email` | SNOW | Direct | |
+| Turbo EA Field | SNOW Field | Direction | Transform | ID? |
+|----------------|------------|-----------|-----------|-----|
+| `name` | `name` | SNOW leads | Direct | Yes |
+| `description` | `notes` | **Turbo leads** | Direct | |
+| `attributes.website` | `website` | SNOW leads | Direct | |
+| `attributes.contactEmail` | `email` | SNOW leads | Direct | |
+
+**Why Turbo leads for description**: The EA team writes strategic notes about vendor relationships, contract status, and risk — this is richer than CMDB notes. Setting `description` to Turbo leads prevents ServiceNow from overwriting these strategic assessments.
 
 ---
 
-### Recipe 4: Push EA Assessments to ServiceNow
+### Recipe 5: Push EA Assessments Back to ServiceNow
 
-Push EA-specific assessments back to ServiceNow custom fields.
+**Goal**: Export EA-specific assessments to ServiceNow custom fields so ITSM teams can see EA context.
 
-**Mapping settings:**
+**Mapping:**
 
 | Setting | Value |
 |---------|-------|
 | Card Type | Application |
 | SNOW Table | `cmdb_ci_business_app` |
-| Direction | Turbo EA > ServiceNow |
+| Direction | Turbo EA -> ServiceNow |
 | Mode | Additive |
 
 **Field mappings:**
 
-| Turbo EA Field | SNOW Field | Dir | Transform | ID |
-|---------------|------------|-----|-----------|-----|
-| `name` | `name` | SNOW | Direct | Yes |
-| `attributes.businessCriticality` | `u_ea_business_criticality` | Turbo | Value Map | |
-| `attributes.functionalSuitability` | `u_ea_functional_fit` | Turbo | Value Map | |
-| `attributes.technicalSuitability` | `u_ea_technical_fit` | Turbo | Value Map | |
+| Turbo EA Field | SNOW Field | Direction | Transform | ID? |
+|----------------|------------|-----------|-----------|-----|
+| `name` | `name` | SNOW leads | Direct | Yes |
+| `attributes.businessCriticality` | `u_ea_business_criticality` | Turbo leads | Value Map | |
+| `attributes.functionalSuitability` | `u_ea_functional_fit` | Turbo leads | Value Map | |
+| `attributes.technicalSuitability` | `u_ea_technical_fit` | Turbo leads | Value Map | |
 
-> **Note**: Push sync to custom fields (prefixed with `u_`) requires
-> those columns to exist in ServiceNow. Work with your ServiceNow admin
-> to create them before configuring the push mapping.
+> **Important**: Push sync to custom fields (prefixed with `u_`) requires those columns to already exist in ServiceNow. Work with your ServiceNow admin to create them before configuring the push mapping. The service account needs `import_admin` role for write access.
+
+**Why this matters**: ITSM teams see EA assessments directly in ServiceNow incident/change workflows. When a "Mission Critical" application has an incident, priority escalation rules can use the EA-provided criticality score.
 
 ---
 
-### Recipe 5: Software Products with EOL Data
+## Transform Types Reference
 
-Import software products and combine with Turbo EA's EOL tracking.
+### Direct (default)
 
-**Mapping settings:**
+Pass the value through unchanged. Use for text fields that have the same format in both systems.
 
-| Setting | Value |
-|---------|-------|
-| Card Type | ITComponent |
-| SNOW Table | `cmdb_ci_spkg` |
-| Direction | ServiceNow > Turbo EA |
-| Mode | Conservative |
-| Filter | `active=true` |
+### Value Map
 
-**Field mappings:**
+Translates enumerated values between systems. Configure with a JSON mapping:
 
-| Turbo EA Field | SNOW Field | Dir | Transform | ID |
-|---------------|------------|-----|-----------|-----|
-| `name` | `name` | SNOW | Direct | Yes |
-| `description` | `short_description` | SNOW | Direct | |
-| `attributes.version` | `version` | SNOW | Direct | |
-| `attributes.vendor` | `manufacturer.name` | SNOW | Direct | |
+```json
+{
+  "mapping": {
+    "1": "missionCritical",
+    "2": "businessCritical",
+    "3": "businessOperational",
+    "4": "administrativeService"
+  }
+}
+```
 
-After the initial import, use Admin > EOL Search to mass-link the
-imported IT Components to endoflife.date products for automated
-lifecycle risk tracking.
+The mapping reverses automatically when pushing from Turbo EA to ServiceNow. For example, during push, `"missionCritical"` becomes `"1"`.
+
+### Date Format
+
+Truncates ServiceNow datetime values (`2024-06-15 14:30:00`) to date-only (`2024-06-15`). Use for lifecycle phase dates where time is irrelevant.
+
+### Boolean
+
+Converts between ServiceNow string booleans (`"true"`, `"1"`, `"yes"`) and native booleans. Useful for fields like "is_virtual", "active", etc.
 
 ---
 
@@ -555,15 +683,15 @@ lifecycle risk tracking.
 | Practice | Details |
 |----------|---------|
 | **Encryption at rest** | All credentials encrypted via Fernet (AES-128-CBC) derived from `SECRET_KEY`. If you rotate `SECRET_KEY`, re-enter all ServiceNow credentials. |
-| **Least privilege** | Create a dedicated SNOW service account with read-only access to specific tables. Only grant write if using push sync. |
-| **OAuth 2.0 preferred** | Basic Auth sends credentials on every request. OAuth uses short-lived tokens with scope restrictions. |
+| **Least privilege** | Create a dedicated SNOW service account with read-only access to specific tables. Only grant write access if using push sync. |
+| **OAuth 2.0 preferred** | Basic Auth sends credentials on every API call. OAuth uses short-lived tokens with scope restrictions. |
 | **Credential rotation** | Rotate passwords or client secrets every 90 days. |
 
 ### Network Security
 
 | Practice | Details |
 |----------|---------|
-| **HTTPS enforced** | HTTP URLs are rejected. All connections must use HTTPS. |
+| **HTTPS enforced** | HTTP URLs are rejected at validation time. All connections must use HTTPS. |
 | **Table name validation** | Table names validated against `^[a-zA-Z0-9_]+$` to prevent injection. |
 | **sys_id validation** | sys_id values validated as 32-character hex strings. |
 | **IP allowlisting** | Configure ServiceNow IP Access Control to only allow your Turbo EA server's IP. |
@@ -572,7 +700,7 @@ lifecycle risk tracking.
 
 | Practice | Details |
 |----------|---------|
-| **RBAC gated** | All endpoints require `servicenow.manage` permission. |
+| **RBAC gated** | All ServiceNow endpoints require `servicenow.manage` permission. |
 | **Audit trail** | All sync-created changes publish events with `source: "servicenow_sync"`, visible in card history. |
 | **No credential exposure** | Passwords and secrets are never returned in API responses. |
 
@@ -585,6 +713,7 @@ lifecycle risk tracking.
 - [ ] ServiceNow IP allowlist configured for Turbo EA server IP
 - [ ] Max deletion ratio set to 50% or lower
 - [ ] Sync runs monitored for unusual error or deletion counts
+- [ ] Filter queries include `active=true` at minimum
 
 ---
 
@@ -597,30 +726,30 @@ lifecycle risk tracking.
 2. Verify network connectivity (can Turbo EA reach SNOW over HTTPS?)
 3. Create connection in Turbo EA and test it
 4. Verify metamodel types have all fields you want to sync
-5. Create first mapping with ADDITIVE mode
-6. Use preview endpoint to verify mapping produces correct output
-7. Run first pull sync with auto_apply=false
-8. Review staged records in the Sync Dashboard
-9. Apply staged records
-10. Verify imported cards in the Inventory
+5. Create first mapping with ADDITIVE mode, staging ON
+6. Use the Preview button (via API) to verify mapping produces correct output
+7. Run first pull sync — review staged records in the Sync Dashboard
+8. Apply staged records
+9. Verify imported cards in the Inventory
+10. Adjust field mappings if needed, re-run
 11. Switch mapping to CONSERVATIVE mode for ongoing use
+12. After several successful runs, enable Skip Staging for automation
 ```
 
 ### Ongoing Operations
 
 | Task | Frequency | How |
 |------|-----------|-----|
-| Run pull sync | Daily or weekly | Sync Dashboard > Pull button |
+| Run pull sync | Daily or weekly | Sync Dashboard > Pull button (or cron) |
 | Review sync stats | After each run | Check error/deletion counts |
 | Test connections | Monthly | Click test button on each connection |
 | Rotate credentials | Quarterly | Update in both SNOW and Turbo EA |
 | Review identity map | Quarterly | Check orphaned entries via sync stats |
-| Audit card history | As needed | Filter events by `servicenow_sync` |
+| Audit card history | As needed | Filter events by `servicenow_sync` source |
 
-### Setting Up Scheduled Syncs
+### Setting Up Automated Syncs
 
-Syncs are currently triggered manually from the UI or via API. To
-automate, use a cron job or external scheduler:
+Syncs can be triggered via API for automation:
 
 ```bash
 # Daily pull sync at 2:00 AM
@@ -630,18 +759,16 @@ automate, use a cron job or external scheduler:
   >> /var/log/turboea-sync.log 2>&1
 ```
 
-> **Best practice**: Run syncs during off-peak hours. For large CMDB
-> tables (10,000+ CIs), expect 2-5 minutes depending on network
-> latency and record count.
+**Best practice**: Run syncs during off-peak hours. For large CMDB tables (10,000+ CIs), expect 2-5 minutes depending on network latency and record count.
 
 ### Capacity Planning
 
-| CMDB Size | Expected Pull Duration | Recommendation |
-|-----------|----------------------|----------------|
-| < 500 CIs | < 30 seconds | Sync daily |
-| 500-5,000 CIs | 30s - 2 minutes | Sync daily |
-| 5,000-20,000 CIs | 2-5 minutes | Sync nightly |
-| 20,000+ CIs | 5-15 minutes | Sync weekly, use filter queries |
+| CMDB Size | Expected Duration | Recommendation |
+|-----------|-------------------|----------------|
+| < 500 CIs | < 30 seconds | Sync daily, staging optional |
+| 500-5,000 CIs | 30s - 2 minutes | Sync daily, skip staging |
+| 5,000-20,000 CIs | 2-5 minutes | Sync nightly, skip staging |
+| 20,000+ CIs | 5-15 minutes | Sync weekly, use filter queries to split |
 
 ---
 
@@ -662,13 +789,14 @@ automate, use a cron job or external scheduler:
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | 0 records fetched | Wrong table or filter | Verify table name; simplify filter query |
-| All records are "create" | Identity mismatch | Mark `name` as identity; verify names match |
+| All records are "create" | Identity mismatch | Mark `name` as identity; verify names match between systems |
 | High error count | Transform failures | Check staged records for error messages |
 | Deletions skipped | Ratio exceeded | Increase threshold or investigate why CIs disappeared |
 | Changes not visible | Browser cache | Hard-refresh; check card history for events |
 | Duplicate cards | Multiple mappings for same type | Use one mapping per card type per connection |
+| Push changes rejected | Missing SNOW permissions | Grant `import_admin` role to service account |
 
-### Diagnostic Endpoints
+### Diagnostic Tools
 
 ```bash
 # Preview how records will map (5 samples, no side effects)
@@ -690,8 +818,7 @@ GET /api/v1/servicenow/sync/runs/{run_id}/staged?status=error
 
 ## API Reference (Quick)
 
-All endpoints require `Authorization: Bearer <token>` and
-`servicenow.manage` permission. Base path: `/api/v1`.
+All endpoints require `Authorization: Bearer <token>` and `servicenow.manage` permission. Base path: `/api/v1`.
 
 ### Connections
 
@@ -701,29 +828,29 @@ All endpoints require `Authorization: Bearer <token>` and
 | POST | `/servicenow/connections` | Create connection |
 | GET | `/servicenow/connections/{id}` | Get connection |
 | PATCH | `/servicenow/connections/{id}` | Update connection |
-| DELETE | `/servicenow/connections/{id}` | Delete connection + mappings |
+| DELETE | `/servicenow/connections/{id}` | Delete connection + all mappings |
 | POST | `/servicenow/connections/{id}/test` | Test connectivity |
 | GET | `/servicenow/connections/{id}/tables` | Browse SNOW tables |
-| GET | `/servicenow/connections/{id}/tables/{table}/fields` | List columns |
+| GET | `/servicenow/connections/{id}/tables/{table}/fields` | List table columns |
 
 ### Mappings
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/servicenow/mappings` | List mappings |
-| POST | `/servicenow/mappings` | Create with field mappings |
-| GET | `/servicenow/mappings/{id}` | Get with field mappings |
-| PATCH | `/servicenow/mappings/{id}` | Update (replaces fields if provided) |
+| GET | `/servicenow/mappings` | List mappings with field mappings |
+| POST | `/servicenow/mappings` | Create mapping with field mappings |
+| GET | `/servicenow/mappings/{id}` | Get mapping with field mappings |
+| PATCH | `/servicenow/mappings/{id}` | Update mapping (replaces fields if provided) |
 | DELETE | `/servicenow/mappings/{id}` | Delete mapping |
-| POST | `/servicenow/mappings/{id}/preview` | Dry-run (5 sample records) |
+| POST | `/servicenow/mappings/{id}/preview` | Dry-run preview (5 sample records) |
 
 ### Sync Operations
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/servicenow/sync/pull/{mapping_id}` | Pull sync (`?auto_apply=true`) |
+| POST | `/servicenow/sync/pull/{mapping_id}` | Pull sync (`?auto_apply=true` default) |
 | POST | `/servicenow/sync/push/{mapping_id}` | Push sync |
-| GET | `/servicenow/sync/runs` | List history (`?limit=20`) |
-| GET | `/servicenow/sync/runs/{id}` | Get run details |
-| GET | `/servicenow/sync/runs/{id}/staged` | List staged records |
-| POST | `/servicenow/sync/runs/{id}/apply` | Apply pending records |
+| GET | `/servicenow/sync/runs` | List sync history (`?limit=20`) |
+| GET | `/servicenow/sync/runs/{id}` | Get run details + stats |
+| GET | `/servicenow/sync/runs/{id}/staged` | List staged records for a run |
+| POST | `/servicenow/sync/runs/{id}/apply` | Apply pending staged records |

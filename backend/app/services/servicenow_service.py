@@ -402,6 +402,7 @@ class SyncEngine:
                     await self._process_pull_record(
                         run, mapping, field_mappings, identity_fields,
                         record, sys_id, id_map_entries,
+                        skip_staging=mapping.skip_staging,
                     )
                 except Exception as exc:
                     logger.error("Error processing SNOW record %s: %s", sys_id, exc)
@@ -413,8 +414,8 @@ class SyncEngine:
                     run, mapping, all_records, id_map_entries,
                 )
 
-            # Apply staged records if auto_apply
-            if auto_apply:
+            # Apply staged records if auto_apply (skip_staging already applied inline)
+            if auto_apply and not mapping.skip_staging:
                 await self._apply_staged(run)
 
             run.status = "completed"
@@ -438,6 +439,8 @@ class SyncEngine:
         record: dict,
         sys_id: str,
         id_map_entries: dict[str, SnowIdentityMap],
+        *,
+        skip_staging: bool = False,
     ) -> None:
         """Process a single ServiceNow record for pull sync."""
         # Step 1: Match — check identity map first
@@ -473,18 +476,35 @@ class SyncEngine:
         else:
             action = "create"
 
-        # Step 5: Stage
-        staged = SnowStagedRecord(
-            sync_run_id=run.id,
-            mapping_id=mapping.id,
-            snow_sys_id=sys_id,
-            snow_data=record,
-            card_id=card_id,
-            action=action,
-            diff=diff,
-            status="pending",
-        )
-        self.db.add(staged)
+        # Step 5: Stage or apply directly
+        if skip_staging and action != "skip":
+            # Apply directly without writing staged records
+            fake_staged = SnowStagedRecord(
+                sync_run_id=run.id,
+                mapping_id=mapping.id,
+                snow_sys_id=sys_id,
+                snow_data=record,
+                card_id=card_id,
+                action=action,
+                diff=diff,
+                status="applied",
+            )
+            if action == "create":
+                await self._apply_create(fake_staged, mapping, field_mappings)
+            elif action == "update":
+                await self._apply_update(fake_staged, field_mappings)
+        elif not skip_staging:
+            staged = SnowStagedRecord(
+                sync_run_id=run.id,
+                mapping_id=mapping.id,
+                snow_sys_id=sys_id,
+                snow_data=record,
+                card_id=card_id,
+                action=action,
+                diff=diff,
+                status="pending",
+            )
+            self.db.add(staged)
 
         # Update stats
         if action != "skip":

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -10,6 +10,7 @@ import TextField from "@mui/material/TextField";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControl from "@mui/material/FormControl";
+import FormHelperText from "@mui/material/FormHelperText";
 import InputLabel from "@mui/material/InputLabel";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
@@ -34,10 +35,47 @@ import Divider from "@mui/material/Divider";
 import Slider from "@mui/material/Slider";
 import LinearProgress from "@mui/material/LinearProgress";
 import Stack from "@mui/material/Stack";
+import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord } from "@/types";
+import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Helpers — derive Turbo EA field path options from a card type
+// ---------------------------------------------------------------------------
+
+interface TurboFieldOption {
+  path: string;
+  label: string;
+  group: string;
+}
+
+function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[] {
+  const options: TurboFieldOption[] = [
+    { path: "name", label: "Name", group: "Core" },
+    { path: "description", label: "Description", group: "Core" },
+    { path: "lifecycle.plan", label: "Plan", group: "Lifecycle" },
+    { path: "lifecycle.phaseIn", label: "Phase In", group: "Lifecycle" },
+    { path: "lifecycle.active", label: "Active", group: "Lifecycle" },
+    { path: "lifecycle.phaseOut", label: "Phase Out", group: "Lifecycle" },
+    { path: "lifecycle.endOfLife", label: "End of Life", group: "Lifecycle" },
+  ];
+
+  if (cardType?.fields_schema) {
+    for (const section of cardType.fields_schema) {
+      for (const field of section.fields) {
+        options.push({
+          path: `attributes.${field.key}`,
+          label: field.label,
+          group: section.section,
+        });
+      }
+    }
+  }
+
+  return options;
+}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -603,9 +641,19 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const [syncMode, setSyncMode] = useState("conservative");
   const [maxDeletionRatio, setMaxDeletionRatio] = useState(0.5);
   const [filterQuery, setFilterQuery] = useState("");
+  const [skipStaging, setSkipStaging] = useState(false);
   const [fieldMappings, setFieldMappings] = useState<FieldMappingRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const selectedCardType = useMemo(
+    () => types.find((t) => t.key === cardTypeKey),
+    [types, cardTypeKey],
+  );
+  const turboFieldOptions = useMemo(
+    () => getTurboFieldOptions(selectedCardType),
+    [selectedCardType],
+  );
 
   useEffect(() => {
     if (open) {
@@ -616,6 +664,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
       setSyncMode(mapping?.sync_mode || "conservative");
       setMaxDeletionRatio(mapping?.max_deletion_ratio ?? 0.5);
       setFilterQuery(mapping?.filter_query || "");
+      setSkipStaging(mapping?.skip_staging ?? false);
       setFieldMappings(
         mapping?.field_mappings.map((fm) => ({
           turbo_field: fm.turbo_field,
@@ -657,6 +706,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
         sync_mode: syncMode,
         max_deletion_ratio: maxDeletionRatio,
         filter_query: filterQuery || null,
+        skip_staging: skipStaging,
         field_mappings: fieldMappings.filter((fm) => fm.turbo_field && fm.snow_field),
       };
       if (mapping) {
@@ -727,6 +777,9 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 <MenuItem value="turbo_to_snow">Turbo EA → ServiceNow</MenuItem>
                 <MenuItem value="bidirectional">Bidirectional</MenuItem>
               </Select>
+              <FormHelperText>
+                Controls which Pull/Push operations are available on the Sync Dashboard
+              </FormHelperText>
             </FormControl>
             <FormControl fullWidth>
               <InputLabel>Sync Mode</InputLabel>
@@ -741,6 +794,21 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
               </Select>
             </FormControl>
           </Box>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={skipStaging}
+                onChange={(e) => setSkipStaging(e.target.checked)}
+              />
+            }
+            label="Skip staging (apply changes directly)"
+          />
+          {skipStaging && (
+            <Alert severity="warning" sx={{ mt: -1 }}>
+              Changes will be applied immediately without review. Staged records will not be created.
+            </Alert>
+          )}
 
           <Box>
             <Typography variant="body2" gutterBottom>
@@ -780,14 +848,32 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
             </Button>
           </Box>
 
+          {!cardTypeKey && fieldMappings.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Select a Card Type above to get field suggestions.
+            </Typography>
+          )}
+
           {fieldMappings.map((fm, idx) => (
             <Box key={idx} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-              <TextField
-                label="Turbo EA Field"
+              <Autocomplete
+                freeSolo
                 size="small"
                 value={fm.turbo_field}
-                onChange={(e) => updateFieldMapping(idx, "turbo_field", e.target.value)}
-                placeholder="name"
+                onChange={(_, v) => updateFieldMapping(idx, "turbo_field", v || "")}
+                onInputChange={(_, v) => updateFieldMapping(idx, "turbo_field", v)}
+                options={turboFieldOptions.map((o) => o.path)}
+                groupBy={(option) => {
+                  const found = turboFieldOptions.find((o) => o.path === option);
+                  return found?.group || "";
+                }}
+                getOptionLabel={(option) => {
+                  const found = turboFieldOptions.find((o) => o.path === option);
+                  return found ? `${option} — ${found.label}` : option;
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} label="Turbo EA Field" placeholder="name" />
+                )}
                 sx={{ flex: 1 }}
               />
               <MaterialSymbol icon="sync_alt" size={16} color="#999" />
@@ -799,15 +885,17 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 placeholder="name"
                 sx={{ flex: 1 }}
               />
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <Select
-                  value={fm.direction}
-                  onChange={(e) => updateFieldMapping(idx, "direction", e.target.value)}
-                >
-                  <MenuItem value="snow_leads">SNOW leads</MenuItem>
-                  <MenuItem value="turbo_leads">Turbo leads</MenuItem>
-                </Select>
-              </FormControl>
+              <Tooltip title="Per-field source of truth: which system's value wins during sync">
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <Select
+                    value={fm.direction}
+                    onChange={(e) => updateFieldMapping(idx, "direction", e.target.value)}
+                  >
+                    <MenuItem value="snow_leads">SNOW leads</MenuItem>
+                    <MenuItem value="turbo_leads">Turbo leads</MenuItem>
+                  </Select>
+                </FormControl>
+              </Tooltip>
               <FormControl size="small" sx={{ minWidth: 100 }}>
                 <Select
                   value={fm.transform_type}
