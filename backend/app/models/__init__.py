@@ -25,6 +25,14 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
+from app.models.servicenow import (
+    SnowConnection,
+    SnowFieldMapping,
+    SnowIdentityMap,
+    SnowMapping,
+    SnowStagedRecord,
+    SnowSyncRun,
+)
 from app.models.web_portal import WebPortal
 
 __all__ = [
@@ -59,4 +67,10 @@ __all__ = [
     "ProcessFlowVersion",
     "SsoInvitation",
     "WebPortal",
+    "SnowConnection",
+    "SnowMapping",
+    "SnowFieldMapping",
+    "SnowSyncRun",
+    "SnowStagedRecord",
+    "SnowIdentityMap",
 ]

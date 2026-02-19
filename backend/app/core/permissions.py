@@ -129,6 +129,13 @@ APP_PERMISSIONS: dict[str, dict] = {
             "notifications.manage": "Manage own notifications",
         },
     },
+    "servicenow": {
+        "label": "ServiceNow",
+        "permissions": {
+            "servicenow.view": "View ServiceNow integration settings and sync history",
+            "servicenow.manage": "Manage ServiceNow connections, mappings, and trigger syncs",
+        },
+    },
     "admin": {
         "label": "Admin",
         "permissions": {
@@ -237,6 +244,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "eol.manage": True,
     "web_portals.view": True,
     "web_portals.manage": False,
+    "servicenow.view": False,
+    "servicenow.manage": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -286,6 +295,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "eol.manage": True,
     "web_portals.view": True,
     "web_portals.manage": False,
+    "servicenow.view": False,
+    "servicenow.manage": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -336,6 +347,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "eol.manage": False,
     "web_portals.view": True,
     "web_portals.manage": False,
+    "servicenow.view": False,
+    "servicenow.manage": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,

@@ -798,3 +798,70 @@ export interface ProcessFlowPermissions {
   can_edit_draft: boolean;
   can_approve: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// ServiceNow Integration
+// ---------------------------------------------------------------------------
+
+export interface SnowConnection {
+  id: string;
+  name: string;
+  instance_url: string;
+  auth_type: string;
+  is_active: boolean;
+  last_tested_at?: string | null;
+  test_status?: string | null;
+  mapping_count: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SnowFieldMapping {
+  id: string;
+  turbo_field: string;
+  snow_field: string;
+  direction: string;
+  transform_type?: string | null;
+  transform_config?: Record<string, unknown> | null;
+  is_identity: boolean;
+}
+
+export interface SnowMapping {
+  id: string;
+  connection_id: string;
+  card_type_key: string;
+  snow_table: string;
+  sync_direction: string;
+  sync_mode: string;
+  max_deletion_ratio: number;
+  filter_query?: string | null;
+  is_active: boolean;
+  field_mappings: SnowFieldMapping[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SnowSyncRun {
+  id: string;
+  connection_id: string;
+  mapping_id?: string | null;
+  status: string;
+  direction: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  stats?: Record<string, number> | null;
+  error_message?: string | null;
+  created_by?: string | null;
+}
+
+export interface SnowStagedRecord {
+  id: string;
+  snow_sys_id: string;
+  snow_data?: Record<string, unknown> | null;
+  card_id?: string | null;
+  action: string;
+  diff?: Record<string, { old: unknown; new: unknown }> | null;
+  status: string;
+  error_message?: string | null;
+  created_at?: string | null;
+}
