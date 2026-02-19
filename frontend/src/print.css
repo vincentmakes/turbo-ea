@@ -6,7 +6,7 @@
   /* Force landscape and tighten margins */
   @page {
     size: landscape;
-    margin: 12mm 10mm;
+    margin: 10mm 8mm;
   }
 
   /* Hide the app navbar and mobile drawer */
@@ -19,6 +19,12 @@
   main.app-main-content {
     padding-top: 0 !important;
     margin-top: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* Reduce page-level padding */
+  main.app-main-content > .MuiBox-root {
+    padding: 0 !important;
   }
 
   /* Hide report interactive toolbar (dropdowns, toggles, filters) */
@@ -36,11 +42,6 @@
     display: none !important;
   }
 
-  /* Hide legend unless it's useful — keep it but shrink */
-  .report-legend {
-    margin-top: 8px !important;
-  }
-
   /* Show the print-only parameter header */
   .report-print-params {
     display: flex !important;
@@ -51,8 +52,47 @@
     max-width: none !important;
   }
 
-  /* Avoid page breaks inside chart containers */
+  /* ---- Compact spacing to fit content on page 1 ---- */
+
+  /* Shrink title bar */
+  .report-container > .MuiBox-root:first-of-type {
+    margin-bottom: 4px !important;
+  }
+  .report-container > .MuiBox-root:first-of-type .MuiTypography-h5 {
+    font-size: 1.15rem !important;
+  }
+
+  /* Shrink print params spacing */
+  .report-print-params {
+    margin-bottom: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* Remove minHeight on chart area so it doesn't force blank space */
   .report-chart-area {
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Shrink legend spacing */
+  .report-legend {
+    margin-top: 6px !important;
+  }
+
+  /* Compact metric / KPI card strips */
+  .report-chart-area > .MuiBox-root:first-child {
+    margin-bottom: 8px !important;
+  }
+
+  /* Allow content to flow across pages, but avoid breaks inside cards */
+  .report-chart-area {
+    break-inside: auto;
+  }
+
+  /* Prevent page breaks inside individual visual blocks */
+  .report-chart-area .MuiPaper-root,
+  .report-chart-area .recharts-wrapper,
+  .report-chart-area > .MuiBox-root > .MuiBox-root {
     break-inside: avoid;
   }
 
@@ -61,21 +101,10 @@
     box-shadow: none !important;
   }
 
-  /* Ensure SVG charts print correctly */
-  svg {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
   /* Preserve background colors in print */
   * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-  }
-
-  /* Remove any overflow hidden that might clip content */
-  .report-chart-area {
-    overflow: visible !important;
   }
 }
 
