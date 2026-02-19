@@ -304,6 +304,13 @@ export interface Tag {
   tag_group_id: string;
 }
 
+export interface BookmarkShareEntry {
+  user_id: string;
+  display_name?: string;
+  email?: string;
+  can_edit: boolean;
+}
+
 export interface Bookmark {
   id: string;
   name: string;
@@ -312,6 +319,14 @@ export interface Bookmark {
   columns?: string[];
   sort?: Record<string, unknown>;
   is_default: boolean;
+  visibility: "private" | "public" | "shared";
+  odata_enabled: boolean;
+  owner_id: string;
+  owner_name?: string;
+  is_owner: boolean;
+  can_edit: boolean;
+  shared_with?: BookmarkShareEntry[];
+  odata_url?: string | null;
   created_at?: string;
 }
 

@@ -27,9 +27,10 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
+import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { CardType, Bookmark, FieldDef, RelationType } from "@/types";
+import type { CardType, Bookmark, FieldDef, RelationType, User } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -58,6 +59,7 @@ interface Props {
   relevantRelTypes?: RelationType[];
   relationsMap?: Map<string, Map<string, string[]>>;
   canArchive?: boolean;
+  currentUserId?: string;
 }
 
 const APPROVAL_STATUS_OPTIONS = [
@@ -99,6 +101,7 @@ export default function InventoryFilterSidebar({
   relevantRelTypes = [],
   relationsMap,
   canArchive = false,
+  currentUserId,
 }: Props) {
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -120,6 +123,10 @@ export default function InventoryFilterSidebar({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
   const [viewName, setViewName] = useState("");
+  const [dialogVisibility, setDialogVisibility] = useState<"private" | "public" | "shared">("private");
+  const [dialogOdata, setDialogOdata] = useState(false);
+  const [dialogSharedWith, setDialogSharedWith] = useState<(User & { can_edit?: boolean })[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
 
   // Load bookmarks
   const loadBookmarks = useCallback(async () => {
@@ -236,11 +243,35 @@ export default function InventoryFilterSidebar({
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length;
 
+  // Categorize bookmarks into My / Shared / Public sections
+  const myViews = useMemo(() => bookmarks.filter((b) => b.is_owner), [bookmarks]);
+  const sharedViews = useMemo(
+    () => bookmarks.filter((b) => !b.is_owner && b.visibility === "shared"),
+    [bookmarks],
+  );
+  const publicViews = useMemo(
+    () => bookmarks.filter((b) => !b.is_owner && b.visibility === "public"),
+    [bookmarks],
+  );
+
   /* ---- Views actions ---- */
+
+  const openCreateDialog = () => {
+    setEditingBookmark(null);
+    setViewName("");
+    setDialogVisibility("private");
+    setDialogOdata(false);
+    setDialogSharedWith([]);
+    setSaveDialogOpen(true);
+  };
 
   const handleSaveView = async () => {
     if (!viewName.trim()) return;
-    const payload = {
+    const sharedWithPayload =
+      dialogVisibility === "shared"
+        ? dialogSharedWith.map((u) => ({ user_id: u.id, can_edit: u.can_edit ?? false }))
+        : null;
+    const payload: Record<string, unknown> = {
       name: viewName.trim(),
       card_type: filters.types.length === 1 ? filters.types[0] : undefined,
       filters: {
@@ -254,6 +285,9 @@ export default function InventoryFilterSidebar({
         attributes: filters.attributes,
         relations: filters.relations,
       },
+      visibility: dialogVisibility,
+      odata_enabled: dialogOdata,
+      shared_with: sharedWithPayload,
     };
     if (editingBookmark) {
       await api.patch(`/bookmarks/${editingBookmark.id}`, payload);
@@ -292,8 +326,27 @@ export default function InventoryFilterSidebar({
   const handleEditView = (bm: Bookmark) => {
     setEditingBookmark(bm);
     setViewName(bm.name);
+    setDialogVisibility(bm.visibility || "private");
+    setDialogOdata(bm.odata_enabled || false);
+    // Pre-populate shared users with can_edit flag
+    const shared = (bm.shared_with || []).map((s) => ({
+      id: s.user_id,
+      display_name: s.display_name || "",
+      email: s.email || "",
+      role: "",
+      is_active: true,
+      can_edit: s.can_edit,
+    }));
+    setDialogSharedWith(shared);
     setSaveDialogOpen(true);
   };
+
+  // Load all users when shared visibility is selected
+  useEffect(() => {
+    if (saveDialogOpen && dialogVisibility === "shared" && allUsers.length === 0) {
+      api.get<User[]>("/users").then(setAllUsers).catch(() => {});
+    }
+  }, [saveDialogOpen, dialogVisibility, allUsers.length]);
 
   /* ---- Resize drag ---- */
 
@@ -862,11 +915,7 @@ export default function InventoryFilterSidebar({
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => {
-                    setEditingBookmark(null);
-                    setViewName("");
-                    setSaveDialogOpen(true);
-                  }}
+                  onClick={openCreateDialog}
                   startIcon={<MaterialSymbol icon="bookmark_add" size={16} />}
                   sx={{ textTransform: "none", fontSize: 13, ml: "auto" }}
                 >
@@ -890,11 +939,7 @@ export default function InventoryFilterSidebar({
                 </Typography>
                 <Button
                   size="small"
-                  onClick={() => {
-                    setEditingBookmark(null);
-                    setViewName("");
-                    setSaveDialogOpen(true);
-                  }}
+                  onClick={openCreateDialog}
                   startIcon={<MaterialSymbol icon="add" size={16} />}
                   sx={{ textTransform: "none", fontSize: 13 }}
                 >
@@ -913,65 +958,67 @@ export default function InventoryFilterSidebar({
                   Apply filters and click "Save current".
                 </Typography>
               ) : (
-                <List dense disablePadding>
-                  {bookmarks.map((bm) => {
-                    const bmFilters = bm.filters as Record<string, unknown> | undefined;
-                    const bmTypes = (bmFilters?.types as string[]) || [];
-                    const matchedType = bmTypes.length === 1
-                      ? types.find((t) => t.key === bmTypes[0])
-                      : null;
-                    return (
-                      <ListItemButton
-                        key={bm.id}
-                        sx={{ py: 0.5, px: 1, borderRadius: 1 }}
-                        onClick={() => handleApplyView(bm)}
-                      >
-                        <ListItemIcon sx={{ minWidth: 28 }}>
-                          {matchedType ? (
-                            <MaterialSymbol
-                              icon={matchedType.icon}
-                              size={18}
-                              color={matchedType.color}
-                            />
-                          ) : (
-                            <MaterialSymbol icon="bookmark" size={18} color="#999" />
-                          )}
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={bm.name}
-                          primaryTypographyProps={{ fontSize: 14, noWrap: true }}
-                          secondary={
-                            matchedType
-                              ? matchedType.label
-                              : bmTypes.length > 1
-                              ? `${bmTypes.length} types`
-                              : "All types"
-                          }
-                          secondaryTypographyProps={{ fontSize: 12 }}
-                        />
-                        <Box
-                          sx={{ display: "flex", gap: 0.25, ml: 0.5 }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditView(bm)}
-                            sx={{ p: 0.25 }}
-                          >
-                            <MaterialSymbol icon="edit" size={14} color="#999" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleDeleteView(bm)}
-                            sx={{ p: 0.25 }}
-                          >
-                            <MaterialSymbol icon="delete" size={14} color="#999" />
-                          </IconButton>
-                        </Box>
-                      </ListItemButton>
-                    );
-                  })}
-                </List>
+                <>
+                  {/* My Views */}
+                  {myViews.length > 0 && (
+                    <>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
+                        My Views
+                      </Typography>
+                      <List dense disablePadding sx={{ mb: 1 }}>
+                        {myViews.map((bm) => (
+                          <BookmarkListItem
+                            key={bm.id}
+                            bm={bm}
+                            types={types}
+                            onApply={handleApplyView}
+                            onEdit={handleEditView}
+                            onDelete={handleDeleteView}
+                          />
+                        ))}
+                      </List>
+                    </>
+                  )}
+
+                  {/* Shared with me */}
+                  {sharedViews.length > 0 && (
+                    <>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
+                        Shared with me
+                      </Typography>
+                      <List dense disablePadding sx={{ mb: 1 }}>
+                        {sharedViews.map((bm) => (
+                          <BookmarkListItem
+                            key={bm.id}
+                            bm={bm}
+                            types={types}
+                            onApply={handleApplyView}
+                            onEdit={bm.can_edit ? handleEditView : undefined}
+                          />
+                        ))}
+                      </List>
+                    </>
+                  )}
+
+                  {/* Public */}
+                  {publicViews.length > 0 && (
+                    <>
+                      <Typography variant="overline" color="text.secondary" sx={{ fontSize: 11, px: 0.5 }}>
+                        Public
+                      </Typography>
+                      <List dense disablePadding>
+                        {publicViews.map((bm) => (
+                          <BookmarkListItem
+                            key={bm.id}
+                            bm={bm}
+                            types={types}
+                            onApply={handleApplyView}
+                          />
+                        ))}
+                      </List>
+                    </>
+                  )}
+                </>
               )}
             </>
           )}
@@ -995,13 +1042,14 @@ export default function InventoryFilterSidebar({
       <Dialog
         open={saveDialogOpen}
         onClose={() => setSaveDialogOpen(false)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <MaterialSymbol icon={editingBookmark ? "edit" : "bookmark_add"} size={22} color="#1976d2" />
           {editingBookmark ? "Edit View" : "Save Current View"}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
           <TextField
             autoFocus
             fullWidth
@@ -1009,15 +1057,149 @@ export default function InventoryFilterSidebar({
             label="View name"
             value={viewName}
             onChange={(e) => setViewName(e.target.value)}
-            sx={{ mt: 1 }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") handleSaveView();
+              if (e.key === "Enter" && viewName.trim()) handleSaveView();
             }}
           />
           {!editingBookmark && activeCount > 0 && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            <Typography variant="caption" color="text.secondary">
               This will save your current {activeCount} active filter{activeCount > 1 ? "s" : ""}.
             </Typography>
+          )}
+
+          {/* Visibility */}
+          <TextField
+            select
+            label="Visibility"
+            value={dialogVisibility}
+            onChange={(e) => setDialogVisibility(e.target.value as "private" | "public" | "shared")}
+            fullWidth
+            size="small"
+            disabled={editingBookmark != null && !editingBookmark.is_owner}
+          >
+            <MenuItem value="private">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="lock" size={16} />
+                Private — Only me
+              </Box>
+            </MenuItem>
+            <MenuItem value="public">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="public" size={16} />
+                Public — All users
+              </Box>
+            </MenuItem>
+            <MenuItem value="shared">
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <MaterialSymbol icon="group" size={16} />
+                Shared — Specific users
+              </Box>
+            </MenuItem>
+          </TextField>
+
+          {/* User picker when shared */}
+          {dialogVisibility === "shared" && (
+            <>
+              <Autocomplete
+                multiple
+                options={allUsers.filter((u) => u.is_active && u.id !== currentUserId)}
+                getOptionLabel={(u) => `${u.display_name} (${u.email})`}
+                value={dialogSharedWith}
+                onChange={(_, v) =>
+                  setDialogSharedWith(v.map((u) => ({ ...u, can_edit: (u as User & { can_edit?: boolean }).can_edit ?? false })))
+                }
+                isOptionEqualToValue={(o, v) => o.id === v.id}
+                renderTags={(value, getTagProps) =>
+                  value.map((u, idx) => (
+                    <Chip label={u.display_name} size="small" {...getTagProps({ index: idx })} key={u.id} />
+                  ))
+                }
+                renderInput={(params) => (
+                  <TextField {...params} label="Share with" size="small" placeholder="Search users..." />
+                )}
+                size="small"
+                disabled={editingBookmark != null && !editingBookmark.is_owner}
+              />
+
+              {/* Can-edit toggles per shared user */}
+              {dialogSharedWith.length > 0 && (
+                <Box sx={{ pl: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+                    Permissions (shared users can view by default)
+                  </Typography>
+                  {dialogSharedWith.map((u) => (
+                    <FormControlLabel
+                      key={u.id}
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={u.can_edit ?? false}
+                          onChange={(e) =>
+                            setDialogSharedWith((prev) =>
+                              prev.map((p) => (p.id === u.id ? { ...p, can_edit: e.target.checked } : p)),
+                            )
+                          }
+                          disabled={editingBookmark != null && !editingBookmark.is_owner}
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" fontSize={13}>
+                          {u.display_name} — can edit
+                        </Typography>
+                      }
+                      sx={{ ml: 0 }}
+                    />
+                  ))}
+                </Box>
+              )}
+            </>
+          )}
+
+          {/* OData toggle */}
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                checked={dialogOdata}
+                onChange={(e) => setDialogOdata(e.target.checked)}
+                disabled={editingBookmark != null && !editingBookmark.is_owner}
+              />
+            }
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                <MaterialSymbol icon="cloud" size={16} color="#666" />
+                <Typography variant="body2" fontSize={13}>Enable OData feed</Typography>
+              </Box>
+            }
+            sx={{ ml: 0 }}
+          />
+          {dialogOdata && editingBookmark?.odata_url && (
+            <Box sx={{ bgcolor: "#f5f5f5", borderRadius: 1, p: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                OData Feed URL (requires authentication)
+              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontSize: 12,
+                    fontFamily: "monospace",
+                    wordBreak: "break-all",
+                    flex: 1,
+                  }}
+                >
+                  {editingBookmark.odata_url}
+                </Typography>
+                <Tooltip title="Copy URL">
+                  <IconButton
+                    size="small"
+                    onClick={() => navigator.clipboard.writeText(editingBookmark.odata_url || "")}
+                  >
+                    <MaterialSymbol icon="content_copy" size={16} />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
           )}
         </DialogContent>
         <DialogActions>
@@ -1080,5 +1262,82 @@ function SectionHeader({
         <Chip label={count} size="small" color="primary" sx={{ height: 18, fontSize: 11 }} />
       )}
     </Box>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Bookmark list item helper                                          */
+/* ------------------------------------------------------------------ */
+
+function BookmarkListItem({
+  bm,
+  types,
+  onApply,
+  onEdit,
+  onDelete,
+}: {
+  bm: Bookmark;
+  types: CardType[];
+  onApply: (bm: Bookmark) => void;
+  onEdit?: (bm: Bookmark) => void;
+  onDelete?: (bm: Bookmark) => void;
+}) {
+  const bmFilters = bm.filters as Record<string, unknown> | undefined;
+  const bmTypes = (bmFilters?.types as string[]) || [];
+  const matchedType = bmTypes.length === 1 ? types.find((t) => t.key === bmTypes[0]) : null;
+
+  const visIcon = bm.visibility === "public" ? "public" : bm.visibility === "shared" ? "group" : null;
+
+  return (
+    <ListItemButton
+      sx={{ py: 0.5, px: 1, borderRadius: 1 }}
+      onClick={() => onApply(bm)}
+    >
+      <ListItemIcon sx={{ minWidth: 28 }}>
+        {matchedType ? (
+          <MaterialSymbol icon={matchedType.icon} size={18} color={matchedType.color} />
+        ) : (
+          <MaterialSymbol icon="bookmark" size={18} color="#999" />
+        )}
+      </ListItemIcon>
+      <ListItemText
+        primary={
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <Typography variant="body2" fontSize={14} noWrap sx={{ flex: 1 }}>
+              {bm.name}
+            </Typography>
+            {visIcon && <MaterialSymbol icon={visIcon} size={13} color="#999" />}
+            {bm.odata_enabled && <MaterialSymbol icon="cloud" size={13} color="#1976d2" />}
+          </Box>
+        }
+        secondary={
+          !bm.is_owner
+            ? `by ${bm.owner_name || "Unknown"}`
+            : matchedType
+            ? matchedType.label
+            : bmTypes.length > 1
+            ? `${bmTypes.length} types`
+            : "All types"
+        }
+        secondaryTypographyProps={{ fontSize: 12 }}
+      />
+      {(onEdit || onDelete) && (
+        <Box
+          sx={{ display: "flex", gap: 0.25, ml: 0.5 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onEdit && (
+            <IconButton size="small" onClick={() => onEdit(bm)} sx={{ p: 0.25 }}>
+              <MaterialSymbol icon="edit" size={14} color="#999" />
+            </IconButton>
+          )}
+          {onDelete && (
+            <IconButton size="small" onClick={() => onDelete(bm)} sx={{ p: 0.25 }}>
+              <MaterialSymbol icon="delete" size={14} color="#999" />
+            </IconButton>
+          )}
+        </Box>
+      )}
+    </ListItemButton>
   );
 }

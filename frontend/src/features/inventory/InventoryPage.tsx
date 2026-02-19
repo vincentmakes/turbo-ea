@@ -881,6 +881,7 @@ export default function InventoryPage() {
             relevantRelTypes={relevantRelTypes}
             relationsMap={relationsMap}
             canArchive={canArchive}
+            currentUserId={user?.id}
           />
         </Drawer>
       ) : (
@@ -895,6 +896,7 @@ export default function InventoryPage() {
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
           canArchive={canArchive}
+          currentUserId={user?.id}
         />
       )}
 
