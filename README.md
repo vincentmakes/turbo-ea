@@ -52,10 +52,18 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 ### Integrations
 
+> [!IMPORTANT]
+> At this stage (v0.5.0) the SSO and ServiceNow integration are implemented but untested.  
+> I'm looking for volunteer testers for this who would have access to such integration end point.
+> If you are interested, please check the discussions or raise an issue.
+
+
 - **ServiceNow Integration** — Bidirectional sync with ServiceNow. Connection management, field mapping with transform rules, direction control (Turbo EA → SNOW, SNOW → Turbo EA, or bidirectional), staged record review before applying, and encrypted credential storage.
 - **SSO / Single Sign-On** — SSO callback handling with password setup flow for invited users.
 - **Web Portals** — Public, slug-based views of your EA landscape (no login required). Configurable card type display, field selection, card layout, per-portal logo toggle, and relation-based filtering.
 - **OData Feeds** — Generate OData-compatible feeds from saved views and saved reports for consumption by external tools (Excel, Power BI, etc.).
+
+
 
 ### Administration
 
