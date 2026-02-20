@@ -1,9 +1,10 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-COPY package.json package-lock.json xlsx-0.20.3.tgz ./
+COPY frontend/package.json frontend/package-lock.json frontend/xlsx-0.20.3.tgz ./
 RUN npm ci
-COPY . .
+COPY VERSION ./VERSION
+COPY frontend/ ./
 RUN npm run build
 
 # ---------------------------------------------------------------------------
@@ -15,7 +16,7 @@ RUN git clone --depth 1 --branch v26.0.9 https://github.com/jgraph/drawio.git /d
 
 FROM nginx:alpine AS production
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy DrawIO static webapp into Nginx.
 # Only the webapp directory is needed — no Java, no Electron, no build tools.
@@ -27,8 +28,8 @@ COPY --from=drawio /drawio/src/main/webapp /usr/share/nginx/drawio
 # NOTE: Do NOT overwrite styles/grapheditor.css or styles/high-contrast.css —
 # those are real DrawIO stylesheets (~1850 lines) copied from the git clone
 # above and are critical for the editor layout.
-COPY drawio-config/PreConfig.js      /usr/share/nginx/drawio/js/PreConfig.js
-COPY drawio-config/PostConfig.js     /usr/share/nginx/drawio/js/PostConfig.js
+COPY frontend/drawio-config/PreConfig.js      /usr/share/nginx/drawio/js/PreConfig.js
+COPY frontend/drawio-config/PostConfig.js     /usr/share/nginx/drawio/js/PostConfig.js
 
 # Strip PWA manifest + service-worker from DrawIO so it works behind auth
 # proxies like Cloudflare Access (browser manifest fetches don't send cookies).
