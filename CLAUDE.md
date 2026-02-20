@@ -1,6 +1,8 @@
 # Turbo EA
 
-Self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — fact sheet types, fields, subtypes, and relations are all data, not code.
+Self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. Fully admin-configurable metamodel — card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all data, not code.
+
+**Current version**: See `/VERSION` (single source of truth for backend + frontend).
 
 ## Quick Start
 
@@ -25,7 +27,7 @@ The first user to register automatically gets the `admin` role. Set `SEED_DEMO=t
 ┌──────────────────────────▼────────────────────────────────┐
 │  FastAPI Backend (Python 3.12, uvicorn, port 8000)        │
 │  SQLAlchemy 2 (async) + Alembic migrations                │
-│  JWT auth (HMAC-SHA256, bcrypt passwords)                 │
+│  RBAC permissions + JWT auth (HMAC-SHA256, bcrypt)        │
 │  SSE event stream for real-time updates                   │
 └──────────────────────────┬────────────────────────────────┘
                            │
@@ -35,7 +37,13 @@ The first user to register automatically gets the `admin` role. Set `SEED_DEMO=t
 └───────────────────────────────────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx. The diagram editor embeds it in a same-origin iframe.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
+
+---
+
+## Terminology
+
+The codebase uses **"cards"** throughout (models, routes, UI). Earlier documentation may reference "fact sheets" — this has been fully renamed. The core entity table is `cards`, the API route is `/api/v1/cards`, and the frontend route is `/cards/:id`.
 
 ---
 
@@ -43,94 +51,163 @@ The first user to register automatically gets the `admin` role. Set `SEED_DEMO=t
 
 ```
 turbo-ea/
+├── VERSION                            # SemVer (single source of truth)
+├── .dockerignore                      # Root-level (both services use root context)
+├── docker-compose.yml
+├── .env.example
+│
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── deps.py               # Auth dependency (get_current_user)
+│   │   │   ├── deps.py                # Auth dependency (get_current_user)
 │   │   │   └── v1/
 │   │   │       ├── router.py          # Mounts all API routers
-│   │   │       ├── auth.py            # /auth (login, register, me)
-│   │   │       ├── fact_sheets.py     # /fact-sheets CRUD + hierarchy + approval status
-│   │   │       ├── metamodel.py       # /metamodel (types + relation types CRUD)
+│   │   │       ├── auth.py            # /auth (login, register, me, SSO)
+│   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status
+│   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
 │   │   │       ├── relations.py       # /relations CRUD
+│   │   │       ├── stakeholders.py    # /cards/:id/stakeholders (role assignments)
+│   │   │       ├── stakeholder_roles.py # /stakeholder-roles (per-type role definitions)
+│   │   │       ├── roles.py           # /roles (app-level RBAC management)
+│   │   │       ├── calculations.py    # /calculations (computed field formulas)
+│   │   │       ├── bpm.py             # /bpm (BPMN diagram CRUD + templates)
+│   │   │       ├── bpm_assessments.py # /bpm (process assessments)
+│   │   │       ├── bpm_reports.py     # /bpm/reports (maturity, risk, automation)
+│   │   │       ├── bpm_workflow.py    # /bpm (process flow version approval)
 │   │   │       ├── diagrams.py        # /diagrams CRUD (DrawIO XML storage)
 │   │   │       ├── soaw.py            # /soaw (Statement of Architecture Work)
 │   │   │       ├── reports.py         # /reports (dashboard, portfolio, matrix, etc.)
-│   │   │       ├── tags.py            # /tag-groups + /fact-sheets/:id/tags
-│   │   │       ├── subscriptions.py   # /subscriptions (user roles on fact sheets)
-│   │   │       ├── comments.py        # /fact-sheets/:id/comments (threaded)
-│   │   │       ├── todos.py           # /todos + /fact-sheets/:id/todos
-│   │   │       ├── documents.py       # /fact-sheets/:id/documents (link storage)
+│   │   │       ├── saved_reports.py   # /saved-reports (persisted report configs)
+│   │   │       ├── tags.py            # /tag-groups + /cards/:id/tags
+│   │   │       ├── comments.py        # /cards/:id/comments (threaded)
+│   │   │       ├── todos.py           # /todos + /cards/:id/todos
+│   │   │       ├── documents.py       # /cards/:id/documents (link storage)
 │   │   │       ├── bookmarks.py       # /bookmarks (saved inventory views)
 │   │   │       ├── events.py          # /events + /events/stream (SSE)
 │   │   │       ├── users.py           # /users CRUD (admin only)
-│   │   │       ├── settings.py        # /settings (logo, currency, SMTP, logo visibility)
+│   │   │       ├── settings.py        # /settings (logo, currency, SMTP)
 │   │   │       ├── surveys.py         # /surveys (data-maintenance surveys)
 │   │   │       ├── eol.py             # /eol (End-of-Life proxy for endoflife.date)
 │   │   │       ├── web_portals.py     # /web-portals (public portal management)
-│   │   │       └── notifications.py   # /notifications (user notifications)
+│   │   │       ├── notifications.py   # /notifications (user notifications)
+│   │   │       └── servicenow.py      # /servicenow (CMDB sync integration)
 │   │   ├── core/
 │   │   │   └── security.py            # JWT creation/validation, bcrypt
 │   │   ├── models/                    # SQLAlchemy ORM models (see Database section)
 │   │   ├── schemas/                   # Pydantic request/response models
 │   │   ├── services/
 │   │   │   ├── event_bus.py           # In-memory pub/sub + SSE streaming
-│   │   │   ├── seed.py                # Default LeanIX metamodel (13 types, 29 relations)
+│   │   │   ├── permission_service.py  # RBAC permission checks (5-min cache)
+│   │   │   ├── calculation_engine.py  # Safe formula eval (simpleeval sandbox)
+│   │   │   ├── bpmn_parser.py         # BPMN 2.0 XML → element extraction
+│   │   │   ├── element_relation_sync.py # Link BPMN elements to EA cards
+│   │   │   ├── servicenow_service.py  # ServiceNow API client + sync
+│   │   │   ├── seed.py                # Default metamodel (14 types, 30+ relations)
 │   │   │   ├── seed_demo.py           # NexaTech Industries demo dataset
+│   │   │   ├── seed_demo_bpm.py       # Demo BPM processes
 │   │   │   ├── notification_service.py # In-memory + DB notification management
 │   │   │   └── email_service.py       # SMTP-based email sending
-│   │   ├── config.py                  # Settings from env vars
+│   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed)
 │   ├── alembic/                       # Database migrations
 │   ├── tests/
 │   ├── pyproject.toml
-│   └── Dockerfile                     # Python 3.12-alpine + uvicorn
+│   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
 │
 ├── frontend/
 │   ├── src/
 │   │   ├── api/client.ts              # Fetch wrapper with JWT + error handling
 │   │   ├── types/index.ts             # All TypeScript interfaces
+│   │   ├── globals.d.ts               # __APP_VERSION__ type declaration
 │   │   ├── hooks/
 │   │   │   ├── useAuth.ts             # Login/register/logout + token in localStorage
 │   │   │   ├── useMetamodel.ts        # Cached metamodel types + relation types
 │   │   │   ├── useEventStream.ts      # SSE subscription hook
-│   │   │   └── useCurrency.ts         # Global currency format + symbol cache
-│   │   ├── layouts/AppLayout.tsx       # Top nav bar + mobile drawer + routing
+│   │   │   ├── useCurrency.ts         # Global currency format + symbol cache
+│   │   │   ├── usePermissions.ts      # Effective permissions for current card
+│   │   │   ├── useCalculatedFields.ts # Track calculated fields per type
+│   │   │   ├── useBpmEnabled.ts       # BPM feature flag
+│   │   │   ├── useSavedReport.ts      # Saved report caching
+│   │   │   ├── useThumbnailCapture.ts # SVG → PNG for report thumbnails
+│   │   │   └── useTimeline.ts         # Process timeline data
+│   │   ├── layouts/AppLayout.tsx       # Top nav bar + mobile drawer + badge debounce
 │   │   ├── components/
-│   │   │   ├── CreateFactSheetDialog.tsx
+│   │   │   ├── CreateCardDialog.tsx
 │   │   │   ├── LifecycleBadge.tsx
 │   │   │   ├── ApprovalStatusBadge.tsx
 │   │   │   ├── MaterialSymbol.tsx
-│   │   │   ├── NotificationBell.tsx       # Navbar notification bell with unread count
+│   │   │   ├── NotificationBell.tsx
 │   │   │   ├── NotificationPreferencesDialog.tsx
-│   │   │   ├── EolLinkSection.tsx         # EOL product linking UI
-│   │   │   └── VendorField.tsx            # Vendor autocomplete field
+│   │   │   ├── EolLinkSection.tsx
+│   │   │   ├── VendorField.tsx
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   ├── ColorPicker.tsx
+│   │   │   └── KeyInput.tsx
 │   │   ├── features/
 │   │   │   ├── auth/LoginPage.tsx
 │   │   │   ├── dashboard/Dashboard.tsx
-│   │   │   ├── inventory/             # AG Grid data table + Excel import/export
-│   │   │   ├── fact-sheets/FactSheetDetail.tsx
-│   │   │   ├── diagrams/             # DrawIO editor + sync panel + shapes
-│   │   │   ├── reports/              # 8 report types (see Reports section)
-│   │   │   ├── ea-delivery/          # SoAW editor + preview + DOCX export
-│   │   │   ├── todos/TodosPage.tsx    # Combined Todos + Surveys page (tabbed)
-│   │   │   ├── surveys/              # SurveyRespond page
-│   │   │   ├── web-portals/          # PortalViewer (public portal rendering)
-│   │   │   └── admin/               # MetamodelAdmin, TagsAdmin, UsersAdmin,
-│   │   │                            # SettingsAdmin, EolAdmin, SurveysAdmin,
-│   │   │                            # SurveyBuilder, SurveyResults, WebPortalsAdmin
-│   │   ├── App.tsx                   # Routes + MUI theme
-│   │   └── main.tsx                  # React entry point
-│   ├── drawio-config/                # PreConfig.js, PostConfig.js (placeholders)
-│   ├── nginx.conf                    # API proxy + DrawIO + SPA fallback
+│   │   │   ├── inventory/InventoryPage.tsx  # AG Grid + memoized configs
+│   │   │   ├── cards/
+│   │   │   │   ├── CardDetail.tsx           # Main container + tab navigation
+│   │   │   │   └── sections/               # Modular section components
+│   │   │   │       ├── index.ts             # Barrel export
+│   │   │   │       ├── cardDetailUtils.tsx   # Shared utilities (DataQualityRing, FieldEditor)
+│   │   │   │       ├── DescriptionSection.tsx
+│   │   │   │       ├── LifecycleSection.tsx
+│   │   │   │       ├── AttributeSection.tsx  # Custom fields per section
+│   │   │   │       ├── HierarchySection.tsx
+│   │   │   │       ├── RelationsSection.tsx
+│   │   │   │       ├── StakeholdersTab.tsx
+│   │   │   │       ├── CommentsTab.tsx
+│   │   │   │       ├── TodosTab.tsx
+│   │   │   │       └── HistoryTab.tsx
+│   │   │   ├── bpm/                         # Business Process Management
+│   │   │   │   ├── BpmDashboard.tsx
+│   │   │   │   ├── ProcessFlowEditorPage.tsx
+│   │   │   │   ├── BpmnModeler.tsx          # bpmn-js integration
+│   │   │   │   ├── BpmnViewer.tsx
+│   │   │   │   ├── BpmnTemplateChooser.tsx
+│   │   │   │   ├── ProcessFlowTab.tsx       # Embedded in card detail
+│   │   │   │   ├── ProcessAssessmentPanel.tsx
+│   │   │   │   ├── ProcessNavigator.tsx
+│   │   │   │   ├── ElementLinker.tsx
+│   │   │   │   └── BpmReportPage.tsx
+│   │   │   ├── diagrams/                    # DrawIO editor + sync panel
+│   │   │   ├── reports/                     # 9 report types
+│   │   │   ├── ea-delivery/                 # SoAW editor + preview + DOCX export
+│   │   │   ├── todos/TodosPage.tsx
+│   │   │   ├── surveys/SurveyRespond.tsx
+│   │   │   ├── web-portals/PortalViewer.tsx
+│   │   │   └── admin/
+│   │   │       ├── MetamodelAdmin.tsx       # Type list + relation graph orchestrator
+│   │   │       ├── metamodel/               # Modular metamodel admin components
+│   │   │       │   ├── index.ts
+│   │   │       │   ├── constants.ts         # FIELD_TYPE_OPTIONS, icons, colors
+│   │   │       │   ├── helpers.ts           # Validation, defaults
+│   │   │       │   ├── TypeDetailDrawer.tsx  # Type editor + field/section CRUD
+│   │   │       │   ├── FieldEditorDialog.tsx # Field config (type, options, weight)
+│   │   │       │   ├── StakeholderRolePanel.tsx # Per-type role definitions
+│   │   │       │   └── MetamodelGraph.tsx   # Relation type SVG visualization
+│   │   │       ├── CardLayoutEditor.tsx      # Section ordering, DnD fields, columns, groups
+│   │   │       ├── TagsAdmin.tsx
+│   │   │       ├── UsersAdmin.tsx
+│   │   │       ├── SettingsAdmin.tsx
+│   │   │       ├── EolAdmin.tsx
+│   │   │       ├── SurveysAdmin.tsx
+│   │   │       ├── SurveyBuilder.tsx
+│   │   │       ├── SurveyResults.tsx
+│   │   │       ├── WebPortalsAdmin.tsx
+│   │   │       └── ServiceNowAdmin.tsx
+│   │   ├── App.tsx                          # Routes + MUI theme
+│   │   └── main.tsx                         # React entry point
+│   ├── drawio-config/                       # PreConfig.js, PostConfig.js
+│   ├── nginx.conf                           # API proxy + DrawIO + security headers
 │   ├── package.json
-│   ├── vite.config.ts
-│   └── Dockerfile                    # Multi-stage: node build → drawio clone → nginx
+│   ├── vite.config.ts                       # __APP_VERSION__ injection from VERSION file
+│   └── Dockerfile                           # Multi-stage: node → drawio → nginx (root context)
 │
-├── docker-compose.yml
-├── .env.example
-├── plan.md                           # Detailed roadmap (metamodel overhaul + reports)
+├── plan.md
 └── Statement_of_Architecture_Work_Template.md
 ```
 
@@ -144,12 +221,15 @@ turbo-ea/
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
 | `POSTGRES_DB` | `turboea` | Database name |
 | `POSTGRES_USER` | `turboea` | Database user |
-| `POSTGRES_PASSWORD` | `changeme` | Database password |
-| `SECRET_KEY` | `dev-secret-key-change-in-production` | HMAC key for JWT signing |
+| `POSTGRES_PASSWORD` | *(required)* | Database password |
+| `SECRET_KEY` | *(required)* | HMAC key for JWT signing |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24h) | JWT token lifetime |
 | `HOST_PORT` | `8920` | Port exposed on the host for the frontend |
 | `RESET_DB` | `false` | Drop all tables and re-create + re-seed on startup |
 | `SEED_DEMO` | `false` | Populate NexaTech Industries demo data on startup |
+| `SEED_BPM` | `false` | Populate demo BPM processes |
+| `ENVIRONMENT` | `production` | Runtime environment |
+| `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins |
 
 For local frontend dev without Docker, create `frontend/.env.development`:
 ```
@@ -166,33 +246,68 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `users` | `User` | Email, display_name, password_hash, role (`admin`/`member`/`viewer`), is_active |
-| `fact_sheet_types` | `FactSheetType` | Metamodel: configurable types with key, label, icon, color, category, subtypes (JSONB), fields_schema (JSONB), has_hierarchy, built_in, is_hidden, sort_order |
-| `relation_types` | `RelationType` | Metamodel: allowed relations between types with label, reverse_label, cardinality (`1:1`/`1:n`/`n:m`), attributes_schema (JSONB) |
-| `fact_sheets` | `FactSheet` | The core entity. Type, subtype, name, description, parent_id (self-referential hierarchy), lifecycle (JSONB), attributes (JSONB), status (`ACTIVE`/`ARCHIVED`), approval_status (`DRAFT`/`APPROVED`/`REJECTED`/`BROKEN`), data_quality (float 0-100) |
-| `relations` | `Relation` | Links between fact sheets. Type (matches relation_type key), source_id, target_id, attributes (JSONB), description |
+| `users` | `User` | Email, display_name, password_hash, role_key (FK to roles), is_active |
+| `card_types` | `CardType` | Metamodel: types with key, label, icon, color, category, subtypes (JSONB), fields_schema (JSONB), section_config (JSONB), stakeholder_roles (JSONB), has_hierarchy, built_in, is_hidden, sort_order |
+| `relation_types` | `RelationType` | Metamodel: allowed relations between types with label, reverse_label, cardinality, attributes_schema (JSONB) |
+| `cards` | `Card` | The core entity. Type, subtype, name, description, parent_id (hierarchy), lifecycle (JSONB), attributes (JSONB), status, approval_status, data_quality (float 0-100) |
+| `relations` | `Relation` | Links between cards. Type key, source_id, target_id, attributes (JSONB) |
+
+### RBAC Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `roles` | `Role` | App-level roles with key, label, permissions (JSONB), is_system, sort_order |
+| `stakeholder_role_definitions` | `StakeholderRoleDefinition` | Per-card-type stakeholder role definitions with permissions |
+| `stakeholders` | `Stakeholder` | User role assignments on specific cards |
+
+### BPM Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `process_diagrams` | `ProcessDiagram` | BPMN 2.0 XML storage linked to BusinessProcess cards |
+| `process_elements` | `ProcessElement` | Extracted BPMN elements (tasks, events, gateways, lanes) |
+| `process_flow_versions` | `ProcessFlowVersion` | Version history with approval workflow (draft/pending/published/archived) |
+| `process_assessments` | `ProcessAssessment` | Process scores: efficiency, effectiveness, compliance |
+
+### Calculation Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `calculations` | `Calculation` | Admin-defined formulas: name, formula, target_type_key, target_field_key, is_active, execution_order |
 
 ### Supporting Tables
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `subscriptions` | `Subscription` | User roles on fact sheets: responsible, observer, technical_application_owner, business_application_owner |
-| `tag_groups` | `TagGroup` | Tag categories with mode (single/multi), create_mode (open/restricted), restrict_to_types |
+| `tag_groups` | `TagGroup` | Tag categories with mode (single/multi), create_mode, restrict_to_types |
 | `tags` | `Tag` | Individual tags within groups, with optional color |
-| `fact_sheet_tags` | `FactSheetTag` | M:N join table (composite PK) |
-| `comments` | `Comment` | Threaded comments on fact sheets (self-referential parent_id) |
-| `todos` | `Todo` | Tasks linked to fact sheets, assignable to users, with due dates |
-| `documents` | `Document` | URL/link attachments on fact sheets |
+| `card_tags` | (association) | M:N join table |
+| `comments` | `Comment` | Threaded comments on cards (self-referential parent_id) |
+| `todos` | `Todo` | Tasks linked to cards, assignable to users, with due dates |
+| `documents` | `Document` | URL/link attachments on cards |
 | `bookmarks` | `Bookmark` | Saved inventory filter/column/sort views per user |
-| `events` | `Event` | Audit trail: event_type + JSONB data, linked to fact_sheet and user |
+| `events` | `Event` | Audit trail: event_type + JSONB data, linked to card and user |
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
-| `diagram_initiatives` | (association table) | M:N between diagrams and initiative fact sheets |
-| `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives, with JSONB sections |
-| `app_settings` | `AppSettings` | Singleton row (id='default'): email_settings (JSONB), general_settings (JSONB with currency), custom_logo (LargeBinary), custom_logo_mime |
-| `surveys` | `Survey` | Admin-created data-maintenance surveys targeting fact sheet types with filters and field actions |
-| `survey_responses` | `SurveyResponse` | Individual response records (one per fact sheet + user pair per survey) |
-| `notifications` | `Notification` | Per-user notifications with types: todo_assigned, fact_sheet_updated, comment_added, approval_status_changed, soaw_sign_requested, soaw_signed, subscription_update |
-| `web_portals` | `WebPortal` | Public web portals: configurable views of fact sheets with slug-based URLs, display fields, card config |
+| `diagram_initiatives` | (association) | M:N between diagrams and initiative cards |
+| `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives |
+| `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings, custom_logo |
+| `surveys` | `Survey` | Data-maintenance surveys with target_type, filters, actions |
+| `survey_responses` | `SurveyResponse` | Per card + user responses |
+| `notifications` | `Notification` | Per-user notifications |
+| `web_portals` | `WebPortal` | Public portals with slug-based URLs |
+| `saved_reports` | `SavedReport` | Persisted report configurations with thumbnails |
+| `sso_invitations` | `SsoInvitation` | Pre-assigned SSO invitations |
+
+### ServiceNow Integration Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `snow_connections` | — | ServiceNow instance connection details |
+| `snow_mappings` | — | Card type ↔ ServiceNow table mappings |
+| `snow_field_mappings` | — | Field-level mapping rules |
+| `snow_sync_runs` | — | Sync execution history |
+| `snow_staged_records` | — | Staged records for review before apply |
+| `snow_identity_map` | — | Persistent ID mapping between systems |
 
 ### Migrations
 
@@ -206,195 +321,145 @@ Located in `backend/alembic/versions/`. The app auto-runs Alembic on startup:
 
 ## API Reference
 
-Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <token>`.
+Base path: `/api/v1`. All endpoints except auth and public portals require `Authorization: Bearer <token>`.
 
 ### Authentication (`/auth`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/auth/register` | No | Register (first user gets admin). Body: `{email, display_name, password}` |
-| POST | `/auth/login` | No | Login. Body: `{email, password}`. Returns `{access_token}` |
+| POST | `/auth/register` | No | Register (first user gets admin) |
+| POST | `/auth/login` | No | Login, returns `{access_token}` |
 | GET | `/auth/me` | Yes | Current user info |
 
 ### Metamodel (`/metamodel`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/metamodel/types` | List types. `?include_hidden=true` to show soft-deleted |
+| GET | `/metamodel/types` | List types. `?include_hidden=true` for soft-deleted |
 | GET | `/metamodel/types/{key}` | Get single type |
 | POST | `/metamodel/types` | Create custom type |
-| PATCH | `/metamodel/types/{key}` | Update type (label, icon, color, fields_schema, subtypes, etc.) |
-| DELETE | `/metamodel/types/{key}` | Soft-delete built-in (is_hidden=true), hard-delete custom (if no instances) |
-| GET | `/metamodel/relation-types` | List relation types. `?type_key=X` filters by connected type |
-| GET | `/metamodel/relation-types/{key}` | Get single relation type |
-| POST | `/metamodel/relation-types` | Create relation type (validates source/target types exist) |
+| PATCH | `/metamodel/types/{key}` | Update type (fields_schema, section_config, stakeholder_roles, etc.) |
+| DELETE | `/metamodel/types/{key}` | Soft-delete built-in, hard-delete custom |
+| GET | `/metamodel/types/{key}/field-usage` | Count cards using a specific field |
+| GET | `/metamodel/types/{key}/section-usage` | Count cards using any field in a section |
+| GET | `/metamodel/types/{key}/option-usage` | Count cards using a specific select option |
+| GET | `/metamodel/relation-types` | List relation types. `?type_key=X` to filter |
+| POST | `/metamodel/relation-types` | Create relation type |
 | PATCH | `/metamodel/relation-types/{key}` | Update relation type |
-| DELETE | `/metamodel/relation-types/{key}` | Soft-delete built-in, hard-delete custom |
+| DELETE | `/metamodel/relation-types/{key}` | Soft-delete / hard-delete |
 
-### Fact Sheets (`/fact-sheets`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/fact-sheets` | Paginated list. Query: `type`, `status`, `search`, `parent_id`, `approval_status`, `page`, `page_size`, `sort_by`, `sort_dir` |
-| POST | `/fact-sheets` | Create fact sheet. Auto-computes completion score, syncs capability levels |
-| GET | `/fact-sheets/{id}` | Get single fact sheet with tags + subscriptions |
-| PATCH | `/fact-sheets/{id}` | Update. Breaks approval status on substantive changes, recalculates data quality |
-| DELETE | `/fact-sheets/{id}` | Archives (soft-delete: sets status=ARCHIVED) |
-| PATCH | `/fact-sheets/bulk` | Bulk update multiple fact sheets |
-| GET | `/fact-sheets/{id}/hierarchy` | Ancestors (root-first), children, computed level |
-| GET | `/fact-sheets/{id}/history` | Paginated event history |
-| POST | `/fact-sheets/{id}/approval-status?action=approve|reject|reset` | Manage approval status |
-| GET | `/fact-sheets/export/csv` | Export as CSV. `?type=X` to filter |
-| POST | `/fact-sheets/fix-hierarchy-names` | One-time cleanup for hierarchy prefix bug |
-
-### Relations (`/relations`)
+### Cards (`/cards`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/relations` | List. `?fact_sheet_id=X` and/or `?type=X` |
-| POST | `/relations` | Create relation |
-| PATCH | `/relations/{id}` | Update relation attributes |
-| DELETE | `/relations/{id}` | Delete relation |
+| GET | `/cards` | Paginated list. Query: `type`, `status`, `search`, `parent_id`, `approval_status`, `page`, `page_size`, `sort_by`, `sort_dir` |
+| POST | `/cards` | Create card. Auto-computes data quality, runs calculations |
+| GET | `/cards/{id}` | Get card with tags + stakeholders |
+| PATCH | `/cards/{id}` | Update. Breaks approval on substantive changes, recalculates quality |
+| DELETE | `/cards/{id}` | Archives (soft-delete: status=ARCHIVED) |
+| PATCH | `/cards/bulk` | Bulk update multiple cards |
+| GET | `/cards/{id}/hierarchy` | Ancestors, children, computed level |
+| GET | `/cards/{id}/history` | Paginated event history |
+| POST | `/cards/{id}/approval-status` | `?action=approve\|reject\|reset` |
+| GET | `/cards/export/csv` | Export as CSV. `?type=X` |
+
+### RBAC (`/roles`, `/stakeholder-roles`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/roles` | List app-level roles |
+| POST | `/roles` | Create role with permissions |
+| PATCH | `/roles/{id}` | Update role permissions |
+| DELETE | `/roles/{id}` | Delete non-system role |
+| GET | `/stakeholder-roles` | List per-type stakeholder role definitions |
+| GET | `/cards/{id}/effective-permissions` | Get effective permissions for current user on a card |
+
+### Calculations (`/calculations`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/calculations` | List all calculations |
+| GET | `/calculations/calculated-fields` | Map of type_key → calculated field_keys |
+| POST | `/calculations` | Create calculation formula |
+| PATCH | `/calculations/{id}` | Update formula |
+| DELETE | `/calculations/{id}` | Delete calculation |
+| POST | `/calculations/{id}/run` | Execute calculation on all matching cards |
+
+### BPM (`/bpm`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/bpm/processes/{id}/diagram` | Get BPMN XML for a process |
+| PUT | `/bpm/processes/{id}/diagram` | Save BPMN XML (auto-extracts elements) |
+| GET | `/bpm/processes/{id}/elements` | List extracted BPMN elements |
+| GET | `/bpm/templates` | List BPMN starter templates |
+| GET | `/bpm/process-flow-versions` | List versions for a process |
+| POST | `/bpm/process-flow-versions` | Create draft version |
+| POST | `/bpm/process-flow-versions/{id}/submit` | Submit for approval |
+| POST | `/bpm/process-flow-versions/{id}/approve` | Approve and publish |
+| POST | `/bpm/process-flow-versions/{id}/reject` | Reject with comment |
+| GET | `/bpm/reports/dashboard` | Process maturity KPIs |
+| GET | `/bpm/reports/risk` | Risk assessment overview |
+| GET | `/bpm/reports/automation` | Automation levels |
 
 ### Reports (`/reports`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/reports/dashboard` | KPIs: counts by type, avg data quality, approval statuses, recent events |
-| GET | `/reports/landscape` | Fact sheets grouped by a related type |
+| GET | `/reports/dashboard` | KPIs: counts by type, avg data quality, approvals, events |
+| GET | `/reports/landscape` | Cards grouped by a related type |
 | GET | `/reports/portfolio` | Bubble chart data: configurable X/Y/size/color axes |
 | GET | `/reports/matrix` | Cross-reference grid between two types |
 | GET | `/reports/roadmap` | Lifecycle timeline data |
 | GET | `/reports/cost` | Cost aggregation (simple bar) |
-| GET | `/reports/cost-treemap` | Treemap with optional grouping by related type |
-| GET | `/reports/capability-heatmap` | Business capability hierarchy with app counts, costs, risks |
+| GET | `/reports/cost-treemap` | Treemap with optional grouping |
+| GET | `/reports/capability-heatmap` | Business capability hierarchy with app counts |
 | GET | `/reports/dependencies` | Network graph: nodes + edges with BFS depth limiting |
-| GET | `/reports/data-quality` | Completeness dashboard: by-type stats, orphaned/stale counts, worst items |
+| GET | `/reports/data-quality` | Completeness dashboard |
 
-### Diagrams (`/diagrams`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/diagrams` | List. `?initiative_id=X` to filter |
-| POST | `/diagrams` | Create with optional initiative_ids |
-| GET | `/diagrams/{id}` | Get with full data + extracted fact_sheet_refs |
-| PATCH | `/diagrams/{id}` | Update (auto-extracts fact sheet refs from XML) |
-| DELETE | `/diagrams/{id}` | Delete diagram |
-
-### Statement of Architecture Work (`/soaw`)
+### Saved Reports (`/saved-reports`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/soaw` | List. `?initiative_id=X` to filter |
-| POST | `/soaw` | Create SoAW |
-| GET | `/soaw/{id}` | Get SoAW |
-| PATCH | `/soaw/{id}` | Update sections, status, document_info |
-| DELETE | `/soaw/{id}` | Delete SoAW |
+| GET | `/saved-reports` | List saved report configs |
+| POST | `/saved-reports` | Save report configuration with thumbnail |
+| PATCH | `/saved-reports/{id}` | Update saved report |
+| DELETE | `/saved-reports/{id}` | Delete saved report |
 
-### Surveys (`/surveys`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/surveys` | List surveys (admin) |
-| POST | `/surveys` | Create survey (admin) |
-| GET | `/surveys/my` | Get surveys assigned to current user |
-| GET | `/surveys/{id}` | Get survey detail |
-| PATCH | `/surveys/{id}` | Update survey (admin) |
-| DELETE | `/surveys/{id}` | Delete survey (admin) |
-| POST | `/surveys/{id}/preview` | Preview survey targets |
-| POST | `/surveys/{id}/send` | Send survey to targets (admin) |
-| POST | `/surveys/{id}/close` | Close survey (admin) |
-| GET | `/surveys/{id}/responses` | List survey responses |
-| POST | `/surveys/{id}/apply` | Apply selected responses to fact sheets (bulk update) |
-| GET | `/surveys/{id}/respond/{fs_id}` | Get survey response form for a fact sheet |
-| POST | `/surveys/{id}/respond/{fs_id}` | Submit survey response |
-
-### End-of-Life (`/eol`)
+### ServiceNow (`/servicenow`)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/eol/products` | List all products from endoflife.date |
-| GET | `/eol/products/fuzzy` | Fuzzy search products (auto-complete) |
-| GET | `/eol/products/{product}` | Get release cycles for a product |
-| POST | `/eol/mass-search` | Mass search EOL candidates for multiple fact sheets |
-| POST | `/eol/mass-link` | Link fact sheets to EOL products/cycles |
-
-### Web Portals (`/web-portals`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/web-portals` | List portals (admin) |
-| POST | `/web-portals` | Create portal (admin) |
-| GET | `/web-portals/{id}` | Get portal detail (admin) |
-| PATCH | `/web-portals/{id}` | Update portal (admin) |
-| DELETE | `/web-portals/{id}` | Delete portal (admin) |
-| GET | `/web-portals/public/{slug}` | Get portal for public viewing (no auth) |
-| GET | `/web-portals/public/{slug}/relation-options` | Available relations for portal filtering (no auth) |
-| GET | `/web-portals/public/{slug}/fact-sheets` | Get fact sheets for portal with filters (no auth) |
-
-### Notifications (`/notifications`)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/notifications` | List notifications for current user |
-| GET | `/notifications/unread-count` | Get count of unread notifications |
-| GET | `/notifications/badge-counts` | Get badge counts (open todos + pending surveys) |
-| PATCH | `/notifications/{id}/read` | Mark notification as read |
-| POST | `/notifications/mark-all-read` | Mark all notifications as read |
-
-### Settings (`/settings`)
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/settings/email` | Admin | Get SMTP configuration |
-| PATCH | `/settings/email` | Admin | Update SMTP configuration |
-| POST | `/settings/email/test` | Admin | Send test email |
-| GET | `/settings/currency` | Public | Get global display currency |
-| PATCH | `/settings/currency` | Admin | Update currency |
-| GET | `/settings/logo` | Public | Get current logo image (custom or default) |
-| GET | `/settings/favicon` | Public | Get favicon image |
-| GET | `/settings/logo/info` | Admin | Get logo metadata (has_custom_logo, mime_type) |
-| POST | `/settings/logo` | Admin | Upload custom logo (max 2 MB; PNG, JPEG, SVG, WebP, GIF) |
-| DELETE | `/settings/logo` | Admin | Reset to default logo |
+| GET | `/servicenow/connections` | List ServiceNow connections |
+| POST | `/servicenow/connections` | Create connection |
+| POST | `/servicenow/connections/{id}/test` | Test connectivity |
+| GET | `/servicenow/mappings` | List type/field mappings |
+| POST | `/servicenow/sync/pull` | Pull records from ServiceNow |
+| POST | `/servicenow/sync/push` | Push records to ServiceNow |
+| GET | `/servicenow/staged` | List staged records for review |
+| POST | `/servicenow/staged/apply` | Apply staged records |
 
 ### Other Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/tag-groups` | List tag groups with their tags |
-| POST | `/tag-groups` | Create tag group |
-| POST | `/tag-groups/{id}/tags` | Create tag in group |
-| POST | `/fact-sheets/{id}/tags` | Assign tags (body: `[tag_id, ...]`) |
-| DELETE | `/fact-sheets/{id}/tags/{tag_id}` | Remove tag |
-| GET | `/fact-sheets/{id}/subscriptions` | List subscriptions |
-| POST | `/fact-sheets/{id}/subscriptions` | Create subscription (validates role + type) |
-| PATCH | `/subscriptions/{id}` | Update subscription role |
-| DELETE | `/subscriptions/{id}` | Delete subscription |
-| GET | `/subscription-roles` | List role definitions for UI |
-| GET | `/fact-sheets/{id}/comments` | List threaded comments |
-| POST | `/fact-sheets/{id}/comments` | Create comment |
-| PATCH | `/comments/{id}` | Edit comment |
-| DELETE | `/comments/{id}` | Delete comment |
-| GET | `/todos` | List all todos. `?status=X`, `?assigned_to=X` |
-| GET | `/fact-sheets/{id}/todos` | Fact sheet todos |
-| POST | `/fact-sheets/{id}/todos` | Create todo |
-| PATCH | `/todos/{id}` | Update todo |
-| DELETE | `/todos/{id}` | Delete todo |
-| GET | `/fact-sheets/{id}/documents` | List documents |
-| POST | `/fact-sheets/{id}/documents` | Add document link |
-| DELETE | `/documents/{id}` | Delete document |
-| GET | `/bookmarks` | List user's saved views |
-| POST | `/bookmarks` | Create bookmark |
-| PATCH | `/bookmarks/{id}` | Update bookmark |
-| DELETE | `/bookmarks/{id}` | Delete bookmark |
-| GET | `/users` | List users (auth required) |
-| GET | `/users/{id}` | Get user |
-| POST | `/users` | Create user (admin only) |
-| PATCH | `/users/{id}` | Update user (admin: all fields; self: display_name + password) |
-| DELETE | `/users/{id}` | Soft-delete (deactivate) user (admin only, cannot delete self) |
-| GET | `/events` | List events. `?fact_sheet_id=X` |
-| GET | `/events/stream` | SSE endpoint for real-time event streaming |
-| GET | `/api/health` | Health check (no auth) |
+| Category | Key Endpoints |
+|----------|--------------|
+| **Relations** | `GET/POST /relations`, `PATCH/DELETE /relations/{id}` |
+| **Stakeholders** | `GET/POST /cards/{id}/stakeholders`, `PATCH/DELETE /stakeholders/{id}` |
+| **Tags** | `GET/POST /tag-groups`, `POST /cards/{id}/tags` |
+| **Comments** | `GET/POST /cards/{id}/comments`, `PATCH/DELETE /comments/{id}` |
+| **Todos** | `GET/POST /todos`, `GET/POST /cards/{id}/todos` |
+| **Documents** | `GET/POST /cards/{id}/documents`, `DELETE /documents/{id}` |
+| **Bookmarks** | `GET/POST /bookmarks`, `PATCH/DELETE /bookmarks/{id}` |
+| **Diagrams** | `GET/POST /diagrams`, `GET/PATCH/DELETE /diagrams/{id}` |
+| **SoAW** | `GET/POST /soaw`, `GET/PATCH/DELETE /soaw/{id}` |
+| **Surveys** | Full CRUD + `/surveys/{id}/send`, `/surveys/{id}/respond/{card_id}` |
+| **EOL** | `/eol/products`, `/eol/products/fuzzy`, `/eol/mass-search`, `/eol/mass-link` |
+| **Web Portals** | CRUD + `/web-portals/public/{slug}` (no auth) |
+| **Notifications** | `GET /notifications`, badge counts, mark read |
+| **Settings** | Email SMTP, currency, logo upload |
+| **Users** | CRUD (admin only), self-update |
+| **Events** | `GET /events`, `GET /events/stream` (SSE) |
+| **Health** | `GET /api/health` (no auth, includes version) |
 
 **API docs**: Available at `/api/docs` (Swagger UI) and `/api/openapi.json`.
 
@@ -408,9 +473,11 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 - **React Router 7** for client-side routing
 - **AG Grid** for data tables (inventory page)
 - **Recharts** for charts (portfolio, cost, lifecycle reports)
+- **bpmn-js** for BPMN 2.0 diagram editing
 - **TipTap** for rich text editing (SoAW sections)
+- **@dnd-kit** for drag-and-drop (card layout editor)
 - **docx** + **file-saver** for DOCX export (SoAW)
-- **xlsx** for Excel import/export (inventory)
+- **xlsx** (vendored v0.20.3) for Excel import/export
 - **Vite** for build tooling with `@` path alias to `./src`
 
 ### Routing (`App.tsx`)
@@ -418,63 +485,68 @@ Base path: `/api/v1`. All endpoints except auth require `Authorization: Bearer <
 | Path | Component | Description |
 |------|-----------|-------------|
 | `/` | `Dashboard` | KPI cards, type breakdown, recent activity |
-| `/inventory` | `InventoryPage` | AG Grid table with type filter, search, column customization, Excel import/export |
-| `/fact-sheets/:id` | `FactSheetDetail` | Full detail view: fields, lifecycle, hierarchy, relations, subscriptions, comments, todos, documents, history |
-| `/reports/portfolio` | `PortfolioReport` | Bubble/scatter chart (TIME model) |
+| `/inventory` | `InventoryPage` | AG Grid table with memoized configs |
+| `/cards/:id` | `CardDetail` | Modular detail: sections + tabs |
+| `/reports/portfolio` | `PortfolioReport` | Bubble/scatter chart |
 | `/reports/capability-map` | `CapabilityMapReport` | Heatmap of business capabilities |
 | `/reports/lifecycle` | `LifecycleReport` | Timeline visualization |
 | `/reports/dependencies` | `DependencyReport` | Network graph |
 | `/reports/cost` | `CostReport` | Treemap + bar chart |
 | `/reports/matrix` | `MatrixReport` | Cross-reference grid |
 | `/reports/data-quality` | `DataQualityReport` | Completeness dashboard |
-| `/reports/eol` | `EolReport` | End-of-Life status report for IT components |
+| `/reports/eol` | `EolReport` | End-of-Life status |
+| `/reports/saved` | `SavedReportsPage` | Saved report gallery |
+| `/bpm` | `BpmDashboard` | BPM maturity overview |
+| `/bpm/processes/:id/flow` | `ProcessFlowEditorPage` | BPMN editor with approval workflow |
 | `/diagrams` | `DiagramsPage` | Diagram gallery with thumbnails |
-| `/diagrams/:id` | `DiagramEditor` | DrawIO iframe editor with fact sheet sidebar |
+| `/diagrams/:id` | `DiagramEditor` | DrawIO iframe editor |
 | `/ea-delivery` | `EADeliveryPage` | SoAW document list |
 | `/ea-delivery/soaw/new` | `SoAWEditor` | Create new SoAW |
 | `/ea-delivery/soaw/:id` | `SoAWEditor` | Edit SoAW |
-| `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only SoAW preview |
-| `/todos` | `TodosPage` | Todos + Surveys combined page with tab switcher (`?tab=surveys`) |
-| `/surveys/:surveyId/respond/:factSheetId` | `SurveyRespond` | Respond to a survey for a specific fact sheet |
-| `/portal/:slug` | `PortalViewer` | Public portal view (no auth required) |
-| `/admin/metamodel` | `MetamodelAdmin` | Manage fact sheet types + relation types |
-| `/admin/tags` | `TagsAdmin` | Manage tag groups + tags |
-| `/admin/users` | `UsersAdmin` | Manage users (admin only) |
-| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP email configuration |
-| `/admin/eol` | `EolAdmin` | Mass search + link IT components to EOL products |
-| `/admin/surveys` | `SurveysAdmin` | Admin survey list |
-| `/admin/surveys/new` | `SurveyBuilder` | Create new data-maintenance survey |
+| `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only preview |
+| `/todos` | `TodosPage` | Todos + Surveys (tabbed) |
+| `/surveys/:surveyId/respond/:cardId` | `SurveyRespond` | Respond to survey |
+| `/portal/:slug` | `PortalViewer` | Public portal (no auth) |
+| `/admin/metamodel` | `MetamodelAdmin` | Card types + relations |
+| `/admin/users` | `UsersAdmin` | User management |
+| `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP |
+| `/admin/eol` | `EolAdmin` | Mass EOL linking |
+| `/admin/surveys` | `SurveysAdmin` | Survey management |
+| `/admin/surveys/new` | `SurveyBuilder` | Create survey |
 | `/admin/surveys/:id` | `SurveyBuilder` | Edit survey |
-| `/admin/surveys/:id/results` | `SurveyResults` | View survey responses, apply bulk changes |
-| `/admin/web-portals` | `WebPortalsAdmin` | Create and manage public web portals |
+| `/admin/surveys/:id/results` | `SurveyResults` | View/apply responses |
+| `/admin/web-portals` | `WebPortalsAdmin` | Portal management |
+| `/admin/servicenow` | `ServiceNowAdmin` | ServiceNow sync config |
 
 ### Key Patterns
 
 **API Client** (`src/api/client.ts`): Thin fetch wrapper that auto-injects the JWT from localStorage. Methods: `api.get()`, `api.post()`, `api.patch()`, `api.delete()`. Handles 204 empty responses and formats validation errors.
 
-**Authentication** (`hooks/useAuth.ts`): Token stored in `localStorage.token`. On load, validates via `GET /auth/me`. If invalid, clears token. No user = login page shown.
+**Authentication** (`hooks/useAuth.ts`): Token stored in `localStorage.token`. On load, validates via `GET /auth/me`. SSO callback support via `/auth/callback`.
 
 **Metamodel Cache** (`hooks/useMetamodel.ts`): Module-level singleton cache. Fetches types + relation types once, shared across all components. `invalidateCache()` forces re-fetch.
 
-**Real-time Updates** (`hooks/useEventStream.ts`): SSE connection to `/events/stream`. Components use this to refresh on external changes.
+**Permissions** (`hooks/usePermissions.ts`): Fetches effective permissions for a card by combining app-level role + stakeholder roles. Used by CardDetail to enable/disable edit controls.
 
-**Data Quality Scoring**: Backend auto-computes `data_quality` (0-100%) based on `fields_schema` weights. Description and lifecycle each contribute weight 1. Approval status auto-breaks to `BROKEN` when approved items are edited.
+**Calculated Fields** (`hooks/useCalculatedFields.ts`): Fetches `type_key → field_keys[]` map. CardDetail uses this to show "calc" badges and prevent manual editing of computed fields.
 
-**Currency** (`hooks/useCurrency.ts`): Module-level singleton cache. Fetches currency from `/settings/currency` once. Provides `fmt()` (full format), `fmtShort()` (compact), and `symbol` for consistent cost display.
+**Real-time Updates** (`hooks/useEventStream.ts`): SSE connection to `/events/stream`. Auto-reconnects on error. Badge count refresh debounced at 500ms via `AppLayout.tsx`.
 
-**Notifications**: `NotificationBell` component in the navbar shows unread count. Badge counts (open todos + pending surveys) refresh on SSE events and navigation. Backend `notification_service.py` handles persistence and mark-as-read.
+**Currency** (`hooks/useCurrency.ts`): Module-level singleton cache. Provides `fmt()`, `fmtShort()`, and `symbol` for consistent cost display.
 
-**Logo Visibility**: Per-portal toggle stored in `card_config.show_logo` (default: true). When disabled, the logo is hidden from the portal header. Navbar logo height is 45px.
+**Data Quality Scoring**: Backend auto-computes `data_quality` (0-100%) based on `fields_schema` weights. Approval status auto-breaks to `BROKEN` when approved items are edited.
 
-**Hierarchy**: Fact sheets with `has_hierarchy=true` support parent-child trees (parent_id). BusinessCapability enforces max depth of 5 levels with auto-computed `capabilityLevel` attribute.
+**Card Detail Sections**: Each section is an independent component in `features/cards/sections/`, wrapped in `ErrorBoundary`. Section ordering is controlled by `section_config.__order` in the metamodel. Custom sections are rendered via `AttributeSection` (fully data-driven from `fields_schema`).
+
+**MUI Dialog Nesting**: When dialogs are nested (e.g., TypeDetailDrawer contains FieldEditorDialog), inner dialogs use `disableRestoreFocus` to prevent `aria-hidden` focus warnings.
 
 ---
 
-## Metamodel (Default LeanIX Seed)
+## Metamodel
 
-The default metamodel seeds 13 fact sheet types across 4 layers and 29 relation types. It is created on first startup by `backend/app/services/seed.py`.
+The default metamodel seeds 14 card types across 4 layers and 30+ relation types. Created on first startup by `backend/app/services/seed.py`.
 
-### Fact Sheet Types
+### Card Types
 
 | Key | Label | Icon | Color | Layer | Hierarchy | Subtypes |
 |-----|-------|------|-------|-------|-----------|----------|
@@ -484,6 +556,7 @@ The default metamodel seeds 13 fact sheet types across 4 layers and 29 relation 
 | `Organization` | Organization | corporate_fare | #2889ff | Business Architecture | Yes | Business Unit, Region, Legal Entity, Team, Customer |
 | `BusinessCapability` | Business Capability | account_tree | #003399 | Business Architecture | Yes | - |
 | `BusinessContext` | Business Context | swap_horiz | #fe6690 | Business Architecture | Yes | Process, Value Stream, Customer Journey, Business Product, ESG Capability |
+| `BusinessProcess` | Business Process | schema | #8e24aa | Business Architecture | Yes | Core, Support, Management |
 | `Application` | Application | apps | #0f7eb5 | Application & Data | Yes | Business Application, Microservice, AI Agent, Deployment |
 | `Interface` | Interface | sync_alt | #02afa4 | Application & Data | No | Logical Interface, API, MCP Server |
 | `DataObject` | Data Object | database | #774fcc | Application & Data | Yes | - |
@@ -499,223 +572,180 @@ Each type has a `fields_schema` (JSONB array of sections):
 [
   {
     "section": "Section Name",
+    "columns": 1,
+    "groups": ["Group Name"],
     "fields": [
       {
         "key": "fieldKey",
         "label": "Display Label",
-        "type": "text|number|boolean|date|single_select|multiple_select",
+        "type": "text|number|cost|boolean|date|url|single_select|multiple_select",
         "options": [{"key": "k", "label": "L", "color": "#hex"}],
         "required": false,
         "weight": 1,
-        "readonly": false
+        "readonly": false,
+        "column": 0,
+        "group": "Group Name"
       }
     ]
   }
 ]
 ```
 
-### Relation Types
+The special section name `__description` feeds extra fields into the Description section. All other sections are rendered as custom `AttributeSection` components.
 
-29 built-in relations (all `n:m` cardinality). Created by `seed.py`. Some have `attributes_schema` for additional per-relation data.
+### Section Config
 
-| Key | Source | Label | Target | Reverse Label | Attributes |
-|-----|--------|-------|--------|---------------|------------|
-| `relObjectiveToBC` | Objective | improves | BusinessCapability | is improved by | - |
-| `relPlatformToObjective` | Platform | supports | Objective | is supported by | - |
-| `relPlatformToApp` | Platform | runs | Application | runs on | - |
-| `relPlatformToITC` | Platform | implements | ITComponent | is implemented by | - |
-| `relInitiativeToObjective` | Initiative | supports | Objective | is supported by | - |
-| `relInitiativeToPlatform` | Initiative | affects | Platform | is affected by | - |
-| `relInitiativeToBC` | Initiative | improves | BusinessCapability | is improved by | - |
-| `relInitiativeToApp` | Initiative | affects | Application | is affected by | - |
-| `relInitiativeToInterface` | Initiative | affects | Interface | is affected by | - |
-| `relInitiativeToDataObj` | Initiative | affects | DataObject | is affected by | - |
-| `relInitiativeToITC` | Initiative | affects | ITComponent | is affected by | - |
-| `relInitiativeToSystem` | Initiative | affects | System | is affected by | - |
-| `relOrgToObjective` | Organization | owns | Objective | is owned by | - |
-| `relOrgToInitiative` | Organization | owns | Initiative | is owned by | - |
-| `relOrgToBizCtx` | Organization | owns | BusinessContext | is owned by | - |
-| `relOrgToApp` | Organization | uses | Application | is used by | usageType (Owner/User/Stakeholder) |
-| `relOrgToITC` | Organization | owns | ITComponent | is owned by | - |
-| `relAppToBC` | Application | supports | BusinessCapability | is supported by | functionalSuitability, supportType |
-| `relAppToBizCtx` | Application | supports | BusinessContext | is supported by | - |
-| `relAppToInterface` | Application | provides / consumes | Interface | is provided / consumed by | - |
-| `relAppToDataObj` | Application | CRUD | DataObject | is used by | crudCreate, crudRead, crudUpdate, crudDelete (booleans) |
-| `relAppToITC` | Application | uses | ITComponent | is used by | technicalSuitability, costTotalAnnual |
-| `relAppToSystem` | Application | runs on | System | runs | - |
-| `relITCToTechCat` | ITComponent | belongs to | TechCategory | includes | resourceClassification |
-| `relITCToPlatform` | ITComponent | implements | Platform | is implemented by | - |
-| `relInterfaceToDataObj` | Interface | transfers | DataObject | is transferred by | - |
-| `relInterfaceToITC` | Interface | uses | ITComponent | is used by | - |
-| `relProviderToInitiative` | Provider | supports | Initiative | is supported by | - |
-| `relProviderToITC` | Provider | offers | ITComponent | is offered by | - |
-| `relBizCtxToBC` | BusinessContext | is associated with | BusinessCapability | is associated with | - |
+Each type has an optional `section_config` (JSONB) controlling layout:
+```json
+{
+  "__order": ["description", "eol", "lifecycle", "custom:0", "custom:1", "hierarchy", "relations"],
+  "description": { "defaultExpanded": true, "hidden": false },
+  "custom:0": { "defaultExpanded": true, "hidden": false }
+}
+```
+
+### Field Types
+
+| Type | Description | Rendering |
+|------|-------------|-----------|
+| `text` | Plain text | TextField |
+| `number` | Numeric | NumberField |
+| `cost` | Numeric with currency formatting | NumberField + currency symbol |
+| `boolean` | Toggle | Switch |
+| `date` | ISO date | DatePicker |
+| `url` | Validated URL (http/https/mailto) | Clickable link input |
+| `single_select` | Single choice from options | Select dropdown |
+| `multiple_select` | Multiple choices from options | Multi-select chips |
+
+---
+
+## RBAC (Role-Based Access Control)
+
+### Multi-level Permission System
+
+1. **App-level Roles** (`roles` table): System-wide roles like admin, member, viewer, bpm_admin. Each role has a JSONB `permissions` field with granular capability flags. Cached with 5-minute TTL by `PermissionService`.
+
+2. **Stakeholder Roles** (`stakeholder_role_definitions`): Per-card-type role definitions. Each card type can define custom roles (e.g., Application → "technical_application_owner"). Roles carry per-type permissions.
+
+3. **Stakeholders** (`stakeholders` table): User ↔ card assignments with a specific role. A user can hold multiple stakeholder roles on different cards.
+
+4. **Effective Permissions**: For any user + card combination, the system computes the union of:
+   - App-level role permissions
+   - All stakeholder role permissions the user holds on that card
+   - Result exposed via `GET /cards/{id}/effective-permissions`
+
+### Permission Checking (Backend)
+```python
+await PermissionService.require_permission(db, user, "admin.metamodel")
+await PermissionService.check_card_permission(db, user, card_id, "card.edit")
+```
+
+---
+
+## Calculations (Computed Fields)
+
+Admin-defined formulas that automatically compute field values when cards are saved.
+
+### Engine (`calculation_engine.py`)
+- Safe sandboxed evaluation using `simpleeval`
+- **Built-in functions**: IF, SUM, AVG, MIN, MAX, COUNT, ROUND, ABS, COALESCE, LOWER, UPPER, CONCAT, CONTAINS, PLUCK, FILTER, MAP_SCORE
+- **Context variables**: Card attributes, relations data, lifecycle info
+- Automatic execution on card save via `run_calculations_for_card()`
+- Dependency ordering via `execution_order` field
+
+### Example Formulas
+```
+SUM(PLUCK(related_applications, "costTotalAnnual"))
+IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, 25))
+COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
+```
+
+---
+
+## BPM (Business Process Management)
+
+### Architecture
+- **BusinessProcess** card type with fields: process type, maturity level, automation level, risk level, frequency
+- **BPMN 2.0 Editor**: bpmn-js integration with 6 starter templates
+- **Element Extraction**: `bpmn_parser.py` extracts tasks, events, gateways, lanes from BPMN XML
+- **Element Linking**: `ElementLinker.tsx` connects BPMN elements to Application/DataObject/ITComponent cards
+- **Approval Workflow**: Process flows go through draft → pending → published → archived states
+
+### BPM Reports
+- Process maturity dashboard
+- Risk assessment overview
+- Automation level analysis
+
+### Card Detail Integration
+BusinessProcess cards show extra tabs in CardDetail:
+- **Process Flow** tab: Embedded BPMN viewer/editor
+- **Assessments** tab: Process assessment scores
 
 ---
 
 ## DrawIO Integration
 
 ### How It Works
-
-1. **Build time**: The frontend Dockerfile clones `jgraph/drawio` v26.0.9 and copies the static webapp to `/usr/share/nginx/drawio/`
-2. **Runtime**: Nginx serves DrawIO at `/drawio/` (same origin as the app)
+1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v26.0.9
+2. **Runtime**: Nginx serves DrawIO at `/drawio/` (same origin)
 3. **Editor**: `DiagramEditor.tsx` loads DrawIO in a same-origin iframe
-4. **Communication**: Direct DOM access to the iframe's `mxGraph` API (not postMessage). The graph reference is stored on `iframe.contentWindow.__turboGraph`
+4. **Communication**: Direct DOM access to iframe's `mxGraph` API. Graph reference stored on `iframe.contentWindow.__turboGraph`
 
 ### Shape System (`src/features/diagrams/drawio-shapes.ts`)
-
-Fact sheets are represented as mxGraph cells with custom XML user objects:
+Cards are represented as mxGraph cells with custom XML user objects:
 ```xml
 <object label="App Name" factSheetId="uuid" factSheetType="Application" />
 ```
 
-Key functions:
-- `insertFactSheetIntoGraph()` — Add a fact sheet shape (colored rounded rectangle)
-- `insertPendingFactSheet()` — Add unsynced shape (dashed border)
-- `markCellSynced()` — Switch from dashed to solid after backend creation
-- `expandFactSheetGroup()` / `collapseFactSheetGroup()` — Expand/collapse related fact sheets
-- `scanDiagramItems()` — Extract pending + synced items from the graph
-- `stampEdgeAsRelation()` — Style an edge as a typed relation
-- `extractFactSheetIds()` — Parse XML for factSheetId attributes
-
-### DrawIO Config
-
-- `PreConfig.js` — Placeholder (loaded before app.min.js)
-- `PostConfig.js` — Placeholder (all logic via parent-window iframe access)
-- PWA manifest and service worker are stripped from DrawIO's index.html at build time
-- `<!--email_off-->` injected to prevent Cloudflare Email Obfuscation breaking DrawIO
+Key functions: `insertFactSheetIntoGraph()`, `insertPendingFactSheet()`, `markCellSynced()`, `expandFactSheetGroup()`, `scanDiagramItems()`, `stampEdgeAsRelation()`, `extractFactSheetIds()`
 
 ---
 
-## Statement of Architecture Work (SoAW)
+## ServiceNow Integration
 
-TOGAF-compliant document generation linked to Initiative fact sheets.
+Bi-directional sync between Turbo EA cards and ServiceNow CMDB.
 
-### Data Model
-Stored in the `statement_of_architecture_works` table with JSONB columns:
-- `document_info`: `{prepared_by, reviewed_by, review_date}`
-- `version_history`: `[{version, date, revised_by, description}]`
-- `sections`: `{section_key: {content: "html", hidden: bool, table_data?, togaf_data?}}`
-
-### Frontend
-- `SoAWEditor.tsx` — TipTap rich text editor per section, editable tables
-- `SoAWPreview.tsx` — Read-only formatted preview
-- `soawTemplate.ts` — Template with all TOGAF sections
-- `soawExport.ts` — DOCX export using the `docx` library
+- **Connections**: Multiple ServiceNow instances with credential management
+- **Mappings**: Card type ↔ ServiceNow table mappings with field-level rules
+- **Sync modes**: Pull (ServiceNow → Turbo), Push (Turbo → ServiceNow)
+- **Staging**: Records staged for admin review before applying changes
+- **Identity persistence**: `snow_identity_map` maintains ID mappings across syncs
 
 ---
 
-## Surveys (Data-Maintenance Workflows)
+## Version Management
 
-Admin-driven surveys for maintaining fact sheet data quality at scale.
+Single source of truth: `/VERSION` file at project root.
 
-### Workflow
-1. **Admin creates** a survey targeting a fact sheet type, with optional tag/relation/attribute filters
-2. **Admin defines actions** per field: "maintain" (user edits the value) or "confirm" (user verifies current value)
-3. **Admin sends** the survey — targets are determined by fact sheet subscriptions (responsible, observer, etc.)
-4. **Users receive** notifications and respond via `/surveys/:surveyId/respond/:factSheetId`
-5. **Admin reviews** responses in `/admin/surveys/:id/results` and applies changes in bulk
-
-### Data Model
-- `surveys` table: title, description, target_type (fact sheet type key), filters (JSONB), actions (JSONB array), status (draft/sent/closed)
-- `survey_responses` table: survey_id, fact_sheet_id, user_id, responses (JSONB), submitted_at
+- **Backend**: `config.py` reads VERSION → exports `APP_VERSION` → exposed in `/api/health`
+- **Frontend**: `vite.config.ts` reads VERSION → injects `__APP_VERSION__` global → displayed in user menu (AppLayout)
+- **Docker**: Both Dockerfiles `COPY VERSION ./VERSION` before building
+- **Local dev**: Frontend checks `../VERSION` (from frontend dir) then `./VERSION` (Docker)
 
 ---
 
-## End-of-Life (EOL) Management
+## Security
 
-Integration with the [endoflife.date](https://endoflife.date) API for tracking technology lifecycle status.
+### Docker Hardening
+- Non-root users: frontend runs as `nginx`, backend as `appuser`
+- `cap_drop: ALL` + `no-new-privileges: true`
+- Memory limits: backend 512M, frontend 256M
+- Backend only exposed via internal Docker network (not to host)
 
-### Features
-- **Fuzzy product search**: Auto-complete against 300+ products from endoflife.date
-- **Mass search**: Automatically match IT Component names against EOL products
-- **Mass link**: Bulk-link fact sheets to specific products and release cycles
-- **EOL Report** (`/reports/eol`): Visualize EOL risk across the IT landscape
-- **Admin page** (`/admin/eol`): Manage EOL product links
-
-### How It Works
-The backend proxies requests to `https://endoflife.date/api/` and caches responses. EOL data is stored on fact sheets as attributes (linked product, cycle, EOL date, support status).
-
----
-
-## Web Portals (Public Views)
-
-Configurable, public-facing views of the EA landscape accessible without authentication.
-
-### Features
-- **Slug-based URLs**: Access via `/portal/:slug` (no login required)
-- **Configurable**: Choose which fact sheet type to display, which fields to show, card layout
-- **Logo toggle**: Per-portal option to show or hide the application logo in the portal header
-- **Relation filtering**: Visitors can filter by related fact sheets
-- **Admin management**: Create, edit, delete portals via `/admin/web-portals`
-
-### Data Model
-- `web_portals` table: name, slug (unique), fact_sheet_type, display_fields (JSONB), card_config (JSONB with toggles + show_logo), filters (JSONB), is_published
-
----
-
-## Notification System
-
-In-app and email notifications for users.
-
-### Notification Types
-`todo_assigned`, `fact_sheet_updated`, `comment_added`, `approval_status_changed`, `soaw_sign_requested`, `soaw_signed`, `subscription_update`
-
-### Components
-- **Backend**: `notification_service.py` creates notifications on relevant events, persists to DB
-- **Email**: `email_service.py` sends SMTP emails when configured (admin settings)
-- **Frontend**: `NotificationBell` in navbar shows unread count, `NotificationPreferencesDialog` for per-type preferences
-- **Badge counts**: Open todos + pending surveys shown as dots on nav items
-
----
-
-## Application Settings
-
-Singleton `app_settings` table (id='default') manages global configuration:
-
-| Setting | Storage | Description |
-|---------|---------|-------------|
-| SMTP/Email | `email_settings` (JSONB) | Host, port, user, password, TLS, from address, app base URL |
-| Currency | `general_settings.currency` | Display currency for all cost values (default: USD) |
-| Custom logo | `custom_logo` (LargeBinary) | Custom logo image bytes (max 2 MB) |
-| Logo MIME | `custom_logo_mime` (Text) | MIME type of custom logo |
-
----
-
-## Event System
-
-### Backend (`services/event_bus.py`)
-In-memory pub/sub using `asyncio.Queue`. Events are:
-1. Persisted to the `events` table (audit trail)
-2. Broadcast to all SSE subscribers in real-time
-
-Event types: `fact_sheet.created`, `fact_sheet.updated`, `fact_sheet.archived`, `fact_sheet.approval_status.*`, `relation.created`, `relation.deleted`, `comment.created`, `notification.created`, `todo.created`, `todo.updated`, `todo.deleted`, `survey.sent`, `survey.responded`
-
-### Frontend (`hooks/useEventStream.ts`)
-`EventSource` connection to `/api/v1/events/stream`. Auto-reconnects on error.
-
----
-
-## Authentication & Authorization
+### Nginx Security Headers
+- Content-Security-Policy (strict, self-only with font/DrawIO exceptions)
+- X-Frame-Options: SAMEORIGIN
+- X-Content-Type-Options: nosniff
+- Strict-Transport-Security: max-age=31536000
+- Referrer-Policy: strict-origin-when-cross-origin
+- Permissions-Policy: camera/microphone/geolocation disabled
+- Request body limit: 5MB
 
 ### JWT Implementation
-- Manually constructed HS256 JWT (no PyJWT dependency) in `core/security.py`
-- Payload: `{sub: user_id, role: admin|member|viewer, iat, exp}`
+- Manually constructed HS256 JWT in `core/security.py`
+- Payload: `{sub: user_id, role: role_key, iat, exp}`
 - Passwords hashed with bcrypt
 - Token sent as `Authorization: Bearer <token>`
-
-### Roles
-| Role | Capabilities |
-|------|-------------|
-| `admin` | Full CRUD on everything including users, metamodel, user management |
-| `member` | CRUD on fact sheets, relations, comments, todos, diagrams, SoAW |
-| `viewer` | Read-only access (enforced on specific endpoints) |
-
-### Subscription Roles (per fact sheet)
-- `responsible` — Primary owner (all types)
-- `observer` — Watching for changes (all types)
-- `technical_application_owner` — Application type only
-- `business_application_owner` — Application type only
 
 ---
 
@@ -757,7 +787,7 @@ npm run build         # TypeScript check + Vite build
 ```
 
 ### Database Reset
-Set `RESET_DB=true` to drop all tables and re-seed on next startup. This is useful during metamodel development.
+Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 
 ### Key Libraries
 
@@ -766,6 +796,7 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup. This is usef
 - SQLAlchemy 2.0+ (async via asyncpg)
 - Alembic for migrations
 - bcrypt for password hashing
+- simpleeval for safe formula evaluation
 - sse-starlette for Server-Sent Events
 - ruff for linting (target: Python 3.12)
 
@@ -774,37 +805,34 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup. This is usef
 - MUI 6 + Emotion for styling
 - AG Grid for data tables
 - Recharts for visualizations
+- bpmn-js for BPMN editing
 - TipTap for rich text editing
+- @dnd-kit for drag-and-drop
 - docx + file-saver for DOCX generation
-- xlsx for Excel import/export
+- xlsx (vendored 0.20.3) for Excel import/export
 
 ---
 
 ## Docker Architecture
 
 ### docker-compose.yml
-Two services on the `guac-net` external network:
-- **backend**: Python 3.12-alpine, uvicorn on port 8000
-- **frontend**: Multi-stage build (node → drawio git clone → nginx), port 80 mapped to `HOST_PORT`
+Both services use **root build context** (`context: .`) on the `guac-net` external network:
+- **backend**: `dockerfile: backend/Dockerfile`, Python 3.12-alpine, uvicorn on port 8000 (internal only)
+- **frontend**: `dockerfile: frontend/Dockerfile`, multi-stage build, port 80 mapped to `HOST_PORT`
 
 PostgreSQL is external (not managed by this compose file).
 
-### Frontend Dockerfile (multi-stage)
-1. **build stage**: `node:20-alpine` — npm install + vite build
+### Frontend Dockerfile (multi-stage, root context)
+1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build
 2. **drawio stage**: `alpine/git` — clone jgraph/drawio v26.0.9
-3. **production stage**: `nginx:alpine` — serve built frontend + DrawIO + custom configs
+3. **production stage**: `nginx:alpine` — serve built frontend + DrawIO + security configs, runs as non-root `nginx` user
+
+### Backend Dockerfile (root context)
+Single stage: `python:3.12-alpine` — copies `VERSION` + `backend/`, pip install, runs as non-root `appuser`
 
 ### Nginx Configuration
 - `/api/*` → proxy to `backend:8000` (with SSE support headers)
-- `/drawio/index.html` → `no-store, no-transform` (prevents Cloudflare issues)
 - `/drawio/*` → static DrawIO assets (30-day cache, no-transform)
 - `/*` → SPA fallback to `index.html`
-- Static assets (js, css, images) → 1-year cache with `immutable`
-
----
-
-## Roadmap
-
-See `plan.md` for the full implementation plan covering:
-1. **Metamodel Overhaul** — Full admin CRUD for types, fields, subtypes, and relations. Metamodel graph visualization.
-2. **Reports Redesign** — 7 interactive reports (Portfolio, Capability Map, Lifecycle, Dependencies, Cost Treemap, Matrix, Data Quality) with Recharts, configurable axes, chart/table toggle, and export.
+- Security headers on all responses
+- Static assets → 1-year cache with `immutable`
