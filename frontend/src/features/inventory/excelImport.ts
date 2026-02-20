@@ -105,6 +105,62 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
   return sorted;
 }
 
+// ---- Core: build update patch --------------------------------------------
+
+/**
+ * Compare imported data against an existing card and return only the fields
+ * that actually changed.  Returns an empty object when nothing differs.
+ */
+function buildPatch(
+  d: Record<string, unknown>,
+  ex: Card,
+): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+
+  if (d.name && d.name !== ex.name) patch.name = d.name;
+  if (d.description !== undefined && d.description !== (ex.description ?? ""))
+    patch.description = d.description || null;
+  if (d.subtype !== undefined && d.subtype !== (ex.subtype ?? ""))
+    patch.subtype = d.subtype || null;
+  if (d.parent_id !== undefined && d.parent_id !== (ex.parent_id ?? ""))
+    patch.parent_id = d.parent_id || null;
+  if (d.external_id !== undefined && d.external_id !== (ex.external_id ?? ""))
+    patch.external_id = d.external_id || null;
+  if (d.alias !== undefined && d.alias !== (ex.alias ?? ""))
+    patch.alias = d.alias || null;
+
+  // Lifecycle: compare phase-by-phase
+  if (d.lifecycle) {
+    const newLc = d.lifecycle as Record<string, string>;
+    const exLc = (ex.lifecycle || {}) as Record<string, string>;
+    for (const phase of LIFECYCLE_PHASES) {
+      if ((newLc[phase] ?? "") !== (exLc[phase] ?? "")) {
+        patch.lifecycle = d.lifecycle;
+        break;
+      }
+    }
+  }
+
+  // Attributes: compare field-by-field (JSON.stringify handles arrays for
+  // multiple_select round-trips)
+  if (d.attributes) {
+    const newAttrs = d.attributes as Record<string, unknown>;
+    const exAttrs = (ex.attributes || {}) as Record<string, unknown>;
+    let changed = false;
+    for (const key of Object.keys(newAttrs)) {
+      if (JSON.stringify(newAttrs[key]) !== JSON.stringify(exAttrs[key])) {
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      patch.attributes = { ...exAttrs, ...newAttrs };
+    }
+  }
+
+  return patch;
+}
+
 // ---- Core: parse workbook ------------------------------------------------
 
 export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
@@ -473,7 +529,13 @@ export function validateImport(
     if (id && matchedExisting) {
       parsed.id = id;
       parsed.existing = matchedExisting;
-      updates.push(parsed);
+      // Only classify as update when there are actual changes
+      const patch = buildPatch(data, matchedExisting);
+      if (Object.keys(patch).length > 0) {
+        updates.push(parsed);
+      } else {
+        skipped++;
+      }
     } else {
       creates.push(parsed);
     }
@@ -532,32 +594,12 @@ export async function executeImport(
   // Updates
   for (const row of report.updates) {
     try {
-      // Only send changed fields
-      const patch: Record<string, unknown> = {};
-      const d = row.data;
-      const ex = row.existing!;
-
-      if (d.name && d.name !== ex.name) patch.name = d.name;
-      if (d.description !== undefined && d.description !== (ex.description ?? ""))
-        patch.description = d.description || null;
-      if (d.subtype !== undefined && d.subtype !== (ex.subtype ?? ""))
-        patch.subtype = d.subtype || null;
-      if (d.parent_id !== undefined && d.parent_id !== (ex.parent_id ?? ""))
-        patch.parent_id = d.parent_id || null;
-      if (d.external_id !== undefined && d.external_id !== (ex.external_id ?? ""))
-        patch.external_id = d.external_id || null;
-      if (d.alias !== undefined && d.alias !== (ex.alias ?? ""))
-        patch.alias = d.alias || null;
-      if (d.lifecycle) patch.lifecycle = d.lifecycle;
-      if (d.attributes) {
-        // Merge with existing attributes
-        patch.attributes = { ...(ex.attributes || {}), ...(d.attributes as Record<string, unknown>) };
-      }
+      const patch = buildPatch(row.data, row.existing!);
 
       if (Object.keys(patch).length > 0) {
         await api.patch(`/cards/${row.id}`, patch);
+        updated++;
       }
-      updated++;
     } catch (e) {
       failed++;
       failedDetails.push({
