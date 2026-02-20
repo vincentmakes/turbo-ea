@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 
 import sqlalchemy
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -257,8 +257,6 @@ async def list_surveys(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     status: str | None = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
 ):
     """List all surveys (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
@@ -267,11 +265,6 @@ async def list_surveys(
     if status:
         q = q.where(Survey.status == status)
 
-    # Count total before pagination
-    count_q = select(func.count()).select_from(q.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-
-    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
     surveys = result.scalars().all()
 
@@ -280,12 +273,7 @@ async def list_surveys(
         stats = await _get_response_stats(db, s.id)
         items.append(_survey_to_dict(s, stats))
 
-    return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return items
 
 
 @router.post("", status_code=201)
@@ -576,8 +564,6 @@ async def list_responses(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     status: str | None = None,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
 ):
     """Get all responses for a survey (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
@@ -592,19 +578,8 @@ async def list_responses(
     if status:
         q = q.where(SurveyResponse.status == status)
 
-    # Count total before pagination
-    count_q = select(func.count()).select_from(q.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-
-    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    responses = result.scalars().all()
-    return {
-        "items": [_response_to_dict(r) for r in responses],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return [_response_to_dict(r) for r in result.scalars().all()]
 
 
 @router.post("/{survey_id}/apply")

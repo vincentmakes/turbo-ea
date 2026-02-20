@@ -4,7 +4,7 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -44,8 +44,6 @@ async def list_all_todos(
     status: str | None = Query(None),
     assigned_to: str | None = Query(None),
     mine: bool = Query(True),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
 ):
     q = select(Todo).order_by(Todo.created_at.desc())
     if status:
@@ -63,19 +61,9 @@ async def list_all_todos(
             (Todo.assigned_to == user.id) | (Todo.created_by == user.id)
         )
 
-    # Count total before pagination
-    count_q = select(func.count()).select_from(q.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-
     q = q.options(selectinload(Todo.card), selectinload(Todo.assignee))
-    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    return {
-        "items": [_todo_to_dict(t) for t in result.scalars().all()],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
 @router.get("/cards/{card_id}/todos")
@@ -83,25 +71,16 @@ async def list_card_todos(
     card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
 ):
     card_uuid = uuid.UUID(card_id)
-    q = select(Todo).where(Todo.card_id == card_uuid).order_by(Todo.created_at.desc())
-
-    # Count total before pagination
-    count_q = select(func.count()).select_from(q.subquery())
-    total = (await db.execute(count_q)).scalar() or 0
-
-    q = q.options(selectinload(Todo.card), selectinload(Todo.assignee))
-    q = q.offset((page - 1) * page_size).limit(page_size)
+    q = (
+        select(Todo)
+        .where(Todo.card_id == card_uuid)
+        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .order_by(Todo.created_at.desc())
+    )
     result = await db.execute(q)
-    return {
-        "items": [_todo_to_dict(t) for t in result.scalars().all()],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-    }
+    return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
 @router.post("/cards/{card_id}/todos", status_code=201)
