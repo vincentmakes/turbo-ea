@@ -115,7 +115,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   } | null>(null);
   const [actionError, setActionError] = useState("");
 
-  // Load permissions, published version, and elements
+  // Load permissions, published version, elements, and eagerly load drafts
   const loadInitial = useCallback(async () => {
     setLoadingPub(true);
     try {
@@ -127,6 +127,18 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       setPerms(permsData);
       setPublished(pubData);
       setElements(elemData);
+
+      // Eagerly load drafts so the Published empty state can show draft availability
+      if (permsData.can_view_drafts) {
+        try {
+          const draftsData = await api.get<ProcessFlowVersion[]>(
+            `/bpm/processes/${processId}/flow/drafts`
+          );
+          setDrafts(draftsData);
+        } catch {
+          setDrafts([]);
+        }
+      }
     } catch {
       setPublished(null);
     } finally {
@@ -651,32 +663,44 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       );
     }
     if (!published) {
+      const hasDrafts = drafts.length > 0;
       return (
         <Box sx={{ textAlign: "center", py: 4 }}>
           <MaterialSymbol icon="route" size={48} color="#666" />
           <Typography variant="h6" gutterBottom>
             No published process flow yet
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Create a draft, then submit it for approval to publish.
-          </Typography>
-          {perms.can_edit_draft && (
-            <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
-              <Button
-                variant="contained"
-                startIcon={<MaterialSymbol icon="add" />}
-                onClick={() => setShowTemplateChooser(true)}
-              >
-                New Draft from Template
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<MaterialSymbol icon="edit" />}
-                onClick={() => navigate(`/bpm/processes/${processId}/flow?returnSubTab=0`)}
-              >
-                Open Editor
-              </Button>
-            </Box>
+          {hasDrafts ? (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                {drafts.length} draft{drafts.length !== 1 ? "s" : ""} available.
+                Submit a draft for approval to publish it here.
+              </Typography>
+              {perms.can_view_drafts && (
+                <Button
+                  variant="outlined"
+                  startIcon={<MaterialSymbol icon="edit_note" />}
+                  onClick={() => setSubTab(1)}
+                >
+                  View Drafts
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Typography color="text.secondary" sx={{ mb: 2 }}>
+                Create a draft, then submit it for approval to publish.
+              </Typography>
+              {perms.can_edit_draft && (
+                <Button
+                  variant="contained"
+                  startIcon={<MaterialSymbol icon="add" />}
+                  onClick={() => setShowTemplateChooser(true)}
+                >
+                  New Draft from Template
+                </Button>
+              )}
+            </>
           )}
           <BpmnTemplateChooser
             open={showTemplateChooser}
