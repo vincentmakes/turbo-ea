@@ -25,6 +25,8 @@ export interface ParsedRow {
   parentId?: string;
   /** Original card when updating an existing record */
   existing?: Card;
+  /** For updates: the fields that actually changed (field → { old, new }) */
+  changes?: Record<string, { old: unknown; new: unknown }>;
 }
 
 export interface ImportReport {
@@ -54,6 +56,14 @@ const FALSY = new Set(["false", "no", "0"]);
 
 function str(v: unknown): string {
   if (v == null) return "";
+  // Excel auto-formats date strings into native Date cells; convert back to
+  // YYYY-MM-DD so lifecycle / date-attribute validation still works.
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    const d = String(v.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   return String(v).trim();
 }
 
@@ -105,10 +115,91 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
   return sorted;
 }
 
+// ---- Core: build update patch --------------------------------------------
+
+interface PatchResult {
+  patch: Record<string, unknown>;
+  /** Human-readable field-level changes: key → { old, new } */
+  changes: Record<string, { old: unknown; new: unknown }>;
+}
+
+/**
+ * Compare imported data against an existing card and return only the fields
+ * that actually changed.  Returns an empty patch when nothing differs.
+ */
+function buildPatch(
+  d: Record<string, unknown>,
+  ex: Card,
+): PatchResult {
+  const patch: Record<string, unknown> = {};
+  const changes: Record<string, { old: unknown; new: unknown }> = {};
+
+  // Normalise a string for comparison so that trivial whitespace differences
+  // (trailing spaces, \r\n vs \n, etc.) introduced by the XLSX round-trip
+  // don't flag as changes.
+  const norm = (v: unknown): string =>
+    (v == null ? "" : String(v)).trim().replace(/\r\n/g, "\n");
+
+  if (d.name && norm(d.name) !== norm(ex.name)) {
+    patch.name = d.name;
+    changes.name = { old: ex.name, new: d.name };
+  }
+
+  for (const key of ["description", "subtype", "parent_id", "external_id", "alias"] as const) {
+    const exVal = (ex as unknown as Record<string, unknown>)[key] ?? "";
+    if (d[key] !== undefined && norm(d[key]) !== norm(exVal)) {
+      patch[key] = d[key] || null;
+      changes[key] = { old: exVal || null, new: d[key] || null };
+    }
+  }
+
+  // Lifecycle: compare phase-by-phase
+  if (d.lifecycle) {
+    const newLc = d.lifecycle as Record<string, string>;
+    const exLc = (ex.lifecycle || {}) as Record<string, string>;
+    for (const phase of LIFECYCLE_PHASES) {
+      if ((newLc[phase] ?? "") !== (exLc[phase] ?? "")) {
+        patch.lifecycle = d.lifecycle;
+        changes[`lifecycle_${phase}`] = {
+          old: exLc[phase] ?? null,
+          new: newLc[phase] ?? null,
+        };
+      }
+    }
+  }
+
+  // Attributes: compare field-by-field (JSON.stringify handles arrays for
+  // multiple_select round-trips; norm() handles trivial whitespace diffs
+  // on plain-string attributes)
+  if (d.attributes) {
+    const newAttrs = d.attributes as Record<string, unknown>;
+    const exAttrs = (ex.attributes || {}) as Record<string, unknown>;
+    let attrChanged = false;
+    for (const key of Object.keys(newAttrs)) {
+      const nv = newAttrs[key];
+      const ev = exAttrs[key];
+      const differs = typeof nv === "string" && typeof ev === "string"
+        ? norm(nv) !== norm(ev)
+        : JSON.stringify(nv) !== JSON.stringify(ev);
+      if (differs) {
+        attrChanged = true;
+        changes[`attr_${key}`] = { old: ev ?? null, new: nv };
+      }
+    }
+    if (attrChanged) {
+      patch.attributes = { ...exAttrs, ...newAttrs };
+    }
+  }
+
+  return { patch, changes };
+}
+
 // ---- Core: parse workbook ------------------------------------------------
 
 export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
-  const wb = XLSX.read(file, { type: "array" });
+  // cellDates: true so that Excel-reformatted date cells come back as JS Date
+  // objects (handled by str()) instead of opaque serial numbers.
+  const wb = XLSX.read(file, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
@@ -473,7 +564,14 @@ export function validateImport(
     if (id && matchedExisting) {
       parsed.id = id;
       parsed.existing = matchedExisting;
-      updates.push(parsed);
+      // Only classify as update when there are actual changes
+      const { patch, changes } = buildPatch(data, matchedExisting);
+      if (Object.keys(patch).length > 0) {
+        parsed.changes = changes;
+        updates.push(parsed);
+      } else {
+        skipped++;
+      }
     } else {
       creates.push(parsed);
     }
@@ -532,32 +630,12 @@ export async function executeImport(
   // Updates
   for (const row of report.updates) {
     try {
-      // Only send changed fields
-      const patch: Record<string, unknown> = {};
-      const d = row.data;
-      const ex = row.existing!;
-
-      if (d.name && d.name !== ex.name) patch.name = d.name;
-      if (d.description !== undefined && d.description !== (ex.description ?? ""))
-        patch.description = d.description || null;
-      if (d.subtype !== undefined && d.subtype !== (ex.subtype ?? ""))
-        patch.subtype = d.subtype || null;
-      if (d.parent_id !== undefined && d.parent_id !== (ex.parent_id ?? ""))
-        patch.parent_id = d.parent_id || null;
-      if (d.external_id !== undefined && d.external_id !== (ex.external_id ?? ""))
-        patch.external_id = d.external_id || null;
-      if (d.alias !== undefined && d.alias !== (ex.alias ?? ""))
-        patch.alias = d.alias || null;
-      if (d.lifecycle) patch.lifecycle = d.lifecycle;
-      if (d.attributes) {
-        // Merge with existing attributes
-        patch.attributes = { ...(ex.attributes || {}), ...(d.attributes as Record<string, unknown>) };
-      }
+      const { patch } = buildPatch(row.data, row.existing!);
 
       if (Object.keys(patch).length > 0) {
         await api.patch(`/cards/${row.id}`, patch);
+        updated++;
       }
-      updated++;
     } catch (e) {
       failed++;
       failedDetails.push({

@@ -10,6 +10,11 @@ import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Collapse from "@mui/material/Collapse";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { Card, CardType } from "@/types";
 import {
@@ -48,6 +53,7 @@ export default function ImportDialog({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [parseError, setParseError] = useState("");
   const [warningsExpanded, setWarningsExpanded] = useState(false);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
   const [failedExpanded, setFailedExpanded] = useState(false);
 
   const reset = useCallback(() => {
@@ -59,6 +65,7 @@ export default function ImportDialog({
     setResult(null);
     setParseError("");
     setWarningsExpanded(false);
+    setUpdatesExpanded(false);
     setFailedExpanded(false);
     if (fileRef.current) fileRef.current.value = "";
   }, []);
@@ -111,8 +118,15 @@ export default function ImportDialog({
 
   const pct = progressTotal > 0 ? Math.round((progress / progressTotal) * 100) : 0;
 
+  const fmtVal = (v: unknown): string => {
+    if (v == null) return "(empty)";
+    if (Array.isArray(v)) return v.join(", ") || "(empty)";
+    const s = String(v);
+    return s || "(empty)";
+  };
+
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth={step === "report" && report && report.updates.length > 0 ? "md" : "sm"} fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="upload_file" size={22} />
         Import Cards
@@ -175,7 +189,7 @@ export default function ImportDialog({
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               File: <strong>{fileName}</strong> — {report.totalRows} row(s)
-              {report.skipped > 0 && `, ${report.skipped} empty row(s) skipped`}
+              {report.skipped > 0 && `, ${report.skipped} unchanged/empty row(s) skipped`}
             </Typography>
 
             {/* Summary chips */}
@@ -259,6 +273,66 @@ export default function ImportDialog({
                     {report.warnings.map((w, i) => (
                       <li key={i}>{w.message}</li>
                     ))}
+                  </Box>
+                </Collapse>
+              </Alert>
+            )}
+
+            {/* Updates preview */}
+            {report.updates.length > 0 && (
+              <Alert
+                severity="info"
+                sx={{ mb: 2, cursor: "pointer", "& .MuiAlert-message": { width: "100%" } }}
+                onClick={() => setUpdatesExpanded((v) => !v)}
+              >
+                <Typography variant="subtitle2">
+                  Changes to review ({report.updates.length})
+                  <MaterialSymbol
+                    icon={updatesExpanded ? "expand_less" : "expand_more"}
+                    size={16}
+                  />
+                </Typography>
+                <Collapse in={updatesExpanded}>
+                  <Box sx={{ mt: 1, maxHeight: 400, overflow: "auto" }}>
+                    <Table size="small" sx={{ "& td, & th": { fontSize: 13, py: 0.5, px: 1 } }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Card</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Field</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Current</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>New</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {report.updates.flatMap((row) => {
+                          const entries = row.changes ? Object.entries(row.changes) : [];
+                          const cardName = row.existing?.name ?? row.data.name as string;
+                          return entries.map(([field, { old: o, new: n }], i) => (
+                            <TableRow key={`${row.id}-${field}`}>
+                              {i === 0 ? (
+                                <TableCell
+                                  rowSpan={entries.length}
+                                  sx={{ fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" }}
+                                >
+                                  {cardName}
+                                </TableCell>
+                              ) : null}
+                              <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
+                                {field.replace(/^attr_/, "").replace(/^lifecycle_/, "lifecycle: ")}
+                              </TableCell>
+                              <TableCell sx={{ color: "text.secondary", wordBreak: "break-word", maxWidth: 200 }}>
+                                <span style={{ textDecoration: "line-through", opacity: 0.6 }}>
+                                  {fmtVal(o)}
+                                </span>
+                              </TableCell>
+                              <TableCell sx={{ wordBreak: "break-word", maxWidth: 200 }}>
+                                {fmtVal(n)}
+                              </TableCell>
+                            </TableRow>
+                          ));
+                        })}
+                      </TableBody>
+                    </Table>
                   </Box>
                 </Collapse>
               </Alert>
