@@ -24,7 +24,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ToggleButton from "@mui/material/ToggleButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { ProcessDiagramData, ProcessFlowVersion, BpmnTemplate } from "@/types";
+import type { ProcessFlowVersion, BpmnTemplate } from "@/types";
 
 // bpmn-js CSS
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -69,7 +69,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
 
       modelerRef.current = modeler;
 
-      // Load diagram — prefer draft version, fall back to legacy endpoint
+      // Load diagram from the draft version endpoint (requires versionId)
       let xml = initialXml;
       if (!xml && versionId) {
         try {
@@ -82,17 +82,6 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
           }
         } catch {
           // Version not found
-        }
-      }
-      if (!xml) {
-        try {
-          const data = await api.get<ProcessDiagramData | null>(`/bpm/processes/${processId}/diagram`);
-          if (data && data.bpmn_xml) {
-            xml = data.bpmn_xml;
-            setVersion(data.version);
-          }
-        } catch {
-          // No diagram yet
         }
       }
 
@@ -171,25 +160,17 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
       }
 
       const vid = versionIdRef.current;
-      if (vid) {
-        // Save to draft version endpoint
-        await api.patch(`/bpm/processes/${processId}/flow/versions/${vid}`, {
-          bpmn_xml: xml,
-          svg_thumbnail: svgThumbnail,
-        });
-        setDirty(false);
-        setSnack({ msg: "Draft saved", severity: "success" });
-      } else {
-        // Legacy: save to old diagram endpoint
-        const result = await api.put<{ version: number; element_count: number }>(`/bpm/processes/${processId}/diagram`, {
-          bpmn_xml: xml,
-          svg_thumbnail: svgThumbnail,
-        });
-        setVersion(result.version);
-        setDirty(false);
-        setSnack({ msg: `Saved v${result.version} (${result.element_count} elements)`, severity: "success" });
-        onSaved?.(result.version);
+      if (!vid) {
+        setSnack({ msg: "No draft version to save to", severity: "error" });
+        return;
       }
+      // Save to draft version endpoint
+      await api.patch(`/bpm/processes/${processId}/flow/versions/${vid}`, {
+        bpmn_xml: xml,
+        svg_thumbnail: svgThumbnail,
+      });
+      setDirty(false);
+      setSnack({ msg: "Draft saved", severity: "success" });
     } catch (err) {
       setSnack({ msg: "Save failed", severity: "error" });
     } finally {
@@ -289,7 +270,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         </Button>
 
         {versionId && <Chip label="Draft" size="small" color="warning" variant="outlined" />}
-        {version && !versionId && <Chip label={`v${version}`} size="small" variant="outlined" />}
+        {version != null && <Chip label={`Rev ${version}`} size="small" variant="outlined" />}
         {dirty && <Chip label="Unsaved" size="small" color="warning" variant="outlined" />}
 
         <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />

@@ -366,7 +366,7 @@ TYPES = [
                 "fields": [
                     {"key": "frequency", "label": "Execution Frequency", "type": "single_select",
                      "options": PROCESS_FREQUENCY_OPTIONS, "weight": 1},
-                    {"key": "documentationUrl", "label": "Process Documentation URL", "type": "text", "weight": 0},
+                    {"key": "documentationUrl", "label": "Process Documentation URL", "type": "url", "weight": 0},
                     {"key": "regulatoryRelevance", "label": "Regulatory Relevance", "type": "boolean", "weight": 1},
                 ],
             },

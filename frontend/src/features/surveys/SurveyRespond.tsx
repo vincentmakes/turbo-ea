@@ -268,7 +268,7 @@ export default function SurveyRespond() {
         </Typography>
       </Box>
 
-      {/* Fact sheet info */}
+      {/* Card info */}
       <Card variant="outlined" sx={{ p: 2, mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="apps" size={22} color="#0f7eb5" />
         <Typography sx={{ fontWeight: 600, flex: 1 }}>{form.card.name}</Typography>

@@ -33,6 +33,35 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
+_ALLOWED_URL_SCHEMES = ("http://", "https://", "mailto:")
+
+
+async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes: dict) -> None:
+    """Validate that any attribute whose field type is 'url' uses an allowed scheme."""
+    if not attributes:
+        return
+    result = await db.execute(
+        select(CardType.fields_schema).where(CardType.key == card_type)
+    )
+    schema = result.scalar_one_or_none()
+    if not schema:
+        return
+    url_keys: set[str] = set()
+    for section in schema:
+        for field in section.get("fields", []):
+            if field.get("type") == "url":
+                url_keys.add(field["key"])
+    for key in url_keys:
+        val = attributes.get(key)
+        if val is not None and val != "":
+            if not isinstance(val, str):
+                raise HTTPException(422, f"Field '{key}' must be a string URL")
+            if not val.strip().startswith(_ALLOWED_URL_SCHEMES):
+                raise HTTPException(
+                    422,
+                    f"Field '{key}' must use http://, https://, or mailto: scheme",
+                )
+
 
 async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
     """Calculate data quality score from fields_schema weights."""
@@ -262,6 +291,7 @@ async def create_card(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "inventory.create")
+    await _validate_url_attributes(db, body.type, body.attributes or {})
     card = Card(
         type=body.type,
         subtype=body.subtype,
@@ -368,6 +398,10 @@ async def update_card(
         raise HTTPException(404, "Card not found")
 
     updates = body.model_dump(exclude_unset=True)
+
+    # Validate URL-typed attributes
+    if "attributes" in updates and updates["attributes"]:
+        await _validate_url_attributes(db, card.type, updates["attributes"])
 
     # Guard: hierarchy depth limit before applying parent change
     if "parent_id" in updates:
@@ -551,6 +585,10 @@ async def bulk_update(
     result = await db.execute(select(Card).where(Card.id.in_(uuids)))
     sheets = result.scalars().all()
     updates = body.updates.model_dump(exclude_unset=True)
+    if "attributes" in updates and updates["attributes"]:
+        for card in sheets:
+            await _validate_url_attributes(db, card.type, updates["attributes"])
+            break  # schema is per-type; validated once per distinct type
     for card in sheets:
         for field, value in updates.items():
             if field == "parent_id" and value is not None:

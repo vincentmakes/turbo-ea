@@ -200,6 +200,21 @@ function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unk
       />
     );
   }
+  if (field.type === "url") {
+    const href = safeString(value);
+    return (
+      <Typography
+        component="a"
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="body2"
+        sx={{ color: "primary.main", textDecoration: "none", "&:hover": { textDecoration: "underline" }, wordBreak: "break-all" }}
+      >
+        {href}
+      </Typography>
+    );
+  }
   if (field.type === "cost" && currencyFmt) {
     const num = Number(value);
     return (
@@ -348,6 +363,18 @@ function FieldEditor({
           onChange={(e) => onChange(e.target.value || undefined)}
           InputLabelProps={{ shrink: true }}
           sx={{ minWidth: 200 }}
+        />
+      );
+    case "url":
+      return (
+        <TextField
+          size="small"
+          label={field.label}
+          type="url"
+          placeholder="https://"
+          value={strVal}
+          onChange={(e) => onChange(e.target.value || undefined)}
+          sx={{ minWidth: 300 }}
         />
       );
     default:

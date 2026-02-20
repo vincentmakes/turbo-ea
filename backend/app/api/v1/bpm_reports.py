@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.process_diagram import ProcessDiagram
+from app.models.process_flow_version import ProcessFlowVersion
 from app.models.process_element import ProcessElement
 from app.models.relation import Relation
 from app.models.user import User
@@ -69,8 +69,12 @@ async def bpm_dashboard(
 
     top_risk.sort(key=_risk_order)
 
-    # Diagram coverage
-    diag_result = await db.execute(select(ProcessDiagram.process_id).distinct())
+    # Diagram coverage (count processes with a published flow version)
+    diag_result = await db.execute(
+        select(ProcessFlowVersion.process_id).where(
+            ProcessFlowVersion.status == "published"
+        ).distinct()
+    )
     processes_with_diagrams = len(diag_result.all())
 
     return {
@@ -467,12 +471,11 @@ async def process_map(
     from sqlalchemy import func as sa_func
 
     diag_result = await db.execute(
-        select(
-            ProcessDiagram.process_id,
-            sa_func.max(ProcessDiagram.version).label("latest_version"),
-        ).group_by(ProcessDiagram.process_id)
+        select(ProcessFlowVersion.process_id).where(
+            ProcessFlowVersion.status == "published"
+        ).distinct()
     )
-    diag_map = {str(row.process_id): row.latest_version for row in diag_result}
+    diag_map = {str(row[0]): True for row in diag_result}
 
     elem_result = await db.execute(
         select(

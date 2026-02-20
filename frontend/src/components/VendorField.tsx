@@ -35,9 +35,9 @@ interface VendorFieldProps {
   value: string;
   /** Called when vendor text changes */
   onChange: (value: string | undefined) => void;
-  /** Fact sheet type (ITComponent or Application) */
+  /** Card type (ITComponent or Application) */
   cardTypeKey: string;
-  /** Fact sheet ID — if provided, relations are managed automatically */
+  /** Card ID — if provided, relations are managed automatically */
   fsId?: string;
   /** Size variant */
   size?: "small" | "medium";

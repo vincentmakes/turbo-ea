@@ -370,7 +370,7 @@ async def bookmark_odata_feed(
     page: int = Query(1, ge=1),
     page_size: int = Query(1000, ge=1, le=10000),
 ):
-    """OData-style JSON feed for a bookmark's filtered fact sheets.
+    """OData-style JSON feed for a bookmark's filtered cards.
     Requires authentication. Returns data matching the bookmark's saved filters."""
     await PermissionService.require_permission(db, user, "inventory.view")
 

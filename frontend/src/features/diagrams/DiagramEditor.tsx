@@ -783,7 +783,7 @@ export default function DiagramEditor() {
             });
           }
         } catch {
-          // Fact sheet may have been deleted — skip
+          // Card may have been deleted — skip
         }
       }
 
