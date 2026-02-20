@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.core.security import decode_access_token
@@ -48,7 +49,7 @@ async def list_events(
     page_size: int = Query(50, ge=1, le=200),
 ):
     await PermissionService.require_permission(db, user, "admin.events")
-    q = select(Event).order_by(Event.created_at.desc())
+    q = select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc())
     if card_id:
         import uuid as _uuid
         q = q.where(Event.card_id == _uuid.UUID(card_id))

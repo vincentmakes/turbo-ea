@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -193,7 +194,7 @@ async def _resolve_targets(
 
     # Find subscribers for these cards with matching roles
     card_ids = [card.id for card in cards]
-    sub_q = select(Stakeholder).where(Stakeholder.card_id.in_(card_ids))
+    sub_q = select(Stakeholder).where(Stakeholder.card_id.in_(card_ids)).options(selectinload(Stakeholder.user))
     if roles:
         sub_q = sub_q.where(Stakeholder.role.in_(roles))
 
@@ -260,7 +261,7 @@ async def list_surveys(
     """List all surveys (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
-    q = select(Survey).order_by(Survey.created_at.desc())
+    q = select(Survey).options(selectinload(Survey.creator)).order_by(Survey.created_at.desc())
     if status:
         q = q.where(Survey.status == status)
 
@@ -303,7 +304,11 @@ async def create_survey(
     )
     db.add(survey)
     await db.commit()
-    await db.refresh(survey)
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey.id)
+        .options(selectinload(Survey.creator))
+    )
+    survey = result.scalar_one()
     return _survey_to_dict(survey)
 
 
@@ -320,6 +325,7 @@ async def my_surveys(
             SurveyResponse.user_id == user.id,
             SurveyResponse.status == "pending",
         )
+        .options(selectinload(SurveyResponse.survey), selectinload(SurveyResponse.card))
         .order_by(SurveyResponse.created_at.desc())
     )
     result = await db.execute(q)
@@ -358,7 +364,10 @@ async def get_survey(
     """Get a single survey with stats (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
-    result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
+    result = await db.execute(
+        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        .options(selectinload(Survey.creator))
+    )
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(404, "Survey not found")
@@ -377,7 +386,10 @@ async def update_survey(
     """Update a draft survey (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
-    result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
+    result = await db.execute(
+        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        .options(selectinload(Survey.creator))
+    )
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(404, "Survey not found")
@@ -394,7 +406,11 @@ async def update_survey(
             setattr(survey, field, val)
 
     await db.commit()
-    await db.refresh(survey)
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey.id)
+        .options(selectinload(Survey.creator))
+    )
+    survey = result.scalar_one()
     return _survey_to_dict(survey)
 
 
@@ -500,7 +516,11 @@ async def send_survey(
     survey.status = "active"
     survey.sent_at = datetime.now(timezone.utc)
     await db.commit()
-    await db.refresh(survey)
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey.id)
+        .options(selectinload(Survey.creator))
+    )
+    survey = result.scalar_one()
 
     stats = await _get_response_stats(db, survey.id)
     return {**_survey_to_dict(survey, stats), "targets_created": created}
@@ -515,7 +535,10 @@ async def close_survey(
     """Close an active survey (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
-    result = await db.execute(select(Survey).where(Survey.id == uuid.UUID(survey_id)))
+    result = await db.execute(
+        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        .options(selectinload(Survey.creator))
+    )
     survey = result.scalar_one_or_none()
     if not survey:
         raise HTTPException(404, "Survey not found")
@@ -525,7 +548,11 @@ async def close_survey(
     survey.status = "closed"
     survey.closed_at = datetime.now(timezone.utc)
     await db.commit()
-    await db.refresh(survey)
+    result = await db.execute(
+        select(Survey).where(Survey.id == survey.id)
+        .options(selectinload(Survey.creator))
+    )
+    survey = result.scalar_one()
 
     stats = await _get_response_stats(db, survey.id)
     return _survey_to_dict(survey, stats)
@@ -543,14 +570,16 @@ async def list_responses(
 
     q = select(SurveyResponse).where(
         SurveyResponse.survey_id == uuid.UUID(survey_id)
+    ).options(
+        selectinload(SurveyResponse.card),
+        selectinload(SurveyResponse.user),
     ).order_by(SurveyResponse.created_at)
 
     if status:
         q = q.where(SurveyResponse.status == status)
 
     result = await db.execute(q)
-    responses = result.scalars().all()
-    return [_response_to_dict(r) for r in responses]
+    return [_response_to_dict(r) for r in result.scalars().all()]
 
 
 @router.post("/{survey_id}/apply")

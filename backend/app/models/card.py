@@ -31,13 +31,13 @@ class Card(Base, UUIDMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
-    parent = relationship("Card", remote_side="Card.id", lazy="selectin")
+    parent = relationship("Card", remote_side="Card.id", lazy="noload")
     children = relationship(
         "Card",
         back_populates="parent",
         remote_side="Card.parent_id",
-        lazy="selectin",
+        lazy="noload",
         viewonly=True,
     )
-    tags = relationship("Tag", secondary="card_tags", lazy="selectin")
-    stakeholders = relationship("Stakeholder", back_populates="card", lazy="selectin")
+    tags = relationship("Tag", secondary="card_tags", lazy="noload")
+    stakeholders = relationship("Stakeholder", back_populates="card", lazy="noload")

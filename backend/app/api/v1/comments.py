@@ -31,8 +31,7 @@ async def list_comments(
         .where(Comment.card_id == uuid.UUID(card_id), Comment.parent_id.is_(None))
         .order_by(Comment.created_at.desc())
     )
-    comments = result.scalars().all()
-    return [_comment_to_dict(c) for c in comments]
+    return [_comment_to_dict(c) for c in result.scalars().all()]
 
 
 def _comment_to_dict(c: Comment) -> dict:

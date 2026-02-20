@@ -36,7 +36,7 @@ class Survey(Base, UUIDMixin, TimestampMixin):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    creator = relationship("User", foreign_keys=[created_by], lazy="selectin")
+    creator = relationship("User", foreign_keys=[created_by], lazy="noload")
     responses = relationship("SurveyResponse", back_populates="survey", lazy="noload")
 
 
@@ -68,6 +68,6 @@ class SurveyResponse(Base, UUIDMixin, TimestampMixin):
     responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     applied_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    survey = relationship("Survey", back_populates="responses", lazy="selectin")
-    card = relationship("Card", lazy="selectin")
-    user = relationship("User", lazy="selectin")
+    survey = relationship("Survey", back_populates="responses", lazy="noload")
+    card = relationship("Card", lazy="noload")
+    user = relationship("User", lazy="noload")

@@ -27,6 +27,6 @@ class Todo(Base, UUIDMixin, TimestampMixin):
     )
     due_date = mapped_column(Date, nullable=True)
 
-    card = relationship("Card", lazy="selectin")
-    assignee = relationship("User", foreign_keys=[assigned_to], lazy="selectin")
-    creator = relationship("User", foreign_keys=[created_by], lazy="selectin")
+    card = relationship("Card", lazy="noload")
+    assignee = relationship("User", foreign_keys=[assigned_to], lazy="noload")
+    creator = relationship("User", foreign_keys=[created_by], lazy="noload")

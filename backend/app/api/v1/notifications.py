@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -48,6 +49,7 @@ async def list_notifications(
     q = (
         select(Notification)
         .where(Notification.user_id == user.id)
+        .options(selectinload(Notification.actor))
         .order_by(Notification.created_at.desc())
     )
     if is_read is not None:

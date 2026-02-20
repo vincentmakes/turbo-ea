@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -201,6 +201,36 @@ async def get_field_usage(
         )
     )
     return {"field_key": field_key, "card_count": count_result.scalar() or 0}
+
+
+@router.get("/types/{key}/section-usage")
+async def get_section_usage(
+    key: str,
+    field_keys: str = Query(..., description="Comma-separated field keys in the section"),
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Return how many active cards have data for any field in a section."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(CardType).where(CardType.key == key))
+    if not result.scalar_one_or_none():
+        raise HTTPException(404, "Card type not found")
+
+    keys = [k.strip() for k in field_keys.split(",") if k.strip()]
+    if not keys:
+        return {"card_count": 0}
+
+    conditions = [Card.attributes[fk] != None for fk in keys]  # noqa: E711
+    count_result = await db.execute(
+        select(func.count())
+        .select_from(Card)
+        .where(
+            Card.type == key,
+            Card.status == "ACTIVE",
+            or_(*conditions),
+        )
+    )
+    return {"card_count": count_result.scalar() or 0}
 
 
 @router.get("/types/{key}/option-usage")

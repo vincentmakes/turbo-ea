@@ -30,4 +30,4 @@ class SavedReport(Base, UUIDMixin, TimestampMixin):
     thumbnail: Mapped[str | None] = mapped_column(Text, nullable=True)
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, default="private")
 
-    shared_with_users = relationship("User", secondary=saved_report_shares, lazy="selectin")
+    shared_with_users = relationship("User", secondary=saved_report_shares, lazy="noload")

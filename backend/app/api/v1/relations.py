@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -55,6 +56,8 @@ async def list_relations(
         q = q.where((Relation.source_id == uid) | (Relation.target_id == uid))
     if type:
         q = q.where(Relation.type == type)
+
+    q = q.options(selectinload(Relation.source), selectinload(Relation.target))
     result = await db.execute(q)
     return [_rel_to_response(r) for r in result.scalars().all()]
 
@@ -90,7 +93,11 @@ async def create_relation(
         await run_calculations_for_card(db, target_card)
 
     await db.commit()
-    await db.refresh(rel)
+    result = await db.execute(
+        select(Relation).where(Relation.id == rel.id)
+        .options(selectinload(Relation.source), selectinload(Relation.target))
+    )
+    rel = result.scalar_one()
     return _rel_to_response(rel)
 
 
@@ -118,7 +125,11 @@ async def update_relation(
         await run_calculations_for_card(db, target_card)
 
     await db.commit()
-    await db.refresh(rel)
+    result = await db.execute(
+        select(Relation).where(Relation.id == rel.id)
+        .options(selectinload(Relation.source), selectinload(Relation.target))
+    )
+    rel = result.scalar_one()
     return _rel_to_response(rel)
 
 

@@ -11,8 +11,9 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-# Copy everything then install (setuptools needs the package source)
-COPY . .
+# Copy VERSION file from project root, then backend source
+COPY VERSION ./VERSION
+COPY backend/ ./
 RUN pip install --no-cache-dir .
 
 # Switch to non-root user

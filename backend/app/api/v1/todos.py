@@ -6,6 +6,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -59,6 +60,8 @@ async def list_all_todos(
         q = q.where(
             (Todo.assigned_to == user.id) | (Todo.created_by == user.id)
         )
+
+    q = q.options(selectinload(Todo.card), selectinload(Todo.assignee))
     result = await db.execute(q)
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
@@ -69,9 +72,14 @@ async def list_card_todos(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Todo).where(Todo.card_id == uuid.UUID(card_id)).order_by(Todo.created_at.desc())
+    card_uuid = uuid.UUID(card_id)
+    q = (
+        select(Todo)
+        .where(Todo.card_id == card_uuid)
+        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+        .order_by(Todo.created_at.desc())
     )
+    result = await db.execute(q)
     return [_todo_to_dict(t) for t in result.scalars().all()]
 
 
@@ -106,7 +114,11 @@ async def create_todo(
         )
 
     await db.commit()
-    await db.refresh(todo)
+    result = await db.execute(
+        select(Todo).where(Todo.id == todo.id)
+        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+    )
+    todo = result.scalar_one()
     return _todo_to_dict(todo)
 
 
@@ -159,7 +171,11 @@ async def update_todo(
         )
 
     await db.commit()
-    await db.refresh(todo)
+    result = await db.execute(
+        select(Todo).where(Todo.id == todo.id)
+        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+    )
+    todo = result.scalar_one()
     return _todo_to_dict(todo)
 
 

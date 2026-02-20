@@ -30,4 +30,4 @@ class ProcessDiagram(Base, UUIDMixin, TimestampMixin):
         ForeignKey("users.id"),
     )
 
-    process = relationship("Card", lazy="selectin")
+    process = relationship("Card", lazy="noload")

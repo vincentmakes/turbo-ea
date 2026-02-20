@@ -39,4 +39,4 @@ class Bookmark(Base, UUIDMixin, TimestampMixin):
     visibility: Mapped[str] = mapped_column(String(20), nullable=False, server_default="private")
     odata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
-    shared_with_users = relationship("User", secondary=bookmark_shares, lazy="selectin")
+    shared_with_users = relationship("User", secondary=bookmark_shares, lazy="noload")

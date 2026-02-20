@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -22,7 +21,6 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
       StarterKit.configure({
         heading: { levels: [3, 4] },
       }),
-      Underline,
       Placeholder.configure({ placeholder: placeholder ?? "Start typing..." }),
     ],
     content,

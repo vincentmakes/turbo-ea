@@ -35,5 +35,5 @@ class ProcessAssessment(Base, UUIDMixin, TimestampMixin):
     notes: Mapped[str | None] = mapped_column(Text)
     action_items: Mapped[list | None] = mapped_column(JSONB, default=list)
 
-    assessor = relationship("User", lazy="selectin")
-    process = relationship("Card", lazy="selectin")
+    assessor = relationship("User", lazy="noload")
+    process = relationship("Card", lazy="noload")

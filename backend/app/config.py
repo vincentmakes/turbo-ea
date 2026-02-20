@@ -1,9 +1,24 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 
 _DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
+
+
+def _read_version() -> str:
+    """Read version from the project-root VERSION file."""
+    here = Path(__file__).resolve().parent
+    # Local dev: backend/app/config.py -> ../../VERSION
+    # Docker:    /app/app/config.py    -> /app/VERSION
+    for candidate in [here.parent.parent / "VERSION", here.parent / "VERSION"]:
+        if candidate.is_file():
+            return candidate.read_text().strip()
+    return "0.0.0-dev"
+
+
+APP_VERSION = _read_version()
 
 
 class Settings:
