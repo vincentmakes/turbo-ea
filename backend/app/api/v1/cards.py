@@ -196,7 +196,7 @@ async def list_cards(
     user: User = Depends(get_current_user),
     type: str | None = Query(None),
     status: str | None = Query(None, alias="status"),
-    search: str | None = Query(None),
+    search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
     page: int = Query(1, ge=1),

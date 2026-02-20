@@ -175,8 +175,10 @@ async def test_email_settings(
             message="If you received this, your email settings are configured correctly.",
             link="/admin/settings",
         )
-    except Exception as exc:
-        raise HTTPException(502, f"Failed to send test email: {exc}") from exc
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Failed to send test email")
+        raise HTTPException(502, "Failed to send test email. Check SMTP settings and server logs.")
 
     return {"ok": True, "sent_to": user.email}
 

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -192,6 +193,20 @@ async def landscape(
     }
 
 
+def _valid_field_keys(fields_schema: list[dict] | None) -> set[str]:
+    """Extract all valid field keys from a card type's fields_schema."""
+    keys: set[str] = set()
+    for section in fields_schema or []:
+        for field in section.get("fields", []):
+            if field.get("key"):
+                keys.add(field["key"])
+    return keys
+
+
+# M-3: Regex for safe attribute key format (alphanumeric + underscore/camelCase)
+_SAFE_KEY_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,63}$")
+
+
 @router.get("/portfolio")
 async def portfolio(
     db: AsyncSession = Depends(get_db),
@@ -204,6 +219,23 @@ async def portfolio(
 ):
     """Portfolio scatter/bubble chart data."""
     await PermissionService.require_permission(db, user, "reports.portfolio")
+
+    # M-3: Validate field params against the type's schema + safe format
+    type_result = await db.execute(
+        select(CardType).where(CardType.key == type)
+    )
+    type_def = type_result.scalars().first()
+    allowed_keys = _valid_field_keys(type_def.fields_schema if type_def else None)
+
+    for param_name, param_val in [
+        ("x_axis", x_axis), ("y_axis", y_axis),
+        ("size_field", size_field), ("color_field", color_field),
+    ]:
+        if not _SAFE_KEY_RE.match(param_val):
+            raise HTTPException(400, f"Invalid {param_name}: {param_val!r}")
+        if allowed_keys and param_val not in allowed_keys:
+            raise HTTPException(400, f"Unknown field '{param_val}' for type '{type}'")
+
     result = await db.execute(
         select(Card).where(Card.type == type, Card.status == "ACTIVE")
     )
@@ -515,6 +547,9 @@ async def cost_treemap(
 ):
     """Cost treemap: items with cost, optionally grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    # M-3: Validate cost_field format
+    if not _SAFE_KEY_RE.match(cost_field):
+        raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
     result = await db.execute(
         select(Card).where(Card.type == type, Card.status == "ACTIVE")
     )
@@ -586,6 +621,9 @@ async def capability_heatmap(
 ):
     """Business capability heatmap data with hierarchy."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
+    # M-3: Whitelist valid metric values
+    if metric not in {"app_count", "total_cost", "risk_count"}:
+        raise HTTPException(400, f"Invalid metric: {metric!r}")
     # Get all business capabilities
     caps_result = await db.execute(
         select(Card).where(
