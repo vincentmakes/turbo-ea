@@ -25,6 +25,8 @@ export interface ParsedRow {
   parentId?: string;
   /** Original card when updating an existing record */
   existing?: Card;
+  /** For updates: the fields that actually changed (field → { old, new }) */
+  changes?: Record<string, { old: unknown; new: unknown }>;
 }
 
 export interface ImportReport {
@@ -54,6 +56,14 @@ const FALSY = new Set(["false", "no", "0"]);
 
 function str(v: unknown): string {
   if (v == null) return "";
+  // Excel auto-formats date strings into native Date cells; convert back to
+  // YYYY-MM-DD so lifecycle / date-attribute validation still works.
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    const d = String(v.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   return String(v).trim();
 }
 
@@ -107,27 +117,35 @@ function topoSortCreates(rows: ParsedRow[]): ParsedRow[] {
 
 // ---- Core: build update patch --------------------------------------------
 
+interface PatchResult {
+  patch: Record<string, unknown>;
+  /** Human-readable field-level changes: key → { old, new } */
+  changes: Record<string, { old: unknown; new: unknown }>;
+}
+
 /**
  * Compare imported data against an existing card and return only the fields
- * that actually changed.  Returns an empty object when nothing differs.
+ * that actually changed.  Returns an empty patch when nothing differs.
  */
 function buildPatch(
   d: Record<string, unknown>,
   ex: Card,
-): Record<string, unknown> {
+): PatchResult {
   const patch: Record<string, unknown> = {};
+  const changes: Record<string, { old: unknown; new: unknown }> = {};
 
-  if (d.name && d.name !== ex.name) patch.name = d.name;
-  if (d.description !== undefined && d.description !== (ex.description ?? ""))
-    patch.description = d.description || null;
-  if (d.subtype !== undefined && d.subtype !== (ex.subtype ?? ""))
-    patch.subtype = d.subtype || null;
-  if (d.parent_id !== undefined && d.parent_id !== (ex.parent_id ?? ""))
-    patch.parent_id = d.parent_id || null;
-  if (d.external_id !== undefined && d.external_id !== (ex.external_id ?? ""))
-    patch.external_id = d.external_id || null;
-  if (d.alias !== undefined && d.alias !== (ex.alias ?? ""))
-    patch.alias = d.alias || null;
+  if (d.name && d.name !== ex.name) {
+    patch.name = d.name;
+    changes.name = { old: ex.name, new: d.name };
+  }
+
+  for (const key of ["description", "subtype", "parent_id", "external_id", "alias"] as const) {
+    const exVal = (ex as unknown as Record<string, unknown>)[key] ?? "";
+    if (d[key] !== undefined && d[key] !== exVal) {
+      patch[key] = d[key] || null;
+      changes[key] = { old: exVal || null, new: d[key] || null };
+    }
+  }
 
   // Lifecycle: compare phase-by-phase
   if (d.lifecycle) {
@@ -136,7 +154,10 @@ function buildPatch(
     for (const phase of LIFECYCLE_PHASES) {
       if ((newLc[phase] ?? "") !== (exLc[phase] ?? "")) {
         patch.lifecycle = d.lifecycle;
-        break;
+        changes[`lifecycle_${phase}`] = {
+          old: exLc[phase] ?? null,
+          new: newLc[phase] ?? null,
+        };
       }
     }
   }
@@ -146,25 +167,27 @@ function buildPatch(
   if (d.attributes) {
     const newAttrs = d.attributes as Record<string, unknown>;
     const exAttrs = (ex.attributes || {}) as Record<string, unknown>;
-    let changed = false;
+    let attrChanged = false;
     for (const key of Object.keys(newAttrs)) {
       if (JSON.stringify(newAttrs[key]) !== JSON.stringify(exAttrs[key])) {
-        changed = true;
-        break;
+        attrChanged = true;
+        changes[`attr_${key}`] = { old: exAttrs[key] ?? null, new: newAttrs[key] };
       }
     }
-    if (changed) {
+    if (attrChanged) {
       patch.attributes = { ...exAttrs, ...newAttrs };
     }
   }
 
-  return patch;
+  return { patch, changes };
 }
 
 // ---- Core: parse workbook ------------------------------------------------
 
 export function parseWorkbook(file: ArrayBuffer): Record<string, unknown>[] {
-  const wb = XLSX.read(file, { type: "array" });
+  // cellDates: true so that Excel-reformatted date cells come back as JS Date
+  // objects (handled by str()) instead of opaque serial numbers.
+  const wb = XLSX.read(file, { type: "array", cellDates: true });
   const ws = wb.Sheets[wb.SheetNames[0]];
   if (!ws) return [];
   return XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "" });
@@ -530,8 +553,9 @@ export function validateImport(
       parsed.id = id;
       parsed.existing = matchedExisting;
       // Only classify as update when there are actual changes
-      const patch = buildPatch(data, matchedExisting);
+      const { patch, changes } = buildPatch(data, matchedExisting);
       if (Object.keys(patch).length > 0) {
+        parsed.changes = changes;
         updates.push(parsed);
       } else {
         skipped++;
@@ -594,7 +618,7 @@ export async function executeImport(
   // Updates
   for (const row of report.updates) {
     try {
-      const patch = buildPatch(row.data, row.existing!);
+      const { patch } = buildPatch(row.data, row.existing!);
 
       if (Object.keys(patch).length > 0) {
         await api.patch(`/cards/${row.id}`, patch);

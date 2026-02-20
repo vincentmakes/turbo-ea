@@ -48,6 +48,7 @@ export default function ImportDialog({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [parseError, setParseError] = useState("");
   const [warningsExpanded, setWarningsExpanded] = useState(false);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
   const [failedExpanded, setFailedExpanded] = useState(false);
 
   const reset = useCallback(() => {
@@ -59,6 +60,7 @@ export default function ImportDialog({
     setResult(null);
     setParseError("");
     setWarningsExpanded(false);
+    setUpdatesExpanded(false);
     setFailedExpanded(false);
     if (fileRef.current) fileRef.current.value = "";
   }, []);
@@ -110,6 +112,13 @@ export default function ImportDialog({
   };
 
   const pct = progressTotal > 0 ? Math.round((progress / progressTotal) * 100) : 0;
+
+  const fmtVal = (v: unknown): string => {
+    if (v == null) return "(empty)";
+    if (Array.isArray(v)) return v.join(", ") || "(empty)";
+    const s = String(v);
+    return s || "(empty)";
+  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -175,7 +184,7 @@ export default function ImportDialog({
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               File: <strong>{fileName}</strong> — {report.totalRows} row(s)
-              {report.skipped > 0 && `, ${report.skipped} empty row(s) skipped`}
+              {report.skipped > 0 && `, ${report.skipped} unchanged/empty row(s) skipped`}
             </Typography>
 
             {/* Summary chips */}
@@ -258,6 +267,49 @@ export default function ImportDialog({
                   >
                     {report.warnings.map((w, i) => (
                       <li key={i}>{w.message}</li>
+                    ))}
+                  </Box>
+                </Collapse>
+              </Alert>
+            )}
+
+            {/* Updates preview */}
+            {report.updates.length > 0 && (
+              <Alert
+                severity="info"
+                sx={{ mb: 2, cursor: "pointer" }}
+                onClick={() => setUpdatesExpanded((v) => !v)}
+              >
+                <Typography variant="subtitle2">
+                  Changes to review ({report.updates.length})
+                  <MaterialSymbol
+                    icon={updatesExpanded ? "expand_less" : "expand_more"}
+                    size={16}
+                  />
+                </Typography>
+                <Collapse in={updatesExpanded}>
+                  <Box sx={{ mt: 1, maxHeight: 260, overflow: "auto" }}>
+                    {report.updates.map((row) => (
+                      <Box key={row.id} sx={{ mb: 1.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {row.existing?.name ?? row.data.name as string}
+                        </Typography>
+                        {row.changes &&
+                          Object.entries(row.changes).map(([field, { old: o, new: n }]) => (
+                            <Typography
+                              key={field}
+                              variant="caption"
+                              component="div"
+                              sx={{ pl: 1.5, color: "text.secondary", lineHeight: 1.6 }}
+                            >
+                              <strong>{field.replace(/^attr_/, "")}</strong>:{" "}
+                              <span style={{ textDecoration: "line-through", opacity: 0.6 }}>
+                                {fmtVal(o)}
+                              </span>{" "}
+                              &rarr; {fmtVal(n)}
+                            </Typography>
+                          ))}
+                      </Box>
                     ))}
                   </Box>
                 </Collapse>
