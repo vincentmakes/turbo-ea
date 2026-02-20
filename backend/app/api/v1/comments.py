@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -24,15 +24,29 @@ async def list_comments(
     card_id: str,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     await PermissionService.require_permission(db, user, "comments.view")
-    result = await db.execute(
+    q = (
         select(Comment)
         .where(Comment.card_id == uuid.UUID(card_id), Comment.parent_id.is_(None))
         .order_by(Comment.created_at.desc())
     )
+
+    # Count total top-level comments before pagination
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.offset((page - 1) * page_size).limit(page_size)
+    result = await db.execute(q)
     comments = result.scalars().all()
-    return [_comment_to_dict(c) for c in comments]
+    return {
+        "items": [_comment_to_dict(c) for c in comments],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 def _comment_to_dict(c: Comment) -> dict:

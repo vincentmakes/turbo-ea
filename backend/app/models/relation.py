@@ -22,5 +22,5 @@ class Relation(Base, UUIDMixin, TimestampMixin):
     attributes: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     description: Mapped[str | None] = mapped_column(Text)
 
-    source = relationship("Card", foreign_keys=[source_id], lazy="selectin")
-    target = relationship("Card", foreign_keys=[target_id], lazy="selectin")
+    source = relationship("Card", foreign_keys=[source_id], lazy="noload")
+    target = relationship("Card", foreign_keys=[target_id], lazy="noload")

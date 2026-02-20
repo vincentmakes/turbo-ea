@@ -7,6 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -344,6 +345,11 @@ async def list_elements(
     await _get_process_or_404(db, pid)
     result = await db.execute(
         select(ProcessElement)
+        .options(
+            selectinload(ProcessElement.application),
+            selectinload(ProcessElement.data_object),
+            selectinload(ProcessElement.it_component),
+        )
         .where(ProcessElement.process_id == pid)
         .order_by(ProcessElement.sequence_order)
     )

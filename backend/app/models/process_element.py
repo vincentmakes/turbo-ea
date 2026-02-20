@@ -49,7 +49,7 @@ class ProcessElement(Base, UUIDMixin, TimestampMixin):
 
     custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict)
 
-    process = relationship("Card", foreign_keys=[process_id], lazy="selectin")
-    application = relationship("Card", foreign_keys=[application_id], lazy="selectin")
-    data_object = relationship("Card", foreign_keys=[data_object_id], lazy="selectin")
-    it_component = relationship("Card", foreign_keys=[it_component_id], lazy="selectin")
+    process = relationship("Card", foreign_keys=[process_id], lazy="noload")
+    application = relationship("Card", foreign_keys=[application_id], lazy="noload")
+    data_object = relationship("Card", foreign_keys=[data_object_id], lazy="noload")
+    it_component = relationship("Card", foreign_keys=[it_component_id], lazy="noload")

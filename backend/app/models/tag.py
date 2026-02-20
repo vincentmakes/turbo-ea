@@ -21,7 +21,7 @@ class TagGroup(Base, UUIDMixin):
     mandatory: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    tags = relationship("Tag", back_populates="group", lazy="selectin")
+    tags = relationship("Tag", back_populates="group", lazy="noload")
 
 
 class Tag(Base, UUIDMixin):
@@ -34,7 +34,7 @@ class Tag(Base, UUIDMixin):
     color: Mapped[str | None] = mapped_column(String(20))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
-    group = relationship("TagGroup", back_populates="tags", lazy="selectin")
+    group = relationship("TagGroup", back_populates="tags", lazy="noload")
 
 
 class CardTag(Base):

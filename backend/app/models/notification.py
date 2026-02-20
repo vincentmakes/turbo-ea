@@ -38,5 +38,5 @@ class Notification(Base, UUIDMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    user = relationship("User", foreign_keys=[user_id], lazy="selectin")
-    actor = relationship("User", foreign_keys=[actor_id], lazy="selectin")
+    user = relationship("User", foreign_keys=[user_id], lazy="noload")
+    actor = relationship("User", foreign_keys=[actor_id], lazy="noload")

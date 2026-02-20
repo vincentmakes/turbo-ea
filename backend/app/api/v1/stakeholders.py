@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -89,7 +90,9 @@ async def list_stakeholders(
     labels = _role_labels(roles)
 
     result = await db.execute(
-        select(Stakeholder).where(Stakeholder.card_id == uuid.UUID(card_id))
+        select(Stakeholder)
+        .options(selectinload(Stakeholder.user))
+        .where(Stakeholder.card_id == uuid.UUID(card_id))
     )
     stakeholder_list = result.scalars().all()
     return [
@@ -151,7 +154,12 @@ async def create_stakeholder(
     )
     db.add(stakeholder)
     await db.commit()
-    await db.refresh(stakeholder)
+    result = await db.execute(
+        select(Stakeholder)
+        .options(selectinload(Stakeholder.user))
+        .where(Stakeholder.id == stakeholder.id)
+    )
+    stakeholder = result.scalar_one()
 
     labels = _role_labels(roles)
     return {

@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -36,12 +37,14 @@ def _rel_to_response(r: Relation) -> RelationResponse:
     )
 
 
-@router.get("", response_model=list[RelationResponse])
+@router.get("")
 async def list_relations(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
     card_id: str | None = Query(None),
     type: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     q = select(Relation)
 
@@ -55,8 +58,20 @@ async def list_relations(
         q = q.where((Relation.source_id == uid) | (Relation.target_id == uid))
     if type:
         q = q.where(Relation.type == type)
+
+    # Count total before pagination
+    count_q = select(func.count()).select_from(q.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    q = q.options(selectinload(Relation.source), selectinload(Relation.target))
+    q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)
-    return [_rel_to_response(r) for r in result.scalars().all()]
+    return {
+        "items": [_rel_to_response(r) for r in result.scalars().all()],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", response_model=RelationResponse, status_code=201)
@@ -90,7 +105,11 @@ async def create_relation(
         await run_calculations_for_card(db, target_card)
 
     await db.commit()
-    await db.refresh(rel)
+    result = await db.execute(
+        select(Relation).where(Relation.id == rel.id)
+        .options(selectinload(Relation.source), selectinload(Relation.target))
+    )
+    rel = result.scalar_one()
     return _rel_to_response(rel)
 
 
@@ -118,7 +137,11 @@ async def update_relation(
         await run_calculations_for_card(db, target_card)
 
     await db.commit()
-    await db.refresh(rel)
+    result = await db.execute(
+        select(Relation).where(Relation.id == rel.id)
+        .options(selectinload(Relation.source), selectinload(Relation.target))
+    )
+    rel = result.scalar_one()
     return _rel_to_response(rel)
 
 

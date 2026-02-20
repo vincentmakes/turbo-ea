@@ -39,4 +39,4 @@ class SoAW(Base, UUIDMixin, TimestampMixin):
     signatories: Mapped[list | None] = mapped_column(JSONB, default=list)
     signed_at = mapped_column(DateTime(timezone=True), nullable=True)
 
-    parent = relationship("SoAW", remote_side="SoAW.id", lazy="selectin")
+    parent = relationship("SoAW", remote_side="SoAW.id", lazy="noload")

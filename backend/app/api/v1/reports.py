@@ -3,18 +3,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.event import Event
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.user import User
@@ -75,21 +77,22 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     )
     statuses = {row[0]: row[1] for row in status_counts.all()}
 
-    # Data quality distribution (buckets)
-    data_quality_dist = {"0-25": 0, "25-50": 0, "50-75": 0, "75-100": 0}
-    comp_result = await db.execute(
-        select(Card.data_quality).where(Card.status == "ACTIVE")
+    # Data quality distribution (buckets) – computed in SQL
+    dq_result = await db.execute(
+        select(
+            func.sum(case((Card.data_quality < 25, 1), else_=0)).label("dq_0_25"),
+            func.sum(case((Card.data_quality.between(25, 49.999), 1), else_=0)).label("dq_25_50"),
+            func.sum(case((Card.data_quality.between(50, 74.999), 1), else_=0)).label("dq_50_75"),
+            func.sum(case((Card.data_quality >= 75, 1), else_=0)).label("dq_75_100"),
+        ).where(Card.status == "ACTIVE")
     )
-    for (comp_val,) in comp_result.all():
-        v = comp_val or 0
-        if v < 25:
-            data_quality_dist["0-25"] += 1
-        elif v < 50:
-            data_quality_dist["25-50"] += 1
-        elif v < 75:
-            data_quality_dist["50-75"] += 1
-        else:
-            data_quality_dist["75-100"] += 1
+    dq_row = dq_result.one()
+    data_quality_dist = {
+        "0-25": dq_row.dq_0_25 or 0,
+        "25-50": dq_row.dq_25_50 or 0,
+        "50-75": dq_row.dq_50_75 or 0,
+        "75-100": dq_row.dq_75_100 or 0,
+    }
 
     # Lifecycle phase distribution
     lifecycle_result = await db.execute(
@@ -107,7 +110,10 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
 
     # Recent events
     events_result = await db.execute(
-        select(Event).order_by(Event.created_at.desc()).limit(20)
+        select(Event)
+        .options(selectinload(Event.user))
+        .order_by(Event.created_at.desc())
+        .limit(20)
     )
     recent_events = [
         {
@@ -146,15 +152,22 @@ async def landscape(
     )
     sheets = result.scalars().all()
 
-    # Get relations connecting the type to the group_by type
-    all_rels = await db.execute(select(Relation))
-    rels = all_rels.scalars().all()
-
-    # Get group cards
+    # Get group cards (must come before relations query so IDs are available)
     group_result = await db.execute(
         select(Card).where(Card.type == group_by, Card.status == "ACTIVE")
     )
     groups = group_result.scalars().all()
+
+    # Get relations connecting only the two relevant sets of IDs
+    sheet_ids = [card.id for card in sheets]
+    group_ids = [g.id for g in groups]
+    rels_result = await db.execute(
+        select(Relation).where(
+            ((Relation.source_id.in_(sheet_ids)) & (Relation.target_id.in_(group_ids)))
+            | ((Relation.source_id.in_(group_ids)) & (Relation.target_id.in_(sheet_ids)))
+        )
+    )
+    rels = rels_result.scalars().all()
 
     # Build mapping: group_id -> [card]
     sheet_map = {str(card.id): card for card in sheets}
@@ -793,9 +806,17 @@ async def dependencies(
     else:
         sheet_map = dict(full_map)
 
-    # Get all relations + relation type labels
-    all_ids = list(sheet_map.keys())
-    rels_result = await db.execute(select(Relation))
+    # Get relations involving visible cards + relation type labels
+    all_card_ids = list(sheet_map.keys())
+    if all_card_ids:
+        card_uuids = [uuid.UUID(cid) for cid in all_card_ids]
+        rels_result = await db.execute(
+            select(Relation).where(
+                (Relation.source_id.in_(card_uuids)) | (Relation.target_id.in_(card_uuids))
+            )
+        )
+    else:
+        rels_result = await db.execute(select(Relation).where(False))
     rels = rels_result.scalars().all()
 
     rt_result = await db.execute(select(RelationType.key, RelationType.label, RelationType.reverse_label))
@@ -825,7 +846,7 @@ async def dependencies(
 
         visible_ids = visited
     else:
-        visible_ids = set(all_ids)
+        visible_ids = set(all_card_ids)
 
     # Helper: build ancestor path names (root-first) using full_map
     def _ancestor_path(card_id: str) -> list[str]:
@@ -915,14 +936,11 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     # Lifecycle completeness
     with_lifecycle = sum(1 for card in sheets if card.lifecycle and any(card.lifecycle.values()))
 
-    # Orphaned items (no relations)
+    # Orphaned items (no relations) – use UNION to get distinct connected IDs
     all_ids = {str(card.id) for card in sheets}
-    rels_result = await db.execute(select(Relation))
-    rels = rels_result.scalars().all()
-    connected = set()
-    for r in rels:
-        connected.add(str(r.source_id))
-        connected.add(str(r.target_id))
+    connected_q = select(Relation.source_id).union(select(Relation.target_id))
+    connected_result = await db.execute(connected_q)
+    connected = {str(row[0]) for row in connected_result.all()}
     orphaned = len(all_ids - connected)
 
     # Stale items (not updated in 90+ days)

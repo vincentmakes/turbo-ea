@@ -23,4 +23,4 @@ class Stakeholder(Base, UUIDMixin):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     card = relationship("Card", back_populates="stakeholders")
-    user = relationship("User", lazy="selectin")
+    user = relationship("User", lazy="noload")

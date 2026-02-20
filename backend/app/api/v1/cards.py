@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -16,6 +17,8 @@ from app.models.event import Event
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.relation import Relation
+from app.models.stakeholder import Stakeholder
+from app.models.tag import Tag
 from app.models.user import User
 from app.schemas.card import (
     CardBulkUpdate,
@@ -249,6 +252,10 @@ async def list_cards(
     total_result = await db.execute(count_q)
     total = total_result.scalar() or 0
 
+    q = q.options(
+        selectinload(Card.tags).selectinload(Tag.group),
+        selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+    )
     result = await db.execute(q)
     items = [_card_to_response(card) for card in result.scalars().all()]
 
@@ -298,13 +305,26 @@ async def create_card(
         db=db, card_id=card.id, user_id=user.id,
     )
     await db.commit()
-    await db.refresh(card)
+    result = await db.execute(
+        select(Card).where(Card.id == card.id)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    card = result.scalar_one()
     return _card_to_response(card)
 
 
 @router.get("/{card_id}", response_model=CardResponse)
 async def get_card(card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
-    result = await db.execute(select(Card).where(Card.id == uuid.UUID(card_id)))
+    result = await db.execute(
+        select(Card).where(Card.id == uuid.UUID(card_id))
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
@@ -362,7 +382,13 @@ async def update_card(
     card_uuid = uuid.UUID(card_id)
     if not await PermissionService.check_permission(db, user, "inventory.edit", card_uuid, "card.edit"):
         raise HTTPException(403, "Not enough permissions")
-    result = await db.execute(select(Card).where(Card.id == card_uuid))
+    result = await db.execute(
+        select(Card).where(Card.id == card_uuid)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
@@ -440,7 +466,14 @@ async def update_card(
         )
 
         await db.commit()
-        await db.refresh(card)
+        result = await db.execute(
+            select(Card).where(Card.id == card.id)
+            .options(
+                selectinload(Card.tags).selectinload(Tag.group),
+                selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+            )
+        )
+        card = result.scalar_one()
 
     return _card_to_response(card)
 
@@ -470,7 +503,14 @@ async def archive_card(
         db=db, card_id=card.id, user_id=user.id,
     )
     await db.commit()
-    await db.refresh(card)
+    result = await db.execute(
+        select(Card).where(Card.id == card.id)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    card = result.scalar_one()
     return _card_to_response(card)
 
 
@@ -499,7 +539,14 @@ async def restore_card(
         db=db, card_id=card.id, user_id=user.id,
     )
     await db.commit()
-    await db.refresh(card)
+    result = await db.execute(
+        select(Card).where(Card.id == card.id)
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    card = result.scalar_one()
     return _card_to_response(card)
 
 
@@ -558,6 +605,14 @@ async def bulk_update(
             setattr(card, field, value)
         card.updated_by = user.id
     await db.commit()
+    result = await db.execute(
+        select(Card).where(Card.id.in_(uuids))
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    sheets = result.scalars().all()
     return [_card_to_response(card) for card in sheets]
 
 
@@ -602,6 +657,7 @@ async def get_history(
     q = (
         select(Event)
         .where(Event.card_id == uuid.UUID(card_id))
+        .options(selectinload(Event.user))
         .order_by(Event.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)

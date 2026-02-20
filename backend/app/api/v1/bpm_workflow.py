@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
@@ -142,6 +143,11 @@ async def get_published_flow(
     await _get_process_or_404(db, pid)
     result = await db.execute(
         select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
         .where(
             ProcessFlowVersion.process_id == pid,
             ProcessFlowVersion.status == "published",
@@ -172,6 +178,11 @@ async def list_drafts(
 
     result = await db.execute(
         select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
         .where(
             ProcessFlowVersion.process_id == pid,
             ProcessFlowVersion.status.in_(["draft", "pending"]),
@@ -261,7 +272,16 @@ async def create_draft(
     )
     db.add(version)
     await db.commit()
-    await db.refresh(version)
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(ProcessFlowVersion.id == version.id)
+    )
+    version = result.scalar_one()
     return _version_response(version)
 
 
@@ -278,7 +298,13 @@ async def get_version(
     await _get_process_or_404(db, pid)
 
     result = await db.execute(
-        select(ProcessFlowVersion).where(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(
             ProcessFlowVersion.id == vid,
             ProcessFlowVersion.process_id == pid,
         )
@@ -328,7 +354,16 @@ async def update_draft(
         version.svg_thumbnail = body.svg_thumbnail
 
     await db.commit()
-    await db.refresh(version)
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(ProcessFlowVersion.id == version.id)
+    )
+    version = result.scalar_one()
     return _version_response(version)
 
 
@@ -394,6 +429,7 @@ async def submit_for_approval(
     version.status = "pending"
     version.submitted_by = user.id
     version.submitted_at = datetime.now(timezone.utc)
+    version_id_for_reload = version.id
 
     # Notify process owners and create approval todos
     owner_subs = await db.execute(
@@ -438,7 +474,16 @@ async def submit_for_approval(
     )
 
     await db.commit()
-    await db.refresh(version)
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(ProcessFlowVersion.id == version_id_for_reload)
+    )
+    version = result.scalar_one()
     return _version_response(version)
 
 
@@ -471,6 +516,7 @@ async def approve_version(
         raise HTTPException(404, "Version not found")
     if version.status != "pending":
         raise HTTPException(400, "Only pending versions can be approved")
+    version_id_for_reload = version.id
 
     now = datetime.now(timezone.utc)
 
@@ -630,7 +676,16 @@ async def approve_version(
     )
 
     await db.commit()
-    await db.refresh(version)
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(ProcessFlowVersion.id == version_id_for_reload)
+    )
+    version = result.scalar_one()
     return _version_response(version)
 
 
@@ -659,6 +714,7 @@ async def reject_version(
         raise HTTPException(404, "Version not found")
     if version.status != "pending":
         raise HTTPException(400, "Only pending versions can be rejected")
+    version_id_for_reload = version.id
 
     version.status = "draft"
     version.submitted_by = None
@@ -702,7 +758,16 @@ async def reject_version(
     )
 
     await db.commit()
-    await db.refresh(version)
+    result = await db.execute(
+        select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
+        .where(ProcessFlowVersion.id == version_id_for_reload)
+    )
+    version = result.scalar_one()
     return _version_response(version)
 
 
@@ -723,6 +788,11 @@ async def list_archived(
 
     result = await db.execute(
         select(ProcessFlowVersion)
+        .options(
+            selectinload(ProcessFlowVersion.creator),
+            selectinload(ProcessFlowVersion.submitter),
+            selectinload(ProcessFlowVersion.approver),
+        )
         .where(
             ProcessFlowVersion.process_id == pid,
             ProcessFlowVersion.status == "archived",

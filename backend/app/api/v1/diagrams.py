@@ -3,9 +3,9 @@ from __future__ import annotations
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
@@ -90,6 +90,8 @@ async def list_diagrams(
     initiative_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
 ):
     await PermissionService.require_permission(db, user, "diagrams.view")
     if initiative_id:
@@ -106,26 +108,36 @@ async def list_diagrams(
     else:
         stmt = select(Diagram).order_by(Diagram.updated_at.desc())
 
+    # Count total before pagination
+    count_q = select(func.count()).select_from(stmt.subquery())
+    total = (await db.execute(count_q)).scalar() or 0
+
+    stmt = stmt.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(stmt)
     rows = result.scalars().all()
 
     # Bulk-load initiative_ids
     id_map = await _get_initiative_ids_bulk(db)
 
-    return [
-        {
-            "id": str(d.id),
-            "name": d.name,
-            "description": d.description,
-            "type": d.type,
-            "initiative_ids": id_map.get(str(d.id), []),
-            "thumbnail": (d.data or {}).get("thumbnail"),
-            "card_count": len(_extract_card_refs(d.data)),
-            "created_at": d.created_at.isoformat() if d.created_at else None,
-            "updated_at": d.updated_at.isoformat() if d.updated_at else None,
-        }
-        for d in rows
-    ]
+    return {
+        "items": [
+            {
+                "id": str(d.id),
+                "name": d.name,
+                "description": d.description,
+                "type": d.type,
+                "initiative_ids": id_map.get(str(d.id), []),
+                "thumbnail": (d.data or {}).get("thumbnail"),
+                "card_count": len(_extract_card_refs(d.data)),
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+                "updated_at": d.updated_at.isoformat() if d.updated_at else None,
+            }
+            for d in rows
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", status_code=201)
