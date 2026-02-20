@@ -428,7 +428,7 @@ export default function EolAdmin() {
                   flexWrap: "wrap",
                 }}
               >
-                {/* Fact sheet info */}
+                {/* Card info */}
                 <Box sx={{ minWidth: 200, flex: "0 0 auto" }}>
                   <Typography variant="subtitle2" fontWeight={600}>
                     {r.card_name}

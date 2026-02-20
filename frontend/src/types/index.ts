@@ -100,7 +100,7 @@ export interface FieldOption {
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "number" | "cost" | "boolean" | "date" | "single_select" | "multiple_select";
+  type: "text" | "number" | "cost" | "boolean" | "date" | "single_select" | "multiple_select" | "url";
   options?: FieldOption[];
   required?: boolean;
   weight?: number;

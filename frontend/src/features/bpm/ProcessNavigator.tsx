@@ -40,6 +40,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Skeleton from "@mui/material/Skeleton";
 import Autocomplete from "@mui/material/Autocomplete";
 import Checkbox from "@mui/material/Checkbox";
+import DOMPurify from "dompurify";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -786,8 +787,8 @@ function DrawerOverview({
           <Chip
             size="small"
             icon={<MaterialSymbol icon="schema" size={14} />}
-            label="Open Flow Editor"
-            onClick={() => onNavigate(`/bpm/processes/${node.id}/flow`)}
+            label="View Flow"
+            onClick={() => onNavigate(`/cards/${node.id}?tab=1`)}
             variant="outlined"
             sx={{ cursor: "pointer" }}
           />
@@ -1150,43 +1151,42 @@ function DrawerFlow({
   processId: string;
   onNavigate: (path: string) => void;
 }) {
-  const [svgUrl, setSvgUrl] = useState<string | null>(null);
+  const [svgThumbnail, setSvgThumbnail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasDiagram, setHasDiagram] = useState(false);
+  const [hasPublished, setHasPublished] = useState(false);
+  const [hasDrafts, setHasDrafts] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    setHasDiagram(false);
-    setSvgUrl(null);
+    setHasPublished(false);
+    setHasDrafts(false);
+    setSvgThumbnail(null);
 
-    // First check if a diagram exists at all, then try SVG
-    api.get<{ bpmn_xml?: string; svg_thumbnail?: string; version?: number } | null>(
-      `/bpm/processes/${processId}/diagram`,
-    )
-      .then((diag) => {
-        if (diag?.bpmn_xml) setHasDiagram(true);
-        if (!diag?.bpmn_xml) return null;
-        // Try to get SVG thumbnail via the export endpoint for a clean image
-        const token = sessionStorage.getItem("token");
-        return fetch(`/api/v1/bpm/processes/${processId}/diagram/export/svg`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-      })
-      .then((r) => {
-        if (!r || !r.ok) throw new Error("No SVG");
-        return r.blob();
-      })
-      .then((blob) => setSvgUrl(URL.createObjectURL(blob)))
-      .catch(() => {
-        // SVG may not be available, that's fine if diagram exists
+    // Check for published version (the only version shown in this preview)
+    Promise.all([
+      api
+        .get<{ bpmn_xml?: string; svg_thumbnail?: string; status?: string } | null>(
+          `/bpm/processes/${processId}/flow/published`,
+        )
+        .catch(() => null),
+      api
+        .get<{ id: string }[]>(`/bpm/processes/${processId}/flow/drafts`)
+        .catch(() => [] as { id: string }[]),
+    ])
+      .then(([pub, drafts]) => {
+        if (pub?.bpmn_xml) {
+          setHasPublished(true);
+          if (pub.svg_thumbnail) setSvgThumbnail(pub.svg_thumbnail);
+        }
+        if (drafts && drafts.length > 0) setHasDrafts(true);
       })
       .finally(() => setLoading(false));
-
-    return () => {
-      if (svgUrl) URL.revokeObjectURL(svgUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processId]);
+
+  // Navigate to card detail Process Flow tab (read-only published view)
+  const openFlowTab = () => onNavigate(`/cards/${processId}?tab=1`);
+  // Navigate to card detail Process Flow tab, Drafts sub-tab
+  const openDraftsTab = () => onNavigate(`/cards/${processId}?tab=1&subtab=1`);
 
   if (loading)
     return (
@@ -1195,36 +1195,54 @@ function DrawerFlow({
       </Box>
     );
 
-  if (!hasDiagram && !svgUrl)
+  if (!hasPublished && !hasDrafts)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
         <MaterialSymbol icon="schema" size={40} color="#ccc" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          No BPMN diagram available for this process.
+          No process flow available.
         </Typography>
         <Chip
           size="small"
-          icon={<MaterialSymbol icon="add" size={14} />}
-          label="Create Flow Diagram"
-          onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
+          icon={<MaterialSymbol icon="open_in_new" size={14} />}
+          label="Go to Process Flow"
+          onClick={openFlowTab}
           color="primary"
           sx={{ mt: 1, cursor: "pointer" }}
         />
       </Box>
     );
 
-  if (hasDiagram && !svgUrl)
+  if (!hasPublished && hasDrafts)
     return (
       <Box sx={{ py: 4, textAlign: "center" }}>
-        <MaterialSymbol icon="schema" size={40} color="#7b1fa2" />
+        <MaterialSymbol icon="edit_note" size={40} color="#ed6c02" />
         <Typography color="text.secondary" sx={{ mt: 1 }}>
-          Diagram exists but preview is not available.
+          No published flow yet. Draft available.
         </Typography>
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Open Flow Editor"
-          onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
+          label="View Drafts"
+          onClick={openDraftsTab}
+          color="warning"
+          sx={{ mt: 1, cursor: "pointer" }}
+        />
+      </Box>
+    );
+
+  if (hasPublished && !svgThumbnail)
+    return (
+      <Box sx={{ py: 4, textAlign: "center" }}>
+        <MaterialSymbol icon="schema" size={40} color="#7b1fa2" />
+        <Typography color="text.secondary" sx={{ mt: 1 }}>
+          Published flow available.
+        </Typography>
+        <Chip
+          size="small"
+          icon={<MaterialSymbol icon="open_in_new" size={14} />}
+          label="View Published Flow"
+          onClick={openFlowTab}
           color="primary"
           sx={{ mt: 1, cursor: "pointer" }}
         />
@@ -1242,21 +1260,17 @@ function DrawerFlow({
           bgcolor: "#fafafa",
           cursor: "pointer",
           "&:hover": { boxShadow: 2 },
+          "& svg": { maxWidth: "100%", height: "auto" },
         }}
-        onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
-      >
-        <img
-          src={svgUrl!}
-          alt="BPMN diagram"
-          style={{ width: "100%", height: "auto", display: "block" }}
-        />
-      </Box>
+        onClick={openFlowTab}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgThumbnail!, { USE_PROFILES: { svg: true } }) }}
+      />
       <Box sx={{ display: "flex", justifyContent: "center" }}>
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Open in Flow Editor"
-          onClick={() => onNavigate(`/bpm/processes/${processId}/flow`)}
+          label="View Published Flow"
+          onClick={openFlowTab}
           color="primary"
           sx={{ cursor: "pointer" }}
         />
