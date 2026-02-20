@@ -13,6 +13,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.encryption import decrypt_value
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.database import get_db
@@ -232,7 +233,7 @@ async def sso_callback(
         raise HTTPException(400, "SSO is not enabled")
 
     client_id = sso.get("client_id", "")
-    client_secret = sso.get("client_secret", "")
+    client_secret = decrypt_value(sso.get("client_secret", ""))
     tenant = sso.get("tenant_id", "organizations")
 
     if not client_id or not client_secret:

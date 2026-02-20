@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.event import Event
 from app.models.user import User
@@ -16,7 +17,11 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("/stream")
-async def event_stream(request: Request):
+async def event_stream(request: Request, token: str = Query(...)):
+    """SSE endpoint. Accepts token via query parameter because EventSource cannot set headers."""
+    payload = decode_access_token(token)
+    if payload is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     async def generate():
         async for data in event_bus.subscribe():
             if await request.is_disconnected():

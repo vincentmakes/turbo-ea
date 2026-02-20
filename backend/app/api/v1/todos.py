@@ -13,6 +13,7 @@ from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.common import TodoCreate, TodoUpdate
 from app.services import notification_service
+from app.services.permission_service import PermissionService
 
 router = APIRouter(tags=["todos"])
 
@@ -47,7 +48,12 @@ async def list_all_todos(
     if status:
         q = q.where(Todo.status == status)
     if assigned_to:
-        q = q.where(Todo.assigned_to == uuid.UUID(assigned_to))
+        target_id = uuid.UUID(assigned_to)
+        # Only allow querying another user's todos if the caller is an admin
+        if target_id != user.id:
+            if not await PermissionService.has_app_permission(db, user, "admin.todos"):
+                raise HTTPException(403, "Cannot view other users' todos")
+        q = q.where(Todo.assigned_to == target_id)
     elif mine:
         # Default: only show todos assigned to or created by the current user
         q = q.where(
@@ -58,7 +64,11 @@ async def list_all_todos(
 
 
 @router.get("/cards/{card_id}/todos")
-async def list_card_todos(card_id: str, db: AsyncSession = Depends(get_db)):
+async def list_card_todos(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     result = await db.execute(
         select(Todo).where(Todo.card_id == uuid.UUID(card_id)).order_by(Todo.created_at.desc())
     )
@@ -112,6 +122,11 @@ async def update_todo(
     if not todo:
         raise HTTPException(404, "Todo not found")
 
+    # Only the assignee, creator, or an admin can update a todo
+    if todo.assigned_to != user.id and todo.created_by != user.id:
+        if not await PermissionService.has_app_permission(db, user, "admin.todos"):
+            raise HTTPException(403, "Not enough permissions")
+
     # System-generated todos (e.g. sign requests) cannot be manually toggled
     update_data = body.model_dump(exclude_unset=True)
     if todo.is_system and "status" in update_data:
@@ -158,5 +173,11 @@ async def delete_todo(
     todo = result.scalar_one_or_none()
     if not todo:
         raise HTTPException(404, "Todo not found")
+
+    # Only the assignee, creator, or an admin can delete a todo
+    if todo.assigned_to != user.id and todo.created_by != user.id:
+        if not await PermissionService.has_app_permission(db, user, "admin.todos"):
+            raise HTTPException(403, "Not enough permissions")
+
     await db.delete(todo)
     await db.commit()

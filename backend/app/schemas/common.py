@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class StakeholderCreate(BaseModel):
@@ -11,12 +11,12 @@ class StakeholderCreate(BaseModel):
 
 
 class CommentCreate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=10000)
     parent_id: str | None = None
 
 
 class CommentUpdate(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=10000)
 
 
 class CommentResponse(BaseModel):
@@ -64,6 +64,17 @@ class DocumentCreate(BaseModel):
     name: str
     url: str | None = None
     type: str = "link"
+
+    @field_validator("url")
+    @classmethod
+    def validate_url_scheme(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip()
+        # Only allow http, https, and mailto schemes
+        if not (v.startswith("http://") or v.startswith("https://") or v.startswith("mailto:")):
+            raise ValueError("URL must use http://, https://, or mailto: scheme")
+        return v
 
 
 class DocumentResponse(BaseModel):

@@ -298,7 +298,11 @@ async def get_public_portal_relation_options(
     type_key: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return card name/id pairs for a given type, for filter dropdowns."""
+    """Return card name/id pairs for a given type, for filter dropdowns.
+
+    M-7: Only returns cards that are actually related to at least one card
+    visible through the portal (matching the portal's card_type and filters).
+    """
     result = await db.execute(
         select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
     )
@@ -306,9 +310,34 @@ async def get_public_portal_relation_options(
     if not portal:
         raise HTTPException(404, "Portal not found")
 
+    # Build a subquery for portal-visible card IDs (apply portal filters)
+    visible_q = select(Card.id).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
+    )
+    portal_filters = portal.filters or {}
+    if portal_filters.get("subtypes"):
+        visible_q = visible_q.where(Card.subtype.in_(portal_filters["subtypes"]))
+    if portal_filters.get("approval_statuses"):
+        visible_q = visible_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+
+    # Only return cards of type_key that are related to a portal-visible card
+    related_ids = (
+        select(Relation.target_id)
+        .where(Relation.source_id.in_(visible_q))
+        .union(
+            select(Relation.source_id)
+            .where(Relation.target_id.in_(visible_q))
+        )
+    )
+
     card_result = await db.execute(
         select(Card.id, Card.name)
-        .where(Card.type == type_key, Card.status == "ACTIVE")
+        .where(
+            Card.type == type_key,
+            Card.status == "ACTIVE",
+            Card.id.in_(related_ids),
+        )
         .order_by(Card.name)
     )
     return [
