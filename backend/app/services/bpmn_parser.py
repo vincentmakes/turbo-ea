@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+
+import defusedxml.ElementTree as ET  # noqa: N817
 
 BPMN_NS = "http://www.omg.org/spec/BPMN/20100524/MODEL"
 
@@ -44,7 +45,7 @@ class ExtractedElement:
 
 def parse_bpmn_xml(bpmn_xml: str) -> list[ExtractedElement]:
     """Parse BPMN 2.0 XML and return extracted elements."""
-    root = ET.fromstring(bpmn_xml)  # noqa: S314
+    root = ET.fromstring(bpmn_xml)
     elements: list[ExtractedElement] = []
 
     # Build lane → element mapping

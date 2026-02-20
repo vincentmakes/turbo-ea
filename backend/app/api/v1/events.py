@@ -16,7 +16,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("/stream")
-async def event_stream(request: Request):
+async def event_stream(request: Request, user: User = Depends(get_current_user)):
     async def generate():
         async for data in event_bus.subscribe():
             if await request.is_disconnected():

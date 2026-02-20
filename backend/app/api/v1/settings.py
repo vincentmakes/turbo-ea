@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.config import settings as app_config
+from app.core.encryption import decrypt_value, encrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
@@ -94,7 +95,7 @@ def _apply_to_runtime(email: dict) -> None:
     if email.get("smtp_user"):
         app_config.SMTP_USER = email["smtp_user"]
     if email.get("smtp_password"):
-        app_config.SMTP_PASSWORD = email["smtp_password"]
+        app_config.SMTP_PASSWORD = decrypt_value(email["smtp_password"])
     if email.get("smtp_from"):
         app_config.SMTP_FROM = email["smtp_from"]
     if "smtp_tls" in email:
@@ -145,6 +146,8 @@ async def update_email_settings(
     # Only overwrite password if the caller sends a real value (not the masked placeholder)
     if payload.get("smtp_password") in ("", "••••••••"):
         payload.pop("smtp_password", None)
+    elif payload.get("smtp_password"):
+        payload["smtp_password"] = encrypt_value(payload["smtp_password"])
 
     email.update(payload)
     row.email_settings = email
@@ -526,6 +529,8 @@ async def update_sso_settings(
     # Only overwrite client_secret if the caller sends a real value
     if payload.get("client_secret") in ("", "••••••••"):
         payload.pop("client_secret", None)
+    elif payload.get("client_secret"):
+        payload["client_secret"] = encrypt_value(payload["client_secret"])
 
     sso.update(payload)
     general["sso"] = sso
