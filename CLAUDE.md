@@ -2,7 +2,7 @@
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. Fully admin-configurable metamodel — card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all data, not code.
 
-**Current version**: See `/VERSION` (single source of truth for backend + frontend).
+**Current version**: `0.5.0` — see `/VERSION` (single source of truth for backend + frontend).
 
 ## Quick Start
 
@@ -12,6 +12,48 @@ docker compose up --build -d  # Starts backend (port 8000) + frontend (port 8920
 ```
 
 The first user to register automatically gets the `admin` role. Set `SEED_DEMO=true` to pre-populate with the NexaTech Industries demo dataset.
+
+---
+
+## AI Assistant Guidelines
+
+When working on this codebase, follow these conventions:
+
+### General Principles
+- **Data-driven metamodel**: Card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all stored as data (JSONB) in the database, not hardcoded. Never add new card types or fields in code — add them via the seed or admin API.
+- **Cards, not fact sheets**: The codebase was fully renamed from "fact sheets" to "cards". Never introduce the old terminology.
+- **Permission checks are mandatory**: Every mutating endpoint must call `PermissionService.require_permission()` or use the `require_permission()` dependency. Never bypass permission checks.
+- **No raw SQL**: Use SQLAlchemy ORM for all database queries. Alembic for all schema changes.
+
+### Backend Conventions
+- All route handlers live in `backend/app/api/v1/`, one file per resource domain.
+- New routes must be registered in `backend/app/api/v1/router.py`.
+- Use `async def` for all route handlers and database operations.
+- Permission checking: use `PermissionService.require_permission(db, user, "permission.key")` or the `require_permission("permission.key")` FastAPI dependency from `deps.py`.
+- New permission keys must be added to `backend/app/core/permissions.py` (the single source of truth for all valid permission keys).
+- New models go in `backend/app/models/` (one file per table) and must be imported in `backend/app/models/__init__.py`.
+- Schema changes require a new Alembic migration in `backend/alembic/versions/` with sequential numbering (e.g., `036_description.py`).
+- Sensitive values (SSO secrets, SMTP passwords) must use `encrypt_value()`/`decrypt_value()` from `backend/app/core/encryption.py`.
+- Ruff linting: line length 100, rules E/F/I/N/W. Run `ruff check .` and `ruff format .`.
+
+### Frontend Conventions
+- Route-level pages use `lazy()` imports in `App.tsx` for code splitting.
+- Shared hooks in `src/hooks/`, shared components in `src/components/`.
+- Feature-specific components go in `src/features/{feature}/`.
+- Use `api.get()`, `api.post()`, `api.patch()`, `api.delete()` from `src/api/client.ts` for all API calls.
+- JWT token is in `sessionStorage` (not localStorage). Use `setToken()`/`clearToken()` from `client.ts`.
+- All TypeScript interfaces live in `src/types/index.ts`.
+- Use MUI 6 components — do not introduce other UI libraries.
+- Icons use Google Material Symbols via the `MaterialSymbol` component.
+- When nesting MUI Dialogs, use `disableRestoreFocus` on inner dialogs.
+
+### Security Requirements
+- Never store plaintext secrets in the database — use `encrypt_value()`.
+- Never expose sensitive fields (password hashes, encrypted secrets) in API responses.
+- Always validate user input via Pydantic schemas on the backend.
+- Use parameterized queries (SQLAlchemy ORM) — never construct SQL strings.
+- New endpoints must use `Depends(get_current_user)` or `Depends(require_permission(...))`.
+- Rate limiting is applied via `slowapi` — apply `@limiter.limit()` to auth-sensitive endpoints.
 
 ---
 
@@ -27,8 +69,9 @@ The first user to register automatically gets the `admin` role. Set `SEED_DEMO=t
 ┌──────────────────────────▼────────────────────────────────┐
 │  FastAPI Backend (Python 3.12, uvicorn, port 8000)        │
 │  SQLAlchemy 2 (async) + Alembic migrations                │
-│  RBAC permissions + JWT auth (HMAC-SHA256, bcrypt)        │
+│  RBAC permissions + JWT auth (HS256, bcrypt, PyJWT)       │
 │  SSE event stream for real-time updates                   │
+│  Rate limiting (slowapi) + field encryption (Fernet)      │
 └──────────────────────────┬────────────────────────────────┘
                            │
 ┌──────────────────────────▼────────────────────────────────┐
@@ -51,22 +94,23 @@ The codebase uses **"cards"** throughout (models, routes, UI). Earlier documenta
 
 ```
 turbo-ea/
-├── VERSION                            # SemVer (single source of truth)
+├── VERSION                            # SemVer "0.5.0" (single source of truth)
 ├── .dockerignore                      # Root-level (both services use root context)
-├── docker-compose.yml
+├── docker-compose.yml                 # Backend + frontend services
+├── docker-compose.db.yml              # PostgreSQL for local development
 ├── .env.example
 │
 ├── backend/
 │   ├── app/
 │   │   ├── api/
-│   │   │   ├── deps.py                # Auth dependency (get_current_user)
+│   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all API routers
-│   │   │       ├── auth.py            # /auth (login, register, me, SSO)
-│   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status
+│   │   │       ├── router.py          # Mounts all 30 API routers
+│   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
+│   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
 │   │   │       ├── relations.py       # /relations CRUD
-│   │   │       ├── stakeholders.py    # /cards/:id/stakeholders (role assignments)
+│   │   │       ├── stakeholders.py    # /cards/{id}/stakeholders (role assignments)
 │   │   │       ├── stakeholder_roles.py # /stakeholder-roles (per-type role definitions)
 │   │   │       ├── roles.py           # /roles (app-level RBAC management)
 │   │   │       ├── calculations.py    # /calculations (computed field formulas)
@@ -78,23 +122,31 @@ turbo-ea/
 │   │   │       ├── soaw.py            # /soaw (Statement of Architecture Work)
 │   │   │       ├── reports.py         # /reports (dashboard, portfolio, matrix, etc.)
 │   │   │       ├── saved_reports.py   # /saved-reports (persisted report configs)
-│   │   │       ├── tags.py            # /tag-groups + /cards/:id/tags
-│   │   │       ├── comments.py        # /cards/:id/comments (threaded)
-│   │   │       ├── todos.py           # /todos + /cards/:id/todos
-│   │   │       ├── documents.py       # /cards/:id/documents (link storage)
+│   │   │       ├── tags.py            # /tag-groups + /cards/{id}/tags
+│   │   │       ├── comments.py        # /cards/{id}/comments (threaded)
+│   │   │       ├── todos.py           # /todos + /cards/{id}/todos
+│   │   │       ├── documents.py       # /cards/{id}/documents (link storage)
 │   │   │       ├── bookmarks.py       # /bookmarks (saved inventory views)
 │   │   │       ├── events.py          # /events + /events/stream (SSE)
 │   │   │       ├── users.py           # /users CRUD (admin only)
-│   │   │       ├── settings.py        # /settings (logo, currency, SMTP)
+│   │   │       ├── settings.py        # /settings (logo, currency, SMTP, favicon)
 │   │   │       ├── surveys.py         # /surveys (data-maintenance surveys)
 │   │   │       ├── eol.py             # /eol (End-of-Life proxy for endoflife.date)
 │   │   │       ├── web_portals.py     # /web-portals (public portal management)
 │   │   │       ├── notifications.py   # /notifications (user notifications)
 │   │   │       └── servicenow.py      # /servicenow (CMDB sync integration)
 │   │   ├── core/
-│   │   │   └── security.py            # JWT creation/validation, bcrypt
-│   │   ├── models/                    # SQLAlchemy ORM models (see Database section)
+│   │   │   ├── security.py            # JWT creation/validation (PyJWT HS256), bcrypt
+│   │   │   ├── permissions.py         # Permission key registry (single source of truth)
+│   │   │   ├── encryption.py          # Fernet symmetric encryption for DB secrets
+│   │   │   └── rate_limit.py          # slowapi rate limiter instance
+│   │   ├── models/                    # SQLAlchemy ORM models (30 files, see Database section)
 │   │   ├── schemas/                   # Pydantic request/response models
+│   │   │   ├── auth.py                # Auth schemas
+│   │   │   ├── card.py                # Card schemas
+│   │   │   ├── common.py              # Shared schemas (pagination, sorting)
+│   │   │   ├── relation.py            # Relation schemas
+│   │   │   └── bpm.py                 # BPM schemas
 │   │   ├── services/
 │   │   │   ├── event_bus.py           # In-memory pub/sub + SSE streaming
 │   │   │   ├── permission_service.py  # RBAC permission checks (5-min cache)
@@ -109,19 +161,20 @@ turbo-ea/
 │   │   │   └── email_service.py       # SMTP-based email sending
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
-│   │   └── main.py                    # FastAPI app, lifespan (migrations + seed)
-│   ├── alembic/                       # Database migrations
+│   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop)
+│   ├── alembic/                       # Database migrations (35 versions)
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── api/client.ts              # Fetch wrapper with JWT + error handling
+│   │   ├── api/client.ts              # Fetch wrapper with JWT (sessionStorage) + error handling
 │   │   ├── types/index.ts             # All TypeScript interfaces
 │   │   ├── globals.d.ts               # __APP_VERSION__ type declaration
+│   │   ├── print.css                  # Print stylesheet
 │   │   ├── hooks/
-│   │   │   ├── useAuth.ts             # Login/register/logout + token in localStorage
+│   │   │   ├── useAuth.ts             # Login/register/logout + token in sessionStorage
 │   │   │   ├── useMetamodel.ts        # Cached metamodel types + relation types
 │   │   │   ├── useEventStream.ts      # SSE subscription hook
 │   │   │   ├── useCurrency.ts         # Global currency format + symbol cache
@@ -143,11 +196,21 @@ turbo-ea/
 │   │   │   ├── VendorField.tsx
 │   │   │   ├── ErrorBoundary.tsx
 │   │   │   ├── ColorPicker.tsx
-│   │   │   └── KeyInput.tsx
+│   │   │   ├── KeyInput.tsx
+│   │   │   └── TimelineSlider.tsx
 │   │   ├── features/
-│   │   │   ├── auth/LoginPage.tsx
+│   │   │   ├── auth/
+│   │   │   │   ├── LoginPage.tsx       # Email/password + SSO login
+│   │   │   │   ├── SetPasswordPage.tsx # Invited user password setup
+│   │   │   │   └── SsoCallback.tsx     # SSO OAuth callback handler
 │   │   │   ├── dashboard/Dashboard.tsx
-│   │   │   ├── inventory/InventoryPage.tsx  # AG Grid + memoized configs
+│   │   │   ├── inventory/
+│   │   │   │   ├── InventoryPage.tsx        # AG Grid + memoized configs
+│   │   │   │   ├── InventoryFilterSidebar.tsx # Filter panel
+│   │   │   │   ├── ImportDialog.tsx          # Excel/CSV import
+│   │   │   │   ├── RelationCellPopover.tsx   # Relation column popover
+│   │   │   │   ├── excelExport.ts            # Excel export logic
+│   │   │   │   └── excelImport.ts            # Excel import logic
 │   │   │   ├── cards/
 │   │   │   │   ├── CardDetail.tsx           # Main container + tab navigation
 │   │   │   │   └── sections/               # Modular section components
@@ -173,12 +236,45 @@ turbo-ea/
 │   │   │   │   ├── ProcessNavigator.tsx
 │   │   │   │   ├── ElementLinker.tsx
 │   │   │   │   └── BpmReportPage.tsx
-│   │   │   ├── diagrams/                    # DrawIO editor + sync panel
-│   │   │   ├── reports/                     # 9 report types
-│   │   │   ├── ea-delivery/                 # SoAW editor + preview + DOCX export
-│   │   │   ├── todos/TodosPage.tsx
-│   │   │   ├── surveys/SurveyRespond.tsx
-│   │   │   ├── web-portals/PortalViewer.tsx
+│   │   │   ├── diagrams/
+│   │   │   │   ├── DiagramsPage.tsx         # Gallery with thumbnails
+│   │   │   │   ├── DiagramEditor.tsx        # DrawIO iframe editor
+│   │   │   │   ├── DiagramSyncPanel.tsx     # Card ↔ diagram sync
+│   │   │   │   ├── CardSidebar.tsx          # Card picker sidebar
+│   │   │   │   ├── CardPickerDialog.tsx     # Search & select cards
+│   │   │   │   ├── CreateOnDiagramDialog.tsx # Create card from diagram
+│   │   │   │   ├── RelationPickerDialog.tsx # Relation management
+│   │   │   │   └── drawio-shapes.ts         # mxGraph cell helpers
+│   │   │   ├── reports/
+│   │   │   │   ├── PortfolioReport.tsx      # Bubble/scatter chart
+│   │   │   │   ├── CapabilityMapReport.tsx  # Heatmap
+│   │   │   │   ├── LifecycleReport.tsx      # Timeline visualization
+│   │   │   │   ├── DependencyReport.tsx     # Network graph
+│   │   │   │   ├── CostReport.tsx           # Treemap + bar chart
+│   │   │   │   ├── MatrixReport.tsx         # Cross-reference grid
+│   │   │   │   ├── DataQualityReport.tsx    # Completeness dashboard
+│   │   │   │   ├── EolReport.tsx            # End-of-Life status
+│   │   │   │   ├── ProcessMapReport.tsx     # Process map visualization
+│   │   │   │   ├── SavedReportsPage.tsx     # Saved report gallery
+│   │   │   │   ├── ReportShell.tsx          # Shared report layout wrapper
+│   │   │   │   ├── MetricCard.tsx           # Reusable KPI card
+│   │   │   │   ├── ReportLegend.tsx         # Shared legend component
+│   │   │   │   ├── SaveReportDialog.tsx     # Save report config dialog
+│   │   │   │   ├── EditReportDialog.tsx     # Edit saved report dialog
+│   │   │   │   └── matrixHierarchy.ts       # Matrix hierarchy helpers
+│   │   │   ├── ea-delivery/
+│   │   │   │   ├── EADeliveryPage.tsx       # SoAW document list
+│   │   │   │   ├── SoAWEditor.tsx           # Create/edit SoAW
+│   │   │   │   ├── SoAWPreview.tsx          # Read-only preview
+│   │   │   │   ├── RichTextEditor.tsx       # TipTap rich text editor
+│   │   │   │   ├── EditableTable.tsx        # Inline-editable table
+│   │   │   │   ├── soawExport.ts            # DOCX export logic
+│   │   │   │   └── soawTemplate.ts          # SoAW section templates
+│   │   │   ├── todos/TodosPage.tsx          # Todos + surveys (tabbed)
+│   │   │   ├── surveys/
+│   │   │   │   ├── SurveyRespond.tsx        # Survey response form
+│   │   │   │   └── MySurveys.tsx            # User's pending surveys
+│   │   │   ├── web-portals/PortalViewer.tsx # Public portal (no auth)
 │   │   │   └── admin/
 │   │   │       ├── MetamodelAdmin.tsx       # Type list + relation graph orchestrator
 │   │   │       ├── metamodel/               # Modular metamodel admin components
@@ -190,6 +286,8 @@ turbo-ea/
 │   │   │       │   ├── StakeholderRolePanel.tsx # Per-type role definitions
 │   │   │       │   └── MetamodelGraph.tsx   # Relation type SVG visualization
 │   │   │       ├── CardLayoutEditor.tsx      # Section ordering, DnD fields, columns, groups
+│   │   │       ├── RolesAdmin.tsx            # App-level role + permission management
+│   │   │       ├── CalculationsAdmin.tsx     # Calculated field formula management
 │   │   │       ├── TagsAdmin.tsx
 │   │   │       ├── UsersAdmin.tsx
 │   │   │       ├── SettingsAdmin.tsx
@@ -199,7 +297,7 @@ turbo-ea/
 │   │   │       ├── SurveyResults.tsx
 │   │   │       ├── WebPortalsAdmin.tsx
 │   │   │       └── ServiceNowAdmin.tsx
-│   │   ├── App.tsx                          # Routes + MUI theme
+│   │   ├── App.tsx                          # Routes + MUI theme (lazy imports)
 │   │   └── main.tsx                         # React entry point
 │   ├── drawio-config/                       # PreConfig.js, PostConfig.js
 │   ├── nginx.conf                           # API proxy + DrawIO + security headers
@@ -217,19 +315,25 @@ turbo-ea/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `POSTGRES_HOST` | `db` | PostgreSQL hostname |
+| `POSTGRES_HOST` | `localhost` | PostgreSQL hostname |
 | `POSTGRES_PORT` | `5432` | PostgreSQL port |
 | `POSTGRES_DB` | `turboea` | Database name |
 | `POSTGRES_USER` | `turboea` | Database user |
-| `POSTGRES_PASSWORD` | *(required)* | Database password |
-| `SECRET_KEY` | *(required)* | HMAC key for JWT signing |
+| `POSTGRES_PASSWORD` | `turboea` | Database password |
+| `SECRET_KEY` | `change-me-in-production` | HMAC key for JWT signing. **Must** be changed in production (app refuses to start with default in non-development environments) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` (24h) | JWT token lifetime |
 | `HOST_PORT` | `8920` | Port exposed on the host for the frontend |
 | `RESET_DB` | `false` | Drop all tables and re-create + re-seed on startup |
 | `SEED_DEMO` | `false` | Populate NexaTech Industries demo data on startup |
 | `SEED_BPM` | `false` | Populate demo BPM processes |
-| `ENVIRONMENT` | `production` | Runtime environment |
-| `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins |
+| `ENVIRONMENT` | `development` | Runtime environment. Controls: API docs visibility, secret key validation |
+| `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
+| `SMTP_HOST` | *(empty)* | SMTP server hostname (optional) |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_USER` | *(empty)* | SMTP username |
+| `SMTP_PASSWORD` | *(empty)* | SMTP password |
+| `SMTP_FROM` | `noreply@turboea.local` | Sender email address |
+| `SMTP_TLS` | `true` | Use TLS for SMTP |
 
 For local frontend dev without Docker, create `frontend/.env.development`:
 ```
@@ -246,18 +350,18 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `users` | `User` | Email, display_name, password_hash, role_key (FK to roles), is_active |
+| `users` | `User` | Email, display_name, password_hash, role_key (FK to roles), is_active, SSO fields |
 | `card_types` | `CardType` | Metamodel: types with key, label, icon, color, category, subtypes (JSONB), fields_schema (JSONB), section_config (JSONB), stakeholder_roles (JSONB), has_hierarchy, built_in, is_hidden, sort_order |
 | `relation_types` | `RelationType` | Metamodel: allowed relations between types with label, reverse_label, cardinality, attributes_schema (JSONB) |
-| `cards` | `Card` | The core entity. Type, subtype, name, description, parent_id (hierarchy), lifecycle (JSONB), attributes (JSONB), status, approval_status, data_quality (float 0-100) |
+| `cards` | `Card` | The core entity. Type, subtype, name, description, parent_id (hierarchy), lifecycle (JSONB), attributes (JSONB), status, approval_status, data_quality (float 0-100), archived_at |
 | `relations` | `Relation` | Links between cards. Type key, source_id, target_id, attributes (JSONB) |
 
 ### RBAC Tables
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `roles` | `Role` | App-level roles with key, label, permissions (JSONB), is_system, sort_order |
-| `stakeholder_role_definitions` | `StakeholderRoleDefinition` | Per-card-type stakeholder role definitions with permissions |
+| `roles` | `Role` | App-level roles with key, label, color, permissions (JSONB), is_system, is_default, is_archived, sort_order |
+| `stakeholder_role_definitions` | `StakeholderRoleDefinition` | Per-card-type stakeholder role definitions with permissions, is_archived |
 | `stakeholders` | `Stakeholder` | User role assignments on specific cards |
 
 ### BPM Tables
@@ -290,7 +394,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `diagrams` | `Diagram` | DrawIO diagram storage: name, type, data (JSONB with XML + thumbnail) |
 | `diagram_initiatives` | (association) | M:N between diagrams and initiative cards |
 | `statement_of_architecture_works` | `SoAW` | TOGAF SoAW documents linked to initiatives |
-| `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings, custom_logo |
+| `app_settings` | `AppSettings` | Singleton row: email_settings, general_settings, custom_logo, custom_favicon |
 | `surveys` | `Survey` | Data-maintenance surveys with target_type, filters, actions |
 | `survey_responses` | `SurveyResponse` | Per card + user responses |
 | `notifications` | `Notification` | Per-user notifications |
@@ -302,16 +406,16 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `snow_connections` | — | ServiceNow instance connection details |
-| `snow_mappings` | — | Card type ↔ ServiceNow table mappings |
-| `snow_field_mappings` | — | Field-level mapping rules |
-| `snow_sync_runs` | — | Sync execution history |
-| `snow_staged_records` | — | Staged records for review before apply |
-| `snow_identity_map` | — | Persistent ID mapping between systems |
+| `snow_connections` | `SnowConnection` | ServiceNow instance connection details |
+| `snow_mappings` | `SnowMapping` | Card type ↔ ServiceNow table mappings (with skip_staging flag) |
+| `snow_field_mappings` | `SnowFieldMapping` | Field-level mapping rules |
+| `snow_sync_runs` | `SnowSyncRun` | Sync execution history |
+| `snow_staged_records` | `SnowStagedRecord` | Staged records for review before apply |
+| `snow_identity_map` | `SnowIdentityMap` | Persistent ID mapping between systems |
 
 ### Migrations
 
-Located in `backend/alembic/versions/`. The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (35 migration files, sequentially numbered `001_` through `035_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -323,13 +427,19 @@ Located in `backend/alembic/versions/`. The app auto-runs Alembic on startup:
 
 Base path: `/api/v1`. All endpoints except auth and public portals require `Authorization: Bearer <token>`.
 
+**API docs**: Available at `/api/docs` (Swagger UI) and `/api/openapi.json` in **development mode only** (`ENVIRONMENT=development`). Disabled in production.
+
 ### Authentication (`/auth`)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | POST | `/auth/register` | No | Register (first user gets admin) |
 | POST | `/auth/login` | No | Login, returns `{access_token}` |
-| GET | `/auth/me` | Yes | Current user info |
+| GET | `/auth/me` | Yes | Current user info + permissions |
+| POST | `/auth/refresh` | Yes | Refresh token |
+| GET | `/auth/sso/config` | No | SSO configuration |
+| POST | `/auth/sso/callback` | No | SSO OAuth callback |
+| POST | `/auth/set-password` | No | Set password via invitation token |
 
 ### Metamodel (`/metamodel`)
 
@@ -356,7 +466,7 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | POST | `/cards` | Create card. Auto-computes data quality, runs calculations |
 | GET | `/cards/{id}` | Get card with tags + stakeholders |
 | PATCH | `/cards/{id}` | Update. Breaks approval on substantive changes, recalculates quality |
-| DELETE | `/cards/{id}` | Archives (soft-delete: status=ARCHIVED) |
+| DELETE | `/cards/{id}` | Archives (soft-delete: status=ARCHIVED, sets archived_at). Auto-purged after 30 days |
 | PATCH | `/cards/bulk` | Bulk update multiple cards |
 | GET | `/cards/{id}/hierarchy` | Ancestors, children, computed level |
 | GET | `/cards/{id}/history` | Paginated event history |
@@ -456,12 +566,10 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **EOL** | `/eol/products`, `/eol/products/fuzzy`, `/eol/mass-search`, `/eol/mass-link` |
 | **Web Portals** | CRUD + `/web-portals/public/{slug}` (no auth) |
 | **Notifications** | `GET /notifications`, badge counts, mark read |
-| **Settings** | Email SMTP, currency, logo upload |
+| **Settings** | Email SMTP, currency, logo upload, favicon upload |
 | **Users** | CRUD (admin only), self-update |
 | **Events** | `GET /events`, `GET /events/stream` (SSE) |
 | **Health** | `GET /api/health` (no auth, includes version) |
-
-**API docs**: Available at `/api/docs` (Swagger UI) and `/api/openapi.json`.
 
 ---
 
@@ -481,6 +589,8 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 - **Vite** for build tooling with `@` path alias to `./src`
 
 ### Routing (`App.tsx`)
+
+All route-level pages use `lazy()` imports for code splitting. Auth pages (Login, SsoCallback, SetPasswordPage) are eagerly loaded.
 
 | Path | Component | Description |
 |------|-----------|-------------|
@@ -507,6 +617,8 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | `/todos` | `TodosPage` | Todos + Surveys (tabbed) |
 | `/surveys/:surveyId/respond/:cardId` | `SurveyRespond` | Respond to survey |
 | `/portal/:slug` | `PortalViewer` | Public portal (no auth) |
+| `/auth/callback` | `SsoCallback` | SSO OAuth callback |
+| `/auth/set-password` | `SetPasswordPage` | Invited user password setup |
 | `/admin/metamodel` | `MetamodelAdmin` | Card types + relations |
 | `/admin/users` | `UsersAdmin` | User management |
 | `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP |
@@ -520,9 +632,9 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 
 ### Key Patterns
 
-**API Client** (`src/api/client.ts`): Thin fetch wrapper that auto-injects the JWT from localStorage. Methods: `api.get()`, `api.post()`, `api.patch()`, `api.delete()`. Handles 204 empty responses and formats validation errors.
+**API Client** (`src/api/client.ts`): Thin fetch wrapper that auto-injects the JWT from `sessionStorage`. Methods: `api.get()`, `api.post()`, `api.patch()`, `api.put()`, `api.delete()`, `api.upload()`, `api.getRaw()`. Handles 204 empty responses and formats validation errors. Custom `ApiError` class with `status` and `detail` fields.
 
-**Authentication** (`hooks/useAuth.ts`): Token stored in `localStorage.token`. On load, validates via `GET /auth/me`. SSO callback support via `/auth/callback`.
+**Authentication** (`hooks/useAuth.ts`): Token stored in `sessionStorage.token` (cleared on tab close). On load, validates via `GET /auth/me`. SSO callback support via `/auth/callback`. Password setup for invited users via `/auth/set-password`.
 
 **Metamodel Cache** (`hooks/useMetamodel.ts`): Module-level singleton cache. Fetches types + relation types once, shared across all components. `invalidateCache()` forces re-fetch.
 
@@ -537,6 +649,8 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 **Data Quality Scoring**: Backend auto-computes `data_quality` (0-100%) based on `fields_schema` weights. Approval status auto-breaks to `BROKEN` when approved items are edited.
 
 **Card Detail Sections**: Each section is an independent component in `features/cards/sections/`, wrapped in `ErrorBoundary`. Section ordering is controlled by `section_config.__order` in the metamodel. Custom sections are rendered via `AttributeSection` (fully data-driven from `fields_schema`).
+
+**Report Architecture**: Reports share `ReportShell` for consistent layout, `MetricCard` for KPI display, `ReportLegend` for legends, and `SaveReportDialog`/`EditReportDialog` for save/edit workflows.
 
 **MUI Dialog Nesting**: When dialogs are nested (e.g., TypeDetailDrawer contains FieldEditorDialog), inner dialogs use `disableRestoreFocus` to prevent `aria-hidden` focus warnings.
 
@@ -623,22 +737,48 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 ### Multi-level Permission System
 
-1. **App-level Roles** (`roles` table): System-wide roles like admin, member, viewer, bpm_admin. Each role has a JSONB `permissions` field with granular capability flags. Cached with 5-minute TTL by `PermissionService`.
+1. **App-level Roles** (`roles` table): System-wide roles like admin, member, viewer, bpm_admin. Each role has a JSONB `permissions` field with granular capability flags. Cached with 5-minute TTL by `PermissionService`. Admin role uses `{"*": true}` wildcard.
 
 2. **Stakeholder Roles** (`stakeholder_role_definitions`): Per-card-type role definitions. Each card type can define custom roles (e.g., Application → "technical_application_owner"). Roles carry per-type permissions.
 
 3. **Stakeholders** (`stakeholders` table): User ↔ card assignments with a specific role. A user can hold multiple stakeholder roles on different cards.
 
 4. **Effective Permissions**: For any user + card combination, the system computes the union of:
-   - App-level role permissions
+   - App-level role permissions (with app→card permission mapping from `core/permissions.py`)
    - All stakeholder role permissions the user holds on that card
    - Result exposed via `GET /cards/{id}/effective-permissions`
 
+### Permission Key Registry (`core/permissions.py`)
+
+Single source of truth for all valid permission keys. Two categories:
+
+**App-level permissions** (17 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `admin.*`
+
+**Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
+
 ### Permission Checking (Backend)
 ```python
+# App-level check (raises 403 if denied)
 await PermissionService.require_permission(db, user, "admin.metamodel")
-await PermissionService.check_card_permission(db, user, card_id, "card.edit")
+
+# Combined app + card-level check
+await PermissionService.require_permission(db, user, "inventory.edit", card_id=card_id, card_permission="card.edit")
+
+# FastAPI dependency (in route decorator)
+@router.post("/...", dependencies=[Depends(require_permission("inventory.create"))])
+
+# Check without raising
+has_access = await PermissionService.check_permission(db, user, "bpm.edit")
 ```
+
+### Default Seeded Roles
+
+| Role | Key | Wildcard | Notable Restrictions |
+|------|-----|----------|---------------------|
+| Admin | `admin` | `{"*": true}` | Full access to everything |
+| BPM Admin | `bpm_admin` | No | All BPM permissions + full inventory, no admin.* |
+| Member | `member` | No | Full inventory + BPM edit (no approve), no admin.* |
+| Viewer | `viewer` | No | View-only across all domains, can respond to surveys |
 
 ---
 
@@ -699,23 +839,30 @@ Cards are represented as mxGraph cells with custom XML user objects:
 
 Key functions: `insertFactSheetIntoGraph()`, `insertPendingFactSheet()`, `markCellSynced()`, `expandFactSheetGroup()`, `scanDiagramItems()`, `stampEdgeAsRelation()`, `extractFactSheetIds()`
 
+### Diagram Feature Components
+- `DiagramSyncPanel.tsx` — Sync cards between diagram and EA inventory
+- `CardSidebar.tsx` — Browse cards to drag onto diagram
+- `CardPickerDialog.tsx` — Search and select cards
+- `CreateOnDiagramDialog.tsx` — Create new cards directly from diagram shapes
+- `RelationPickerDialog.tsx` — Create/manage relations from diagram edges
+
 ---
 
 ## ServiceNow Integration
 
 Bi-directional sync between Turbo EA cards and ServiceNow CMDB.
 
-- **Connections**: Multiple ServiceNow instances with credential management
+- **Connections**: Multiple ServiceNow instances with credential management (encrypted)
 - **Mappings**: Card type ↔ ServiceNow table mappings with field-level rules
 - **Sync modes**: Pull (ServiceNow → Turbo), Push (Turbo → ServiceNow)
-- **Staging**: Records staged for admin review before applying changes
+- **Staging**: Records staged for admin review before applying changes (skip_staging flag available)
 - **Identity persistence**: `snow_identity_map` maintains ID mappings across syncs
 
 ---
 
 ## Version Management
 
-Single source of truth: `/VERSION` file at project root.
+Single source of truth: `/VERSION` file at project root (currently `0.5.0`).
 
 - **Backend**: `config.py` reads VERSION → exports `APP_VERSION` → exposed in `/api/health`
 - **Frontend**: `vite.config.ts` reads VERSION → injects `__APP_VERSION__` global → displayed in user menu (AppLayout)
@@ -725,6 +872,21 @@ Single source of truth: `/VERSION` file at project root.
 ---
 
 ## Security
+
+### Startup Security
+- App **refuses to start** with default `SECRET_KEY` in non-development environments
+- In development mode, logs a warning about default key usage
+- OpenAPI/Swagger docs are **disabled in production** (`ENVIRONMENT != "development"`)
+
+### Encryption
+- **Fernet symmetric encryption** (`core/encryption.py`) for database-stored secrets (SSO client secrets, SMTP passwords)
+- Key derived from `SECRET_KEY` via SHA-256
+- Values prefixed with `enc:` to distinguish encrypted from legacy plaintext
+- `encrypt_value()` / `decrypt_value()` / `is_encrypted()` utilities
+
+### Rate Limiting
+- `slowapi` rate limiter in `core/rate_limit.py`
+- Applied to auth-sensitive endpoints (login, register)
 
 ### Docker Hardening
 - Non-root users: frontend runs as `nginx`, backend as `appuser`
@@ -742,10 +904,15 @@ Single source of truth: `/VERSION` file at project root.
 - Request body limit: 5MB
 
 ### JWT Implementation
-- Manually constructed HS256 JWT in `core/security.py`
-- Payload: `{sub: user_id, role: role_key, iat, exp}`
+- PyJWT with HS256 algorithm in `core/security.py`
+- Payload: `{sub: user_id, role: role_key, iat, exp, iss: "turbo-ea", aud: "turbo-ea"}`
+- Issuer and audience validation on decode
 - Passwords hashed with bcrypt
 - Token sent as `Authorization: Bearer <token>`
+- Frontend stores token in `sessionStorage` (not localStorage — cleared on tab close)
+
+### Background Processes
+- **Archived card auto-purge**: Background task runs hourly, permanently deletes cards archived for 30+ days (including their relations)
 
 ---
 
@@ -774,7 +941,7 @@ npm run dev    # Vite dev server on port 5173, proxies /api to :8000
 **Backend:**
 ```bash
 cd backend
-ruff check .          # Lint (rules: E, F, I, N, W)
+ruff check .          # Lint (rules: E, F, I, N, W; line-length: 100)
 ruff format .         # Auto-format
 pytest                # Run tests (asyncio_mode=auto)
 ```
@@ -795,10 +962,15 @@ Set `RESET_DB=true` to drop all tables and re-seed on next startup.
 - FastAPI 0.115+ with Pydantic 2.10+
 - SQLAlchemy 2.0+ (async via asyncpg)
 - Alembic for migrations
+- PyJWT 2.9+ for JWT tokens
 - bcrypt for password hashing
+- cryptography (Fernet) for field encryption
 - simpleeval for safe formula evaluation
 - sse-starlette for Server-Sent Events
-- ruff for linting (target: Python 3.12)
+- slowapi for rate limiting
+- httpx for outbound HTTP (ServiceNow, EOL)
+- defusedxml for safe XML parsing (BPMN)
+- ruff for linting (target: Python 3.11+, line-length: 100)
 
 **Frontend:**
 - React 18 + TypeScript 5.6
@@ -820,7 +992,7 @@ Both services use **root build context** (`context: .`) on the `guac-net` extern
 - **backend**: `dockerfile: backend/Dockerfile`, Python 3.12-alpine, uvicorn on port 8000 (internal only)
 - **frontend**: `dockerfile: frontend/Dockerfile`, multi-stage build, port 80 mapped to `HOST_PORT`
 
-PostgreSQL is external (not managed by this compose file).
+PostgreSQL is external (not managed by this compose file). A separate `docker-compose.db.yml` is provided for local development.
 
 ### Frontend Dockerfile (multi-stage, root context)
 1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build
