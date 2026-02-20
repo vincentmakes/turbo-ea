@@ -1,10 +1,8 @@
 """Admin-only application settings — email / SMTP configuration + logo management."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from pydantic import BaseModel
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,27 +19,8 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
-_DEFAULT_LOGO_PATH = Path(__file__).resolve().parent.parent.parent / "default_logo.png"
-_DEFAULT_FAVICON_PATH = Path(__file__).resolve().parent.parent.parent / "default_favicon.png"
-_DEFAULT_LOGO_BYTES: bytes | None = None
-_DEFAULT_FAVICON_BYTES: bytes | None = None
-
 ALLOWED_LOGO_MIMES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
-
-
-def _get_default_logo() -> bytes:
-    global _DEFAULT_LOGO_BYTES
-    if _DEFAULT_LOGO_BYTES is None:
-        _DEFAULT_LOGO_BYTES = _DEFAULT_LOGO_PATH.read_bytes()
-    return _DEFAULT_LOGO_BYTES
-
-
-def _get_default_favicon() -> bytes:
-    global _DEFAULT_FAVICON_BYTES
-    if _DEFAULT_FAVICON_BYTES is None:
-        _DEFAULT_FAVICON_BYTES = _DEFAULT_FAVICON_PATH.read_bytes()
-    return _DEFAULT_FAVICON_BYTES
 
 
 # ---------------------------------------------------------------------------
@@ -330,11 +309,8 @@ async def get_logo(db: AsyncSession = Depends(get_db)):
             headers={"Cache-Control": "public, max-age=300"},
         )
 
-    return Response(
-        content=_get_default_logo(),
-        media_type="image/png",
-        headers={"Cache-Control": "public, max-age=300"},
-    )
+    # No custom logo — redirect to the static default in frontend/public/
+    return RedirectResponse(url="/logo.png", status_code=302)
 
 
 @router.get("/favicon")
@@ -355,11 +331,8 @@ async def get_favicon(db: AsyncSession = Depends(get_db)):
             headers={"Cache-Control": "public, max-age=300"},
         )
 
-    return Response(
-        content=_get_default_favicon(),
-        media_type="image/png",
-        headers={"Cache-Control": "public, max-age=300"},
-    )
+    # No custom favicon — redirect to the static default in frontend/public/
+    return RedirectResponse(url="/favicon.png", status_code=302)
 
 
 @router.get("/logo/info")
