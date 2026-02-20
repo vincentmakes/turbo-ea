@@ -10,6 +10,11 @@ import Alert from "@mui/material/Alert";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import Collapse from "@mui/material/Collapse";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { Card, CardType } from "@/types";
 import {
@@ -121,7 +126,7 @@ export default function ImportDialog({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth={step === "report" && report && report.updates.length > 0 ? "md" : "sm"} fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="upload_file" size={22} />
         Import Cards
@@ -277,7 +282,7 @@ export default function ImportDialog({
             {report.updates.length > 0 && (
               <Alert
                 severity="info"
-                sx={{ mb: 2, cursor: "pointer" }}
+                sx={{ mb: 2, cursor: "pointer", "& .MuiAlert-message": { width: "100%" } }}
                 onClick={() => setUpdatesExpanded((v) => !v)}
               >
                 <Typography variant="subtitle2">
@@ -288,29 +293,46 @@ export default function ImportDialog({
                   />
                 </Typography>
                 <Collapse in={updatesExpanded}>
-                  <Box sx={{ mt: 1, maxHeight: 260, overflow: "auto" }}>
-                    {report.updates.map((row) => (
-                      <Box key={row.id} sx={{ mb: 1.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {row.existing?.name ?? row.data.name as string}
-                        </Typography>
-                        {row.changes &&
-                          Object.entries(row.changes).map(([field, { old: o, new: n }]) => (
-                            <Typography
-                              key={field}
-                              variant="caption"
-                              component="div"
-                              sx={{ pl: 1.5, color: "text.secondary", lineHeight: 1.6 }}
-                            >
-                              <strong>{field.replace(/^attr_/, "")}</strong>:{" "}
-                              <span style={{ textDecoration: "line-through", opacity: 0.6 }}>
-                                {fmtVal(o)}
-                              </span>{" "}
-                              &rarr; {fmtVal(n)}
-                            </Typography>
-                          ))}
-                      </Box>
-                    ))}
+                  <Box sx={{ mt: 1, maxHeight: 400, overflow: "auto" }}>
+                    <Table size="small" sx={{ "& td, & th": { fontSize: 13, py: 0.5, px: 1 } }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Card</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Field</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>Current</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>New</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {report.updates.flatMap((row) => {
+                          const entries = row.changes ? Object.entries(row.changes) : [];
+                          const cardName = row.existing?.name ?? row.data.name as string;
+                          return entries.map(([field, { old: o, new: n }], i) => (
+                            <TableRow key={`${row.id}-${field}`}>
+                              {i === 0 ? (
+                                <TableCell
+                                  rowSpan={entries.length}
+                                  sx={{ fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" }}
+                                >
+                                  {cardName}
+                                </TableCell>
+                              ) : null}
+                              <TableCell sx={{ whiteSpace: "nowrap", color: "text.secondary" }}>
+                                {field.replace(/^attr_/, "").replace(/^lifecycle_/, "lifecycle: ")}
+                              </TableCell>
+                              <TableCell sx={{ color: "text.secondary", wordBreak: "break-word", maxWidth: 200 }}>
+                                <span style={{ textDecoration: "line-through", opacity: 0.6 }}>
+                                  {fmtVal(o)}
+                                </span>
+                              </TableCell>
+                              <TableCell sx={{ wordBreak: "break-word", maxWidth: 200 }}>
+                                {fmtVal(n)}
+                              </TableCell>
+                            </TableRow>
+                          ));
+                        })}
+                      </TableBody>
+                    </Table>
                   </Box>
                 </Collapse>
               </Alert>
