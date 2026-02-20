@@ -834,7 +834,7 @@ function DescriptionFieldsPanel({
 
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
-  onToggleCollapsed, onToggleHidden, children,
+  onToggleCollapsed, onToggleHidden, onDelete, children,
 }: {
   id: string; sectionKey: string;
   info: { label: string; icon: string; isCustom: boolean };
@@ -842,6 +842,7 @@ function SortableSectionItem({
   onToggleExpand: () => void;
   onToggleCollapsed: () => void;
   onToggleHidden: () => void;
+  onDelete?: () => void;
   children?: React.ReactNode;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -872,6 +873,13 @@ function SortableSectionItem({
             sx={{ mr: 0, ml: 0 }}
           />
         </Tooltip>
+        {onDelete && (
+          <Tooltip title="Delete section">
+            <IconButton size="small" onClick={onDelete}>
+              <MaterialSymbol icon="delete" size={18} color="#999" />
+            </IconButton>
+          </Tooltip>
+        )}
         {canExpand && (
           <IconButton size="small" onClick={onToggleExpand}>
             <MaterialSymbol icon={expanded ? "expand_less" : "expand_more"} size={20} />
@@ -891,11 +899,12 @@ interface CardLayoutEditorProps {
   openAddField: (si: number) => void;
   openEditField: (si: number, fi: number) => void;
   promptDeleteField: (si: number, fi: number) => void;
+  promptDeleteSection?: (si: number) => void;
   calculatedFieldKeys: string[];
 }
 
 export default function CardLayoutEditor({
-  cardType, onRefresh, openAddField, openEditField, promptDeleteField, calculatedFieldKeys,
+  cardType, onRefresh, openAddField, openEditField, promptDeleteField, promptDeleteSection, calculatedFieldKeys,
 }: CardLayoutEditorProps) {
   const secCfg = (cardType.section_config || {}) as Record<string, SectionConfig> & { __order?: string[] };
   const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
@@ -994,6 +1003,7 @@ export default function CardLayoutEditor({
                 onToggleExpand={() => toggleExpand(key)}
                 onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: cfgForSection.defaultExpanded === false })}
                 onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
+                onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
               >
                 {info.isCustom && info.section && schemaIdx >= 0 && (
                   <VisualFieldLayout

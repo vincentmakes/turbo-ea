@@ -90,6 +90,14 @@ export default function TypeDetailDrawer({
     cardCount: number | null; // null = loading
   } | null>(null);
 
+  /* --- Section deletion confirmation --- */
+  const [deleteSectionConfirm, setDeleteSectionConfirm] = useState<{
+    sectionIdx: number;
+    sectionName: string;
+    fieldCount: number;
+    cardCount: number | null; // null = loading
+  } | null>(null);
+
   /* --- Add section --- */
 
   /* --- Calculated fields map (type_key → field_keys[]) --- */
@@ -114,6 +122,7 @@ export default function TypeDetailDrawer({
       setError(null);
       setAddSubOpen(false);
       setDeleteFieldConfirm(null);
+      setDeleteSectionConfirm(null);
     }
   }, [cardTypeKey]);
 
@@ -245,6 +254,65 @@ export default function TypeDetailDrawer({
     }
   };
 
+
+  /* --- Section deletion --- */
+  const promptDeleteSection = (sectionIdx: number) => {
+    const section = cardTypeKey.fields_schema[sectionIdx];
+    if (!section || section.section === "__description") return;
+    const fieldKeys = section.fields.map((f) => f.key);
+    setDeleteSectionConfirm({
+      sectionIdx,
+      sectionName: section.section,
+      fieldCount: fieldKeys.length,
+      cardCount: null,
+    });
+    if (fieldKeys.length === 0) {
+      setDeleteSectionConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null));
+    } else {
+      api
+        .get<{ card_count: number }>(
+          `/metamodel/types/${cardTypeKey.key}/section-usage?field_keys=${encodeURIComponent(fieldKeys.join(","))}`,
+        )
+        .then((r) => setDeleteSectionConfirm((prev) => (prev ? { ...prev, cardCount: r.card_count } : null)))
+        .catch(() => setDeleteSectionConfirm((prev) => (prev ? { ...prev, cardCount: 0 } : null)));
+    }
+  };
+
+  const confirmDeleteSection = async () => {
+    if (!deleteSectionConfirm) return;
+    const { sectionIdx } = deleteSectionConfirm;
+    setDeleteSectionConfirm(null);
+    try {
+      // Remove the section from fields_schema
+      const schema = cardTypeKey.fields_schema.filter((_, i) => i !== sectionIdx);
+      // Rebuild section_config.__order: remove the deleted custom:N key and re-index
+      const secCfg = (cardTypeKey.section_config || {}) as Record<string, unknown> & { __order?: string[] };
+      const customSections = cardTypeKey.fields_schema.filter((s) => s.section !== "__description");
+      const deletedCustomIdx = customSections.findIndex(
+        (s) => cardTypeKey.fields_schema.indexOf(s) === sectionIdx,
+      );
+      let newOrder = secCfg.__order as string[] | undefined;
+      if (newOrder && Array.isArray(newOrder)) {
+        // Remove the deleted key and re-index higher custom indices
+        newOrder = newOrder
+          .filter((k) => k !== `custom:${deletedCustomIdx}`)
+          .map((k) => {
+            if (k.startsWith("custom:")) {
+              const idx = parseInt(k.split(":")[1], 10);
+              if (idx > deletedCustomIdx) return `custom:${idx - 1}`;
+            }
+            return k;
+          });
+      }
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, {
+        fields_schema: schema,
+        section_config: { ...secCfg, __order: newOrder },
+      });
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to delete section");
+    }
+  };
 
   /* --- Hide / Unhide --- */
   const handleToggleHidden = async () => {
@@ -508,6 +576,7 @@ export default function TypeDetailDrawer({
             openAddField={openAddField}
             openEditField={openEditField}
             promptDeleteField={promptDeleteField}
+            promptDeleteSection={promptDeleteSection}
             calculatedFieldKeys={calculatedFieldKeys}
           />
         )}
@@ -545,6 +614,47 @@ export default function TypeDetailDrawer({
             onClick={confirmDeleteField}
           >
             Delete Field
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* --- Section deletion confirmation dialog --- */}
+      <Dialog open={!!deleteSectionConfirm} onClose={() => setDeleteSectionConfirm(null)} maxWidth="xs" fullWidth disableRestoreFocus>
+        <DialogTitle>Delete Section</DialogTitle>
+        <DialogContent>
+          {deleteSectionConfirm && (
+            <>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Are you sure you want to delete the section <strong>"{deleteSectionConfirm.sectionName}"</strong>
+                {deleteSectionConfirm.fieldCount > 0
+                  ? ` and its ${deleteSectionConfirm.fieldCount} field(s)?`
+                  : "?"}
+              </Typography>
+              {deleteSectionConfirm.cardCount === null ? (
+                <Alert severity="info" icon={<CircularProgress size={18} />}>
+                  Checking how many cards use fields in this section...
+                </Alert>
+              ) : deleteSectionConfirm.fieldCount === 0 ? (
+                <Alert severity="info">This section has no fields. It can be safely deleted.</Alert>
+              ) : deleteSectionConfirm.cardCount > 0 ? (
+                <Alert severity="warning">
+                  <strong>{deleteSectionConfirm.cardCount} card(s)</strong> have data for fields in this section. Deleting it will permanently remove that data from all of them.
+                </Alert>
+              ) : (
+                <Alert severity="info">No cards have data for fields in this section. It can be safely deleted.</Alert>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSectionConfirm(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteSectionConfirm?.cardCount === null}
+            onClick={confirmDeleteSection}
+          >
+            Delete Section
           </Button>
         </DialogActions>
       </Dialog>
