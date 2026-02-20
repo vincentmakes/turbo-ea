@@ -89,7 +89,7 @@ function getSectionInfo(key: string, customSections: SectionDef[], type: CardTyp
 function fieldTypeColor(type: string): string {
   const map: Record<string, string> = {
     text: "#1976d2", number: "#7b1fa2", cost: "#e65100", boolean: "#2e7d32",
-    date: "#c2185b", single_select: "#00838f", multiple_select: "#4527a0",
+    date: "#c2185b", url: "#0277bd", single_select: "#00838f", multiple_select: "#4527a0",
   };
   return map[type] || "#666";
 }

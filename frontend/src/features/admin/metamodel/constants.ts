@@ -10,6 +10,7 @@ export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; label: string }[] = 
   { value: "cost", label: "Cost" },
   { value: "boolean", label: "Boolean" },
   { value: "date", label: "Date" },
+  { value: "url", label: "URL" },
   { value: "single_select", label: "Single Select" },
   { value: "multiple_select", label: "Multiple Select" },
 ];
