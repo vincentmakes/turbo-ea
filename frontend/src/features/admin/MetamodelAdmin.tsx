@@ -777,6 +777,7 @@ export default function MetamodelAdmin() {
         onClose={() => setCreateRelOpen(false)}
         maxWidth="sm"
         fullWidth
+        disableRestoreFocus
       >
         <DialogTitle>Create Relation Type</DialogTitle>
         <DialogContent>
@@ -926,6 +927,7 @@ export default function MetamodelAdmin() {
         onClose={() => setEditRelOpen(false)}
         maxWidth="sm"
         fullWidth
+        disableRestoreFocus
       >
         <DialogTitle>Edit Relation Type</DialogTitle>
         {editRel && (
@@ -1013,6 +1015,7 @@ export default function MetamodelAdmin() {
         onClose={() => setDeleteRelConfirm(null)}
         maxWidth="xs"
         fullWidth
+        disableRestoreFocus
       >
         <DialogTitle>Delete Relation Type?</DialogTitle>
         <DialogContent>

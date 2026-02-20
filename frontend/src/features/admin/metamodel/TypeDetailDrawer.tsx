@@ -514,7 +514,7 @@ export default function TypeDetailDrawer({
       </Box>
 
       {/* --- Field deletion confirmation dialog --- */}
-      <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!deleteFieldConfirm} onClose={() => setDeleteFieldConfirm(null)} maxWidth="xs" fullWidth disableRestoreFocus>
         <DialogTitle>Delete Field</DialogTitle>
         <DialogContent>
           {deleteFieldConfirm && (

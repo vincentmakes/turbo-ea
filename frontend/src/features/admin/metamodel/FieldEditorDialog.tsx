@@ -108,7 +108,7 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
       <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
       <DialogContent>
         {isCalculated && (
