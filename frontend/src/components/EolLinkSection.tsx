@@ -89,9 +89,10 @@ interface EolPickerProps {
   onSelect: (product: string, cycle: string) => void;
   onCancel: () => void;
   initialProduct?: string;
+  resetKey?: number;
 }
 
-function EolPicker({ onSelect, onCancel, initialProduct }: EolPickerProps) {
+function EolPicker({ onSelect, onCancel, initialProduct, resetKey }: EolPickerProps) {
   const [productSearch, setProductSearch] = useState(initialProduct || "");
   const [productOptions, setProductOptions] = useState<EolProduct[]>([]);
   const [productLoading, setProductLoading] = useState(false);
@@ -102,6 +103,16 @@ function EolPicker({ onSelect, onCancel, initialProduct }: EolPickerProps) {
   const [cyclesLoading, setCyclesLoading] = useState(false);
   const [selectedCycle, setSelectedCycle] = useState("");
   const [error, setError] = useState("");
+
+  // Reset all fields when resetKey changes
+  useEffect(() => {
+    setProductSearch(initialProduct || "");
+    setSelectedProduct(initialProduct || null);
+    setProductOptions([]);
+    setCycles([]);
+    setSelectedCycle("");
+    setError("");
+  }, [resetKey]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search products
   useEffect(() => {
@@ -396,6 +407,7 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [linking, setLinking] = useState(false);
+  const [pickerResetKey, setPickerResetKey] = useState(0);
 
   // Fetch cycle data when linked
   const fetchCycleData = useCallback(async () => {
@@ -573,8 +585,12 @@ export default function EolLinkSection({ card, onSave, initialExpanded }: EolLin
             </Typography>
             <EolPicker
               onSelect={handleLink}
-              onCancel={() => setLinking(false)}
+              onCancel={() => {
+                setLinking(false);
+                setPickerResetKey((k) => k + 1);
+              }}
               initialProduct={eolProduct}
+              resetKey={pickerResetKey}
             />
           </Box>
         ) : null}
