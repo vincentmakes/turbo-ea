@@ -37,7 +37,7 @@ The first user to register automatically gets the `admin` role. Set `SEED_DEMO=t
 └───────────────────────────────────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v29.5.1) and served under `/drawio/` by Nginx.
 
 ---
 
@@ -686,7 +686,7 @@ BusinessProcess cards show extra tabs in CardDetail:
 ## DrawIO Integration
 
 ### How It Works
-1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v26.0.9
+1. **Build time**: Frontend Dockerfile clones `jgraph/drawio` v29.5.1
 2. **Runtime**: Nginx serves DrawIO at `/drawio/` (same origin)
 3. **Editor**: `DiagramEditor.tsx` loads DrawIO in a same-origin iframe
 4. **Communication**: Direct DOM access to iframe's `mxGraph` API. Graph reference stored on `iframe.contentWindow.__turboGraph`
@@ -824,7 +824,7 @@ PostgreSQL is external (not managed by this compose file).
 
 ### Frontend Dockerfile (multi-stage, root context)
 1. **build stage**: `node:20-alpine` — copies `frontend/package.json` + `VERSION`, npm ci, vite build
-2. **drawio stage**: `alpine/git` — clone jgraph/drawio v26.0.9
+2. **drawio stage**: `alpine/git` — clone jgraph/drawio v29.5.1
 3. **production stage**: `nginx:alpine` — serve built frontend + DrawIO + security configs, runs as non-root `nginx` user
 
 ### Backend Dockerfile (root context)

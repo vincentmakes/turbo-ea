@@ -270,7 +270,7 @@ npm run build         # TypeScript check + production build
 └───────────────────────────────────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v29.5.1) and served under `/drawio/` by Nginx.
 
 ---
 
