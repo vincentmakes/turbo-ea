@@ -134,14 +134,20 @@ function buildPatch(
   const patch: Record<string, unknown> = {};
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
-  if (d.name && d.name !== ex.name) {
+  // Normalise a string for comparison so that trivial whitespace differences
+  // (trailing spaces, \r\n vs \n, etc.) introduced by the XLSX round-trip
+  // don't flag as changes.
+  const norm = (v: unknown): string =>
+    (v == null ? "" : String(v)).trim().replace(/\r\n/g, "\n");
+
+  if (d.name && norm(d.name) !== norm(ex.name)) {
     patch.name = d.name;
     changes.name = { old: ex.name, new: d.name };
   }
 
   for (const key of ["description", "subtype", "parent_id", "external_id", "alias"] as const) {
     const exVal = (ex as unknown as Record<string, unknown>)[key] ?? "";
-    if (d[key] !== undefined && d[key] !== exVal) {
+    if (d[key] !== undefined && norm(d[key]) !== norm(exVal)) {
       patch[key] = d[key] || null;
       changes[key] = { old: exVal || null, new: d[key] || null };
     }
@@ -163,15 +169,21 @@ function buildPatch(
   }
 
   // Attributes: compare field-by-field (JSON.stringify handles arrays for
-  // multiple_select round-trips)
+  // multiple_select round-trips; norm() handles trivial whitespace diffs
+  // on plain-string attributes)
   if (d.attributes) {
     const newAttrs = d.attributes as Record<string, unknown>;
     const exAttrs = (ex.attributes || {}) as Record<string, unknown>;
     let attrChanged = false;
     for (const key of Object.keys(newAttrs)) {
-      if (JSON.stringify(newAttrs[key]) !== JSON.stringify(exAttrs[key])) {
+      const nv = newAttrs[key];
+      const ev = exAttrs[key];
+      const differs = typeof nv === "string" && typeof ev === "string"
+        ? norm(nv) !== norm(ev)
+        : JSON.stringify(nv) !== JSON.stringify(ev);
+      if (differs) {
         attrChanged = true;
-        changes[`attr_${key}`] = { old: exAttrs[key] ?? null, new: newAttrs[key] };
+        changes[`attr_${key}`] = { old: ev ?? null, new: nv };
       }
     }
     if (attrChanged) {
