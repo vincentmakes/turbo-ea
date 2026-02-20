@@ -140,7 +140,7 @@ export default function CardSidebar({ onInsert }: Props) {
                   />
                 </ListItemButton>
 
-                {/* Fact sheet items */}
+                {/* Card items */}
                 <Collapse in={isExpanded} unmountOnExit>
                   {loadingType === t.key && items.length === 0 ? (
                     <Typography

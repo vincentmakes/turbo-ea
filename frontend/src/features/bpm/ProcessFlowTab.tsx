@@ -173,7 +173,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     if (subTab === 2) loadArchived();
   }, [subTab, loadDrafts, loadArchived]);
 
-  // ── Fact sheet search for element editing ─────────────────────────────
+  // ── Card search for element editing ───────────────────────────────────
 
   const searchCards = (query: string, type: string) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
