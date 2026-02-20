@@ -1,0 +1,145 @@
+/* ------------------------------------------------------------------ */
+/*  Print / Save-as-PDF styles for reports                             */
+/* ------------------------------------------------------------------ */
+
+@media print {
+  /* Force landscape and tighten margins */
+  @page {
+    size: landscape;
+    margin: 10mm 8mm;
+  }
+
+  /* Hide the app navbar and mobile drawer */
+  header.MuiAppBar-root,
+  nav.MuiDrawer-root {
+    display: none !important;
+  }
+
+  /* Remove the top padding that accounts for the fixed navbar */
+  main.app-main-content {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    min-height: auto !important;
+    background-color: #fff !important;
+  }
+
+  /* Reduce page-level padding */
+  main.app-main-content > .MuiBox-root {
+    padding: 0 !important;
+  }
+
+  /* Hide report interactive toolbar (dropdowns, toggles, filters) */
+  .report-toolbar {
+    display: none !important;
+  }
+
+  /* Hide action buttons (save, reset, more, chart/table toggle) */
+  .report-actions {
+    display: none !important;
+  }
+
+  /* Hide the saved-report banner */
+  .report-saved-banner {
+    display: none !important;
+  }
+
+  /* Hide MUI tooltips / poppers that may be open at print time */
+  .MuiTooltip-popper,
+  .MuiPopover-root,
+  .MuiModal-root {
+    display: none !important;
+  }
+
+  /* Show the print-only parameter header */
+  .report-print-params {
+    display: flex !important;
+  }
+
+  /* Remove max-width constraint so content fills the page */
+  .report-container {
+    max-width: none !important;
+  }
+
+  /* ---- Force grid columns to match desktop layout ---- */
+  /* MUI responsive breakpoints collapse during print because the print
+     viewport is narrower than the lg breakpoint (1200px). Override with
+     the intended column counts so print matches screen. */
+  .report-print-grid-4 {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+  .report-print-grid-3 {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Tighten grid gap for print compactness */
+  .report-print-grid-3,
+  .report-print-grid-4 {
+    gap: 8px !important;
+  }
+
+  /* ---- Compact spacing to fit content on page 1 ---- */
+
+  /* Shrink title bar */
+  .report-container > .MuiBox-root:first-of-type {
+    margin-bottom: 4px !important;
+  }
+  .report-container > .MuiBox-root:first-of-type .MuiTypography-h5 {
+    font-size: 1.15rem !important;
+  }
+
+  /* Shrink print params spacing */
+  .report-print-params {
+    margin-bottom: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* Remove minHeight on chart area so it doesn't force blank space */
+  .report-chart-area {
+    min-height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Shrink legend spacing */
+  .report-legend {
+    margin-top: 6px !important;
+  }
+
+  /* Compact metric / KPI card strips */
+  .report-chart-area > .MuiBox-root:first-child {
+    margin-bottom: 8px !important;
+    gap: 8px !important;
+  }
+
+  /* Make Recharts charts more compact */
+  .report-chart-area .recharts-responsive-container {
+    max-height: 350px !important;
+  }
+
+  /* Allow content to flow across pages, but avoid breaks inside cards */
+  .report-chart-area {
+    break-inside: auto;
+  }
+
+  /* Prevent page breaks inside individual visual blocks */
+  .report-chart-area .MuiPaper-root,
+  .report-chart-area .recharts-wrapper,
+  .report-chart-area > .MuiBox-root > .MuiBox-root {
+    break-inside: avoid;
+  }
+
+  /* Remove box shadows and unnecessary borders */
+  .MuiPaper-root {
+    box-shadow: none !important;
+  }
+
+  /* Preserve background colors in print */
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* Print parameter header — hidden on screen, shown in print */
+.report-print-params {
+  display: none;
+}

@@ -1,0 +1,597 @@
+from __future__ import annotations
+
+import json
+import re
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.types import Text
+
+from app.api.deps import get_current_user
+from app.database import get_db
+from app.models.card import Card
+from app.models.card_type import CardType
+from app.models.relation import Relation
+from app.models.relation_type import RelationType
+from app.models.stakeholder import Stakeholder
+from app.models.tag import CardTag, Tag, TagGroup
+from app.models.user import User
+from app.models.web_portal import WebPortal
+from app.schemas.common import WebPortalCreate, WebPortalUpdate
+from app.services.permission_service import PermissionService
+
+router = APIRouter(prefix="/web-portals", tags=["web-portals"])
+
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _portal_to_dict(p: WebPortal) -> dict:
+    return {
+        "id": str(p.id),
+        "name": p.name,
+        "slug": p.slug,
+        "description": p.description,
+        "card_type": p.card_type,
+        "filters": p.filters,
+        "display_fields": p.display_fields,
+        "card_config": p.card_config,
+        "is_published": p.is_published,
+        "created_by": str(p.created_by) if p.created_by else None,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+    }
+
+
+# ── Admin CRUD (auth required) ──────────────────────────────────────────
+
+
+@router.get("")
+async def list_portals(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    result = await db.execute(
+        select(WebPortal).order_by(WebPortal.created_at.desc())
+    )
+    return [_portal_to_dict(p) for p in result.scalars().all()]
+
+
+@router.post("", status_code=201)
+async def create_portal(
+    body: WebPortalCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    if not _SLUG_RE.match(body.slug):
+        raise HTTPException(
+            400,
+            "Slug must contain only lowercase letters, numbers, and hyphens",
+        )
+    # Check slug uniqueness
+    existing = await db.execute(
+        select(WebPortal).where(WebPortal.slug == body.slug)
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(400, "A portal with this slug already exists")
+    # Validate card type exists
+    fst = await db.execute(
+        select(CardType).where(CardType.key == body.card_type)
+    )
+    if not fst.scalar_one_or_none():
+        raise HTTPException(400, f"Card type '{body.card_type}' not found")
+
+    portal = WebPortal(
+        name=body.name,
+        slug=body.slug,
+        description=body.description,
+        card_type=body.card_type,
+        filters=body.filters,
+        display_fields=body.display_fields,
+        card_config=body.card_config,
+        is_published=body.is_published,
+        created_by=user.id,
+    )
+    db.add(portal)
+    await db.commit()
+    await db.refresh(portal)
+    return _portal_to_dict(portal)
+
+
+@router.get("/{portal_id}")
+async def get_portal(
+    portal_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+    return _portal_to_dict(portal)
+
+
+@router.patch("/{portal_id}")
+async def update_portal(
+    portal_id: str,
+    body: WebPortalUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+
+    updates = body.model_dump(exclude_unset=True)
+
+    if "slug" in updates:
+        if not _SLUG_RE.match(updates["slug"]):
+            raise HTTPException(
+                400,
+                "Slug must contain only lowercase letters, numbers, and hyphens",
+            )
+        dup = await db.execute(
+            select(WebPortal).where(
+                WebPortal.slug == updates["slug"],
+                WebPortal.id != portal.id,
+            )
+        )
+        if dup.scalar_one_or_none():
+            raise HTTPException(400, "A portal with this slug already exists")
+
+    for field, value in updates.items():
+        setattr(portal, field, value)
+
+    await db.commit()
+    await db.refresh(portal)
+    return _portal_to_dict(portal)
+
+
+@router.delete("/{portal_id}", status_code=204)
+async def delete_portal(
+    portal_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "web_portals.manage")
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.id == uuid.UUID(portal_id))
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+    await db.delete(portal)
+    await db.commit()
+
+
+# ── Public endpoints (no auth) ──────────────────────────────────────────
+
+
+@router.get("/public/{slug}")
+async def get_public_portal(
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+
+    # Also return the type metadata so frontend can render properly
+    fst_result = await db.execute(
+        select(CardType).where(CardType.key == portal.card_type)
+    )
+    fst = fst_result.scalar_one_or_none()
+
+    type_info = None
+    if fst:
+        type_info = {
+            "key": fst.key,
+            "label": fst.label,
+            "icon": fst.icon,
+            "color": fst.color,
+            "fields_schema": fst.fields_schema,
+            "subtypes": fst.subtypes,
+        }
+
+    # Fetch available relation types for this card type (for filter options)
+    rel_types_result = await db.execute(
+        select(RelationType).where(
+            or_(
+                RelationType.source_type_key == portal.card_type,
+                RelationType.target_type_key == portal.card_type,
+            ),
+            RelationType.is_hidden == False,  # noqa: E712
+        )
+    )
+    rel_types_raw = rel_types_result.scalars().all()
+
+    # Collect all related type keys to batch-fetch their labels + hidden status
+    related_type_keys = set()
+    for rt in rel_types_raw:
+        if rt.source_type_key != portal.card_type:
+            related_type_keys.add(rt.source_type_key)
+        if rt.target_type_key != portal.card_type:
+            related_type_keys.add(rt.target_type_key)
+
+    type_labels: dict[str, str] = {}
+    hidden_type_keys: set[str] = set()
+    if related_type_keys:
+        labels_result = await db.execute(
+            select(CardType.key, CardType.label, CardType.is_hidden).where(
+                CardType.key.in_(related_type_keys)
+            )
+        )
+        for row in labels_result.all():
+            type_labels[row.key] = row.label
+            if row.is_hidden:
+                hidden_type_keys.add(row.key)
+
+    rel_types = []
+    for rt in rel_types_raw:
+        other_type = (
+            rt.target_type_key
+            if rt.source_type_key == portal.card_type
+            else rt.source_type_key
+        )
+        # Skip relations where the other end type is hidden
+        if other_type in hidden_type_keys:
+            continue
+        rel_types.append({
+            "key": rt.key,
+            "label": rt.label,
+            "reverse_label": rt.reverse_label,
+            "source_type_key": rt.source_type_key,
+            "target_type_key": rt.target_type_key,
+            "other_type_key": other_type,
+            "other_type_label": type_labels.get(other_type, other_type),
+        })
+
+    # Fetch available tag groups
+    tag_groups_result = await db.execute(
+        select(TagGroup).order_by(TagGroup.name)
+    )
+    tag_groups = []
+    for tg in tag_groups_result.scalars().all():
+        tags_result = await db.execute(
+            select(Tag).where(Tag.tag_group_id == tg.id).order_by(Tag.name)
+        )
+        tag_groups.append({
+            "id": str(tg.id),
+            "name": tg.name,
+            "tags": [
+                {"id": str(t.id), "name": t.name, "color": t.color}
+                for t in tags_result.scalars().all()
+            ],
+        })
+
+    return {
+        "id": str(portal.id),
+        "name": portal.name,
+        "slug": portal.slug,
+        "description": portal.description,
+        "card_type": portal.card_type,
+        "filters": portal.filters,
+        "display_fields": portal.display_fields,
+        "card_config": portal.card_config,
+        "type_info": type_info,
+        "relation_types": rel_types,
+        "tag_groups": tag_groups,
+    }
+
+
+@router.get("/public/{slug}/relation-options")
+async def get_public_portal_relation_options(
+    slug: str,
+    type_key: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return card name/id pairs for a given type, for filter dropdowns.
+
+    M-7: Only returns cards that are actually related to at least one card
+    visible through the portal (matching the portal's card_type and filters).
+    """
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+
+    # Build a subquery for portal-visible card IDs (apply portal filters)
+    visible_q = select(Card.id).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
+    )
+    portal_filters = portal.filters or {}
+    if portal_filters.get("subtypes"):
+        visible_q = visible_q.where(Card.subtype.in_(portal_filters["subtypes"]))
+    if portal_filters.get("approval_statuses"):
+        visible_q = visible_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+
+    # Only return cards of type_key that are related to a portal-visible card
+    related_ids = (
+        select(Relation.target_id)
+        .where(Relation.source_id.in_(visible_q))
+        .union(
+            select(Relation.source_id)
+            .where(Relation.target_id.in_(visible_q))
+        )
+    )
+
+    card_result = await db.execute(
+        select(Card.id, Card.name)
+        .where(
+            Card.type == type_key,
+            Card.status == "ACTIVE",
+            Card.id.in_(related_ids),
+        )
+        .order_by(Card.name)
+    )
+    return [
+        {"id": str(row.id), "name": row.name}
+        for row in card_result.all()
+    ]
+
+
+@router.get("/public/{slug}/cards")
+async def get_public_portal_cards(
+    slug: str,
+    search: str | None = Query(None),
+    subtype: str | None = Query(None),
+    tag_ids: str | None = Query(None),
+    related_type: str | None = Query(None),
+    related_id: str | None = Query(None),
+    relation_filters: str | None = Query(None),
+    attr_filters: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(24, ge=1, le=100),
+    sort_by: str = Query("name"),
+    sort_dir: str = Query("asc"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Public endpoint: returns cards for a published portal with optional filtering."""
+    result = await db.execute(
+        select(WebPortal).where(WebPortal.slug == slug, WebPortal.is_published == True)  # noqa: E712
+    )
+    portal = result.scalar_one_or_none()
+    if not portal:
+        raise HTTPException(404, "Portal not found")
+
+    q = select(Card).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
+    )
+    count_q = select(func.count(Card.id)).where(
+        Card.type == portal.card_type,
+        Card.status == "ACTIVE",
+    )
+
+    # Apply portal-level preset filters
+    portal_filters = portal.filters or {}
+    if portal_filters.get("subtypes"):
+        q = q.where(Card.subtype.in_(portal_filters["subtypes"]))
+        count_q = count_q.where(Card.subtype.in_(portal_filters["subtypes"]))
+    if portal_filters.get("approval_statuses"):
+        q = q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+        count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+
+    # Apply user-supplied search
+    if search:
+        like = f"%{search}%"
+        q = q.where(
+            or_(Card.name.ilike(like), Card.description.ilike(like))
+        )
+        count_q = count_q.where(
+            or_(Card.name.ilike(like), Card.description.ilike(like))
+        )
+
+    # Filter by subtype (user)
+    if subtype:
+        q = q.where(Card.subtype == subtype)
+        count_q = count_q.where(Card.subtype == subtype)
+
+    # Filter by tags
+    if tag_ids:
+        ids = [t.strip() for t in tag_ids.split(",") if t.strip()]
+        if ids:
+            tag_uuids = [uuid.UUID(tid) for tid in ids]
+            tagged_fs = select(CardTag.card_id).where(
+                CardTag.tag_id.in_(tag_uuids)
+            )
+            q = q.where(Card.id.in_(tagged_fs))
+            count_q = count_q.where(Card.id.in_(tagged_fs))
+
+    # Filter by attribute values (e.g. {"businessCriticality": "high"})
+    if attr_filters:
+        try:
+            parsed = json.loads(attr_filters)
+            if isinstance(parsed, dict):
+                for attr_key, attr_val in parsed.items():
+                    if not isinstance(attr_key, str) or not attr_key:
+                        continue
+                    cond = Card.attributes[attr_key].astext.cast(Text) == str(attr_val)
+                    q = q.where(cond)
+                    count_q = count_q.where(cond)
+        except (json.JSONDecodeError, TypeError):
+            pass  # Ignore malformed attr_filters
+
+    # Filter by relationship to a specific card (single, legacy)
+    if related_type and related_id:
+        rid = uuid.UUID(related_id)
+        related_fs = select(Relation.target_id).where(
+            Relation.type == related_type,
+            Relation.source_id == rid,
+        ).union(
+            select(Relation.source_id).where(
+                Relation.type == related_type,
+                Relation.target_id == rid,
+            )
+        )
+        q = q.where(Card.id.in_(related_fs))
+        count_q = count_q.where(Card.id.in_(related_fs))
+
+    # Filter by multiple relations (JSON: {"relTypeKey": "cardId", ...})
+    if relation_filters:
+        try:
+            parsed_rf = json.loads(relation_filters)
+            if isinstance(parsed_rf, dict):
+                for rel_key, card_id in parsed_rf.items():
+                    if not rel_key or not card_id:
+                        continue
+                    rid = uuid.UUID(str(card_id))
+                    sub = select(Relation.target_id).where(
+                        Relation.type == rel_key,
+                        Relation.source_id == rid,
+                    ).union(
+                        select(Relation.source_id).where(
+                            Relation.type == rel_key,
+                            Relation.target_id == rid,
+                        )
+                    )
+                    q = q.where(Card.id.in_(sub))
+                    count_q = count_q.where(Card.id.in_(sub))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
+    # Sorting — H9: whitelist sort columns
+    _allowed_sorts = {"name", "type", "status", "approval_status", "data_quality", "created_at", "updated_at", "subtype"}
+    if sort_by not in _allowed_sorts:
+        sort_by = "name"
+    sort_col = getattr(Card, sort_by, Card.name)
+    q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col.asc())
+    q = q.offset((page - 1) * page_size).limit(page_size)
+
+    total_result = await db.execute(count_q)
+    total = total_result.scalar() or 0
+
+    card_result = await db.execute(q)
+    cards = card_result.scalars().all()
+
+    # Collect tag data for the result cards
+    card_ids = [card.id for card in cards]
+    tags_map: dict[str, list] = {}
+    if card_ids:
+        tag_rows = await db.execute(
+            select(
+                CardTag.card_id,
+                Tag.id,
+                Tag.name,
+                Tag.color,
+                TagGroup.name.label("group_name"),
+            )
+            .join(Tag, Tag.id == CardTag.tag_id)
+            .join(TagGroup, TagGroup.id == Tag.tag_group_id)
+            .where(CardTag.card_id.in_(card_ids))
+        )
+        for row in tag_rows.all():
+            fsid = str(row[0])
+            tags_map.setdefault(fsid, []).append({
+                "id": str(row[1]),
+                "name": row[2],
+                "color": row[3],
+                "group_name": row[4],
+            })
+
+    # Collect relations for the result cards (to show related items)
+    relations_map: dict[str, list] = {}
+    if card_ids:
+        # Source relations
+        src_rows = await db.execute(
+            select(
+                Relation.source_id,
+                Relation.type,
+                Relation.target_id,
+                Card.name.label("target_name"),
+                Card.type.label("target_type"),
+            )
+            .join(Card, Card.id == Relation.target_id)
+            .where(Relation.source_id.in_(card_ids))
+        )
+        for row in src_rows.all():
+            fsid = str(row[0])
+            relations_map.setdefault(fsid, []).append({
+                "type": row[1],
+                "related_id": str(row[2]),
+                "related_name": row[3],
+                "related_type": row[4],
+                "direction": "outgoing",
+            })
+        # Target relations
+        tgt_rows = await db.execute(
+            select(
+                Relation.target_id,
+                Relation.type,
+                Relation.source_id,
+                Card.name.label("source_name"),
+                Card.type.label("source_type"),
+            )
+            .join(Card, Card.id == Relation.source_id)
+            .where(Relation.target_id.in_(card_ids))
+        )
+        for row in tgt_rows.all():
+            fsid = str(row[0])
+            relations_map.setdefault(fsid, []).append({
+                "type": row[1],
+                "related_id": str(row[2]),
+                "related_name": row[3],
+                "related_type": row[4],
+                "direction": "incoming",
+            })
+
+    # Collect stakeholders for the result cards
+    subs_map: dict[str, list] = {}
+    if card_ids:
+        sub_rows = await db.execute(
+            select(
+                Stakeholder.card_id,
+                Stakeholder.role,
+                User.display_name,
+            )
+            .join(User, User.id == Stakeholder.user_id)
+            .where(Stakeholder.card_id.in_(card_ids))
+        )
+        for row in sub_rows.all():
+            fsid = str(row[0])
+            subs_map.setdefault(fsid, []).append({
+                "role": row[1],
+                "display_name": row[2],
+            })
+
+    items = []
+    for card in cards:
+        fsid = str(card.id)
+        items.append({
+            "id": fsid,
+            "name": card.name,
+            "type": card.type,
+            "subtype": card.subtype,
+            "description": card.description,
+            "lifecycle": card.lifecycle,
+            "attributes": card.attributes,
+            "approval_status": card.approval_status,
+            "data_quality": card.data_quality,
+            "tags": tags_map.get(fsid, []),
+            "relations": relations_map.get(fsid, []),
+            "stakeholders": subs_map.get(fsid, []),
+            "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+        })
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }

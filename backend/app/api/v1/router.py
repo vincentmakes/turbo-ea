@@ -1,0 +1,64 @@
+from fastapi import APIRouter
+
+from app.api.v1 import (
+    auth,
+    bookmarks,
+    bpm,
+    bpm_assessments,
+    bpm_reports,
+    bpm_workflow,
+    calculations,
+    comments,
+    saved_reports,
+    diagrams,
+    documents,
+    eol,
+    events,
+    cards,
+    metamodel,
+    notifications,
+    relations,
+    reports,
+    roles,
+    settings,
+    soaw,
+    stakeholder_roles,
+    stakeholders,
+    surveys,
+    tags,
+    todos,
+    users,
+    web_portals,
+    servicenow,
+)
+
+api_router = APIRouter()
+api_router.include_router(auth.router)
+api_router.include_router(metamodel.router)
+api_router.include_router(cards.router)
+api_router.include_router(relations.router)
+api_router.include_router(stakeholders.router)
+api_router.include_router(comments.router)
+api_router.include_router(todos.router)
+api_router.include_router(tags.router)
+api_router.include_router(documents.router)
+api_router.include_router(bookmarks.router)
+api_router.include_router(saved_reports.router)
+api_router.include_router(reports.router)
+api_router.include_router(diagrams.router)
+api_router.include_router(soaw.router)
+api_router.include_router(eol.router)
+api_router.include_router(events.router)
+api_router.include_router(users.router)
+api_router.include_router(notifications.router)
+api_router.include_router(surveys.router)
+api_router.include_router(settings.router)
+api_router.include_router(web_portals.router)
+api_router.include_router(bpm.router)
+api_router.include_router(bpm_assessments.router)
+api_router.include_router(bpm_reports.router)
+api_router.include_router(bpm_workflow.router)
+api_router.include_router(roles.router)
+api_router.include_router(stakeholder_roles.router)
+api_router.include_router(calculations.router)
+api_router.include_router(servicenow.router)
