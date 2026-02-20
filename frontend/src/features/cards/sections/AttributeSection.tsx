@@ -9,8 +9,10 @@ import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import VendorField from "@/components/VendorField";
-import { FieldValue, FieldEditor } from "@/features/cards/sections/cardDetailUtils";
+import Alert from "@mui/material/Alert";
+import { FieldValue, FieldEditor, isValidUrl, URL_ERROR_MSG } from "@/features/cards/sections/cardDetailUtils";
 import { useCurrency } from "@/hooks/useCurrency";
+import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
 // ── Section: Type-specific attributes ───────────────────────────
@@ -38,13 +40,33 @@ function AttributeSection({
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
   useEffect(() => {
     setAttrs(card.attributes || {});
   }, [card.attributes]);
 
+  // Compute URL validation errors for all url-type fields in this section
+  const urlErrors: Record<string, string> = {};
+  for (const f of section.fields) {
+    if (f.type === "url") {
+      const val = attrs[f.key];
+      if (typeof val === "string" && val && !isValidUrl(val)) {
+        urlErrors[f.key] = URL_ERROR_MSG;
+      }
+    }
+  }
+  const hasValidationErrors = Object.keys(urlErrors).length > 0;
+
   const save = async () => {
-    await onSave({ attributes: attrs });
-    setEditing(false);
+    if (hasValidationErrors) return;
+    setSaveError(null);
+    try {
+      await onSave({ attributes: attrs });
+      setEditing(false);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : String(err);
+      setSaveError(msg);
+    }
   };
 
   const setAttr = (key: string, value: unknown) => {
@@ -134,6 +156,7 @@ function AttributeSection({
             value={attrs[field.key]}
             onChange={(v) => setAttr(field.key, v)}
             currencySymbol={symbol}
+            error={urlErrors[field.key]}
           />
         )
       )}
@@ -204,17 +227,23 @@ function AttributeSection({
         {editing && canEdit ? (
           <Box>
             {renderSectionBody(true)}
+            {saveError && (
+              <Alert severity="error" sx={{ mt: 1 }} onClose={() => setSaveError(null)}>
+                {saveError}
+              </Alert>
+            )}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}>
               <Button
                 size="small"
                 onClick={() => {
                   setAttrs(card.attributes || {});
                   setEditing(false);
+                  setSaveError(null);
                 }}
               >
                 Cancel
               </Button>
-              <Button size="small" variant="contained" onClick={save}>
+              <Button size="small" variant="contained" onClick={save} disabled={hasValidationErrors}>
                 Save
               </Button>
             </Box>

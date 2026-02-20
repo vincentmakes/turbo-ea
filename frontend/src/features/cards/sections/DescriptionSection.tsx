@@ -7,8 +7,10 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Alert from "@mui/material/Alert";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { FieldValue, FieldEditor } from "@/features/cards/sections/cardDetailUtils";
+import { FieldValue, FieldEditor, isValidUrl, URL_ERROR_MSG } from "@/features/cards/sections/cardDetailUtils";
+import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
 // ── Section: Description ────────────────────────────────────────
@@ -31,6 +33,7 @@ function DescriptionSection({
   const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
   const [attrs, setAttrs] = useState<Record<string, unknown>>(card.attributes || {});
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(card.name);
@@ -38,13 +41,34 @@ function DescriptionSection({
     setAttrs(card.attributes || {});
   }, [card.name, card.description, card.attributes]);
 
-  const save = async () => {
-    const updates: Record<string, unknown> = { name, description };
-    if (extraFields && extraFields.length > 0) {
-      updates.attributes = { ...(card.attributes || {}), ...attrs };
+  // URL validation for extra fields
+  const urlErrors: Record<string, string> = {};
+  if (extraFields) {
+    for (const f of extraFields) {
+      if (f.type === "url") {
+        const val = attrs[f.key];
+        if (typeof val === "string" && val && !isValidUrl(val)) {
+          urlErrors[f.key] = URL_ERROR_MSG;
+        }
+      }
     }
-    await onSave(updates);
-    setEditing(false);
+  }
+  const hasValidationErrors = Object.keys(urlErrors).length > 0;
+
+  const save = async () => {
+    if (hasValidationErrors) return;
+    setSaveError(null);
+    try {
+      const updates: Record<string, unknown> = { name, description };
+      if (extraFields && extraFields.length > 0) {
+        updates.attributes = { ...(card.attributes || {}), ...attrs };
+      }
+      await onSave(updates);
+      setEditing(false);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : String(err);
+      setSaveError(msg);
+    }
   };
 
   return (
@@ -89,9 +113,14 @@ function DescriptionSection({
             />
             {extraFields && extraFields.map((field) => (
               <Box key={field.key} sx={{ mb: 2 }}>
-                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} />
+                <FieldEditor field={field} value={attrs[field.key]} onChange={(v) => setAttrs((prev) => ({ ...prev, [field.key]: v }))} error={urlErrors[field.key]} />
               </Box>
             ))}
+            {saveError && (
+              <Alert severity="error" sx={{ mb: 1 }} onClose={() => setSaveError(null)}>
+                {saveError}
+              </Alert>
+            )}
             <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
               <Button
                 size="small"
@@ -100,11 +129,12 @@ function DescriptionSection({
                   setDescription(card.description || "");
                   setAttrs(card.attributes || {});
                   setEditing(false);
+                  setSaveError(null);
                 }}
               >
                 Cancel
               </Button>
-              <Button size="small" variant="contained" onClick={save}>
+              <Button size="small" variant="contained" onClick={save} disabled={hasValidationErrors}>
                 Save
               </Button>
             </Box>

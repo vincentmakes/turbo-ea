@@ -13,6 +13,14 @@ import InputAdornment from "@mui/material/InputAdornment";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { FieldDef } from "@/types";
 
+// ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
+const ALLOWED_URL_SCHEMES = ["http://", "https://", "mailto:"];
+export function isValidUrl(value: string): boolean {
+  if (!value) return true; // empty is valid (field not required)
+  return ALLOWED_URL_SCHEMES.some((s) => value.trim().startsWith(s));
+}
+export const URL_ERROR_MSG = "Must use http://, https://, or mailto: scheme";
+
 // ── Data Quality Ring ───────────────────────────────────────────
 export function DataQualityRing({ value }: { value: number }) {
   const size = 52;
@@ -187,11 +195,13 @@ export function FieldEditor({
   value,
   onChange,
   currencySymbol,
+  error,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
   currencySymbol?: string;
+  error?: string;
 }) {
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
@@ -327,6 +337,8 @@ export function FieldEditor({
           placeholder="https://"
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
+          error={!!error}
+          helperText={error}
           sx={{ minWidth: 300 }}
         />
       );
