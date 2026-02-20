@@ -10,7 +10,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_router
-from app.config import _DEFAULT_SECRET_KEYS, settings
+from app.config import APP_VERSION, _DEFAULT_SECRET_KEYS, settings
 from app.core.rate_limit import limiter
 from app.database import engine
 from app.models import Base
@@ -267,4 +267,4 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": APP_VERSION}

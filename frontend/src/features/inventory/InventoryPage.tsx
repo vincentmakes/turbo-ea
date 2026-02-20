@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent } from "ag-grid-community";
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, RowClickedEvent } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -399,6 +399,20 @@ export default function InventoryPage() {
     const rows = event.api.getSelectedRows() as Card[];
     setSelectedIds(rows.map((r) => r.id));
   }, []);
+
+  // Stable AG Grid config objects — prevents unnecessary grid re-renders
+  const defaultColDef = useMemo(() => ({ sortable: true, filter: true, resizable: true }), []);
+  const rowSelection = useMemo(() => ({ mode: "multiRow" as const, enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" as const }), []);
+  const getRowId = useCallback((p: { data: Card }) => p.data.id, []);
+  const getRowStyle = useCallback((p: { data?: Card }) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined, []);
+  const onRowClicked = useCallback((e: RowClickedEvent<Card>) => {
+    if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
+      const api = gridRef.current?.api;
+      const selected = api?.getSelectedRows() || [];
+      if (selected.length > 0) return;
+      navigate(`/cards/${e.data.id}`);
+    }
+  }, [gridEditMode, navigate]);
 
   // Mass-editable fields for current type
   const massEditableFields = useMemo(() => {
@@ -1073,24 +1087,14 @@ export default function InventoryPage() {
             rowData={filteredData}
             columnDefs={columnDefs}
             loading={loading}
-            rowSelection={{ mode: "multiRow", enableClickSelection: false, headerCheckbox: true, selectAll: "filtered" }}
+            rowSelection={rowSelection}
             onSelectionChanged={handleSelectionChanged}
             onCellValueChanged={handleCellEdit}
-            onRowClicked={(e) => {
-              if (!gridEditMode && e.data && !e.event?.defaultPrevented) {
-                const selected = e.api.getSelectedRows();
-                if (selected.length > 0) return;
-                navigate(`/cards/${e.data.id}`);
-              }
-            }}
-            getRowId={(p) => p.data.id}
-            getRowStyle={(p) => p.data?.status === "ARCHIVED" ? { opacity: 0.6 } : undefined}
+            onRowClicked={onRowClicked}
+            getRowId={getRowId}
+            getRowStyle={getRowStyle}
             animateRows
-            defaultColDef={{
-              sortable: true,
-              filter: true,
-              resizable: true,
-            }}
+            defaultColDef={defaultColDef}
           />
         </Box>
       </Box>

@@ -1,6 +1,6 @@
 [project]
 name = "turbo-ea-backend"
-version = "0.1.0"
+version = "0.5.0"
 description = "Turbo EA - Enterprise Architecture Management API"
 requires-python = ">=3.11"
 dependencies = [

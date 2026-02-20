@@ -169,7 +169,14 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     fetchBadgeCounts();
   }, [fetchBadgeCounts]);
 
-  // Refresh badge counts on relevant real-time events
+  // Debounced badge refresh — coalesces rapid SSE events into one API call
+  const badgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedBadgeRefresh = useCallback(() => {
+    if (badgeTimerRef.current) clearTimeout(badgeTimerRef.current);
+    badgeTimerRef.current = setTimeout(() => fetchBadgeCounts(), 500);
+  }, [fetchBadgeCounts]);
+
+  // Refresh badge counts on relevant real-time events (debounced)
   useEventStream(
     useCallback(
       (event: Record<string, unknown>) => {
@@ -182,10 +189,10 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           evt === "survey.sent" ||
           evt === "survey.responded"
         ) {
-          fetchBadgeCounts();
+          debouncedBadgeRefresh();
         }
       },
-      [fetchBadgeCounts],
+      [debouncedBadgeRefresh],
     ),
   );
 
@@ -850,6 +857,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             <MenuItem disabled>
               <Typography variant="caption" color="text.secondary">
                 {user.email}
+              </Typography>
+            </MenuItem>
+            <MenuItem disabled sx={{ minHeight: 24 }}>
+              <Typography variant="caption" color="text.disabled" sx={{ fontSize: "0.65rem" }}>
+                v{__APP_VERSION__}
               </Typography>
             </MenuItem>
             <Divider />
