@@ -1,14 +1,14 @@
 """Add missing database indexes for query performance
 
-Revision ID: 033
-Revises: 032
+Revision ID: 035
+Revises: 034
 Create Date: 2026-02-20
 """
 
 from alembic import op
 
-revision = "033"
-down_revision = "032"
+revision = "035"
+down_revision = "034"
 branch_labels = None
 depends_on = None
 
