@@ -1,8 +1,12 @@
 """Rename stale permission keys in roles.permissions JSONB.
 
-subscriptions.view   → stakeholders.view
-subscriptions.manage → stakeholders.manage
-inventory.quality_seal → inventory.approval_status
+Migration 022 seeded roles with the pre-024 permission key names.
+Migration 024 renamed tables/columns but did not update the app-level
+permission keys inside roles.permissions.  This migration fixes that:
+
+  subscriptions.view   → stakeholders.view
+  subscriptions.manage → stakeholders.manage
+  inventory.quality_seal → inventory.approval_status
 
 Revision ID: 033
 Revises: 032
@@ -10,74 +14,57 @@ Revises: 032
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
 
 revision = "033"
 down_revision = "032"
 branch_labels = None
 depends_on = None
 
-# Old key → new key
-_RENAMES = {
-    "subscriptions.view": "stakeholders.view",
-    "subscriptions.manage": "stakeholders.manage",
-    "inventory.quality_seal": "inventory.approval_status",
-}
+# Each rename expressed as: remove old key, add new key (preserving value).
+# Done via pure SQL on the JSONB column to avoid Python ↔ UUID type issues.
+_RENAMES = [
+    ("subscriptions.view", "stakeholders.view"),
+    ("subscriptions.manage", "stakeholders.manage"),
+    ("inventory.quality_seal", "inventory.approval_status"),
+]
 
 
 def upgrade() -> None:
     conn = op.get_bind()
-    roles_table = sa.table(
-        "roles",
-        sa.column("id", sa.Text),
-        sa.column("permissions", JSONB),
-    )
-    rows = conn.execute(sa.select(roles_table.c.id, roles_table.c.permissions)).fetchall()
+    for old_key, new_key in _RENAMES:
+        # For each role that has the old key: copy value to new key, remove old key.
+        # Only sets the new key if it doesn't already exist.
+        conn.execute(sa.text("""
+            UPDATE roles
+            SET permissions = (permissions - :old_key) ||
+                              jsonb_build_object(:new_key, permissions->:old_key)
+            WHERE permissions ? :old_key
+              AND NOT (permissions ? :new_key)
+        """), {"old_key": old_key, "new_key": new_key})
 
-    for role_id, perms in rows:
-        if not perms:
-            continue
-        updated = dict(perms)
-        changed = False
-        for old_key, new_key in _RENAMES.items():
-            if old_key in updated:
-                # Keep old value only if new key doesn't already exist
-                if new_key not in updated:
-                    updated[new_key] = updated[old_key]
-                del updated[old_key]
-                changed = True
-        if changed:
-            conn.execute(
-                roles_table.update()
-                .where(roles_table.c.id == role_id)
-                .values(permissions=updated)
-            )
+        # If both old and new key exist, just remove the old one.
+        conn.execute(sa.text("""
+            UPDATE roles
+            SET permissions = permissions - :old_key
+            WHERE permissions ? :old_key
+              AND permissions ? :new_key
+        """), {"old_key": old_key, "new_key": new_key})
 
 
 def downgrade() -> None:
-    # Reverse: new key → old key
     conn = op.get_bind()
-    roles_table = sa.table(
-        "roles",
-        sa.column("id", sa.Text),
-        sa.column("permissions", JSONB),
-    )
-    rows = conn.execute(sa.select(roles_table.c.id, roles_table.c.permissions)).fetchall()
+    for old_key, new_key in _RENAMES:
+        conn.execute(sa.text("""
+            UPDATE roles
+            SET permissions = (permissions - :new_key) ||
+                              jsonb_build_object(:old_key, permissions->:new_key)
+            WHERE permissions ? :new_key
+              AND NOT (permissions ? :old_key)
+        """), {"old_key": old_key, "new_key": new_key})
 
-    for role_id, perms in rows:
-        if not perms:
-            continue
-        updated = dict(perms)
-        changed = False
-        for old_key, new_key in _RENAMES.items():
-            if new_key in updated:
-                if old_key not in updated:
-                    updated[old_key] = updated[new_key]
-                del updated[new_key]
-                changed = True
-        if changed:
-            conn.execute(
-                roles_table.update()
-                .where(roles_table.c.id == role_id)
-                .values(permissions=updated)
-            )
+        conn.execute(sa.text("""
+            UPDATE roles
+            SET permissions = permissions - :new_key
+            WHERE permissions ? :new_key
+              AND permissions ? :old_key
+        """), {"old_key": old_key, "new_key": new_key})
