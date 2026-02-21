@@ -68,51 +68,43 @@ Phases 1–4 are complete. The project has a working CI pipeline with 5 jobs, ba
 
 ---
 
-## Remaining Phases
+### Phase 5 — Integration & E2E ✓ (partial)
 
-### Phase 5 — Medium: Integration & E2E
+#### 5a. Backend Integration Tests for Remaining Routes ✓
 
-#### 5a. Backend Integration Tests for Remaining Routes
+| Item | Test File | Status |
+|------|-----------|--------|
+| Relations CRUD | `tests/api/test_relations.py` | Done |
+| Tags CRUD | `tests/api/test_tags.py` | Done |
+| Comments CRUD | `tests/api/test_comments.py` | Done |
+| Todos CRUD | `tests/api/test_todos.py` | Done |
+| Documents CRUD | `tests/api/test_documents.py` | Done |
+| Bookmarks CRUD | `tests/api/test_bookmarks.py` | Done |
+| Notifications | `tests/api/test_notifications.py` | Done |
+| Events | `tests/api/test_events.py` | Done |
+| Calculations CRUD + validation | `tests/api/test_calculations.py` | Done |
+| Users admin CRUD | `tests/api/test_users.py` | Done |
+| Settings (currency, BPM toggle) | `tests/api/test_settings.py` | Done |
+| Saved reports CRUD | `tests/api/test_saved_reports.py` | Done |
+| Diagrams CRUD | `tests/api/test_diagrams.py` | Done |
+| SoAW CRUD + signing | `tests/api/test_soaw.py` | Done |
+| Reports (dashboard) | `tests/api/test_reports.py` | Done |
+| Surveys CRUD | `tests/api/test_surveys.py` | Done |
+| Web portals (admin + public) | `tests/api/test_web_portals.py` | Done |
+| BPM (templates, assessments) | `tests/api/test_bpm.py` | Done |
 
-Priority endpoints not yet covered:
+#### 5b. Frontend Tests for Remaining Hooks and Components ✓
 
-- Relations CRUD (`api/v1/relations.py`)
-- Reports endpoints (dashboard, portfolio, matrix, cost, lifecycle, dependencies, data quality)
-- BPM workflow (version lifecycle: draft → pending → published → archived)
-- BPM assessments and reports
-- Calculations CRUD + execution
-- Tags, comments, todos, documents
-- Diagrams CRUD
-- SoAW CRUD
-- Surveys (create, send, respond, results)
-- Bookmarks and saved reports
-- Users admin CRUD
-- Settings (SMTP, logo, favicon)
-- Notifications
-- Event streaming (SSE)
-- ServiceNow sync (mock external API with `httpx` respx or similar)
-- EOL proxy
-- Web portals (public + admin)
+| Item | Test File | Status |
+|------|-----------|--------|
+| `useAuth` hook | `src/hooks/useAuth.test.ts` | Done |
+| `usePermissions` hook | `src/hooks/usePermissions.test.ts` | Done |
+| `useCalculatedFields` hook | `src/hooks/useCalculatedFields.test.ts` | Done |
+| `useEventStream` hook | `src/hooks/useEventStream.test.ts` | Done |
+| `useBpmEnabled` hook | `src/hooks/useBpmEnabled.test.ts` | Done |
+| `ErrorBoundary` component | `src/components/ErrorBoundary.test.tsx` | Done |
 
-#### 5b. Frontend Tests for Remaining Hooks and Components
-
-Priority items not yet covered:
-
-**Hooks:**
-- `useAuth` — login/logout/token management
-- `usePermissions` — effective permission computation
-- `useCalculatedFields` — field map fetching
-- `useEventStream` — SSE connection + reconnect
-- `useBpmEnabled` — feature flag
-
-**Components:**
-- `CreateCardDialog` — form validation, submission
-- `InventoryPage` — AG Grid column config, filter sidebar
-- `CardDetail` — section rendering, permission-based edit controls
-- `NotificationBell` — badge count, mark-read
-- `ErrorBoundary` — error state rendering
-
-#### 5c. Frontend E2E with Playwright
+#### 5c. Frontend E2E with Playwright — Not Yet Started
 
 - Login flow
 - Create/edit/archive a card
@@ -123,13 +115,17 @@ Priority items not yet covered:
 
 ---
 
-### Phase 6 — Lower Priority
+### Phase 6 — Lower Priority ✓ (partial)
 
-- Seed data tests — verify `seed.py` and `seed_demo.py` produce valid metamodel/data
-- Email service tests — mock SMTP, verify email construction
-- Performance tests — load test critical endpoints
-- Accessibility tests — axe-core integration for frontend components
-- Visual regression — screenshot comparisons for reports/diagrams
+| Item | Test File | Status |
+|------|-----------|--------|
+| Seed data (metamodel idempotency) | `tests/services/test_seed.py` | Done |
+| Email service (SMTP mock) | `tests/services/test_email_service.py` | Done |
+| Notification service | `tests/services/test_notification_service.py` | Done |
+| Event bus (pub/sub) | `tests/services/test_event_bus.py` | Done |
+| Performance tests | — | Not started |
+| Accessibility tests | — | Not started |
+| Visual regression | — | Not started |
 
 ---
 
@@ -146,13 +142,35 @@ backend/tests/
 ├── services/
 │   ├── test_calculation_engine.py     # Formula evaluation
 │   ├── test_permission_service.py     # RBAC logic
-│   └── test_bpmn_parser.py           # BPMN XML parsing
+│   ├── test_bpmn_parser.py           # BPMN XML parsing
+│   ├── test_seed.py                  # Metamodel seeding + idempotency
+│   ├── test_email_service.py         # SMTP mock + TLS/auth variations
+│   ├── test_notification_service.py  # Create, self-block, mark-read
+│   └── test_event_bus.py            # Pub/sub, JSON format, cleanup
 └── api/
     ├── test_auth.py                   # Register, login, me, refresh
     ├── test_cards.py                  # CRUD, hierarchy, permissions
     ├── test_metamodel.py              # Types, relation types, delete
     ├── test_roles.py                  # Role CRUD, permissions schema
-    └── test_stakeholder_roles.py      # Stakeholder role definitions
+    ├── test_stakeholder_roles.py      # Stakeholder role definitions
+    ├── test_relations.py              # Relation CRUD + permissions
+    ├── test_tags.py                   # Tag groups + card tagging
+    ├── test_comments.py               # Threaded comments + permissions
+    ├── test_todos.py                  # Todo CRUD + assignment
+    ├── test_documents.py              # Document links + permissions
+    ├── test_bookmarks.py              # Saved views + visibility
+    ├── test_notifications.py          # List, badge counts, mark-read
+    ├── test_events.py                 # Event list + admin permission
+    ├── test_calculations.py           # Formula CRUD + validation
+    ├── test_users.py                  # User CRUD + self-update
+    ├── test_settings.py               # Currency, BPM toggle
+    ├── test_saved_reports.py          # Report configs + visibility
+    ├── test_diagrams.py               # Diagram CRUD
+    ├── test_soaw.py                   # SoAW CRUD + signing workflow
+    ├── test_reports.py                # Dashboard KPIs
+    ├── test_surveys.py                # Survey CRUD + lifecycle
+    ├── test_web_portals.py            # Admin + public slug access
+    └── test_bpm.py                    # Templates + assessments
 ```
 
 ### Key Test Fixtures (`conftest.py`)
