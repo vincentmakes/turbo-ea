@@ -2,7 +2,7 @@
 #   docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 #
 # Prometheus: http://localhost:9090
-# Grafana:    http://localhost:3000  (admin / admin)
+# Grafana:    http://localhost:3210  (admin / admin)
 
 services:
   prometheus:
@@ -25,7 +25,7 @@ services:
     networks:
       - guac-net
     ports:
-      - "3000:3000"
+      - "3210:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
