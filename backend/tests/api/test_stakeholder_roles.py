@@ -331,4 +331,6 @@ class TestCardPermissionsSchema:
             headers=auth_headers(admin),
         )
         assert response.status_code == 200
-        assert isinstance(response.json(), list)
+        data = response.json()
+        assert isinstance(data, dict)
+        assert len(data) > 0

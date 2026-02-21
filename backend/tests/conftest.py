@@ -167,6 +167,16 @@ def _clear_permission_cache():
     PermissionService._srd_cache.clear()
 
 
+@pytest.fixture(autouse=True)
+def _disable_rate_limiter():
+    """Disable slowapi rate limiting during tests to avoid 429 responses."""
+    from app.core.rate_limit import limiter
+
+    limiter.enabled = False
+    yield
+    limiter.enabled = True
+
+
 # ---------------------------------------------------------------------------
 # Factory helpers
 # ---------------------------------------------------------------------------
@@ -225,6 +235,7 @@ async def create_card_type(
         color=kwargs.get("color", "#0f7eb5"),
         fields_schema=fields_schema if fields_schema is not None else [],
         has_hierarchy=kwargs.get("has_hierarchy", False),
+        built_in=kwargs.get("built_in", False),
     )
     db.add(ct)
     await db.flush()
