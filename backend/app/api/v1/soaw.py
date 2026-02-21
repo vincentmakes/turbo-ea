@@ -25,6 +25,7 @@ router = APIRouter(prefix="/soaw", tags=["soaw"])
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class SoAWCreate(BaseModel):
     name: str
     initiative_id: str | None = None
@@ -51,6 +52,7 @@ class SignatureRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _row_to_dict(s: SoAW) -> dict:
     return {
@@ -82,6 +84,7 @@ async def _get_soaw(db: AsyncSession, soaw_id: str) -> SoAW:
 # ---------------------------------------------------------------------------
 # CRUD Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("")
 async def list_soaws(
@@ -181,6 +184,7 @@ async def delete_soaw(
 # Signing workflow
 # ---------------------------------------------------------------------------
 
+
 @router.post("/{soaw_id}/request-signatures")
 async def request_signatures(
     soaw_id: str,
@@ -203,13 +207,15 @@ async def request_signatures(
         u = result.scalar_one_or_none()
         if not u:
             raise HTTPException(404, f"User {uid_str} not found")
-        signatories.append({
-            "user_id": str(uid),
-            "display_name": u.display_name,
-            "email": u.email,
-            "status": "pending",
-            "signed_at": None,
-        })
+        signatories.append(
+            {
+                "user_id": str(uid),
+                "display_name": u.display_name,
+                "email": u.email,
+                "status": "pending",
+                "signed_at": None,
+            }
+        )
 
     s.signatories = signatories
     flag_modified(s, "signatories")
@@ -318,17 +324,14 @@ async def sign_soaw(
     else:
         # Notify creator that an individual signatory has signed
         if s.created_by:
-            signed_count = sum(
-                1 for sig in signatories if sig["status"] == "signed"
-            )
+            signed_count = sum(1 for sig in signatories if sig["status"] == "signed")
             await notification_service.create_notification(
                 db,
                 user_id=s.created_by,
                 notif_type="soaw_signed",
                 title="SoAW Signature Received",
                 message=(
-                    f'{user.display_name} signed "{s.name}"'
-                    f" ({signed_count}/{len(signatories)})"
+                    f'{user.display_name} signed "{s.name}" ({signed_count}/{len(signatories)})'
                 ),
                 link=f"/ea-delivery/soaw/{soaw_id}",
                 data={"soaw_id": soaw_id, "soaw_name": s.name},
@@ -384,6 +387,7 @@ async def revise_soaw(
 # Revision history
 # ---------------------------------------------------------------------------
 
+
 @router.get("/{soaw_id}/revisions")
 async def list_revisions(
     soaw_id: str,
@@ -407,9 +411,7 @@ async def list_revisions(
     revisions = [_row_to_dict(root)]
     current_id = root.id
     while True:
-        result = await db.execute(
-            select(SoAW).where(SoAW.parent_id == current_id)
-        )
+        result = await db.execute(select(SoAW).where(SoAW.parent_id == current_id))
         child = result.scalar_one_or_none()
         if not child:
             break

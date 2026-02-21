@@ -23,15 +23,14 @@ class SoAW(Base, UUIDMixin, TimestampMixin):
     document_info: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     version_history: Mapped[list | None] = mapped_column(JSONB, default=list)
     sections: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    created_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
 
     # Revision chain: revision_number tracks which version this is;
     # parent_id links to the previous revision of the same SoAW
     revision_number: Mapped[int] = mapped_column(Integer, default=1)
     parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("statement_of_architecture_works.id", ondelete="SET NULL"),
+        UUID(as_uuid=True),
+        ForeignKey("statement_of_architecture_works.id", ondelete="SET NULL"),
         nullable=True,
     )
 

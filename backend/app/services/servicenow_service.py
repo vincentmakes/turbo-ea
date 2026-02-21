@@ -1,4 +1,5 @@
 """ServiceNow integration service — REST client, field transformer, sync engine."""
+
 from __future__ import annotations
 
 import base64
@@ -134,9 +135,7 @@ class ServiceNowClient:
             "sysparm_query": "ORDERBYlabel",
         }
         if search:
-            params["sysparm_query"] = (
-                f"nameLIKE{search}^ORlabelLIKE{search}^ORDERBY label"
-            )
+            params["sysparm_query"] = f"nameLIKE{search}^ORlabelLIKE{search}^ORDERBY label"
         resp = await client.get("/api/now/table/sys_db_object", params=params)
         resp.raise_for_status()
         return resp.json().get("result", [])
@@ -350,8 +349,12 @@ class SyncEngine:
             direction="pull",
             created_by=user_id,
             stats={
-                "fetched": 0, "created": 0, "updated": 0,
-                "deleted": 0, "skipped": 0, "errors": 0,
+                "fetched": 0,
+                "created": 0,
+                "updated": 0,
+                "deleted": 0,
+                "skipped": 0,
+                "errors": 0,
             },
         )
         self.db.add(run)
@@ -388,9 +391,7 @@ class SyncEngine:
                     SnowIdentityMap.connection_id == mapping.connection_id,
                 )
             )
-            id_map_entries = {
-                e.snow_sys_id: e for e in id_map_result.scalars().all()
-            }
+            id_map_entries = {e.snow_sys_id: e for e in id_map_result.scalars().all()}
 
             # Process each record
             for record in all_records:
@@ -400,8 +401,13 @@ class SyncEngine:
 
                 try:
                     await self._process_pull_record(
-                        run, mapping, field_mappings, identity_fields,
-                        record, sys_id, id_map_entries,
+                        run,
+                        mapping,
+                        field_mappings,
+                        identity_fields,
+                        record,
+                        sys_id,
+                        id_map_entries,
                         skip_staging=mapping.skip_staging,
                     )
                 except Exception as exc:
@@ -411,7 +417,10 @@ class SyncEngine:
             # Handle deletions (conservative/strict mode)
             if mapping.sync_mode in ("conservative", "strict"):
                 await self._process_deletions(
-                    run, mapping, all_records, id_map_entries,
+                    run,
+                    mapping,
+                    all_records,
+                    id_map_entries,
                 )
 
             # Apply staged records if auto_apply (skip_staging already applied inline)
@@ -601,8 +610,7 @@ class SyncEngine:
         """Stage deletions for records that exist in identity map but not in SNOW."""
         fetched_sys_ids = {r.get("sys_id") for r in fetched_records if r.get("sys_id")}
         orphaned = [
-            entry for sys_id, entry in id_map_entries.items()
-            if sys_id not in fetched_sys_ids
+            entry for sys_id, entry in id_map_entries.items() if sys_id not in fetched_sys_ids
         ]
 
         if not orphaned:
@@ -854,9 +862,7 @@ class SyncEngine:
                     SnowIdentityMap.connection_id == mapping.connection_id,
                 )
             )
-            id_map_by_card = {
-                e.card_id: e for e in id_map_result.scalars().all()
-            }
+            id_map_by_card = {e.card_id: e for e in id_map_result.scalars().all()}
 
             for card in cards:
                 run.stats["processed"] = run.stats.get("processed", 0) + 1  # type: ignore[union-attr]
@@ -882,9 +888,7 @@ class SyncEngine:
                         run.stats["updated"] = run.stats.get("updated", 0) + 1  # type: ignore[union-attr]
                     else:
                         # Create new SNOW record
-                        result = await self.client.create_record(
-                            mapping.snow_table, snow_data
-                        )
+                        result = await self.client.create_record(mapping.snow_table, snow_data)
                         new_sys_id = result.get("sys_id", "")
                         if new_sys_id:
                             new_entry = SnowIdentityMap(

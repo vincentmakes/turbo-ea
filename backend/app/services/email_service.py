@@ -2,6 +2,7 @@
 
 If SMTP_HOST is not configured, emails are silently skipped.
 """
+
 from __future__ import annotations
 
 import asyncio

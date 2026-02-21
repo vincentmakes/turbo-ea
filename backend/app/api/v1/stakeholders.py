@@ -39,9 +39,7 @@ async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
     if srds:
         return [{"key": s.key, "label": s.label, "color": s.color} for s in srds]
     # Fallback to JSONB for backward compat during migration
-    result = await db.execute(
-        select(CardType.stakeholder_roles).where(CardType.key == type_key)
-    )
+    result = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
     roles = result.scalar_one_or_none()
     if roles:
         return roles
@@ -82,9 +80,7 @@ async def list_stakeholders(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "stakeholders.view")
-    card_result = await db.execute(
-        select(Card.type).where(Card.id == uuid.UUID(card_id))
-    )
+    card_result = await db.execute(select(Card.type).where(Card.id == uuid.UUID(card_id)))
     card_type_key = card_result.scalar_one_or_none()
     roles = await _roles_for_type(db, card_type_key) if card_type_key else _DEFAULT_ROLES
     labels = _role_labels(roles)
@@ -121,9 +117,7 @@ async def create_stakeholder(
         db, user, "stakeholders.manage", card_uuid, "card.manage_stakeholders"
     ):
         raise HTTPException(403, "Not enough permissions")
-    card_result = await db.execute(
-        select(Card.type).where(Card.id == card_uuid)
-    )
+    card_result = await db.execute(select(Card.type).where(Card.id == card_uuid))
     card_type_key = card_result.scalar_one_or_none()
     if not card_type_key:
         raise HTTPException(404, "Card not found")
@@ -178,7 +172,9 @@ async def update_stakeholder(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Stakeholder).where(Stakeholder.id == uuid.UUID(stakeholder_id)))
+    result = await db.execute(
+        select(Stakeholder).where(Stakeholder.id == uuid.UUID(stakeholder_id))
+    )
     stakeholder = result.scalar_one_or_none()
     if not stakeholder:
         raise HTTPException(404, "Stakeholder not found")
@@ -187,9 +183,7 @@ async def update_stakeholder(
     ):
         raise HTTPException(403, "Not enough permissions")
 
-    card_result = await db.execute(
-        select(Card.type).where(Card.id == stakeholder.card_id)
-    )
+    card_result = await db.execute(select(Card.type).where(Card.id == stakeholder.card_id))
     card_type_key = card_result.scalar_one_or_none()
     roles = await _roles_for_type(db, card_type_key) if card_type_key else _DEFAULT_ROLES
     valid_keys = {r["key"] for r in roles}
@@ -214,7 +208,9 @@ async def delete_stakeholder(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Stakeholder).where(Stakeholder.id == uuid.UUID(stakeholder_id)))
+    result = await db.execute(
+        select(Stakeholder).where(Stakeholder.id == uuid.UUID(stakeholder_id))
+    )
     stakeholder = result.scalar_one_or_none()
     if not stakeholder:
         raise HTTPException(404, "Stakeholder not found")

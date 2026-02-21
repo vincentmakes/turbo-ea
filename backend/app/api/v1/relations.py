@@ -22,8 +22,12 @@ router = APIRouter(prefix="/relations", tags=["relations"])
 
 
 def _rel_to_response(r: Relation) -> RelationResponse:
-    source_ref = CardRef(id=str(r.source.id), type=r.source.type, name=r.source.name) if r.source else None
-    target_ref = CardRef(id=str(r.target.id), type=r.target.type, name=r.target.name) if r.target else None
+    source_ref = (
+        CardRef(id=str(r.source.id), type=r.source.type, name=r.source.name) if r.source else None
+    )
+    target_ref = (
+        CardRef(id=str(r.target.id), type=r.target.type, name=r.target.name) if r.target else None
+    )
     return RelationResponse(
         id=str(r.id),
         type=r.type,
@@ -80,8 +84,15 @@ async def create_relation(
     await db.flush()
     await event_bus.publish(
         "relation.created",
-        {"id": str(rel.id), "type": rel.type, "source_id": body.source_id, "target_id": body.target_id},
-        db=db, card_id=uuid.UUID(body.source_id), user_id=user.id,
+        {
+            "id": str(rel.id),
+            "type": rel.type,
+            "source_id": body.source_id,
+            "target_id": body.target_id,
+        },
+        db=db,
+        card_id=uuid.UUID(body.source_id),
+        user_id=user.id,
     )
 
     # Run calculated fields for both source and target cards
@@ -94,7 +105,8 @@ async def create_relation(
 
     await db.commit()
     result = await db.execute(
-        select(Relation).where(Relation.id == rel.id)
+        select(Relation)
+        .where(Relation.id == rel.id)
         .options(selectinload(Relation.source), selectinload(Relation.target))
     )
     rel = result.scalar_one()
@@ -126,7 +138,8 @@ async def update_relation(
 
     await db.commit()
     result = await db.execute(
-        select(Relation).where(Relation.id == rel.id)
+        select(Relation)
+        .where(Relation.id == rel.id)
         .options(selectinload(Relation.source), selectinload(Relation.target))
     )
     rel = result.scalar_one()
@@ -149,7 +162,9 @@ async def delete_relation(
     await event_bus.publish(
         "relation.deleted",
         {"id": str(rel.id), "type": rel.type},
-        db=db, card_id=source_id, user_id=user.id,
+        db=db,
+        card_id=source_id,
+        user_id=user.id,
     )
     await db.delete(rel)
 

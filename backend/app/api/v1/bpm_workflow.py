@@ -60,16 +60,12 @@ async def _user_stakeholder_roles(
 
 async def _can_view_drafts(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if a user can see draft / archived tabs via PermissionService."""
-    return await PermissionService.check_permission(
-        db, user, "bpm.view", process_id, "card.view"
-    )
+    return await PermissionService.check_permission(db, user, "bpm.view", process_id, "card.view")
 
 
 async def _can_edit_draft(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
     """Check if a user can create / edit drafts via PermissionService."""
-    return await PermissionService.check_permission(
-        db, user, "bpm.edit", process_id, "card.edit"
-    )
+    return await PermissionService.check_permission(db, user, "bpm.edit", process_id, "card.edit")
 
 
 async def _is_process_owner(db: AsyncSession, user: User, process_id: uuid.UUID) -> bool:
@@ -109,9 +105,7 @@ def _version_summary(v: ProcessFlowVersion) -> dict:
     return resp
 
 
-def _apply_draft_link(
-    elem: ProcessElement, link: dict, valid_card_ids: set[str]
-) -> None:
+def _apply_draft_link(elem: ProcessElement, link: dict, valid_card_ids: set[str]) -> None:
     """Apply draft element link data to a ProcessElement, skipping stale references."""
     for attr, key in (
         ("application_id", "application_id"),
@@ -452,7 +446,9 @@ async def submit_for_approval(
         # Create a system todo for the process owner to review
         todo = Todo(
             card_id=pid,
-            description=f"Review and approve process flow revision {version.revision} for {process.name}",
+            description=(
+                f"Review and approve process flow revision {version.revision} for {process.name}"
+            ),
             status="open",
             link=f"/cards/{process_id}?tab=process-flow&subtab=drafts",
             is_system=True,
@@ -564,15 +560,11 @@ async def approve_version(
                 if row[2] == "ACTIVE":
                     valid_card_ids.add(cid_str)
                 else:
-                    stale_link_warnings.append(
-                        f"{row[1]} ({cid_str[:8]}...) is no longer active"
-                    )
+                    stale_link_warnings.append(f"{row[1]} ({cid_str[:8]}...) is no longer active")
             # Check for deleted (not found) cards
             for cid in linked_card_ids:
                 if cid not in card_name_map:
-                    stale_link_warnings.append(
-                        f"Linked card {cid[:8]}... no longer exists"
-                    )
+                    stale_link_warnings.append(f"Linked card {cid[:8]}... no longer exists")
 
         # Load existing elements to preserve EA links (application, data_object, it_component)
         existing_elements = await db.execute(
@@ -649,7 +641,8 @@ async def approve_version(
         msg = f"{user.display_name} approved revision {version.revision}."
         if stale_link_warnings:
             msg += (
-                " Warning: some pre-linked elements were skipped because they no longer exist or are inactive: "
+                " Warning: some pre-linked elements were skipped"
+                " because they no longer exist or are inactive: "
                 + "; ".join(stale_link_warnings[:5])
             )
         await notification_service.create_notification(
@@ -848,9 +841,7 @@ async def get_draft_elements(
     name_map: dict[str, str] = {}
     if card_ids:
         card_result = await db.execute(
-            select(Card.id, Card.name).where(
-                Card.id.in_([uuid.UUID(cid) for cid in card_ids])
-            )
+            select(Card.id, Card.name).where(Card.id.in_([uuid.UUID(cid) for cid in card_ids]))
         )
         for row in card_result.all():
             name_map[str(row[0])] = row[1]
@@ -861,22 +852,24 @@ async def get_draft_elements(
         app_id = link.get("application_id")
         do_id = link.get("data_object_id")
         itc_id = link.get("it_component_id")
-        elements.append({
-            "bpmn_element_id": ext.bpmn_element_id,
-            "element_type": ext.element_type,
-            "name": ext.name,
-            "documentation": ext.documentation,
-            "lane_name": ext.lane_name,
-            "is_automated": ext.is_automated,
-            "sequence_order": ext.sequence_order,
-            "application_id": app_id,
-            "application_name": name_map.get(app_id, "") if app_id else None,
-            "data_object_id": do_id,
-            "data_object_name": name_map.get(do_id, "") if do_id else None,
-            "it_component_id": itc_id,
-            "it_component_name": name_map.get(itc_id, "") if itc_id else None,
-            "custom_fields": link.get("custom_fields"),
-        })
+        elements.append(
+            {
+                "bpmn_element_id": ext.bpmn_element_id,
+                "element_type": ext.element_type,
+                "name": ext.name,
+                "documentation": ext.documentation,
+                "lane_name": ext.lane_name,
+                "is_automated": ext.is_automated,
+                "sequence_order": ext.sequence_order,
+                "application_id": app_id,
+                "application_name": name_map.get(app_id, "") if app_id else None,
+                "data_object_id": do_id,
+                "data_object_name": name_map.get(do_id, "") if do_id else None,
+                "it_component_id": itc_id,
+                "it_component_name": name_map.get(itc_id, "") if itc_id else None,
+                "custom_fields": link.get("custom_fields"),
+            }
+        )
     return elements
 
 
@@ -928,6 +921,7 @@ async def update_draft_element_link(
     version.draft_element_links = links
     # Force SQLAlchemy to detect the JSONB change
     from sqlalchemy.orm.attributes import flag_modified
+
     flag_modified(version, "draft_element_links")
 
     await db.commit()

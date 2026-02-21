@@ -116,9 +116,7 @@ async def _get_all_products() -> list[str]:
     except httpx.HTTPError as exc:
         if _products_cache is not None:
             return _products_cache
-        raise HTTPException(
-            status_code=502, detail=f"endoflife.date API error: {exc}"
-        ) from exc
+        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
 
     _products_cache = resp.json()
     _products_cache_time = now
@@ -184,7 +182,9 @@ def _fuzzy_score(query: str, product: str) -> float:
     return max(token_score * 0.7 + seq_score * 0.3, seq_score)
 
 
-def _fuzzy_search(query: str, products: list[str], limit: int = 20, threshold: float = 0.3) -> list[tuple[str, float]]:
+def _fuzzy_search(
+    query: str, products: list[str], limit: int = 20, threshold: float = 0.3
+) -> list[tuple[str, float]]:
     """Return products sorted by fuzzy match score, above threshold."""
     scored = []
     for p in products:
@@ -257,16 +257,10 @@ async def get_product_cycles(
         resp.raise_for_status()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
-            raise HTTPException(
-                status_code=404, detail=f"Product '{product}' not found"
-            ) from exc
-        raise HTTPException(
-            status_code=502, detail=f"endoflife.date API error: {exc}"
-        ) from exc
+            raise HTTPException(status_code=404, detail=f"Product '{product}' not found") from exc
+        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=502, detail=f"endoflife.date API error: {exc}"
-        ) from exc
+        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
 
     return resp.json()
 
@@ -292,10 +286,7 @@ async def mass_eol_search(
 
     # Fetch all active cards of the given type
     stmt = (
-        select(Card)
-        .where(Card.type == type_key)
-        .where(Card.status == "ACTIVE")
-        .order_by(Card.name)
+        select(Card).where(Card.type == type_key).where(Card.status == "ACTIVE").order_by(Card.name)
     )
     result = await db.execute(stmt)
     cards = result.scalars().all()

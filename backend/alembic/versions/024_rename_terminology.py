@@ -4,10 +4,12 @@ Revision ID: 024
 Revises: 023
 Create Date: 2026-02-16
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers
 revision: str = "024"
@@ -77,7 +79,8 @@ def upgrade() -> None:
         op.rename_table("subscription_role_definitions", "stakeholder_role_definitions")
 
     # Rename fs.* → card.* permission keys in stakeholder role definition JSONB data
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         UPDATE stakeholder_role_definitions
         SET permissions = (
             SELECT jsonb_object_agg(
@@ -90,12 +93,14 @@ def upgrade() -> None:
         )
         WHERE permissions IS NOT NULL
           AND permissions::text LIKE '%"fs.%'
-    """))
+    """)
+    )
 
 
 def downgrade() -> None:
     # Revert card.* → fs.* permission keys in stakeholder role definition JSONB data
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         UPDATE stakeholder_role_definitions
         SET permissions = (
             SELECT jsonb_object_agg(
@@ -108,10 +113,12 @@ def downgrade() -> None:
         )
         WHERE permissions IS NOT NULL
           AND permissions::text LIKE '%"card.%'
-    """))
+    """)
+    )
 
     # Rename table back and revert column
     from sqlalchemy import inspect as sa_inspect
+
     conn = op.get_bind()
     inspector = sa_inspect(conn)
     if inspector.has_table("stakeholder_role_definitions"):

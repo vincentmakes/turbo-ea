@@ -13,9 +13,9 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.event import Event
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.event import Event
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
 from app.models.tag import Tag
@@ -43,9 +43,7 @@ async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes:
     """Validate that any attribute whose field type is 'url' uses an allowed scheme."""
     if not attributes:
         return
-    result = await db.execute(
-        select(CardType.fields_schema).where(CardType.key == card_type)
-    )
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card_type))
     schema = result.scalar_one_or_none()
     if not schema:
         return
@@ -68,9 +66,7 @@ async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes:
 
 async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
     """Calculate data quality score from fields_schema weights."""
-    result = await db.execute(
-        select(CardType.fields_schema).where(CardType.key == card.type)
-    )
+    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card.type))
     schema = result.scalar_one_or_none()
     if not schema:
         return 0.0
@@ -119,7 +115,9 @@ async def _max_descendant_depth(db: AsyncSession, card_id: uuid.UUID) -> int:
     return max_depth
 
 
-async def _check_hierarchy_depth(db: AsyncSession, card: Card, new_parent_id: uuid.UUID | None) -> None:
+async def _check_hierarchy_depth(
+    db: AsyncSession, card: Card, new_parent_id: uuid.UUID | None
+) -> None:
     """Raise HTTPException if setting new_parent_id would push any descendant beyond level 5."""
     if card.type != "BusinessCapability":
         return
@@ -152,7 +150,10 @@ async def _check_hierarchy_depth(db: AsyncSession, card: Card, new_parent_id: uu
 
 
 async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
-    """Auto-compute capabilityLevel for BusinessCapability based on parent depth, then cascade to children."""
+    """Auto-compute capabilityLevel for BusinessCapability based on parent depth.
+
+    Cascades to children recursively.
+    """
     if card.type != "BusinessCapability":
         return
 
@@ -183,18 +184,26 @@ async def _sync_capability_level(db: AsyncSession, card: Card) -> None:
 
 def _card_to_response(card: Card) -> CardResponse:
     tags = []
-    for t in (card.tags or []):
-        tags.append(TagRef(
-            id=str(t.id), name=t.name, color=t.color,
-            group_name=t.group.name if t.group else None,
-        ))
+    for t in card.tags or []:
+        tags.append(
+            TagRef(
+                id=str(t.id),
+                name=t.name,
+                color=t.color,
+                group_name=t.group.name if t.group else None,
+            )
+        )
     stakeholder_refs = []
-    for s in (card.stakeholders or []):
-        stakeholder_refs.append(StakeholderRef(
-            id=str(s.id), user_id=str(s.user_id), role=s.role,
-            user_display_name=s.user.display_name if s.user else None,
-            user_email=s.user.email if s.user else None,
-        ))
+    for s in card.stakeholders or []:
+        stakeholder_refs.append(
+            StakeholderRef(
+                id=str(s.id),
+                user_id=str(s.user_id),
+                role=s.role,
+                user_display_name=s.user.display_name if s.user else None,
+                user_email=s.user.email if s.user else None,
+            )
+        )
     return CardResponse(
         id=str(card.id),
         type=card.type,
@@ -219,7 +228,16 @@ def _card_to_response(card: Card) -> CardResponse:
     )
 
 
-_ALLOWED_SORT_COLUMNS = {"name", "type", "status", "approval_status", "data_quality", "created_at", "updated_at", "subtype"}
+_ALLOWED_SORT_COLUMNS = {
+    "name",
+    "type",
+    "status",
+    "approval_status",
+    "data_quality",
+    "created_at",
+    "updated_at",
+    "subtype",
+}
 
 
 @router.get("", response_model=CardListResponse)
@@ -332,11 +350,14 @@ async def create_card(
     await event_bus.publish(
         "card.created",
         {"id": str(card.id), "type": card.type, "name": card.name},
-        db=db, card_id=card.id, user_id=user.id,
+        db=db,
+        card_id=card.id,
+        user_id=user.id,
     )
     await db.commit()
     result = await db.execute(
-        select(Card).where(Card.id == card.id)
+        select(Card)
+        .where(Card.id == card.id)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -347,9 +368,12 @@ async def create_card(
 
 
 @router.get("/{card_id}", response_model=CardResponse)
-async def get_card(card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+async def get_card(
+    card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)
+):
     result = await db.execute(
-        select(Card).where(Card.id == uuid.UUID(card_id))
+        select(Card)
+        .where(Card.id == uuid.UUID(card_id))
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -362,7 +386,9 @@ async def get_card(card_id: str, db: AsyncSession = Depends(get_db), _user: User
 
 
 @router.get("/{card_id}/hierarchy")
-async def get_hierarchy(card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)):
+async def get_hierarchy(
+    card_id: str, db: AsyncSession = Depends(get_db), _user: User = Depends(get_current_user)
+):
     """Return ancestors (root→parent), children, and computed level."""
     uid = uuid.UUID(card_id)
     result = await db.execute(select(Card).where(Card.id == uid))
@@ -386,13 +412,10 @@ async def get_hierarchy(card_id: str, db: AsyncSession = Depends(get_db), _user:
 
     # Direct children
     children_result = await db.execute(
-        select(Card)
-        .where(Card.parent_id == uid, Card.status == "ACTIVE")
-        .order_by(Card.name)
+        select(Card).where(Card.parent_id == uid, Card.status == "ACTIVE").order_by(Card.name)
     )
     children = [
-        {"id": str(c.id), "name": c.name, "type": c.type}
-        for c in children_result.scalars().all()
+        {"id": str(c.id), "name": c.name, "type": c.type} for c in children_result.scalars().all()
     ]
 
     return {
@@ -410,10 +433,13 @@ async def update_card(
     user: User = Depends(get_current_user),
 ):
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.edit", card_uuid, "card.edit"):
+    if not await PermissionService.check_permission(
+        db, user, "inventory.edit", card_uuid, "card.edit"
+    ):
         raise HTTPException(403, "Not enough permissions")
     result = await db.execute(
-        select(Card).where(Card.id == card_uuid)
+        select(Card)
+        .where(Card.id == card_uuid)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -448,14 +474,21 @@ async def update_card(
         card.updated_by = user.id
         # Break approval status on edit (attribute/lifecycle changes break it)
         if card.approval_status == "APPROVED":
-            status_breaking = {"name", "description", "lifecycle", "attributes", "subtype", "alias", "parent_id"}
+            status_breaking = {
+                "name",
+                "description",
+                "lifecycle",
+                "attributes",
+                "subtype",
+                "alias",
+                "parent_id",
+            }
             if status_breaking & changes.keys():
                 card.approval_status = "BROKEN"
 
         # Auto-sync capability level when parent changes or level is missing
         if "parent_id" in changes or (
-            card.type == "BusinessCapability"
-            and not (card.attributes or {}).get("capabilityLevel")
+            card.type == "BusinessCapability" and not (card.attributes or {}).get("capabilityLevel")
         ):
             await _sync_capability_level(db, card)
 
@@ -484,7 +517,9 @@ async def update_card(
         await event_bus.publish(
             "card.updated",
             {"id": str(card.id), "changes": serialised_changes},
-            db=db, card_id=card.id, user_id=user.id,
+            db=db,
+            card_id=card.id,
+            user_id=user.id,
         )
 
         # Notify subscribers about the update
@@ -501,7 +536,8 @@ async def update_card(
 
         await db.commit()
         result = await db.execute(
-            select(Card).where(Card.id == card.id)
+            select(Card)
+            .where(Card.id == card.id)
             .options(
                 selectinload(Card.tags).selectinload(Tag.group),
                 selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -520,7 +556,9 @@ async def archive_card(
 ):
     """Archive a card (soft delete). Sets status to ARCHIVED and records archived_at."""
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.archive", card_uuid, "card.archive"):
+    if not await PermissionService.check_permission(
+        db, user, "inventory.archive", card_uuid, "card.archive"
+    ):
         raise HTTPException(403, "Not enough permissions")
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
@@ -534,11 +572,14 @@ async def archive_card(
     await event_bus.publish(
         "card.archived",
         {"id": str(card.id), "type": card.type, "name": card.name},
-        db=db, card_id=card.id, user_id=user.id,
+        db=db,
+        card_id=card.id,
+        user_id=user.id,
     )
     await db.commit()
     result = await db.execute(
-        select(Card).where(Card.id == card.id)
+        select(Card)
+        .where(Card.id == card.id)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -556,7 +597,9 @@ async def restore_card(
 ):
     """Restore an archived card back to ACTIVE status."""
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.archive", card_uuid, "card.archive"):
+    if not await PermissionService.check_permission(
+        db, user, "inventory.archive", card_uuid, "card.archive"
+    ):
         raise HTTPException(403, "Not enough permissions")
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
@@ -570,11 +613,14 @@ async def restore_card(
     await event_bus.publish(
         "card.restored",
         {"id": str(card.id), "type": card.type, "name": card.name},
-        db=db, card_id=card.id, user_id=user.id,
+        db=db,
+        card_id=card.id,
+        user_id=user.id,
     )
     await db.commit()
     result = await db.execute(
-        select(Card).where(Card.id == card.id)
+        select(Card)
+        .where(Card.id == card.id)
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -592,8 +638,12 @@ async def delete_card(
 ):
     """Permanently delete a card. Admin only."""
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.delete", card_uuid, "card.delete"):
-        raise HTTPException(403, "Not enough permissions — only admins can permanently delete cards")
+    if not await PermissionService.check_permission(
+        db, user, "inventory.delete", card_uuid, "card.delete"
+    ):
+        raise HTTPException(
+            403, "Not enough permissions — only admins can permanently delete cards"
+        )
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
     if not card:
@@ -614,7 +664,9 @@ async def delete_card(
     await event_bus.publish(
         "card.deleted",
         {"id": str(card_uuid), "type": card_type, "name": card_name},
-        db=db, card_id=card_uuid, user_id=user.id,
+        db=db,
+        card_id=card_uuid,
+        user_id=user.id,
     )
 
     await db.delete(card)
@@ -644,7 +696,8 @@ async def bulk_update(
         card.updated_by = user.id
     await db.commit()
     result = await db.execute(
-        select(Card).where(Card.id.in_(uuids))
+        select(Card)
+        .where(Card.id.in_(uuids))
         .options(
             selectinload(Card.tags).selectinload(Tag.group),
             selectinload(Card.stakeholders).selectinload(Stakeholder.user),
@@ -723,7 +776,9 @@ async def update_approval_status(
     user: User = Depends(get_current_user),
 ):
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "inventory.approval_status", card_uuid, "card.approval_status"):
+    if not await PermissionService.check_permission(
+        db, user, "inventory.approval_status", card_uuid, "card.approval_status"
+    ):
         raise HTTPException(403, "Not enough permissions")
     result = await db.execute(select(Card).where(Card.id == card_uuid))
     card = result.scalar_one_or_none()
@@ -734,7 +789,9 @@ async def update_approval_status(
     await event_bus.publish(
         f"card.approval_status.{action}",
         {"id": str(card.id), "approval_status": card.approval_status},
-        db=db, card_id=card.id, user_id=user.id,
+        db=db,
+        card_id=card.id,
+        user_id=user.id,
     )
 
     # Notify stakeholders about approval status change
@@ -765,9 +822,7 @@ async def my_permissions(
     if not result.scalar_one_or_none():
         raise HTTPException(404, "Card not found")
 
-    return await PermissionService.get_effective_card_permissions(
-        db, user, uuid.UUID(card_id)
-    )
+    return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
 
 @router.get("/export/csv")
@@ -787,10 +842,17 @@ async def export_csv(
     writer = csv.writer(output)
     writer.writerow(["id", "type", "name", "description", "status", "lifecycle", "attributes"])
     for card in sheets:
-        writer.writerow([
-            str(card.id), card.type, card.name, card.description or "",
-            card.status, str(card.lifecycle), str(card.attributes),
-        ])
+        writer.writerow(
+            [
+                str(card.id),
+                card.type,
+                card.name,
+                card.description or "",
+                card.status,
+                str(card.lifecycle),
+                str(card.attributes),
+            ]
+        )
     output.seek(0)
     return StreamingResponse(
         iter([output.getvalue()]),

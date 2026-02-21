@@ -74,6 +74,7 @@ def _invitation_response(inv: SsoInvitation) -> dict:
 # Fixed-path routes MUST be declared before /{user_id} to avoid shadowing
 # ---------------------------------------------------------------------------
 
+
 @router.get("")
 async def list_users(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     result = await db.execute(select(User).order_by(User.display_name))
@@ -87,9 +88,7 @@ async def list_invitations(
 ):
     """Admin only — list all pending invitations."""
     await PermissionService.require_permission(db, current_user, "admin.users")
-    result = await db.execute(
-        select(SsoInvitation).order_by(SsoInvitation.email)
-    )
+    result = await db.execute(select(SsoInvitation).order_by(SsoInvitation.email))
     return [_invitation_response(inv) for inv in result.scalars().all()]
 
 
@@ -142,6 +141,7 @@ async def update_notification_preferences(
 # Parameterized routes — /{user_id} catch-all comes after fixed paths
 # ---------------------------------------------------------------------------
 
+
 @router.get("/{user_id}")
 async def get_user(
     user_id: str,
@@ -175,9 +175,7 @@ async def create_user(
         raise HTTPException(409, "A user with this email already exists")
 
     # Also check if an SSO invitation already exists for this email
-    existing_inv = await db.execute(
-        select(SsoInvitation).where(SsoInvitation.email == email)
-    )
+    existing_inv = await db.execute(select(SsoInvitation).where(SsoInvitation.email == email))
     if existing_inv.scalar_one_or_none():
         raise HTTPException(409, "An invitation for this email already exists")
 

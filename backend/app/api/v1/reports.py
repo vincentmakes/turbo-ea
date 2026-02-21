@@ -37,7 +37,11 @@ def _current_lifecycle_phase(lifecycle: dict | None) -> str | None:
         date_str = lifecycle.get(phase)
         if date_str:
             try:
-                d = datetime.fromisoformat(date_str).date() if "T" in str(date_str) else datetime.strptime(str(date_str), "%Y-%m-%d").date()
+                d = (
+                    datetime.fromisoformat(date_str).date()
+                    if "T" in str(date_str)
+                    else datetime.strptime(str(date_str), "%Y-%m-%d").date()
+                )
                 if d <= today:
                     return phase
             except (ValueError, TypeError):
@@ -54,9 +58,7 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Count by type
     type_counts = await db.execute(
-        select(Card.type, func.count(Card.id))
-        .where(Card.status == "ACTIVE")
-        .group_by(Card.type)
+        select(Card.type, func.count(Card.id)).where(Card.status == "ACTIVE").group_by(Card.type)
     )
     by_type = {row[0]: row[1] for row in type_counts.all()}
 
@@ -95,11 +97,14 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
     }
 
     # Lifecycle phase distribution
-    lifecycle_result = await db.execute(
-        select(Card.lifecycle).where(Card.status == "ACTIVE")
-    )
+    lifecycle_result = await db.execute(select(Card.lifecycle).where(Card.status == "ACTIVE"))
     lifecycle_dist: dict[str, int] = {
-        "plan": 0, "phaseIn": 0, "active": 0, "phaseOut": 0, "endOfLife": 0, "none": 0,
+        "plan": 0,
+        "phaseIn": 0,
+        "active": 0,
+        "phaseOut": 0,
+        "endOfLife": 0,
+        "none": 0,
     }
     for (lc,) in lifecycle_result.all():
         phase = _current_lifecycle_phase(lc)
@@ -110,10 +115,7 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
 
     # Recent events
     events_result = await db.execute(
-        select(Event)
-        .options(selectinload(Event.user))
-        .order_by(Event.created_at.desc())
-        .limit(20)
+        select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc()).limit(20)
     )
     recent_events = [
         {
@@ -147,9 +149,7 @@ async def landscape(
     """Landscape report: cards grouped by a related type."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Get all cards of the target type
-    result = await db.execute(
-        select(Card).where(Card.type == type, Card.status == "ACTIVE")
-    )
+    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
 
     # Get group cards (must come before relations query so IDs are available)
@@ -179,16 +179,26 @@ async def landscape(
         sid, tid = str(rel.source_id), str(rel.target_id)
         if sid in sheet_map and tid in group_map:
             card = sheet_map[sid]
-            group_map[tid]["items"].append({
-                "id": str(card.id), "name": card.name, "type": card.type,
-                "attributes": card.attributes, "lifecycle": card.lifecycle,
-            })
+            group_map[tid]["items"].append(
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "type": card.type,
+                    "attributes": card.attributes,
+                    "lifecycle": card.lifecycle,
+                }
+            )
         elif tid in sheet_map and sid in group_map:
             card = sheet_map[tid]
-            group_map[sid]["items"].append({
-                "id": str(card.id), "name": card.name, "type": card.type,
-                "attributes": card.attributes, "lifecycle": card.lifecycle,
-            })
+            group_map[sid]["items"].append(
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "type": card.type,
+                    "attributes": card.attributes,
+                    "lifecycle": card.lifecycle,
+                }
+            )
 
     # Ungrouped
     grouped_ids = set()
@@ -197,7 +207,8 @@ async def landscape(
             grouped_ids.add(item["id"])
     ungrouped = [
         {"id": str(card.id), "name": card.name, "type": card.type, "attributes": card.attributes}
-        for card in sheets if str(card.id) not in grouped_ids
+        for card in sheets
+        if str(card.id) not in grouped_ids
     ]
 
     return {
@@ -234,37 +245,37 @@ async def portfolio(
     await PermissionService.require_permission(db, user, "reports.portfolio")
 
     # M-3: Validate field params against the type's schema + safe format
-    type_result = await db.execute(
-        select(CardType).where(CardType.key == type)
-    )
+    type_result = await db.execute(select(CardType).where(CardType.key == type))
     type_def = type_result.scalars().first()
     allowed_keys = _valid_field_keys(type_def.fields_schema if type_def else None)
 
     for param_name, param_val in [
-        ("x_axis", x_axis), ("y_axis", y_axis),
-        ("size_field", size_field), ("color_field", color_field),
+        ("x_axis", x_axis),
+        ("y_axis", y_axis),
+        ("size_field", size_field),
+        ("color_field", color_field),
     ]:
         if not _SAFE_KEY_RE.match(param_val):
             raise HTTPException(400, f"Invalid {param_name}: {param_val!r}")
         if allowed_keys and param_val not in allowed_keys:
             raise HTTPException(400, f"Unknown field '{param_val}' for type '{type}'")
 
-    result = await db.execute(
-        select(Card).where(Card.type == type, Card.status == "ACTIVE")
-    )
+    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
     items = []
     for card in sheets:
         attrs = card.attributes or {}
-        items.append({
-            "id": str(card.id),
-            "name": card.name,
-            "x": attrs.get(x_axis),
-            "y": attrs.get(y_axis),
-            "size": attrs.get(size_field, 0),
-            "color": attrs.get(color_field),
-            "lifecycle": card.lifecycle,
-        })
+        items.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "x": attrs.get(x_axis),
+                "y": attrs.get(y_axis),
+                "size": attrs.get(size_field, 0),
+                "color": attrs.get(color_field),
+                "lifecycle": card.lifecycle,
+            }
+        )
     return {"items": items, "x_axis": x_axis, "y_axis": y_axis}
 
 
@@ -279,9 +290,7 @@ async def app_portfolio(
 
     # 1. Get all active applications
     apps_result = await db.execute(
-        select(Card).where(
-            Card.type == "Application", Card.status == "ACTIVE"
-        )
+        select(Card).where(Card.type == "Application", Card.status == "ACTIVE")
     )
     apps = apps_result.scalars().all()
     app_ids = [a.id for a in apps]
@@ -326,24 +335,26 @@ async def app_portfolio(
     for r in rels:
         sid, tid = str(r.source_id), str(r.target_id)
         if sid in app_id_set and tid in related_map:
-            app_relations[sid].append({
-                "relation_type": r.type,
-                "related_id": tid,
-                "related_name": related_map[tid]["name"],
-                "related_type": related_map[tid]["type"],
-            })
+            app_relations[sid].append(
+                {
+                    "relation_type": r.type,
+                    "related_id": tid,
+                    "related_name": related_map[tid]["name"],
+                    "related_type": related_map[tid]["type"],
+                }
+            )
         elif tid in app_id_set and sid in related_map:
-            app_relations[tid].append({
-                "relation_type": r.type,
-                "related_id": sid,
-                "related_name": related_map[sid]["name"],
-                "related_type": related_map[sid]["type"],
-            })
+            app_relations[tid].append(
+                {
+                    "relation_type": r.type,
+                    "related_id": sid,
+                    "related_name": related_map[sid]["name"],
+                    "related_type": related_map[sid]["type"],
+                }
+            )
 
     # 5. Get relation types for label resolution
-    rt_result = await db.execute(
-        select(RelationType).where(RelationType.is_hidden.is_(False))
-    )
+    rt_result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))
     relation_types_list = rt_result.scalars().all()
     rel_type_defs = []
     seen_other_types: set[str] = set()
@@ -355,31 +366,27 @@ async def app_portfolio(
             other = rt.source_type_key
         if other and other not in seen_other_types:
             seen_other_types.add(other)
-            rel_type_defs.append({
-                "key": rt.key,
-                "label": rt.label,
-                "reverse_label": rt.reverse_label,
-                "source_type_key": rt.source_type_key,
-                "target_type_key": rt.target_type_key,
-                "other_type_key": other,
-            })
+            rel_type_defs.append(
+                {
+                    "key": rt.key,
+                    "label": rt.label,
+                    "reverse_label": rt.reverse_label,
+                    "source_type_key": rt.source_type_key,
+                    "target_type_key": rt.target_type_key,
+                    "other_type_key": other,
+                }
+            )
 
     # 6. Get card types (schema + visibility)
-    all_types_result = await db.execute(
-        select(CardType)
-    )
+    all_types_result = await db.execute(select(CardType))
     all_types = all_types_result.scalars().all()
-    visible_type_keys = {
-        t.key for t in all_types if not t.is_hidden
-    }
+    visible_type_keys = {t.key for t in all_types if not t.is_hidden}
     app_type = next((t for t in all_types if t.key == "Application"), None)
     fields_schema = app_type.fields_schema if app_type else []
 
     # 7. Get all organizations for org filter options
     orgs_result = await db.execute(
-        select(Card).where(
-            Card.type == "Organization", Card.status == "ACTIVE"
-        ).order_by(Card.name)
+        select(Card).where(Card.type == "Organization", Card.status == "ACTIVE").order_by(Card.name)
     )
     orgs = orgs_result.scalars().all()
 
@@ -397,15 +404,17 @@ async def app_portfolio(
     items = []
     for a in apps:
         aid = str(a.id)
-        items.append({
-            "id": aid,
-            "name": a.name,
-            "subtype": a.subtype,
-            "attributes": a.attributes,
-            "lifecycle": a.lifecycle,
-            "relations": app_relations.get(aid, []),
-            "org_ids": sorted(app_orgs.get(aid, set())),
-        })
+        items.append(
+            {
+                "id": aid,
+                "name": a.name,
+                "subtype": a.subtype,
+                "attributes": a.attributes,
+                "lifecycle": a.lifecycle,
+                "relations": app_relations.get(aid, []),
+                "org_ids": sorted(app_orgs.get(aid, set())),
+            }
+        )
 
     # 9. Collect groupable related types (visible only, with linked apps)
     groupable_types: dict[str, list[dict]] = {}
@@ -477,8 +486,22 @@ async def matrix(
             intersections.add((str(card.id), str(card.id)))
 
     return {
-        "rows": [{"id": str(r.id), "name": r.name, "parent_id": str(r.parent_id) if r.parent_id else None} for r in rows],
-        "columns": [{"id": str(c.id), "name": c.name, "parent_id": str(c.parent_id) if c.parent_id else None} for c in cols],
+        "rows": [
+            {
+                "id": str(r.id),
+                "name": r.name,
+                "parent_id": str(r.parent_id) if r.parent_id else None,
+            }
+            for r in rows
+        ],
+        "columns": [
+            {
+                "id": str(c.id),
+                "name": c.name,
+                "parent_id": str(c.parent_id) if c.parent_id else None,
+            }
+            for c in cols
+        ],
         "intersections": [{"row_id": r, "col_id": c} for r, c in intersections],
     }
 
@@ -501,14 +524,16 @@ async def roadmap(
         lc = card.lifecycle or {}
         attrs = card.attributes or {}
         if any(lc.values()) or attrs.get("startDate") or attrs.get("endDate"):
-            items.append({
-                "id": str(card.id),
-                "name": card.name,
-                "type": card.type,
-                "subtype": card.subtype,
-                "lifecycle": lc,
-                "attributes": attrs,
-            })
+            items.append(
+                {
+                    "id": str(card.id),
+                    "name": card.name,
+                    "type": card.type,
+                    "subtype": card.subtype,
+                    "lifecycle": lc,
+                    "attributes": attrs,
+                }
+            )
     return {"items": items}
 
 
@@ -522,19 +547,15 @@ async def cost_report(
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
 
     # Detect cost fields from type schema
-    type_result = await db.execute(
-        select(CardType).where(CardType.key == type)
-    )
+    type_result = await db.execute(select(CardType).where(CardType.key == type))
     type_def = type_result.scalars().first()
     cost_field_keys = []
-    for section in (type_def.fields_schema if type_def else []):
+    for section in type_def.fields_schema if type_def else []:
         for field in section.get("fields", []):
             if field.get("type") == "cost":
                 cost_field_keys.append(field["key"])
 
-    result = await db.execute(
-        select(Card).where(Card.type == type, Card.status == "ACTIVE")
-    )
+    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
     items = []
     total = 0
@@ -563,9 +584,7 @@ async def cost_treemap(
     # M-3: Validate cost_field format
     if not _SAFE_KEY_RE.match(cost_field):
         raise HTTPException(400, f"Invalid cost_field: {cost_field!r}")
-    result = await db.execute(
-        select(Card).where(Card.type == type, Card.status == "ACTIVE")
-    )
+    result = await db.execute(select(Card).where(Card.type == type, Card.status == "ACTIVE"))
     sheets = result.scalars().all()
 
     items = []
@@ -574,13 +593,15 @@ async def cost_treemap(
         cost = (card.attributes or {}).get(cost_field, 0) or 0
         if not cost:
             continue
-        items.append({
-            "id": str(card.id),
-            "name": card.name,
-            "cost": cost,
-            "lifecycle": card.lifecycle,
-            "attributes": card.attributes,
-        })
+        items.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "cost": cost,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes,
+            }
+        )
         total += cost
     items.sort(key=lambda x: x["cost"], reverse=True)
 
@@ -621,7 +642,9 @@ async def cost_treemap(
         for item in items:
             g = item["group"]
             groups_dict[g] = groups_dict.get(g, 0) + item["cost"]
-        groups = [{"name": k, "cost": v} for k, v in sorted(groups_dict.items(), key=lambda x: -x[1])]
+        groups = [
+            {"name": k, "cost": v} for k, v in sorted(groups_dict.items(), key=lambda x: -x[1])
+        ]
 
     return {"items": items, "total": total, "groups": groups}
 
@@ -639,24 +662,24 @@ async def capability_heatmap(
         raise HTTPException(400, f"Invalid metric: {metric!r}")
     # Get all business capabilities
     caps_result = await db.execute(
-        select(Card).where(
+        select(Card)
+        .where(
             Card.type == "BusinessCapability",
             Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        )
+        .order_by(Card.name)
     )
     caps = caps_result.scalars().all()
     cap_ids = [c.id for c in caps]
 
     # Get Application type schema for dynamic field resolution
-    app_type_result = await db.execute(
-        select(CardType).where(CardType.key == "Application")
-    )
+    app_type_result = await db.execute(select(CardType).where(CardType.key == "Application"))
     app_type = app_type_result.scalars().first()
     app_fields_schema = app_type.fields_schema if app_type else []
 
     # Detect cost fields from schema
     cost_field_keys = []
-    for section in (app_fields_schema or []):
+    for section in app_fields_schema or []:
         for field in section.get("fields", []):
             if field.get("type") == "cost":
                 cost_field_keys.append(field["key"])
@@ -729,9 +752,7 @@ async def capability_heatmap(
         }
 
     # Collect relation filter options grouped by type (visible types only)
-    all_type_keys_result = await db.execute(
-        select(CardType).where(CardType.is_hidden.is_(False))
-    )
+    all_type_keys_result = await db.execute(select(CardType).where(CardType.is_hidden.is_(False)))
     visible_type_keys = {t.key for t in all_type_keys_result.scalars().all()}
 
     filterable_types: dict[str, list[dict]] = {}
@@ -759,21 +780,20 @@ async def capability_heatmap(
                 v = attrs.get(ck, 0) or 0
                 total_cost += v
 
-        risk_count = sum(
-            1 for a in linked_apps
-            if (a.lifecycle or {}).get("endOfLife")
-        )
+        risk_count = sum(1 for a in linked_apps if (a.lifecycle or {}).get("endOfLife"))
 
-        items.append({
-            "id": cid,
-            "name": c.name,
-            "parent_id": str(c.parent_id) if c.parent_id else None,
-            "app_count": app_count,
-            "total_cost": total_cost,
-            "risk_count": risk_count,
-            "attributes": c.attributes,
-            "apps": [_app_to_dict(a) for a in linked_apps],
-        })
+        items.append(
+            {
+                "id": cid,
+                "name": c.name,
+                "parent_id": str(c.parent_id) if c.parent_id else None,
+                "app_count": app_count,
+                "total_cost": total_cost,
+                "risk_count": risk_count,
+                "attributes": c.attributes,
+                "apps": [_app_to_dict(a) for a in linked_apps],
+            }
+        )
 
     return {
         "items": items,
@@ -794,9 +814,7 @@ async def dependencies(
     """Dependency / interface map: nodes + edges for graph rendering."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
     # Always load ALL active cards for ancestor path resolution
-    full_result = await db.execute(
-        select(Card).where(Card.status == "ACTIVE")
-    )
+    full_result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
     all_sheets = full_result.scalars().all()
     full_map = {str(card.id): card for card in all_sheets}
 
@@ -819,7 +837,9 @@ async def dependencies(
         rels_result = await db.execute(select(Relation).where(False))
     rels = rels_result.scalars().all()
 
-    rt_result = await db.execute(select(RelationType.key, RelationType.label, RelationType.reverse_label))
+    rt_result = await db.execute(
+        select(RelationType.key, RelationType.label, RelationType.reverse_label)
+    )
     rel_type_info = {row[0]: {"label": row[1], "reverse_label": row[2]} for row in rt_result.all()}
 
     # If center_id, do BFS to limited depth
@@ -871,15 +891,17 @@ async def dependencies(
         card = sheet_map.get(nid)
         if not card:
             continue
-        nodes.append({
-            "id": nid,
-            "name": card.name,
-            "type": card.type,
-            "lifecycle": card.lifecycle,
-            "attributes": card.attributes,
-            "parent_id": str(card.parent_id) if card.parent_id else None,
-            "path": _ancestor_path(nid),
-        })
+        nodes.append(
+            {
+                "id": nid,
+                "name": card.name,
+                "type": card.type,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes,
+                "parent_id": str(card.parent_id) if card.parent_id else None,
+                "path": _ancestor_path(nid),
+            }
+        )
 
     # Build edges (only between visible nodes)
     edges = []
@@ -891,14 +913,16 @@ async def dependencies(
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 rt_info = rel_type_info.get(r.type, {})
-                edges.append({
-                    "source": sid,
-                    "target": tid,
-                    "type": r.type,
-                    "label": rt_info.get("label", r.type),
-                    "reverse_label": rt_info.get("reverse_label"),
-                    "description": r.description,
-                })
+                edges.append(
+                    {
+                        "source": sid,
+                        "target": tid,
+                        "type": r.type,
+                        "label": rt_info.get("label", r.type),
+                        "reverse_label": rt_info.get("reverse_label"),
+                        "description": r.description,
+                    }
+                )
 
     return {"nodes": nodes, "edges": edges}
 
@@ -907,9 +931,7 @@ async def dependencies(
 async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Data quality & completeness dashboard."""
     await PermissionService.require_permission(db, user, "reports.ea_dashboard")
-    result = await db.execute(
-        select(Card).where(Card.status == "ACTIVE")
-    )
+    result = await db.execute(select(Card).where(Card.status == "ACTIVE"))
     sheets = result.scalars().all()
 
     # By-type stats
@@ -918,7 +940,13 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
     for card in sheets:
         t = card.type
         if t not in type_stats:
-            type_stats[t] = {"total": 0, "complete": 0, "partial": 0, "minimal": 0, "sum_data_quality": 0}
+            type_stats[t] = {
+                "total": 0,
+                "complete": 0,
+                "partial": 0,
+                "minimal": 0,
+                "sum_data_quality": 0,
+            }
         ts = type_stats[t]
         ts["total"] += 1
         ts["sum_data_quality"] += card.data_quality or 0
@@ -931,7 +959,11 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
             ts["minimal"] += 1
 
     # Overall completion
-    overall = round(sum(all_data_quality_scores) / len(all_data_quality_scores), 1) if all_data_quality_scores else 0
+    overall = (
+        round(sum(all_data_quality_scores) / len(all_data_quality_scores), 1)
+        if all_data_quality_scores
+        else 0
+    )
 
     # Lifecycle completeness
     with_lifecycle = sum(1 for card in sheets if card.lifecycle and any(card.lifecycle.values()))
@@ -949,15 +981,19 @@ async def data_quality(db: AsyncSession = Depends(get_db), user: User = Depends(
 
     # By-type breakdown
     by_type = []
-    for t, ts in sorted(type_stats.items(), key=lambda x: x[1]["sum_data_quality"] / max(x[1]["total"], 1)):
-        by_type.append({
-            "type": t,
-            "total": ts["total"],
-            "complete": ts["complete"],
-            "partial": ts["partial"],
-            "minimal": ts["minimal"],
-            "avg_data_quality": round(ts["sum_data_quality"] / max(ts["total"], 1), 1),
-        })
+    for t, ts in sorted(
+        type_stats.items(), key=lambda x: x[1]["sum_data_quality"] / max(x[1]["total"], 1)
+    ):
+        by_type.append(
+            {
+                "type": t,
+                "total": ts["total"],
+                "complete": ts["complete"],
+                "partial": ts["partial"],
+                "minimal": ts["minimal"],
+                "avg_data_quality": round(ts["sum_data_quality"] / max(ts["total"], 1), 1),
+            }
+        )
 
     # Worst offenders (20 lowest completion)
     worst = sorted(sheets, key=lambda card: card.data_quality or 0)[:20]
@@ -1024,7 +1060,8 @@ def _eol_status(eol_val, support_val) -> str:
 
 
 async def _fetch_product_cycles(
-    client: httpx.AsyncClient, product: str,
+    client: httpx.AsyncClient,
+    product: str,
 ) -> list[dict] | None:
     """Fetch cycles for a single product, returning None on failure."""
     try:
@@ -1117,8 +1154,11 @@ async def eol_report(
         return {
             "items": [],
             "summary": {
-                "eol": 0, "approaching": 0, "supported": 0,
-                "impacted_apps": 0, "manual": 0,
+                "eol": 0,
+                "approaching": 0,
+                "supported": 0,
+                "impacted_apps": 0,
+                "manual": 0,
             },
         }
 
@@ -1128,10 +1168,7 @@ async def eol_report(
 
     if unique_products:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            tasks = {
-                product: _fetch_product_cycles(client, product)
-                for product in unique_products
-            }
+            tasks = {product: _fetch_product_cycles(client, product) for product in unique_products}
             results = await asyncio.gather(*tasks.values())
             for product, cycles in zip(tasks.keys(), results):
                 if cycles is not None:
@@ -1155,17 +1192,21 @@ async def eol_report(
             sid, tid = str(r.source_id), str(r.target_id)
             # ITComponent → Application relation in either direction
             if sid in it_id_strs and tid in app_map:
-                it_to_apps.setdefault(sid, []).append({
-                    "id": tid,
-                    "name": app_map[tid].name,
-                    "lifecycle": app_map[tid].lifecycle,
-                })
+                it_to_apps.setdefault(sid, []).append(
+                    {
+                        "id": tid,
+                        "name": app_map[tid].name,
+                        "lifecycle": app_map[tid].lifecycle,
+                    }
+                )
             elif tid in it_id_strs and sid in app_map:
-                it_to_apps.setdefault(tid, []).append({
-                    "id": sid,
-                    "name": app_map[sid].name,
-                    "lifecycle": app_map[sid].lifecycle,
-                })
+                it_to_apps.setdefault(tid, []).append(
+                    {
+                        "id": sid,
+                        "name": app_map[sid].name,
+                        "lifecycle": app_map[sid].lifecycle,
+                    }
+                )
 
     # 4. Build response items
     items = []
@@ -1204,19 +1245,21 @@ async def eol_report(
                 elif status == "approaching":
                     approaching_impacted_app_ids.add(app["id"])
 
-        items.append({
-            "id": str(card.id),
-            "name": card.name,
-            "type": card.type,
-            "subtype": card.subtype,
-            "eol_product": product,
-            "eol_cycle": cycle_key,
-            "status": status,
-            "source": "api",
-            "cycle_data": cycle_data,
-            "lifecycle": card.lifecycle,
-            "affected_apps": affected_apps,
-        })
+        items.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "eol_product": product,
+                "eol_cycle": cycle_key,
+                "status": status,
+                "source": "api",
+                "cycle_data": cycle_data,
+                "lifecycle": card.lifecycle,
+                "affected_apps": affected_apps,
+            }
+        )
 
     # 4b. Manually maintained items (lifecycle.endOfLife set, no API link)
     for card in manual_sheets:
@@ -1245,19 +1288,21 @@ async def eol_report(
         if lifecycle.get("endOfLife"):
             manual_cycle_data["eol"] = lifecycle["endOfLife"]
 
-        items.append({
-            "id": str(card.id),
-            "name": card.name,
-            "type": card.type,
-            "subtype": card.subtype,
-            "eol_product": None,
-            "eol_cycle": None,
-            "status": status,
-            "source": "manual",
-            "cycle_data": manual_cycle_data if manual_cycle_data else None,
-            "lifecycle": lifecycle,
-            "affected_apps": affected_apps,
-        })
+        items.append(
+            {
+                "id": str(card.id),
+                "name": card.name,
+                "type": card.type,
+                "subtype": card.subtype,
+                "eol_product": None,
+                "eol_cycle": None,
+                "status": status,
+                "source": "manual",
+                "cycle_data": manual_cycle_data if manual_cycle_data else None,
+                "lifecycle": lifecycle,
+                "affected_apps": affected_apps,
+            }
+        )
 
     # Sort: EOL first, then approaching, then supported
     status_order = {"eol": 0, "approaching": 1, "unknown": 2, "supported": 3}

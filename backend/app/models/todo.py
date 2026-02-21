@@ -22,9 +22,7 @@ class Todo(Base, UUIDMixin, TimestampMixin):
     assigned_to: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
-    created_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     due_date = mapped_column(Date, nullable=True)
 
     card = relationship("Card", lazy="noload")

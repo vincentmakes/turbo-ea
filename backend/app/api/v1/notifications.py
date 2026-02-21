@@ -114,9 +114,7 @@ async def mark_read(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "notifications.manage")
-    ok = await notification_service.mark_as_read(
-        db, uuid.UUID(notification_id), user.id
-    )
+    ok = await notification_service.mark_as_read(db, uuid.UUID(notification_id), user.id)
     if not ok:
         raise HTTPException(404, "Notification not found")
     await db.commit()

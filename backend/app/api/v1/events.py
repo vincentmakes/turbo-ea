@@ -23,6 +23,7 @@ async def event_stream(request: Request, token: str = Query(...)):
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
     async def generate():
         async for data in event_bus.subscribe():
             if await request.is_disconnected():
@@ -52,6 +53,7 @@ async def list_events(
     q = select(Event).options(selectinload(Event.user)).order_by(Event.created_at.desc())
     if card_id:
         import uuid as _uuid
+
         q = q.where(Event.card_id == _uuid.UUID(card_id))
     q = q.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(q)

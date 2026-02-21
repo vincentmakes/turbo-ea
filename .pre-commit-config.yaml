@@ -1,0 +1,27 @@
+repos:
+  # ── Backend: Python linting & formatting ──────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # ── Frontend: ESLint & TypeScript ─────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: Frontend ESLint
+        entry: bash -c 'cd frontend && npx eslint --max-warnings=0 "$@"' --
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        types: [file]
+
+      - id: frontend-typecheck
+        name: Frontend TypeScript
+        entry: bash -c 'cd frontend && npx tsc --noEmit'
+        language: system
+        files: ^frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false

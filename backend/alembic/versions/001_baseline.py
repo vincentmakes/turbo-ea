@@ -8,11 +8,8 @@ This is a baseline migration representing the schema already created by
 create_all.  When running against an existing database, stamp this revision
 without executing:  alembic stamp 001
 """
-from typing import Sequence, Union
 
-from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from typing import Sequence, Union
 
 revision: str = "001"
 down_revision: Union[str, None] = None

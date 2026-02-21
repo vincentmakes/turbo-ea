@@ -13,12 +13,16 @@ bookmark_shares = Table(
     "bookmark_shares",
     Base.metadata,
     Column(
-        "bookmark_id", UUID(as_uuid=True),
-        ForeignKey("bookmarks.id", ondelete="CASCADE"), primary_key=True,
+        "bookmark_id",
+        UUID(as_uuid=True),
+        ForeignKey("bookmarks.id", ondelete="CASCADE"),
+        primary_key=True,
     ),
     Column(
-        "user_id", UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True,
+        "user_id",
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
     ),
     Column("can_edit", Boolean, nullable=False, server_default="false"),
 )

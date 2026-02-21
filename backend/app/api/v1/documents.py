@@ -23,9 +23,7 @@ async def list_documents(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "documents.view")
-    result = await db.execute(
-        select(Document).where(Document.card_id == uuid.UUID(card_id))
-    )
+    result = await db.execute(select(Document).where(Document.card_id == uuid.UUID(card_id)))
     docs = result.scalars().all()
     return [
         {
@@ -48,7 +46,9 @@ async def create_document(
     user: User = Depends(get_current_user),
 ):
     card_uuid = uuid.UUID(card_id)
-    if not await PermissionService.check_permission(db, user, "documents.manage", card_uuid, "card.manage_documents"):
+    if not await PermissionService.check_permission(
+        db, user, "documents.manage", card_uuid, "card.manage_documents"
+    ):
         raise HTTPException(403, "Not enough permissions")
     doc = Document(
         card_id=card_uuid,
@@ -73,7 +73,9 @@ async def delete_document(
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(404, "Document not found")
-    if not await PermissionService.check_permission(db, user, "documents.manage", doc.card_id, "card.manage_documents"):
+    if not await PermissionService.check_permission(
+        db, user, "documents.manage", doc.card_id, "card.manage_documents"
+    ):
         raise HTTPException(403, "Not enough permissions")
     await db.delete(doc)
     await db.commit()

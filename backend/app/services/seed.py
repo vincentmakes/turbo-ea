@@ -1,4 +1,5 @@
 """Seed the default LeanIX metamodel v4 — matched to the official Meta_Model.xml."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -155,11 +156,17 @@ TYPES = [
             {
                 "section": "Objective Information",
                 "fields": [
-                    {"key": "objectiveType", "label": "Objective Type", "type": "single_select", "options": [
-                        {"key": "strategic", "label": "Strategic"},
-                        {"key": "tactical", "label": "Tactical"},
-                        {"key": "operational", "label": "Operational"},
-                    ], "weight": 1},
+                    {
+                        "key": "objectiveType",
+                        "label": "Objective Type",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "strategic", "label": "Strategic"},
+                            {"key": "tactical", "label": "Tactical"},
+                            {"key": "operational", "label": "Operational"},
+                        ],
+                        "weight": 1,
+                    },
                     {"key": "targetDate", "label": "Target Date", "type": "date", "weight": 1},
                     {"key": "progress", "label": "Progress (%)", "type": "number", "weight": 1},
                 ],
@@ -183,10 +190,16 @@ TYPES = [
             {
                 "section": "Platform Information",
                 "fields": [
-                    {"key": "platformType", "label": "Platform Type", "type": "single_select", "options": [
-                        {"key": "digital", "label": "Digital", "color": "#1976d2"},
-                        {"key": "technical", "label": "Technical", "color": "#607d8b"},
-                    ], "weight": 1},
+                    {
+                        "key": "platformType",
+                        "label": "Platform Type",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "digital", "label": "Digital", "color": "#1976d2"},
+                            {"key": "technical", "label": "Technical", "color": "#607d8b"},
+                        ],
+                        "weight": 1,
+                    },
                 ],
             },
         ],
@@ -210,17 +223,35 @@ TYPES = [
             {
                 "section": "Initiative Information",
                 "fields": [
-                    {"key": "initiativeStatus", "label": "Status", "type": "single_select", "options": INITIATIVE_STATUS_OPTIONS, "weight": 2},
-                    {"key": "businessValue", "label": "Business Value", "type": "single_select", "options": [
-                        {"key": "high", "label": "High", "color": "#2e7d32"},
-                        {"key": "medium", "label": "Medium", "color": "#ff9800"},
-                        {"key": "low", "label": "Low", "color": "#9e9e9e"},
-                    ], "weight": 1},
-                    {"key": "effort", "label": "Effort", "type": "single_select", "options": [
-                        {"key": "high", "label": "High", "color": "#d32f2f"},
-                        {"key": "medium", "label": "Medium", "color": "#ff9800"},
-                        {"key": "low", "label": "Low", "color": "#4caf50"},
-                    ], "weight": 1},
+                    {
+                        "key": "initiativeStatus",
+                        "label": "Status",
+                        "type": "single_select",
+                        "options": INITIATIVE_STATUS_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "businessValue",
+                        "label": "Business Value",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "high", "label": "High", "color": "#2e7d32"},
+                            {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                            {"key": "low", "label": "Low", "color": "#9e9e9e"},
+                        ],
+                        "weight": 1,
+                    },
+                    {
+                        "key": "effort",
+                        "label": "Effort",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "high", "label": "High", "color": "#d32f2f"},
+                            {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                            {"key": "low", "label": "Low", "color": "#4caf50"},
+                        ],
+                        "weight": 1,
+                    },
                 ],
             },
             {
@@ -275,28 +306,50 @@ TYPES = [
             {
                 "section": "Capability Information",
                 "fields": [
-                    {"key": "capabilityLevel", "label": "Capability Level", "type": "single_select", "readonly": True, "options": [
-                        {"key": "L1", "label": "Level 1", "color": "#1565c0"},
-                        {"key": "L2", "label": "Level 2", "color": "#42a5f5"},
-                        {"key": "L3", "label": "Level 3", "color": "#90caf9"},
-                        {"key": "L4", "label": "Level 4", "color": "#bbdefb"},
-                        {"key": "L5", "label": "Level 5", "color": "#e3f2fd"},
-                    ], "weight": 0},
-                    {"key": "isCoreCapability", "label": "Core Capability", "type": "boolean", "weight": 0},
+                    {
+                        "key": "capabilityLevel",
+                        "label": "Capability Level",
+                        "type": "single_select",
+                        "readonly": True,
+                        "options": [
+                            {"key": "L1", "label": "Level 1", "color": "#1565c0"},
+                            {"key": "L2", "label": "Level 2", "color": "#42a5f5"},
+                            {"key": "L3", "label": "Level 3", "color": "#90caf9"},
+                            {"key": "L4", "label": "Level 4", "color": "#bbdefb"},
+                            {"key": "L5", "label": "Level 5", "color": "#e3f2fd"},
+                        ],
+                        "weight": 0,
+                    },
+                    {
+                        "key": "isCoreCapability",
+                        "label": "Core Capability",
+                        "type": "boolean",
+                        "weight": 0,
+                    },
                 ],
             },
             {
                 "section": "BPM Assessment",
                 "fields": [
-                    {"key": "strategicImportance", "label": "Strategic Importance", "type": "single_select",
-                     "options": [
-                         {"key": "low", "label": "Low", "color": "#9e9e9e"},
-                         {"key": "medium", "label": "Medium", "color": "#ff9800"},
-                         {"key": "high", "label": "High", "color": "#1976d2"},
-                         {"key": "critical", "label": "Critical", "color": "#d32f2f"},
-                     ], "weight": 1},
-                    {"key": "maturity", "label": "Capability Maturity", "type": "single_select",
-                     "options": PROCESS_MATURITY_OPTIONS, "weight": 1},
+                    {
+                        "key": "strategicImportance",
+                        "label": "Strategic Importance",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "low", "label": "Low", "color": "#9e9e9e"},
+                            {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                            {"key": "high", "label": "High", "color": "#1976d2"},
+                            {"key": "critical", "label": "Critical", "color": "#d32f2f"},
+                        ],
+                        "weight": 1,
+                    },
+                    {
+                        "key": "maturity",
+                        "label": "Capability Maturity",
+                        "type": "single_select",
+                        "options": PROCESS_MATURITY_OPTIONS,
+                        "weight": 1,
+                    },
                 ],
             },
         ],
@@ -321,12 +374,18 @@ TYPES = [
             {
                 "section": "Business Context Information",
                 "fields": [
-                    {"key": "maturity", "label": "Maturity", "type": "single_select", "options": [
-                        {"key": "initial", "label": "Initial", "color": "#d32f2f"},
-                        {"key": "defined", "label": "Defined", "color": "#ff9800"},
-                        {"key": "managed", "label": "Managed", "color": "#fbc02d"},
-                        {"key": "optimized", "label": "Optimized", "color": "#4caf50"},
-                    ], "weight": 1},
+                    {
+                        "key": "maturity",
+                        "label": "Maturity",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "initial", "label": "Initial", "color": "#d32f2f"},
+                            {"key": "defined", "label": "Defined", "color": "#ff9800"},
+                            {"key": "managed", "label": "Managed", "color": "#fbc02d"},
+                            {"key": "optimized", "label": "Optimized", "color": "#4caf50"},
+                        ],
+                        "weight": 1,
+                    },
                 ],
             },
         ],
@@ -351,23 +410,59 @@ TYPES = [
             {
                 "section": "Process Classification",
                 "fields": [
-                    {"key": "processType", "label": "Process Type", "type": "single_select",
-                     "required": True, "options": PROCESS_TYPE_OPTIONS, "weight": 2},
-                    {"key": "maturity", "label": "Maturity (CMMI)", "type": "single_select",
-                     "options": PROCESS_MATURITY_OPTIONS, "weight": 2},
-                    {"key": "automationLevel", "label": "Automation Level", "type": "single_select",
-                     "options": AUTOMATION_LEVEL_OPTIONS, "weight": 1},
-                    {"key": "riskLevel", "label": "Risk Level", "type": "single_select",
-                     "options": PROCESS_RISK_OPTIONS, "weight": 1},
+                    {
+                        "key": "processType",
+                        "label": "Process Type",
+                        "type": "single_select",
+                        "required": True,
+                        "options": PROCESS_TYPE_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "maturity",
+                        "label": "Maturity (CMMI)",
+                        "type": "single_select",
+                        "options": PROCESS_MATURITY_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "automationLevel",
+                        "label": "Automation Level",
+                        "type": "single_select",
+                        "options": AUTOMATION_LEVEL_OPTIONS,
+                        "weight": 1,
+                    },
+                    {
+                        "key": "riskLevel",
+                        "label": "Risk Level",
+                        "type": "single_select",
+                        "options": PROCESS_RISK_OPTIONS,
+                        "weight": 1,
+                    },
                 ],
             },
             {
                 "section": "Operational Details",
                 "fields": [
-                    {"key": "frequency", "label": "Execution Frequency", "type": "single_select",
-                     "options": PROCESS_FREQUENCY_OPTIONS, "weight": 1},
-                    {"key": "documentationUrl", "label": "Process Documentation URL", "type": "url", "weight": 0},
-                    {"key": "regulatoryRelevance", "label": "Regulatory Relevance", "type": "boolean", "weight": 1},
+                    {
+                        "key": "frequency",
+                        "label": "Execution Frequency",
+                        "type": "single_select",
+                        "options": PROCESS_FREQUENCY_OPTIONS,
+                        "weight": 1,
+                    },
+                    {
+                        "key": "documentationUrl",
+                        "label": "Process Documentation URL",
+                        "type": "url",
+                        "weight": 0,
+                    },
+                    {
+                        "key": "regulatoryRelevance",
+                        "label": "Regulatory Relevance",
+                        "type": "boolean",
+                        "weight": 1,
+                    },
                 ],
             },
         ],
@@ -397,18 +492,60 @@ TYPES = [
             {
                 "section": "Application Information",
                 "fields": [
-                    {"key": "businessCriticality", "label": "Business Criticality", "type": "single_select", "required": True, "options": BUSINESS_CRITICALITY_OPTIONS, "weight": 2},
-                    {"key": "functionalSuitability", "label": "Functional Suitability", "type": "single_select", "options": FUNCTIONAL_SUITABILITY_OPTIONS, "weight": 2},
-                    {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS, "weight": 2},
-                    {"key": "timeModel", "label": "TIME Model", "type": "single_select", "required": True, "options": TIME_MODEL_OPTIONS, "weight": 3},
-                    {"key": "hostingType", "label": "Hosting Type", "type": "single_select", "options": HOSTING_TYPE_OPTIONS, "weight": 1},
+                    {
+                        "key": "businessCriticality",
+                        "label": "Business Criticality",
+                        "type": "single_select",
+                        "required": True,
+                        "options": BUSINESS_CRITICALITY_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "functionalSuitability",
+                        "label": "Functional Suitability",
+                        "type": "single_select",
+                        "options": FUNCTIONAL_SUITABILITY_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "technicalSuitability",
+                        "label": "Technical Suitability",
+                        "type": "single_select",
+                        "options": TECHNICAL_SUITABILITY_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "timeModel",
+                        "label": "TIME Model",
+                        "type": "single_select",
+                        "required": True,
+                        "options": TIME_MODEL_OPTIONS,
+                        "weight": 3,
+                    },
+                    {
+                        "key": "hostingType",
+                        "label": "Hosting Type",
+                        "type": "single_select",
+                        "options": HOSTING_TYPE_OPTIONS,
+                        "weight": 1,
+                    },
                 ],
             },
             {
                 "section": "Cost & Ownership",
                 "fields": [
-                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "cost", "weight": 1},
-                    {"key": "numberOfUsers", "label": "Number of Users", "type": "number", "weight": 0},
+                    {
+                        "key": "costTotalAnnual",
+                        "label": "Total Annual Cost",
+                        "type": "cost",
+                        "weight": 1,
+                    },
+                    {
+                        "key": "numberOfUsers",
+                        "label": "Number of Users",
+                        "type": "number",
+                        "weight": 0,
+                    },
                     {"key": "vendor", "label": "Vendor", "type": "text", "weight": 0},
                     {"key": "productName", "label": "Product Name", "type": "text", "weight": 0},
                 ],
@@ -433,7 +570,13 @@ TYPES = [
             {
                 "section": "Interface Information",
                 "fields": [
-                    {"key": "frequency", "label": "Frequency", "type": "single_select", "options": FREQUENCY_OPTIONS, "weight": 1},
+                    {
+                        "key": "frequency",
+                        "label": "Frequency",
+                        "type": "single_select",
+                        "options": FREQUENCY_OPTIONS,
+                        "weight": 1,
+                    },
                     {"key": "dataFormat", "label": "Data Format", "type": "text", "weight": 0},
                     {"key": "protocol", "label": "Protocol", "type": "text", "weight": 0},
                 ],
@@ -454,9 +597,20 @@ TYPES = [
             {
                 "section": "Data Information",
                 "fields": [
-                    {"key": "dataSensitivity", "label": "Data Sensitivity", "type": "single_select", "options": DATA_SENSITIVITY_OPTIONS, "weight": 1},
+                    {
+                        "key": "dataSensitivity",
+                        "label": "Data Sensitivity",
+                        "type": "single_select",
+                        "options": DATA_SENSITIVITY_OPTIONS,
+                        "weight": 1,
+                    },
                     {"key": "dataOwner", "label": "Data Owner", "type": "text", "weight": 0},
-                    {"key": "isPersonalData", "label": "Contains Personal Data", "type": "boolean", "weight": 1},
+                    {
+                        "key": "isPersonalData",
+                        "label": "Contains Personal Data",
+                        "type": "boolean",
+                        "weight": 1,
+                    },
                 ],
             },
         ],
@@ -484,8 +638,20 @@ TYPES = [
             {
                 "section": "Component Information",
                 "fields": [
-                    {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS, "weight": 2},
-                    {"key": "resourceClassification", "label": "Resource Classification", "type": "single_select", "options": RESOURCE_CLASSIFICATION_OPTIONS, "weight": 2},
+                    {
+                        "key": "technicalSuitability",
+                        "label": "Technical Suitability",
+                        "type": "single_select",
+                        "options": TECHNICAL_SUITABILITY_OPTIONS,
+                        "weight": 2,
+                    },
+                    {
+                        "key": "resourceClassification",
+                        "label": "Resource Classification",
+                        "type": "single_select",
+                        "options": RESOURCE_CLASSIFICATION_OPTIONS,
+                        "weight": 2,
+                    },
                     {"key": "vendor", "label": "Vendor", "type": "text", "weight": 0},
                     {"key": "version", "label": "Version", "type": "text", "weight": 0},
                 ],
@@ -493,7 +659,12 @@ TYPES = [
             {
                 "section": "Cost",
                 "fields": [
-                    {"key": "costTotalAnnual", "label": "Total Annual Cost", "type": "cost", "weight": 1},
+                    {
+                        "key": "costTotalAnnual",
+                        "label": "Total Annual Cost",
+                        "type": "cost",
+                        "weight": 1,
+                    },
                     {"key": "licenseType", "label": "License Type", "type": "text", "weight": 0},
                 ],
             },
@@ -525,13 +696,24 @@ TYPES = [
             {
                 "section": "Provider Information",
                 "fields": [
-                    {"key": "providerType", "label": "Provider Type", "type": "single_select", "options": [
-                        {"key": "vendor", "label": "Vendor"},
-                        {"key": "partner", "label": "Partner"},
-                        {"key": "internalProvider", "label": "Internal Provider"},
-                    ], "weight": 1},
+                    {
+                        "key": "providerType",
+                        "label": "Provider Type",
+                        "type": "single_select",
+                        "options": [
+                            {"key": "vendor", "label": "Vendor"},
+                            {"key": "partner", "label": "Partner"},
+                            {"key": "internalProvider", "label": "Internal Provider"},
+                        ],
+                        "weight": 1,
+                    },
                     {"key": "website", "label": "Website", "type": "text", "weight": 0},
-                    {"key": "contractEnd", "label": "Contract End Date", "type": "date", "weight": 0},
+                    {
+                        "key": "contractEnd",
+                        "label": "Contract End Date",
+                        "type": "date",
+                        "weight": 0,
+                    },
                 ],
             },
         ],
@@ -543,112 +725,439 @@ TYPES = [
 
 RELATIONS = [
     # Strategy & Transformation connections
-    {"key": "relObjectiveToBC", "label": "improves", "reverse_label": "is improved by", "source_type_key": "Objective", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 0},
-    {"key": "relPlatformToObjective", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Platform", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 1},
-    {"key": "relPlatformToApp", "label": "runs", "reverse_label": "runs on", "source_type_key": "Platform", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 2},
-    {"key": "relPlatformToITC", "label": "implements", "reverse_label": "is implemented by", "source_type_key": "Platform", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 3},
-    {"key": "relInitiativeToObjective", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Initiative", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 4},
-    {"key": "relInitiativeToPlatform", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Platform", "cardinality": "n:m", "sort_order": 5},
-    {"key": "relInitiativeToBC", "label": "improves", "reverse_label": "is improved by", "source_type_key": "Initiative", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 6},
-    {"key": "relInitiativeToApp", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 7},
-    {"key": "relInitiativeToInterface", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "Interface", "cardinality": "n:m", "sort_order": 8},
-    {"key": "relInitiativeToDataObj", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 9},
-    {"key": "relInitiativeToITC", "label": "affects", "reverse_label": "is affected by", "source_type_key": "Initiative", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 10},
-
+    {
+        "key": "relObjectiveToBC",
+        "label": "improves",
+        "reverse_label": "is improved by",
+        "source_type_key": "Objective",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 0,
+    },
+    {
+        "key": "relPlatformToObjective",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Platform",
+        "target_type_key": "Objective",
+        "cardinality": "n:m",
+        "sort_order": 1,
+    },
+    {
+        "key": "relPlatformToApp",
+        "label": "runs",
+        "reverse_label": "runs on",
+        "source_type_key": "Platform",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 2,
+    },
+    {
+        "key": "relPlatformToITC",
+        "label": "implements",
+        "reverse_label": "is implemented by",
+        "source_type_key": "Platform",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 3,
+    },
+    {
+        "key": "relInitiativeToObjective",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Initiative",
+        "target_type_key": "Objective",
+        "cardinality": "n:m",
+        "sort_order": 4,
+    },
+    {
+        "key": "relInitiativeToPlatform",
+        "label": "affects",
+        "reverse_label": "is affected by",
+        "source_type_key": "Initiative",
+        "target_type_key": "Platform",
+        "cardinality": "n:m",
+        "sort_order": 5,
+    },
+    {
+        "key": "relInitiativeToBC",
+        "label": "improves",
+        "reverse_label": "is improved by",
+        "source_type_key": "Initiative",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 6,
+    },
+    {
+        "key": "relInitiativeToApp",
+        "label": "affects",
+        "reverse_label": "is affected by",
+        "source_type_key": "Initiative",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 7,
+    },
+    {
+        "key": "relInitiativeToInterface",
+        "label": "affects",
+        "reverse_label": "is affected by",
+        "source_type_key": "Initiative",
+        "target_type_key": "Interface",
+        "cardinality": "n:m",
+        "sort_order": 8,
+    },
+    {
+        "key": "relInitiativeToDataObj",
+        "label": "affects",
+        "reverse_label": "is affected by",
+        "source_type_key": "Initiative",
+        "target_type_key": "DataObject",
+        "cardinality": "n:m",
+        "sort_order": 9,
+    },
+    {
+        "key": "relInitiativeToITC",
+        "label": "affects",
+        "reverse_label": "is affected by",
+        "source_type_key": "Initiative",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 10,
+    },
     # Organization connections
-    {"key": "relOrgToObjective", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "Objective", "cardinality": "n:m", "sort_order": 12},
-    {"key": "relOrgToInitiative", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "Initiative", "cardinality": "n:m", "sort_order": 13},
-    {"key": "relOrgToBizCtx", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "BusinessContext", "cardinality": "n:m", "sort_order": 14},
-    {"key": "relOrgToApp", "label": "uses", "reverse_label": "is used by", "source_type_key": "Organization", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 15, "attributes_schema": [
-        {"key": "usageType", "label": "Usage Type", "type": "single_select", "options": USAGE_TYPE_OPTIONS},
-    ]},
-    {"key": "relOrgToITC", "label": "owns", "reverse_label": "is owned by", "source_type_key": "Organization", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 16},
-
+    {
+        "key": "relOrgToObjective",
+        "label": "owns",
+        "reverse_label": "is owned by",
+        "source_type_key": "Organization",
+        "target_type_key": "Objective",
+        "cardinality": "n:m",
+        "sort_order": 12,
+    },
+    {
+        "key": "relOrgToInitiative",
+        "label": "owns",
+        "reverse_label": "is owned by",
+        "source_type_key": "Organization",
+        "target_type_key": "Initiative",
+        "cardinality": "n:m",
+        "sort_order": 13,
+    },
+    {
+        "key": "relOrgToBizCtx",
+        "label": "owns",
+        "reverse_label": "is owned by",
+        "source_type_key": "Organization",
+        "target_type_key": "BusinessContext",
+        "cardinality": "n:m",
+        "sort_order": 14,
+    },
+    {
+        "key": "relOrgToApp",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "Organization",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 15,
+        "attributes_schema": [
+            {
+                "key": "usageType",
+                "label": "Usage Type",
+                "type": "single_select",
+                "options": USAGE_TYPE_OPTIONS,
+            },
+        ],
+    },
+    {
+        "key": "relOrgToITC",
+        "label": "owns",
+        "reverse_label": "is owned by",
+        "source_type_key": "Organization",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 16,
+    },
     # Application connections
-    {"key": "relAppToBC", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Application", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 17, "attributes_schema": [
-        {"key": "functionalSuitability", "label": "Functional Suitability", "type": "single_select", "options": FUNCTIONAL_SUITABILITY_OPTIONS},
-        {"key": "supportType", "label": "Support Type", "type": "single_select", "options": SUPPORT_TYPE_OPTIONS},
-    ]},
-    {"key": "relAppToBizCtx", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Application", "target_type_key": "BusinessContext", "cardinality": "n:m", "sort_order": 18},
-    {"key": "relAppToInterface", "label": "provides / consumes", "reverse_label": "is provided / consumed by", "source_type_key": "Application", "target_type_key": "Interface", "cardinality": "n:m", "sort_order": 19},
-    {"key": "relAppToDataObj", "label": "CRUD", "reverse_label": "is used by", "source_type_key": "Application", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 20, "attributes_schema": [
-        {"key": "crudCreate", "label": "Create", "type": "boolean"},
-        {"key": "crudRead", "label": "Read", "type": "boolean"},
-        {"key": "crudUpdate", "label": "Update", "type": "boolean"},
-        {"key": "crudDelete", "label": "Delete", "type": "boolean"},
-    ]},
-    {"key": "relAppToITC", "label": "uses", "reverse_label": "is used by", "source_type_key": "Application", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 21, "attributes_schema": [
-        {"key": "technicalSuitability", "label": "Technical Suitability", "type": "single_select", "options": TECHNICAL_SUITABILITY_OPTIONS},
-        {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
-    ]},
-
+    {
+        "key": "relAppToBC",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Application",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 17,
+        "attributes_schema": [
+            {
+                "key": "functionalSuitability",
+                "label": "Functional Suitability",
+                "type": "single_select",
+                "options": FUNCTIONAL_SUITABILITY_OPTIONS,
+            },
+            {
+                "key": "supportType",
+                "label": "Support Type",
+                "type": "single_select",
+                "options": SUPPORT_TYPE_OPTIONS,
+            },
+        ],
+    },
+    {
+        "key": "relAppToBizCtx",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Application",
+        "target_type_key": "BusinessContext",
+        "cardinality": "n:m",
+        "sort_order": 18,
+    },
+    {
+        "key": "relAppToInterface",
+        "label": "provides / consumes",
+        "reverse_label": "is provided / consumed by",
+        "source_type_key": "Application",
+        "target_type_key": "Interface",
+        "cardinality": "n:m",
+        "sort_order": 19,
+    },
+    {
+        "key": "relAppToDataObj",
+        "label": "CRUD",
+        "reverse_label": "is used by",
+        "source_type_key": "Application",
+        "target_type_key": "DataObject",
+        "cardinality": "n:m",
+        "sort_order": 20,
+        "attributes_schema": [
+            {"key": "crudCreate", "label": "Create", "type": "boolean"},
+            {"key": "crudRead", "label": "Read", "type": "boolean"},
+            {"key": "crudUpdate", "label": "Update", "type": "boolean"},
+            {"key": "crudDelete", "label": "Delete", "type": "boolean"},
+        ],
+    },
+    {
+        "key": "relAppToITC",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "Application",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 21,
+        "attributes_schema": [
+            {
+                "key": "technicalSuitability",
+                "label": "Technical Suitability",
+                "type": "single_select",
+                "options": TECHNICAL_SUITABILITY_OPTIONS,
+            },
+            {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
+        ],
+    },
     # IT Component connections
-    {"key": "relITCToTechCat", "label": "belongs to", "reverse_label": "includes", "source_type_key": "ITComponent", "target_type_key": "TechCategory", "cardinality": "n:m", "sort_order": 23, "attributes_schema": [
-        {"key": "resourceClassification", "label": "Resource Classification", "type": "single_select", "options": RESOURCE_CLASSIFICATION_OPTIONS},
-    ]},
-    {"key": "relITCToPlatform", "label": "implements", "reverse_label": "is implemented by", "source_type_key": "ITComponent", "target_type_key": "Platform", "cardinality": "n:m", "sort_order": 24},
-
+    {
+        "key": "relITCToTechCat",
+        "label": "belongs to",
+        "reverse_label": "includes",
+        "source_type_key": "ITComponent",
+        "target_type_key": "TechCategory",
+        "cardinality": "n:m",
+        "sort_order": 23,
+        "attributes_schema": [
+            {
+                "key": "resourceClassification",
+                "label": "Resource Classification",
+                "type": "single_select",
+                "options": RESOURCE_CLASSIFICATION_OPTIONS,
+            },
+        ],
+    },
+    {
+        "key": "relITCToPlatform",
+        "label": "implements",
+        "reverse_label": "is implemented by",
+        "source_type_key": "ITComponent",
+        "target_type_key": "Platform",
+        "cardinality": "n:m",
+        "sort_order": 24,
+    },
     # Interface connections
-    {"key": "relInterfaceToDataObj", "label": "transfers", "reverse_label": "is transferred by", "source_type_key": "Interface", "target_type_key": "DataObject", "cardinality": "n:m", "sort_order": 25},
-    {"key": "relInterfaceToITC", "label": "uses", "reverse_label": "is used by", "source_type_key": "Interface", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 26},
-
+    {
+        "key": "relInterfaceToDataObj",
+        "label": "transfers",
+        "reverse_label": "is transferred by",
+        "source_type_key": "Interface",
+        "target_type_key": "DataObject",
+        "cardinality": "n:m",
+        "sort_order": 25,
+    },
+    {
+        "key": "relInterfaceToITC",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "Interface",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 26,
+    },
     # Provider connections
-    {"key": "relProviderToInitiative", "label": "supports", "reverse_label": "is supported by", "source_type_key": "Provider", "target_type_key": "Initiative", "cardinality": "n:m", "sort_order": 27},
-    {"key": "relProviderToApp", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "Application", "cardinality": "n:m", "sort_order": 28},
-    {"key": "relProviderToITC", "label": "offers", "reverse_label": "is offered by", "source_type_key": "Provider", "target_type_key": "ITComponent", "cardinality": "n:m", "sort_order": 29},
-
+    {
+        "key": "relProviderToInitiative",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "Provider",
+        "target_type_key": "Initiative",
+        "cardinality": "n:m",
+        "sort_order": 27,
+    },
+    {
+        "key": "relProviderToApp",
+        "label": "offers",
+        "reverse_label": "is offered by",
+        "source_type_key": "Provider",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 28,
+    },
+    {
+        "key": "relProviderToITC",
+        "label": "offers",
+        "reverse_label": "is offered by",
+        "source_type_key": "Provider",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 29,
+    },
     # Business Context connections
-    {"key": "relBizCtxToBC", "label": "is associated with", "reverse_label": "is associated with", "source_type_key": "BusinessContext", "target_type_key": "BusinessCapability", "cardinality": "n:m", "sort_order": 30},
-
+    {
+        "key": "relBizCtxToBC",
+        "label": "is associated with",
+        "reverse_label": "is associated with",
+        "source_type_key": "BusinessContext",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 30,
+    },
     # BPM — Business Process connections
-    {"key": "relProcessToBC", "label": "supports", "reverse_label": "is supported by",
-     "source_type_key": "BusinessProcess", "target_type_key": "BusinessCapability",
-     "cardinality": "n:m", "sort_order": 31, "attributes_schema": [
-         {"key": "supportType", "label": "Support Type", "type": "single_select", "options": SUPPORT_TYPE_OPTIONS},
-     ]},
-    {"key": "relProcessToApp", "label": "is supported by", "reverse_label": "supports",
-     "source_type_key": "BusinessProcess", "target_type_key": "Application",
-     "cardinality": "n:m", "sort_order": 32, "attributes_schema": [
-         {"key": "usageType", "label": "Usage", "type": "single_select", "options": [
-             {"key": "creates", "label": "Creates"},
-             {"key": "reads", "label": "Reads"},
-             {"key": "updates", "label": "Updates"},
-             {"key": "deletes", "label": "Deletes"},
-             {"key": "orchestrates", "label": "Orchestrates"},
-         ]},
-         {"key": "criticality", "label": "Criticality", "type": "single_select", "options": [
-             {"key": "low", "label": "Low", "color": "#4caf50"},
-             {"key": "medium", "label": "Medium", "color": "#ff9800"},
-             {"key": "high", "label": "High", "color": "#f44336"},
-             {"key": "critical", "label": "Critical", "color": "#b71c1c"},
-         ]},
-     ]},
-    {"key": "relProcessToDataObj", "label": "uses", "reverse_label": "is used by",
-     "source_type_key": "BusinessProcess", "target_type_key": "DataObject",
-     "cardinality": "n:m", "sort_order": 33, "attributes_schema": [
-         {"key": "crudCreate", "label": "Create", "type": "boolean"},
-         {"key": "crudRead", "label": "Read", "type": "boolean"},
-         {"key": "crudUpdate", "label": "Update", "type": "boolean"},
-         {"key": "crudDelete", "label": "Delete", "type": "boolean"},
-     ]},
-    {"key": "relProcessToITC", "label": "uses", "reverse_label": "is used by",
-     "source_type_key": "BusinessProcess", "target_type_key": "ITComponent",
-     "cardinality": "n:m", "sort_order": 34},
-    {"key": "relProcessDependency", "label": "depends on", "reverse_label": "is depended on by",
-     "source_type_key": "BusinessProcess", "target_type_key": "BusinessProcess",
-     "cardinality": "n:m", "sort_order": 35},
-    {"key": "relProcessToOrg", "label": "is owned by", "reverse_label": "owns",
-     "source_type_key": "BusinessProcess", "target_type_key": "Organization",
-     "cardinality": "n:m", "sort_order": 36},
-    {"key": "relProcessToInitiative", "label": "is affected by", "reverse_label": "affects",
-     "source_type_key": "BusinessProcess", "target_type_key": "Initiative",
-     "cardinality": "n:m", "sort_order": 37},
-    {"key": "relProcessToObjective", "label": "supports", "reverse_label": "is supported by",
-     "source_type_key": "BusinessProcess", "target_type_key": "Objective",
-     "cardinality": "n:m", "sort_order": 38},
-    {"key": "relProcessToBizCtx", "label": "realizes", "reverse_label": "is realized by",
-     "source_type_key": "BusinessProcess", "target_type_key": "BusinessContext",
-     "cardinality": "n:m", "sort_order": 39},
+    {
+        "key": "relProcessToBC",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "BusinessCapability",
+        "cardinality": "n:m",
+        "sort_order": 31,
+        "attributes_schema": [
+            {
+                "key": "supportType",
+                "label": "Support Type",
+                "type": "single_select",
+                "options": SUPPORT_TYPE_OPTIONS,
+            },
+        ],
+    },
+    {
+        "key": "relProcessToApp",
+        "label": "is supported by",
+        "reverse_label": "supports",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 32,
+        "attributes_schema": [
+            {
+                "key": "usageType",
+                "label": "Usage",
+                "type": "single_select",
+                "options": [
+                    {"key": "creates", "label": "Creates"},
+                    {"key": "reads", "label": "Reads"},
+                    {"key": "updates", "label": "Updates"},
+                    {"key": "deletes", "label": "Deletes"},
+                    {"key": "orchestrates", "label": "Orchestrates"},
+                ],
+            },
+            {
+                "key": "criticality",
+                "label": "Criticality",
+                "type": "single_select",
+                "options": [
+                    {"key": "low", "label": "Low", "color": "#4caf50"},
+                    {"key": "medium", "label": "Medium", "color": "#ff9800"},
+                    {"key": "high", "label": "High", "color": "#f44336"},
+                    {"key": "critical", "label": "Critical", "color": "#b71c1c"},
+                ],
+            },
+        ],
+    },
+    {
+        "key": "relProcessToDataObj",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "DataObject",
+        "cardinality": "n:m",
+        "sort_order": 33,
+        "attributes_schema": [
+            {"key": "crudCreate", "label": "Create", "type": "boolean"},
+            {"key": "crudRead", "label": "Read", "type": "boolean"},
+            {"key": "crudUpdate", "label": "Update", "type": "boolean"},
+            {"key": "crudDelete", "label": "Delete", "type": "boolean"},
+        ],
+    },
+    {
+        "key": "relProcessToITC",
+        "label": "uses",
+        "reverse_label": "is used by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 34,
+    },
+    {
+        "key": "relProcessDependency",
+        "label": "depends on",
+        "reverse_label": "is depended on by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "BusinessProcess",
+        "cardinality": "n:m",
+        "sort_order": 35,
+    },
+    {
+        "key": "relProcessToOrg",
+        "label": "is owned by",
+        "reverse_label": "owns",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "Organization",
+        "cardinality": "n:m",
+        "sort_order": 36,
+    },
+    {
+        "key": "relProcessToInitiative",
+        "label": "is affected by",
+        "reverse_label": "affects",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "Initiative",
+        "cardinality": "n:m",
+        "sort_order": 37,
+    },
+    {
+        "key": "relProcessToObjective",
+        "label": "supports",
+        "reverse_label": "is supported by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "Objective",
+        "cardinality": "n:m",
+        "sort_order": 38,
+    },
+    {
+        "key": "relProcessToBizCtx",
+        "label": "realizes",
+        "reverse_label": "is realized by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "BusinessContext",
+        "cardinality": "n:m",
+        "sort_order": 39,
+    },
 ]
 
 
@@ -677,9 +1186,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_rels_list = existing_rels_result.scalars().all()
     existing_rels = {r.key for r in existing_rels_list}
     existing_rel_pairs = {
-        (r.source_type_key, r.target_type_key)
-        for r in existing_rels_list
-        if not r.is_hidden
+        (r.source_type_key, r.target_type_key) for r in existing_rels_list if not r.is_hidden
     }
 
     for i, t in enumerate(TYPES):
@@ -692,9 +1199,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
                 seed_schema = t.get("fields_schema", [])
                 current_schema = existing.fields_schema or []
                 current_sections = {s["section"] for s in current_schema}
-                new_sections = [
-                    s for s in seed_schema if s["section"] not in current_sections
-                ]
+                new_sections = [s for s in seed_schema if s["section"] not in current_sections]
                 if new_sections:
                     existing.fields_schema = current_schema + new_sections
             continue
@@ -797,10 +1302,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     await db.flush()
 
     existing_srd_result = await db.execute(select(StakeholderRoleDefinition))
-    existing_srd_keys = {
-        (s.card_type_key, s.key)
-        for s in existing_srd_result.scalars().all()
-    }
+    existing_srd_keys = {(s.card_type_key, s.key) for s in existing_srd_result.scalars().all()}
 
     for t in TYPES:
         type_key = t["key"]

@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, UUIDMixin, TimestampMixin
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 
 class CardType(Base, UUIDMixin, TimestampMixin):
@@ -22,7 +22,9 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
     stakeholder_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
-    section_config: Mapped[dict | None] = mapped_column(JSONB, default=dict)  # {sectionKey: {defaultExpanded, hidden}}
+    section_config: Mapped[dict | None] = mapped_column(
+        JSONB, default=dict
+    )  # {sectionKey: {defaultExpanded, hidden}}
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

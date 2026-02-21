@@ -7,9 +7,10 @@ Revision ID: 015
 Revises: 014
 Create Date: 2026-02-14
 """
-from typing import Sequence, Union
 
 import json
+from typing import Sequence, Union
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -37,8 +38,7 @@ def upgrade() -> None:
     for section in schema:
         original_len = len(section.get("fields", []))
         section["fields"] = [
-            f for f in section.get("fields", [])
-            if f.get("key") != "responsibleOrg"
+            f for f in section.get("fields", []) if f.get("key") != "responsibleOrg"
         ]
         if len(section["fields"]) != original_len:
             changed = True
@@ -68,12 +68,15 @@ def downgrade() -> None:
     for section in schema:
         if section.get("section") == "Operational Details":
             # Insert at position 1 (after frequency, before documentationUrl)
-            section["fields"].insert(1, {
-                "key": "responsibleOrg",
-                "label": "Responsible Organization",
-                "type": "text",
-                "weight": 0,
-            })
+            section["fields"].insert(
+                1,
+                {
+                    "key": "responsibleOrg",
+                    "label": "Responsible Organization",
+                    "type": "text",
+                    "weight": 0,
+                },
+            )
             break
 
     conn.execute(

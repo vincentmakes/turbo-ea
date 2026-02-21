@@ -14,9 +14,7 @@ class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
     """Per-card-type stakeholder role with granular permissions."""
 
     __tablename__ = "stakeholder_role_definitions"
-    __table_args__ = (
-        UniqueConstraint("card_type_key", "key", name="uq_srd_type_key"),
-    )
+    __table_args__ = (UniqueConstraint("card_type_key", "key", name="uq_srd_type_key"),)
 
     card_type_key: Mapped[str] = mapped_column(
         String(100),
@@ -30,9 +28,7 @@ class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
     permissions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    archived_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     archived_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
