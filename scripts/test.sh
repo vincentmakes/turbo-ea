@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Run the backend test suite with an auto-provisioned PostgreSQL container.
+# Automatically creates a venv and installs dependencies on first run.
 #
 # Usage:
 #   ./scripts/test.sh              # run all tests
@@ -8,13 +9,12 @@
 #   ./scripts/test.sh --unit       # only unit tests (no database needed)
 #   ./scripts/test.sh --cov        # with coverage report
 #
-# Prerequisites:
-#   cd backend && pip install -e ".[dev]"   (once, in a venv)
-#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BACKEND_DIR="$PROJECT_ROOT/backend"
+VENV_DIR="$BACKEND_DIR/venv"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.test.yml"
 COMPOSE_PROJECT="turboea-test"
 
@@ -41,20 +41,24 @@ if $WITH_COV; then
     PYTEST_ARGS+=("--cov=app" "--cov-report=term-missing")
 fi
 
-# ── Check that pytest is available ───────────────────────────────────
+# ── Ensure venv exists and is activated ──────────────────────────────
+if [ ! -d "$VENV_DIR" ]; then
+    echo "==> Creating virtual environment at backend/venv..."
+    python3 -m venv "$VENV_DIR"
+fi
+
+# shellcheck source=/dev/null
+source "$VENV_DIR/bin/activate"
+
 if ! python -c "import pytest" 2>/dev/null; then
-    echo "ERROR: pytest not found. Install dev dependencies first:"
-    echo ""
-    echo "  cd backend && pip install -e \".[dev]\""
-    echo ""
-    echo "  (use a venv:  python -m venv venv && source venv/bin/activate)"
-    exit 1
+    echo "==> Installing dev dependencies..."
+    pip install -e "$BACKEND_DIR[dev]" -q
 fi
 
 # ── Unit-only mode: skip Docker entirely ──────────────────────────────
 if $UNIT_ONLY; then
     echo "==> Running unit tests only (no database)"
-    cd "$PROJECT_ROOT/backend"
+    cd "$BACKEND_DIR"
     python -m pytest tests/core/ tests/services/test_calculation_engine.py tests/services/test_bpmn_parser.py "${PYTEST_ARGS[@]}" 2>/dev/null || \
     python -m pytest tests/core/ "${PYTEST_ARGS[@]}"
     exit $?
@@ -71,7 +75,7 @@ echo "==> Starting test database..."
 docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d --wait
 
 echo "==> Running tests..."
-cd "$PROJECT_ROOT/backend"
+cd "$BACKEND_DIR"
 
 export POSTGRES_HOST=localhost
 export POSTGRES_PORT=5433
