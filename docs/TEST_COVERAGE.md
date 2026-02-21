@@ -2,7 +2,7 @@
 
 > **Last updated**: February 21, 2026
 > **Overall backend line coverage**: 41%
-> **Total tests**: ~500 across 44 test files
+> **Total tests**: ~720 across 54 test files
 
 ---
 
@@ -430,6 +430,262 @@ These tests hit the actual API endpoints with a real test database. Each test ru
 | `test_public_access_by_slug` | Public portal accessible without auth |
 | `test_public_nonexistent_slug_returns_404` | Non-existent slug returns 404 |
 
+### Auth Extended (`test_auth_extended.py`) — 16 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_register_missing_email` | Registration without email returns 422 |
+| `test_register_empty_password` | Empty password fails validation (422) |
+| `test_register_missing_display_name` | Missing display_name returns 422 |
+| `test_register_invalid_email_format` | Malformed email returns 422 |
+| `test_register_password_too_short` | Password under 10 chars fails (422) |
+| `test_register_password_no_uppercase` | Password without uppercase fails (422) |
+| `test_register_password_no_digit` | Password without digit fails (422) |
+| `test_login_nonexistent_email` | Login with non-existent email returns 401 |
+| `test_login_missing_password_field` | Login without password field returns 422 |
+| `test_login_missing_email_field` | Login without email field returns 422 |
+| `test_login_empty_body` | Login with empty JSON body returns 422 |
+| `test_refresh_with_invalid_token` | Refresh with invalid JWT returns 401 |
+| `test_refresh_without_token` | Refresh without token returns 401 |
+| `test_me_with_expired_token` | GET /auth/me with expired token returns 401 |
+| `test_me_with_invalid_token` | GET /auth/me with garbage token returns 401 |
+| `test_sso_config_returns_data` | GET /auth/sso/config returns SSO config structure |
+
+### Cards Extended (`test_cards_extended.py`) — 14 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_root_card_no_parent_no_children` | Root card returns level=1, empty ancestors/children |
+| `test_hierarchy_with_parent_and_children` | Card with parent/children returns correct lists |
+| `test_hierarchy_card_not_found` | Non-existent card returns 404 |
+| `test_history_empty_for_new_card` | Freshly created card has no events |
+| `test_history_after_update` | Updating card creates card.created and card.updated events |
+| `test_history_pagination` | History respects page and page_size parameters |
+| `test_bulk_update_names` | Admin can bulk-update card names |
+| `test_bulk_update_attributes` | Admin can bulk-update attributes on multiple cards |
+| `test_bulk_update_viewer_forbidden` | Viewer lacks inventory.bulk_edit gets 403 |
+| `test_export_csv_returns_csv_content_type` | CSV export returns text/csv with attachment header |
+| `test_export_csv_with_type_filter` | CSV export with type filter includes only that type |
+| `test_export_csv_has_correct_headers` | CSV first row contains expected column headers |
+| `test_export_csv_viewer_can_export` | Viewer role has inventory.export permission |
+| `test_export_csv_empty_type` | CSV export for type with no cards returns headers only |
+
+### Relations Extended (`test_relations_extended.py`) — 9 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_create_with_nonexistent_source` | Relation with fake source card fails |
+| `test_create_with_nonexistent_target` | Relation with fake target card fails |
+| `test_create_duplicate_relation` | Duplicate relation handled gracefully |
+| `test_update_relation_attributes` | PATCH updates attributes and description |
+| `test_update_clears_description` | Setting description to None clears it |
+| `test_filter_by_source_card_id` | GET /relations?card_id filters by source |
+| `test_filter_by_target_card_id` | GET /relations?card_id filters by target |
+| `test_filter_by_nonexistent_card_id` | Filtering by nonexistent card returns empty list |
+| `test_card_appears_in_both_directions` | Card as source and target returns both relations |
+
+### Stakeholders (`test_stakeholders.py`) — 21 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_list_roles_empty` | Returns empty list when no definitions exist |
+| `test_list_roles_with_definitions` | Returns all unique roles across types |
+| `test_list_roles_filtered_by_type_key` | Returns only roles for specified type_key |
+| `test_list_roles_filtered_by_type_key_with_no_defs` | Falls back to defaults when no definitions |
+| `test_list_stakeholders_empty` | Returns empty list when no stakeholders assigned |
+| `test_list_stakeholders_after_create` | Returns stakeholder data after creating one |
+| `test_viewer_can_list_stakeholders` | Viewer role has stakeholders.view permission |
+| `test_admin_can_create_stakeholder` | Admin assigns stakeholder to card |
+| `test_member_can_create_stakeholder` | Member has stakeholders.manage permission |
+| `test_duplicate_stakeholder_returns_409` | Same user+role on same card rejected |
+| `test_same_user_different_role_allowed` | Same user can hold different role on same card |
+| `test_invalid_role_returns_400` | Role must be one of defined stakeholder roles |
+| `test_card_not_found_returns_404` | Creating stakeholder on non-existent card returns 404 |
+| `test_viewer_cannot_create_stakeholder` | Viewer lacks stakeholders.manage (403) |
+| `test_update_stakeholder_role` | Admin updates stakeholder's role |
+| `test_update_with_invalid_role_returns_400` | Updating to invalid role rejected |
+| `test_update_nonexistent_returns_404` | Updating non-existent stakeholder returns 404 |
+| `test_viewer_cannot_update_stakeholder` | Viewer cannot update stakeholders (403) |
+| `test_delete_stakeholder` | Admin deletes stakeholder assignment (204) |
+| `test_delete_nonexistent_returns_404` | Deleting non-existent stakeholder returns 404 |
+| `test_viewer_cannot_delete_stakeholder` | Viewer cannot delete stakeholders (403) |
+
+### Reports Extended (`test_reports_extended.py`) — 44 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_landscape_empty` | Returns empty groups/ungrouped with no cards |
+| `test_landscape_with_data` | Cards grouped by related type correctly |
+| `test_landscape_reverse_relation` | Reverse direction relations grouped correctly |
+| `test_landscape_permission_denied` | User without reports.ea_dashboard gets 403 |
+| `test_portfolio_empty` | Returns empty items with no cards |
+| `test_portfolio_with_data` | Card attributes mapped to axes correctly |
+| `test_portfolio_invalid_field_400` | Invalid field name returns 400 |
+| `test_portfolio_unsafe_field_format_400` | Field with special characters rejected |
+| `test_portfolio_permission_denied` | User without permission gets 403 |
+| `test_matrix_empty` | Returns empty rows/columns/intersections |
+| `test_matrix_with_data` | Returns rows, columns, intersections from relations |
+| `test_matrix_same_type_diagonal` | Self-relations appear on diagonal |
+| `test_matrix_permission_denied` | User without permission gets 403 |
+| `test_roadmap_empty` | Returns empty items |
+| `test_roadmap_with_lifecycle` | Cards with lifecycle dates appear |
+| `test_roadmap_no_type_filter` | Without filter, all types with lifecycle returned |
+| `test_roadmap_permission_denied` | User without permission gets 403 |
+| `test_cost_empty` | Returns empty items and zero total |
+| `test_cost_with_data` | Aggregates cost fields sorted descending |
+| `test_cost_permission_denied` | User without permission gets 403 |
+| `test_cost_treemap_empty` | Returns empty items and zero total |
+| `test_cost_treemap_with_data` | Returns items sorted by cost descending |
+| `test_cost_treemap_with_group_by` | Group_by adds group labels to items |
+| `test_cost_treemap_invalid_cost_field_400` | Invalid cost_field format returns 400 |
+| `test_cost_treemap_permission_denied` | User without permission gets 403 |
+| `test_capability_heatmap_empty` | Returns empty items |
+| `test_capability_heatmap_with_data` | Capabilities with linked apps show correct app_count |
+| `test_capability_heatmap_hierarchy` | Parent capabilities include parent_id field |
+| `test_capability_heatmap_invalid_metric_400` | Invalid metric returns 400 |
+| `test_capability_heatmap_total_cost_metric` | total_cost metric accepted |
+| `test_capability_heatmap_risk_count_metric` | risk_count metric accepted |
+| `test_capability_heatmap_permission_denied` | User without permission gets 403 |
+| `test_dependencies_empty` | Returns empty nodes/edges |
+| `test_dependencies_with_data` | Returns nodes and edges from relations |
+| `test_dependencies_with_center_id_bfs` | BFS depth limits nodes to given depth |
+| `test_dependencies_type_filter` | Type filter limits nodes to specified type |
+| `test_dependencies_ancestor_path` | Nodes include ancestor path for hierarchical cards |
+| `test_dependencies_permission_denied` | User without permission gets 403 |
+| `test_data_quality_empty` | Returns zero summary with no cards |
+| `test_data_quality_with_data` | Correctly categorizes cards into quality buckets |
+| `test_data_quality_orphaned_vs_connected` | Cards with relations not counted as orphaned |
+| `test_data_quality_overall_average` | Overall quality is average of all scores |
+| `test_data_quality_permission_denied` | User without permission gets 403 |
+| `test_data_quality_type_filter` | Type filter limits results to specified type |
+
+### BPM Extended (`test_bpm_extended.py`) — 23 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_create_assessment` | POST creates assessment with scores |
+| `test_list_assessments` | GET lists assessments with all score fields |
+| `test_update_assessment_scores` | PUT updates specific score fields |
+| `test_delete_assessment` | DELETE removes assessment (204) |
+| `test_assessment_nonexistent_process_404` | Assessments on fake process returns 404 |
+| `test_score_clamping_high` | Scores above 5 clamped to 5 |
+| `test_score_clamping_low` | Scores at/below 0 clamped to 1 |
+| `test_dashboard_empty` | BPM dashboard returns valid structure |
+| `test_dashboard_with_process_attributes` | Dashboard aggregates process attributes correctly |
+| `test_dashboard_permission_denied` | User without reports.bpm_dashboard gets 403 |
+| `test_matrix_empty` (cap-process) | Capability-process matrix empty when no relations |
+| `test_matrix_empty` (proc-app) | Process-application matrix empty when no relations |
+| `test_dependencies_empty` | Process dependencies empty when no relations |
+| `test_heatmap_empty` | Capability heatmap empty when no capabilities |
+| `test_heatmap_with_capabilities` | Heatmap includes unlinked capabilities with metric_value=0 |
+| `test_process_map_empty_when_no_processes` | Process map returns items for existing processes |
+| `test_element_app_map_empty` | Element-application map empty when no links |
+
+### BPM Workflow (`test_bpm_workflow.py`) — 30 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_no_published_returns_none` | Returns null when no version is published |
+| `test_get_published_after_approve` | After approve, published returns the approved version |
+| `test_create_draft` | Admin can create draft process flow version |
+| `test_create_draft_with_svg` | Draft can include SVG thumbnail |
+| `test_create_draft_increments_revision` | Each new draft gets higher revision number |
+| `test_viewer_cannot_create_draft` | Viewer lacks bpm.edit and gets 403 |
+| `test_list_drafts` | Admin can list draft versions |
+| `test_list_drafts_empty` | No drafts returns empty list |
+| `test_update_draft_bpmn_xml` | Admin can update BPMN XML of draft |
+| `test_update_draft_svg_thumbnail` | Admin can update SVG thumbnail |
+| `test_update_non_draft_fails` | Cannot update non-draft version (400) |
+| `test_delete_draft` | Admin can delete draft version (204) |
+| `test_delete_non_draft_fails` | Cannot delete non-draft version (400) |
+| `test_submit_draft` | Submitting draft changes status to pending |
+| `test_submit_non_draft_fails` | Cannot submit already pending version (400) |
+| `test_approve_pending` | Approving pending version publishes it |
+| `test_approve_non_pending_fails` | Cannot approve draft (400) |
+| `test_approve_archives_previous_published` | Approving archives previously published version |
+| `test_reject_pending` | Rejecting pending returns to draft status |
+| `test_reject_non_pending_fails` | Cannot reject non-pending version (400) |
+| `test_get_specific_version` | Can fetch specific version by ID |
+| `test_version_not_found` | Non-existent version returns 404 |
+| `test_published_process_not_found` | Returns 404 for non-existent process |
+| `test_create_draft_process_not_found` | Returns 404 for non-existent process |
+| `test_list_drafts_process_not_found` | Returns 404 for non-existent process |
+| `test_admin_permissions` | Admin has full flow permissions |
+| `test_viewer_permissions` | Viewer has view-only flow permissions |
+| `test_permissions_process_not_found` | Returns 404 for non-existent process |
+| `test_list_archived_empty` | Returns empty list when no archived versions |
+| `test_list_archived_after_two_publishes` | First published version appears in archived list |
+
+### EOL (`test_eol.py`) — 18 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_list_products` | List all products returns cached product names |
+| `test_list_products_with_search` | Searching filters products by substring |
+| `test_list_products_empty_search` | Empty search string returns all products |
+| `test_fuzzy_search` | Fuzzy search for 'python' returns high score match |
+| `test_fuzzy_search_partial` | Fuzzy search for 'node' finds 'nodejs' |
+| `test_get_product_cycles` | Fetching cycles returns cycle data |
+| `test_get_product_invalid_name_characters` | Product names with invalid chars returns 400 |
+| `test_get_product_special_chars` | Product name with special chars rejected |
+| `test_mass_search_application` | Mass search for Application type returns fuzzy matches |
+| `test_mass_search_invalid_type` | Mass search with invalid type_key returns 400 |
+| `test_mass_search_no_cards` | Mass search with no cards returns empty list |
+| `test_mass_search_itcomponent` | Mass search works for ITComponent type |
+| `test_unauthenticated_rejected` | EOL endpoints require authentication |
+
+### Surveys Extended (`test_surveys_extended.py`) — 33 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_send_survey_success` | Sending draft survey activates it |
+| `test_send_survey_already_sent` | Sending already active survey returns 400 |
+| `test_send_survey_no_fields` | Sending survey with no fields returns 400 |
+| `test_send_survey_no_target_roles` | Sending survey with no target roles returns 400 |
+| `test_send_survey_viewer_forbidden` | Viewer cannot send surveys (403) |
+| `test_member_sees_pending_survey` | Targeted member sees survey in /surveys/my |
+| `test_non_targeted_user_sees_no_surveys` | Non-stakeholder sees no surveys |
+| `test_get_response_form` | Targeted user retrieves response form |
+| `test_get_response_form_not_found_for_wrong_user` | Non-targeted user cannot access form (404) |
+| `test_submit_response_success` | Targeted user submits survey response |
+| `test_submit_response_not_targeted` | Non-targeted user cannot submit (404) |
+| `test_submit_response_survey_closed` | Submitting to closed survey returns 400 |
+| `test_close_active_survey` | Admin closes active survey |
+| `test_close_draft_survey_returns_400` | Closing draft survey returns 400 |
+| `test_close_survey_viewer_forbidden` | Viewer cannot close surveys (403) |
+| `test_list_responses_after_submission` | Admin lists responses including submitted ones |
+| `test_list_responses_filter_by_status` | Admin filters responses by status |
+| `test_list_responses_viewer_forbidden` | Viewer cannot list responses (403) |
+| `test_apply_responses_to_cards` | Admin applies responses, updating card attributes |
+| `test_apply_already_applied_returns_error` | Applying already-applied response returns error |
+| `test_apply_pending_response_returns_error` | Applying not-yet-submitted response returns error |
+| `test_apply_nonexistent_response_returns_error` | Applying non-existent response returns error |
+| `test_apply_viewer_forbidden` | Viewer cannot apply responses (403) |
+| `test_end_to_end_workflow` | Full lifecycle: create, send, respond, list, apply, close |
+
+### ServiceNow (`test_servicenow.py`) — 18 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_create_basic_connection` | Admin creates connection with basic auth |
+| `test_create_oauth2_connection` | Admin creates connection with OAuth2 auth |
+| `test_create_connection_invalid_url_no_https` | Connection URL must start with https:// |
+| `test_viewer_cannot_create_connection` | Viewer lacks servicenow.manage permission (403) |
+| `test_list_empty` | Listing connections when none exist returns empty |
+| `test_list_returns_created_connections` | Created connections appear in list |
+| `test_viewer_cannot_list_connections` | Viewer lacks servicenow.manage permission (403) |
+| `test_get_connection_by_id` | Admin fetches single connection by ID |
+| `test_get_nonexistent_connection_404` | Getting non-existent connection returns 404 |
+| `test_update_connection_name` | Admin updates connection name via PATCH |
+| `test_update_connection_deactivate` | Admin can deactivate connection |
+| `test_update_nonexistent_connection_404` | Updating non-existent connection returns 404 |
+| `test_update_connection_url_must_be_https` | Updating instance_url validates HTTPS requirement |
+| `test_delete_connection` | Admin deletes connection |
+| `test_delete_nonexistent_connection_404` | Deleting non-existent connection returns 404 |
+| `test_viewer_cannot_delete_connection` | Viewer lacks permission (403) |
+| `test_unauthenticated_list_rejected` | ServiceNow endpoints require authentication |
+| `test_unauthenticated_create_rejected` | ServiceNow create requires authentication |
+
 ---
 
 ## Backend — Unit Tests (no database)
@@ -745,26 +1001,32 @@ These tests run without any database connection. They test pure logic functions.
 
 | Area | Test Files | Approx. Tests | Notes |
 |------|-----------|--------------|-------|
-| Backend API (integration) | 23 | ~280 | CRUD + permission checks for all endpoints |
+| Backend API (integration) | 33 | ~500 | CRUD + permission checks + edge cases for all endpoints |
 | Backend Core (unit) | 2 | ~29 | JWT, encryption — no database needed |
 | Backend Services | 7 | ~100 | Business logic, parsing, formulas |
 | Frontend Hooks | 8 | ~58 | Auth, metamodel, permissions, SSE, currency |
 | Frontend Components | 4 | ~34 | Badges, icons, error boundaries |
-| **Total** | **44** | **~500** | **41% backend line coverage** |
+| **Total** | **54** | **~720** | |
 
 ### Well-Covered Areas
 
-- Authentication and authorization (JWT, RBAC, permissions)
-- Card CRUD operations with all edge cases
+- Authentication and authorization (JWT, RBAC, permissions, edge cases)
+- Card CRUD operations with hierarchy, history, bulk update, CSV export
 - Metamodel management (types, relations, fields)
 - Calculation engine (all 15+ built-in functions)
 - BPMN XML parsing
+- BPM workflow (draft/pending/published/archived state machine)
+- BPM reports (dashboard, matrices, heatmap, process map, dependencies)
 - Encryption and security
-- All API endpoints have CRUD + permission tests
+- All report endpoints (landscape, portfolio, matrix, roadmap, cost, dependencies, data quality)
+- Stakeholder role management and card-level assignments
+- ServiceNow integration (connection CRUD, auth validation)
+- Survey workflow (send, respond, close, apply lifecycle)
+- EOL proxy endpoints (search, fuzzy match, mass search)
+- Relation constraint validation (duplicates, filtering, nonexistent cards)
 
 ### Lower-Coverage Areas
 
-- Report endpoints (complex aggregation queries)
-- BPM workflow (approval state machine)
-- ServiceNow integration (external API calls)
 - Frontend page components (complex UI flows)
+- ServiceNow sync operations (pull/push/staging)
+- Diagram sync and DrawIO integration
