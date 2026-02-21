@@ -141,9 +141,29 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - name: Run upgrade then downgrade to verify reversibility
+      - name: Create tables and stamp head (mirrors app startup on fresh DB)
         run: |
-          alembic upgrade head
+          python -c "
+          from app.models import Base
+          from app.database import engine
+          import asyncio
+
+          async def init():
+              async with engine.begin() as conn:
+                  await conn.run_sync(Base.metadata.create_all)
+
+          asyncio.run(init())
+          "
+          alembic stamp head
+        working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_migration_test
+      - name: Test downgrade and re-upgrade of latest migration
+        run: |
           alembic downgrade -1
           alembic upgrade head
         working-directory: backend

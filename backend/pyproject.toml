@@ -80,5 +80,9 @@ module = "alembic.versions.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = "app.services.seed*"
+module = [
+    "app.services.seed",
+    "app.services.seed_demo",
+    "app.services.seed_demo_bpm",
+]
 ignore_errors = true
