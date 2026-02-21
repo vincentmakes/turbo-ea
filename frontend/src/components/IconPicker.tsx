@@ -58,7 +58,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
       "layers", "stacks", "view_module", "view_quilt", "dashboard",
       "grid_view", "view_list", "view_agenda", "view_kanban",
       "view_column", "view_comfy", "view_compact", "view_cozy",
-      "table_chart", "pivot_table_chart", "data_table",
+      "table_chart", "pivot_table_chart", "dataset",
     ],
   },
   {
@@ -72,7 +72,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
       "monitor", "tv", "devices", "developer_mode",
       "smart_toy", "robot", "neurology", "psychology",
       "precision_manufacturing", "bolt", "electric_bolt",
-      "construction", "build", "handyman", "hardware",
+      "construction", "build", "handyman", "memory_alt",
     ],
   },
   {
@@ -82,7 +82,7 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
       "bubble_chart", "scatter_plot", "ssid_chart", "area_chart",
       "donut_small", "data_usage", "dynamic_form", "functions",
       "calculate", "filter_alt", "sort", "tune",
-      "science", "biotech", "lab_research", "experiment",
+      "science", "biotech", "experiment",
     ],
   },
   {
@@ -119,8 +119,8 @@ const ICON_CATEGORIES: { label: string; icons: string[] }[] = [
     icons: [
       "explore", "map", "place", "location_on", "my_location",
       "near_me", "navigation", "directions", "compass_calibration",
-      "public", "travel_explore", "language", "globe",
-      "south_america", "asia", "europe",
+      "public", "travel_explore", "language",
+      "flight_takeoff", "flight_land", "terrain",
     ],
   },
   {
