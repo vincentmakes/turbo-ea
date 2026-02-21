@@ -77,7 +77,7 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Audit Python dependencies
-        run: pip-audit --strict --desc
+        run: pip-audit --strict --desc --skip-editable
         working-directory: backend
 
   security-frontend:

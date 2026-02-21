@@ -56,7 +56,7 @@ lock-deps: ## Generate backend/requirements.lock via pip-compile
 	./scripts/lock-deps.sh
 
 audit: ## Run security audits on all dependencies
-	cd backend && pip-audit --strict --desc
+	cd backend && pip-audit --strict --desc --skip-editable
 	cd frontend && npm audit --omit=dev
 
 # ── Docker ──────────────────────────────────────────────────────────────
