@@ -1,0 +1,16 @@
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: turboea_test
+      POSTGRES_USER: turboea
+      POSTGRES_PASSWORD: turboea
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turboea -d turboea_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10

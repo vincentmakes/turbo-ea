@@ -235,6 +235,75 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     return card
 
 
+async def create_relation_type(
+    db,
+    *,
+    key="app_to_itc",
+    label="Application to IT Component",
+    source_type_key="Application",
+    target_type_key="ITComponent",
+    **kwargs,
+):
+    """Insert a relation type into the test database."""
+    from app.models.relation_type import RelationType
+
+    rt = RelationType(
+        key=key,
+        label=label,
+        reverse_label=kwargs.get("reverse_label", f"Reverse {label}"),
+        source_type_key=source_type_key,
+        target_type_key=target_type_key,
+        cardinality=kwargs.get("cardinality", "n:m"),
+        built_in=kwargs.get("built_in", False),
+        is_hidden=kwargs.get("is_hidden", False),
+        sort_order=kwargs.get("sort_order", 0),
+    )
+    db.add(rt)
+    await db.flush()
+    return rt
+
+
+async def create_relation(db, *, type_key="app_to_itc", source_id=None, target_id=None, **kwargs):
+    """Insert a relation instance into the test database."""
+    from app.models.relation import Relation
+
+    rel = Relation(
+        type=type_key,
+        source_id=source_id,
+        target_id=target_id,
+        attributes=kwargs.get("attributes", {}),
+    )
+    db.add(rel)
+    await db.flush()
+    return rel
+
+
+async def create_stakeholder_role_def(
+    db,
+    *,
+    card_type_key="Application",
+    key="responsible",
+    label="Responsible",
+    permissions=None,
+    **kwargs,
+):
+    """Insert a stakeholder role definition into the test database."""
+    from app.models.stakeholder_role_definition import StakeholderRoleDefinition
+
+    srd = StakeholderRoleDefinition(
+        card_type_key=card_type_key,
+        key=key,
+        label=label,
+        permissions=permissions if permissions is not None else {},
+        color=kwargs.get("color", "#757575"),
+        sort_order=kwargs.get("sort_order", 0),
+        is_archived=kwargs.get("is_archived", False),
+    )
+    db.add(srd)
+    await db.flush()
+    return srd
+
+
 def auth_headers(user) -> dict[str, str]:
     """Generate Bearer token headers for a test user."""
     token = create_access_token(user.id, user.role)
