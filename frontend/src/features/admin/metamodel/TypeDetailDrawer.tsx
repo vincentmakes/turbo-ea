@@ -21,6 +21,7 @@ import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
+import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
 import { api } from "@/api/client";
@@ -418,25 +419,11 @@ export default function TypeDetailDrawer({
             onChange={(e) => setCategory(e.target.value)}
             helperText="e.g. Business Architecture"
           />
-          <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
-            <TextField
-              size="small"
-              label="Icon"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              sx={{ flex: 1 }}
-              helperText="Material Symbols name"
-            />
-            <Box
-              sx={{
-                width: 40, height: 40, borderRadius: 1,
-                bgcolor: "action.hover",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, mt: 0.25,
-              }}
-            >
-              <MaterialSymbol icon={icon} size={24} color={color} />
-            </Box>
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+              Icon
+            </Typography>
+            <IconPicker value={icon} onChange={setIcon} color={color} />
           </Box>
         </Box>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>
