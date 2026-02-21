@@ -1,63 +1,55 @@
-# Dependabot configuration — configures the GitHub-enabled Dependabot
-# with ecosystem-specific settings, grouping, and update frequency.
+# Dependabot configuration
+#
+# Strategy: security-focused
+#   - pip & npm: version updates disabled (open-pull-requests-limit: 0).
+#     Dependabot *security* updates still create PRs automatically — that
+#     feature is controlled by the repo's Security settings, not this file.
+#   - GitHub Actions: monthly version updates kept enabled. Pinning actions
+#     to current versions is a supply-chain security best practice.
 
 version: 2
 updates:
-  # Python (pip) — backend dependencies
+  # Python (pip) — security updates only
+  # Version update PRs are disabled; security PRs bypass this limit.
   - package-ecosystem: "pip"
     directory: "/backend"
     schedule:
       interval: "weekly"
-      day: "monday"
-    groups:
-      # Group all minor/patch updates into a single PR
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
+      - "security"
       - "backend"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
-  # npm — frontend dependencies
+  # npm — security updates only
+  # Version update PRs are disabled; security PRs bypass this limit.
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
-      day: "monday"
-    groups:
-      # Group MUI updates together (often need to move in lockstep)
-      mui:
-        patterns:
-          - "@mui/*"
-          - "@emotion/*"
-      # Group all other minor/patch updates
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
-        exclude-patterns:
-          - "@mui/*"
-          - "@emotion/*"
     commit-message:
       prefix: "chore(deps)"
     labels:
       - "dependencies"
+      - "security"
       - "frontend"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
 
-  # GitHub Actions — keep CI actions up to date
+  # GitHub Actions — keep CI actions up to date (supply-chain security)
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "monday"
+      interval: "monthly"
+    groups:
+      # Group all action updates into a single PR
+      actions:
+        patterns:
+          - "*"
     commit-message:
       prefix: "chore(ci)"
     labels:
       - "dependencies"
       - "ci"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
