@@ -52,7 +52,6 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
 addopts = "-q"
 
 [tool.coverage.run]

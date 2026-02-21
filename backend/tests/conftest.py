@@ -16,10 +16,13 @@ import uuid
 os.environ.setdefault("SECRET_KEY", "test-secret-key-for-pytest-only")
 os.environ.setdefault("ENVIRONMENT", "development")
 
+import asyncio
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event as sa_event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_access_token, hash_password
@@ -40,21 +43,36 @@ def _test_db_url() -> str:
 
 
 @pytest.fixture(scope="session")
-async def test_engine():
-    """Create a test database engine and all tables. Drops tables at teardown."""
+def test_engine():
+    """Create a test database engine and all tables. Drops tables at teardown.
+
+    This is a *sync* fixture so the engine is not bound to any specific event
+    loop.  NullPool ensures that connections are never cached — each
+    ``engine.connect()`` call in the per-test ``db`` fixture creates a fresh
+    asyncpg connection on whatever loop is current, avoiding cross-loop errors.
+    """
     url = _test_db_url()
-    engine = create_async_engine(url, echo=False)
-    try:
+    engine = create_async_engine(url, echo=False, poolclass=NullPool)
+
+    async def _setup():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
-    except Exception as exc:
+
+    async def _teardown():
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
+
+    try:
+        asyncio.run(_setup())
+    except Exception as exc:
+        asyncio.run(engine.dispose())
         pytest.skip(f"Test database not available ({exc})")
+
     yield engine
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
+
+    asyncio.run(_teardown())
 
 
 # ---------------------------------------------------------------------------
