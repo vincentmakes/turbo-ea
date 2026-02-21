@@ -11,7 +11,7 @@ RUN npm run build
 # DrawIO stage — clone the open-source webapp (static files only, ~50 MB).
 # Pin to a release tag for reproducible builds.
 # ---------------------------------------------------------------------------
-FROM alpine/git:latest AS drawio
+FROM alpine/git:v2.47.2 AS drawio
 RUN git clone --depth 1 --branch v26.0.9 https://github.com/jgraph/drawio.git /drawio
 
 FROM nginx:alpine AS production
