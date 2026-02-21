@@ -236,6 +236,7 @@ async def create_card_type(
         fields_schema=fields_schema if fields_schema is not None else [],
         has_hierarchy=kwargs.get("has_hierarchy", False),
         built_in=kwargs.get("built_in", False),
+        is_hidden=kwargs.get("is_hidden", False),
     )
     db.add(ct)
     await db.flush()
