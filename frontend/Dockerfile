@@ -12,7 +12,7 @@ RUN npm run build
 # Pin to a release tag for reproducible builds.
 # ---------------------------------------------------------------------------
 FROM alpine/git:latest AS drawio
-RUN git clone --depth 1 --branch v29.5.1 https://github.com/jgraph/drawio.git /drawio
+RUN git clone --depth 1 --branch v26.0.9 https://github.com/jgraph/drawio.git /drawio
 
 FROM nginx:alpine AS production
 COPY --from=build /app/dist /usr/share/nginx/html
