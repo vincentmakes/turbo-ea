@@ -48,3 +48,13 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/services/seed*.py"]
+
+[tool.coverage.report]
+fail_under = 50
+show_missing = true
+skip_covered = true

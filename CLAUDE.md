@@ -55,6 +55,28 @@ When working on this codebase, follow these conventions:
 - New endpoints must use `Depends(get_current_user)` or `Depends(require_permission(...))`.
 - Rate limiting is applied via `slowapi` — apply `@limiter.limit()` to auth-sensitive endpoints.
 
+### Testing Conventions
+- **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.
+- **Backend tests** live in `backend/tests/` mirroring the source structure (`core/`, `services/`, `api/`).
+- **Frontend tests** live next to source files (e.g., `client.ts` → `client.test.ts`).
+- Backend integration tests use the savepoint-rollback pattern — each test runs in a transaction that rolls back automatically, so tests never pollute each other.
+- Use the factory helpers in `backend/tests/conftest.py` (`create_user`, `create_card`, `create_card_type`, etc.) rather than inserting raw models.
+- Frontend tests use Vitest + Testing Library. Mock the API client with `vi.mock("@/api/client")`, not the global fetch.
+- Pure logic (calculation engine, BPMN parser, encryption, JWT) should have unit tests that need no database.
+
+**Running tests locally:**
+```bash
+# Backend — unit tests only (no database needed)
+cd backend && python -m pytest tests/core/ tests/services/ -q
+
+# Backend — all tests (auto-provisions ephemeral Postgres via Docker)
+./scripts/test.sh
+
+# Frontend
+cd frontend && npm test          # watch mode
+cd frontend && npm run test:run  # single run (CI mode)
+```
+
 ---
 
 ## Architecture Overview

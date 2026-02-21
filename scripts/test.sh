@@ -8,17 +8,15 @@
 #   ./scripts/test.sh --unit       # only unit tests (no database needed)
 #   ./scripts/test.sh --cov        # with coverage report
 #
-# The script:
-#  1. Starts a temporary PostgreSQL container (docker-compose.test.yml)
-#  2. Waits for it to become healthy
-#  3. Runs pytest with the correct env vars
-#  4. Tears down the container when done (even on failure)
+# Prerequisites:
+#   cd backend && pip install -e ".[dev]"   (once, in a venv)
 #
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.test.yml"
+COMPOSE_PROJECT="turboea-test"
 
 # Parse our custom flags; pass everything else to pytest
 UNIT_ONLY=false
@@ -43,6 +41,16 @@ if $WITH_COV; then
     PYTEST_ARGS+=("--cov=app" "--cov-report=term-missing")
 fi
 
+# ── Check that pytest is available ───────────────────────────────────
+if ! python -c "import pytest" 2>/dev/null; then
+    echo "ERROR: pytest not found. Install dev dependencies first:"
+    echo ""
+    echo "  cd backend && pip install -e \".[dev]\""
+    echo ""
+    echo "  (use a venv:  python -m venv venv && source venv/bin/activate)"
+    exit 1
+fi
+
 # ── Unit-only mode: skip Docker entirely ──────────────────────────────
 if $UNIT_ONLY; then
     echo "==> Running unit tests only (no database)"
@@ -55,12 +63,12 @@ fi
 # ── Full mode: start test database ────────────────────────────────────
 cleanup() {
     echo "==> Stopping test database..."
-    docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
+    docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
 }
 trap cleanup EXIT
 
 echo "==> Starting test database..."
-docker compose -f "$COMPOSE_FILE" up -d --wait
+docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" up -d --wait
 
 echo "==> Running tests..."
 cd "$PROJECT_ROOT/backend"

@@ -10,13 +10,11 @@
 
 ## Test Plan
 
-<!-- How did you verify this works? Be specific. -->
+<!-- How did you verify this works? CI runs automatically on every PR. -->
 
-- [ ] Backend linting passes (`ruff check . && ruff format --check .`)
-- [ ] Frontend linting passes (`npm run lint`)
-- [ ] Frontend builds without errors (`npm run build`)
+- [ ] All CI checks pass (backend lint, backend tests, frontend lint, frontend build, frontend tests)
 - [ ] Manually tested the affected feature
-- [ ] Existing tests pass (`pytest`)
+- [ ] Added/updated tests for new or changed behavior
 
 ## Checklist
 
