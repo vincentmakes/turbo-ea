@@ -70,15 +70,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - run: pip install -e ".[dev]"
-        working-directory: backend
-      - name: Install pip-audit
-        run: pip install pip-audit
-      - name: Audit Python dependencies
-        run: pip-audit --strict --desc --skip-editable
-        working-directory: backend
+      - name: Install pip-audit and pip-tools
+        run: pip install pip-audit pip-tools
+      - name: Generate requirements and audit
+        run: |
+          pip-compile --quiet --strip-extras -o /tmp/requirements.txt backend/pyproject.toml
+          pip-audit --strict --desc -r /tmp/requirements.txt
 
   security-frontend:
     name: Frontend Security Scan
