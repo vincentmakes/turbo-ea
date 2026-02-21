@@ -1,4 +1,17 @@
 repos:
+  # ── General checks ──────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
   # ── Backend: Python linting & formatting ──────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.8.6

@@ -30,6 +30,9 @@ dev = [
     "pytest-cov>=5.0.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
+    "pip-audit>=2.7.0",
+    "pip-tools>=7.4.0",
+    "mypy>=1.11.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -59,6 +62,47 @@ source = ["app"]
 omit = ["app/services/seed*.py"]
 
 [tool.coverage.report]
-fail_under = 0
+fail_under = 40
 show_missing = true
 skip_covered = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+# Start permissive — tighten per-module as types are added
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "alembic.versions.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "app.services.seed",
+    "app.services.seed_demo",
+    "app.services.seed_demo_bpm",
+]
+ignore_errors = true
+
+# Pre-existing type errors — remove modules as types are added
+[[tool.mypy.overrides]]
+module = [
+    "app.main",
+    "app.services.calculation_engine",
+    "app.services.servicenow_service",
+    "app.api.v1.auth",
+    "app.api.v1.bookmarks",
+    "app.api.v1.bpm_reports",
+    "app.api.v1.bpm_workflow",
+    "app.api.v1.cards",
+    "app.api.v1.metamodel",
+    "app.api.v1.reports",
+    "app.api.v1.roles",
+    "app.api.v1.settings",
+    "app.api.v1.stakeholders",
+    "app.api.v1.web_portals",
+]
+ignore_errors = true

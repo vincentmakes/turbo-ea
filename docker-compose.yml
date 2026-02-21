@@ -27,6 +27,12 @@ services:
       SEED_BPM: ${SEED_BPM:-false}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     # L1: Backend only exposed via internal Docker network, not to host
     expose:
       - "8000"
@@ -47,7 +53,8 @@ services:
     networks:
       - guac-net
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${HOST_PORT:-8920}:80"
 

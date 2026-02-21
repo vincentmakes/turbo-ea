@@ -49,7 +49,8 @@ jobs:
           cache-dependency-path: backend/pyproject.toml
       - run: pip install -e ".[dev]"
         working-directory: backend
-      - run: python -m pytest --cov=app --cov-report=term-missing -q
+      - name: Run tests with coverage
+        run: python -m pytest --cov=app --cov-report=term-missing --cov-fail-under=40 -q
         working-directory: backend
         env:
           POSTGRES_HOST: localhost
@@ -57,6 +58,121 @@ jobs:
           POSTGRES_USER: turboea
           POSTGRES_PASSWORD: turboea
           TEST_POSTGRES_DB: turboea_test
+
+  backend-typecheck:
+    name: Backend Type Check
+    runs-on: ubuntu-latest
+    # Informational only — does not block PRs until type errors are resolved
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: backend
+      - name: Run mypy
+        run: python -m mypy app/
+        working-directory: backend
+
+  # ── Security Scanning ────────────────────────────────────────────────
+  security-backend:
+    name: Backend Security Scan
+    runs-on: ubuntu-latest
+    # Informational only — does not block PRs until findings are triaged
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pip-audit and pip-tools
+        run: pip install pip-audit pip-tools
+      - name: Generate requirements and audit
+        run: |
+          pip-compile --quiet --strip-extras -o /tmp/requirements.txt backend/pyproject.toml
+          pip-audit --strict --desc -r /tmp/requirements.txt
+
+  security-frontend:
+    name: Frontend Security Scan
+    runs-on: ubuntu-latest
+    # Informational only — does not block PRs until findings are triaged
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - name: Audit npm dependencies
+        run: npm audit --omit=dev
+        working-directory: frontend
+
+  # ── Migration Rollback Test ───────────────────────────────────────────
+  migration-rollback:
+    name: Migration Rollback Test
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_migration_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U turboea -d turboea_migration_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install -e ".[dev]"
+        working-directory: backend
+      - name: Create tables and stamp head (mirrors app startup on fresh DB)
+        run: |
+          python -c "
+          from app.models import Base
+          from app.database import engine
+          import asyncio
+
+          async def init():
+              async with engine.begin() as conn:
+                  await conn.run_sync(Base.metadata.create_all)
+
+          asyncio.run(init())
+          "
+          alembic stamp head
+        working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_migration_test
+      - name: Test downgrade and re-upgrade of latest migration
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
+        working-directory: backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: "5433"
+          POSTGRES_USER: turboea
+          POSTGRES_PASSWORD: turboea
+          POSTGRES_DB: turboea_migration_test
 
   # ── Frontend ──────────────────────────────────────────────────────────
   frontend-lint:

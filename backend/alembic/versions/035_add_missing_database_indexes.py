@@ -87,25 +87,26 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # ── JSONB GIN indexes ────────────────────────────────────────────────
-    op.drop_index("ix_cards_lifecycle_gin", table_name="cards")
-    op.drop_index("ix_cards_attributes_gin", table_name="cards")
-
-    # ── Composite indexes ────────────────────────────────────────────────
-    op.drop_index("ix_cards_parent_id_type", table_name="cards")
-    op.drop_index("ix_cards_type_status", table_name="cards")
-    op.drop_index("ix_todos_assigned_to_status", table_name="todos")
-    op.drop_index("ix_notifications_user_id_is_read", table_name="notifications")
-
-    # ── Foreign-key indexes ──────────────────────────────────────────────
-    op.drop_index("ix_surveys_created_by", table_name="surveys")
-    op.drop_index("ix_bookmarks_user_id", table_name="bookmarks")
-    op.drop_index("ix_notifications_actor_id", table_name="notifications")
-    op.drop_index("ix_tags_tag_group_id", table_name="tags")
-    op.drop_index("ix_todos_status", table_name="todos")
-    op.drop_index("ix_todos_created_by", table_name="todos")
-    op.drop_index("ix_todos_assigned_to", table_name="todos")
-    op.drop_index("ix_comments_parent_id", table_name="comments")
-    op.drop_index("ix_comments_user_id", table_name="comments")
-    op.drop_index("ix_events_event_type", table_name="events")
-    op.drop_index("ix_events_user_id", table_name="events")
+    # Use IF EXISTS because create_all() may have created some of these
+    # indexes from model definitions, while others are migration-only.
+    indexes = [
+        "ix_cards_lifecycle_gin",
+        "ix_cards_attributes_gin",
+        "ix_cards_parent_id_type",
+        "ix_cards_type_status",
+        "ix_todos_assigned_to_status",
+        "ix_notifications_user_id_is_read",
+        "ix_surveys_created_by",
+        "ix_bookmarks_user_id",
+        "ix_notifications_actor_id",
+        "ix_tags_tag_group_id",
+        "ix_todos_status",
+        "ix_todos_created_by",
+        "ix_todos_assigned_to",
+        "ix_comments_parent_id",
+        "ix_comments_user_id",
+        "ix_events_event_type",
+        "ix_events_user_id",
+    ]
+    for idx in indexes:
+        op.execute(f"DROP INDEX IF EXISTS {idx}")

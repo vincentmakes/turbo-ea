@@ -64,6 +64,7 @@ docker-compose.override.yml
 
 # Database
 pgdata/
+backups/
 
 # Logs
 logs/
