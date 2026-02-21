@@ -181,7 +181,7 @@ class TestRequirePermission:
             json={"type": "Application", "name": "Allowed Card"},
             headers=auth_headers(member),
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 201
 
     async def test_viewer_allowed_view(self, client, db, deps_env):
         """Viewer has inventory.view — GET /cards succeeds."""
