@@ -85,9 +85,7 @@ class TestSeedDemoData:
         """Seeded cards should have data_quality scores > 0."""
         db, _result = seeded_db
 
-        result = await db.execute(
-            select(func.avg(Card.data_quality)).where(Card.data_quality > 0)
-        )
+        result = await db.execute(select(func.avg(Card.data_quality)).where(Card.data_quality > 0))
         avg_quality = result.scalar()
         assert avg_quality is not None
         assert avg_quality > 0
@@ -96,9 +94,7 @@ class TestSeedDemoData:
         """Some seeded cards should have parent_id set."""
         db, _result = seeded_db
 
-        result = await db.execute(
-            select(func.count(Card.id)).where(Card.parent_id.isnot(None))
-        )
+        result = await db.execute(select(func.count(Card.id)).where(Card.parent_id.isnot(None)))
         count = result.scalar()
         assert count > 0
 

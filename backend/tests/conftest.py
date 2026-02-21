@@ -77,9 +77,7 @@ def test_engine():
         # Set search_path so all tables are created in the worker schema
         connect_args["server_settings"] = {"search_path": f"{schema},public"}
 
-    engine = create_async_engine(
-        url, echo=False, poolclass=NullPool, connect_args=connect_args
-    )
+    engine = create_async_engine(url, echo=False, poolclass=NullPool, connect_args=connect_args)
 
     async def _setup():
         if schema:
@@ -253,9 +251,7 @@ async def create_user(
         email=email or f"test-{uuid.uuid4().hex[:8]}@example.com",
         display_name=display_name,
         password_hash=(
-            _DEFAULT_PASSWORD_HASH
-            if password == _DEFAULT_PASSWORD
-            else hash_password(password)
+            _DEFAULT_PASSWORD_HASH if password == _DEFAULT_PASSWORD else hash_password(password)
         ),
         role=role,
         is_active=True,
