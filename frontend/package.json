@@ -29,7 +29,7 @@
     "@types/dompurify": "^3.0.5",
     "@uiw/react-color-sketch": "^2.9.5",
     "ag-grid-community": "^32.3.0",
-    "ag-grid-react": "^32.3.0",
+    "ag-grid-react": "^35.1.0",
     "bpmn-js": "^18.12.0",
     "bpmn-js-properties-panel": "^5.50.1",
     "docx": "^9.5.1",
