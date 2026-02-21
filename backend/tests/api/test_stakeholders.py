@@ -100,9 +100,7 @@ class TestListStakeholderRoles:
             db, card_type_key="ITComponent", key="it_owner", label="IT Owner"
         )
 
-        resp = await client.get(
-            "/api/v1/stakeholder-roles", params={"type_key": "Application"}
-        )
+        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
         assert resp.status_code == 200
         keys = {r["key"] for r in resp.json()}
         assert "responsible" in keys
@@ -112,9 +110,7 @@ class TestListStakeholderRoles:
     async def test_list_roles_filtered_by_type_key_with_no_defs(self, client, db):
         """Falls back to defaults when no definitions exist for a type."""
         await create_card_type(db, key="Application", label="Application")
-        resp = await client.get(
-            "/api/v1/stakeholder-roles", params={"type_key": "Application"}
-        )
+        resp = await client.get("/api/v1/stakeholder-roles", params={"type_key": "Application"})
         assert resp.status_code == 200
         data = resp.json()
         # Should fall back to default roles

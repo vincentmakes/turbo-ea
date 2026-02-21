@@ -140,9 +140,7 @@ async def bpm_ext_env(db):
 
     admin = await create_user(db, email="admin@test.com", role="admin")
     viewer = await create_user(db, email="viewer@test.com", role="viewer")
-    no_bpm_reports = await create_user(
-        db, email="nobpmreports@test.com", role="no_bpm_reports"
-    )
+    no_bpm_reports = await create_user(db, email="nobpmreports@test.com", role="no_bpm_reports")
 
     process = await create_card(
         db,

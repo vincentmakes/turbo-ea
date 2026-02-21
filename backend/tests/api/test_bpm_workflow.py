@@ -163,9 +163,7 @@ class TestCreateDraft:
         """Draft can include an SVG thumbnail."""
         admin = wf_env["admin"]
         process = wf_env["process"]
-        resp = await _create_draft(
-            client, process.id, admin, svg_thumbnail=SAMPLE_SVG
-        )
+        resp = await _create_draft(client, process.id, admin, svg_thumbnail=SAMPLE_SVG)
         assert resp.status_code == 201
         assert resp.json()["svg_thumbnail"] == SAMPLE_SVG
 
