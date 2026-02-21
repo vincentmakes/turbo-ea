@@ -2,7 +2,7 @@
 
 > **Last updated**: February 21, 2026
 > **Overall backend line coverage**: 41%
-> **Total tests**: ~1,100 across 76 test files (backend ~720, frontend 378)
+> **Total tests**: ~1,117 across 77 test files (backend ~737, frontend 378)
 
 ---
 
@@ -846,6 +846,35 @@ These tests run without any database connection. They test pure logic functions.
 | `test_application_has_extra_roles` | Application type has TAO/BAO roles |
 | `test_running_twice_does_not_duplicate` | Seed is idempotent (safe to run twice) |
 
+### Seed Demo Compatibility (`test_seed_demo.py`) — 17 tests
+
+Pure unit tests (no database) that validate the NexaTech demo data and BPM demo data are compatible with the metamodel defined in `seed.py`. If the metamodel changes (types renamed, fields removed, subtypes adjusted, select options modified, relation types dropped), these tests catch the mismatch before it hits the database.
+
+| Test | What it verifies |
+|------|-----------------|
+| **Demo Cards** | |
+| `test_all_card_types_exist` | Every demo card references a card type defined in the metamodel |
+| `test_all_subtypes_valid` | Every subtype used in demo data is valid for its card type |
+| `test_all_attribute_keys_valid` | Every attribute key in demo card data exists in the type's fields_schema |
+| `test_all_select_values_valid` | Every single/multiple select value matches the defined options |
+| **Demo Relations** | |
+| `test_all_relation_types_exist` | Every demo relation references a relation type defined in the metamodel |
+| `test_source_target_types_match` | Source/target card types match the relation type's source_type_key/target_type_key |
+| `test_relation_attribute_keys_valid` | Every relation attribute key exists in the relation type's attributes_schema |
+| `test_relation_attribute_values_valid` | Every select value on relation attributes matches defined options |
+| **Demo Tag Groups** | |
+| `test_restrict_to_types_valid` | Tag group `restrict_to_types` only references valid type keys |
+| **BPM Processes** | |
+| `test_card_type_is_business_process` | All BPM PROCESSES entries have type=BusinessProcess |
+| `test_business_process_type_exists` | BusinessProcess type exists in the metamodel |
+| `test_all_subtypes_valid` (BPM) | BPM subtypes (category, group, process, variant) are valid |
+| `test_all_attribute_keys_valid` (BPM) | BPM process attributes exist in BusinessProcess fields_schema |
+| `test_all_select_values_valid` (BPM) | BPM select values match metamodel options |
+| **BPM Relation Specs** | |
+| `test_all_relation_types_exist` (BPM) | BPM relation specs reference valid relation type keys |
+| `test_source_type_is_business_process` | All BPM relation types have BusinessProcess as source type |
+| `test_relation_attribute_values_valid` (BPM) | BPM relation attribute values match defined options |
+
 ---
 
 ## Frontend Tests
@@ -1317,14 +1346,14 @@ Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
 |------|-----------|--------------|-------|
 | Backend API (integration) | 33 | ~500 | CRUD + permission checks + edge cases for all endpoints |
 | Backend Core (unit) | 2 | ~29 | JWT, encryption — no database needed |
-| Backend Services | 7 | ~100 | Business logic, parsing, formulas |
+| Backend Services | 8 | ~117 | Business logic, parsing, formulas, seed demo compatibility |
 | Frontend Hooks | 11 | ~70 | Auth, metamodel, permissions, SSE, currency, timeline, saved reports |
 | Frontend Components | 5 | ~56 | Badges, icons, error boundaries, key input |
 | Frontend Utilities | 2 | ~38 | Matrix hierarchy, SoAW templates |
 | Frontend Pages (Phase 1) | 5 | ~59 | Login, CardDetail, Inventory, CreateCardDialog, AppLayout |
 | Frontend Pages (Phase 2) | 5 | ~68 | ReportShell, PortfolioReport, LifecycleReport, MetamodelAdmin, RolesAdmin |
 | Frontend Pages (Phase 3) | 6 | ~80 | BpmDashboard, BpmReportPage, ProcessFlowTab, ProcessAssessmentPanel, DiagramsPage, EADeliveryPage |
-| **Total** | **76** | **~1,100** | |
+| **Total** | **77** | **~1,117** | |
 
 ### Well-Covered Areas
 
@@ -1335,6 +1364,7 @@ Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
 - BPMN XML parsing
 - BPM workflow (draft/pending/published/archived state machine)
 - BPM reports (dashboard, matrices, heatmap, process map, dependencies)
+- Seed demo data ↔ metamodel compatibility (types, subtypes, fields, options, relations)
 - Encryption and security
 - All report endpoints (landscape, portfolio, matrix, roadmap, cost, dependencies, data quality)
 - Stakeholder role management and card-level assignments
