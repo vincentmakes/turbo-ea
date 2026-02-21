@@ -2,7 +2,7 @@
 
 > **Last updated**: February 21, 2026
 > **Overall backend line coverage**: 41%
-> **Total tests**: ~720 across 54 test files
+> **Total tests**: ~1,100 across 76 test files (backend ~720, frontend 378)
 
 ---
 
@@ -995,6 +995,320 @@ These tests run without any database connection. They test pure logic functions.
 | `retry button resets error state` | Recovery on retry click (full mode) |
 | `retry button on inline also resets` | Recovery on retry click (inline mode) |
 
+### KeyInput (`KeyInput.test.tsx`) — 22 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Auto-generation from label, prefix handling, manual override, forbidden keys, validation |
+
+### useSavedReport (`useSavedReport.test.ts`) — 9 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Config persistence, save dialog state, loaded config consumption, reset behavior |
+
+### useThumbnailCapture (`useThumbnailCapture.test.ts`) — 4 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Chart ref, thumbnail capture, SVG-to-PNG conversion |
+
+### useTimeline (`useTimeline.test.ts`) — 6 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Date persistence, time travel detection, restore, reset, print params |
+
+### matrixHierarchy (`matrixHierarchy.test.ts`) — 23 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Hierarchy tree building, parent-child nesting, flat row expansion, sorting |
+
+### soawTemplate (`soawTemplate.test.ts`) — 15 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| Default section generation, template structure, section ordering |
+
+---
+
+## Frontend — Page & Feature Tests
+
+These tests exercise full page components with mocked API and sub-components.
+Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
+(bpmn-js, recharts, DrawIO), use Testing Library + userEvent for interactions.
+
+### LoginPage (`LoginPage.test.tsx`) — 8 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `renders email and password fields` | Login form displayed |
+| `renders login button` | Submit button present |
+| `calls onLogin with email and password` | Login flow triggers callback |
+| `shows register form when toggled` | Register mode toggle works |
+| `calls onRegister with form data` | Register flow triggers callback |
+| `shows validation for empty fields` | Required field validation |
+| `shows SSO button when configured` | SSO config shows button |
+| `shows error message on login failure` | Error feedback displayed |
+
+### CardDetail (`CardDetail.test.tsx`) — 17 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows card name` | Card title displayed |
+| `shows card type badge` | Type chip rendered |
+| `shows description section` | Description tab content |
+| `shows lifecycle section` | Lifecycle data rendered |
+| `shows relations section` | Relations tab content |
+| `shows stakeholders tab` | Stakeholders accessible |
+| `shows comments tab` | Comments tab accessible |
+| `shows todos tab` | Todos tab accessible |
+| `shows history tab` | History tab accessible |
+| `shows loading state` | Spinner while fetching |
+| `shows 404 for nonexistent card` | Not found handled |
+| `fetches card data on mount` | API called on render |
+| `shows approval status` | Approval badge rendered |
+| `shows data quality ring` | Quality indicator shown |
+| `shows custom attribute sections` | Fields from schema rendered |
+| `shows edit controls for admin` | Edit buttons visible for admin |
+| `hides edit controls for viewer` | Edit buttons hidden for viewer |
+
+### InventoryPage (`InventoryPage.test.tsx`) — 8 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `renders page title` | Inventory heading shown |
+| `shows type selector` | Card type filter dropdown |
+| `fetches cards on mount` | API called for data |
+| `shows card count` | Total count displayed |
+| `shows create button` | New card button visible |
+| `shows search field` | Search input present |
+| `shows loading state` | Loading indicator |
+| `handles empty state` | No data message |
+
+### CreateCardDialog (`CreateCardDialog.test.tsx`) — 12 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `renders dialog title` | Dialog heading shown |
+| `shows type selector` | Type dropdown present |
+| `shows name field` | Name input rendered |
+| `shows subtype selector for typed cards` | Subtype options shown |
+| `validates required name field` | Empty name prevented |
+| `calls onCreate with form data` | API called with correct data |
+| `closes dialog on cancel` | Cancel dismisses dialog |
+| `shows parent selector for hierarchical types` | Parent field shown |
+| `disables create button while submitting` | Prevents double-submit |
+| `shows error on creation failure` | Error message displayed |
+| `clears form on reopen` | Form reset between uses |
+| `shows description field` | Description input rendered |
+
+### AppLayout (`AppLayout.test.tsx`) — 14 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `renders app name` | Turbo EA branding shown |
+| `renders navigation links` | All nav menu items present |
+| `shows user display name` | Current user shown |
+| `shows notification bell` | Notification icon rendered |
+| `shows badge count` | Unread count badge |
+| `navigates to inventory` | Inventory link works |
+| `navigates to reports` | Reports menu works |
+| `navigates to BPM` | BPM link works |
+| `navigates to diagrams` | Diagrams link works |
+| `shows admin menu for admin users` | Admin links visible |
+| `hides admin menu for non-admin` | Admin links hidden |
+| `logout clears session` | Logout flow works |
+| `shows mobile drawer on small screens` | Responsive menu |
+| `collapses drawer on navigation` | Drawer auto-closes |
+
+### ReportShell (`ReportShell.test.tsx`) — 18 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `renders title and children` | Report wrapper layout |
+| `toggles chart/table view` | View mode switching |
+| `shows save report button` | Save action available |
+| `shows reset button` | Reset action available |
+| `triggers print` | Print action works |
+| `shows saved report banner` | Loaded report indicator |
+| `shows more actions menu` | Overflow menu works |
+| `shows share link in menu` | Copy link action |
+| `handles menu close` | Menu dismisses on action |
+| `passes print params to children` | Print mode communicated |
+
+### PortfolioReport (`PortfolioReport.test.tsx`) — 10 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows loading state` | Spinner while fetching |
+| `fetches data from API` | Correct endpoint called |
+| `renders application chips` | App names displayed |
+| `shows total count` | Application count shown |
+| `shows empty state` | No data message |
+| `shows toolbar with axis selectors` | X/Y/size/color selectors |
+| `renders chart area` | Recharts container present |
+| `shows group filters` | Group toggle buttons |
+| `handles type with no fields` | Graceful fallback |
+| `shows card type selector` | Type filter present |
+
+### LifecycleReport (`LifecycleReport.test.tsx`) — 9 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows loading state` | Spinner while fetching |
+| `renders report title` | Heading displayed |
+| `fetches roadmap data` | API called on mount |
+| `shows card type selector` | Type filter dropdown |
+| `renders lifecycle items` | Card names on timeline |
+| `shows EOL warning` | End-of-Life indicator |
+| `shows legend` | Phase legend rendered |
+| `handles empty state` | No data message |
+| `filters by card type` | Type filter works |
+
+### MetamodelAdmin (`MetamodelAdmin.test.tsx`) — 15 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows page title` | Metamodel Configuration heading |
+| `renders five tabs` | Card Types, Relations, Calculations, Tags, Layout tabs |
+| `shows card type cards with counts` | Type cards with field/relation counts |
+| `shows type category chips` | Layer category badges |
+| `shows New Type button and dialog` | Type creation flow |
+| `shows relation types in table` | Relation type listing |
+| `shows relation labels` | Forward/reverse labels |
+| `switches between tabs` | Tab navigation works |
+| `shows type icons and colors` | Visual metadata displayed |
+| `shows built-in badges` | Built-in vs custom distinction |
+
+### RolesAdmin (`RolesAdmin.test.tsx`) — 16 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows role list` | All roles displayed |
+| `shows system role chip` | System badge on admin/viewer |
+| `shows default role chip` | Default badge indicator |
+| `shows user counts` | Users per role count |
+| `shows role detail panel` | Permissions panel on select |
+| `shows permissions accordion` | Grouped permission toggles |
+| `shows admin role locked state` | Admin permissions read-only |
+| `shows create role dialog` | New role creation flow |
+| `validates role key format` | Key pattern enforcement |
+| `saves permission changes` | PATCH API called |
+| `shows color picker` | Role color selection |
+| `handles role archival` | Archive action works |
+
+### BpmDashboard (`BpmDashboard.test.tsx`) — 12 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows page title` | "Business Process Management" heading |
+| `renders three tabs` | Process Navigator, Dashboard, Reports |
+| `shows ProcessNavigator by default` | Default tab content |
+| `switches to Dashboard tab` | Tab navigation works |
+| `displays KPI cards` | Total processes, coverage, risk counts |
+| `shows diagram coverage stats` | Coverage percentage and ratio |
+| `renders chart sections` | Process type, maturity, automation charts |
+| `shows top risk processes table` | Risk table with process names |
+| `has All Processes button` | Navigation to inventory |
+| `switches to Reports tab` | BPM reports sub-page |
+| `shows loading state` | Spinner while fetching |
+| `shows error state when API fails` | Error message displayed |
+
+### BpmReportPage (`BpmReportPage.test.tsx`) — 11 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows five sub-tabs` | Process Map, Cap×Process, Proc×App, Dependencies, Element Map |
+| `shows ProcessMapReport by default` | Default sub-tab content |
+| `Capability × Process: shows matrix data` | Row/column/cell rendering |
+| `Capability × Process: shows empty state` | No data message |
+| `Process × Application: shows matrix data` | Matrix with relation/element sources |
+| `Process × Application: shows empty state` | No data message |
+| `Process Dependencies: shows dependency table` | Nodes, edges, counts |
+| `Process Dependencies: shows empty state` | No data message |
+| `Element-Application Map: shows element groups` | Grouped by application |
+| `Element-Application Map: shows empty state` | No data message |
+| `shows loading indicator` | Spinner while fetching |
+
+### ProcessFlowTab (`ProcessFlowTab.test.tsx`) — 18 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows Published tab by default` | Default view |
+| `shows all three tabs with draft access` | Published, Drafts, Archived |
+| `shows approval watermark` | Approved by / revision info |
+| `renders BPMN viewer` | bpmn-js viewer integration |
+| `shows process elements table` | Steps with name/type/lane |
+| `shows action buttons` | Create draft, view full, print |
+| `shows empty state (no published, has drafts)` | Draft availability hint |
+| `shows empty state (no published, no drafts)` | New Draft from Template CTA |
+| `Drafts: shows draft list` | Revision numbers listed |
+| `Drafts: shows status chips` | draft/pending badges |
+| `Drafts: shows edit/submit/delete` | Draft action buttons |
+| `Drafts: shows approve/reject for pending` | Approval actions |
+| `Drafts: shows confirmation dialog` | Submit for Approval dialog |
+| `Drafts: shows empty state` | No drafts message |
+| `Drafts: has New Draft from Template` | Template chooser button |
+| `Archived: shows versions` | Archived revision list |
+| `Archived: shows empty state` | No archived message |
+| `hides tabs without draft access` | Permission-based tab visibility |
+
+### ProcessAssessmentPanel (`ProcessAssessmentPanel.test.tsx`) — 12 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows title` | "Process Assessments" heading |
+| `shows New Assessment button` | Create action available |
+| `fetches assessments on mount` | API called with process ID |
+| `shows assessment table` | Date, assessor, notes columns |
+| `shows score chips` | Colored score badges (1-5) |
+| `renders trend chart with multiple assessments` | Recharts line chart |
+| `does not render chart with single assessment` | Chart hidden for 1 item |
+| `shows empty state` | No assessments message |
+| `opens create dialog` | Dialog with date/notes fields |
+| `shows dimension sliders` | Overall, Efficiency, Effectiveness, Compliance, Automation |
+| `submits new assessment` | POST API called with scores |
+| `shows table headers` | All column headers present |
+
+### DiagramsPage (`DiagramsPage.test.tsx`) — 13 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows page title and count` | "Diagrams" with count badge |
+| `renders New Diagram button` | Create action available |
+| `shows diagram names in card view` | Diagram titles displayed |
+| `shows description` | Diagram descriptions shown |
+| `shows type chips` | Free Draw, Data Flow badges |
+| `shows card count chips` | "5 cards" indicator |
+| `shows initiative count` | "1 initiative" indicator |
+| `shows empty state` | No diagrams message |
+| `opens create dialog and creates diagram` | Full creation flow |
+| `navigates to diagram on click` | Card click navigation |
+| `has view toggle buttons` | Card/list view switcher |
+| `opens delete dialog from context menu` | Delete confirmation |
+| `handles diagram deletion` | DELETE API called |
+
+### EADeliveryPage (`EADeliveryPage.test.tsx`) — 14 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `shows page title` | "EA Delivery" heading |
+| `shows New SoAW button` | Create action available |
+| `shows initiative count` | "2 initiatives" badge |
+| `renders initiative groups` | Initiative names displayed |
+| `shows artefact counts` | Diagram + SoAW counts per initiative |
+| `shows subtype chip` | Program/Project badges |
+| `shows initiative status` | On Track status indicator |
+| `shows unlinked artefacts group` | "Not linked to an Initiative" section |
+| `shows search field` | Filter input present |
+| `filters initiatives by search` | Search narrows results |
+| `opens create SoAW dialog` | Dialog with document name field |
+| `creates a new SoAW` | POST API + navigation |
+| `shows loading spinner` | Progress indicator |
+| `shows empty state` | No initiatives message |
+
 ---
 
 ## Coverage Summary
@@ -1004,9 +1318,13 @@ These tests run without any database connection. They test pure logic functions.
 | Backend API (integration) | 33 | ~500 | CRUD + permission checks + edge cases for all endpoints |
 | Backend Core (unit) | 2 | ~29 | JWT, encryption — no database needed |
 | Backend Services | 7 | ~100 | Business logic, parsing, formulas |
-| Frontend Hooks | 8 | ~58 | Auth, metamodel, permissions, SSE, currency |
-| Frontend Components | 4 | ~34 | Badges, icons, error boundaries |
-| **Total** | **54** | **~720** | |
+| Frontend Hooks | 11 | ~70 | Auth, metamodel, permissions, SSE, currency, timeline, saved reports |
+| Frontend Components | 5 | ~56 | Badges, icons, error boundaries, key input |
+| Frontend Utilities | 2 | ~38 | Matrix hierarchy, SoAW templates |
+| Frontend Pages (Phase 1) | 5 | ~59 | Login, CardDetail, Inventory, CreateCardDialog, AppLayout |
+| Frontend Pages (Phase 2) | 5 | ~68 | ReportShell, PortfolioReport, LifecycleReport, MetamodelAdmin, RolesAdmin |
+| Frontend Pages (Phase 3) | 6 | ~80 | BpmDashboard, BpmReportPage, ProcessFlowTab, ProcessAssessmentPanel, DiagramsPage, EADeliveryPage |
+| **Total** | **76** | **~1,100** | |
 
 ### Well-Covered Areas
 
@@ -1024,9 +1342,16 @@ These tests run without any database connection. They test pure logic functions.
 - Survey workflow (send, respond, close, apply lifecycle)
 - EOL proxy endpoints (search, fuzzy match, mass search)
 - Relation constraint validation (duplicates, filtering, nonexistent cards)
+- Frontend critical paths (login, card detail, inventory, create dialog, app layout)
+- Frontend reports (report shell, portfolio, lifecycle, saved reports)
+- Frontend admin (metamodel config, role management)
+- Frontend BPM (dashboard, reports, process flow tab, assessments)
+- Frontend EA delivery (initiative groups, SoAW management)
+- Frontend diagrams (gallery, CRUD operations)
 
 ### Lower-Coverage Areas
 
-- Frontend page components (complex UI flows)
 - ServiceNow sync operations (pull/push/staging)
-- Diagram sync and DrawIO integration
+- Diagram sync and DrawIO integration (iframe-heavy, hard to test in jsdom)
+- BPMN modeler/editor (bpmn-js canvas, requires browser environment)
+- SoAW editor (TipTap rich text, complex iframe interactions)
