@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -17,8 +15,6 @@ from tests.conftest import (
     create_role,
     create_user,
 )
-
-pytestmark = pytest.mark.anyio
 
 PRODUCTS_CACHE = ["python", "nodejs", "java", "ruby", "go", "nginx", "postgresql"]
 

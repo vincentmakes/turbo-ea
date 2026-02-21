@@ -28,8 +28,6 @@ from tests.conftest import (
     create_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 SAMPLE_BPMN = "<bpmn>test</bpmn>"
 UPDATED_BPMN = "<bpmn>updated</bpmn>"
 SAMPLE_SVG = "<svg>thumbnail</svg>"

@@ -6,11 +6,6 @@ nonexistent emails, invalid tokens, expired tokens, and SSO config.
 
 from __future__ import annotations
 
-import pytest
-
-pytestmark = pytest.mark.anyio
-
-
 # ---------------------------------------------------------------
 # POST /auth/register  (validation edge cases)
 # ---------------------------------------------------------------

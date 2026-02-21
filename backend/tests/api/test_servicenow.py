@@ -18,8 +18,6 @@ from tests.conftest import (
     create_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 
 @pytest.fixture
 async def snow_env(db):

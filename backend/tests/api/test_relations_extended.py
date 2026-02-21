@@ -21,8 +21,6 @@ from tests.conftest import (
     create_user,
 )
 
-pytestmark = pytest.mark.anyio
-
 
 @pytest.fixture
 async def rel_ext_env(db):

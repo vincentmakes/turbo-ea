@@ -18,9 +18,6 @@ from tests.conftest import (
     create_user,
 )
 
-pytestmark = pytest.mark.anyio
-
-
 # ---------------------------------------------------------------------------
 # Shared fixture: roles + users + a hierarchical card type
 # ---------------------------------------------------------------------------
