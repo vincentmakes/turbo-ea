@@ -2,257 +2,117 @@
 
 ## Current State
 
+Phases 1–4 are complete. The project has a working CI pipeline with 5 jobs, backend integration + unit tests, frontend unit tests, and a local test runner script.
+
 ### Backend
-- `backend/tests/` contains only `__init__.py` — no test files exist
-- `pyproject.toml` has test dependencies (`pytest`, `pytest-asyncio`, `httpx`) but no tests use them
-- No `conftest.py`, no fixtures, no test factories
-- 30 API route files, 12 service modules, and 5 core utility modules are untested
+- **10 test files** across `backend/tests/` covering core utilities, services, and API endpoints
+- `conftest.py` provides a full fixture suite: async DB sessions (savepoint-rollback), factory helpers, HTTP test client, and autouse fixtures for permission cache and rate limiter
+- Test engine uses `NullPool` + sync session-scoped fixture to avoid pytest-asyncio event loop mismatches
+- Rate limiting is auto-disabled in tests via the `_disable_rate_limiter` autouse fixture
 
 ### Frontend
-- No test framework installed (no vitest, jest, @testing-library, etc.)
-- No test files exist (no `.test.ts`, `.test.tsx`, `.spec.ts`)
-- No test script in `package.json`
-- No test configuration files
+- **6 test files** co-located with source: API client, 3 components, 2 hooks
+- Vitest + Testing Library + jsdom, configured in `vitest.config.ts`
+- Scripts: `npm test` (watch), `npm run test:run` (CI), `npm run test:coverage`
 
 ### CI/CD
-- No GitHub Actions workflows (`.github/` has only `FUNDING.yml` and PR template)
-- No Makefile or test automation scripts
-- PR template references `pytest` but there are no tests to run
+- `.github/workflows/ci.yml` with 5 jobs: `backend-lint`, `backend-test`, `frontend-lint`, `frontend-build`, `frontend-test`
+- Backend tests run against PostgreSQL 16 service container
+- `scripts/test.sh` for local development (auto-provisions ephemeral Postgres via Docker)
+- Concurrency cancellation enabled on PRs
 
 ---
 
-## Phase 1 — Critical: Backend Core & Security Tests
+## Completed Phases
 
-### 1a. Test Infrastructure
+### Phase 1 — Backend Core & Security Tests ✓
 
-Create `backend/tests/conftest.py` with:
-- Async SQLAlchemy session fixture using test transactions (rollback after each test)
-- Factory functions: `create_test_user(role=...)`, `create_test_card(type=...)`, `create_test_card_type(...)`
-- Auth helper to generate JWT tokens for test users
-- `httpx.AsyncClient` with FastAPI's `TestClient` for integration tests
+| Item | Test File | Status |
+|------|-----------|--------|
+| Test infrastructure (conftest, fixtures, factories) | `tests/conftest.py` | Done |
+| JWT + password hashing | `tests/core/test_security.py` | Done |
+| Fernet encryption | `tests/core/test_encryption.py` | Done |
+| Permission service (RBAC) | `tests/services/test_permission_service.py` | Done |
+| Auth endpoints (register, login, me, refresh) | `tests/api/test_auth.py` | Done |
+| Cards CRUD (create, update, archive, hierarchy, permissions) | `tests/api/test_cards.py` | Done |
 
-### 1b. `core/security.py` — JWT + Password Hashing
+### Phase 2 — Business Logic & Metamodel ✓
 
-- Token creation with correct payload (sub, role, iat, exp, iss, aud)
-- Token validation (expired, bad signature, missing claims)
-- Password hashing and verification round-trip
+| Item | Test File | Status |
+|------|-----------|--------|
+| Calculation engine (all built-in functions) | `tests/services/test_calculation_engine.py` | Done |
+| Metamodel types (CRUD, soft/hard delete, field schema) | `tests/api/test_metamodel.py` | Done |
+| BPMN parser (element extraction, safe XML) | `tests/services/test_bpmn_parser.py` | Done |
+| Roles (CRUD, system role protection, permissions schema) | `tests/api/test_roles.py` | Done |
+| Stakeholder roles (CRUD, definitions, card permissions) | `tests/api/test_stakeholder_roles.py` | Done |
 
-### 1c. `core/encryption.py` — Fernet Encryption
+### Phase 3 — Frontend Test Foundation ✓
 
-- Encrypt/decrypt round-trip
-- `enc:` prefix detection
-- Graceful handling of legacy plaintext values
-- Invalid token error handling
+| Item | Test File | Status |
+|------|-----------|--------|
+| Vitest + Testing Library setup | `vitest.config.ts`, `src/test/setup.ts` | Done |
+| API client (JWT injection, error handling, 204) | `src/api/client.test.ts` | Done |
+| `useMetamodel` hook | `src/hooks/useMetamodel.test.ts` | Done |
+| `useCurrency` hook | `src/hooks/useCurrency.test.ts` | Done |
+| `LifecycleBadge` component | `src/components/LifecycleBadge.test.tsx` | Done |
+| `ApprovalStatusBadge` component | `src/components/ApprovalStatusBadge.test.tsx` | Done |
+| `MaterialSymbol` component | `src/components/MaterialSymbol.test.tsx` | Done |
 
-### 1d. `services/permission_service.py` — RBAC
+### Phase 4 — CI/CD Automation ✓
 
-- Admin wildcard `{"*": true}` grants all permissions
-- Member role grants expected permissions, denies admin
-- Viewer role denies write operations
-- Stakeholder role union with app-level role
-- Cache invalidation behavior
-
-### 1e. `api/v1/auth.py` — Authentication Endpoints
-
-- Register (first user gets admin, subsequent get default role)
-- Login with correct/wrong credentials
-- Token refresh
-- `/me` endpoint returns current user
-- Rate limiting on login/register
-
-### 1f. `api/v1/cards.py` — Core CRUD
-
-- Create card, verify data quality auto-computed
-- Update card, verify approval status breaks on substantive change
-- Archive (soft-delete), verify `archived_at` set
-- Hierarchy (parent-child) queries
-- Permission checks on all operations
-- Bulk update
+| Item | Status |
+|------|--------|
+| GitHub Actions workflow (5 jobs) | Done |
+| Local test script (`scripts/test.sh`) | Done |
+| Coverage reporting (term-missing) | Done |
 
 ---
 
-## Phase 2 — High: Business Logic & Metamodel
+## Remaining Phases
 
-### 2a. `services/calculation_engine.py` — Formula Evaluation
+### Phase 5 — Medium: Integration & E2E
 
-- Each built-in function (IF, SUM, AVG, MIN, MAX, COUNT, ROUND, ABS, COALESCE, PLUCK, FILTER, MAP_SCORE)
-- Relation data access in formulas
-- Error handling for malformed formulas
-- Execution ordering
+#### 5a. Backend Integration Tests for Remaining Routes
 
-### 2b. `api/v1/metamodel.py` — Type/Relation Management
+Priority endpoints not yet covered:
 
-- CRUD for card types and relation types
-- Field schema validation
-- Soft-delete built-in vs hard-delete custom types
-- Field/section/option usage queries
+- Relations CRUD (`api/v1/relations.py`)
+- Reports endpoints (dashboard, portfolio, matrix, cost, lifecycle, dependencies, data quality)
+- BPM workflow (version lifecycle: draft → pending → published → archived)
+- BPM assessments and reports
+- Calculations CRUD + execution
+- Tags, comments, todos, documents
+- Diagrams CRUD
+- SoAW CRUD
+- Surveys (create, send, respond, results)
+- Bookmarks and saved reports
+- Users admin CRUD
+- Settings (SMTP, logo, favicon)
+- Notifications
+- Event streaming (SSE)
+- ServiceNow sync (mock external API with `httpx` respx or similar)
+- EOL proxy
+- Web portals (public + admin)
 
-### 2c. `services/bpmn_parser.py` — BPMN XML Parsing
+#### 5b. Frontend Tests for Remaining Hooks and Components
 
-- Element extraction from sample BPMN XML (tasks, events, gateways, lanes)
-- Verify safe parsing via `defusedxml`
-- Edge cases: empty XML, malformed XML
+Priority items not yet covered:
 
-### 2d. `api/v1/roles.py` + `api/v1/stakeholder_roles.py` — Role Management
-
-- CRUD with permission enforcement
-- Cannot delete system roles
-- Stakeholder role definitions per card type
-
----
-
-## Phase 3 — High: Frontend Test Foundation
-
-### 3a. Install Vitest + Testing Library
-
-Add to `devDependencies`:
-- `vitest`
-- `@testing-library/react`
-- `@testing-library/jest-dom`
-- `@testing-library/user-event`
-- `jsdom`
-
-Create `vitest.config.ts` with jsdom environment. Add scripts:
-```json
-{
-  "test": "vitest",
-  "test:coverage": "vitest --coverage"
-}
-```
-
-### 3b. API Client Tests (`src/api/client.ts`)
-
-- Mock `fetch` to verify JWT injection from sessionStorage
-- Verify error handling (401 redirect, validation error formatting)
-- Verify 204 empty response handling
-
-### 3c. Custom Hook Tests
-
+**Hooks:**
 - `useAuth` — login/logout/token management
-- `useMetamodel` — caching, invalidation
 - `usePermissions` — effective permission computation
 - `useCalculatedFields` — field map fetching
-- `useCurrency` — formatting
+- `useEventStream` — SSE connection + reconnect
+- `useBpmEnabled` — feature flag
 
-### 3d. Critical Component Tests
-
+**Components:**
 - `CreateCardDialog` — form validation, submission
-- `LifecycleBadge` / `ApprovalStatusBadge` — correct rendering per status
-- `InventoryPage` — AG Grid column config, filter sidebar interaction
-- `CardDetail` — section rendering based on metamodel, permission-based edit controls
+- `InventoryPage` — AG Grid column config, filter sidebar
+- `CardDetail` — section rendering, permission-based edit controls
+- `NotificationBell` — badge count, mark-read
+- `ErrorBoundary` — error state rendering
 
----
-
-## Phase 4 — Medium: CI/CD Automation
-
-### 4a. GitHub Actions Workflow
-
-Create `.github/workflows/ci.yml`:
-
-```yaml
-name: CI
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  backend-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install ruff
-      - run: ruff check backend/
-      - run: ruff format --check backend/
-
-  backend-test:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: turboea_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -e ".[dev]"
-        working-directory: backend
-      - run: pytest --cov=app --cov-report=term-missing
-        working-directory: backend
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: turboea_test
-
-  frontend-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run lint
-        working-directory: frontend
-
-  frontend-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run build
-        working-directory: frontend
-
-  frontend-test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - run: npm ci
-        working-directory: frontend
-      - run: npm run test -- --run
-        working-directory: frontend
-```
-
-### 4b. Pre-commit Hooks (Optional)
-
-- `ruff check` + `ruff format` for backend
-- `eslint` + `tsc --noEmit` for frontend
-
-### 4c. Coverage Thresholds
-
-- Start at 50% and increase over time
-- Consider Codecov for PR annotations
-
----
-
-## Phase 5 — Medium: Integration & E2E
-
-### 5a. Backend Integration Tests for Remaining Routes
-
-- Reports endpoints (dashboard, portfolio, matrix, etc.)
-- BPM workflow (version lifecycle: draft → pending → published → archived)
-- ServiceNow sync (mock external API with `httpx` respx or similar)
-- Surveys, SoAW, diagrams, tags, comments, todos, documents
-- Event streaming (SSE)
-
-### 5b. Frontend E2E with Playwright
+#### 5c. Frontend E2E with Playwright
 
 - Login flow
 - Create/edit/archive a card
@@ -263,7 +123,7 @@ jobs:
 
 ---
 
-## Phase 6 — Lower Priority
+### Phase 6 — Lower Priority
 
 - Seed data tests — verify `seed.py` and `seed_demo.py` produce valid metamodel/data
 - Email service tests — mock SMTP, verify email construction
@@ -273,61 +133,84 @@ jobs:
 
 ---
 
-## Quick Wins (Highest ROI)
+## Test Infrastructure Reference
 
-| Test | Why | Effort |
-|------|-----|--------|
-| `calculation_engine.py` unit tests | Pure logic, no DB, many edge cases | Low |
-| `encryption.py` unit tests | Security-critical, pure functions | Low |
-| `security.py` unit tests | JWT + bcrypt, pure functions | Low |
-| `bpmn_parser.py` unit tests | Pure XML parsing, easy with samples | Low |
-| `permission_service.py` tests | Core RBAC, prevents auth regressions | Medium |
-| Auth endpoint integration tests | Covers registration + login | Medium |
-| Frontend Vitest setup + API client tests | Foundation for all future tests | Medium |
-| GitHub Actions CI pipeline | Automates lint + build on every PR | Medium |
+### Backend Test Architecture
 
----
-
-## Structural Recommendations
-
-### Backend Test Organization
 ```
 backend/tests/
-├── conftest.py              # DB engine, session, app client, factories
+├── conftest.py                        # DB engine, session, app client, factories
 ├── core/
-│   ├── test_security.py
-│   ├── test_encryption.py
-│   └── test_permissions.py
+│   ├── test_security.py               # JWT + bcrypt
+│   └── test_encryption.py             # Fernet encrypt/decrypt
 ├── services/
-│   ├── test_calculation_engine.py
-│   ├── test_permission_service.py
-│   └── test_bpmn_parser.py
+│   ├── test_calculation_engine.py     # Formula evaluation
+│   ├── test_permission_service.py     # RBAC logic
+│   └── test_bpmn_parser.py           # BPMN XML parsing
 └── api/
-    ├── conftest.py          # Authenticated client fixtures per role
-    ├── test_auth.py
-    ├── test_cards.py
-    ├── test_metamodel.py
-    ├── test_roles.py
-    └── test_reports.py
+    ├── test_auth.py                   # Register, login, me, refresh
+    ├── test_cards.py                  # CRUD, hierarchy, permissions
+    ├── test_metamodel.py              # Types, relation types, delete
+    ├── test_roles.py                  # Role CRUD, permissions schema
+    └── test_stakeholder_roles.py      # Stakeholder role definitions
 ```
 
-### Frontend Test Co-location
-Place tests next to source files:
+### Key Test Fixtures (`conftest.py`)
+
+| Fixture | Scope | Purpose |
+|---------|-------|---------|
+| `test_engine` | session (sync) | Creates async engine with `NullPool`. Uses `asyncio.run()` for table setup/teardown. Must stay sync to avoid event loop mismatches. |
+| `db` | function (async) | Per-test transactional session with savepoint-rollback pattern. Each test gets a clean slate. |
+| `app` | function (async) | Minimal FastAPI app with `get_db` overridden to use the test session. |
+| `client` | function (async) | `httpx.AsyncClient` bound to the test app via `ASGITransport`. |
+| `_clear_permission_cache` | function (autouse) | Clears `PermissionService` caches before and after each test. |
+| `_disable_rate_limiter` | function (autouse) | Disables slowapi rate limiting so tests assert business logic, not rate limits. |
+
+### Factory Helpers
+
+| Helper | Default | Notes |
+|--------|---------|-------|
+| `create_role(db, key, label, permissions)` | admin with `{"*": True}` | |
+| `create_user(db, email, role, password)` | Random email, admin role | |
+| `create_card_type(db, key, label, fields_schema)` | Application | Defaults to `built_in=False`; pass `built_in=True` explicitly for built-in type tests |
+| `create_card(db, card_type, name, user_id)` | Application, "Test Card" | |
+| `create_relation_type(db, key, source_type_key, target_type_key)` | app_to_itc | |
+| `create_relation(db, type_key, source_id, target_id)` | app_to_itc | |
+| `create_stakeholder_role_def(db, card_type_key, key, label)` | Application, responsible | |
+| `auth_headers(user)` | — | Returns `{"Authorization": "Bearer <token>"}` |
+
+### Frontend Test Architecture
+
 ```
-src/
+frontend/src/
+├── test/
+│   └── setup.ts                       # @testing-library/jest-dom matchers
 ├── api/
-│   ├── client.ts
-│   └── client.test.ts
+│   └── client.test.ts                 # Fetch wrapper, JWT, error handling
 ├── hooks/
-│   ├── useAuth.ts
-│   └── useAuth.test.ts
-└── features/cards/
-    ├── CardDetail.tsx
-    └── CardDetail.test.tsx
+│   ├── useMetamodel.test.ts           # Cache, invalidation
+│   └── useCurrency.test.ts            # Formatting
+└── components/
+    ├── LifecycleBadge.test.tsx         # Status rendering
+    ├── ApprovalStatusBadge.test.tsx    # Approval status rendering
+    └── MaterialSymbol.test.tsx         # Icon rendering
 ```
 
-### PR Template Updates
-Replace aspirational `pytest` checkbox with CI-enforced checks. Add frontend test requirement.
+### Running Tests
 
-### CLAUDE.md Updates
-Add a Testing section documenting conventions, how to run tests, and expected patterns.
+```bash
+# Backend — unit tests only (no database needed)
+cd backend && python -m pytest tests/core/ tests/services/ -q
+
+# Backend — all tests (auto-provisions ephemeral Postgres via Docker)
+./scripts/test.sh
+
+# Backend — all tests with coverage
+./scripts/test.sh --cov
+
+# Frontend — watch mode
+cd frontend && npm test
+
+# Frontend — single run (CI mode)
+cd frontend && npm run test:run
+```
