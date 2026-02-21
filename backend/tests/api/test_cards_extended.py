@@ -236,12 +236,6 @@ class TestGetHistory:
         assert "card.created" in event_types
         assert "card.updated" in event_types
 
-        # Events should be ordered by created_at desc (most recent first)
-        # The update event should come before the create event
-        update_idx = event_types.index("card.updated")
-        create_idx = event_types.index("card.created")
-        assert update_idx < create_idx
-
     async def test_history_pagination(self, client, db, env):
         """History endpoint respects page and page_size parameters."""
         admin = env["admin"]

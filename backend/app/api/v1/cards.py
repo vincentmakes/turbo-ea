@@ -425,6 +425,40 @@ async def get_hierarchy(
     }
 
 
+@router.patch("/bulk", response_model=list[CardResponse])
+async def bulk_update(
+    body: CardBulkUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "inventory.bulk_edit")
+    uuids = [uuid.UUID(i) for i in body.ids]
+    result = await db.execute(select(Card).where(Card.id.in_(uuids)))
+    sheets = result.scalars().all()
+    updates = body.updates.model_dump(exclude_unset=True)
+    if "attributes" in updates and updates["attributes"]:
+        for card in sheets:
+            await _validate_url_attributes(db, card.type, updates["attributes"])
+            break  # schema is per-type; validated once per distinct type
+    for card in sheets:
+        for field, value in updates.items():
+            if field == "parent_id" and value is not None:
+                value = uuid.UUID(value)
+            setattr(card, field, value)
+        card.updated_by = user.id
+    await db.commit()
+    result = await db.execute(
+        select(Card)
+        .where(Card.id.in_(uuids))
+        .options(
+            selectinload(Card.tags).selectinload(Tag.group),
+            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
+        )
+    )
+    sheets = result.scalars().all()
+    return [_card_to_response(card) for card in sheets]
+
+
 @router.patch("/{card_id}", response_model=CardResponse)
 async def update_card(
     card_id: str,
@@ -671,40 +705,6 @@ async def delete_card(
 
     await db.delete(card)
     await db.commit()
-
-
-@router.patch("/bulk", response_model=list[CardResponse])
-async def bulk_update(
-    body: CardBulkUpdate,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    await PermissionService.require_permission(db, user, "inventory.bulk_edit")
-    uuids = [uuid.UUID(i) for i in body.ids]
-    result = await db.execute(select(Card).where(Card.id.in_(uuids)))
-    sheets = result.scalars().all()
-    updates = body.updates.model_dump(exclude_unset=True)
-    if "attributes" in updates and updates["attributes"]:
-        for card in sheets:
-            await _validate_url_attributes(db, card.type, updates["attributes"])
-            break  # schema is per-type; validated once per distinct type
-    for card in sheets:
-        for field, value in updates.items():
-            if field == "parent_id" and value is not None:
-                value = uuid.UUID(value)
-            setattr(card, field, value)
-        card.updated_by = user.id
-    await db.commit()
-    result = await db.execute(
-        select(Card)
-        .where(Card.id.in_(uuids))
-        .options(
-            selectinload(Card.tags).selectinload(Tag.group),
-            selectinload(Card.stakeholders).selectinload(Stakeholder.user),
-        )
-    )
-    sheets = result.scalars().all()
-    return [_card_to_response(card) for card in sheets]
 
 
 @router.post("/fix-hierarchy-names")

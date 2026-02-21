@@ -327,6 +327,7 @@ async def update_connection(
     conn.credentials = encrypt_credentials(existing_creds)
 
     await db.commit()
+    await db.refresh(conn)
     return _conn_to_out(conn)
 
 
