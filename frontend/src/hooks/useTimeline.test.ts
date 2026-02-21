@@ -82,9 +82,10 @@ describe("useTimeline", () => {
     const { result } = renderHook(() => useTimeline());
 
     act(() => {
-      // Same day, different time
+      // Same day, different time — use a time close to the initial one
+      // to avoid timezone-related day boundary issues
       result.current.setTimelineDate(
-        new Date("2025-06-15T23:59:59Z").getTime(),
+        new Date("2025-06-15T12:30:00Z").getTime(),
       );
     });
 

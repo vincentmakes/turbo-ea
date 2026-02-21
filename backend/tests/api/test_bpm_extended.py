@@ -796,9 +796,9 @@ class TestCapabilityProcessMatrixWithData:
         assert len(data["columns"]) >= 1
         assert len(data["cells"]) >= 1
 
-        # Verify the capability appears in rows
-        row_names = [r["name"] for r in data["rows"]]
-        assert "Order Management" in row_names
+        # Rows = processes (sources), Columns = capabilities (targets)
+        col_names = [c["name"] for c in data["columns"]]
+        assert "Order Management" in col_names
 
 
 class TestProcessApplicationMatrixWithData:
@@ -899,12 +899,12 @@ class TestCapabilityHeatmapWithData:
 
         await create_relation_type(
             db,
-            key="relBCToProcess",
-            label="Capability to Process",
-            source_type_key="BusinessCapability",
-            target_type_key="BusinessProcess",
+            key="relProcessToBC",
+            label="Process to Capability",
+            source_type_key="BusinessProcess",
+            target_type_key="BusinessCapability",
         )
-        await create_relation(db, type_key="relBCToProcess", source_id=cap.id, target_id=process.id)
+        await create_relation(db, type_key="relProcessToBC", source_id=process.id, target_id=cap.id)
 
         resp = await client.get(
             "/api/v1/reports/bpm/capability-heatmap?metric=process_count",
