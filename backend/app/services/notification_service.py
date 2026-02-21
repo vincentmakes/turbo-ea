@@ -1,4 +1,5 @@
 """Notification service — creates in-app notifications and queues email notifications."""
+
 from __future__ import annotations
 
 import uuid
@@ -120,9 +121,7 @@ async def create_notifications_for_subscribers(
     """Create notifications for all subscribers of a card."""
     from app.models.stakeholder import Stakeholder
 
-    result = await db.execute(
-        select(Stakeholder).where(Stakeholder.card_id == card_id)
-    )
+    result = await db.execute(select(Stakeholder).where(Stakeholder.card_id == card_id))
     subs = result.scalars().all()
 
     notifications = []

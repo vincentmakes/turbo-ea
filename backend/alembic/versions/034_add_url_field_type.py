@@ -6,8 +6,9 @@ Revises: 033
 
 import json
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 revision = "034"
 down_revision = "033"

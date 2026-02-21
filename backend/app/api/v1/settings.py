@@ -1,4 +1,5 @@
 """Admin-only application settings — email / SMTP configuration + logo management."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -27,6 +28,7 @@ MAX_LOGO_SIZE = 2 * 1024 * 1024  # 2 MB
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class EmailSettingsPayload(BaseModel):
     smtp_host: str = ""
     smtp_port: int = 587
@@ -54,6 +56,7 @@ DEFAULT_CURRENCY = "USD"
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 async def _get_or_create_row(db: AsyncSession) -> AppSettings:
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
@@ -86,6 +89,7 @@ def _apply_to_runtime(email: dict) -> None:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/email")
 async def get_email_settings(
@@ -156,6 +160,7 @@ async def test_email_settings(
         )
     except Exception:
         import logging
+
         logging.getLogger(__name__).exception("Failed to send test email")
         raise HTTPException(502, "Failed to send test email. Check SMTP settings and server logs.")
 
@@ -166,12 +171,11 @@ async def test_email_settings(
 # Currency endpoint
 # ---------------------------------------------------------------------------
 
+
 @router.get("/currency")
 async def get_currency(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the configured display currency."""
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     return {"currency": general.get("currency", DEFAULT_CURRENCY)}
@@ -199,6 +203,7 @@ async def update_currency(
 # BPM row-order endpoint
 # ---------------------------------------------------------------------------
 
+
 class BpmRowOrderPayload(BaseModel):
     row_order: list[str]
 
@@ -210,9 +215,7 @@ class BpmEnabledPayload(BaseModel):
 @router.get("/bpm-enabled")
 async def get_bpm_enabled(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns whether the BPM module is enabled."""
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     return {"enabled": general.get("bpmEnabled", True)}
@@ -239,9 +242,7 @@ async def update_bpm_enabled(
 
     # Toggle is_hidden on the BusinessProcess card type
     hide = not body.enabled
-    fst_result = await db.execute(
-        select(CardType).where(CardType.key == "BusinessProcess")
-    )
+    fst_result = await db.execute(select(CardType).where(CardType.key == "BusinessProcess"))
     fst = fst_result.scalar_one_or_none()
     if fst:
         fst.is_hidden = hide
@@ -266,9 +267,7 @@ async def update_bpm_enabled(
 @router.get("/bpm-row-order")
 async def get_bpm_row_order(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the configured BPM process type row order."""
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     return {"row_order": general.get("bpmRowOrder", ["management", "core", "support"])}
@@ -296,6 +295,7 @@ async def update_bpm_row_order(
 # Logo endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/logo")
 async def get_logo(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the current logo (custom or default)."""
@@ -319,9 +319,7 @@ async def get_favicon(db: AsyncSession = Depends(get_db)):
 
     Priority: custom favicon → default favicon.
     """
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
 
     if row and row.custom_favicon:
@@ -365,8 +363,7 @@ async def upload_logo(
     if content_type not in ALLOWED_LOGO_MIMES:
         raise HTTPException(
             400,
-            f"Unsupported file type: {content_type}. "
-            "Allowed: PNG, JPEG, WebP, GIF.",
+            f"Unsupported file type: {content_type}. Allowed: PNG, JPEG, WebP, GIF.",
         )
 
     data = await file.read()
@@ -401,6 +398,7 @@ async def reset_logo(
 # Favicon endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/favicon/info")
 async def get_favicon_info(
     db: AsyncSession = Depends(get_db),
@@ -431,8 +429,7 @@ async def upload_favicon(
     if content_type not in ALLOWED_LOGO_MIMES:
         raise HTTPException(
             400,
-            f"Unsupported file type: {content_type}. "
-            "Allowed: PNG, JPEG, WebP, GIF.",
+            f"Unsupported file type: {content_type}. Allowed: PNG, JPEG, WebP, GIF.",
         )
 
     data = await file.read()
@@ -466,6 +463,7 @@ async def reset_favicon(
 # ---------------------------------------------------------------------------
 # SSO / Entra ID endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/sso")
 async def get_sso_settings(
@@ -529,6 +527,7 @@ async def get_sso_status(db: AsyncSession = Depends(get_db)):
 # Self-registration toggle
 # ---------------------------------------------------------------------------
 
+
 class RegistrationPayload(BaseModel):
     enabled: bool
 
@@ -536,9 +535,7 @@ class RegistrationPayload(BaseModel):
 @router.get("/registration")
 async def get_registration_settings(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns whether self-registration is enabled."""
-    result = await db.execute(
-        select(AppSettings).where(AppSettings.id == "default")
-    )
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
     row = result.scalar_one_or_none()
     general = (row.general_settings if row else None) or {}
     return {"enabled": general.get("registrationEnabled", True)}

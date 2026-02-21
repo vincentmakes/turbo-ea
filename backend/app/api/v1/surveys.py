@@ -101,9 +101,7 @@ def _response_to_dict(r: SurveyResponse) -> dict:
     }
 
 
-async def _resolve_targets(
-    db: AsyncSession, survey: Survey
-) -> list[dict]:
+async def _resolve_targets(db: AsyncSession, survey: Survey) -> list[dict]:
     """Resolve survey filters into a list of {card, users} dicts."""
     filters = survey.target_filters or {}
     roles = survey.target_roles or []
@@ -118,9 +116,7 @@ async def _resolve_targets(
     tag_ids = filters.get("tag_ids") or []
     if tag_ids:
         tag_uuids = [uuid.UUID(t) for t in tag_ids]
-        tagged_fs = select(CardTag.card_id).where(
-            CardTag.tag_id.in_(tag_uuids)
-        )
+        tagged_fs = select(CardTag.card_id).where(CardTag.tag_id.in_(tag_uuids))
         q = q.where(Card.id.in_(tagged_fs))
 
     # Related card filter
@@ -128,12 +124,10 @@ async def _resolve_targets(
     if related_ids:
         related_uuids = [uuid.UUID(r) for r in related_ids]
         # Find cards related to any of these IDs (as source or target)
-        related_fs = select(Relation.source_id).where(
-            Relation.target_id.in_(related_uuids)
-        ).union(
-            select(Relation.target_id).where(
-                Relation.source_id.in_(related_uuids)
-            )
+        related_fs = (
+            select(Relation.source_id)
+            .where(Relation.target_id.in_(related_uuids))
+            .union(select(Relation.target_id).where(Relation.source_id.in_(related_uuids)))
         )
         q = q.where(Card.id.in_(related_fs))
 
@@ -168,9 +162,7 @@ async def _resolve_targets(
                 q = q.where(col != str_val)
             elif op in ("gt", "lt", "gte", "lte"):
                 # Cast to numeric for comparisons
-                num_col = Card.attributes[key].astext.cast(
-                    sqlalchemy.Numeric
-                )
+                num_col = Card.attributes[key].astext.cast(sqlalchemy.Numeric)
                 try:
                     num_val = float(value)
                 except (ValueError, TypeError):
@@ -194,7 +186,11 @@ async def _resolve_targets(
 
     # Find subscribers for these cards with matching roles
     card_ids = [card.id for card in cards]
-    sub_q = select(Stakeholder).where(Stakeholder.card_id.in_(card_ids)).options(selectinload(Stakeholder.user))
+    sub_q = (
+        select(Stakeholder)
+        .where(Stakeholder.card_id.in_(card_ids))
+        .options(selectinload(Stakeholder.user))
+    )
     if roles:
         sub_q = sub_q.where(Stakeholder.role.in_(roles))
 
@@ -216,12 +212,14 @@ async def _resolve_targets(
         # Avoid duplicate users
         user_ids = {u["user_id"] for u in targets[sub.card_id]["users"]}
         if str(sub.user_id) not in user_ids and sub.user:
-            targets[sub.card_id]["users"].append({
-                "user_id": str(sub.user_id),
-                "display_name": sub.user.display_name,
-                "email": sub.user.email,
-                "role": sub.role,
-            })
+            targets[sub.card_id]["users"].append(
+                {
+                    "user_id": str(sub.user_id),
+                    "display_name": sub.user.display_name,
+                    "email": sub.user.email,
+                    "role": sub.role,
+                }
+            )
 
     return list(targets.values())
 
@@ -286,9 +284,7 @@ async def create_survey(
     await PermissionService.require_permission(db, user, "surveys.manage")
 
     # Validate target type exists
-    type_result = await db.execute(
-        select(CardType).where(CardType.key == body.target_type_key)
-    )
+    type_result = await db.execute(select(CardType).where(CardType.key == body.target_type_key))
     if not type_result.scalar_one_or_none():
         raise HTTPException(400, f"Unknown card type: {body.target_type_key}")
 
@@ -305,8 +301,7 @@ async def create_survey(
     db.add(survey)
     await db.commit()
     result = await db.execute(
-        select(Survey).where(Survey.id == survey.id)
-        .options(selectinload(Survey.creator))
+        select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )
     survey = result.scalar_one()
     return _survey_to_dict(survey)
@@ -346,11 +341,13 @@ async def my_surveys(
                 "items": [],
             }
         survey_map[sid]["pending_count"] += 1
-        survey_map[sid]["items"].append({
-            "response_id": str(r.id),
-            "card_id": str(r.card_id),
-            "card_name": r.card.name if r.card else None,
-        })
+        survey_map[sid]["items"].append(
+            {
+                "response_id": str(r.id),
+                "card_id": str(r.card_id),
+                "card_name": r.card.name if r.card else None,
+            }
+        )
 
     return list(survey_map.values())
 
@@ -365,7 +362,8 @@ async def get_survey(
     await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(
-        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        select(Survey)
+        .where(Survey.id == uuid.UUID(survey_id))
         .options(selectinload(Survey.creator))
     )
     survey = result.scalar_one_or_none()
@@ -387,7 +385,8 @@ async def update_survey(
     await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(
-        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        select(Survey)
+        .where(Survey.id == uuid.UUID(survey_id))
         .options(selectinload(Survey.creator))
     )
     survey = result.scalar_one_or_none()
@@ -397,8 +396,13 @@ async def update_survey(
         raise HTTPException(400, "Only draft surveys can be edited")
 
     updatable = (
-        "name", "description", "message",
-        "target_type_key", "target_filters", "target_roles", "fields",
+        "name",
+        "description",
+        "message",
+        "target_type_key",
+        "target_filters",
+        "target_roles",
+        "fields",
     )
     for field in updatable:
         val = getattr(body, field, None)
@@ -407,8 +411,7 @@ async def update_survey(
 
     await db.commit()
     result = await db.execute(
-        select(Survey).where(Survey.id == survey.id)
-        .options(selectinload(Survey.creator))
+        select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )
     survey = result.scalar_one()
     return _survey_to_dict(survey)
@@ -517,8 +520,7 @@ async def send_survey(
     survey.sent_at = datetime.now(timezone.utc)
     await db.commit()
     result = await db.execute(
-        select(Survey).where(Survey.id == survey.id)
-        .options(selectinload(Survey.creator))
+        select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )
     survey = result.scalar_one()
 
@@ -536,7 +538,8 @@ async def close_survey(
     await PermissionService.require_permission(db, user, "surveys.manage")
 
     result = await db.execute(
-        select(Survey).where(Survey.id == uuid.UUID(survey_id))
+        select(Survey)
+        .where(Survey.id == uuid.UUID(survey_id))
         .options(selectinload(Survey.creator))
     )
     survey = result.scalar_one_or_none()
@@ -549,8 +552,7 @@ async def close_survey(
     survey.closed_at = datetime.now(timezone.utc)
     await db.commit()
     result = await db.execute(
-        select(Survey).where(Survey.id == survey.id)
-        .options(selectinload(Survey.creator))
+        select(Survey).where(Survey.id == survey.id).options(selectinload(Survey.creator))
     )
     survey = result.scalar_one()
 
@@ -568,12 +570,15 @@ async def list_responses(
     """Get all responses for a survey (admin only)."""
     await PermissionService.require_permission(db, user, "surveys.manage")
 
-    q = select(SurveyResponse).where(
-        SurveyResponse.survey_id == uuid.UUID(survey_id)
-    ).options(
-        selectinload(SurveyResponse.card),
-        selectinload(SurveyResponse.user),
-    ).order_by(SurveyResponse.created_at)
+    q = (
+        select(SurveyResponse)
+        .where(SurveyResponse.survey_id == uuid.UUID(survey_id))
+        .options(
+            selectinload(SurveyResponse.card),
+            selectinload(SurveyResponse.user),
+        )
+        .order_by(SurveyResponse.created_at)
+    )
 
     if status:
         q = q.where(SurveyResponse.status == status)
@@ -620,9 +625,7 @@ async def apply_responses(
             continue
 
         # Load the card
-        card_result = await db.execute(
-            select(Card).where(Card.id == resp.card_id)
-        )
+        card_result = await db.execute(select(Card).where(Card.id == resp.card_id))
         card = card_result.scalar_one_or_none()
         if not card:
             errors.append({"response_id": rid_str, "error": "Card not found"})
@@ -697,12 +700,14 @@ async def get_response_form(
     # Build current values for each survey field
     attrs = card.attributes or {}
     fields_with_values = []
-    for field_def in (survey.fields or []):
+    for field_def in survey.fields or []:
         current_value = attrs.get(field_def["key"])
-        fields_with_values.append({
-            **field_def,
-            "current_value": current_value,
-        })
+        fields_with_values.append(
+            {
+                **field_def,
+                "current_value": current_value,
+            }
+        )
 
     return {
         "response_id": str(resp.id),
@@ -760,7 +765,7 @@ async def submit_response(
 
     # Build full response data with current values
     full_responses = {}
-    for field_def in (survey.fields or []):
+    for field_def in survey.fields or []:
         key = field_def["key"]
         submitted = body.responses.get(key, {})
         full_responses[key] = {

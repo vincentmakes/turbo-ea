@@ -1,4 +1,5 @@
 """ServiceNow integration models — connections, mappings, sync runs, staging."""
+
 from __future__ import annotations
 
 import uuid
@@ -21,9 +22,7 @@ class SnowConnection(UUIDMixin, TimestampMixin, Base):
     auth_type: Mapped[str] = mapped_column(String(20), default="basic")
     credentials: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_tested_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_tested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     test_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     mappings: Mapped[list[SnowMapping]] = relationship(
@@ -87,12 +86,8 @@ class SnowSyncRun(UUIDMixin, Base):
     )
     status: Mapped[str] = mapped_column(String(20), default="running")
     direction: Mapped[str] = mapped_column(String(20), default="pull")
-    started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
-    completed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     stats: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(
@@ -113,16 +108,12 @@ class SnowStagedRecord(UUIDMixin, Base):
     )
     snow_sys_id: Mapped[str] = mapped_column(String(32))
     snow_data: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    card_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
+    card_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     action: Mapped[str] = mapped_column(String(20), default="skip")
     diff: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pending")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class SnowIdentityMap(UUIDMixin, TimestampMixin, Base):
@@ -140,6 +131,4 @@ class SnowIdentityMap(UUIDMixin, TimestampMixin, Base):
     snow_sys_id: Mapped[str] = mapped_column(String(32))
     snow_table: Mapped[str] = mapped_column(String(200))
     created_by_sync: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_synced_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

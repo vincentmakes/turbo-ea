@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 _DEFAULT_SECRET_KEYS = ("change-me-in-production", "dev-secret-key-change-in-production")
 
 
@@ -41,8 +40,7 @@ class Settings:
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
 
     ALLOWED_ORIGINS: list[str] = [
-        o.strip()
-        for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8920").split(",")
+        o.strip() for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:8920").split(",")
     ]
 
     # Email / SMTP (optional — if not configured, email notifications are skipped)

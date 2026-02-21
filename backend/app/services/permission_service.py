@@ -9,7 +9,6 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import CARD_TO_APP_PERMISSION_MAP
 from app.models.card import Card
 from app.models.role import Role
 from app.models.stakeholder import Stakeholder
@@ -74,9 +73,7 @@ class PermissionService:
                 Stakeholder.user_id == user.id,
             )
         )
-        card_type_result = await db.execute(
-            select(Card.type).where(Card.id == card_id)
-        )
+        card_type_result = await db.execute(select(Card.type).where(Card.id == card_id))
         type_key = card_type_result.scalar_one_or_none()
         if not type_key:
             return False
@@ -115,9 +112,7 @@ class PermissionService:
         if await PermissionService.has_app_permission(db, user, app_permission):
             return True
         if card_id and card_permission:
-            return await PermissionService.has_card_permission(
-                db, user, card_id, card_permission
-            )
+            return await PermissionService.has_card_permission(db, user, card_id, card_permission)
         return False
 
     @staticmethod
@@ -135,9 +130,7 @@ class PermissionService:
             raise HTTPException(403, "Insufficient permissions")
 
     @staticmethod
-    async def get_effective_card_permissions(
-        db: AsyncSession, user: User, card_id: UUID
-    ) -> dict:
+    async def get_effective_card_permissions(db: AsyncSession, user: User, card_id: UUID) -> dict:
         """Return the user's effective permissions on a specific card.
 
         Returns a dict with app_level, stakeholder_roles, card_level, and effective keys.
@@ -147,9 +140,7 @@ class PermissionService:
         app_perms = role_data.get("permissions", {}) if role_data else {}
 
         # Get card type
-        card_type_result = await db.execute(
-            select(Card.type).where(Card.id == card_id)
-        )
+        card_type_result = await db.execute(select(Card.type).where(Card.id == card_id))
         type_key = card_type_result.scalar_one_or_none()
 
         # Get user stakeholder roles on this card
@@ -181,23 +172,51 @@ class PermissionService:
         # Compute effective permissions (union of app-level and card-level)
         is_admin = app_perms.get("*", False)
         effective = {
-            "can_view": is_admin or app_perms.get("inventory.view", False) or card_level.get("card.view", False),
-            "can_edit": is_admin or app_perms.get("inventory.edit", False) or card_level.get("card.edit", False),
-            "can_archive": is_admin or app_perms.get("inventory.archive", False) or card_level.get("card.archive", False),
-            "can_delete": is_admin or app_perms.get("inventory.delete", False) or card_level.get("card.delete", False),
-            "can_approval_status": is_admin or app_perms.get("inventory.approval_status", False) or card_level.get("card.approval_status", False),
-            "can_manage_stakeholders": is_admin or app_perms.get("stakeholders.manage", False) or card_level.get("card.manage_stakeholders", False),
-            "can_manage_relations": is_admin or app_perms.get("relations.manage", False) or card_level.get("card.manage_relations", False),
-            "can_manage_documents": is_admin or app_perms.get("documents.manage", False) or card_level.get("card.manage_documents", False),
-            "can_manage_comments": is_admin or app_perms.get("comments.manage", False) or card_level.get("card.manage_comments", False),
-            "can_create_comments": is_admin or app_perms.get("comments.create", False) or card_level.get("card.create_comments", False),
-            "can_bpm_edit": is_admin or app_perms.get("bpm.edit", False) or card_level.get("card.bpm_edit", False),
-            "can_bpm_manage_drafts": is_admin or app_perms.get("bpm.manage_drafts", False) or card_level.get("card.bpm_manage_drafts", False),
-            "can_bpm_approve": is_admin or app_perms.get("bpm.approve_flows", False) or card_level.get("card.bpm_approve", False),
+            "can_view": is_admin
+            or app_perms.get("inventory.view", False)
+            or card_level.get("card.view", False),
+            "can_edit": is_admin
+            or app_perms.get("inventory.edit", False)
+            or card_level.get("card.edit", False),
+            "can_archive": is_admin
+            or app_perms.get("inventory.archive", False)
+            or card_level.get("card.archive", False),
+            "can_delete": is_admin
+            or app_perms.get("inventory.delete", False)
+            or card_level.get("card.delete", False),
+            "can_approval_status": is_admin
+            or app_perms.get("inventory.approval_status", False)
+            or card_level.get("card.approval_status", False),
+            "can_manage_stakeholders": is_admin
+            or app_perms.get("stakeholders.manage", False)
+            or card_level.get("card.manage_stakeholders", False),
+            "can_manage_relations": is_admin
+            or app_perms.get("relations.manage", False)
+            or card_level.get("card.manage_relations", False),
+            "can_manage_documents": is_admin
+            or app_perms.get("documents.manage", False)
+            or card_level.get("card.manage_documents", False),
+            "can_manage_comments": is_admin
+            or app_perms.get("comments.manage", False)
+            or card_level.get("card.manage_comments", False),
+            "can_create_comments": is_admin
+            or app_perms.get("comments.create", False)
+            or card_level.get("card.create_comments", False),
+            "can_bpm_edit": is_admin
+            or app_perms.get("bpm.edit", False)
+            or card_level.get("card.bpm_edit", False),
+            "can_bpm_manage_drafts": is_admin
+            or app_perms.get("bpm.manage_drafts", False)
+            or card_level.get("card.bpm_manage_drafts", False),
+            "can_bpm_approve": is_admin
+            or app_perms.get("bpm.approve_flows", False)
+            or card_level.get("card.bpm_approve", False),
         }
 
         return {
-            "app_level": {k: v for k, v in app_perms.items() if k != "*"} if not is_admin else {"*": True},
+            "app_level": {k: v for k, v in app_perms.items() if k != "*"}
+            if not is_admin
+            else {"*": True},
             "stakeholder_roles": stakeholder_roles,
             "card_level": card_level,
             "effective": effective,

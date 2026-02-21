@@ -46,6 +46,7 @@ class DiagramUpdate(BaseModel):
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
+
 async def _get_initiative_ids(db: AsyncSession, diagram_id: uuid.UUID) -> list[str]:
     """Return initiative_ids for a single diagram."""
     result = await db.execute(
@@ -67,7 +68,9 @@ async def _get_initiative_ids_bulk(db: AsyncSession) -> dict[str, list[str]]:
 
 
 async def _set_initiative_ids(
-    db: AsyncSession, diagram_id: uuid.UUID, initiative_ids: list[str],
+    db: AsyncSession,
+    diagram_id: uuid.UUID,
+    initiative_ids: list[str],
 ) -> None:
     """Replace all initiative links for a diagram."""
     await db.execute(
@@ -78,12 +81,14 @@ async def _set_initiative_ids(
     for iid in initiative_ids:
         await db.execute(
             diagram_initiatives.insert().values(
-                diagram_id=diagram_id, initiative_id=uuid.UUID(iid),
+                diagram_id=diagram_id,
+                initiative_id=uuid.UUID(iid),
             )
         )
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("")
 async def list_diagrams(

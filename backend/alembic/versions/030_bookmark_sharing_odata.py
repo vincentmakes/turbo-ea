@@ -7,6 +7,7 @@ Revision ID: 030
 Revises: 029
 Create Date: 2026-02-19
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -33,12 +34,14 @@ def upgrade() -> None:
     op.create_table(
         "bookmark_shares",
         sa.Column(
-            "bookmark_id", UUID(as_uuid=True),
+            "bookmark_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("bookmarks.id", ondelete="CASCADE"),
             primary_key=True,
         ),
         sa.Column(
-            "user_id", UUID(as_uuid=True),
+            "user_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("users.id", ondelete="CASCADE"),
             primary_key=True,
         ),

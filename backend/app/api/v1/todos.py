@@ -57,9 +57,7 @@ async def list_all_todos(
         q = q.where(Todo.assigned_to == target_id)
     elif mine:
         # Default: only show todos assigned to or created by the current user
-        q = q.where(
-            (Todo.assigned_to == user.id) | (Todo.created_by == user.id)
-        )
+        q = q.where((Todo.assigned_to == user.id) | (Todo.created_by == user.id))
 
     q = q.options(selectinload(Todo.card), selectinload(Todo.assignee))
     result = await db.execute(q)
@@ -115,7 +113,8 @@ async def create_todo(
 
     await db.commit()
     result = await db.execute(
-        select(Todo).where(Todo.id == todo.id)
+        select(Todo)
+        .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee))
     )
     todo = result.scalar_one()
@@ -172,7 +171,8 @@ async def update_todo(
 
     await db.commit()
     result = await db.execute(
-        select(Todo).where(Todo.id == todo.id)
+        select(Todo)
+        .where(Todo.id == todo.id)
         .options(selectinload(Todo.card), selectinload(Todo.assignee))
     )
     todo = result.scalar_one()

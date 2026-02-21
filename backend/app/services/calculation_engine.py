@@ -4,6 +4,7 @@ Safe formula evaluation engine using simpleeval.
 Provides a sandboxed expression evaluator with EA-specific helper functions
 and a context builder that loads card data + relations for formula execution.
 """
+
 from __future__ import annotations
 
 import ast
@@ -219,9 +220,7 @@ async def _build_context(db: AsyncSession, card: Card) -> dict[str, Any]:
 
     # Fetch all relations involving this card
     rels_result = await db.execute(
-        select(Relation).where(
-            (Relation.source_id == card.id) | (Relation.target_id == card.id)
-        )
+        select(Relation).where((Relation.source_id == card.id) | (Relation.target_id == card.id))
     )
     all_rels = rels_result.scalars().all()
 
@@ -464,9 +463,7 @@ async def run_calculations_for_type(
     }
 
 
-async def validate_formula(
-    formula: str, target_type_key: str, db: AsyncSession
-) -> dict:
+async def validate_formula(formula: str, target_type_key: str, db: AsyncSession) -> dict:
     """Validate a formula without executing it on real data."""
     try:
         if len(formula) > MAX_FORMULA_LENGTH:
@@ -475,9 +472,7 @@ async def validate_formula(
                 "error": f"Formula exceeds maximum length of {MAX_FORMULA_LENGTH} characters",
             }
 
-        type_result = await db.execute(
-            select(CardType).where(CardType.key == target_type_key)
-        )
+        type_result = await db.execute(select(CardType).where(CardType.key == target_type_key))
         card_type = type_result.scalar_one_or_none()
         if not card_type:
             return {"valid": False, "error": f"Card type '{target_type_key}' not found"}
@@ -525,9 +520,7 @@ async def validate_formula(
         return {"valid": False, "error": f"{type(e).__name__}: {e}"}
 
 
-async def detect_cycles(
-    db: AsyncSession, new_calc: Calculation
-) -> list[str] | None:
+async def detect_cycles(db: AsyncSession, new_calc: Calculation) -> list[str] | None:
     """Check if activating new_calc would create a dependency cycle.
 
     Returns list of field keys in the cycle, or None if safe.

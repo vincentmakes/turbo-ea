@@ -7,6 +7,7 @@ Revision ID: 031
 Revises: 030
 Create Date: 2026-02-19
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -39,7 +40,8 @@ def upgrade() -> None:
         "servicenow_mappings",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "connection_id", UUID(as_uuid=True),
+            "connection_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_connections.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -58,7 +60,8 @@ def upgrade() -> None:
         "servicenow_field_mappings",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "mapping_id", UUID(as_uuid=True),
+            "mapping_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_mappings.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -76,12 +79,14 @@ def upgrade() -> None:
         "servicenow_sync_runs",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "connection_id", UUID(as_uuid=True),
+            "connection_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_connections.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column(
-            "mapping_id", UUID(as_uuid=True),
+            "mapping_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_mappings.id", ondelete="SET NULL"),
             nullable=True,
         ),
@@ -92,7 +97,8 @@ def upgrade() -> None:
         sa.Column("stats", JSONB, nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column(
-            "created_by", UUID(as_uuid=True),
+            "created_by",
+            UUID(as_uuid=True),
             sa.ForeignKey("users.id", ondelete="SET NULL"),
             nullable=True,
         ),
@@ -102,12 +108,14 @@ def upgrade() -> None:
         "servicenow_staged_records",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "sync_run_id", UUID(as_uuid=True),
+            "sync_run_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_sync_runs.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column(
-            "mapping_id", UUID(as_uuid=True),
+            "mapping_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_mappings.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -125,12 +133,14 @@ def upgrade() -> None:
         "servicenow_identity_map",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column(
-            "connection_id", UUID(as_uuid=True),
+            "connection_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_connections.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column(
-            "mapping_id", UUID(as_uuid=True),
+            "mapping_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("servicenow_mappings.id", ondelete="CASCADE"),
             nullable=False,
         ),

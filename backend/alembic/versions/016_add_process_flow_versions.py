@@ -4,6 +4,7 @@ Revision ID: 016
 Revises: 015
 Create Date: 2026-02-15
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -80,9 +81,7 @@ def upgrade() -> None:
     # Migrate existing process_diagrams into process_flow_versions as drafts.
     # Only run if the process_flow_versions table is empty (idempotent).
     if inspector.has_table("process_diagrams"):
-        count = conn.execute(
-            sa.text("SELECT COUNT(*) FROM process_flow_versions")
-        ).scalar()
+        count = conn.execute(sa.text("SELECT COUNT(*) FROM process_flow_versions")).scalar()
         if count == 0:
             conn.execute(
                 sa.text(

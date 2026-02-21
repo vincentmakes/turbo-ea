@@ -28,6 +28,7 @@ ROLE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,48}[a-z0-9]$")
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class StakeholderRoleCreate(BaseModel):
     key: str = Field(..., min_length=3, max_length=50)
     label: str = Field(..., min_length=1, max_length=200)
@@ -75,6 +76,7 @@ class StakeholderRoleUpdate(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _srd_response(srd: StakeholderRoleDefinition, stakeholder_count: int | None = None) -> dict:
     data = {
         "id": str(srd.id),
@@ -97,9 +99,7 @@ def _srd_response(srd: StakeholderRoleDefinition, stakeholder_count: int | None 
 
 
 async def _ensure_type_exists(db: AsyncSession, type_key: str) -> None:
-    result = await db.execute(
-        select(CardType).where(CardType.key == type_key)
-    )
+    result = await db.execute(select(CardType).where(CardType.key == type_key))
     if not result.scalar_one_or_none():
         raise HTTPException(404, f"Card type '{type_key}' not found")
 
@@ -107,6 +107,7 @@ async def _ensure_type_exists(db: AsyncSession, type_key: str) -> None:
 # ---------------------------------------------------------------------------
 # Routes — mounted under /metamodel/types/{type_key}/stakeholder-roles
 # ---------------------------------------------------------------------------
+
 
 @router.get("/metamodel/types/{type_key}/stakeholder-roles")
 async def list_stakeholder_roles(
@@ -271,9 +272,7 @@ async def archive_stakeholder_role(
         )
     )
     if (active_count.scalar() or 0) == 0:
-        raise HTTPException(
-            409, "Cannot archive the last active stakeholder role for this type"
-        )
+        raise HTTPException(409, "Cannot archive the last active stakeholder role for this type")
 
     # Count affected stakeholders
     count_result = await db.execute(

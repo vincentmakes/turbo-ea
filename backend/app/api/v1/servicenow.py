@@ -1,4 +1,5 @@
 """ServiceNow integration endpoints — connections, mappings, sync operations."""
+
 from __future__ import annotations
 
 import re
@@ -232,16 +233,12 @@ async def list_connections(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).order_by(SnowConnection.created_at.desc())
-    )
+    result = await db.execute(select(SnowConnection).order_by(SnowConnection.created_at.desc()))
     conns = result.scalars().all()
     out = []
     for conn in conns:
         mc_result = await db.execute(
-            select(func.count(SnowMapping.id)).where(
-                SnowMapping.connection_id == conn.id
-            )
+            select(func.count(SnowMapping.id)).where(SnowMapping.connection_id == conn.id)
         )
         mc = mc_result.scalar() or 0
         out.append(_conn_to_out(conn, mc))
@@ -282,9 +279,7 @@ async def get_connection(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -302,9 +297,7 @@ async def update_connection(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -329,7 +322,7 @@ async def update_connection(
     else:
         if body.client_id is not None and body.client_id:
             existing_creds["client_id"] = body.client_id
-        if (body.client_secret and body.client_secret != "--------"):
+        if body.client_secret and body.client_secret != "--------":
             existing_creds["client_secret"] = body.client_secret
     conn.credentials = encrypt_credentials(existing_creds)
 
@@ -344,9 +337,7 @@ async def delete_connection(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -362,9 +353,7 @@ async def test_connection(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -390,9 +379,7 @@ async def list_tables(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -416,9 +403,7 @@ async def list_table_fields(
     await PermissionService.require_permission(db, user, "servicenow.manage")
     if not re.match(r"^[a-zA-Z0-9_]+$", table):
         raise HTTPException(400, "Invalid table name")
-    result = await db.execute(
-        select(SnowConnection).where(SnowConnection.id == conn_id)
-    )
+    result = await db.execute(select(SnowConnection).where(SnowConnection.id == conn_id))
     conn = result.scalar_one_or_none()
     if not conn:
         raise HTTPException(404, "Connection not found")
@@ -601,9 +586,7 @@ async def delete_mapping(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowMapping).where(SnowMapping.id == mapping_id)
-    )
+    result = await db.execute(select(SnowMapping).where(SnowMapping.id == mapping_id))
     mapping = result.scalar_one_or_none()
     if not mapping:
         raise HTTPException(404, "Mapping not found")
@@ -656,10 +639,12 @@ async def preview_mapping(
         transformed = FieldTransformer.apply_mappings(
             record, mapping.field_mappings, "snow_to_turbo"
         )
-        previews.append({
-            "snow_record": record,
-            "transformed": transformed,
-        })
+        previews.append(
+            {
+                "snow_record": record,
+                "transformed": transformed,
+            }
+        )
 
     return {"total_records": total, "sample_count": len(previews), "previews": previews}
 
@@ -813,9 +798,7 @@ async def get_sync_run(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowSyncRun).where(SnowSyncRun.id == run_id)
-    )
+    result = await db.execute(select(SnowSyncRun).where(SnowSyncRun.id == run_id))
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(404, "Sync run not found")
@@ -877,9 +860,7 @@ async def apply_staged_records(
 ):
     """Apply all pending staged records for a sync run."""
     await PermissionService.require_permission(db, user, "servicenow.manage")
-    result = await db.execute(
-        select(SnowSyncRun).where(SnowSyncRun.id == run_id)
-    )
+    result = await db.execute(select(SnowSyncRun).where(SnowSyncRun.id == run_id))
     run = result.scalar_one_or_none()
     if not run:
         raise HTTPException(404, "Sync run not found")

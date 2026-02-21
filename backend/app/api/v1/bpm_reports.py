@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
-from app.models.process_flow_version import ProcessFlowVersion
 from app.models.process_element import ProcessElement
+from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.user import User
 from app.services.permission_service import PermissionService
@@ -71,9 +71,9 @@ async def bpm_dashboard(
 
     # Diagram coverage (count processes with a published flow version)
     diag_result = await db.execute(
-        select(ProcessFlowVersion.process_id).where(
-            ProcessFlowVersion.status == "published"
-        ).distinct()
+        select(ProcessFlowVersion.process_id)
+        .where(ProcessFlowVersion.status == "published")
+        .distinct()
     )
     processes_with_diagrams = len(diag_result.all())
 
@@ -349,10 +349,12 @@ async def process_map(
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # All active BusinessProcess cards
     proc_result = await db.execute(
-        select(Card).where(
+        select(Card)
+        .where(
             Card.type == "BusinessProcess",
             Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        )
+        .order_by(Card.name)
     )
     processes = proc_result.scalars().all()
     proc_ids = [p.id for p in processes]
@@ -376,18 +378,24 @@ async def process_map(
 
     # All Organizations (for filtering)
     org_result = await db.execute(
-        select(Card).where(
-            Card.type == "Organization", Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        select(Card)
+        .where(
+            Card.type == "Organization",
+            Card.status == "ACTIVE",
+        )
+        .order_by(Card.name)
     )
     orgs = org_result.scalars().all()
     org_map = {o.id: o for o in orgs}
 
     # All BusinessContexts (for filtering)
     ctx_result = await db.execute(
-        select(Card).where(
-            Card.type == "BusinessContext", Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        select(Card)
+        .where(
+            Card.type == "BusinessContext",
+            Card.status == "ACTIVE",
+        )
+        .order_by(Card.name)
     )
     contexts = ctx_result.scalars().all()
     ctx_map = {c.id: c for c in contexts}
@@ -396,8 +404,7 @@ async def process_map(
     all_entity_ids = proc_ids + list(org_map.keys()) + list(ctx_map.keys())
     rels_result = await db.execute(
         select(Relation).where(
-            (Relation.source_id.in_(all_entity_ids))
-            | (Relation.target_id.in_(all_entity_ids))
+            (Relation.source_id.in_(all_entity_ids)) | (Relation.target_id.in_(all_entity_ids))
         )
     )
     rels = rels_result.scalars().all()
@@ -422,36 +429,44 @@ async def process_map(
         # Process -> Application (relProcessToApp)
         if rtype == "relProcessToApp":
             if sid in proc_id_set and tid in app_id_set:
-                proc_apps[sid].append({
-                    "id": tid,
-                    "name": app_map[r.target_id].name,
-                    "subtype": app_map[r.target_id].subtype,
-                    "attributes": app_map[r.target_id].attributes or {},
-                    "lifecycle": app_map[r.target_id].lifecycle or {},
-                    "rel_attributes": r.attributes or {},
-                })
+                proc_apps[sid].append(
+                    {
+                        "id": tid,
+                        "name": app_map[r.target_id].name,
+                        "subtype": app_map[r.target_id].subtype,
+                        "attributes": app_map[r.target_id].attributes or {},
+                        "lifecycle": app_map[r.target_id].lifecycle or {},
+                        "rel_attributes": r.attributes or {},
+                    }
+                )
             elif tid in proc_id_set and sid in app_id_set:
-                proc_apps[tid].append({
-                    "id": sid,
-                    "name": app_map[r.source_id].name,
-                    "subtype": app_map[r.source_id].subtype,
-                    "attributes": app_map[r.source_id].attributes or {},
-                    "lifecycle": app_map[r.source_id].lifecycle or {},
-                    "rel_attributes": r.attributes or {},
-                })
+                proc_apps[tid].append(
+                    {
+                        "id": sid,
+                        "name": app_map[r.source_id].name,
+                        "subtype": app_map[r.source_id].subtype,
+                        "attributes": app_map[r.source_id].attributes or {},
+                        "lifecycle": app_map[r.source_id].lifecycle or {},
+                        "rel_attributes": r.attributes or {},
+                    }
+                )
 
         # Process -> DataObject (relProcessToDataObj)
         elif rtype == "relProcessToDataObj":
             if sid in proc_id_set and tid in do_id_set:
-                proc_data[sid].append({
-                    "id": tid,
-                    "name": do_map[r.target_id].name,
-                })
+                proc_data[sid].append(
+                    {
+                        "id": tid,
+                        "name": do_map[r.target_id].name,
+                    }
+                )
             elif tid in proc_id_set and sid in do_id_set:
-                proc_data[tid].append({
-                    "id": sid,
-                    "name": do_map[r.source_id].name,
-                })
+                proc_data[tid].append(
+                    {
+                        "id": sid,
+                        "name": do_map[r.source_id].name,
+                    }
+                )
 
         # Process -> Organization (relProcessToOrg)
         elif rtype == "relProcessToOrg":
@@ -471,9 +486,9 @@ async def process_map(
     from sqlalchemy import func as sa_func
 
     diag_result = await db.execute(
-        select(ProcessFlowVersion.process_id).where(
-            ProcessFlowVersion.status == "published"
-        ).distinct()
+        select(ProcessFlowVersion.process_id)
+        .where(ProcessFlowVersion.status == "published")
+        .distinct()
     )
     diag_map = {str(row[0]): True for row in diag_result}
 
@@ -492,28 +507,32 @@ async def process_map(
         attrs = p.attributes or {}
 
         total_cost = sum(
-            (a.get("attributes", {}).get("costTotalAnnual", 0)
-             or a.get("attributes", {}).get("totalAnnualCost", 0)
-             or 0)
+            (
+                a.get("attributes", {}).get("costTotalAnnual", 0)
+                or a.get("attributes", {}).get("totalAnnualCost", 0)
+                or 0
+            )
             for a in linked_apps
         )
 
-        items.append({
-            "id": pid,
-            "name": p.name,
-            "subtype": p.subtype,
-            "parent_id": str(p.parent_id) if p.parent_id else None,
-            "attributes": attrs,
-            "lifecycle": p.lifecycle or {},
-            "app_count": len(linked_apps),
-            "total_cost": total_cost,
-            "apps": linked_apps,
-            "data_objects": proc_data.get(pid, []),
-            "org_ids": sorted(proc_orgs.get(pid, set())),
-            "ctx_ids": sorted(proc_ctxs.get(pid, set())),
-            "has_diagram": pid in diag_map,
-            "element_count": elem_count_map.get(pid, 0),
-        })
+        items.append(
+            {
+                "id": pid,
+                "name": p.name,
+                "subtype": p.subtype,
+                "parent_id": str(p.parent_id) if p.parent_id else None,
+                "attributes": attrs,
+                "lifecycle": p.lifecycle or {},
+                "app_count": len(linked_apps),
+                "total_cost": total_cost,
+                "apps": linked_apps,
+                "data_objects": proc_data.get(pid, []),
+                "org_ids": sorted(proc_orgs.get(pid, set())),
+                "ctx_ids": sorted(proc_ctxs.get(pid, set())),
+                "has_diagram": pid in diag_map,
+                "element_count": elem_count_map.get(pid, 0),
+            }
+        )
 
     organizations = [{"id": str(o.id), "name": o.name} for o in orgs]
     business_contexts = [{"id": str(c.id), "name": c.name} for c in contexts]
@@ -538,10 +557,12 @@ async def value_stream_matrix(
     await PermissionService.require_permission(db, user, "reports.bpm_dashboard")
     # All active BusinessProcesses
     proc_result = await db.execute(
-        select(Card).where(
+        select(Card)
+        .where(
             Card.type == "BusinessProcess",
             Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        )
+        .order_by(Card.name)
     )
     processes = proc_result.scalars().all()
     proc_map = {p.id: p for p in processes}
@@ -551,20 +572,24 @@ async def value_stream_matrix(
 
     # All Organizations (rows) — with hierarchy data
     org_result = await db.execute(
-        select(Card).where(
+        select(Card)
+        .where(
             Card.type == "Organization",
             Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        )
+        .order_by(Card.name)
     )
     orgs = org_result.scalars().all()
 
     # Value Stream contexts only (columns)
     ctx_result = await db.execute(
-        select(Card).where(
+        select(Card)
+        .where(
             Card.type == "BusinessContext",
             Card.subtype == "valueStream",
             Card.status == "ACTIVE",
-        ).order_by(Card.name)
+        )
+        .order_by(Card.name)
     )
     contexts = ctx_result.scalars().all()
 
@@ -582,11 +607,13 @@ async def value_stream_matrix(
     proc_ids = list(proc_map.keys())
     rels_result = await db.execute(
         select(Relation).where(
-            Relation.type.in_([
-                "relProcessToOrg",
-                "relProcessToBizCtx",
-                "relProcessToApp",
-            ]),
+            Relation.type.in_(
+                [
+                    "relProcessToOrg",
+                    "relProcessToBizCtx",
+                    "relProcessToApp",
+                ]
+            ),
             (Relation.source_id.in_(proc_ids)) | (Relation.target_id.in_(proc_ids)),
         )
     )

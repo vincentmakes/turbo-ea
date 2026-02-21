@@ -26,6 +26,7 @@ ROLE_KEY_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,48}[a-z0-9]$")
 # Schemas
 # ---------------------------------------------------------------------------
 
+
 class RoleCreate(BaseModel):
     key: str = Field(..., min_length=3, max_length=50)
     label: str = Field(..., min_length=1, max_length=200)
@@ -75,6 +76,7 @@ class RoleUpdate(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _role_response(role: Role, user_count: int | None = None) -> dict:
     data = {
         "id": str(role.id),
@@ -100,6 +102,7 @@ def _role_response(role: Role, user_count: int | None = None) -> dict:
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("")
 async def list_roles(
@@ -252,9 +255,7 @@ async def archive_role(
         raise HTTPException(400, "Role is already archived")
 
     # Count affected users
-    count_result = await db.execute(
-        select(func.count(User.id)).where(User.role == key)
-    )
+    count_result = await db.execute(select(func.count(User.id)).where(User.role == key))
     affected_users_count = count_result.scalar() or 0
 
     role.is_archived = True

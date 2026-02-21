@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
-from app.models.comment import Comment
 from app.models.card import Card
+from app.models.comment import Comment
 from app.models.user import User
 from app.schemas.common import CommentCreate, CommentUpdate
 from app.services import notification_service
@@ -71,7 +71,9 @@ async def create_comment(
     await event_bus.publish(
         "comment.created",
         {"id": str(comment.id), "content": comment.content[:100]},
-        db=db, card_id=uuid.UUID(card_id), user_id=user.id,
+        db=db,
+        card_id=uuid.UUID(card_id),
+        user_id=user.id,
     )
 
     # Notify subscribers of the card

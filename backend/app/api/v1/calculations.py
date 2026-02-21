@@ -133,9 +133,7 @@ async def get_calculation(
     db: AsyncSession = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
@@ -173,9 +171,7 @@ async def update_calculation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
@@ -184,7 +180,9 @@ async def update_calculation(
 
     # Track whether formula or target actually changed (not just resent)
     formula_changed = "formula" in updates and updates["formula"] != calc.formula
-    target_changed = "target_field_key" in updates and updates["target_field_key"] != calc.target_field_key
+    target_changed = (
+        "target_field_key" in updates and updates["target_field_key"] != calc.target_field_key
+    )
 
     for field, value in updates.items():
         setattr(calc, field, value)
@@ -210,9 +208,7 @@ async def delete_calculation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
@@ -230,9 +226,7 @@ async def activate_calculation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
@@ -258,9 +252,7 @@ async def deactivate_calculation(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
@@ -279,16 +271,12 @@ async def test_calculation(
 ):
     """Test a calculation with a specific card (dry run, no save)."""
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    calc_result = await db.execute(
-        select(Calculation).where(Calculation.id == uuid.UUID(calc_id))
-    )
+    calc_result = await db.execute(select(Calculation).where(Calculation.id == uuid.UUID(calc_id)))
     calc = calc_result.scalar_one_or_none()
     if not calc:
         raise HTTPException(404, "Calculation not found")
 
-    card_result = await db.execute(
-        select(Card).where(Card.id == uuid.UUID(body.card_id))
-    )
+    card_result = await db.execute(select(Card).where(Card.id == uuid.UUID(body.card_id)))
     card = card_result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")

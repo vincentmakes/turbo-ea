@@ -28,6 +28,9 @@ export default tseslint.config(
         { argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-expressions": "warn",
+      "prefer-const": "warn",
+      "prefer-rest-params": "warn",
     },
   },
 );

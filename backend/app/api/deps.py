@@ -11,9 +11,7 @@ from app.database import get_db
 from app.models.user import User
 
 
-async def get_current_user(
-    request: Request, db: AsyncSession = Depends(get_db)
-) -> User:
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -53,6 +51,7 @@ def require_bpm_admin(user: User) -> None:
 
 def require_permission(app_perm: str):
     """Dependency factory that checks a single app-level permission via PermissionService."""
+
     async def _check(
         user: User = Depends(get_current_user),
         db: AsyncSession = Depends(get_db),
@@ -61,4 +60,5 @@ def require_permission(app_perm: str):
 
         await PermissionService.require_permission(db, user, app_perm)
         return user
+
     return _check

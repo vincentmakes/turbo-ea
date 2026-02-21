@@ -37,8 +37,9 @@ async def _load_bookmark(db: AsyncSession, bookmark_id: uuid.UUID) -> Bookmark |
 async def _get_share_permissions(db: AsyncSession, bookmark_id: uuid.UUID) -> dict[uuid.UUID, bool]:
     """Return {user_id: can_edit} for all shares of a bookmark."""
     result = await db.execute(
-        select(bookmark_shares.c.user_id, bookmark_shares.c.can_edit)
-        .where(bookmark_shares.c.bookmark_id == bookmark_id)
+        select(bookmark_shares.c.user_id, bookmark_shares.c.can_edit).where(
+            bookmark_shares.c.bookmark_id == bookmark_id
+        )
     )
     return {row.user_id: row.can_edit for row in result.all()}
 
@@ -57,12 +58,14 @@ def _serialize(
     if bm.shared_with_users:
         perms = share_perms or {}
         for u in bm.shared_with_users:
-            shared_with_list.append({
-                "user_id": str(u.id),
-                "display_name": u.display_name,
-                "email": u.email,
-                "can_edit": perms.get(u.id, False),
-            })
+            shared_with_list.append(
+                {
+                    "user_id": str(u.id),
+                    "display_name": u.display_name,
+                    "email": u.email,
+                    "can_edit": perms.get(u.id, False),
+                }
+            )
 
     # Determine can_edit for the current user
     if is_owner:
@@ -99,7 +102,9 @@ def _serialize(
 
 
 async def _sync_shares(
-    db: AsyncSession, bm: Bookmark, shared_with: list | None,
+    db: AsyncSession,
+    bm: Bookmark,
+    shared_with: list | None,
 ) -> None:
     """Sync bookmark_shares junction table with can_edit flag.
 
@@ -107,11 +112,7 @@ async def _sync_shares(
     user_id / can_edit keys.
     """
     # Clear existing shares
-    await db.execute(
-        bookmark_shares.delete().where(
-            bookmark_shares.c.bookmark_id == bm.id
-        )
-    )
+    await db.execute(bookmark_shares.delete().where(bookmark_shares.c.bookmark_id == bm.id))
 
     if not shared_with or bm.visibility != "shared":
         return
@@ -134,9 +135,7 @@ async def _sync_shares(
         return
 
     # Verify users exist
-    user_result = await db.execute(
-        select(User).where(User.id.in_(user_ids))
-    )
+    user_result = await db.execute(select(User).where(User.id.in_(user_ids)))
     valid_users = list(user_result.scalars().all())
 
     # Insert share rows with can_edit
@@ -168,9 +167,7 @@ async def list_bookmarks(
     elif filter == "shared":
         stmt = base.where(
             Bookmark.id.in_(
-                select(bookmark_shares.c.bookmark_id).where(
-                    bookmark_shares.c.user_id == user.id
-                )
+                select(bookmark_shares.c.bookmark_id).where(bookmark_shares.c.user_id == user.id)
             )
         )
     else:
@@ -234,13 +231,17 @@ async def create_bookmark(
     # Check sharing permission
     if body.visibility in ("public", "shared"):
         await PermissionService.require_permission(
-            db, user, "bookmarks.share",
+            db,
+            user,
+            "bookmarks.share",
         )
 
     # Check OData permission
     if body.odata_enabled:
         await PermissionService.require_permission(
-            db, user, "bookmarks.odata",
+            db,
+            user,
+            "bookmarks.odata",
         )
 
     bm = Bookmark(
@@ -281,9 +282,7 @@ async def update_bookmark(
 
     bid = uuid.UUID(bm_id)
     result = await db.execute(
-        select(Bookmark)
-        .options(selectinload(Bookmark.shared_with_users))
-        .where(Bookmark.id == bid)
+        select(Bookmark).options(selectinload(Bookmark.shared_with_users)).where(Bookmark.id == bid)
     )
     bm = result.scalar_one_or_none()
     if not bm:
@@ -315,14 +314,18 @@ async def update_bookmark(
     new_vis = data.get("visibility", bm.visibility)
     if new_vis in ("public", "shared"):
         await PermissionService.require_permission(
-            db, user, "bookmarks.share",
+            db,
+            user,
+            "bookmarks.share",
         )
 
     # Check OData permission when enabling
     new_odata = data.get("odata_enabled", bm.odata_enabled)
     if new_odata:
         await PermissionService.require_permission(
-            db, user, "bookmarks.odata",
+            db,
+            user,
+            "bookmarks.odata",
         )
 
     shared_with = data.pop("shared_with", None)
@@ -349,9 +352,7 @@ async def delete_bookmark(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "bookmarks.manage")
-    result = await db.execute(
-        select(Bookmark).where(Bookmark.id == uuid.UUID(bm_id))
-    )
+    result = await db.execute(select(Bookmark).where(Bookmark.id == uuid.UUID(bm_id)))
     bm = result.scalar_one_or_none()
     if not bm:
         raise HTTPException(404, "Bookmark not found")
@@ -376,9 +377,7 @@ async def bookmark_odata_feed(
 
     bid = uuid.UUID(bm_id)
     result = await db.execute(
-        select(Bookmark)
-        .options(selectinload(Bookmark.shared_with_users))
-        .where(Bookmark.id == bid)
+        select(Bookmark).options(selectinload(Bookmark.shared_with_users)).where(Bookmark.id == bid)
     )
     bm = result.scalar_one_or_none()
     if not bm:

@@ -2,18 +2,25 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Column, ForeignKey, String, Text, Table
+from sqlalchemy import Column, ForeignKey, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, UUIDMixin, TimestampMixin
+from app.models.base import Base, TimestampMixin, UUIDMixin
 
 # Association table for sharing reports with specific users
 saved_report_shares = Table(
     "saved_report_shares",
     Base.metadata,
-    Column("saved_report_id", UUID(as_uuid=True), ForeignKey("saved_reports.id", ondelete="CASCADE"), primary_key=True),
-    Column("user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "saved_report_id",
+        UUID(as_uuid=True),
+        ForeignKey("saved_reports.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id", UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    ),
 )
 
 

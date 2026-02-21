@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,8 +17,14 @@ from app.services.permission_service import PermissionService
 router = APIRouter(prefix="/saved-reports", tags=["saved-reports"])
 
 VALID_REPORT_TYPES = {
-    "portfolio", "capability-map", "lifecycle", "dependencies",
-    "cost", "matrix", "data-quality", "eol",
+    "portfolio",
+    "capability-map",
+    "lifecycle",
+    "dependencies",
+    "cost",
+    "matrix",
+    "data-quality",
+    "eol",
 }
 
 
@@ -45,7 +51,9 @@ def _serialize(report: SavedReport, current_user_id: uuid.UUID) -> dict:
     return {
         "id": str(report.id),
         "owner_id": str(report.owner_id),
-        "owner_name": report.owner.display_name if hasattr(report, "owner") and report.owner else None,
+        "owner_name": report.owner.display_name
+        if hasattr(report, "owner") and report.owner
+        else None,
         "name": report.name,
         "description": report.description,
         "report_type": report.report_type,
@@ -123,7 +131,9 @@ async def create_saved_report(
     await PermissionService.require_permission(db, user, "saved_reports.create")
 
     if body.report_type not in VALID_REPORT_TYPES:
-        raise HTTPException(400, f"Invalid report_type. Must be one of: {', '.join(sorted(VALID_REPORT_TYPES))}")
+        raise HTTPException(
+            400, f"Invalid report_type. Must be one of: {', '.join(sorted(VALID_REPORT_TYPES))}"
+        )
     if body.visibility not in ("private", "public", "shared"):
         raise HTTPException(400, "visibility must be private, public, or shared")
 
@@ -237,9 +247,7 @@ async def delete_saved_report(
     user: User = Depends(get_current_user),
 ):
     rid = uuid.UUID(report_id)
-    result = await db.execute(
-        select(SavedReport).where(SavedReport.id == rid)
-    )
+    result = await db.execute(select(SavedReport).where(SavedReport.id == rid))
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(404, "Saved report not found")

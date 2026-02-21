@@ -205,16 +205,12 @@ async def delete_diagram(
     process = await _get_process_or_404(db, pid)
 
     # Delete all extracted elements
-    elements = await db.execute(
-        select(ProcessElement).where(ProcessElement.process_id == pid)
-    )
+    elements = await db.execute(select(ProcessElement).where(ProcessElement.process_id == pid))
     for elem in elements.scalars().all():
         await db.delete(elem)
 
     # Delete all diagram versions
-    diagrams = await db.execute(
-        select(ProcessDiagram).where(ProcessDiagram.process_id == pid)
-    )
+    diagrams = await db.execute(select(ProcessDiagram).where(ProcessDiagram.process_id == pid))
     for diag in diagrams.scalars().all():
         await db.delete(diag)
 

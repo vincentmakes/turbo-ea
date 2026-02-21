@@ -23,6 +23,7 @@ router = APIRouter(prefix="/metamodel", tags=["metamodel"])
 
 # ── Helpers ────────────────────────────────────────────────────────────
 
+
 def _serialize_type(t: CardType) -> dict:
     return {
         "key": t.key,
@@ -94,7 +95,9 @@ async def _cleanup_removed_fields_and_options(
         if result.rowcount:
             logger.info(
                 "Cleaned up removed field '%s' from %d card(s) of type '%s'",
-                fk, result.rowcount, type_key,
+                fk,
+                result.rowcount,
+                type_key,
             )
 
     # 2) Removed options — null out single_select, filter out multiple_select
@@ -150,11 +153,15 @@ async def _cleanup_removed_fields_and_options(
             if result.rowcount:
                 logger.info(
                     "Cleaned up removed option '%s' from field '%s' on %d card(s) of type '%s'",
-                    opt_key, fk, result.rowcount, type_key,
+                    opt_key,
+                    fk,
+                    result.rowcount,
+                    type_key,
                 )
 
 
 # ── Card Types ─────────────────────────────────────────────────────────
+
 
 @router.get("/types")
 async def list_types(
@@ -170,7 +177,9 @@ async def list_types(
 
 
 @router.get("/types/{key}")
-async def get_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_type(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
     if not t:
@@ -290,11 +299,11 @@ async def get_option_usage(
 
 
 @router.post("/types", status_code=201)
-async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_type(
+    body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    existing = await db.execute(
-        select(CardType).where(CardType.key == body.get("key", ""))
-    )
+    existing = await db.execute(select(CardType).where(CardType.key == body.get("key", "")))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Type key already exists")
 
@@ -328,7 +337,9 @@ async def create_type(body: dict, db: AsyncSession = Depends(get_db), user: User
 
 
 @router.patch("/types/{key}")
-async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_type(
+    key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
@@ -361,13 +372,25 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
     # ── Clean up card attributes when fields or options are removed ──
     if "fields_schema" in body:
         await _cleanup_removed_fields_and_options(
-            db, key, t.fields_schema or [], body["fields_schema"] or [],
+            db,
+            key,
+            t.fields_schema or [],
+            body["fields_schema"] or [],
         )
 
     updatable = [
-        "label", "description", "icon", "color", "category",
-        "has_hierarchy", "subtypes", "fields_schema", "stakeholder_roles",
-        "section_config", "sort_order", "is_hidden",
+        "label",
+        "description",
+        "icon",
+        "color",
+        "category",
+        "has_hierarchy",
+        "subtypes",
+        "fields_schema",
+        "stakeholder_roles",
+        "section_config",
+        "sort_order",
+        "is_hidden",
     ]
     for field in updatable:
         if field in body:
@@ -379,7 +402,9 @@ async def update_type(key: str, body: dict, db: AsyncSession = Depends(get_db), 
 
 
 @router.delete("/types/{key}")
-async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def delete_type(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(CardType).where(CardType.key == key))
     t = result.scalar_one_or_none()
@@ -387,9 +412,7 @@ async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User =
         raise HTTPException(404, "Type not found")
 
     # Check for existing cards of this type
-    count_result = await db.execute(
-        select(func.count()).select_from(Card).where(Card.type == key)
-    )
+    count_result = await db.execute(select(func.count()).select_from(Card).where(Card.type == key))
     instance_count = count_result.scalar() or 0
 
     if t.built_in:
@@ -408,14 +431,12 @@ async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User =
     # Also delete relation types that reference this type
     await db.execute(
         select(RelationType).where(
-            (RelationType.source_type_key == key)
-            | (RelationType.target_type_key == key)
+            (RelationType.source_type_key == key) | (RelationType.target_type_key == key)
         )
     )
     rel_result = await db.execute(
         select(RelationType).where(
-            (RelationType.source_type_key == key)
-            | (RelationType.target_type_key == key)
+            (RelationType.source_type_key == key) | (RelationType.target_type_key == key)
         )
     )
     for rt in rel_result.scalars().all():
@@ -427,6 +448,7 @@ async def delete_type(key: str, db: AsyncSession = Depends(get_db), user: User =
 
 
 # ── Relation Types ─────────────────────────────────────────────────────
+
 
 @router.get("/relation-types")
 async def list_relation_types(
@@ -440,15 +462,16 @@ async def list_relation_types(
         q = q.where(RelationType.is_hidden == False)  # noqa: E712
     if type_key:
         q = q.where(
-            (RelationType.source_type_key == type_key)
-            | (RelationType.target_type_key == type_key)
+            (RelationType.source_type_key == type_key) | (RelationType.target_type_key == type_key)
         )
     result = await db.execute(q)
     return [_serialize_relation_type(r) for r in result.scalars().all()]
 
 
 @router.get("/relation-types/{key}")
-async def get_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def get_relation_type(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
     if not r:
@@ -457,11 +480,11 @@ async def get_relation_type(key: str, db: AsyncSession = Depends(get_db), user: 
 
 
 @router.post("/relation-types", status_code=201)
-async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def create_relation_type(
+    body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
-    existing = await db.execute(
-        select(RelationType).where(RelationType.key == body.get("key", ""))
-    )
+    existing = await db.execute(select(RelationType).where(RelationType.key == body.get("key", "")))
     if existing.scalar_one_or_none():
         raise HTTPException(400, "Relation type key already exists")
 
@@ -470,9 +493,7 @@ async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), u
         type_key = body.get(fk)
         if not type_key:
             raise HTTPException(400, f"{fk} is required")
-        exists = await db.execute(
-            select(CardType.key).where(CardType.key == type_key)
-        )
+        exists = await db.execute(select(CardType.key).where(CardType.key == type_key))
         if not exists.scalar_one_or_none():
             raise HTTPException(400, f"Type '{type_key}' does not exist")
 
@@ -514,7 +535,9 @@ async def create_relation_type(body: dict, db: AsyncSession = Depends(get_db), u
 
 
 @router.patch("/relation-types/{key}")
-async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def update_relation_type(
+    key: str, body: dict, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(RelationType).where(RelationType.key == key))
     r = result.scalar_one_or_none()
@@ -523,9 +546,8 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
 
     # Allow changing source/target only when no instances exist
     changing_endpoints = (
-        ("source_type_key" in body and body["source_type_key"] != r.source_type_key)
-        or ("target_type_key" in body and body["target_type_key"] != r.target_type_key)
-    )
+        "source_type_key" in body and body["source_type_key"] != r.source_type_key
+    ) or ("target_type_key" in body and body["target_type_key"] != r.target_type_key)
     if changing_endpoints:
         count_result = await db.execute(
             select(func.count()).select_from(Relation).where(Relation.type == key)
@@ -533,15 +555,12 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
         if (count_result.scalar() or 0) > 0:
             raise HTTPException(
                 400,
-                "Cannot change source/target types: relation instances exist. "
-                "Delete them first.",
+                "Cannot change source/target types: relation instances exist. Delete them first.",
             )
         # Validate new types exist
         for fk in ("source_type_key", "target_type_key"):
             if fk in body:
-                exists = await db.execute(
-                    select(CardType.key).where(CardType.key == body[fk])
-                )
+                exists = await db.execute(select(CardType.key).where(CardType.key == body[fk]))
                 if not exists.scalar_one_or_none():
                     raise HTTPException(400, f"Type '{body[fk]}' does not exist")
         # Check for duplicate source+target
@@ -562,9 +581,15 @@ async def update_relation_type(key: str, body: dict, db: AsyncSession = Depends(
             )
 
     updatable = [
-        "label", "reverse_label", "description", "cardinality",
-        "attributes_schema", "sort_order", "is_hidden",
-        "source_type_key", "target_type_key",
+        "label",
+        "reverse_label",
+        "description",
+        "cardinality",
+        "attributes_schema",
+        "sort_order",
+        "is_hidden",
+        "source_type_key",
+        "target_type_key",
     ]
     for field in updatable:
         if field in body:
@@ -624,9 +649,7 @@ async def delete_relation_type(
 
     # Delete all relation instances first
     if instance_count > 0:
-        await db.execute(
-            Relation.__table__.delete().where(Relation.type == key)
-        )
+        await db.execute(Relation.__table__.delete().where(Relation.type == key))
 
     if r.built_in:
         # Soft-delete built-in types so they can be restored from the seed
@@ -640,7 +663,9 @@ async def delete_relation_type(
 
 
 @router.post("/relation-types/{key}/restore")
-async def restore_relation_type(key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+async def restore_relation_type(
+    key: str, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
     """Restore a soft-deleted (hidden) built-in relation type."""
     await PermissionService.require_permission(db, user, "admin.metamodel")
     result = await db.execute(select(RelationType).where(RelationType.key == key))

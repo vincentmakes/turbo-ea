@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,27 +38,19 @@ class ProcessFlowVersion(Base, UUIDMixin, TimestampMixin):
     svg_thumbnail: Mapped[str | None] = mapped_column(Text)
 
     # Who created the draft
-    created_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
-    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     # Who submitted for approval
     submitted_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
-    submitted_at: Mapped[str | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    submitted_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Approval details
     approved_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id")
     )
-    approved_at: Mapped[str | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    approved_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Archival timestamp (set when a newer version is published)
-    archived_at: Mapped[str | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    archived_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Base version this draft was created from (null = from scratch)
     based_on_id: Mapped[uuid.UUID | None] = mapped_column(

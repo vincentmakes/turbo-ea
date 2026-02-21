@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 async def _get_general_settings(db: AsyncSession) -> dict:
     """Read general_settings from app_settings."""
     result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
@@ -71,6 +72,7 @@ def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
 # ---------------------------------------------------------------------------
 # Standard auth endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
@@ -190,6 +192,7 @@ async def refresh_token(
 # SSO / Entra ID endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/sso/config")
 async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns SSO configuration needed by the frontend to
@@ -258,9 +261,11 @@ async def sso_callback(
 
     if token_response.status_code != 200:
         # ── H8: Don't leak error details to the client ──
-        error_data = token_response.json() if token_response.headers.get(
-            "content-type", ""
-        ).startswith("application/json") else {}
+        error_data = (
+            token_response.json()
+            if token_response.headers.get("content-type", "").startswith("application/json")
+            else {}
+        )
         error_desc = error_data.get("error_description", "Token exchange failed")
         logger.error("SSO token exchange failed: %s", error_desc)
         raise HTTPException(401, "SSO authentication failed. Please try again.")
@@ -283,18 +288,14 @@ async def sso_callback(
     display_name = claims.get("name", "")
 
     if not email:
-        raise HTTPException(
-            401, "No email claim in SSO token. Ensure email scope is granted."
-        )
+        raise HTTPException(401, "No email claim in SSO token. Ensure email scope is granted.")
     if not sso_subject_id:
         raise HTTPException(401, "No subject identifier found in SSO token.")
 
     email = email.lower().strip()
 
     # Check if a user with this SSO subject ID already exists
-    result = await db.execute(
-        select(User).where(User.sso_subject_id == sso_subject_id)
-    )
+    result = await db.execute(select(User).where(User.sso_subject_id == sso_subject_id))
     user = result.scalar_one_or_none()
 
     if user:
@@ -312,7 +313,7 @@ async def sso_callback(
             raise HTTPException(
                 409,
                 "A local account with this email already exists. "
-                "Contact an administrator to link your SSO account."
+                "Contact an administrator to link your SSO account.",
             )
         # Already an SSO user with a different subject ID — link
         user.sso_subject_id = sso_subject_id
@@ -326,9 +327,7 @@ async def sso_callback(
 
     # New user — check for an invitation to determine the role
     role = "viewer"  # Default role for SSO users
-    inv_result = await db.execute(
-        select(SsoInvitation).where(SsoInvitation.email == email)
-    )
+    inv_result = await db.execute(select(SsoInvitation).where(SsoInvitation.email == email))
     invitation = inv_result.scalar_one_or_none()
     if invitation:
         role = invitation.role
@@ -355,6 +354,7 @@ async def sso_callback(
 # Password setup endpoints (for invited users without a password)
 # ---------------------------------------------------------------------------
 
+
 class SetPasswordRequest(BaseModel):
     token: str
     password: str
@@ -363,9 +363,7 @@ class SetPasswordRequest(BaseModel):
 @router.get("/validate-setup-token")
 async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
     """Check if a password-setup token is valid. Returns the user's email."""
-    result = await db.execute(
-        select(User).where(User.password_setup_token == token)
-    )
+    result = await db.execute(select(User).where(User.password_setup_token == token))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "Invalid or expired setup token")
@@ -373,9 +371,7 @@ async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/set-password", response_model=TokenResponse)
-async def set_password(
-    body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
-):
+async def set_password(body: SetPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Set a password for an invited user using a one-time setup token."""
     from app.schemas.auth import _validate_password_strength
 
@@ -384,9 +380,7 @@ async def set_password(
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
 
-    result = await db.execute(
-        select(User).where(User.password_setup_token == body.token)
-    )
+    result = await db.execute(select(User).where(User.password_setup_token == body.token))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(404, "Invalid or expired setup token")

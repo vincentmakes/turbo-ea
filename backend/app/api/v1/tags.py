@@ -29,7 +29,12 @@ async def list_tag_groups(db: AsyncSession = Depends(get_db)):
             "mode": g.mode,
             "mandatory": g.mandatory,
             "tags": [
-                {"id": str(t.id), "name": t.name, "color": t.color, "tag_group_id": str(t.tag_group_id)}
+                {
+                    "id": str(t.id),
+                    "name": t.name,
+                    "color": t.color,
+                    "tag_group_id": str(t.tag_group_id),
+                }
                 for t in (g.tags or [])
             ],
         }
@@ -44,7 +49,9 @@ async def create_tag_group(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
-    group = TagGroup(name=body.name, description=body.description, mode=body.mode, mandatory=body.mandatory)
+    group = TagGroup(
+        name=body.name, description=body.description, mode=body.mode, mandatory=body.mandatory
+    )
     db.add(group)
     await db.commit()
     await db.refresh(group)

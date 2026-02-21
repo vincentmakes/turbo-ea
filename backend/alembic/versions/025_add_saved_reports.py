@@ -4,11 +4,13 @@ Revision ID: 025
 Revises: 024
 Create Date: 2026-02-17
 """
+
 from typing import Sequence, Union
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision: str = "025"
 down_revision: Union[str, None] = "024"
@@ -20,7 +22,12 @@ def upgrade() -> None:
     op.create_table(
         "saved_reports",
         sa.Column("id", sa.dialects.postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("owner_id", sa.dialects.postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "owner_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("name", sa.String(200), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("report_type", sa.String(50), nullable=False),
@@ -35,8 +42,18 @@ def upgrade() -> None:
 
     op.create_table(
         "saved_report_shares",
-        sa.Column("saved_report_id", sa.dialects.postgresql.UUID(as_uuid=True), sa.ForeignKey("saved_reports.id", ondelete="CASCADE"), primary_key=True),
-        sa.Column("user_id", sa.dialects.postgresql.UUID(as_uuid=True), sa.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+        sa.Column(
+            "saved_report_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("saved_reports.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        sa.Column(
+            "user_id",
+            sa.dialects.postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("users.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
     )
 
 
