@@ -890,7 +890,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 key={item.path}
                 selected={isActive(item.path)}
                 onClick={() => {
-                  item.path && navigate(item.path);
+                  if (item.path) navigate(item.path);
                   setUserMenu(null);
                 }}
                 sx={{ pl: 3 }}

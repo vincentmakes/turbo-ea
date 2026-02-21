@@ -130,12 +130,10 @@ function bootstrapDrawIO(iframe: HTMLIFrameElement) {
         const origFactory = menus.createPopupMenu;
         menus.createPopupMenu = function (
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          menu: any,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          _cell: any,
-          evt: MouseEvent,
+          ...args: any[]
         ) {
-          origFactory.apply(this, arguments);
+          origFactory.apply(this, args);
+          const [menu, _cell, evt] = args as [any, any, MouseEvent];
           menu.addSeparator();
 
           const mxEvent = win.mxEvent;

@@ -444,7 +444,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
       let labelRect: Rect = { x: lx, y: ly, w: LABEL_W, h: LABEL_H };
 
       const allBlocked = [...nodeRects, ...placedLabels];
-      let hasOverlap = allBlocked.some((r) => rectsOverlap(labelRect, r));
+      const hasOverlap = allBlocked.some((r) => rectsOverlap(labelRect, r));
 
       if (hasOverlap) {
         let resolved = false;
