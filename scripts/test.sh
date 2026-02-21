@@ -4,7 +4,7 @@
 # Automatically creates a venv and installs dependencies on first run.
 #
 # Usage:
-#   ./scripts/test.sh              # run all tests
+#   ./scripts/test.sh              # run all tests (needs Docker)
 #   ./scripts/test.sh -k security  # only tests matching "security"
 #   ./scripts/test.sh --unit       # only unit tests (no database needed)
 #   ./scripts/test.sh --cov        # with coverage report
@@ -51,8 +51,8 @@ fi
 source "$VENV_DIR/bin/activate"
 
 if ! python -c "import pytest" 2>/dev/null; then
-    echo "==> Installing dev dependencies..."
-    pip install -e "$BACKEND_DIR[dev]" -q
+    echo "==> Installing dev dependencies (first run, may take a moment)..."
+    pip install -e "$BACKEND_DIR[dev]" --quiet --quiet 2>&1 | tail -5
 fi
 
 # ── Unit-only mode: skip Docker entirely ──────────────────────────────
@@ -64,7 +64,19 @@ if $UNIT_ONLY; then
     exit $?
 fi
 
-# ── Full mode: start test database ────────────────────────────────────
+# ── Full mode: check Docker is available ─────────────────────────────
+if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: Docker is not running."
+    echo ""
+    echo "  Full tests need Docker for an ephemeral PostgreSQL."
+    echo "  Either start Docker, or run unit tests only:"
+    echo ""
+    echo "    ./scripts/test.sh --unit"
+    echo ""
+    exit 1
+fi
+
+# ── Start test database ─────────────────────────────────────────────
 cleanup() {
     echo "==> Stopping test database..."
     docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
