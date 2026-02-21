@@ -166,22 +166,30 @@ run as a separate CI workflow that spins up docker compose.
 
 ---
 
-### 7. Observability Stack
+### 7. Observability Stack ✅ (Phase 1 & 2)
 
-**Current state**: Minimal — stdout logs, `/api/health` endpoint, no metrics.
+**Current state**: Prometheus metrics + Grafana dashboards implemented.
 
-**Phase 1 — Prometheus metrics**:
-- [ ] Add `prometheus-client` to backend dependencies
-- [ ] Create `/metrics` endpoint (or use `starlette-prometheus` middleware)
-- [ ] Track: request latency, request count by endpoint, active connections,
-      DB query duration, background task health
+**Phase 1 — Prometheus metrics** ✅:
+- [x] Add `prometheus-client>=0.21.0` to backend dependencies
+- [x] Create `app/core/metrics.py` — metric definitions (counters, histograms, gauges, info)
+- [x] Create `app/middleware/prometheus.py` — ASGI middleware for request instrumentation
+- [x] Add `/metrics` endpoint in `main.py` (Prometheus-compatible exposition)
+- [x] Track: request latency (histogram with p50/p95/p99 buckets), request count by
+      method/endpoint/status, active connections gauge, DB pool metrics
+      (size/idle/in-use/overflow via SQLAlchemy event listeners), background task health
+- [x] UUID path normalisation to prevent label cardinality explosion
+- [x] 27 backend tests (metric types, labels, path normalisation, middleware, endpoint)
 
-**Phase 2 — Grafana dashboards**:
-- [ ] Add `docker-compose.observability.yml` with Prometheus + Grafana
-- [ ] Create dashboard JSON for key metrics
-- [ ] Document setup in README
+**Phase 2 — Grafana dashboards** ✅:
+- [x] Add `docker-compose.observability.yml` with Prometheus v2.51 + Grafana 10.4
+- [x] Create `observability/prometheus.yml` config (15s scrape interval)
+- [x] Create Grafana provisioning (datasource + dashboard provider)
+- [x] Create `turboea-overview` dashboard (10 panels: request rate, latency p50/p95/p99,
+      error rate, in-progress requests, by-endpoint breakdown, by-status-code,
+      DB connection pool, slowest endpoints, background tasks)
 
-**Phase 3 — Tracing**:
+**Phase 3 — Tracing** (future):
 - [ ] Add OpenTelemetry SDK
 - [ ] Instrument FastAPI, SQLAlchemy, httpx
 - [ ] Export to Jaeger or OTLP-compatible backend

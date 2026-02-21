@@ -2,7 +2,7 @@
 
 > **Last updated**: February 21, 2026
 > **Overall backend line coverage**: 41%
-> **Total tests**: ~1,100 across 76 test files (backend ~720, frontend 378)
+> **Total tests**: ~1,130 across 79 test files (backend ~750, frontend 378)
 
 ---
 
@@ -731,6 +731,48 @@ These tests run without any database connection. They test pure logic functions.
 | `test_empty_string` | `is_encrypted()` handles empty strings |
 | `test_none` | `is_encrypted()` handles None |
 
+### Prometheus Metrics (`test_metrics.py`) — 12 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_app_info_is_info` | `app_info` is a Prometheus Info metric |
+| `test_http_requests_total_is_counter` | Request counter is correct type |
+| `test_http_request_duration_is_histogram` | Duration histogram is correct type |
+| `test_http_requests_in_progress_is_gauge` | In-progress gauge is correct type |
+| `test_db_pool_gauges` | All 4 DB pool gauges are correct type |
+| `test_bg_task_runs_total_is_counter` | Background task counter correct |
+| `test_bg_task_last_success_is_gauge` | Last success gauge correct |
+| `test_http_requests_total_labels` | Counter accepts method/endpoint/status labels |
+| `test_http_request_duration_labels` | Histogram accepts method/endpoint labels |
+| `test_http_requests_in_progress_labels` | Gauge accepts method label |
+| `test_bg_task_runs_total_labels` | Counter accepts task_name/status labels |
+| `test_bg_task_last_success_labels` | Gauge accepts task_name label |
+
+### Prometheus Middleware (`test_prometheus_middleware.py`) — 10 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_uuid_collapsed` | UUID path segments normalised to `{id}` |
+| `test_multiple_uuids` | Multiple UUIDs in path all normalised |
+| `test_no_uuid_unchanged` | Non-UUID paths left unchanged |
+| `test_root_path` | Root `/` handled correctly |
+| `test_trailing_slash_stripped` | Trailing slashes removed |
+| `test_short_hex_not_collapsed` | Short hex strings not mistaken for UUIDs |
+| `test_normal_request_returns_200` | Middleware passes normal requests through |
+| `test_health_skipped` | `/api/health` not instrumented |
+| `test_metrics_skipped` | `/metrics` not instrumented |
+| `test_error_request_records_500` | 500 errors still recorded in metrics |
+
+### Metrics Endpoint (`test_metrics_endpoint.py`) — 5 tests
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_returns_200` | `/metrics` endpoint returns 200 |
+| `test_content_type` | Response is `text/plain` |
+| `test_contains_standard_metrics` | Process metrics present |
+| `test_contains_app_info` | `turboea_info` metric present |
+| `test_contains_http_metrics` | HTTP request metrics present |
+
 ---
 
 ## Backend — Service Tests
@@ -1316,7 +1358,7 @@ Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
 | Area | Test Files | Approx. Tests | Notes |
 |------|-----------|--------------|-------|
 | Backend API (integration) | 33 | ~500 | CRUD + permission checks + edge cases for all endpoints |
-| Backend Core (unit) | 2 | ~29 | JWT, encryption — no database needed |
+| Backend Core (unit) | 5 | ~56 | JWT, encryption, Prometheus metrics/middleware/endpoint — no database needed |
 | Backend Services | 7 | ~100 | Business logic, parsing, formulas |
 | Frontend Hooks | 11 | ~70 | Auth, metamodel, permissions, SSE, currency, timeline, saved reports |
 | Frontend Components | 5 | ~56 | Badges, icons, error boundaries, key input |
@@ -1324,7 +1366,7 @@ Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
 | Frontend Pages (Phase 1) | 5 | ~59 | Login, CardDetail, Inventory, CreateCardDialog, AppLayout |
 | Frontend Pages (Phase 2) | 5 | ~68 | ReportShell, PortfolioReport, LifecycleReport, MetamodelAdmin, RolesAdmin |
 | Frontend Pages (Phase 3) | 6 | ~80 | BpmDashboard, BpmReportPage, ProcessFlowTab, ProcessAssessmentPanel, DiagramsPage, EADeliveryPage |
-| **Total** | **76** | **~1,100** | |
+| **Total** | **79** | **~1,130** | |
 
 ### Well-Covered Areas
 
@@ -1336,6 +1378,7 @@ Pattern: `vi.mock("@/api/client")` for API, stub complex sub-components
 - BPM workflow (draft/pending/published/archived state machine)
 - BPM reports (dashboard, matrices, heatmap, process map, dependencies)
 - Encryption and security
+- Prometheus metrics, middleware, and /metrics endpoint
 - All report endpoints (landscape, portfolio, matrix, roadmap, cost, dependencies, data quality)
 - Stakeholder role management and card-level assignments
 - ServiceNow integration (connection CRUD, auth validation)

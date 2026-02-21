@@ -6,14 +6,18 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_router
 from app.config import _DEFAULT_SECRET_KEYS, APP_VERSION, settings
 from app.core.logging_config import configure_logging
+from app.core.metrics import app_info
 from app.core.rate_limit import limiter
 from app.database import engine
+from app.middleware.prometheus import PrometheusMiddleware
 from app.models import Base
 
 configure_logging(environment=settings.ENVIRONMENT)
@@ -40,10 +44,12 @@ _PURGE_RETENTION_DAYS = 30
 
 async def _purge_archived_cards_loop() -> None:
     """Background loop that permanently deletes cards archived for 30+ days."""
+    import time as _time
     from datetime import datetime, timedelta, timezone
 
     from sqlalchemy import or_, select
 
+    from app.core.metrics import bg_task_last_success, bg_task_runs_total
     from app.database import async_session
     from app.models.card import Card
     from app.models.relation import Relation
@@ -62,6 +68,8 @@ async def _purge_archived_cards_loop() -> None:
                 )
                 cards_to_purge = result.scalars().all()
                 if not cards_to_purge:
+                    bg_task_runs_total.labels(task_name="purge_archived", status="noop").inc()
+                    bg_task_last_success.labels(task_name="purge_archived").set(_time.time())
                     continue
 
                 purged_ids = [c.id for c in cards_to_purge]
@@ -81,6 +89,8 @@ async def _purge_archived_cards_loop() -> None:
                     await db.delete(card)
 
                 await db.commit()
+                bg_task_runs_total.labels(task_name="purge_archived", status="success").inc()
+                bg_task_last_success.labels(task_name="purge_archived").set(_time.time())
                 logger.info(
                     "Auto-purged %d archived cards (archived before %s)",
                     len(purged_ids),
@@ -89,6 +99,7 @@ async def _purge_archived_cards_loop() -> None:
         except asyncio.CancelledError:
             raise
         except Exception:
+            bg_task_runs_total.labels(task_name="purge_archived", status="error").inc()
             logger.exception("Error in archived card purge loop")
 
 
@@ -251,9 +262,15 @@ app = FastAPI(
     openapi_url="/api/openapi.json" if settings.ENVIRONMENT == "development" else None,
 )
 
+# ── Prometheus app info ──
+app_info.info({"version": APP_VERSION, "environment": settings.ENVIRONMENT})
+
 # ── C7: Rate limiter ──
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── Prometheus metrics middleware ──
+app.add_middleware(PrometheusMiddleware)
 
 # ── C1: CORS — restrict origins instead of wildcard ──
 app.add_middleware(
@@ -270,3 +287,9 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 @app.get("/api/health")
 async def health():
     return {"status": "ok", "version": APP_VERSION}
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    """Prometheus-compatible metrics endpoint."""
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
