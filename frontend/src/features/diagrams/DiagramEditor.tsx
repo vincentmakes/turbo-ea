@@ -58,6 +58,7 @@ const DRAWIO_URL_PARAMS = new URLSearchParams({
   saveAndExit: "1",
   noSaveBtn: "0",
   noExitBtn: "0",
+  math: "0",
 }).toString();
 
 const EMPTY_DIAGRAM =
