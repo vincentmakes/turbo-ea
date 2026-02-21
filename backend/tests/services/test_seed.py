@@ -25,7 +25,7 @@ class TestSeedCardTypes:
 
         result = await db.execute(select(func.count(CardType.key)))
         count = result.scalar()
-        assert count >= 14
+        assert count >= len(TYPES)
 
     async def test_expected_type_keys_present(self, db):
         await seed_metamodel(db)
