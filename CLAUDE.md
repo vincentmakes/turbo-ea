@@ -60,7 +60,9 @@ When working on this codebase, follow these conventions:
 - **Backend tests** live in `backend/tests/` mirroring the source structure (`core/`, `services/`, `api/`).
 - **Frontend tests** live next to source files (e.g., `client.ts` → `client.test.ts`).
 - Backend integration tests use the savepoint-rollback pattern — each test runs in a transaction that rolls back automatically, so tests never pollute each other.
-- Use the factory helpers in `backend/tests/conftest.py` (`create_user`, `create_card`, `create_card_type`, etc.) rather than inserting raw models.
+- The test database engine (`test_engine` in `conftest.py`) is a **sync** session-scoped fixture using `NullPool`. This avoids pytest-asyncio event loop mismatches — each test gets a fresh asyncpg connection on its own loop. Do not convert it to an async fixture.
+- **Rate limiting is auto-disabled** in tests via an autouse fixture (`_disable_rate_limiter`). Tests should assert actual business logic status codes, not 429.
+- Use the factory helpers in `backend/tests/conftest.py` (`create_user`, `create_card`, `create_card_type`, etc.) rather than inserting raw models. Note: `create_card_type` defaults to `built_in=False`; pass `built_in=True` explicitly when testing built-in type behavior.
 - Frontend tests use Vitest + Testing Library. Mock the API client with `vi.mock("@/api/client")`, not the global fetch.
 - Pure logic (calculation engine, BPMN parser, encryption, JWT) should have unit tests that need no database.
 
