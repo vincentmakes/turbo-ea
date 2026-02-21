@@ -28,6 +28,11 @@ from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from app.core.security import create_access_token, hash_password
 from app.models.base import Base
 
+# Pre-computed bcrypt hash for the default test password "TestPassword1".
+# Avoids ~200ms of CPU per create_user() call — saves minutes across 800+ tests.
+_DEFAULT_PASSWORD = "TestPassword1"
+_DEFAULT_PASSWORD_HASH = hash_password(_DEFAULT_PASSWORD)
+
 # ---------------------------------------------------------------------------
 # Database engine
 # ---------------------------------------------------------------------------
@@ -42,6 +47,14 @@ def _test_db_url() -> str:
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 
+def _worker_schema() -> str | None:
+    """Return a per-worker schema name when running under pytest-xdist."""
+    worker = os.getenv("PYTEST_XDIST_WORKER")
+    if worker:
+        return f"test_{worker}"
+    return None
+
+
 @pytest.fixture(scope="session")
 def test_engine():
     """Create a test database engine and all tables. Drops tables at teardown.
@@ -50,18 +63,45 @@ def test_engine():
     loop.  NullPool ensures that connections are never cached — each
     ``engine.connect()`` call in the per-test ``db`` fixture creates a fresh
     asyncpg connection on whatever loop is current, avoiding cross-loop errors.
+
+    When running under pytest-xdist, each worker gets its own PostgreSQL schema
+    to avoid DDL conflicts between parallel workers.
     """
+    from sqlalchemy import text
+
     url = _test_db_url()
-    engine = create_async_engine(url, echo=False, poolclass=NullPool)
+    schema = _worker_schema()
+
+    connect_args = {}
+    if schema:
+        # Set search_path so all tables are created in the worker schema
+        connect_args["server_settings"] = {"search_path": f"{schema},public"}
+
+    engine = create_async_engine(
+        url, echo=False, poolclass=NullPool, connect_args=connect_args
+    )
 
     async def _setup():
+        if schema:
+            # Create the worker schema (use a raw connection without search_path)
+            raw_engine = create_async_engine(url, echo=False, poolclass=NullPool)
+            async with raw_engine.begin() as conn:
+                await conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+                await conn.execute(text(f"CREATE SCHEMA {schema}"))
+            await raw_engine.dispose()
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
 
     async def _teardown():
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+        if schema:
+            raw_engine = create_async_engine(url, echo=False, poolclass=NullPool)
+            async with raw_engine.begin() as conn:
+                await conn.execute(text(f"DROP SCHEMA IF EXISTS {schema} CASCADE"))
+            await raw_engine.dispose()
+        else:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
         await engine.dispose()
 
     try:
@@ -212,7 +252,11 @@ async def create_user(
     user = User(
         email=email or f"test-{uuid.uuid4().hex[:8]}@example.com",
         display_name=display_name,
-        password_hash=hash_password(password),
+        password_hash=(
+            _DEFAULT_PASSWORD_HASH
+            if password == _DEFAULT_PASSWORD
+            else hash_password(password)
+        ),
         role=role,
         is_active=True,
         auth_provider="local",
