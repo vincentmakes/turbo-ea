@@ -11,10 +11,12 @@ from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_router
 from app.config import _DEFAULT_SECRET_KEYS, APP_VERSION, settings
+from app.core.logging_config import configure_logging
 from app.core.rate_limit import limiter
 from app.database import engine
 from app.models import Base
 
+configure_logging(environment=settings.ENVIRONMENT)
 logger = logging.getLogger(__name__)
 
 

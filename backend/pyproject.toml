@@ -30,6 +30,8 @@ dev = [
     "pytest-cov>=5.0.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
+    "pip-audit>=2.7.0",
+    "pip-tools>=7.4.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -59,6 +61,6 @@ source = ["app"]
 omit = ["app/services/seed*.py"]
 
 [tool.coverage.report]
-fail_under = 0
+fail_under = 40
 show_missing = true
 skip_covered = true

@@ -198,6 +198,27 @@ When reviewing against this codebase, Claude Code validates:
 
 ---
 
+## Recommended Branch Protection Rules
+
+For maintainers setting up the repository, apply these branch protection rules
+to `main` via **Settings > Branches > Branch protection rules**:
+
+| Rule | Setting | Why |
+|------|---------|-----|
+| **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
+| **Require status checks to pass** | Backend Lint, Backend Tests, Frontend Lint, Frontend Build, Frontend Tests | Prevents broken code from merging |
+| **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
+| **Require conversation resolution** | Enabled | Review comments must be addressed |
+| **Restrict force pushes** | Block everyone | Protects commit history |
+| **Restrict deletions** | Block everyone | Prevents accidental branch deletion |
+
+Security scanning jobs (`Backend Security Scan`, `Frontend Security Scan`) are
+intentionally **not** required status checks — they run with `continue-on-error`
+so that existing vulnerability findings don't block all PRs. Once findings are
+triaged and resolved, promote them to required checks.
+
+---
+
 ## Reporting Issues
 
 - **Bugs**: Open an issue with steps to reproduce, expected behavior, and actual behavior.
