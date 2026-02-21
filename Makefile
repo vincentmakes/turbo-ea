@@ -1,6 +1,6 @@
 .PHONY: help dev dev-backend dev-frontend lint lint-backend lint-frontend \
-       test test-backend test-frontend test-unit build format \
-       lock-deps audit docker-up docker-down docker-build
+       test test-backend test-frontend test-unit build format typecheck \
+       lock-deps audit docker-up docker-down docker-build backup
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -45,6 +45,11 @@ test-unit: ## Run backend unit tests only (no database needed)
 test-frontend: ## Run frontend tests
 	cd frontend && npx vitest run
 
+# ── Type Checking ───────────────────────────────────────────────────────
+
+typecheck: ## Run mypy on backend
+	cd backend && python -m mypy app/
+
 # ── Build ───────────────────────────────────────────────────────────────
 
 build: ## Build frontend for production
@@ -70,3 +75,8 @@ docker-down: ## Stop all services
 
 docker-build: ## Build Docker images
 	docker compose build
+
+# ── Database ────────────────────────────────────────────────────────────
+
+backup: ## Back up PostgreSQL database to backups/
+	./scripts/backup-db.sh

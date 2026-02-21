@@ -32,6 +32,7 @@ dev = [
     "ruff>=0.8.0",
     "pip-audit>=2.7.0",
     "pip-tools>=7.4.0",
+    "mypy>=1.11.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -64,3 +65,20 @@ omit = ["app/services/seed*.py"]
 fail_under = 40
 show_missing = true
 skip_covered = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+# Start permissive — tighten per-module as types are added
+disallow_untyped_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "alembic.versions.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "app.services.seed*"
+ignore_errors = true

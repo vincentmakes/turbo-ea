@@ -21,6 +21,8 @@ from tests.conftest import (
     auth_headers,
     create_card,
     create_card_type,
+    create_relation,
+    create_relation_type,
     create_role,
     create_user,
 )
@@ -625,3 +627,292 @@ class TestElementApplicationMap:
         data = resp.json()
         assert isinstance(data, list)
         assert len(data) == 0
+
+
+# ===========================================================================
+# Permission tests (assessments + reports)
+# ===========================================================================
+
+
+class TestBpmAssessmentPermissions:
+    """Tests that assessment endpoints enforce bpm.assessments permission."""
+
+    async def test_viewer_cannot_create_assessment(self, client, db, bpm_ext_env):
+        """Viewer role (bpm.assessments=False) gets 403 on POST."""
+        viewer = bpm_ext_env["viewer"]
+        process = bpm_ext_env["process"]
+        resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/assessments",
+            json={
+                "assessment_date": "2025-06-01",
+                "overall_score": 3,
+                "efficiency": 3,
+                "effectiveness": 3,
+                "compliance": 3,
+                "automation": 3,
+            },
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_viewer_cannot_delete_assessment(self, client, db, bpm_ext_env):
+        """Viewer role gets 403 on DELETE."""
+        admin = bpm_ext_env["admin"]
+        viewer = bpm_ext_env["viewer"]
+        process = bpm_ext_env["process"]
+
+        # Admin creates assessment
+        create_resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/assessments",
+            json={
+                "assessment_date": "2025-06-02",
+                "overall_score": 3,
+                "efficiency": 3,
+                "effectiveness": 3,
+                "compliance": 3,
+                "automation": 3,
+            },
+            headers=auth_headers(admin),
+        )
+        a_id = create_resp.json()["id"]
+
+        # Viewer tries to delete
+        resp = await client.delete(
+            f"/api/v1/bpm/processes/{process.id}/assessments/{a_id}",
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_viewer_cannot_update_assessment(self, client, db, bpm_ext_env):
+        """Viewer role gets 403 on PUT."""
+        admin = bpm_ext_env["admin"]
+        viewer = bpm_ext_env["viewer"]
+        process = bpm_ext_env["process"]
+
+        create_resp = await client.post(
+            f"/api/v1/bpm/processes/{process.id}/assessments",
+            json={
+                "assessment_date": "2025-06-03",
+                "overall_score": 3,
+                "efficiency": 3,
+                "effectiveness": 3,
+                "compliance": 3,
+                "automation": 3,
+            },
+            headers=auth_headers(admin),
+        )
+        a_id = create_resp.json()["id"]
+
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process.id}/assessments/{a_id}",
+            json={"overall_score": 5},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_delete_nonexistent_assessment_404(self, client, db, bpm_ext_env):
+        """DELETE on a nonexistent assessment returns 404."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+        fake_id = uuid.uuid4()
+
+        resp = await client.delete(
+            f"/api/v1/bpm/processes/{process.id}/assessments/{fake_id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+
+    async def test_update_nonexistent_assessment_404(self, client, db, bpm_ext_env):
+        """PUT on a nonexistent assessment returns 404."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+        fake_id = uuid.uuid4()
+
+        resp = await client.put(
+            f"/api/v1/bpm/processes/{process.id}/assessments/{fake_id}",
+            json={"overall_score": 5},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+
+
+class TestBpmReportPermissions:
+    """Verify all BPM report endpoints enforce reports.bpm_dashboard permission."""
+
+    REPORT_ENDPOINTS = [
+        "/api/v1/reports/bpm/dashboard",
+        "/api/v1/reports/bpm/capability-process-matrix",
+        "/api/v1/reports/bpm/process-application-matrix",
+        "/api/v1/reports/bpm/process-dependencies",
+        "/api/v1/reports/bpm/capability-heatmap?metric=process_count",
+        "/api/v1/reports/bpm/element-application-map",
+        "/api/v1/reports/bpm/process-map",
+    ]
+
+    @pytest.mark.parametrize("endpoint", REPORT_ENDPOINTS)
+    async def test_report_permission_denied(self, client, db, bpm_ext_env, endpoint):
+        """User without reports.bpm_dashboard gets 403 on all BPM report endpoints."""
+        no_bpm = bpm_ext_env["no_bpm_reports"]
+        resp = await client.get(endpoint, headers=auth_headers(no_bpm))
+        assert resp.status_code == 403
+
+
+# ===========================================================================
+# Data-driven BPM report tests (with relations)
+# ===========================================================================
+
+
+class TestCapabilityProcessMatrixWithData:
+    """Tests capability-process-matrix with actual relations."""
+
+    async def test_matrix_with_relations(self, client, db, bpm_ext_env):
+        """Matrix returns rows (capabilities) and columns (processes) when linked."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+
+        cap = await create_card(
+            db,
+            card_type="BusinessCapability",
+            name="Order Management",
+            user_id=admin.id,
+        )
+
+        await create_relation_type(
+            db,
+            key="relProcessToBC",
+            label="Process to Capability",
+            source_type_key="BusinessProcess",
+            target_type_key="BusinessCapability",
+        )
+        await create_relation(db, type_key="relProcessToBC", source_id=process.id, target_id=cap.id)
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/capability-process-matrix",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["rows"]) >= 1
+        assert len(data["columns"]) >= 1
+        assert len(data["cells"]) >= 1
+
+        # Verify the capability appears in rows
+        row_names = [r["name"] for r in data["rows"]]
+        assert "Order Management" in row_names
+
+
+class TestProcessApplicationMatrixWithData:
+    """Tests process-application-matrix with actual relations."""
+
+    async def test_matrix_with_relations(self, client, db, bpm_ext_env):
+        """Matrix returns processes and applications when linked."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+
+        app = await create_card(
+            db,
+            card_type="Application",
+            name="Order Service",
+            user_id=admin.id,
+        )
+
+        await create_relation_type(
+            db,
+            key="relProcessToApp",
+            label="Process to Application",
+            source_type_key="BusinessProcess",
+            target_type_key="Application",
+        )
+        await create_relation(
+            db, type_key="relProcessToApp", source_id=process.id, target_id=app.id
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-application-matrix",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["rows"]) >= 1
+        assert len(data["columns"]) >= 1
+        assert len(data["cells"]) >= 1
+
+
+class TestProcessDependenciesWithData:
+    """Tests process-dependencies with actual relations."""
+
+    async def test_dependencies_with_relations(self, client, db, bpm_ext_env):
+        """Returns nodes and edges when process dependency relations exist."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+
+        process2 = await create_card(
+            db,
+            card_type="BusinessProcess",
+            name="Shipping Process",
+            user_id=admin.id,
+            attributes={"processType": "core"},
+        )
+
+        await create_relation_type(
+            db,
+            key="relProcessDependency",
+            label="Process Dependency",
+            source_type_key="BusinessProcess",
+            target_type_key="BusinessProcess",
+        )
+        await create_relation(
+            db,
+            type_key="relProcessDependency",
+            source_id=process.id,
+            target_id=process2.id,
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/process-dependencies",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["nodes"]) >= 2
+        assert len(data["edges"]) >= 1
+
+        node_names = [n["name"] for n in data["nodes"]]
+        assert "Order Processing" in node_names
+        assert "Shipping Process" in node_names
+
+
+class TestCapabilityHeatmapWithData:
+    """Tests capability-heatmap with linked capabilities and processes."""
+
+    async def test_heatmap_with_linked_capability(self, client, db, bpm_ext_env):
+        """Capability linked to a process shows non-zero metric_value."""
+        admin = bpm_ext_env["admin"]
+        process = bpm_ext_env["process"]
+
+        cap = await create_card(
+            db,
+            card_type="BusinessCapability",
+            name="Supply Chain",
+            user_id=admin.id,
+        )
+
+        await create_relation_type(
+            db,
+            key="relBCToProcess",
+            label="Capability to Process",
+            source_type_key="BusinessCapability",
+            target_type_key="BusinessProcess",
+        )
+        await create_relation(db, type_key="relBCToProcess", source_id=cap.id, target_id=process.id)
+
+        resp = await client.get(
+            "/api/v1/reports/bpm/capability-heatmap?metric=process_count",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        linked = [i for i in data["items"] if i["name"] == "Supply Chain"]
+        assert len(linked) == 1
+        assert linked[0]["metric_value"] >= 1
