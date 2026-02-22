@@ -68,7 +68,7 @@ When working on this codebase, follow these conventions:
 - **Update `CHANGELOG.md`** for every user-facing change. Add entries under the current version heading (e.g., `## [0.6.0] - 2026-02-22`). Do **not** use an `[Unreleased]` section — this project ships continuously and every change belongs to a concrete version.
 - The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Use these categories: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**. Only include categories that apply.
 - Each entry should be a single concise line describing the change from the user's perspective, not implementation details.
-- **Bump the version** for every PR that includes user-facing changes. Follow [Semantic Versioning](https://semver.org/): bump **patch** (e.g., `0.6.0` → `0.6.1`) for bug fixes, **minor** (e.g., `0.6.0` → `0.7.0`) for new features, **major** for breaking changes.
+- **Bump the version once per PR** (not per commit). All commits in a feature branch share one version. Follow [Semantic Versioning](https://semver.org/): bump **patch** (e.g., `0.6.0` → `0.6.1`) for bug fixes, **minor** (e.g., `0.6.0` → `0.7.0`) for new features, **major** for breaking changes.
 - The single source of truth for the version is `/VERSION`. When bumping, all three files must be updated together: `VERSION`, `backend/pyproject.toml`, and `frontend/package.json`.
 - When bumping, add a new heading in `CHANGELOG.md` with the new version and today's date (e.g., `## [0.6.1] - 2026-02-22`), and place new entries under it.
 
