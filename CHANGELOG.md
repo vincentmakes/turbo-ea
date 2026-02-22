@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Dark theme with toggle in account menu, persisted via localStorage
 - Dependabot configuration for pip, npm, and GitHub Actions ecosystems
 - Security scanning in CI (pip-audit for Python, npm audit for Node)
 - Backend test coverage threshold (40% ratchet — prevents regression)
