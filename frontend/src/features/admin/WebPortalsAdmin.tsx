@@ -243,25 +243,20 @@ export default function WebPortalsAdmin() {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <MaterialSymbol icon="language" size={28} color="#1976d2" />
-        <Typography variant="h5" fontWeight={600}>
-          Web Portals
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+          Web portals are public-facing pages that display cards to end
+          users without requiring authentication. Configure which card type
+          to display, apply filters, and customize the card layout.
         </Typography>
-        <Box sx={{ flex: 1 }} />
         <Button
           variant="contained"
           startIcon={<MaterialSymbol icon="add" size={18} />}
           onClick={openCreate}
+          sx={{ flexShrink: 0 }}
         >
           Create Portal
         </Button>
       </Box>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Web portals are public-facing pages that display cards to end
-        users without requiring authentication. Configure which card type
-        to display, apply filters, and customize the card layout.
-      </Typography>
 
       {portals.length === 0 && (
         <Card>

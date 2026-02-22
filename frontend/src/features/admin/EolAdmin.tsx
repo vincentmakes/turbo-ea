@@ -267,9 +267,6 @@ export default function EolAdmin() {
 
   return (
     <Box sx={{ maxWidth: 1100, mx: "auto" }}>
-      <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
-        Mass EOL Search
-      </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         Automatically find End-of-Life data for your IT Components and
         Applications by fuzzy-matching their names against endoflife.date.

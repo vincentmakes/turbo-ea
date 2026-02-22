@@ -86,13 +86,6 @@ export default function ServiceNowAdmin() {
 
   return (
     <Box>
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 3 }}>
-        <MaterialSymbol icon="sync" size={28} color="#1976d2" />
-        <Typography variant="h5" fontWeight={700}>
-          ServiceNow Integration
-        </Typography>
-      </Box>
-
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Connections" />
         <Tab label="Mappings" />

@@ -37,10 +37,7 @@ const SettingsAdmin = lazy(() => import("@/features/admin/SettingsAdmin"));
 const SurveysAdmin = lazy(() => import("@/features/admin/SurveysAdmin"));
 const SurveyBuilder = lazy(() => import("@/features/admin/SurveyBuilder"));
 const SurveyResults = lazy(() => import("@/features/admin/SurveyResults"));
-const EolAdmin = lazy(() => import("@/features/admin/EolAdmin"));
 const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
-const WebPortalsAdmin = lazy(() => import("@/features/admin/WebPortalsAdmin"));
-const ServiceNowAdmin = lazy(() => import("@/features/admin/ServiceNowAdmin"));
 const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
@@ -139,13 +136,13 @@ function AppRoutes() {
                 <Route path="/admin/metamodel" element={<MetamodelAdmin />} />
                 <Route path="/admin/users" element={<UsersAdmin />} />
                 <Route path="/admin/settings" element={<SettingsAdmin />} />
-                <Route path="/admin/eol" element={<EolAdmin />} />
+                <Route path="/admin/eol" element={<Navigate to="/admin/settings?tab=eol" />} />
+                <Route path="/admin/web-portals" element={<Navigate to="/admin/settings?tab=web-portals" />} />
+                <Route path="/admin/servicenow" element={<Navigate to="/admin/settings?tab=servicenow" />} />
                 <Route path="/admin/surveys" element={<SurveysAdmin />} />
                 <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
                 <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
                 <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
-                <Route path="/admin/web-portals" element={<WebPortalsAdmin />} />
-                <Route path="/admin/servicenow" element={<ServiceNowAdmin />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>
