@@ -8,7 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.7.2] - 2026-02-22
 
 ### Fixed
-- CSP inline script violation caused by Cloudflare-injected script (whitelisted via sha256 hash in nginx CSP header)
 - CSP inline script violation in BPM process flow print view by replacing inline onclick handlers with addEventListener
 
 ## [0.7.1] - 2026-02-22
