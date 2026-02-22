@@ -227,10 +227,10 @@ export default function SoAWPreview() {
                   p: 2,
                   border: "1px solid",
                   borderColor:
-                    sig.status === "signed" ? "success.light" : "grey.300",
+                    sig.status === "signed" ? "success.light" : "divider",
                   borderRadius: 1,
                   bgcolor:
-                    sig.status === "signed" ? "success.50" : "grey.50",
+                    sig.status === "signed" ? "success.50" : "action.hover",
                 }}
               >
                 {sig.status === "signed" ? (

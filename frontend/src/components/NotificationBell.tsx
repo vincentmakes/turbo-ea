@@ -213,7 +213,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
             {notifications.map((notif: Notification) => {
               const iconDef = NOTIFICATION_ICONS[notif.type] ?? {
                 icon: "notifications",
-                color: "#666",
+                color: "text.secondary",
               };
               return (
                 <ListItemButton

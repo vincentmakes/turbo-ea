@@ -392,7 +392,7 @@ export default function PortalViewer() {
           justifyContent: "center",
           alignItems: "center",
           minHeight: "100vh",
-          bgcolor: "#f5f7fa",
+          bgcolor: "background.default",
         }}
       >
         <CircularProgress />
@@ -409,7 +409,7 @@ export default function PortalViewer() {
           justifyContent: "center",
           alignItems: "center",
           minHeight: "100vh",
-          bgcolor: "#f5f7fa",
+          bgcolor: "background.default",
           gap: 2,
         }}
       >
@@ -427,7 +427,7 @@ export default function PortalViewer() {
   const typeColor = portal.type_info?.color || "#1976d2";
 
   return (
-    <Box sx={{ minHeight: "100vh", bgcolor: "#f0f2f5" }}>
+    <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
       {/* Header */}
       <Box
         sx={{
@@ -511,8 +511,9 @@ export default function PortalViewer() {
           position: "sticky",
           top: 0,
           zIndex: 10,
-          bgcolor: "#fff",
-          borderBottom: "1px solid #ddd",
+          bgcolor: "background.paper",
+          borderBottom: 1,
+          borderColor: "divider",
           boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
           px: { xs: 2, md: 4 },
           py: 1.5,
@@ -717,8 +718,9 @@ export default function PortalViewer() {
               key={card.id}
               sx={{
                 borderRadius: 2.5,
-                border: "1px solid #e0e0e0",
-                bgcolor: "#fff",
+                border: 1,
+                borderColor: "divider",
+                bgcolor: "background.paper",
                 transition: "box-shadow 0.2s, transform 0.15s",
                 "&:hover": {
                   boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
@@ -765,7 +767,7 @@ export default function PortalViewer() {
                         fontWeight={700}
                         sx={{
                           lineHeight: 1.3,
-                          color: "#1a1a2e",
+                          color: "text.primary",
                           fontSize: "0.95rem",
                           display: "-webkit-box",
                           WebkitLineClamp: 2,
@@ -778,7 +780,7 @@ export default function PortalViewer() {
                       {card.subtype && (
                         <Typography
                           variant="caption"
-                          sx={{ color: "#666", fontSize: "0.75rem" }}
+                          sx={{ color: "text.secondary", fontSize: "0.75rem" }}
                         >
                           {portal.type_info?.subtypes?.find(
                             (st) => st.key === card.subtype
@@ -800,7 +802,7 @@ export default function PortalViewer() {
                         overflow: "hidden",
                         fontSize: "0.82rem",
                         lineHeight: 1.6,
-                        color: "#555",
+                        color: "text.secondary",
                       }}
                     >
                       {card.description.replace(/<[^>]*>/g, "")}
@@ -830,7 +832,7 @@ export default function PortalViewer() {
                                 fontSize: "0.68rem",
                                 textTransform: "uppercase",
                                 letterSpacing: 0.5,
-                                color: "#888",
+                                color: "text.secondary",
                                 fontWeight: 600,
                                 mb: 0.4,
                               }}
@@ -897,8 +899,8 @@ export default function PortalViewer() {
                             px: 0.5,
                             bgcolor: tag.color
                               ? `${tag.color}18`
-                              : "#f0f0f0",
-                            color: tag.color || "#555",
+                              : "action.selected",
+                            color: tag.color || "text.secondary",
                             fontWeight: 500,
                           }}
                         />
@@ -949,7 +951,8 @@ export default function PortalViewer() {
                       gap: 1,
                       mt: 2,
                       pt: 1.5,
-                      borderTop: "1px solid #f0f0f0",
+                      borderTop: 1,
+                      borderColor: "divider",
                     }}
                   >
                     {/* Stakeholders */}
@@ -1003,7 +1006,7 @@ export default function PortalViewer() {
                         width: 60,
                         height: 4,
                         borderRadius: 2,
-                        bgcolor: "#eee",
+                        bgcolor: "action.hover",
                         "& .MuiLinearProgress-bar": {
                           bgcolor:
                             card.data_quality >= 80
@@ -1019,7 +1022,7 @@ export default function PortalViewer() {
                       variant="caption"
                       sx={{
                         fontSize: "0.73rem",
-                        color: "#777",
+                        color: "text.secondary",
                         fontWeight: 600,
                         minWidth: 32,
                         textAlign: "right",
@@ -1067,8 +1070,9 @@ export default function PortalViewer() {
                 alignItems: "flex-start",
                 gap: 2,
                 pb: 1,
-                bgcolor: "#fafbfc",
-                borderBottom: "1px solid #eee",
+                bgcolor: "action.hover",
+                borderBottom: 1,
+                borderColor: "divider",
               }}
             >
               <Box
@@ -1095,7 +1099,7 @@ export default function PortalViewer() {
                 <Typography
                   variant="h5"
                   fontWeight={700}
-                  sx={{ color: "#1a1a2e" }}
+                  sx={{ color: "text.primary" }}
                 >
                   {selectedFs.name}
                 </Typography>
@@ -1198,7 +1202,7 @@ export default function PortalViewer() {
                       textTransform: "uppercase",
                       fontSize: "0.75rem",
                       letterSpacing: 1,
-                      color: "#888",
+                      color: "text.secondary",
                     }}
                   >
                     Description
@@ -1208,7 +1212,7 @@ export default function PortalViewer() {
                     sx={{
                       lineHeight: 1.7,
                       whiteSpace: "pre-wrap",
-                      color: "#333",
+                      color: "text.primary",
                     }}
                     dangerouslySetInnerHTML={{
                       __html: DOMPurify.sanitize(selectedFs.description || ""),
@@ -1229,7 +1233,7 @@ export default function PortalViewer() {
                         textTransform: "uppercase",
                         fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#888",
+                        color: "text.secondary",
                       }}
                     >
                       Lifecycle
@@ -1248,14 +1252,14 @@ export default function PortalViewer() {
                           <Box key={phase.key}>
                             <Typography
                               variant="caption"
-                              sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
+                              sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                             >
                               {phase.label}
                             </Typography>
                             <Typography
                               variant="body2"
                               fontWeight={600}
-                              sx={{ color: "#333" }}
+                              sx={{ color: "text.primary" }}
                             >
                               {date}
                             </Typography>
@@ -1288,7 +1292,7 @@ export default function PortalViewer() {
                         textTransform: "uppercase",
                         fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#888",
+                        color: "text.secondary",
                       }}
                     >
                       {section.section}
@@ -1304,7 +1308,7 @@ export default function PortalViewer() {
                         <Box key={field.key}>
                           <Typography
                             variant="caption"
-                            sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
+                            sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                           >
                             {field.label}
                           </Typography>
@@ -1331,7 +1335,7 @@ export default function PortalViewer() {
                         textTransform: "uppercase",
                         fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#888",
+                        color: "text.secondary",
                       }}
                     >
                       Stakeholders
@@ -1346,7 +1350,7 @@ export default function PortalViewer() {
                             display: "flex",
                             alignItems: "center",
                             gap: 1,
-                            bgcolor: "#f5f5f5",
+                            bgcolor: "action.selected",
                             borderRadius: 2,
                             px: 1.5,
                             py: 0.75,
@@ -1370,13 +1374,13 @@ export default function PortalViewer() {
                             <Typography
                               variant="body2"
                               fontWeight={600}
-                              sx={{ fontSize: "0.85rem", color: "#333" }}
+                              sx={{ fontSize: "0.85rem", color: "text.primary" }}
                             >
                               {sub.display_name}
                             </Typography>
                             <Typography
                               variant="caption"
-                              sx={{ display: "block", fontSize: "0.73rem", color: "#888", mb: 0.25 }}
+                              sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                             >
                               {ROLE_LABELS[sub.role] || sub.role}
                             </Typography>
@@ -1398,7 +1402,7 @@ export default function PortalViewer() {
                       textTransform: "uppercase",
                       fontSize: "0.75rem",
                       letterSpacing: 1,
-                      color: "#888",
+                      color: "text.secondary",
                     }}
                   >
                     Tags
@@ -1417,8 +1421,8 @@ export default function PortalViewer() {
                           height: 28,
                           fontSize: "0.8rem",
                           px: 0.75,
-                          bgcolor: tag.color ? `${tag.color}18` : "#f0f0f0",
-                          color: tag.color || "#444",
+                          bgcolor: tag.color ? `${tag.color}18` : "action.selected",
+                          color: tag.color || "text.secondary",
                           fontWeight: 500,
                         }}
                       />
@@ -1454,7 +1458,7 @@ export default function PortalViewer() {
                         textTransform: "uppercase",
                         fontSize: "0.75rem",
                         letterSpacing: 1,
-                        color: "#888",
+                        color: "text.secondary",
                       }}
                     >
                       Related Items
@@ -1468,7 +1472,7 @@ export default function PortalViewer() {
                             mb: 0.75,
                             display: "block",
                             fontSize: "0.78rem",
-                            color: "#555",
+                            color: "text.secondary",
                           }}
                         >
                           {label}
@@ -1502,7 +1506,7 @@ export default function PortalViewer() {
                   <Divider sx={{ my: 2 }} />
                   <Typography
                     variant="caption"
-                    sx={{ color: "#bbb", fontSize: "0.75rem" }}
+                    sx={{ color: "text.disabled", fontSize: "0.75rem" }}
                   >
                     Last updated:{" "}
                     {new Date(selectedFs.updated_at).toLocaleDateString(

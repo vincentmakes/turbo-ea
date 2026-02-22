@@ -264,18 +264,18 @@ function SortableGroupCard({
     <Box ref={setNodeRef} style={style} sx={{ mb: 0.75 }}>
       <Box
         sx={{
-          border: 2, borderColor: isOver ? "primary.main" : "grey.300",
+          border: 2, borderColor: isOver ? "primary.main" : "divider",
           borderRadius: 1.5, borderStyle: "dashed",
-          bgcolor: isOver ? "primary.50" : "grey.50",
+          bgcolor: isOver ? "primary.50" : "action.hover",
           transition: "border-color 0.2s, background-color 0.2s",
         }}
       >
         {/* Group header */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1.25, py: 0.5, borderBottom: 1, borderColor: "grey.200", bgcolor: "grey.100", borderRadius: "6px 6px 0 0" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1.25, py: 0.5, borderBottom: 1, borderColor: "divider", bgcolor: "action.hover", borderRadius: "6px 6px 0 0" }}>
           <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", "&:active": { cursor: "grabbing" } }}>
-            <MaterialSymbol icon="drag_indicator" size={16} color="#999" />
+            <MaterialSymbol icon="drag_indicator" size={16} color="inherit" />
           </Box>
-          <MaterialSymbol icon="workspaces" size={16} color="#666" />
+          <MaterialSymbol icon="workspaces" size={16} color="inherit" />
           {renaming ? (
             <TextField
               size="small" autoFocus value={rname}

@@ -395,10 +395,10 @@ function HouseCard({
         } : undefined}
         sx={{
           border: "1px solid",
-          borderColor: matchesSearch && search ? color : "#e0e0e0",
+          borderColor: matchesSearch && search ? color : "divider",
           borderRadius: 2,
           overflow: "hidden",
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
           cursor: "pointer",
           transition: "all 0.2s",
           opacity,
@@ -478,8 +478,9 @@ function HouseCard({
             display: "flex",
             alignItems: "center",
             gap: 0.75,
-            bgcolor: "#fafafa",
-            borderTop: "1px solid #f0f0f0",
+            bgcolor: "action.hover",
+            borderTop: 1,
+            borderColor: "divider",
           }}
         >
           {node.deepAppCount > 0 && (
@@ -488,7 +489,7 @@ function HouseCard({
                 size="small"
                 icon={<MaterialSymbol icon="apps" size={12} />}
                 label={node.deepAppCount}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "#e3f2fd" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
               />
             </Tooltip>
           )}
@@ -498,7 +499,7 @@ function HouseCard({
                 size="small"
                 icon={<MaterialSymbol icon="checklist" size={12} />}
                 label={node.element_count}
-                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "#f3e5f5" }}
+                sx={{ height: 20, fontSize: "0.65rem", bgcolor: "action.hover" }}
               />
             </Tooltip>
           )}
@@ -570,10 +571,11 @@ function HouseCard({
         dragRef!.current = null;
       } : undefined}
       sx={{
-        border: "1px solid #d0d0d0",
+        border: 1,
+        borderColor: "divider",
         borderRadius: 2,
         overflow: "hidden",
-        bgcolor: "#fff",
+        bgcolor: "background.paper",
         opacity,
         transition: "opacity 0.2s",
       }}
@@ -1024,8 +1026,9 @@ function DrawerSteps({
                       px: 1.5,
                       py: 1,
                       borderRadius: 1.5,
-                      border: "1px solid #e8e8e8",
-                      bgcolor: el.is_automated ? "rgba(126,87,194,0.04)" : "#fff",
+                      border: 1,
+                      borderColor: "divider",
+                      bgcolor: el.is_automated ? "rgba(126,87,194,0.04)" : "background.paper",
                       "&:hover": { bgcolor: "action.hover" },
                     }}
                   >
@@ -1085,8 +1088,8 @@ function DrawerSteps({
                               height: 20,
                               fontSize: "0.65rem",
                               cursor: "pointer",
-                              bgcolor: "#e3f2fd",
-                              "&:hover": { bgcolor: "#bbdefb" },
+                              bgcolor: "action.hover",
+                              "&:hover": { bgcolor: "action.selected" },
                             }}
                           />
                         )}
@@ -1100,8 +1103,8 @@ function DrawerSteps({
                               height: 20,
                               fontSize: "0.65rem",
                               cursor: "pointer",
-                              bgcolor: "#f3e5f5",
-                              "&:hover": { bgcolor: "#e1bee7" },
+                              bgcolor: "action.hover",
+                              "&:hover": { bgcolor: "action.selected" },
                             }}
                           />
                         )}
@@ -1115,8 +1118,8 @@ function DrawerSteps({
                               height: 20,
                               fontSize: "0.65rem",
                               cursor: "pointer",
-                              bgcolor: "#fff3e0",
-                              "&:hover": { bgcolor: "#ffe0b2" },
+                              bgcolor: "action.hover",
+                              "&:hover": { bgcolor: "action.selected" },
                             }}
                           />
                         )}
@@ -1253,11 +1256,12 @@ function DrawerFlow({
     <Box>
       <Box
         sx={{
-          border: "1px solid #e0e0e0",
+          border: 1,
+          borderColor: "divider",
           borderRadius: 2,
           overflow: "hidden",
           mb: 2,
-          bgcolor: "#fafafa",
+          bgcolor: "action.hover",
           cursor: "pointer",
           "&:hover": { boxShadow: 2 },
           "& svg": { maxWidth: "100%", height: "auto" },
@@ -1318,7 +1322,8 @@ function DrawerApps({
             px: 1.5,
             py: 1,
             borderRadius: 1,
-            border: "1px solid #e0e0e0",
+            border: 1,
+            borderColor: "divider",
             cursor: "pointer",
             "&:hover": { bgcolor: "action.hover" },
           }}
@@ -1386,7 +1391,8 @@ function DrawerData({
             px: 1.5,
             py: 1,
             borderRadius: 1,
-            border: "1px solid #e0e0e0",
+            border: 1,
+            borderColor: "divider",
             cursor: "pointer",
             "&:hover": { bgcolor: "action.hover" },
           }}
@@ -1559,7 +1565,7 @@ function MatrixView({
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell sx={{ fontWeight: 700, position: "sticky", left: 0, zIndex: 3, bgcolor: "#fff" }}>
+            <TableCell sx={{ fontWeight: 700, position: "sticky", left: 0, zIndex: 3, bgcolor: "background.paper" }}>
               Process
             </TableCell>
             {data.columns.map((c) => (
@@ -1579,7 +1585,7 @@ function MatrixView({
                   fontWeight: 500,
                   position: "sticky",
                   left: 0,
-                  bgcolor: "#fff",
+                  bgcolor: "background.paper",
                   zIndex: 1,
                 }}
                 onClick={() => onNavigate(r.id)}
@@ -2163,9 +2169,10 @@ export default function ProcessNavigator() {
             mb: 2,
             flexWrap: "wrap",
             p: 1.5,
-            bgcolor: "#fafafa",
+            bgcolor: "action.hover",
             borderRadius: 2,
-            border: "1px solid #f0f0f0",
+            border: 1,
+            borderColor: "divider",
           }}
         >
           {/* Search */}
@@ -2378,9 +2385,10 @@ export default function ProcessNavigator() {
                         sx={{
                           py: 3,
                           textAlign: "center",
-                          border: "1px dashed #e0e0e0",
+                          border: "1px dashed",
+                          borderColor: "divider",
                           borderRadius: 2,
-                          bgcolor: "#fafafa",
+                          bgcolor: "action.hover",
                         }}
                       >
                         <Typography variant="body2" color="text.secondary">
@@ -2456,7 +2464,7 @@ export default function ProcessNavigator() {
           )}
 
           {/* Legend */}
-          <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid #f0f0f0" }}>
+          <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
             <OverlayLegend overlay={overlay} />
           </Box>
         </>

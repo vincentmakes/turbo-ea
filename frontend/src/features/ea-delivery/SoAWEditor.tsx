@@ -706,7 +706,7 @@ export default function SoAWEditor() {
         </Box>
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: "grey.50" }}>
+            <TableRow sx={{ bgcolor: "action.hover" }}>
               <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Revised By</TableCell>
@@ -849,7 +849,8 @@ export default function SoAWEditor() {
               p: 3,
               mb: 2,
               opacity: isHidden ? 0.5 : 1,
-              borderLeft: isHidden ? "4px solid #ccc" : "none",
+              borderLeft: isHidden ? "4px solid" : "none",
+              borderLeftColor: isHidden ? "action.disabled" : undefined,
             }}
           >
             {/* Section header */}
@@ -931,7 +932,7 @@ export default function SoAWEditor() {
               {def.type === "togaf_phases" && (
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ bgcolor: "grey.50" }}>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
                       <TableCell sx={{ fontWeight: 600, width: 280 }}>Phase</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>
                         Relevant Artefacts
@@ -1064,9 +1065,9 @@ export default function SoAWEditor() {
                 sx={{
                   p: 2,
                   border: "1px solid",
-                  borderColor: sig.status === "signed" ? "success.light" : "grey.300",
+                  borderColor: sig.status === "signed" ? "success.light" : "divider",
                   borderRadius: 1,
-                  bgcolor: sig.status === "signed" ? "success.50" : "grey.50",
+                  bgcolor: sig.status === "signed" ? "success.50" : "action.hover",
                 }}
               >
                 {sig.status === "signed" ? (

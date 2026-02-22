@@ -23,6 +23,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
@@ -66,7 +67,7 @@ const LIFECYCLE_PHASES = [
   { key: "active", label: "Active", color: "#4caf50" },
   { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
   { key: "endOfLife", label: "End of Life", color: "#f44336" },
-  { key: "none", label: "Not Set", color: "#e0e0e0" },
+  { key: "none", label: "Not Set", color: "#9e9e9e" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -75,6 +76,7 @@ const LIFECYCLE_PHASES = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { types } = useMetamodel();
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -188,16 +190,16 @@ export default function Dashboard() {
               {typeChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={Math.max(typeChartData.length * 38, 200)}>
                   <BarChart data={typeChartData} layout="vertical" margin={{ left: 10, right: 24, top: 4, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
+                    <XAxis type="number" allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
                     <YAxis
                       type="category"
                       dataKey="name"
                       width={130}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
-                    <RTooltip />
+                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                     <Bar
                       dataKey="count"
                       name="Count"
@@ -240,7 +242,14 @@ export default function Dashboard() {
                       outerRadius={90}
                       paddingAngle={2}
                       cursor="pointer"
-                      label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
+                      label={({ name, value, cx, x }: { name?: string; value?: number; cx?: number; x?: number }) => {
+                        const anchor = (x ?? 0) > (cx ?? 0) ? "start" : "end";
+                        return (
+                          <text fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central">
+                            {`${name ?? ""}: ${value ?? 0}`}
+                          </text>
+                        );
+                      }}
                       onClick={(_data, idx) => {
                         const status = approvalChartData[idx]?.key;
                         if (status) navigate(`/inventory?approval_status=${status}`);
@@ -250,8 +259,8 @@ export default function Dashboard() {
                         <Cell key={i} fill={d.color} />
                       ))}
                     </Pie>
-                    <RTooltip />
-                    <Legend />
+                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                    <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -272,10 +281,10 @@ export default function Dashboard() {
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={dataQualityChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} />
-                  <RTooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
                     name="Cards"
@@ -301,10 +310,10 @@ export default function Dashboard() {
               </Typography>
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={lifecycleChartData} margin={{ left: 0, right: 16, top: 8, bottom: 4 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis allowDecimals={false} />
-                  <RTooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                  <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
                     name="Cards"

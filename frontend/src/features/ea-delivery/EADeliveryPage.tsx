@@ -475,7 +475,7 @@ export default function EADeliveryPage() {
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: "grey.50" }}>
+            <TableRow sx={{ bgcolor: "action.hover" }}>
               <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Subtype</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
@@ -717,7 +717,7 @@ export default function EADeliveryPage() {
                     <TableRow>
                       <TableCell
                         colSpan={totalCols}
-                        sx={{ py: 0, bgcolor: isRowOpen ? "grey.50" : "transparent" }}
+                        sx={{ py: 0, bgcolor: isRowOpen ? "action.hover" : "transparent" }}
                       >
                         <Collapse in={isRowOpen} timeout="auto" unmountOnExit>
                           <Box sx={{ py: 1.5, px: 1 }}>
@@ -908,7 +908,7 @@ export default function EADeliveryPage() {
                     px: 2,
                     py: 1.5,
                     cursor: "pointer",
-                    "&:hover": { bgcolor: "grey.50" },
+                    "&:hover": { bgcolor: "action.hover" },
                   }}
                   onClick={() => toggle(initiative.id)}
                 >
@@ -1036,7 +1036,7 @@ export default function EADeliveryPage() {
                   px: 2,
                   py: 1.5,
                   cursor: "pointer",
-                  "&:hover": { bgcolor: "grey.50" },
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
                 onClick={() => toggle("__unlinked__")}
               >

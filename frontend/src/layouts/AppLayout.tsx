@@ -33,6 +33,7 @@ import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import type { BadgeCounts } from "@/types";
 
 interface NavItem {
@@ -109,6 +110,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const isCondensed = useMediaQuery("(max-width:1279px)");
   const { getType } = useMetamodel();
   const { bpmEnabled } = useBpmEnabled();
+  const { mode, toggleMode } = useThemeMode();
 
   // Permission check helper
   const can = useCallback(
@@ -876,6 +878,12 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>Notification Settings</ListItemText>
             </MenuItem>
+            <MenuItem onClick={toggleMode}>
+              <ListItemIcon>
+                <MaterialSymbol icon={mode === "dark" ? "light_mode" : "dark_mode"} size={18} />
+              </ListItemIcon>
+              <ListItemText>{mode === "dark" ? "Light Mode" : "Dark Mode"}</ListItemText>
+            </MenuItem>
             {showAdmin && <Divider />}
             {showAdmin && (
               <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>
@@ -932,7 +940,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         className="app-main-content"
         sx={{
           flexGrow: 1,
-          bgcolor: "#fafbfc",
+          bgcolor: "background.default",
           minHeight: "100vh",
           pt: "64px",
         }}

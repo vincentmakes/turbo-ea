@@ -175,7 +175,7 @@ function HierarchySection({
     <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
-          <MaterialSymbol icon="account_tree" size={20} color="#666" />
+          <MaterialSymbol icon="account_tree" size={20} />
           <Typography fontWeight={600}>Hierarchy</Typography>
           {hierarchy && (
             <Chip
@@ -215,7 +215,7 @@ function HierarchySection({
                           sx={{ cursor: "pointer", borderColor: aColor, color: aColor, fontWeight: 500 }}
                           variant="outlined"
                         />
-                        <MaterialSymbol icon="chevron_right" size={16} color="#bbb" />
+                        <MaterialSymbol icon="chevron_right" size={16} />
                       </Box>
                     );
                   })}
@@ -351,7 +351,7 @@ function HierarchySection({
                       secondaryAction={
                         canEdit ? (
                           <IconButton size="small" onClick={() => handleRemoveChild(child.id)} title="Remove from hierarchy">
-                            <MaterialSymbol icon="link_off" size={16} color="#999" />
+                            <MaterialSymbol icon="link_off" size={16} />
                           </IconButton>
                         ) : undefined
                       }

@@ -20,6 +20,7 @@ import Chip from "@mui/material/Chip";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import {
@@ -50,6 +51,7 @@ const RISK_COLORS: Record<string, string> = {
 /* ── Dashboard content (tab 1) ── */
 function BpmDashboardContent() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -156,7 +158,7 @@ function BpmDashboardContent() {
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -171,10 +173,10 @@ function BpmDashboardContent() {
               <Typography variant="subtitle2" gutterBottom>Maturity Distribution</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={maturityData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis tick={{ fill: theme.palette.text.secondary }} />
+                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
                     name="Processes"
@@ -201,10 +203,10 @@ function BpmDashboardContent() {
               <Typography variant="subtitle2" gutterBottom>Automation Level</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={automationData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                  <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
+                  <YAxis tick={{ fill: theme.palette.text.secondary }} />
+                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
                     name="Processes"

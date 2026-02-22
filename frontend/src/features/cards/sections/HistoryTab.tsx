@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { alpha, useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { PHASE_LABELS } from "@/features/cards/sections/cardDetailUtils";
@@ -71,6 +72,7 @@ function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
 }
 
 function HistoryTab({ fsId }: { fsId: string }) {
+  const theme = useTheme();
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
     api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
@@ -129,7 +131,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
                           <Typography
                             variant="caption"
                             sx={{
-                              color: "#c62828", bgcolor: "#ffebee", borderRadius: 0.5, px: 0.75, py: 0.125,
+                              color: theme.palette.error.main, bgcolor: alpha(theme.palette.error.main, 0.1), borderRadius: 0.5, px: 0.75, py: 0.125,
                               textDecoration: "line-through", maxWidth: 250, overflow: "hidden",
                               textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}
@@ -141,7 +143,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
                         <Typography
                           variant="caption"
                           sx={{
-                            color: "#1b5e20", bgcolor: "#e8f5e9", borderRadius: 0.5, px: 0.75, py: 0.125,
+                            color: theme.palette.success.main, bgcolor: alpha(theme.palette.success.main, 0.1), borderRadius: 0.5, px: 0.75, py: 0.125,
                             fontWeight: 500, maxWidth: 250, overflow: "hidden",
                             textOverflow: "ellipsis", whiteSpace: "nowrap",
                           }}

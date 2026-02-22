@@ -89,7 +89,7 @@ function TodosTab({ fsId }: { fsId: string }) {
             key={t.id}
             secondaryAction={
               <IconButton size="small" onClick={() => handleDelete(t.id)}>
-                <MaterialSymbol icon="close" size={16} color="#999" />
+                <MaterialSymbol icon="close" size={16} />
               </IconButton>
             }
           >
@@ -105,7 +105,7 @@ function TodosTab({ fsId }: { fsId: string }) {
                     : "radio_button_unchecked"
                 }
                 size={20}
-                color={t.status === "done" ? "#4caf50" : "#999"}
+                color={t.status === "done" ? "#4caf50" : undefined}
               />
             </IconButton>
             <ListItemText

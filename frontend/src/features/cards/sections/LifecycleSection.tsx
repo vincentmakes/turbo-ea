@@ -7,6 +7,7 @@ import AccordionDetails from "@mui/material/AccordionDetails";
 import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { PHASES, PHASE_LABELS } from "@/features/cards/sections/cardDetailUtils";
 import type { Card } from "@/types";
@@ -23,6 +24,7 @@ function LifecycleSection({
   canEdit?: boolean;
   initialExpanded?: boolean;
 }) {
+  const theme = useTheme();
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
@@ -41,7 +43,7 @@ function LifecycleSection({
     <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
-          <MaterialSymbol icon="timeline" size={20} color="#666" />
+          <MaterialSymbol icon="timeline" size={20} />
           <Typography fontWeight={600}>Lifecycle</Typography>
         </Box>
         {!editing && canEdit && (
@@ -78,7 +80,7 @@ function LifecycleSection({
                 <Box
                   sx={{
                     height: 4,
-                    bgcolor: isPast || isCurrent ? "#1976d2" : "#e0e0e0",
+                    bgcolor: isPast || isCurrent ? "#1976d2" : theme.palette.action.disabled,
                     borderRadius: i === 0 ? "2px 0 0 2px" : i === 4 ? "0 2px 2px 0" : 0,
                   }}
                 />
@@ -87,7 +89,7 @@ function LifecycleSection({
                     width: 12,
                     height: 12,
                     borderRadius: "50%",
-                    bgcolor: isCurrent && !isPast ? "#1976d2" : isPast ? "#1976d2" : "#e0e0e0",
+                    bgcolor: isCurrent && !isPast ? "#1976d2" : isPast ? "#1976d2" : theme.palette.action.disabled,
                     border: isCurrent && !isPast ? "2px solid #0d47a1" : "none",
                     position: "absolute",
                     top: -4,

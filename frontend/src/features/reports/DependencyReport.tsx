@@ -648,7 +648,7 @@ export default function DependencyReport() {
           <Paper
             variant="outlined"
             ref={scrollRef}
-            sx={{ overflow: "auto", bgcolor: "#f8f9fb", borderRadius: 2 }}
+            sx={{ overflow: "auto", bgcolor: "action.hover", borderRadius: 2 }}
           >
             <Box
               sx={{
@@ -744,7 +744,7 @@ export default function DependencyReport() {
                     {fromCard && toCard && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4, mt: 0.25 }}>
                         {fromCard.node.name}
-                        <span style={{ color: "#aaa", margin: "0 4px" }}>&rarr;</span>
+                        <span style={{ opacity: 0.5, margin: "0 4px" }}>&rarr;</span>
                         {toCard.node.name}
                       </Typography>
                     )}

@@ -324,7 +324,7 @@ export default function BpmnModeler({ processId, versionId, initialXml, onSaved,
         ref={containerRef}
         sx={{
           flex: 1,
-          bgcolor: "#fafafa",
+          bgcolor: "action.hover",
           "& .bjs-powered-by": { display: "none" },
           // Simple mode: hide advanced palette entries
           ...(mode === "simple" && {

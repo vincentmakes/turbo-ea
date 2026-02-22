@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
@@ -77,10 +78,10 @@ interface EolReportData {
 /* ------------------------------------------------------------------ */
 
 const STATUS_CONFIG = {
-  eol: { label: "End of Life", color: "#d32f2f", icon: "cancel", bg: "#ffebee" },
-  approaching: { label: "Approaching EOL", color: "#ed6c02", icon: "warning", bg: "#fff3e0" },
-  supported: { label: "Supported", color: "#2e7d32", icon: "check_circle", bg: "#e8f5e9" },
-  unknown: { label: "Unknown", color: "#9e9e9e", icon: "help", bg: "#f5f5f5" },
+  eol: { label: "End of Life", color: "#d32f2f", icon: "cancel" },
+  approaching: { label: "Approaching EOL", color: "#ed6c02", icon: "warning" },
+  supported: { label: "Supported", color: "#2e7d32", icon: "check_circle" },
+  unknown: { label: "Unknown", color: "#9e9e9e", icon: "help" },
 };
 
 /* ------------------------------------------------------------------ */
@@ -117,6 +118,7 @@ function countdownLabel(days: number | null): string {
 
 /** Source badge for manual vs API items */
 function SourceBadge({ source }: { source: "api" | "manual" }) {
+  const theme = useTheme();
   if (source === "api") return null;
   return (
     <Tooltip title="End-of-Life date was manually maintained in the Lifecycle section, not from endoflife.date API">
@@ -128,9 +130,9 @@ function SourceBadge({ source }: { source: "api" | "manual" }) {
           height: 18,
           fontSize: "0.6rem",
           fontWeight: 600,
-          bgcolor: "#e8eaf6",
-          color: "#3949ab",
-          "& .MuiChip-icon": { color: "#3949ab" },
+          bgcolor: alpha(theme.palette.info.main, 0.12),
+          color: "info.dark",
+          "& .MuiChip-icon": { color: "info.dark" },
         }}
       />
     </Tooltip>
@@ -146,13 +148,11 @@ function KpiCard({
   label,
   value,
   color,
-  bg,
 }: {
   icon: string;
   label: string;
   value: number;
   color: string;
-  bg: string;
 }) {
   return (
     <Paper
@@ -165,8 +165,8 @@ function KpiCard({
         flexDirection: "column",
         alignItems: "center",
         gap: 0.5,
-        bgcolor: bg,
-        borderColor: color + "40",
+        bgcolor: alpha(color, 0.08),
+        borderColor: alpha(color, 0.25),
       }}
     >
       <MaterialSymbol icon={icon} size={28} color={color} />
@@ -429,35 +429,30 @@ export default function EolReport() {
           label="End of Life"
           value={data.summary.eol}
           color="#d32f2f"
-          bg="#ffebee"
         />
         <KpiCard
           icon="warning"
           label="Approaching EOL"
           value={data.summary.approaching}
           color="#ed6c02"
-          bg="#fff3e0"
         />
         <KpiCard
           icon="check_circle"
           label="Supported"
           value={data.summary.supported}
           color="#2e7d32"
-          bg="#e8f5e9"
         />
         <KpiCard
           icon="apps"
           label="Impacted Apps"
           value={data.summary.impacted_apps}
           color="#1565c0"
-          bg="#e3f2fd"
         />
         <KpiCard
           icon="edit_note"
           label="Manually Maintained"
           value={data.summary.manual}
           color="#3949ab"
-          bg="#e8eaf6"
         />
       </Box>
 
@@ -518,7 +513,7 @@ export default function EolReport() {
                           gap: 0.5,
                           height: 36,
                           cursor: "pointer",
-                          "&:hover": { bgcolor: "#f5f5f5" },
+                          "&:hover": { bgcolor: "action.hover" },
                           borderRadius: 0.5,
                           px: 0.5,
                         }}
@@ -567,7 +562,11 @@ export default function EolReport() {
                               sx={{
                                 height: 18,
                                 fontSize: "0.65rem",
-                                bgcolor: item.status === "eol" ? "#ffcdd2" : item.status === "approaching" ? "#ffe0b2" : "#e0e0e0",
+                                bgcolor: item.status === "eol"
+                                  ? (t) => alpha(t.palette.error.light, 0.3)
+                                  : item.status === "approaching"
+                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    : "action.selected",
                               }}
                             />
                           </Tooltip>
@@ -592,7 +591,7 @@ export default function EolReport() {
                               height: 28,
                               pl: 3,
                               cursor: "pointer",
-                              "&:hover": { bgcolor: "#e3f2fd" },
+                              "&:hover": { bgcolor: "action.hover" },
                               borderRadius: 0.5,
                             }}
                             onClick={(e) => {
@@ -620,7 +619,8 @@ export default function EolReport() {
                     sx={{
                       position: "relative",
                       height: 24,
-                      borderBottom: "1px solid #e0e0e0",
+                      borderBottom: 1,
+                      borderColor: "divider",
                       mb: 1,
                     }}
                   >
@@ -632,7 +632,7 @@ export default function EolReport() {
                           position: "absolute",
                           left: `${t.pct}%`,
                           transform: "translateX(-50%)",
-                          color: "#999",
+                          color: "text.secondary",
                           fontSize: "0.7rem",
                         }}
                       >
@@ -980,9 +980,9 @@ export default function EolReport() {
                             height: 18,
                             fontSize: "0.6rem",
                             fontWeight: 600,
-                            bgcolor: "#e3f2fd",
-                            color: "#1976d2",
-                            "& .MuiChip-icon": { color: "#1976d2" },
+                            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+                            color: "primary.main",
+                            "& .MuiChip-icon": { color: "primary.main" },
                           }}
                         />
                       )}
@@ -1046,10 +1046,10 @@ export default function EolReport() {
                               fontSize: "0.7rem",
                               bgcolor:
                                 item.status === "eol"
-                                  ? "#ffcdd2"
+                                  ? (t) => alpha(t.palette.error.light, 0.3)
                                   : item.status === "approaching"
-                                    ? "#ffe0b2"
-                                    : "#e0e0e0",
+                                    ? (t) => alpha(t.palette.warning.light, 0.3)
+                                    : "action.selected",
                             }}
                           />
                         </Tooltip>

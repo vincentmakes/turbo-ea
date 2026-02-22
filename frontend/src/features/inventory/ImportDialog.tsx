@@ -141,16 +141,17 @@ export default function ImportDialog({
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileRef.current?.click()}
               sx={{
-                border: "2px dashed #ccc",
+                border: "2px dashed",
+                borderColor: "divider",
                 borderRadius: 2,
                 p: 4,
                 textAlign: "center",
                 cursor: "pointer",
-                "&:hover": { borderColor: "primary.main", bgcolor: "#f5f9ff" },
+                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
                 transition: "all 0.15s",
               }}
             >
-              <MaterialSymbol icon="cloud_upload" size={48} color="#999" />
+              <MaterialSymbol icon="cloud_upload" size={48} />
               <Typography variant="body1" sx={{ mt: 1 }}>
                 Drop an Excel file here or click to browse
               </Typography>

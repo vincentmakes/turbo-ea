@@ -417,7 +417,7 @@ export default function LifecycleReport() {
                   return (
                     <Box
                       key={item.id}
-                      sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                      sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                       onClick={() => navigate(`/cards/${item.id}`)}
                     >
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
@@ -433,12 +433,12 @@ export default function LifecycleReport() {
               <Box ref={timelineRef} sx={{ flex: 1, overflowX: "auto" }}>
                 <Box sx={{ position: "relative", width: `${contentPct}%`, minWidth: "100%" }}>
                   {/* Date axis */}
-                  <Box sx={{ position: "relative", height: 24, borderBottom: "1px solid #e0e0e0", mb: 1 }}>
+                  <Box sx={{ position: "relative", height: 24, borderBottom: 1, borderColor: "divider", mb: 1 }}>
                     {ticks.map((t) => (
                       <Typography
                         key={t.label}
                         variant="caption"
-                        sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "#999", fontSize: "0.7rem" }}
+                        sx={{ position: "absolute", left: `${t.pct}%`, transform: "translateX(-50%)", color: "text.secondary", fontSize: "0.7rem" }}
                       >
                         {t.label}
                       </Typography>
@@ -465,7 +465,7 @@ export default function LifecycleReport() {
                       return (
                         <Box
                           key={item.id}
-                          sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                          sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                           onClick={() => navigate(`/cards/${item.id}`)}
                         >
                           <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
@@ -505,7 +505,7 @@ export default function LifecycleReport() {
                     return (
                       <Box
                         key={item.id}
-                        sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "#f5f5f5" } }}
+                        sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
                         onClick={() => navigate(`/cards/${item.id}`)}
                       >
                         <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>

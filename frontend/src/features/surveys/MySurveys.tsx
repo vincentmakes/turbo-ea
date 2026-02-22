@@ -74,7 +74,7 @@ export default function MySurveys() {
             </Box>
 
             {s.survey_message && (
-              <Card variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "grey.50" }}>
+              <Card variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                   {s.survey_message}
                 </Typography>

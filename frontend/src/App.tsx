@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
 import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
 import SsoCallback from "@/features/auth/SsoCallback";
@@ -44,19 +45,26 @@ const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 
-const theme = createTheme({
-  typography: {
-    fontFamily: "'Inter', sans-serif",
-  },
-  palette: {
-    primary: { main: "#1976d2" },
-  },
-  components: {
-    MuiCard: {
-      defaultProps: { variant: "outlined" },
+function buildTheme(mode: "light" | "dark") {
+  return createTheme({
+    typography: {
+      fontFamily: "'Inter', sans-serif",
     },
-  },
-});
+    palette: {
+      mode,
+      primary: { main: "#1976d2" },
+      background:
+        mode === "dark"
+          ? { default: "#121212", paper: "#1e1e1e" }
+          : { default: "#fafbfc", paper: "#fff" },
+    },
+    components: {
+      MuiCard: {
+        defaultProps: { variant: "outlined" },
+      },
+    },
+  });
+}
 
 /** Centered spinner shown while lazy components are loading. */
 function PageLoader() {
@@ -149,12 +157,17 @@ function AppRoutes() {
 }
 
 export default function App() {
+  const themeModeState = useThemeModeState();
+  const theme = useMemo(() => buildTheme(themeModeState.mode), [themeModeState.mode]);
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </ThemeProvider>
+    <ThemeModeContext.Provider value={themeModeState}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ThemeProvider>
+    </ThemeModeContext.Provider>
   );
 }

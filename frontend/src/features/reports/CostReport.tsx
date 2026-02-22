@@ -389,7 +389,7 @@ export default function CostReport() {
                     return a.name.localeCompare(b.name) * d;
                   });
                   return [
-                    <TableRow key={`grp-${g.label}`} sx={{ bgcolor: "#f0f4f8" }}>
+                    <TableRow key={`grp-${g.label}`} sx={{ bgcolor: "action.hover" }}>
                       <TableCell sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
                         {g.label}
                         <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
@@ -419,7 +419,7 @@ export default function CostReport() {
                   </TableRow>
                 ))
               )}
-              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
+              <TableRow sx={{ bgcolor: "action.selected" }}>
                 <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(total)}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>100%</TableCell>

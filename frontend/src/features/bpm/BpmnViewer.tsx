@@ -116,7 +116,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
     <Box sx={{ position: "relative" }}>
       <Box
         ref={containerRef}
-        sx={{ height, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "#fafafa", "& .bjs-powered-by": { display: "none" } }}
+        sx={{ height, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "action.hover", "& .bjs-powered-by": { display: "none" } }}
       />
 
       <Popover

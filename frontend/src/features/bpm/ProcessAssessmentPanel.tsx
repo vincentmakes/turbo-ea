@@ -21,6 +21,7 @@ import TableContainer from "@mui/material/TableContainer";
 import Paper from "@mui/material/Paper";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import {
@@ -42,6 +43,7 @@ const DIMENSIONS = [
 ];
 
 export default function ProcessAssessmentPanel({ processId }: Props) {
+  const theme = useTheme();
   const [assessments, setAssessments] = useState<ProcessAssessment[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
@@ -110,10 +112,10 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
         <Box sx={{ mb: 3 }}>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} />
-              <RTooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+              <XAxis dataKey="date" tick={{ fill: theme.palette.text.secondary }} />
+              <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fill: theme.palette.text.secondary }} />
+              <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
               <Legend />
               {DIMENSIONS.map((d) => (
                 <Line

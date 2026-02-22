@@ -89,7 +89,7 @@ const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
   { key: "risk_count", label: "Risk (EOL count)", icon: "warning" },
 ];
 
-const UNSET_COLOR = "#e0e0e0";
+const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
 
@@ -130,7 +130,7 @@ function nodeMetric(node: CapNode, metric: Metric): number {
 }
 
 function heatColor(value: number, max: number, metric: Metric): string {
-  if (max === 0) return "#f5f5f5";
+  if (max === 0) return "rgba(128, 128, 128, 0.1)";
   const ratio = Math.min(value / max, 1);
   if (metric === "risk_count") {
     const r = Math.round(255 - ratio * 55);
@@ -406,10 +406,11 @@ function CapabilityCard({
     return (
       <Box
         sx={{
-          border: "1px solid #e0e0e0",
+          border: 1,
+          borderColor: "divider",
           borderRadius: 2,
           overflow: "hidden",
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
           cursor: "pointer",
           transition: "box-shadow 0.2s",
           "&:hover": { boxShadow: 3 },
@@ -421,7 +422,8 @@ function CapabilityCard({
             p: 1.5,
             bgcolor: heatColor(val, maxVal, metric),
             borderBottom:
-              showApps && visibleApps.length > 0 ? "1px solid #e0e0e0" : "none",
+              showApps && visibleApps.length > 0 ? 1 : "none",
+            borderColor: "divider",
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -476,10 +478,11 @@ function CapabilityCard({
   return (
     <Box
       sx={{
-        border: "1px solid #d0d0d0",
+        border: 1,
+        borderColor: "divider",
         borderRadius: 2,
         overflow: "hidden",
-        bgcolor: "#fff",
+        bgcolor: "background.paper",
       }}
     >
       {/* Header */}
@@ -487,7 +490,8 @@ function CapabilityCard({
         sx={{
           p: 1.5,
           bgcolor: heatColor(val, maxVal, metric),
-          borderBottom: "1px solid #d0d0d0",
+          borderBottom: 1,
+          borderColor: "divider",
           display: "flex",
           alignItems: "center",
           gap: 1,
@@ -995,7 +999,7 @@ export default function CapabilityMapReport() {
                       alignItems: "center",
                       gap: 1,
                       flexWrap: "wrap",
-                      bgcolor: "#f8f9fb",
+                      bgcolor: "action.hover",
                       borderRadius: 1.5,
                       px: 1.5,
                       py: 0.75,
@@ -1003,7 +1007,7 @@ export default function CapabilityMapReport() {
                   >
                     <Typography
                       variant="caption"
-                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                     >
                       Related By
                     </Typography>
@@ -1030,9 +1034,10 @@ export default function CapabilityMapReport() {
                             fontSize: "0.72rem",
                             fontWeight: 500,
                             cursor: "pointer",
-                            bgcolor: "#fff",
-                            border: "1px dashed #bbb",
-                            "&:hover": { bgcolor: "#f0f0f0" },
+                            bgcolor: "background.paper",
+                            border: "1px dashed",
+                            borderColor: "divider",
+                            "&:hover": { bgcolor: "action.hover" },
                           }}
                         />
                       </Tooltip>
@@ -1046,8 +1051,9 @@ export default function CapabilityMapReport() {
                           height: 26,
                           fontSize: "0.72rem",
                           cursor: "pointer",
-                          bgcolor: "#fff",
-                          border: "1px solid #ddd",
+                          bgcolor: "background.paper",
+                          border: 1,
+                          borderColor: "divider",
                         }}
                       />
                     )}
@@ -1062,7 +1068,7 @@ export default function CapabilityMapReport() {
                       alignItems: "center",
                       gap: 1,
                       flexWrap: "wrap",
-                      bgcolor: "#f8fbf8",
+                      bgcolor: "action.hover",
                       borderRadius: 1.5,
                       px: 1.5,
                       py: 0.75,
@@ -1070,7 +1076,7 @@ export default function CapabilityMapReport() {
                   >
                     <Typography
                       variant="caption"
-                      sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                     >
                       Fields
                     </Typography>

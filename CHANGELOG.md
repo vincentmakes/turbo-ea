@@ -5,15 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] - 2026-02-22
 
 ### Added
+- Dark theme with toggle in account menu, persisted via localStorage
 - Dependabot configuration for pip, npm, and GitHub Actions ecosystems
 - Security scanning in CI (pip-audit for Python, npm audit for Node)
 - Backend test coverage threshold (40% ratchet — prevents regression)
 - Structured JSON logging in production (human-readable in development)
 - Python lockfile workflow via pip-compile
 - Branch protection recommendations documentation
+
+### Fixed
+- Dark theme: replaced all hardcoded light backgrounds, borders, and text colors with theme-aware tokens across 20+ components
 
 ### Changed
 - CI pipeline now enforces `--cov-fail-under=40` on backend tests

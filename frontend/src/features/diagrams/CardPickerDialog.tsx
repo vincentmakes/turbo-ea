@@ -138,7 +138,8 @@ export default function CardPickerDialog({
           sx={{
             maxHeight: 360,
             overflow: "auto",
-            border: "1px solid #e0e0e0",
+            border: 1,
+            borderColor: "divider",
             borderRadius: 1,
           }}
         >
