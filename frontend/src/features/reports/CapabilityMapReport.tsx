@@ -89,7 +89,7 @@ const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
   { key: "risk_count", label: "Risk (EOL count)", icon: "warning" },
 ];
 
-const UNSET_COLOR = "#e0e0e0";
+const UNSET_COLOR = "rgba(128, 128, 128, 0.2)";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
 
@@ -130,7 +130,7 @@ function nodeMetric(node: CapNode, metric: Metric): number {
 }
 
 function heatColor(value: number, max: number, metric: Metric): string {
-  if (max === 0) return "#f5f5f5";
+  if (max === 0) return "rgba(128, 128, 128, 0.1)";
   const ratio = Math.min(value / max, 1);
   if (metric === "risk_count") {
     const r = Math.round(255 - ratio * 55);

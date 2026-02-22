@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Python lockfile workflow via pip-compile
 - Branch protection recommendations documentation
 
+### Fixed
+- Dark theme: replaced all hardcoded light backgrounds, borders, and text colors with theme-aware tokens across 20+ components
+
 ### Changed
 - CI pipeline now enforces `--cov-fail-under=40` on backend tests
 

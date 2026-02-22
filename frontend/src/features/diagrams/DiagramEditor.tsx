@@ -932,7 +932,8 @@ export default function DiagramEditor() {
           gap: 1,
           px: 1,
           py: 0.5,
-          borderBottom: "1px solid #e0e0e0",
+          borderBottom: "1px solid",
+          borderColor: "divider",
           minHeight: 48,
         }}
       >

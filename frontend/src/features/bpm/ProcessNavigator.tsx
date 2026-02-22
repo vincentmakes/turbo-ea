@@ -2464,7 +2464,7 @@ export default function ProcessNavigator() {
           )}
 
           {/* Legend */}
-          <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid #f0f0f0" }}>
+          <Box sx={{ mt: 2, pt: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
             <OverlayLegend overlay={overlay} />
           </Box>
         </>

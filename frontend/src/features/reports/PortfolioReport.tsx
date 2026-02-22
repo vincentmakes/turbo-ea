@@ -107,7 +107,7 @@ interface DrawerData {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const UNSET_COLOR = "#e0e0e0";
+const UNSET_COLOR = "#9e9e9e";
 const DEFAULT_APP_COLOR = "#0f7eb5";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];

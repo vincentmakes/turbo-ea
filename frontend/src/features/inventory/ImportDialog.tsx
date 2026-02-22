@@ -141,7 +141,8 @@ export default function ImportDialog({
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileRef.current?.click()}
               sx={{
-                border: "2px dashed #ccc",
+                border: "2px dashed",
+                borderColor: "divider",
                 borderRadius: 2,
                 p: 4,
                 textAlign: "center",

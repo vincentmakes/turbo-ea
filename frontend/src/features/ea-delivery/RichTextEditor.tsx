@@ -88,7 +88,7 @@ export default function RichTextEditor({ content, onChange, placeholder, readOnl
           py: 0.25,
           borderBottom: "1px solid",
           borderColor: "divider",
-          bgcolor: "grey.50",
+          bgcolor: "action.hover",
         }}
       >
         {btn(

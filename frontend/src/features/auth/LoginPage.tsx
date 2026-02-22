@@ -106,11 +106,11 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
               }
               sx={{
                 mb: 2,
-                bgcolor: "#fff",
-                color: "#333",
+                bgcolor: "background.paper",
+                color: "text.primary",
                 textTransform: "none",
                 fontWeight: 600,
-                "&:hover": { bgcolor: "#f5f5f5" },
+                "&:hover": { bgcolor: "action.hover" },
               }}
             >
               Sign in with Microsoft

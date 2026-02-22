@@ -215,7 +215,7 @@ export default function DataQualityReport() {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
                 <XAxis type="number" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                 <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
-                <RTooltip content={<CustomTooltip />} />
+                <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
                 <Legend />
                 <Bar dataKey="Complete" stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Partial" stackId="a" fill={QUALITY_COLORS.partial} />

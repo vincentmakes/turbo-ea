@@ -67,7 +67,7 @@ const LIFECYCLE_PHASES = [
   { key: "active", label: "Active", color: "#4caf50" },
   { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
   { key: "endOfLife", label: "End of Life", color: "#f44336" },
-  { key: "none", label: "Not Set", color: "#e0e0e0" },
+  { key: "none", label: "Not Set", color: "#9e9e9e" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -199,7 +199,7 @@ export default function Dashboard() {
                       tick={{ fontSize: 12, fill: theme.palette.text.secondary }}
                       tickLine={false}
                     />
-                    <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                     <Bar
                       dataKey="count"
                       name="Count"
@@ -259,7 +259,7 @@ export default function Dashboard() {
                         <Cell key={i} fill={d.color} />
                       ))}
                     </Pie>
-                    <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                    <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                     <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -284,7 +284,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
                     name="Cards"
@@ -313,7 +313,7 @@ export default function Dashboard() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                   <YAxis allowDecimals={false} tick={{ fill: theme.palette.text.secondary }} />
-                  <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <RTooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="count"
                     name="Cards"

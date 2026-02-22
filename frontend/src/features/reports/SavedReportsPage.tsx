@@ -137,7 +137,7 @@ export default function SavedReportsPage() {
             const meta = REPORT_TYPE_META[report.report_type] || {
               label: report.report_type,
               icon: "analytics",
-              color: "#666",
+              color: "text.secondary",
               path: "#",
             };
             const vis = VISIBILITY_ICONS[report.visibility] || VISIBILITY_ICONS.private;

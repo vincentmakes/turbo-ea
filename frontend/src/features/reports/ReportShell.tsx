@@ -188,18 +188,19 @@ export default function ReportShell({
             alignItems: "center",
             mb: 1,
             pb: 1,
-            borderBottom: "1px solid #e0e0e0",
+            borderBottom: "1px solid",
+            borderColor: "divider",
           }}
         >
           {activeParams.map((p, i) => (
             <Typography
               key={i}
               variant="caption"
-              sx={{ color: "#555", lineHeight: 1.6 }}
+              sx={{ color: "text.secondary", lineHeight: 1.6 }}
             >
               <strong>{p.label}:</strong> {p.value}
               {i < activeParams.length - 1 && (
-                <Box component="span" sx={{ mx: 0.75, color: "#ccc" }}>|</Box>
+                <Box component="span" sx={{ mx: 0.75, color: "divider" }}>|</Box>
               )}
             </Typography>
           ))}

@@ -44,7 +44,7 @@ export default function EditableTable({ columns, rows, onChange, readOnly }: Pro
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: "grey.50" }}>
+            <TableRow sx={{ bgcolor: "action.hover" }}>
               {columns.map((col) => (
                 <TableCell
                   key={col}

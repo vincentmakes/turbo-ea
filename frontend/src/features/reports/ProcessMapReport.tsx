@@ -132,7 +132,7 @@ function metricValue(attrs: Record<string, unknown>, metric: Metric, appCount: n
 }
 
 function heatColor(value: number, max: number, metric: Metric): string {
-  if (max === 0 || value === 0) return "#f5f5f5";
+  if (max === 0 || value === 0) return "rgba(128, 128, 128, 0.1)";
   const ratio = Math.min(value / max, 1);
 
   // Risk: white → red

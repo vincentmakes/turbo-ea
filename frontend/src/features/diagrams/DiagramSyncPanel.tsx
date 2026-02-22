@@ -92,7 +92,8 @@ export default function DiagramSyncPanel({
           gap: 1,
           px: 2,
           py: 1.5,
-          borderBottom: "1px solid #e0e0e0",
+          borderBottom: "1px solid",
+          borderColor: "divider",
         }}
       >
         <MaterialSymbol icon="sync" size={22} color="#1976d2" />
@@ -200,7 +201,7 @@ export default function DiagramSyncPanel({
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" noWrap>
-                    <s style={{ color: "#999" }}>{item.diagramName}</s>{" "}
+                    <s style={{ opacity: 0.5 }}>{item.diagramName}</s>{" "}
                     <strong>{item.inventoryName}</strong>
                   </Typography>
                 </Box>
