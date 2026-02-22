@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense, lazy } from "react";
+import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Paper from "@mui/material/Paper";
@@ -12,10 +13,35 @@ import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Chip from "@mui/material/Chip";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
+
+const EolAdmin = lazy(() => import("./EolAdmin"));
+const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
+const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
+
+const TABS = [
+  { key: "general", label: "General", icon: "tune" },
+  { key: "eol", label: "EOL Search", icon: "update" },
+  { key: "web-portals", label: "Web Portals", icon: "language" },
+  { key: "servicenow", label: "ServiceNow", icon: "sync" },
+];
+
+function TabLoader() {
+  return (
+    <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+      <CircularProgress />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// General Tab
+// ---------------------------------------------------------------------------
 
 const CURRENCIES = [
   { code: "USD", label: "US Dollar ($)" },
@@ -68,7 +94,26 @@ interface SsoSettings {
   tenant_id: string;
 }
 
-export default function SettingsAdmin() {
+function SectionHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography
+      variant="overline"
+      sx={{
+        display: "block",
+        mb: 1.5,
+        mt: 1,
+        fontWeight: 700,
+        color: "text.secondary",
+        letterSpacing: 1,
+        fontSize: "0.75rem",
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+function GeneralTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -338,18 +383,14 @@ export default function SettingsAdmin() {
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto" }}>
-      <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
-        <MaterialSymbol icon="settings" size={28} color="#1976d2" />
-        <Typography variant="h5" fontWeight={700}>
-          Settings
-        </Typography>
-      </Box>
-
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>
           {error}
         </Alert>
       )}
+
+      {/* ── Appearance ────────────────────────────────────────────── */}
+      <SectionHeader>Appearance</SectionHeader>
 
       {/* Logo Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -529,6 +570,56 @@ export default function SettingsAdmin() {
         </Box>
       </Paper>
 
+      {/* Currency Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="payments" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            Currency
+          </Typography>
+          <Chip
+            label={currentCurrency}
+            size="small"
+            color="default"
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          Choose the currency used to display all cost values across reports,
+          dashboards, and card details.
+        </Typography>
+
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <TextField
+            select
+            size="small"
+            label="Display Currency"
+            value={selectedCurrency}
+            onChange={(e) => setSelectedCurrency(e.target.value)}
+            sx={{ minWidth: 280 }}
+          >
+            {CURRENCIES.map((c) => (
+              <MenuItem key={c.code} value={c.code}>
+                {c.code} — {c.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleCurrencySave}
+            disabled={savingCurrency || selectedCurrency === currentCurrency}
+          >
+            {savingCurrency ? "Saving..." : "Save"}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* ── Modules ───────────────────────────────────────────────── */}
+      <SectionHeader>Modules</SectionHeader>
+
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
@@ -559,6 +650,9 @@ export default function SettingsAdmin() {
           label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
         />
       </Paper>
+
+      {/* ── Authentication ────────────────────────────────────────── */}
+      <SectionHeader>Authentication</SectionHeader>
 
       {/* Self-Registration Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -685,59 +779,15 @@ export default function SettingsAdmin() {
         </Box>
       </Paper>
 
-      {/* Currency Settings */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="payments" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            Currency
-          </Typography>
-          <Chip
-            label={currentCurrency}
-            size="small"
-            color="default"
-            sx={{ ml: 1 }}
-          />
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose the currency used to display all cost values across reports,
-          dashboards, and card details.
-        </Typography>
-
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <TextField
-            select
-            size="small"
-            label="Display Currency"
-            value={selectedCurrency}
-            onChange={(e) => setSelectedCurrency(e.target.value)}
-            sx={{ minWidth: 280 }}
-          >
-            {CURRENCIES.map((c) => (
-              <MenuItem key={c.code} value={c.code}>
-                {c.code} — {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="save" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={handleCurrencySave}
-            disabled={savingCurrency || selectedCurrency === currentCurrency}
-          >
-            {savingCurrency ? "Saving..." : "Save"}
-          </Button>
-        </Box>
-      </Paper>
+      {/* ── Email ─────────────────────────────────────────────────── */}
+      <SectionHeader>Email</SectionHeader>
 
       {/* Email / SMTP Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="mail" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Email / SMTP Configuration
+            SMTP Configuration
           </Typography>
           <Chip
             label={configured ? "Configured" : "Not configured"}
@@ -858,6 +908,69 @@ export default function SettingsAdmin() {
         message={snack}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Settings Page (Tabbed Layout)
+// ---------------------------------------------------------------------------
+
+export default function SettingsAdmin() {
+  const [params, setParams] = useSearchParams();
+  const tabKey = params.get("tab") || "general";
+  const tabIndex = Math.max(0, TABS.findIndex((t) => t.key === tabKey));
+
+  const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
+    const newTab = TABS[newIndex].key;
+    if (newTab === "general") {
+      setParams({});
+    } else {
+      setParams({ tab: newTab });
+    }
+  };
+
+  return (
+    <Box>
+      <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
+        <MaterialSymbol icon="settings" size={28} color="#1976d2" />
+        <Typography variant="h5" fontWeight={700}>
+          Settings
+        </Typography>
+      </Box>
+
+      <Tabs
+        value={tabIndex}
+        onChange={handleTabChange}
+        sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
+      >
+        {TABS.map((t) => (
+          <Tab
+            key={t.key}
+            label={t.label}
+            icon={<MaterialSymbol icon={t.icon} size={18} />}
+            iconPosition="start"
+            sx={{ textTransform: "none", minHeight: 48 }}
+          />
+        ))}
+      </Tabs>
+
+      {tabIndex === 0 && <GeneralTab />}
+      {tabIndex === 1 && (
+        <Suspense fallback={<TabLoader />}>
+          <EolAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 2 && (
+        <Suspense fallback={<TabLoader />}>
+          <WebPortalsAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 3 && (
+        <Suspense fallback={<TabLoader />}>
+          <ServiceNowAdmin />
+        </Suspense>
+      )}
     </Box>
   );
 }

@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-02-22
+
+### Changed
+- Settings page now uses a tabbed layout with General, EOL Search, Web Portals, and ServiceNow tabs
+- General tab groups existing settings into Appearance, Modules, Authentication, and Email sections
+- EOL Search, Web Portals, and ServiceNow admin pages consolidated under Settings
+- Old admin routes (/admin/eol, /admin/web-portals, /admin/servicenow) redirect to the new Settings tabs
+
 ## [0.6.0] - 2026-02-22
 
 ### Added

@@ -73,14 +73,11 @@ const NAV_ITEMS: NavItemWithPermission[] = [
   { label: "Todos", icon: "checklist", path: "/todos" },
 ];
 
-const ADMIN_ITEMS: (NavItem & { permission?: string })[] = [
+const ADMIN_ITEMS: (NavItem & { permission?: string | string[] })[] = [
   { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
   { label: "Users & Roles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { label: "Surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { label: "Settings", icon: "settings", path: "/admin/settings", permission: "admin.settings" },
-  { label: "EOL Search", icon: "update", path: "/admin/eol", permission: "eol.manage" },
-  { label: "Web Portals", icon: "language", path: "/admin/web-portals", permission: "web_portals.manage" },
-  { label: "ServiceNow", icon: "sync", path: "/admin/servicenow", permission: "servicenow.manage" },
+  { label: "Settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
 ];
 
 interface PermissionMap {
@@ -134,9 +131,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
   // Filter admin items based on permissions
   const adminItems = useMemo(() => {
-    const filtered = ADMIN_ITEMS.filter(
-      (item) => !item.permission || can(item.permission)
-    );
+    const filtered = ADMIN_ITEMS.filter((item) => {
+      if (!item.permission) return true;
+      if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
+      return can(item.permission);
+    });
     return filtered;
   }, [can]);
 
