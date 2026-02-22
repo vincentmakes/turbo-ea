@@ -1,9 +1,9 @@
-# Turbo EA
+# Turbo EA - **https://www.turbo-ea.org**
 
 
-https://www.turbo-ea.org
 
-https://www.turbo-ea.org/blog
+
+Enterprise Architecture in practice : https://www.turbo-ea.org/blog
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
