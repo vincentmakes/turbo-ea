@@ -30,6 +30,7 @@ import { exportToExcel } from "./excelExport";
 import RelationCellPopover from "./RelationCellPopover";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useAuth } from "@/hooks/useAuth";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { api } from "@/api/client";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
@@ -123,6 +124,7 @@ export default function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { types, relationTypes } = useMetamodel();
   const { user } = useAuth();
+  const { mode } = useThemeMode();
   const canArchive = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.archive"]);
   const canDelete = !!(user?.permissions?.["*"] || user?.permissions?.["inventory.delete"]);
   const canShareBookmarks = !!(user?.permissions?.["*"] || user?.permissions?.["bookmarks.share"]);
@@ -1079,7 +1081,7 @@ export default function InventoryPage() {
 
         {/* AG Grid */}
         <Box
-          className="ag-theme-quartz"
+          className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{ flex: 1, width: "100%", minHeight: 0 }}
         >
           <AgGridReact
