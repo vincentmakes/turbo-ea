@@ -2,7 +2,7 @@
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of a company's IT landscape**. Fully admin-configurable metamodel — card types, fields, subtypes, relations, stakeholder roles, and calculated fields are all data, not code.
 
-**Current version**: `0.5.0` — see `/VERSION` (single source of truth for backend + frontend).
+**Current version**: see `/VERSION` (single source of truth for backend + frontend).
 
 ## Quick Start
 
