@@ -203,7 +203,7 @@ function AttributeSection({
     <Accordion defaultExpanded={expanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
-          <MaterialSymbol icon="tune" size={20} color="#666" />
+          <MaterialSymbol icon="tune" size={20} />
           <Typography fontWeight={600}>{section.section}</Typography>
           <Chip
             size="small"

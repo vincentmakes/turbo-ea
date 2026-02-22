@@ -65,12 +65,12 @@ When working on this codebase, follow these conventions:
 - PR titles should be concise (under 72 characters) and describe the change, not the implementation.
 
 ### Changelog & Versioning Conventions
-- **Update `CHANGELOG.md`** for every user-facing change. Add entries under the `## [Unreleased]` section — never under a dated release heading.
+- **Update `CHANGELOG.md`** for every user-facing change. Add entries under the current version heading (e.g., `## [0.6.0] - 2026-02-22`). Do **not** use an `[Unreleased]` section — this project ships continuously and every change belongs to a concrete version.
 - The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Use these categories: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**. Only include categories that apply.
 - Each entry should be a single concise line describing the change from the user's perspective, not implementation details.
-- **Do not bump the version number** in `VERSION`, `backend/pyproject.toml`, or `frontend/package.json` unless explicitly asked. Version bumps are a separate release step.
-- The single source of truth for the version is `/VERSION`. When a version bump is requested, all three files (`VERSION`, `backend/pyproject.toml`, `frontend/package.json`) must be updated together.
-- The project follows [Semantic Versioning](https://semver.org/): bump **major** for breaking changes, **minor** for new features, **patch** for bug fixes.
+- **Bump the version** for every PR that includes user-facing changes. Follow [Semantic Versioning](https://semver.org/): bump **patch** (e.g., `0.6.0` → `0.6.1`) for bug fixes, **minor** (e.g., `0.6.0` → `0.7.0`) for new features, **major** for breaking changes.
+- The single source of truth for the version is `/VERSION`. When bumping, all three files must be updated together: `VERSION`, `backend/pyproject.toml`, and `frontend/package.json`.
+- When bumping, add a new heading in `CHANGELOG.md` with the new version and today's date (e.g., `## [0.6.1] - 2026-02-22`), and place new entries under it.
 
 ### Testing Conventions
 - **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.

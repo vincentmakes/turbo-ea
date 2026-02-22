@@ -640,7 +640,7 @@ export default function InventoryPage() {
                   flex: 1,
                   height: 6,
                   borderRadius: 3,
-                  bgcolor: "#e0e0e0",
+                  bgcolor: "action.selected",
                   "& .MuiLinearProgress-bar": { bgcolor: color, borderRadius: 3 },
                 }}
               />
@@ -767,9 +767,9 @@ export default function InventoryPage() {
                   sx={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}
                   title={p.value}
                 >
-                  {p.value || <span style={{ color: "#999" }}>Click to edit</span>}
+                  {p.value || <span style={{ opacity: 0.5 }}>Click to edit</span>}
                 </Typography>
-                <MaterialSymbol icon="edit" size={14} color="#999" />
+                <MaterialSymbol icon="edit" size={14} />
               </Box>
             );
           }

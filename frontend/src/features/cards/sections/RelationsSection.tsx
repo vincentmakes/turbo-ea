@@ -144,7 +144,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
     <Accordion defaultExpanded={initialExpanded} disableGutters>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
-          <MaterialSymbol icon="hub" size={20} color="#666" />
+          <MaterialSymbol icon="hub" size={20} />
           <Typography fontWeight={600}>Relations</Typography>
           <Chip size="small" label={relations.length} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
         </Box>
@@ -169,7 +169,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
           <Box key={rt.key} sx={{ mb: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <Typography variant="subtitle2" fontWeight={600}>{verb}</Typography>
-              <MaterialSymbol icon="arrow_forward" size={14} color="#bbb" />
+              <MaterialSymbol icon="arrow_forward" size={14} />
               {otherType && (
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
@@ -187,7 +187,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                     secondaryAction={
                       canManageRelations ? (
                         <IconButton size="small" onClick={() => handleDeleteRelation(r.id)}>
-                          <MaterialSymbol icon="close" size={16} color="#999" />
+                          <MaterialSymbol icon="close" size={16} />
                         </IconButton>
                       ) : undefined
                     }
@@ -228,7 +228,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                   <MenuItem key={rt.key} value={rt.key}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Typography variant="body2" fontWeight={500}>{verb}</Typography>
-                      <MaterialSymbol icon="arrow_forward" size={14} color="#bbb" />
+                      <MaterialSymbol icon="arrow_forward" size={14} />
                       {other && (
                         <>
                           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: other.color }} />

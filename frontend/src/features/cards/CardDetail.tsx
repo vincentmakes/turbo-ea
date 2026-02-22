@@ -362,7 +362,7 @@ export default function CardDetail() {
               onClick={() => handleApprovalAction("reset")}
               disabled={card.approval_status === "DRAFT"}
             >
-              <MaterialSymbol icon="restart_alt" size={18} color="#666" />
+              <MaterialSymbol icon="restart_alt" size={18} color="#9e9e9e" />
               <Typography sx={{ ml: 1 }}>Reset to Draft</Typography>
             </MenuItem>
           </Menu>

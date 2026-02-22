@@ -150,7 +150,7 @@ export default function ImportDialog({
                 transition: "all 0.15s",
               }}
             >
-              <MaterialSymbol icon="cloud_upload" size={48} color="#999" />
+              <MaterialSymbol icon="cloud_upload" size={48} />
               <Typography variant="body1" sx={{ mt: 1 }}>
                 Drop an Excel file here or click to browse
               </Typography>

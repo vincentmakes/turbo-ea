@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -382,8 +383,10 @@ function GroupCard({
             height: 22,
             fontSize: "0.72rem",
             fontWeight: 600,
-            bgcolor: count > 0 ? "#e3f2fd" : "#f5f5f5",
-            color: count > 0 ? "#1565c0" : "#999",
+            bgcolor: count > 0
+              ? (t) => alpha(t.palette.primary.main, 0.08)
+              : "action.hover",
+            color: count > 0 ? "primary.dark" : "text.disabled",
           }}
         />
         {pct > 0 && (
@@ -404,7 +407,7 @@ function GroupCard({
             sx={{
               height: "100%",
               width: `${pct}%`,
-              bgcolor: "#1976d2",
+              bgcolor: "primary.main",
               borderRadius: "0 2px 2px 0",
               transition: "width 0.3s",
             }}
@@ -1188,7 +1191,8 @@ export default function PortfolioReport() {
               {ungrouped.length > 0 && (
                 <Box
                   sx={{
-                    border: "1px dashed #ccc",
+                    border: "1px dashed",
+                    borderColor: "divider",
                     borderRadius: 2,
                     overflow: "hidden",
                   }}
@@ -1219,7 +1223,7 @@ export default function PortfolioReport() {
                     />
                     <Typography
                       variant="subtitle2"
-                      sx={{ fontWeight: 600, color: "#666", flex: 1 }}
+                      sx={{ fontWeight: 600, color: "text.secondary", flex: 1 }}
                     >
                       Not assigned to any {groupByLabel}
                     </Typography>
@@ -1229,8 +1233,8 @@ export default function PortfolioReport() {
                       sx={{
                         height: 22,
                         fontSize: "0.72rem",
-                        bgcolor: "#fff3e0",
-                        color: "#e65100",
+                        bgcolor: (t) => alpha(t.palette.warning.main, 0.12),
+                        color: "warning.dark",
                         fontWeight: 600,
                       }}
                     />

@@ -471,7 +471,7 @@ export default function InventoryFilterSidebar({
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <MaterialSymbol icon="search" size={16} color="#999" />
+                        <MaterialSymbol icon="search" size={16} />
                       </InputAdornment>
                     ),
                     ...(filters.search
@@ -898,7 +898,7 @@ export default function InventoryFilterSidebar({
                     }
                     label={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                        <MaterialSymbol icon="archive" size={16} color="#666" />
+                        <MaterialSymbol icon="archive" size={16} />
                         <Typography variant="body2" fontSize={13}>Show archived only</Typography>
                       </Box>
                     }
@@ -1177,7 +1177,7 @@ export default function InventoryFilterSidebar({
               }
               label={
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
-                  <MaterialSymbol icon="cloud" size={16} color="#666" />
+                  <MaterialSymbol icon="cloud" size={16} />
                   <Typography variant="body2" fontSize={13}>Enable OData feed</Typography>
                 </Box>
               }
@@ -1263,9 +1263,8 @@ function SectionHeader({
       <MaterialSymbol
         icon={expanded ? "expand_more" : "chevron_right"}
         size={16}
-        color="#666"
       />
-      <MaterialSymbol icon={icon} size={16} color="#666" />
+      <MaterialSymbol icon={icon} size={16} />
       <Typography variant="body2" fontWeight={600} fontSize={13} sx={{ flex: 1 }}>
         {label}
       </Typography>
@@ -1308,7 +1307,7 @@ function BookmarkListItem({
         {matchedType ? (
           <MaterialSymbol icon={matchedType.icon} size={18} color={matchedType.color} />
         ) : (
-          <MaterialSymbol icon="bookmark" size={18} color="#999" />
+          <MaterialSymbol icon="bookmark" size={18} />
         )}
       </ListItemIcon>
       <ListItemText
@@ -1317,7 +1316,7 @@ function BookmarkListItem({
             <Typography variant="body2" fontSize={14} noWrap sx={{ flex: 1 }}>
               {bm.name}
             </Typography>
-            {visIcon && <MaterialSymbol icon={visIcon} size={13} color="#999" />}
+            {visIcon && <MaterialSymbol icon={visIcon} size={13} />}
             {bm.odata_enabled && <MaterialSymbol icon="cloud" size={13} color="#1976d2" />}
           </Box>
         }
@@ -1339,12 +1338,12 @@ function BookmarkListItem({
         >
           {onEdit && (
             <IconButton size="small" onClick={() => onEdit(bm)} sx={{ p: 0.25 }}>
-              <MaterialSymbol icon="edit" size={14} color="#999" />
+              <MaterialSymbol icon="edit" size={14} />
             </IconButton>
           )}
           {onDelete && (
             <IconButton size="small" onClick={() => onDelete(bm)} sx={{ p: 0.25 }}>
-              <MaterialSymbol icon="delete" size={14} color="#999" />
+              <MaterialSymbol icon="delete" size={14} />
             </IconButton>
           )}
         </Box>

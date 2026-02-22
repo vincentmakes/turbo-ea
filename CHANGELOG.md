@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-02-22
+
+### Fixed
+- Dark theme: inventory sidebar and grid cells now use theme-aware colors instead of hardcoded light grays
+- Dark theme: card detail section headers, lifecycle timeline, hierarchy badges, and history diffs adapt to dark mode
+- Dark theme: report charts and tooltips use theme tokens for backgrounds and hover states
+
 ## [0.6.0] - 2026-02-22
 
 ### Added
