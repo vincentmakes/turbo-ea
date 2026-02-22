@@ -64,6 +64,14 @@ When working on this codebase, follow these conventions:
 - **Checklist**: Review every item and check all that apply. These enforce the project's core conventions (permission checks, Alembic migrations, async handlers, data-driven metamodel, no exposed secrets). Do not remove unchecked items — leave them unchecked so reviewers can see what was considered.
 - PR titles should be concise (under 72 characters) and describe the change, not the implementation.
 
+### Changelog & Versioning Conventions
+- **Update `CHANGELOG.md`** for every user-facing change. Add entries under the `## [Unreleased]` section — never under a dated release heading.
+- The changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format. Use these categories: **Added**, **Changed**, **Deprecated**, **Removed**, **Fixed**, **Security**. Only include categories that apply.
+- Each entry should be a single concise line describing the change from the user's perspective, not implementation details.
+- **Do not bump the version number** in `VERSION`, `backend/pyproject.toml`, or `frontend/package.json` unless explicitly asked. Version bumps are a separate release step.
+- The single source of truth for the version is `/VERSION`. When a version bump is requested, all three files (`VERSION`, `backend/pyproject.toml`, `frontend/package.json`) must be updated together.
+- The project follows [Semantic Versioning](https://semver.org/): bump **major** for breaking changes, **minor** for new features, **patch** for bug fixes.
+
 ### Testing Conventions
 - **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.
 - **Backend tests** live in `backend/tests/` mirroring the source structure (`core/`, `services/`, `api/`).
