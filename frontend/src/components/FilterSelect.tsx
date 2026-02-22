@@ -65,7 +65,7 @@ export default function FilterSelect({
                 fontStyle: isEmpty ? "italic" : undefined,
                 fontSize: "0.7rem",
                 height: 22,
-                maxWidth: 90,
+                maxWidth: 110,
               }}
             />
           );
@@ -86,6 +86,12 @@ export default function FilterSelect({
         },
         "& .MuiAutocomplete-endAdornment": {
           right: "6px !important",
+        },
+        "& .MuiInputLabel-root": {
+          maxWidth: "calc(100% - 56px)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         },
       }}
     />
