@@ -20,11 +20,11 @@ import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
-import Autocomplete from "@mui/material/Autocomplete";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
 import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
+import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -509,46 +509,6 @@ function ProcessCard({
         ))}
       </Box>
     </Box>
-  );
-}
-
-function FilterSelect({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { key: string; label: string }[];
-  value: string[];
-  onChange: (v: string[]) => void;
-}) {
-  return (
-    <Autocomplete
-      multiple
-      size="small"
-      options={options.map((o) => o.key)}
-      getOptionLabel={(key) => options.find((o) => o.key === key)?.label ?? key}
-      value={value}
-      onChange={(_, v) => onChange(v)}
-      disableCloseOnSelect
-      renderTags={(vals, getTagProps) =>
-        vals.map((key, i) => {
-          const opt = options.find((o) => o.key === key);
-          return (
-            <Chip
-              size="small"
-              label={opt?.label ?? key}
-              {...getTagProps({ index: i })}
-              key={key}
-              sx={{ fontWeight: 500, fontSize: "0.72rem" }}
-            />
-          );
-        })
-      }
-      renderInput={(params) => <TextField {...params} label={label} />}
-      sx={{ minWidth: 200, maxWidth: 320 }}
-    />
   );
 }
 

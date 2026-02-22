@@ -13,11 +13,11 @@ import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
-import Autocomplete from "@mui/material/Autocomplete";
 import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
+import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -191,15 +191,25 @@ function matchesFilters(
   // Attribute filters
   const attrs = app.attributes || {};
   for (const [key, vals] of Object.entries(attrFilters)) {
-    if (vals.length > 0 && !vals.includes(attrs[key] as string)) return false;
+    if (vals.length === 0) continue;
+    const v = attrs[key] as string | undefined;
+    const isEmpty = v === undefined || v === null || v === "";
+    const wantEmpty = vals.includes(EMPTY_FILTER_KEY);
+    const realVals = vals.filter((x) => x !== EMPTY_FILTER_KEY);
+    if (wantEmpty && isEmpty) continue;
+    if (realVals.length > 0 && realVals.includes(v as string)) continue;
+    return false;
   }
   // Relation filters (e.g. Organization, Platform, etc.)
   const byType = app.related_by_type || {};
   for (const [typeKey, ids] of Object.entries(relationFilters)) {
-    if (ids.length > 0) {
-      const appRelIds = byType[typeKey] || app.org_ids || [];
-      if (!ids.some((id) => appRelIds.includes(id))) return false;
-    }
+    if (ids.length === 0) continue;
+    const appRelIds = byType[typeKey] || app.org_ids || [];
+    const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
+    const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
+    if (wantEmpty && appRelIds.length === 0) continue;
+    if (realIds.length > 0 && realIds.some((id) => appRelIds.includes(id))) continue;
+    return false;
   }
   return true;
 }
@@ -562,64 +572,6 @@ function CapabilityCard({
         ))}
       </Box>
     </Box>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Filter chip selector (reusable for each attribute filter)          */
-/* ------------------------------------------------------------------ */
-
-function FilterSelect({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: { key: string; label: string; color?: string }[];
-  value: string[];
-  onChange: (v: string[]) => void;
-}) {
-  return (
-    <Autocomplete
-      multiple
-      size="small"
-      limitTags={1}
-      options={options.map((o) => o.key)}
-      getOptionLabel={(key) => options.find((o) => o.key === key)?.label ?? key}
-      value={value}
-      onChange={(_, v) => onChange(v)}
-      disableCloseOnSelect
-      renderTags={(vals, getTagProps) =>
-        vals.map((key, i) => {
-          const opt = options.find((o) => o.key === key);
-          return (
-            <Chip
-              size="small"
-              label={opt?.label ?? key}
-              {...getTagProps({ index: i })}
-              key={key}
-              sx={{
-                bgcolor: opt?.color ?? undefined,
-                color: opt?.color ? "#fff" : undefined,
-                fontWeight: 500,
-                fontSize: "0.7rem",
-                height: 22,
-                maxWidth: 110,
-              }}
-            />
-          );
-        })
-      }
-      renderInput={(params) => (
-        <TextField
-          {...params}
-          label={label}
-          placeholder={value.length === 0 ? "All" : ""}
-        />
-      )}
-      sx={{ width: 180 }}
-    />
   );
 }
 
