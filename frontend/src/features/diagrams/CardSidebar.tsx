@@ -77,15 +77,16 @@ export default function CardSidebar({ onInsert }: Props) {
     <Box
       sx={{
         width: 280,
-        borderRight: "1px solid #e0e0e0",
+        borderRight: 1,
+        borderColor: "divider",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
-        bgcolor: "#fafafa",
+        bgcolor: "action.hover",
       }}
     >
       {/* Header */}
-      <Box sx={{ px: 1.5, py: 1, borderBottom: "1px solid #eee" }}>
+      <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
           Cards
         </Typography>

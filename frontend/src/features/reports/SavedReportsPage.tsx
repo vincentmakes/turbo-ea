@@ -157,7 +157,7 @@ export default function SavedReportsPage() {
                         objectFit: "cover",
                         borderBottom: "1px solid",
                         borderColor: "divider",
-                        bgcolor: "#fafafa",
+                        bgcolor: "action.hover",
                       }}
                     />
                   ) : (

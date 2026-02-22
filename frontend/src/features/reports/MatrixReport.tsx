@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -47,16 +48,15 @@ const HEAT_COLORS = [
   "#2196f3", "#1e88e5", "#1976d2", "#1565c0", "#0d47a1",
 ];
 
-function heatColor(value: number, max: number): string {
-  if (max <= 0 || value <= 0) return "#fff";
+function heatColor(value: number, max: number, paperBg: string): string {
+  if (max <= 0 || value <= 0) return paperBg;
   const idx = Math.min(Math.floor((value / max) * (HEAT_COLORS.length - 1)), HEAT_COLORS.length - 1);
   return HEAT_COLORS[idx];
 }
 
 // Styling constants
 const ROW_HEADER_COL_WIDTH = 140;
-const LEVEL_COLORS = ["#f0f0f0", "#f5f5f5", "#fafafa", "#fff", "#fff"];
-const CELL_BORDER = "1px solid #e0e0e0";
+// LEVEL_COLORS and CELL_BORDER moved inside component for theme access
 
 // Depth control icon button styles
 const DEPTH_ICON_SIZE = 22;
@@ -75,7 +75,7 @@ const depthBtnStyle = (disabled: boolean): React.CSSProperties => ({
 const depthCounterStyle: React.CSSProperties = {
   fontSize: 9,
   fontWeight: 700,
-  color: "#666",
+  color: "inherit",
   lineHeight: 1,
   whiteSpace: "nowrap",
   textAlign: "center",
@@ -83,6 +83,15 @@ const depthCounterStyle: React.CSSProperties = {
 
 export default function MatrixReport() {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const cellBorder = `1px solid ${theme.palette.divider}`;
+  const levelColors = [
+    theme.palette.action.selected,
+    theme.palette.action.hover,
+    theme.palette.action.hover,
+    theme.palette.background.paper,
+    theme.palette.background.paper,
+  ];
   const { types, loading: ml } = useMetamodel();
   const saved = useSavedReport("matrix");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -488,10 +497,10 @@ export default function MatrixReport() {
                           left: 0,
                           top: 0,
                           zIndex: 4,
-                          background: "#f0f0f0",
+                          background: theme.palette.action.selected,
                           padding: `6px ${isHierarchyColMode ? 34 : 8}px ${isHierarchyRowMode ? 30 : 6}px 8px`,
-                          borderBottom: CELL_BORDER,
-                          borderRight: CELL_BORDER,
+                          borderBottom: cellBorder,
+                          borderRight: cellBorder,
                           fontWeight: 600,
                           fontSize: 11,
                           textAlign: "left",
@@ -580,10 +589,10 @@ export default function MatrixReport() {
                             position: "sticky",
                             top: stickyTop,
                             zIndex: 3,
-                            background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[levelIdx] || "#fff"),
+                            background: isHighlighted ? "#e3f2fd" : (levelColors[levelIdx] || theme.palette.background.paper),
                             padding: isLeafCell ? "6px 3px" : "4px 6px",
-                            borderBottom: CELL_BORDER,
-                            borderRight: CELL_BORDER,
+                            borderBottom: cellBorder,
+                            borderRight: cellBorder,
                             fontSize: isLeafCell ? 10 : 11,
                             fontWeight: isLeafCell ? 600 : 700,
                             whiteSpace: "nowrap",
@@ -620,10 +629,10 @@ export default function MatrixReport() {
                           position: "sticky",
                           top: 0,
                           zIndex: 3,
-                          background: "#f0f0f0",
+                          background: theme.palette.action.selected,
                           padding: "6px 6px",
-                          borderBottom: CELL_BORDER,
-                          borderRight: CELL_BORDER,
+                          borderBottom: cellBorder,
+                          borderRight: cellBorder,
                           fontSize: 10,
                           fontWeight: 700,
                         }}
@@ -660,9 +669,9 @@ export default function MatrixReport() {
                             position: "sticky",
                             left: colIdx * ROW_HEADER_COL_WIDTH,
                             zIndex: 1,
-                            background: isHighlighted ? "#e3f2fd" : (LEVEL_COLORS[colIdx] || "#fff"),
-                            borderRight: CELL_BORDER,
-                            borderBottom: CELL_BORDER,
+                            background: isHighlighted ? "#e3f2fd" : (levelColors[colIdx] || theme.palette.background.paper),
+                            borderRight: cellBorder,
+                            borderBottom: cellBorder,
                             fontWeight: cell.isLeaf ? 500 : 700,
                             fontSize: 12,
                             padding: "4px 6px",
@@ -700,15 +709,15 @@ export default function MatrixReport() {
                       const isAggregated = leafRow.isPrunedGroup || colNode.isPrunedGroup;
                       const displayAsCount = cellMode === "count" || isAggregated;
 
-                      let bg = "#fff";
+                      let bg = theme.palette.background.paper;
                       if (isDiagonal) {
-                        bg = isHighlighted ? "#e8eaf6" : "#f3f4f8";
+                        bg = isHighlighted ? "#e8eaf6" : theme.palette.action.hover;
                       } else if (displayAsCount && val > 0) {
-                        bg = heatColor(val, maxCellCount);
+                        bg = heatColor(val, maxCellCount, theme.palette.background.paper);
                       } else if (val > 0) {
                         bg = isHighlighted ? "#bbdefb" : "#e3f2fd";
                       } else if (isHighlighted) {
-                        bg = "#fafafa";
+                        bg = theme.palette.action.hover;
                       }
 
                       return (
@@ -716,8 +725,8 @@ export default function MatrixReport() {
                           key={colNode.item.id}
                           style={{
                             padding: 0,
-                            borderRight: CELL_BORDER,
-                            borderBottom: CELL_BORDER,
+                            borderRight: cellBorder,
+                            borderBottom: cellBorder,
                             textAlign: "center",
                             verticalAlign: "middle",
                             backgroundColor: bg,
@@ -763,12 +772,12 @@ export default function MatrixReport() {
                     <td
                       style={{
                         padding: "3px 6px",
-                        borderRight: CELL_BORDER,
-                        borderBottom: CELL_BORDER,
+                        borderRight: cellBorder,
+                        borderBottom: cellBorder,
                         textAlign: "center",
                         fontWeight: 600,
                         fontSize: 11,
-                        background: "#fafafa",
+                        background: theme.palette.action.hover,
                       }}
                     >
                       {rTotal}
@@ -785,10 +794,10 @@ export default function MatrixReport() {
                     position: "sticky",
                     left: 0,
                     zIndex: 1,
-                    background: "#f0f0f0",
+                    background: theme.palette.action.selected,
                     padding: "4px 8px",
-                    borderRight: CELL_BORDER,
-                    borderBottom: CELL_BORDER,
+                    borderRight: cellBorder,
+                    borderBottom: cellBorder,
                     fontWeight: 700,
                     fontSize: 11,
                   }}
@@ -800,12 +809,12 @@ export default function MatrixReport() {
                     key={cNode.item.id}
                     style={{
                       padding: "3px",
-                      borderRight: CELL_BORDER,
-                      borderBottom: CELL_BORDER,
+                      borderRight: cellBorder,
+                      borderBottom: cellBorder,
                       textAlign: "center",
                       fontWeight: 600,
                       fontSize: 10,
-                      background: "#f5f5f5",
+                      background: theme.palette.action.hover,
                     }}
                   >
                     {colTotals.get(cNode.item.id) || 0}
@@ -814,12 +823,12 @@ export default function MatrixReport() {
                 <td
                   style={{
                     padding: "3px 6px",
-                    borderRight: CELL_BORDER,
-                    borderBottom: CELL_BORDER,
+                    borderRight: cellBorder,
+                    borderBottom: cellBorder,
                     textAlign: "center",
                     fontWeight: 700,
                     fontSize: 11,
-                    background: "#eee",
+                    background: theme.palette.action.selected,
                   }}
                 >
                   {grandTotal}

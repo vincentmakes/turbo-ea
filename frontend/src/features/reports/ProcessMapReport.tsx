@@ -368,10 +368,11 @@ function ProcessCard({
     return (
       <Box
         sx={{
-          border: "1px solid #e0e0e0",
+          border: 1,
+          borderColor: "divider",
           borderRadius: 2,
           overflow: "hidden",
-          bgcolor: "#fff",
+          bgcolor: "background.paper",
           cursor: "pointer",
           transition: "box-shadow 0.2s",
           "&:hover": { boxShadow: 3 },
@@ -382,7 +383,8 @@ function ProcessCard({
           sx={{
             p: 1.5,
             bgcolor: heatColor(val, maxVal, metric),
-            borderBottom: relatedChips.length > 0 ? "1px solid #e0e0e0" : "none",
+            borderBottom: relatedChips.length > 0 ? 1 : "none",
+            borderColor: "divider",
             display: "flex",
             alignItems: "center",
             gap: 0.5,
@@ -436,12 +438,13 @@ function ProcessCard({
 
   // Non-leaf container
   return (
-    <Box sx={{ border: "1px solid #d0d0d0", borderRadius: 2, overflow: "hidden", bgcolor: "#fff" }}>
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 2, overflow: "hidden", bgcolor: "background.paper" }}>
       <Box
         sx={{
           p: 1.5,
           bgcolor: heatColor(val, maxVal, metric),
-          borderBottom: "1px solid #d0d0d0",
+          borderBottom: 1,
+          borderColor: "divider",
           display: "flex",
           alignItems: "center",
           gap: 0.5,

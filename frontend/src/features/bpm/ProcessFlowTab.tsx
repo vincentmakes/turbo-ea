@@ -946,7 +946,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       />
                     ) : d.svg_thumbnail ? (
                       <Box
-                        sx={{ border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "#fafafa", p: 2, textAlign: "center" }}
+                        sx={{ border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "action.hover", p: 2, textAlign: "center" }}
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(d.svg_thumbnail || "") }}
                       />
                     ) : (

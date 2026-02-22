@@ -648,7 +648,7 @@ export default function DependencyReport() {
           <Paper
             variant="outlined"
             ref={scrollRef}
-            sx={{ overflow: "auto", bgcolor: "#f8f9fb", borderRadius: 2 }}
+            sx={{ overflow: "auto", bgcolor: "action.hover", borderRadius: 2 }}
           >
             <Box
               sx={{

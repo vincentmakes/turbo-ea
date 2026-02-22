@@ -10,6 +10,7 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { FieldDef } from "@/types";
 
@@ -23,6 +24,7 @@ export const URL_ERROR_MSG = "Must use http://, https://, or mailto: scheme";
 
 // ── Data Quality Ring ───────────────────────────────────────────
 export function DataQualityRing({ value }: { value: number }) {
+  const theme = useTheme();
   const size = 52;
   const sw = 5;
   const r = (size - sw) / 2;
@@ -47,7 +49,7 @@ export function DataQualityRing({ value }: { value: number }) {
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="#e0e0e0"
+            stroke={theme.palette.divider}
             strokeWidth={sw}
           />
           <circle

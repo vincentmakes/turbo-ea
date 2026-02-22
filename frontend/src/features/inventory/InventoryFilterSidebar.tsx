@@ -378,12 +378,13 @@ export default function InventoryFilterSidebar({
         sx={{
           width: 44,
           minWidth: 44,
-          borderRight: "1px solid #e0e0e0",
+          borderRight: 1,
+          borderColor: "divider",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           pt: 1,
-          bgcolor: "#fafafa",
+          bgcolor: "action.hover",
         }}
       >
         <Tooltip title="Expand filters" placement="right">
@@ -411,10 +412,11 @@ export default function InventoryFilterSidebar({
         sx={{
           width,
           minWidth: MIN_WIDTH,
-          borderRight: "1px solid #e0e0e0",
+          borderRight: 1,
+          borderColor: "divider",
           display: "flex",
           flexDirection: "column",
-          bgcolor: "#fafafa",
+          bgcolor: "action.hover",
           overflow: "hidden",
         }}
       >
@@ -426,7 +428,8 @@ export default function InventoryFilterSidebar({
             justifyContent: "space-between",
             px: 1.5,
             py: 0.5,
-            borderBottom: "1px solid #e0e0e0",
+            borderBottom: 1,
+            borderColor: "divider",
           }}
         >
           <Tabs
@@ -1182,7 +1185,7 @@ export default function InventoryFilterSidebar({
             />
           )}
           {canOdataBookmarks && dialogOdata && editingBookmark?.odata_url && (
-            <Box sx={{ bgcolor: "#f5f5f5", borderRadius: 1, p: 1.5 }}>
+            <Box sx={{ bgcolor: "action.selected", borderRadius: 1, p: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
                 OData Feed URL (requires authentication)
               </Typography>

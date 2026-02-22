@@ -383,7 +383,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           border: "1px solid",
           borderColor: "divider",
           borderRadius: 1,
-          bgcolor: "#fafbfc",
+          bgcolor: "action.hover",
           overflow: "hidden",
           "&:focus-within": { borderColor: "primary.main", boxShadow: (t) => `0 0 0 1px ${t.palette.primary.main}` },
         }}
@@ -393,14 +393,15 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           sx={{
             py: "10px",
             px: 1,
-            bgcolor: "#f0f1f3",
-            borderRight: "1px solid #dfe2e5",
+            bgcolor: "action.selected",
+            borderRight: 1,
+            borderColor: "divider",
             userSelect: "none",
             flexShrink: 0,
             fontFamily: "monospace",
             fontSize: "0.82rem",
             lineHeight: "1.5",
-            color: "#959da5",
+            color: "text.secondary",
             textAlign: "right",
             minWidth: 36,
           }}
@@ -550,7 +551,7 @@ function HighlightedCodeBlock({ code }: { code: string }) {
     <Box
       sx={{
         display: "flex",
-        bgcolor: "#fafbfc",
+        bgcolor: "action.hover",
         borderRadius: 1,
         border: "1px solid",
         borderColor: "divider",
@@ -565,11 +566,12 @@ function HighlightedCodeBlock({ code }: { code: string }) {
         sx={{
           py: 1,
           px: 1,
-          color: "#959da5",
+          color: "text.secondary",
           textAlign: "right",
           userSelect: "none",
-          borderRight: "1px solid #dfe2e5",
-          bgcolor: "#f0f1f3",
+          borderRight: 1,
+          borderColor: "divider",
+          bgcolor: "action.selected",
           flexShrink: 0,
           minWidth: 28,
         }}

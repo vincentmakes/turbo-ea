@@ -215,11 +215,12 @@ export default function DiagramsPage() {
                       sx={{
                         height: 160,
                         overflow: "hidden",
-                        bgcolor: "#fafafa",
+                        bgcolor: "action.hover",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        borderBottom: "1px solid #eee",
+                        borderBottom: 1,
+                        borderColor: "divider",
                       }}
                     >
                       <img
@@ -240,11 +241,12 @@ export default function DiagramsPage() {
                     <Box
                       sx={{
                         height: 160,
-                        bgcolor: "#fafafa",
+                        bgcolor: "action.hover",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        borderBottom: "1px solid #eee",
+                        borderBottom: 1,
+                        borderColor: "divider",
                       }}
                     >
                       <MaterialSymbol icon="draw" size={48} color="#ccc" />

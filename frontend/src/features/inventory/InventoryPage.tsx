@@ -1037,7 +1037,7 @@ export default function InventoryPage() {
               size="small"
               variant="contained"
               color="inherit"
-              sx={{ color: "primary.main", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+              sx={{ color: "primary.main", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
               startIcon={<MaterialSymbol icon="edit" size={16} />}
               onClick={() => { setMassEditOpen(true); setMassEditField(""); setMassEditValue(""); setMassEditError(""); }}
             >
@@ -1048,7 +1048,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#e65100", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                sx={{ color: "#e65100", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
                 startIcon={<MaterialSymbol icon="archive" size={16} />}
                 onClick={() => setMassArchiveOpen(true)}
               >
@@ -1060,7 +1060,7 @@ export default function InventoryPage() {
                 size="small"
                 variant="contained"
                 color="inherit"
-                sx={{ color: "#c62828", bgcolor: "#fff", textTransform: "none", "&:hover": { bgcolor: "#e0e0e0" } }}
+                sx={{ color: "#c62828", bgcolor: "background.paper", textTransform: "none", "&:hover": { bgcolor: "action.selected" } }}
                 startIcon={<MaterialSymbol icon="delete_forever" size={16} />}
                 onClick={() => setMassDeleteOpen(true)}
               >

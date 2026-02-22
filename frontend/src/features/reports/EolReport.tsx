@@ -518,7 +518,7 @@ export default function EolReport() {
                           gap: 0.5,
                           height: 36,
                           cursor: "pointer",
-                          "&:hover": { bgcolor: "#f5f5f5" },
+                          "&:hover": { bgcolor: "action.hover" },
                           borderRadius: 0.5,
                           px: 0.5,
                         }}
@@ -620,7 +620,8 @@ export default function EolReport() {
                     sx={{
                       position: "relative",
                       height: 24,
-                      borderBottom: "1px solid #e0e0e0",
+                      borderBottom: 1,
+                      borderColor: "divider",
                       mb: 1,
                     }}
                   >
@@ -632,7 +633,7 @@ export default function EolReport() {
                           position: "absolute",
                           left: `${t.pct}%`,
                           transform: "translateX(-50%)",
-                          color: "#999",
+                          color: "text.secondary",
                           fontSize: "0.7rem",
                         }}
                       >

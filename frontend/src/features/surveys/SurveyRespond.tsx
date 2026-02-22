@@ -280,7 +280,7 @@ export default function SurveyRespond() {
 
       {/* Survey message */}
       {form.survey.message && (
-        <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "#f5f5ff" }}>
+        <Card variant="outlined" sx={{ p: 2, mb: 3, bgcolor: "action.hover" }}>
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
             {form.survey.message}
           </Typography>

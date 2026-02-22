@@ -343,10 +343,11 @@ function GroupCard({
   return (
     <Box
       sx={{
-        border: "1px solid #e0e0e0",
+        border: 1,
+        borderColor: "divider",
         borderRadius: 2,
         overflow: "hidden",
-        bgcolor: "#fff",
+        bgcolor: "background.paper",
         cursor: "pointer",
         transition: "box-shadow 0.2s",
         "&:hover": { boxShadow: 3 },
@@ -359,8 +360,9 @@ function GroupCard({
       <Box
         sx={{
           p: 1.5,
-          bgcolor: "#f5f8fc",
-          borderBottom: count > 0 ? "1px solid #e0e0e0" : "none",
+          bgcolor: "action.hover",
+          borderBottom: count > 0 ? 1 : "none",
+          borderColor: "divider",
           display: "flex",
           alignItems: "center",
           gap: 1,
@@ -397,7 +399,7 @@ function GroupCard({
 
       {/* Progress bar */}
       {totalApps > 0 && (
-        <Box sx={{ height: 3, bgcolor: "#f0f0f0" }}>
+        <Box sx={{ height: 3, bgcolor: "action.selected" }}>
           <Box
             sx={{
               height: "100%",
@@ -948,7 +950,7 @@ export default function PortfolioReport() {
                     alignItems: "center",
                     gap: 1,
                     flexWrap: "wrap",
-                    bgcolor: "#f8f9fb",
+                    bgcolor: "action.hover",
                     borderRadius: 1.5,
                     px: 1.5,
                     py: 0.75,
@@ -956,7 +958,7 @@ export default function PortfolioReport() {
                 >
                   <Typography
                     variant="caption"
-                    sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
                     Related By
                   </Typography>
@@ -983,9 +985,10 @@ export default function PortfolioReport() {
                           fontSize: "0.72rem",
                           fontWeight: 500,
                           cursor: "pointer",
-                          bgcolor: "#fff",
-                          border: "1px dashed #bbb",
-                          "&:hover": { bgcolor: "#f0f0f0" },
+                          bgcolor: "background.paper",
+                          border: "1px dashed",
+                          borderColor: "divider",
+                          "&:hover": { bgcolor: "action.hover" },
                         }}
                       />
                     </Tooltip>
@@ -999,8 +1002,9 @@ export default function PortfolioReport() {
                         height: 26,
                         fontSize: "0.72rem",
                         cursor: "pointer",
-                        bgcolor: "#fff",
-                        border: "1px solid #ddd",
+                        bgcolor: "background.paper",
+                        border: 1,
+                        borderColor: "divider",
                       }}
                     />
                   )}
@@ -1015,7 +1019,7 @@ export default function PortfolioReport() {
                     alignItems: "center",
                     gap: 1,
                     flexWrap: "wrap",
-                    bgcolor: "#f8fbf8",
+                    bgcolor: "action.hover",
                     borderRadius: 1.5,
                     px: 1.5,
                     py: 0.75,
@@ -1023,7 +1027,7 @@ export default function PortfolioReport() {
                 >
                   <Typography
                     variant="caption"
-                    sx={{ color: "#666", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
                     Fields
                   </Typography>
@@ -1192,13 +1196,14 @@ export default function PortfolioReport() {
                   <Box
                     sx={{
                       p: 1.5,
-                      bgcolor: "#fafafa",
-                      borderBottom: "1px dashed #ccc",
+                      bgcolor: "action.hover",
+                      borderBottom: "1px dashed",
+                      borderColor: "divider",
                       display: "flex",
                       alignItems: "center",
                       gap: 1,
                       cursor: "pointer",
-                      "&:hover": { bgcolor: "#f5f5f5" },
+                      "&:hover": { bgcolor: "action.selected" },
                     }}
                     onClick={() =>
                       setDrawer({

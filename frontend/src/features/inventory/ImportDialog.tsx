@@ -146,7 +146,7 @@ export default function ImportDialog({
                 p: 4,
                 textAlign: "center",
                 cursor: "pointer",
-                "&:hover": { borderColor: "primary.main", bgcolor: "#f5f9ff" },
+                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
                 transition: "all 0.15s",
               }}
             >

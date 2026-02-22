@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import type {
   CardType as FSType,
   RelationType as RType,
@@ -109,6 +110,7 @@ export interface GraphProps {
 }
 
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
+  const theme = useTheme();
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
@@ -544,7 +546,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
         border: "1px solid",
         borderColor: "divider",
         borderRadius: 2,
-        bgcolor: "#fafbfc",
+        bgcolor: "action.hover",
       }}
     >
       <svg
@@ -605,8 +607,8 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
               width={svgDimensions.svgW - LAYER_LABEL_W + 4 - PAD_X + 20}
               height={NODE_H + 32}
               rx={10}
-              fill="#f0f1f3"
-              stroke="#e2e4e8"
+              fill={theme.palette.action.hover}
+              stroke={theme.palette.divider}
               strokeWidth={1}
               strokeDasharray="6 3"
             />
@@ -629,7 +631,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
             <path
               d={e.d}
               fill="none"
-              stroke="#c8ccd4"
+              stroke={theme.palette.divider}
               strokeWidth={1.2}
               markerEnd="url(#mm-arrow)"
             />
@@ -647,9 +649,9 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
                 width={84}
                 height={20}
                 rx={5}
-                fill="#fff"
+                fill={theme.palette.background.paper}
                 fillOpacity={0.92}
-                stroke="#e0e2e6"
+                stroke={theme.palette.divider}
                 strokeWidth={0.5}
               />
               <text

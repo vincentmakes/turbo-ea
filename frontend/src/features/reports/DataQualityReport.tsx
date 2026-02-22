@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -68,6 +69,7 @@ function dataQualityLabel(v: number): string {
 
 export default function DataQualityReport() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { types } = useMetamodel();
   const saved = useSavedReport("data-quality");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -210,9 +212,9 @@ export default function DataQualityReport() {
             </Typography>
             <ResponsiveContainer width="100%" height={Math.max(250, chartData.length * 50)}>
               <BarChart data={chartData} layout="vertical" margin={{ left: 120, right: 20, top: 5, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12 }} />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={theme.palette.divider} />
+                <XAxis type="number" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                 <RTooltip content={<CustomTooltip />} />
                 <Legend />
                 <Bar dataKey="Complete" stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
@@ -250,7 +252,7 @@ export default function DataQualityReport() {
                       sx={{
                         height: 8,
                         borderRadius: 4,
-                        bgcolor: "#f0f0f0",
+                        bgcolor: "action.selected",
                         "& .MuiLinearProgress-bar": {
                           bgcolor: dataQualityColor(t.avg_data_quality),
                           borderRadius: 4,
@@ -344,7 +346,7 @@ export default function DataQualityReport() {
                             width: 60,
                             height: 6,
                             borderRadius: 3,
-                            bgcolor: "#f0f0f0",
+                            bgcolor: "action.selected",
                             "& .MuiLinearProgress-bar": {
                               bgcolor: dataQualityColor(item.data_quality),
                               borderRadius: 3,
