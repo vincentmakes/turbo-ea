@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.5] - 2026-02-22
+
+### Changed
+- CI workflow now skips backend jobs on frontend-only changes and vice versa, using path-based change detection
+
 ## [0.7.4] - 2026-02-22
 
 ### Changed
