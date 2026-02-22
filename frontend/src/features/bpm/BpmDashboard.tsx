@@ -147,7 +147,14 @@ function BpmDashboardContent() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label
+                    label={({ name, value, cx: cxVal, x }: { name?: string; value?: number; cx?: number; x?: number }) => {
+                      const anchor = (x ?? 0) > (cxVal ?? 0) ? "start" : "end";
+                      return (
+                        <text fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central" fontSize={12}>
+                          {`${name ?? ""}: ${value ?? 0}`}
+                        </text>
+                      );
+                    }}
                     style={{ cursor: "pointer" }}
                     onClick={(_data, idx) => {
                       const name = typeData[idx]?.name;
@@ -159,7 +166,7 @@ function BpmDashboardContent() {
                     ))}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-                  <Legend />
+                  <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
             </CardContent>

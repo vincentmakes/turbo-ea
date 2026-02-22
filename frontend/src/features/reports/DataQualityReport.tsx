@@ -192,14 +192,14 @@ export default function DataQualityReport() {
           value={data.orphaned}
           subtitle={`${orphanedPct}% of total`}
           icon="link_off"
-          iconColor={data.orphaned > 5 ? "#e65100" : "#666"}
+          iconColor={data.orphaned > 5 ? "#e65100" : theme.palette.text.secondary}
         />
         <MetricCard
           label="Stale (90+ days)"
           value={data.stale}
           subtitle={`${stalePct}% of total`}
           icon="update_disabled"
-          iconColor={data.stale > 5 ? "#e65100" : "#666"}
+          iconColor={data.stale > 5 ? "#e65100" : theme.palette.text.secondary}
         />
       </Box>
 
@@ -216,7 +216,7 @@ export default function DataQualityReport() {
                 <XAxis type="number" tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                 <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: theme.palette.text.secondary }} />
                 <RTooltip cursor={{ fill: theme.palette.action.hover }} content={<CustomTooltip />} />
-                <Legend />
+                <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                 <Bar dataKey="Complete" stackId="a" fill={QUALITY_COLORS.complete} radius={[0, 0, 0, 0]} />
                 <Bar dataKey="Partial" stackId="a" fill={QUALITY_COLORS.partial} />
                 <Bar dataKey="Minimal" stackId="a" fill={QUALITY_COLORS.minimal} radius={[0, 4, 4, 0]} />

@@ -116,7 +116,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
               <XAxis dataKey="date" tick={{ fill: theme.palette.text.secondary }} />
               <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fill: theme.palette.text.secondary }} />
               <RTooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
-              <Legend />
+              <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
               {DIMENSIONS.map((d) => (
                 <Line
                   key={d.key}

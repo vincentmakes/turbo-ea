@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { alpha } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -497,6 +497,7 @@ function FilterSelect({
 
 export default function PortfolioReport() {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("portfolio");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -843,7 +844,7 @@ export default function PortfolioReport() {
               .map((o) => (
                 <MenuItem key={o.key} value={o.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon={o.icon} size={16} color="#666" />
+                    <MaterialSymbol icon={o.icon} size={16} color={theme.palette.text.secondary} />
                     {o.label}
                   </Box>
                 </MenuItem>
@@ -858,7 +859,7 @@ export default function PortfolioReport() {
               .map((o) => (
                 <MenuItem key={o.key} value={o.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <MaterialSymbol icon={o.icon} size={16} color="#666" />
+                    <MaterialSymbol icon={o.icon} size={16} color={theme.palette.text.secondary} />
                     {o.label}
                   </Box>
                 </MenuItem>
