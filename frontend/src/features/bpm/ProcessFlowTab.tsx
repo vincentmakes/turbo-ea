@@ -411,7 +411,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    printWindow.document.write(`<!DOCTYPE html>
+    const doc = printWindow.document;
+    doc.open();
+    doc.write(`<!DOCTYPE html>
 <html>
 <head>
   <title>${title} - Rev ${version.revision}</title>
@@ -434,10 +436,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 </head>
 <body>
   <div class="no-print" style="padding:12px;text-align:center;background:#f5f5f5;border-bottom:1px solid #ddd">
-    <button onclick="window.print()" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1976d2;color:#fff;border:none;border-radius:4px">
+    <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1976d2;color:#fff;border:none;border-radius:4px">
       Print / Save as PDF
     </button>
-    <button onclick="window.close()" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;margin-left:8px">
+    <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;margin-left:8px">
       Close
     </button>
   </div>
@@ -455,7 +457,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   </div>
 </body>
 </html>`);
-    printWindow.document.close();
+    doc.close();
+    doc.getElementById("turbo-print-btn")?.addEventListener("click", () => printWindow.print());
+    doc.getElementById("turbo-close-btn")?.addEventListener("click", () => printWindow.close());
   };
 
   // ── Element editable cell renderers ────────────────────────────────
