@@ -242,10 +242,10 @@ export default function Dashboard() {
                       outerRadius={90}
                       paddingAngle={2}
                       cursor="pointer"
-                      label={({ name, value, cx, x }: { name?: string; value?: number; cx?: number; x?: number }) => {
+                      label={({ name, value, cx, x, y }: { name?: string; value?: number; cx?: number; x?: number; y?: number }) => {
                         const anchor = (x ?? 0) > (cx ?? 0) ? "start" : "end";
                         return (
-                          <text fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central">
+                          <text x={x} y={y} fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central" fontSize={12}>
                             {`${name ?? ""}: ${value ?? 0}`}
                           </text>
                         );
