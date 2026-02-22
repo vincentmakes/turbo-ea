@@ -158,7 +158,7 @@ function BpmDashboardContent() {
                       <Cell key={i} fill={COLORS[i % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Legend formatter={(value: string) => <span style={{ color: theme.palette.text.primary }}>{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
@@ -176,7 +176,7 @@ function BpmDashboardContent() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
                   <YAxis tick={{ fill: theme.palette.text.secondary }} />
-                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
                     name="Processes"
@@ -206,7 +206,7 @@ function BpmDashboardContent() {
                   <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
                   <XAxis dataKey="name" tick={{ fill: theme.palette.text.secondary }} />
                   <YAxis tick={{ fill: theme.palette.text.secondary }} />
-                  <Tooltip contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
+                  <Tooltip cursor={{ fill: theme.palette.action.hover }} contentStyle={{ backgroundColor: theme.palette.background.paper, borderColor: theme.palette.divider, color: theme.palette.text.primary }} />
                   <Bar
                     dataKey="value"
                     name="Processes"
