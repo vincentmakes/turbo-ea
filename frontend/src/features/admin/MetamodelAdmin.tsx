@@ -251,7 +251,13 @@ export default function MetamodelAdmin() {
         Metamodel Configuration
       </Typography>
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+      <Tabs
+        value={tab}
+        onChange={(_, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 3 }}
+      >
         <Tab label="Card Types" />
         <Tab label="Relation Types" />
         <Tab label="Calculations" />

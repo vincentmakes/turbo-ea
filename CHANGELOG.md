@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] - 2026-02-22
+
+### Changed
+- Settings page tabs now use the standard app tab style (matching Metamodel and other admin pages)
+- Settings and Metamodel page tabs are now horizontally scrollable on mobile viewports
+
 ## [0.7.3] - 2026-02-22
 
 ### Added

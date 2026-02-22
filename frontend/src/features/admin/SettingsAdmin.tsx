@@ -25,10 +25,10 @@ const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 
 const TABS = [
-  { key: "general", label: "General", icon: "tune" },
-  { key: "eol", label: "EOL Search", icon: "update" },
-  { key: "web-portals", label: "Web Portals", icon: "language" },
-  { key: "servicenow", label: "ServiceNow", icon: "sync" },
+  { key: "general", label: "General" },
+  { key: "eol", label: "EOL Search" },
+  { key: "web-portals", label: "Web Portals" },
+  { key: "servicenow", label: "ServiceNow" },
 ];
 
 function TabLoader() {
@@ -942,16 +942,12 @@ export default function SettingsAdmin() {
       <Tabs
         value={tabIndex}
         onChange={handleTabChange}
-        sx={{ mb: 3, borderBottom: 1, borderColor: "divider" }}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{ mb: 3 }}
       >
         {TABS.map((t) => (
-          <Tab
-            key={t.key}
-            label={t.label}
-            icon={<MaterialSymbol icon={t.icon} size={18} />}
-            iconPosition="start"
-            sx={{ textTransform: "none", minHeight: 48 }}
-          />
+          <Tab key={t.key} label={t.label} />
         ))}
       </Tabs>
 
