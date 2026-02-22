@@ -25,7 +25,6 @@ export default function FilterSelect({
     <Autocomplete
       multiple
       size="small"
-      limitTags={1}
       options={allOptions.map((o) => o.key)}
       getOptionLabel={(key) => allOptions.find((o) => o.key === key)?.label ?? key}
       value={value}
@@ -64,8 +63,8 @@ export default function FilterSelect({
                 fontWeight: 500,
                 fontStyle: isEmpty ? "italic" : undefined,
                 fontSize: "0.7rem",
-                height: 22,
-                maxWidth: 110,
+                height: 20,
+                maxWidth: 120,
               }}
             />
           );
@@ -79,19 +78,22 @@ export default function FilterSelect({
         />
       )}
       sx={{
-        width: 180,
+        minWidth: 180,
+        maxWidth: 320,
         "& .MuiAutocomplete-inputRoot": {
-          flexWrap: "nowrap",
-          pr: "56px !important",
-        },
-        "& .MuiAutocomplete-endAdornment": {
-          right: "6px !important",
+          flexWrap: "wrap",
+          gap: 0.5,
+          py: "4px !important",
         },
         "& .MuiInputLabel-root": {
-          maxWidth: "calc(100% - 56px)",
+          fontSize: "0.8rem",
+          maxWidth: "calc(100% - 40px)",
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
+        },
+        "& .MuiInputLabel-shrink": {
+          maxWidth: "100%",
         },
       }}
     />
