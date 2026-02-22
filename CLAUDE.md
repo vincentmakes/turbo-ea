@@ -55,6 +55,15 @@ When working on this codebase, follow these conventions:
 - New endpoints must use `Depends(get_current_user)` or `Depends(require_permission(...))`.
 - Rate limiting is applied via `slowapi` — apply `@limiter.limit()` to auth-sensitive endpoints.
 
+### Pull Request Conventions
+- **Always use the PR template** at `.github/pull_request_template.md` when creating pull requests. Do not use a custom format — fill in the template sections exactly as defined.
+- The PR template has four required sections: **Summary**, **Changes**, **Test Plan**, and **Checklist**. All must be completed.
+- **Summary**: 1-3 sentences explaining what the PR does and why.
+- **Changes**: Bulleted list of the key changes made.
+- **Test Plan**: Describe how you verified the changes work. Always include the three CI checkboxes (all CI checks pass, manually tested, added/updated tests). Check the boxes that apply.
+- **Checklist**: Review every item and check all that apply. These enforce the project's core conventions (permission checks, Alembic migrations, async handlers, data-driven metamodel, no exposed secrets). Do not remove unchecked items — leave them unchecked so reviewers can see what was considered.
+- PR titles should be concise (under 72 characters) and describe the change, not the implementation.
+
 ### Testing Conventions
 - **Every new feature or bug fix should include tests.** CI will block PRs that fail lint or tests.
 - **Backend tests** live in `backend/tests/` mirroring the source structure (`core/`, `services/`, `api/`).
