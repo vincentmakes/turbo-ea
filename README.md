@@ -1,7 +1,7 @@
-# Turbo EA - **https://www.turbo-ea.org**
+# Turbo EA
 
 
-
+**https://www.turbo-ea.org**
 
 Enterprise Architecture in practice : https://www.turbo-ea.org/blog
 
