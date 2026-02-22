@@ -242,14 +242,7 @@ export default function Dashboard() {
                       outerRadius={90}
                       paddingAngle={2}
                       cursor="pointer"
-                      label={({ name, value, cx, x, y }: { name?: string; value?: number; cx?: number; x?: number; y?: number }) => {
-                        const anchor = (x ?? 0) > (cx ?? 0) ? "start" : "end";
-                        return (
-                          <text x={x} y={y} fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central" fontSize={12}>
-                            {`${name ?? ""}: ${value ?? 0}`}
-                          </text>
-                        );
-                      }}
+                      label={({ name, value }: { name?: string; value?: number }) => `${name ?? ""}: ${value ?? 0}`}
                       onClick={(_data, idx) => {
                         const status = approvalChartData[idx]?.key;
                         if (status) navigate(`/inventory?approval_status=${status}`);

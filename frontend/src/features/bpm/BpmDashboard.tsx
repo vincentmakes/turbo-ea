@@ -147,14 +147,7 @@ function BpmDashboardContent() {
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    label={({ name, value, cx: cxVal, x, y }: { name?: string; value?: number; cx?: number; x?: number; y?: number }) => {
-                      const anchor = (x ?? 0) > (cxVal ?? 0) ? "start" : "end";
-                      return (
-                        <text x={x} y={y} fill={theme.palette.text.primary} textAnchor={anchor} dominantBaseline="central" fontSize={12}>
-                          {`${name ?? ""}: ${value ?? 0}`}
-                        </text>
-                      );
-                    }}
+                    label
                     style={{ cursor: "pointer" }}
                     onClick={(_data, idx) => {
                       const name = typeData[idx]?.name;
