@@ -11,6 +11,8 @@
  * with "custom_".
  */
 
+import i18n from "@/i18n";
+
 export type SectionType = "rich_text" | "table" | "togaf_phases";
 
 export interface TemplateSectionDef {
@@ -28,172 +30,208 @@ export interface TemplateSectionDef {
   columns?: string[];
 }
 
-export const SOAW_TEMPLATE_SECTIONS: TemplateSectionDef[] = [
-  // ── Part I ────────────────────────────────────────────────────────────
+const t = (key: string) => i18n.t(`delivery:${key}`) as string;
 
-  {
-    id: "1.1",
-    title: "1.1 Project Request and Background",
-    type: "rich_text",
-    part: "I",
-    level: 3,
-    hint: "Describe the business context, triggers, and background for this architecture initiative.",
-  },
-  {
-    id: "1.2",
-    title: "1.2 Project Description and Scope",
-    type: "rich_text",
-    part: "I",
-    level: 3,
-    hint: "Provide a high-level description of the project and its boundaries.",
-  },
-  {
-    id: "2.1",
-    title: "2.1 Objectives",
-    type: "table",
-    part: "I",
-    level: 3,
-    preamble: "The business objectives of this architecture work are as follows:",
-    columns: ["Business Objective", "Notes"],
-  },
-  {
-    id: "2.2",
-    title: "2.2 Scope",
-    type: "rich_text",
-    part: "I",
-    level: 3,
-    hint: "Define the scope boundaries of this architecture engagement.",
-  },
-  {
-    id: "2.3",
-    title: "2.3 Stakeholders, Concerns, and Views",
-    type: "table",
-    part: "I",
-    level: 3,
-    preamble:
-      "The following table shows the stakeholders who will use this document, their concerns, and how the architecture work will meet those concerns.",
-    columns: ["Stakeholder", "Concern"],
-  },
-  {
-    id: "3.1",
-    title: "3.1 Architecture Process",
-    type: "togaf_phases",
-    part: "I",
-    level: 3,
-  },
+/** Returns the SOAW template sections with translated labels. */
+export function getTemplateSections(): TemplateSectionDef[] {
+  return [
+    // -- Part I --
+    {
+      id: "1.1",
+      title: t("template.section_1_1.title"),
+      type: "rich_text",
+      part: "I",
+      level: 3,
+      hint: t("template.section_1_1.hint"),
+    },
+    {
+      id: "1.2",
+      title: t("template.section_1_2.title"),
+      type: "rich_text",
+      part: "I",
+      level: 3,
+      hint: t("template.section_1_2.hint"),
+    },
+    {
+      id: "2.1",
+      title: t("template.section_2_1.title"),
+      type: "table",
+      part: "I",
+      level: 3,
+      preamble: t("template.section_2_1.preamble"),
+      columns: [t("template.section_2_1.col_objective"), t("template.section_2_1.col_notes")],
+    },
+    {
+      id: "2.2",
+      title: t("template.section_2_2.title"),
+      type: "rich_text",
+      part: "I",
+      level: 3,
+      hint: t("template.section_2_2.hint"),
+    },
+    {
+      id: "2.3",
+      title: t("template.section_2_3.title"),
+      type: "table",
+      part: "I",
+      level: 3,
+      preamble: t("template.section_2_3.preamble"),
+      columns: [t("template.section_2_3.col_stakeholder"), t("template.section_2_3.col_concern")],
+    },
+    {
+      id: "3.1",
+      title: t("template.section_3_1.title"),
+      type: "togaf_phases",
+      part: "I",
+      level: 3,
+    },
 
-  // ── Part II ───────────────────────────────────────────────────────────
+    // -- Part II --
+    {
+      id: "4.1",
+      title: t("template.section_4_1.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_4_1.hint"),
+    },
+    {
+      id: "4.2",
+      title: t("template.section_4_2.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_4_2.hint"),
+    },
+    {
+      id: "4.3",
+      title: t("template.section_4_3.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_4_3.hint"),
+    },
+    {
+      id: "5.1",
+      title: t("template.section_5_1.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_5_1.hint"),
+    },
+    {
+      id: "5.2",
+      title: t("template.section_5_2.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_5_2.hint"),
+    },
+    {
+      id: "5.3",
+      title: t("template.section_5_3.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_5_3.hint"),
+    },
+    {
+      id: "6.1",
+      title: t("template.section_6_1.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_6_1.hint"),
+    },
+    {
+      id: "6.2",
+      title: t("template.section_6_2.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_6_2.hint"),
+    },
+    {
+      id: "6.3",
+      title: t("template.section_6_3.title"),
+      type: "rich_text",
+      part: "II",
+      level: 3,
+      hint: t("template.section_6_3.hint"),
+    },
+    {
+      id: "7.0",
+      title: t("template.section_7_0.title"),
+      type: "rich_text",
+      part: "II",
+      level: 2,
+      hint: t("template.section_7_0.hint"),
+    },
+    {
+      id: "7.1",
+      title: t("template.section_7_1.title"),
+      type: "table",
+      part: "II",
+      level: 3,
+      columns: [
+        t("template.section_7_1.col_riskNum"),
+        t("template.section_7_1.col_description"),
+        t("template.section_7_1.col_priority"),
+        t("template.section_7_1.col_status"),
+      ],
+    },
+    {
+      id: "7.2",
+      title: t("template.section_7_2.title"),
+      type: "table",
+      part: "II",
+      level: 3,
+      columns: [t("template.section_7_2.col_description"), t("template.section_7_2.col_status")],
+    },
+  ];
+}
 
-  {
-    id: "4.1",
-    title: "4.1 Business Architecture — Baseline",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the current-state business architecture: processes, capabilities, organisation.",
+/**
+ * @deprecated Use getTemplateSections() instead for translated labels.
+ * Kept as a lazy-initialized getter for backward compatibility.
+ */
+export const SOAW_TEMPLATE_SECTIONS: TemplateSectionDef[] = new Proxy([] as TemplateSectionDef[], {
+  get(target, prop, receiver) {
+    const sections = getTemplateSections();
+    if (prop === Symbol.iterator) return sections[Symbol.iterator].bind(sections);
+    return Reflect.get(sections, prop, receiver);
   },
-  {
-    id: "4.2",
-    title: "4.2 Business Architecture — Target",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the desired future-state business architecture.",
-  },
-  {
-    id: "4.3",
-    title: "4.3 Business Architecture — Gap Analysis & Transition",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Identify gaps between baseline and target, and outline the transition approach.",
-  },
-  {
-    id: "5.1",
-    title: "5.1 Data & Application Architecture — Baseline",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the current-state data and application landscape.",
-  },
-  {
-    id: "5.2",
-    title: "5.2 Data & Application Architecture — Target",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the desired future-state data and application architecture.",
-  },
-  {
-    id: "5.3",
-    title: "5.3 Data & Application Architecture — Gap Analysis & Transition",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Identify gaps and outline the transition approach for data & applications.",
-  },
-  {
-    id: "6.1",
-    title: "6.1 Technology Architecture — Baseline",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the current-state technology infrastructure and platforms.",
-  },
-  {
-    id: "6.2",
-    title: "6.2 Technology Architecture — Target",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Describe the desired future-state technology architecture.",
-  },
-  {
-    id: "6.3",
-    title: "6.3 Technology Architecture — Gap Analysis & Transition",
-    type: "rich_text",
-    part: "II",
-    level: 3,
-    hint: "Identify gaps and outline the transition approach for technology.",
-  },
-  {
-    id: "7.0",
-    title: "7. Gap Analysis, Solution Options, and Risk Summary",
-    type: "rich_text",
-    part: "II",
-    level: 2,
-    hint: "Summarise overall gaps across all architecture domains and proposed solution options.",
-  },
-  {
-    id: "7.1",
-    title: "Risk Assessment",
-    type: "table",
-    part: "II",
-    level: 3,
-    columns: ["Risk #", "Description", "Priority", "Status"],
-  },
-  {
-    id: "7.2",
-    title: "Risk Mitigation",
-    type: "table",
-    part: "II",
-    level: 3,
-    columns: ["Description", "Status"],
-  },
-];
+});
 
-/** The TOGAF ADM phases shown in section 3.1 */
-export const TOGAF_PHASES = [
-  { key: "A", label: "A – Architecture Vision" },
-  { key: "B", label: "B – Business Architecture" },
-  { key: "C", label: "C – Information Systems Architecture" },
-  { key: "D", label: "D – Technology Architecture" },
-  { key: "E", label: "E – Opportunities and Solutions" },
-  { key: "F", label: "F – Migration Planning" },
-  { key: "G", label: "G – Implementation Governance" },
-  { key: "H", label: "H – Architecture Change Management" },
-  { key: "RM", label: "Requirements Management" },
-];
+/** Returns the TOGAF ADM phases with translated labels. */
+export function getTogafPhases(): { key: string; label: string }[] {
+  return [
+    { key: "A", label: t("template.togaf.phaseA") },
+    { key: "B", label: t("template.togaf.phaseB") },
+    { key: "C", label: t("template.togaf.phaseC") },
+    { key: "D", label: t("template.togaf.phaseD") },
+    { key: "E", label: t("template.togaf.phaseE") },
+    { key: "F", label: t("template.togaf.phaseF") },
+    { key: "G", label: t("template.togaf.phaseG") },
+    { key: "H", label: t("template.togaf.phaseH") },
+    { key: "RM", label: t("template.togaf.phaseRM") },
+  ];
+}
+
+/**
+ * @deprecated Use getTogafPhases() instead for translated labels.
+ * Kept as a lazy-initialized getter for backward compatibility.
+ */
+export const TOGAF_PHASES: { key: string; label: string }[] = new Proxy(
+  [] as { key: string; label: string }[],
+  {
+    get(target, prop, receiver) {
+      const phases = getTogafPhases();
+      if (prop === Symbol.iterator) return phases[Symbol.iterator].bind(phases);
+      return Reflect.get(phases, prop, receiver);
+    },
+  },
+);
 
 /** Build the default (empty) sections record from the template. */
 export function buildDefaultSections(): Record<
@@ -205,6 +243,8 @@ export function buildDefaultSections(): Record<
     togaf_data?: Record<string, string>;
   }
 > {
+  const templateSections = getTemplateSections();
+  const togafPhases = getTogafPhases();
   const sections: Record<string, {
     content: string;
     hidden: boolean;
@@ -212,7 +252,7 @@ export function buildDefaultSections(): Record<
     togaf_data?: Record<string, string>;
   }> = {};
 
-  for (const def of SOAW_TEMPLATE_SECTIONS) {
+  for (const def of templateSections) {
     if (def.type === "table") {
       sections[def.id] = {
         content: "",
@@ -224,7 +264,7 @@ export function buildDefaultSections(): Record<
       };
     } else if (def.type === "togaf_phases") {
       const togaf: Record<string, string> = {};
-      for (const p of TOGAF_PHASES) togaf[p.key] = "";
+      for (const p of togafPhases) togaf[p.key] = "";
       sections[def.id] = { content: "", hidden: false, togaf_data: togaf };
     } else {
       sections[def.id] = { content: "", hidden: false };

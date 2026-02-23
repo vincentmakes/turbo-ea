@@ -884,7 +884,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
             )}
             {validationResult?.valid && validationResult.preview_result !== undefined && (
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                {t("calculations.preview")}: {JSON.stringify(validationResult.preview_result)}
+                {t("calculations.preview", { value: JSON.stringify(validationResult.preview_result) })}
               </Typography>
             )}
           </Box>
@@ -1011,7 +1011,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t("calculations.searchType", { type: typeLabel })}
+                label={t("calculations.searchLabel", { type: typeLabel })}
                 placeholder={t("calculations.searchPlaceholder", { type: typeLabel.toLowerCase() })}
                 slotProps={{
                   input: {
@@ -1035,7 +1035,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
             <Alert severity={result.success ? "success" : "error"}>
               {result.success ? (
                 <>
-                  {t("calculations.computedValue", { name: result.card_name })}:{" "}
+                  {t("calculations.computedValue", { name: result.card_name })}{" "}
                   <strong>{JSON.stringify(result.computed_value)}</strong>
                 </>
               ) : (
@@ -1138,7 +1138,7 @@ export default function CalculationsAdmin() {
       }>(`/calculations/recalculate/${typeKey}`, {});
       setRecalcResult({
         type: typeKey,
-        message: t("calculations.recalcResult", { processed: res.cards_processed, succeeded: res.calculations_succeeded, failed: res.calculations_failed }),
+        message: t("calculations.recalcResult", { cards: res.cards_processed, succeeded: res.calculations_succeeded, failed: res.calculations_failed }),
       });
     } catch (e: unknown) {
       setRecalcResult({ type: typeKey, message: `Error: ${String(e)}` });
@@ -1227,7 +1227,7 @@ export default function CalculationsAdmin() {
               {t("calculations.noCalculations")}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {t("calculations.noCalculationsDescription")}
+              {t("calculations.noCalculationsHint")}
             </Typography>
           </CardContent>
         </Card>
@@ -1237,13 +1237,13 @@ export default function CalculationsAdmin() {
             <TableHead>
               <TableRow>
                 <TableCell>{t("common:labels.name")}</TableCell>
-                <TableCell>{t("calculations.targetType")}</TableCell>
-                <TableCell>{t("calculations.targetField")}</TableCell>
-                <TableCell>{t("calculations.order")}</TableCell>
-                <TableCell align="center">{t("calculations.active")}</TableCell>
-                <TableCell>{t("calculations.lastRun")}</TableCell>
+                <TableCell>{t("calculations.columns.targetType")}</TableCell>
+                <TableCell>{t("calculations.columns.targetField")}</TableCell>
+                <TableCell>{t("calculations.columns.order")}</TableCell>
+                <TableCell align="center">{t("calculations.columns.active")}</TableCell>
+                <TableCell>{t("calculations.columns.lastRun")}</TableCell>
                 <TableCell>{t("common:labels.status")}</TableCell>
-                <TableCell align="right">{t("calculations.actions")}</TableCell>
+                <TableCell align="right">{t("calculations.columns.actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1290,7 +1290,7 @@ export default function CalculationsAdmin() {
                     ) : null}
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title={t("common:actions.edit")}>
+                    <Tooltip title={t("calculations.editTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => {
@@ -1301,7 +1301,7 @@ export default function CalculationsAdmin() {
                         <MaterialSymbol icon="edit" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t("calculations.testWithCard")}>
+                    <Tooltip title={t("calculations.testTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => {
@@ -1312,7 +1312,7 @@ export default function CalculationsAdmin() {
                         <MaterialSymbol icon="science" size={18} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t("calculations.recalculateAll")}>
+                    <Tooltip title={t("calculations.recalculateTooltip")}>
                       <IconButton
                         size="small"
                         onClick={() => handleRecalculate(calc.target_type_key)}
@@ -1325,7 +1325,7 @@ export default function CalculationsAdmin() {
                         )}
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t("common:actions.delete")}>
+                    <Tooltip title={t("calculations.deleteTooltip")}>
                       <IconButton
                         size="small"
                         color="error"

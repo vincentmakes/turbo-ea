@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -82,14 +83,15 @@ function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[
 // ---------------------------------------------------------------------------
 
 export default function ServiceNowAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [tab, setTab] = useState(0);
 
   return (
     <Box>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
-        <Tab label="Connections" />
-        <Tab label="Mappings" />
-        <Tab label="Sync Dashboard" />
+        <Tab label={t("servicenow.tabs.connections")} />
+        <Tab label={t("servicenow.tabs.mappings")} />
+        <Tab label={t("servicenow.tabs.syncDashboard")} />
       </Tabs>
 
       {tab === 0 && <ConnectionsTab />}
@@ -104,6 +106,7 @@ export default function ServiceNowAdmin() {
 // ---------------------------------------------------------------------------
 
 function ConnectionsTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [connections, setConnections] = useState<SnowConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -119,7 +122,7 @@ function ConnectionsTab() {
       setConnections(res);
       setError("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load connections");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -142,12 +145,12 @@ function ConnectionsTab() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this connection and all its mappings?")) return;
+    if (!confirm(t("servicenow.connections.deleteConfirm"))) return;
     try {
       await api.delete(`/servicenow/connections/${id}`);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -319,7 +322,7 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }
@@ -442,7 +445,7 @@ function MappingsTab() {
       await api.delete(`/servicenow/mappings/${id}`);
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     }
   };
 
@@ -710,7 +713,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }

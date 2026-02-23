@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -27,22 +28,22 @@ type LinkSelection = Record<
   { product: string; cycle: string } | null
 >;
 
-function computeEolStatus(cycle: EolCycle): {
+function computeEolStatus(cycle: EolCycle, t: (key: string) => string): {
   label: string;
   color: string;
 } {
   const eol = cycle.eol;
-  if (eol === true) return { label: "End of Life", color: "#f44336" };
+  if (eol === true) return { label: t("eol.statusEndOfLife"), color: "#f44336" };
   if (typeof eol === "string") {
     const eolDate = new Date(eol);
     const now = new Date();
-    if (eolDate <= now) return { label: "End of Life", color: "#f44336" };
+    if (eolDate <= now) return { label: t("eol.statusEndOfLife"), color: "#f44336" };
     const sixMonths = new Date();
     sixMonths.setMonth(sixMonths.getMonth() + 6);
     if (eolDate <= sixMonths)
-      return { label: "Approaching EOL", color: "#ff9800" };
+      return { label: t("eol.statusApproaching"), color: "#ff9800" };
   }
-  return { label: "Supported", color: "#4caf50" };
+  return { label: t("eol.statusSupported"), color: "#4caf50" };
 }
 
 // ── Cycle Picker Dialog ──────────────────────────────────────────
@@ -64,6 +65,7 @@ function CyclePickerDialog({
   product,
   onSelect,
 }: CyclePickerProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [cycles, setCycles] = useState<EolCycle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,19 +79,18 @@ function CyclePickerDialog({
     api
       .get<EolCycle[]>(`/eol/products/${encodeURIComponent(product)}`)
       .then((res) => setCycles(res))
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to fetch cycles"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("eol.fetchCyclesError")))
       .finally(() => setLoading(false));
   }, [open, product]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Select Version for {cardName}
+        {t("eol.selectVersionFor", { name: cardName })}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
-          Product: <strong>{product}</strong>. Select the version/cycle that matches
-          your deployment.
+          {t("eol.selectVersionHint", { product })}
         </Typography>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -99,14 +100,14 @@ function CyclePickerDialog({
         {loading && <LinearProgress sx={{ mb: 2 }} />}
         {!loading && cycles.length > 0 && (
           <FormControl fullWidth size="small">
-            <InputLabel>Version / Cycle</InputLabel>
+            <InputLabel>{t("eol.versionCycle")}</InputLabel>
             <Select
               value={selectedCycle}
-              label="Version / Cycle"
+              label={t("eol.versionCycle")}
               onChange={(e) => setSelectedCycle(e.target.value)}
             >
               {cycles.map((c) => {
-                const status = computeEolStatus(c);
+                const status = computeEolStatus(c, t);
                 return (
                   <MenuItem key={c.cycle} value={c.cycle}>
                     <Box
@@ -146,12 +147,12 @@ function CyclePickerDialog({
         )}
         {!loading && cycles.length === 0 && !error && (
           <Typography variant="body2" color="text.secondary">
-            No release cycles found for "{product}".
+            {t("eol.noCyclesFound", { product })}
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           disabled={!selectedCycle}
@@ -160,7 +161,7 @@ function CyclePickerDialog({
             onClose();
           }}
         >
-          Confirm
+          {t("common:actions.confirm")}
         </Button>
       </DialogActions>
     </Dialog>
