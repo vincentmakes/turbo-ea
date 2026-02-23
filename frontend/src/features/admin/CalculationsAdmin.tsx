@@ -423,7 +423,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
             onKeyDown={handleKeyDown}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             textareaId={TEXTAREA_ID}
-            placeholder="Start typing — suggestions appear for fields, functions, and relations"
+            placeholder={t("calculations.formulaPlaceholder")}
             padding={10}
             style={{
               fontFamily: "monospace",
@@ -508,7 +508,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           ))}
           <Box sx={{ px: 1.5, pt: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
             <Typography variant="caption" color="text.disabled">
-              Tab or Enter to insert &middot; Esc to dismiss
+              {t("calculations.suggestionHint")}
             </Typography>
           </Box>
         </Paper>
@@ -600,6 +600,7 @@ interface FormulaReferenceProps {
 }
 
 function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
+  const { t } = useTranslation(["admin"]);
   const relTypes = relationTypes.filter(
     (rt) =>
       cardType &&
@@ -628,7 +629,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
     <Accordion sx={{ mt: 2 }}>
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Typography variant="body2" sx={{ fontWeight: 500 }}>
-          Formula Reference
+          {t("calculations.formulaReference")}
         </Typography>
       </AccordionSummary>
       <AccordionDetails>
@@ -636,7 +637,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
           {cardType && (
             <Box>
               <Typography variant="caption" fontWeight={600} gutterBottom>
-                Available Fields (data.&lt;fieldKey&gt;)
+                {t("calculations.availableFields")}
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                 <Chip size="small" label="data.name" variant="outlined" />
@@ -661,7 +662,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
           {relTypes.length > 0 && (
             <Box>
               <Typography variant="caption" fontWeight={600} gutterBottom>
-                Relation Types
+                {t("calculations.relationTypes")}
               </Typography>
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
                 {relTypes.map((rt) => (
@@ -675,14 +676,14 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                 ))}
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                Also: relation_count.&lt;key&gt;, children, children_count
+                {t("calculations.alsoRelationCount")}
               </Typography>
             </Box>
           )}
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
-              Built-in Functions
+              {t("calculations.builtInFunctions")}
             </Typography>
             <Table size="small" sx={{ mt: 0.5 }}>
               <TableBody>
@@ -700,7 +701,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
 
           <Box>
             <Typography variant="caption" fontWeight={600} gutterBottom>
-              Example Formulas
+              {t("calculations.exampleFormulas")}
             </Typography>
             <HighlightedCodeBlock code={EXAMPLE_FORMULAS} />
           </Box>

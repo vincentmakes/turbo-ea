@@ -301,9 +301,9 @@ export async function exportToDocx(
 
   // ── Document Information (hide empty fields, hide section if all empty) ──
   const docxDocInfoRows: [string, string][] = [
-    [t ? t("export.preparedBy") : "Prepared By", docInfo.prepared_by],
-    [t ? t("export.reviewedBy") : "Reviewed By", docInfo.reviewed_by],
-    [t ? t("export.reviewDate") : "Review Date", docInfo.review_date],
+    [t("export.preparedBy"), docInfo.prepared_by],
+    [t("export.reviewedBy"), docInfo.reviewed_by],
+    [t("export.reviewDate"), docInfo.review_date],
   ].filter(([, val]) => val?.trim()) as [string, string][];
 
   if (docxDocInfoRows.length > 0) {
@@ -311,7 +311,7 @@ export async function exportToDocx(
       new Paragraph({
         children: [
           new TextRun({
-            text: t ? t("export.documentInfo") : "Document Information",
+            text: t("export.documentInfo"),
             bold: true,
             font: FONT,
             size: SIZE_H2,
@@ -322,7 +322,7 @@ export async function exportToDocx(
       }),
     );
     children.push(
-      buildDocxTable([t ? t("export.field") : "Field", t ? t("export.value") : "Value"], docxDocInfoRows),
+      buildDocxTable([t("export.field"), t("export.value")], docxDocInfoRows),
     );
     children.push(new Paragraph({ spacing: { after: SPACING_AFTER_TABLE } }));
   }
@@ -333,7 +333,7 @@ export async function exportToDocx(
       new Paragraph({
         children: [
           new TextRun({
-            text: t ? t("export.versionHistory") : "Document Version History",
+            text: t("export.versionHistory"),
             bold: true,
             font: FONT,
             size: SIZE_H2,
@@ -345,7 +345,7 @@ export async function exportToDocx(
     );
     children.push(
       buildDocxTable(
-        [t ? t("export.version") : "Version", t ? t("export.date") : "Date", t ? t("export.revisedBy") : "Revised By", t ? t("export.description") : "Description"],
+        [t("export.version"), t("export.date"), t("export.revisedBy"), t("export.description")],
         versionHistory.map((v) => [v.version, v.date, v.revised_by, v.description]),
       ),
     );
@@ -366,7 +366,7 @@ export async function exportToDocx(
         new Paragraph({
           children: [
             new TextRun({
-              text: `Part ${def.part}: ${def.part === "I" ? (t ? t("export.partI") : "Statement of Architecture Work") : (t ? t("export.partII") : "Baseline and Target Architectures")}`,
+              text: `Part ${def.part}: ${def.part === "I" ? (t("export.partI")) : (t ? t("export.partII") : "Baseline and Target Architectures")}`,
               bold: true,
               font: FONT,
               size: SIZE_PART,
@@ -612,13 +612,13 @@ export function buildPreviewBody(
 
   // Doc info (hide empty fields, hide entire section if all empty)
   const docInfoRows: [string, string][] = [
-    [t ? t("export.preparedBy") : "Prepared By", docInfo.prepared_by],
-    [t ? t("export.reviewedBy") : "Reviewed By", docInfo.reviewed_by],
-    [t ? t("export.reviewDate") : "Review Date", docInfo.review_date],
+    [t("export.preparedBy"), docInfo.prepared_by],
+    [t("export.reviewedBy"), docInfo.reviewed_by],
+    [t("export.reviewDate"), docInfo.review_date],
   ].filter(([, val]) => val?.trim()) as [string, string][];
 
   if (docInfoRows.length > 0) {
-    const docInfoTitle = t ? t("export.documentInfo") : "Document Information";
+    const docInfoTitle = t("export.documentInfo");
     html += `<h2>${docInfoTitle}</h2><table>`;
     for (const [label, val] of docInfoRows) {
       html += `<tr><td class="meta-label">${label}</td><td>${val}</td></tr>`;
@@ -628,11 +628,11 @@ export function buildPreviewBody(
 
   // Version history
   if (versionHistory.some((v) => v.version || v.date)) {
-    const vhTitle = t ? t("export.versionHistory") : "Document Version History";
-    const vhVersion = t ? t("export.version") : "Version";
-    const vhDate = t ? t("export.date") : "Date";
-    const vhRevisedBy = t ? t("export.revisedBy") : "Revised By";
-    const vhDescription = t ? t("export.description") : "Description";
+    const vhTitle = t("export.versionHistory");
+    const vhVersion = t("export.version");
+    const vhDate = t("export.date");
+    const vhRevisedBy = t("export.revisedBy");
+    const vhDescription = t("export.description");
     html += `<h2>${vhTitle}</h2><table><tr><th>${vhVersion}</th><th>${vhDate}</th><th>${vhRevisedBy}</th><th>${vhDescription}</th></tr>`;
     for (const v of versionHistory) {
       html += `<tr><td>${v.version}</td><td>${v.date}</td><td>${v.revised_by}</td><td>${v.description}</td></tr>`;
@@ -649,7 +649,7 @@ export function buildPreviewBody(
 
     if (def.part !== currentPart) {
       currentPart = def.part;
-      const partLabel = def.part === "I" ? (t ? t("export.partI") : "Statement of Architecture Work") : (t ? t("export.partII") : "Baseline and Target Architectures");
+      const partLabel = def.part === "I" ? (t("export.partI")) : (t ? t("export.partII") : "Baseline and Target Architectures");
       html += `<div class="part-header">Part ${def.part}: ${partLabel}</div>`;
     }
 

@@ -332,9 +332,9 @@ export default function SurveyResults() {
                   <TableCell>
                     {r.status === "completed" && (
                       hasChanges(r) ? (
-                        <Chip label="Has changes" size="small" color="info" variant="outlined" />
+                        <Chip label={t("surveyResults.hasChanges")} size="small" color="info" variant="outlined" />
                       ) : (
-                        <Chip label="All confirmed" size="small" variant="outlined" />
+                        <Chip label={t("surveyResults.allConfirmed")} size="small" variant="outlined" />
                       )
                     )}
                   </TableCell>
@@ -350,7 +350,7 @@ export default function SurveyResults() {
                   </TableCell>
                   <TableCell>
                     {r.status === "completed" && (
-                      <Tooltip title="View details">
+                      <Tooltip title={t("surveyResults.viewDetails")}>
                         <IconButton size="small" onClick={() => setDetailResp(r)}>
                           <MaterialSymbol icon="visibility" size={18} />
                         </IconButton>
@@ -363,7 +363,7 @@ export default function SurveyResults() {
             {filtered.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>
-                  No responses in this category
+                  {t("surveyResults.noResponses")}
                 </TableCell>
               </TableRow>
             )}
@@ -376,16 +376,16 @@ export default function SurveyResults() {
         {detailResp && (
           <>
             <DialogTitle>
-              Response: {detailResp.card_name} — {detailResp.user_display_name}
+              {t("surveyResults.detail.title", { card: detailResp.card_name, user: detailResp.user_display_name })}
             </DialogTitle>
             <DialogContent>
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Field</TableCell>
-                    <TableCell>Current Value</TableCell>
-                    <TableCell>Response</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.field")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.currentValue")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.response")}</TableCell>
+                    <TableCell>{t("surveyResults.detail.columns.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -400,23 +400,23 @@ export default function SurveyResults() {
                             {field.label}
                           </Typography>
                         </TableCell>
-                        <TableCell>{formatValue(resp.current_value, field)}</TableCell>
+                        <TableCell>{formatValue(resp.current_value, field, boolLabels)}</TableCell>
                         <TableCell>
                           {changed ? (
                             <Typography variant="body2" sx={{ color: "info.main", fontWeight: 600 }}>
-                              {formatValue(resp.new_value, field)}
+                              {formatValue(resp.new_value, field, boolLabels)}
                             </Typography>
                           ) : (
-                            formatValue(resp.current_value, field)
+                            formatValue(resp.current_value, field, boolLabels)
                           )}
                         </TableCell>
                         <TableCell>
                           {resp.confirmed ? (
-                            <Chip label="Confirmed" size="small" color="success" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.confirmed")} size="small" color="success" variant="outlined" />
                           ) : changed ? (
-                            <Chip label="Changed" size="small" color="info" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.changed")} size="small" color="info" variant="outlined" />
                           ) : (
-                            <Chip label="No input" size="small" variant="outlined" />
+                            <Chip label={t("surveyResults.detail.noInput")} size="small" variant="outlined" />
                           )}
                         </TableCell>
                       </TableRow>
@@ -426,7 +426,7 @@ export default function SurveyResults() {
               </Table>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setDetailResp(null)}>Close</Button>
+              <Button onClick={() => setDetailResp(null)}>{t("common:actions.close")}</Button>
               {detailResp.status === "completed" && !detailResp.applied && hasChanges(detailResp) && (
                 <Button
                   variant="contained"
@@ -444,7 +444,7 @@ export default function SurveyResults() {
                   }}
                   disabled={applying}
                 >
-                  Apply Changes
+                  {t("surveyResults.detail.applyChanges")}
                 </Button>
               )}
             </DialogActions>

@@ -157,7 +157,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/archive`);
       await fetchRoles();
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to archive role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToArchive"));
     }
   };
 
@@ -166,7 +166,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await api.post(`/metamodel/types/${typeKey}/stakeholder-roles/${roleKey}/restore`);
       await fetchRoles();
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to restore role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToRestore"));
     }
   };
 
@@ -177,7 +177,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
   ) => (
     <Box sx={{ mt: 1 }}>
       <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-        Permissions
+        {t("metamodel.stakeholderPanel.permissions")}
       </Typography>
       {Object.entries(permissionsSchema).map(([permKey, permDesc]) => (
         <Box
@@ -222,7 +222,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       {/* Header row */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="subtitle1" fontWeight={600}>
-          Stakeholder Roles
+          {t("metamodel.stakeholderPanel.title")}
         </Typography>
         <FormControlLabel
           control={
@@ -232,7 +232,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
               onChange={(e) => setShowArchived(e.target.checked)}
             />
           }
-          label={<Typography variant="caption">Show archived</Typography>}
+          label={<Typography variant="caption">{t("metamodel.stakeholderPanel.showArchived")}</Typography>}
           sx={{ mr: 0 }}
         />
       </Box>
@@ -240,7 +240,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       {/* Role list */}
       {displayRoles.length === 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {showArchived ? "No stakeholder roles defined." : "No active stakeholder roles. Create one below."}
+          {showArchived ? t("metamodel.stakeholderPanel.noRoles") : t("metamodel.stakeholderPanel.noActiveRoles")}
         </Typography>
       )}
 
@@ -277,12 +277,12 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   {role.key}
                 </Typography>
                 {role.is_archived && (
-                  <Chip size="small" label="Archived" sx={{ height: 20, fontSize: 11 }} />
+                  <Chip size="small" label={t("metamodel.stakeholderPanel.archived")} sx={{ height: 20, fontSize: 11 }} />
                 )}
                 {typeof role.stakeholder_count === "number" && (
                   <Chip
                     size="small"
-                    label={`${role.stakeholder_count} sub${role.stakeholder_count !== 1 ? "s" : ""}`}
+                    label={t("metamodel.stakeholderPanel.subscriberCount", { count: role.stakeholder_count })}
                     variant="outlined"
                     sx={{ height: 20, fontSize: 11 }}
                   />
@@ -302,13 +302,13 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   </IconButton>
                 )}
                 {role.is_archived ? (
-                  <Tooltip title="Restore">
+                  <Tooltip title={t("common:actions.restore")}>
                     <IconButton size="small" onClick={() => handleRestore(role.key)}>
                       <MaterialSymbol icon="restore" size={18} />
                     </IconButton>
                   </Tooltip>
                 ) : (
-                  <Tooltip title="Archive">
+                  <Tooltip title={t("common:actions.archive")}>
                     <IconButton size="small" onClick={() => handleArchive(role.key)}>
                       <MaterialSymbol icon="archive" size={18} />
                     </IconButton>
