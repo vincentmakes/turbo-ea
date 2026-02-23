@@ -30,7 +30,7 @@ export interface TemplateSectionDef {
   columns?: string[];
 }
 
-const t = (key: string) => i18n.t(`delivery:${key}`) as string;
+const t = (key: string) => String(i18n.t(`delivery:${key}`));
 
 /** Returns the SOAW template sections with translated labels. */
 export function getTemplateSections(): TemplateSectionDef[] {

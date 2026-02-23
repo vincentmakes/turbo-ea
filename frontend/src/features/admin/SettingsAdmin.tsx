@@ -223,7 +223,7 @@ function GeneralTab() {
       const res = await api.post<{ ok: boolean; sent_to: string }>(
         "/settings/email/test"
       );
-      setSnack(t("settings.testEmailSent", { email: res.sent_to }));
+      setSnack(t("settings.smtp.testSent", { email: res.sent_to }));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {

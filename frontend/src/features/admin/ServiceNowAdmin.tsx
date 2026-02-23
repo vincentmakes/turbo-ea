@@ -571,14 +571,14 @@ function MappingsTab() {
                               </TableCell>
                               <TableCell>
                                 <Chip
-                                  label={fm.direction === "snow_leads" ? "SNOW leads" : "Turbo leads"}
+                                  label={fm.direction === "snow_leads" ? t("servicenow.mappings.direction.snowLeads") : t("servicenow.mappings.direction.turboLeads")}
                                   size="small"
                                   sx={{ fontSize: "0.65rem", height: 20 }}
                                   color={fm.direction === "snow_leads" ? "info" : "warning"}
                                 />
                               </TableCell>
                               <TableCell sx={{ fontSize: "0.8rem" }}>
-                                {fm.transform_type || "direct"}
+                                {fm.transform_type || t("servicenow.mappings.dialog.direct")}
                               </TableCell>
                               <TableCell>
                                 {fm.is_identity && (
@@ -631,6 +631,7 @@ interface MappingDialogProps {
 }
 
 function MappingDialog({ open, mapping, connections, onClose, onSaved }: MappingDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const { types } = useMetamodel();
   const [connectionId, setConnectionId] = useState("");
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -645,7 +646,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
   const [error, setError] = useState("");
 
   const selectedCardType = useMemo(
-    () => types.find((t) => t.key === cardTypeKey),
+    () => types.find((ct) => ct.key === cardTypeKey),
     [types, cardTypeKey],
   );
   const turboFieldOptions = useMemo(
@@ -723,15 +724,15 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{mapping ? "Edit Mapping" : "New Mapping"}</DialogTitle>
+      <DialogTitle>{mapping ? t("servicenow.mappings.dialog.editMapping") : t("servicenow.mappings.dialog.newMapping")}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth>
-            <InputLabel>Connection</InputLabel>
+            <InputLabel>{t("servicenow.mappings.dialog.connection")}</InputLabel>
             <Select
               value={connectionId}
-              label="Connection"
+              label={t("servicenow.mappings.dialog.connection")}
               onChange={(e) => setConnectionId(e.target.value)}
               disabled={!!mapping}
             >
@@ -743,19 +744,19 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
           <Box sx={{ display: "flex", gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Card Type</InputLabel>
+              <InputLabel>{t("common:labels.type")}</InputLabel>
               <Select
                 value={cardTypeKey}
-                label="Card Type"
+                label={t("common:labels.type")}
                 onChange={(e) => setCardTypeKey(e.target.value)}
               >
-                {types.filter((t) => !t.is_hidden).map((t) => (
-                  <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>
+                {types.filter((ct) => !ct.is_hidden).map((ct) => (
+                  <MenuItem key={ct.key} value={ct.key}>{ct.label}</MenuItem>
                 ))}
               </Select>
             </FormControl>
             <TextField
-              label="ServiceNow Table"
+              label={t("servicenow.mappings.dialog.snowTable")}
               fullWidth
               value={snowTable}
               onChange={(e) => setSnowTable(e.target.value)}
@@ -765,30 +766,30 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 
           <Box sx={{ display: "flex", gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Sync Direction</InputLabel>
+              <InputLabel>{t("servicenow.mappings.dialog.syncDirection")}</InputLabel>
               <Select
                 value={syncDirection}
-                label="Sync Direction"
+                label={t("servicenow.mappings.dialog.syncDirection")}
                 onChange={(e) => setSyncDirection(e.target.value)}
               >
-                <MenuItem value="snow_to_turbo">ServiceNow → Turbo EA</MenuItem>
-                <MenuItem value="turbo_to_snow">Turbo EA → ServiceNow</MenuItem>
-                <MenuItem value="bidirectional">Bidirectional</MenuItem>
+                <MenuItem value="snow_to_turbo">{t("servicenow.mappings.dialog.snowToTurbo")}</MenuItem>
+                <MenuItem value="turbo_to_snow">{t("servicenow.mappings.dialog.turboToSnow")}</MenuItem>
+                <MenuItem value="bidirectional">{t("servicenow.mappings.dialog.bidirectional")}</MenuItem>
               </Select>
               <FormHelperText>
-                Controls which Pull/Push operations are available on the Sync Dashboard
+                {t("servicenow.mappings.dialog.syncDirectionHelper")}
               </FormHelperText>
             </FormControl>
             <FormControl fullWidth>
-              <InputLabel>Sync Mode</InputLabel>
+              <InputLabel>{t("servicenow.mappings.dialog.syncMode")}</InputLabel>
               <Select
                 value={syncMode}
-                label="Sync Mode"
+                label={t("servicenow.mappings.dialog.syncMode")}
                 onChange={(e) => setSyncMode(e.target.value)}
               >
-                <MenuItem value="additive">Additive (no deletes)</MenuItem>
-                <MenuItem value="conservative">Conservative (delete orphans)</MenuItem>
-                <MenuItem value="strict">Strict (delete unlinked)</MenuItem>
+                <MenuItem value="additive">{t("servicenow.mappings.dialog.additive")}</MenuItem>
+                <MenuItem value="conservative">{t("servicenow.mappings.dialog.conservative")}</MenuItem>
+                <MenuItem value="strict">{t("servicenow.mappings.dialog.strict")}</MenuItem>
               </Select>
             </FormControl>
           </Box>

@@ -260,7 +260,7 @@ export async function exportToDocx(
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
 ) {
-  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const children: (Paragraph | Table)[] = [];
 
   // ── Title ──
@@ -601,7 +601,7 @@ export function buildPreviewBody(
   signatories?: SoAWSignatory[],
   _signedAt?: string | null,
 ): string {
-  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   let html = "";
 
   // Title
@@ -747,7 +747,7 @@ export function exportToPdf(
   signatories?: SoAWSignatory[],
   signedAt?: string | null,
 ) {
-  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
+  const t = (key: string, opts?: Record<string, unknown>) => String(i18n.t(`delivery:${key}`, opts as never));
   const w = window.open("", "_blank");
   if (!w) {
     alert(t("export.popupBlocked"));
