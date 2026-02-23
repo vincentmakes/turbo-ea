@@ -804,14 +804,14 @@ function GeneralTab() {
           sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="SMTP Username"
+            label={t("settings.smtp.username")}
             fullWidth
             value={smtpUser}
             onChange={(e) => setSmtpUser(e.target.value)}
             placeholder="e.g. user@gmail.com"
           />
           <TextField
-            label="SMTP Password"
+            label={t("settings.smtp.password")}
             fullWidth
             type="password"
             value={smtpPassword}
@@ -823,7 +823,7 @@ function GeneralTab() {
           sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}
         >
           <TextField
-            label="From Address"
+            label={t("settings.smtp.fromAddress")}
             fullWidth
             value={smtpFrom}
             onChange={(e) => setSmtpFrom(e.target.value)}
@@ -836,7 +836,7 @@ function GeneralTab() {
                 onChange={(e) => setSmtpTls(e.target.checked)}
               />
             }
-            label="Use TLS"
+            label={t("settings.smtp.useTls")}
             sx={{ ml: 1, mt: 1 }}
           />
         </Box>
@@ -844,12 +844,12 @@ function GeneralTab() {
         <Divider sx={{ my: 2 }} />
 
         <TextField
-          label="Application Base URL"
+          label={t("settings.smtp.baseUrl")}
           fullWidth
           value={appBaseUrl}
           onChange={(e) => setAppBaseUrl(e.target.value)}
           placeholder="e.g. https://turboea.yourcompany.com"
-          helperText="Used in email notification links. Leave empty for localhost."
+          helperText={t("settings.smtp.baseUrlHelper")}
           sx={{ mb: 3 }}
         />
 
@@ -867,7 +867,7 @@ function GeneralTab() {
             onClick={handleTest}
             disabled={saving || testing || !smtpHost}
           >
-            {testing ? "Sending..." : "Send Test Email"}
+            {testing ? t("settings.smtp.sending") : t("settings.smtp.sendTestEmail")}
           </Button>
           <Button
             variant="contained"
@@ -876,7 +876,7 @@ function GeneralTab() {
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("settings.saving") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
@@ -897,12 +897,20 @@ function GeneralTab() {
 // ---------------------------------------------------------------------------
 
 export default function SettingsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [params, setParams] = useSearchParams();
   const tabKey = params.get("tab") || "general";
-  const tabIndex = Math.max(0, TABS.findIndex((t) => t.key === tabKey));
+  const tabIndex = Math.max(0, TAB_KEYS.indexOf(tabKey));
+
+  const TAB_LABELS = [
+    t("settings.tabs.general"),
+    t("settings.tabs.eol"),
+    t("settings.tabs.webPortals"),
+    t("settings.tabs.servicenow"),
+  ];
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
-    const newTab = TABS[newIndex].key;
+    const newTab = TAB_KEYS[newIndex];
     if (newTab === "general") {
       setParams({});
     } else {
@@ -915,7 +923,7 @@ export default function SettingsAdmin() {
       <Box sx={{ display: "flex", alignItems: "center", mb: 3, gap: 1 }}>
         <MaterialSymbol icon="settings" size={28} color="#1976d2" />
         <Typography variant="h5" fontWeight={700}>
-          Settings
+          {t("settings.title")}
         </Typography>
       </Box>
 
@@ -926,8 +934,8 @@ export default function SettingsAdmin() {
         scrollButtons="auto"
         sx={{ mb: 3 }}
       >
-        {TABS.map((t) => (
-          <Tab key={t.key} label={t.label} />
+        {TAB_LABELS.map((label, i) => (
+          <Tab key={TAB_KEYS[i]} label={label} />
         ))}
       </Tabs>
 

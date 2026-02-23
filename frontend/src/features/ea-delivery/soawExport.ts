@@ -1,4 +1,4 @@
-import type { TFunction } from "i18next";
+import i18n from "@/i18n";
 import {
   Document,
   Packer,
@@ -259,8 +259,8 @@ export async function exportToDocx(
   versionHistory: SoAWVersionEntry[],
   sections: Record<string, SoAWSectionData>,
   customSections: { id: string; title: string; content: string; insertAfter: string }[],
-  t?: TFunction,
 ) {
+  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
   const children: (Paragraph | Table)[] = [];
 
   // ── Title ──
@@ -268,7 +268,7 @@ export async function exportToDocx(
     new Paragraph({
       children: [
         new TextRun({
-          text: t ? t("export.soawTitle") : "Statement of Architecture Work",
+          text: t("export.soawTitle"),
           bold: true,
           font: FONT,
           size: SIZE_TITLE,

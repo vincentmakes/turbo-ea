@@ -197,7 +197,7 @@ export default function SurveyResults() {
             disabled={closing}
             sx={{ textTransform: "none" }}
           >
-            {closing ? "Closing..." : "Close Survey"}
+            {closing ? t("surveyResults.closing") : t("surveyResults.closeSurvey")}
           </Button>
         )}
       </Box>
@@ -221,7 +221,7 @@ export default function SurveyResults() {
             {responses.length}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Total Targets
+            {t("surveyResults.stats.totalTargets")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -229,7 +229,7 @@ export default function SurveyResults() {
             {completedCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Responded
+            {t("surveyResults.stats.responded")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -237,7 +237,7 @@ export default function SurveyResults() {
             {pendingCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Pending
+            {t("surveyResults.stats.pending")}
           </Typography>
         </Card>
         <Card variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -245,7 +245,7 @@ export default function SurveyResults() {
             {appliedCount}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Applied
+            {t("surveyResults.stats.applied")}
           </Typography>
         </Card>
       </Box>
@@ -255,10 +255,10 @@ export default function SurveyResults() {
       {/* Tabs */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ flex: 1 }}>
-          <Tab label={`All (${responses.length})`} />
-          <Tab label={`Completed (${completedCount})`} />
-          <Tab label={`Pending (${pendingCount})`} />
-          <Tab label={`Applied (${appliedCount})`} />
+          <Tab label={t("surveyResults.tabs.all", { count: responses.length })} />
+          <Tab label={t("surveyResults.tabs.completed", { count: completedCount })} />
+          <Tab label={t("surveyResults.tabs.pending", { count: pendingCount })} />
+          <Tab label={t("surveyResults.tabs.applied", { count: appliedCount })} />
         </Tabs>
         {selected.size > 0 && (
           <Button
@@ -269,7 +269,7 @@ export default function SurveyResults() {
             startIcon={<MaterialSymbol icon="check_circle" size={18} />}
             sx={{ textTransform: "none" }}
           >
-            {applying ? "Applying..." : `Apply ${selected.size} Response${selected.size !== 1 ? "s" : ""}`}
+            {applying ? t("surveyResults.applying") : t("surveyResults.applyResponses", { count: selected.size })}
           </Button>
         )}
       </Box>
@@ -287,12 +287,12 @@ export default function SurveyResults() {
                   onChange={toggleAll}
                 />
               </TableCell>
-              <TableCell>Card</TableCell>
-              <TableCell>User</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Changes</TableCell>
-              <TableCell>Applied</TableCell>
-              <TableCell>Responded</TableCell>
+              <TableCell>{t("surveyResults.columns.card")}</TableCell>
+              <TableCell>{t("surveyResults.columns.user")}</TableCell>
+              <TableCell>{t("surveyResults.columns.status")}</TableCell>
+              <TableCell>{t("surveyResults.columns.changes")}</TableCell>
+              <TableCell>{t("surveyResults.columns.applied")}</TableCell>
+              <TableCell>{t("surveyResults.columns.responded")}</TableCell>
               <TableCell />
             </TableRow>
           </TableHead>
@@ -324,7 +324,7 @@ export default function SurveyResults() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={r.status === "completed" ? "Completed" : "Pending"}
+                      label={r.status === "completed" ? t("common:status.completed") : t("common:status.pending")}
                       size="small"
                       color={r.status === "completed" ? "success" : "warning"}
                     />

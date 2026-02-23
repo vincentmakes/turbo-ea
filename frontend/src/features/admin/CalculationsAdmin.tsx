@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -158,6 +159,7 @@ interface FormulaEditorProps {
 const TEXTAREA_ID = "formula-editor-textarea";
 
 function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
+  const { t } = useTranslation(["admin"]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -375,7 +377,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     <Box sx={{ position: "relative" }} ref={containerRef}>
       <style>{HL_STYLES}</style>
       <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
-        Formula *
+        {t("calculations.formulaLabel")}
       </Typography>
       <Box
         sx={{

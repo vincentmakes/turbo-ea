@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -29,6 +30,7 @@ export interface StakeholderRolePanelProps {
 }
 
 export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
   const [permissionsSchema, setPermissionsSchema] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       );
       setRoles(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to fetch stakeholder roles");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchRoles"));
     }
   }, [typeKey, onError]);
 
@@ -73,7 +75,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       const data = await api.get<Record<string, string>>("/stakeholder-roles/permissions-schema");
       setPermissionsSchema(data);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to fetch permissions schema");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToFetchSchema"));
     }
   }, [onError]);
 
@@ -108,7 +110,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       setCreateForm({ key: "", label: "", description: "", color: "#1976d2", permissions: {} });
       setCreateOpen(false);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to create role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToCreate"));
     } finally {
       setCreateSaving(false);
     }
@@ -139,7 +141,7 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
       await fetchRoles();
       setEditRoleKey(null);
     } catch (e: unknown) {
-      onError(e instanceof Error ? e.message : "Failed to update role");
+      onError(e instanceof Error ? e.message : t("metamodel.stakeholderPanel.failedToUpdate"));
     } finally {
       setEditSaving(false);
     }
