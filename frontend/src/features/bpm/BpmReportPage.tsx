@@ -256,6 +256,7 @@ function ProcessDependencies({ onOpenCard }: { onOpenCard: (id: string) => void 
 /* ================================================================== */
 
 function ElementAppMap({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -267,12 +268,12 @@ function ElementAppMap({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   }, []);
 
   if (loading) return <LinearProgress />;
-  if (!data.length) return <Typography color="text.secondary">No BPMN elements linked to applications yet.</Typography>;
+  if (!data.length) return <Typography color="text.secondary">{t("reports.noElementsLinked")}</Typography>;
 
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle2" gutterBottom>Element-Application Map</Typography>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.elementApplicationMapTitle")}</Typography>
         {data.map((group: any) => (
           <Box key={group.application_id} sx={{ mb: 3 }}>
             <Typography
@@ -280,22 +281,22 @@ function ElementAppMap({ onOpenCard }: { onOpenCard: (id: string) => void }) {
               sx={{ cursor: "pointer", color: "primary.main", mb: 1 }}
               onClick={() => onOpenCard(group.application_id)}
             >
-              {group.application_name} ({group.elements.length} elements)
+              {group.application_name} ({t("reports.elementsCount", { count: group.elements.length })})
             </Typography>
             <TableContainer component={Paper} variant="outlined">
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Element</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Process</TableCell>
-                    <TableCell>Lane</TableCell>
+                    <TableCell>{t("reports.element")}</TableCell>
+                    <TableCell>{t("common:labels.type")}</TableCell>
+                    <TableCell>{t("reports.process")}</TableCell>
+                    <TableCell>{t("reports.lane")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {group.elements.map((el: any) => (
                     <TableRow key={el.element_id} hover>
-                      <TableCell>{el.element_name || "(unnamed)"}</TableCell>
+                      <TableCell>{el.element_name || t("viewer.unnamed")}</TableCell>
                       <TableCell>{el.element_type}</TableCell>
                       <TableCell
                         sx={{ cursor: "pointer", color: "primary.main" }}

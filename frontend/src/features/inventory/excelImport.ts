@@ -406,7 +406,7 @@ export function validateImport(
       errors.push({
         row: rowNum,
         column: "approval_status",
-        message: `Row ${rowNum}: invalid approval_status "${approvalStatus}" (valid: DRAFT, APPROVED, BROKEN, REJECTED)`,
+        message: t("import.errors.invalidApprovalStatus", { row: rowNum, status: approvalStatus }),
       });
       continue;
     }
@@ -421,7 +421,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: `lifecycle_${phase}`,
-            message: `Row ${rowNum}: lifecycle_${phase} expects a date (YYYY-MM-DD), got "${val}"`,
+            message: t("import.errors.invalidDate", { row: rowNum, field: `lifecycle_${phase}`, value: val }),
           });
         } else {
           lifecycle[phase] = val;
@@ -445,7 +445,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: colKey,
-            message: `Row ${rowNum}: required field "${field.label}" is empty`,
+            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: field.label }),
           });
           rowHasAttrError = true;
         }
@@ -462,7 +462,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects a number, got "${val}"`,
+              message: t("import.errors.expectsNumber", { row: rowNum, field: field.label, value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -481,7 +481,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects true/false, got "${val}"`,
+              message: t("import.errors.expectsBoolean", { row: rowNum, field: field.label, value: val }),
             });
             rowHasAttrError = true;
           }
@@ -493,7 +493,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: `Row ${rowNum}: "${field.label}" expects a date (YYYY-MM-DD), got "${val}"`,
+              message: t("import.errors.invalidDate", { row: rowNum, field: field.label, value: val }),
             });
             rowHasAttrError = true;
           } else {

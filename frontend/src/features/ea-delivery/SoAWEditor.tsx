@@ -831,7 +831,7 @@ export default function SoAWEditor() {
               <RichTextEditor
                 content={cs.content}
                 onChange={(html) => updateCustomContent(cs.id, html)}
-                placeholder="Enter content for this section..."
+                placeholder={t("editor.enterContent")}
                 readOnly={isSigned}
               />
             </Paper>
@@ -877,7 +877,7 @@ export default function SoAWEditor() {
                 {def.title}
               </Typography>
               {!isSigned && (
-                <Tooltip title={isHidden ? "Show section" : "Hide section"}>
+                <Tooltip title={isHidden ? t("editor.showSection") : t("editor.hideSection")}>
                   <IconButton
                     size="small"
                     onClick={() => toggleSectionHidden(def.id)}
@@ -934,9 +934,9 @@ export default function SoAWEditor() {
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ bgcolor: "action.hover" }}>
-                      <TableCell sx={{ fontWeight: 600, width: 280 }}>Phase</TableCell>
+                      <TableCell sx={{ fontWeight: 600, width: 280 }}>{t("editor.phase")}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>
-                        Relevant Artefacts
+                        {t("editor.relevantArtefacts")}
                       </TableCell>
                     </TableRow>
                   </TableHead>
@@ -950,7 +950,7 @@ export default function SoAWEditor() {
                             fullWidth
                             multiline
                             disabled={isSigned}
-                            placeholder="e.g. documents, diagrams, architecture decisions..."
+                            placeholder={t("editor.togafPlaceholder")}
                             value={data.togaf_data?.[phase.key] ?? ""}
                             onChange={(e) => {
                               const next = {
@@ -974,7 +974,7 @@ export default function SoAWEditor() {
             {/* Show collapsed indicator when hidden */}
             {isHidden && !isCollapsed && (
               <Typography variant="body2" color="text.disabled" sx={{ ml: 4 }}>
-                This section is hidden and will not appear in exports.
+                {t("editor.hiddenNote")}
               </Typography>
             )}
           </Paper>
@@ -990,7 +990,7 @@ export default function SoAWEditor() {
             sx={{ textTransform: "none" }}
             onClick={() => setAddSectionOpen(true)}
           >
-            Add Custom Section
+            {t("editor.addCustomSection")}
           </Button>
         </Box>
       )}
@@ -1001,11 +1001,11 @@ export default function SoAWEditor() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Add Custom Section</DialogTitle>
+        <DialogTitle>{t("editor.addCustomSection")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            label="Section title"
+            label={t("editor.sectionTitle")}
             fullWidth
             value={newSectionTitle}
             onChange={(e) => setNewSectionTitle(e.target.value)}

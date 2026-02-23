@@ -1061,7 +1061,7 @@ export default function CapabilityMapReport() {
           {/* Heatmap gradient legend */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              Low
+              {t("capabilityMap.low")}
             </Typography>
             <Box sx={{ display: "flex", height: 12 }}>
               {[0, 0.25, 0.5, 0.75, 1].map((r) => (
@@ -1076,10 +1076,10 @@ export default function CapabilityMapReport() {
               ))}
             </Box>
             <Typography variant="caption" color="text.secondary">
-              High
+              {t("capabilityMap.high")}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              Max: {fmtVal(maxVal)}
+              {t("capabilityMap.max", { value: fmtVal(maxVal) })}
             </Typography>
           </Box>
 
@@ -1119,7 +1119,7 @@ export default function CapabilityMapReport() {
                   }}
                 />
                 <Typography variant="caption" color="text.secondary">
-                  Not set
+                  {t("capabilityMap.notSet")}
                 </Typography>
               </Box>
             </Box>
@@ -1130,7 +1130,7 @@ export default function CapabilityMapReport() {
       {tree.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
           <Typography color="text.secondary">
-            No Business Capabilities found. Add capabilities to see the heatmap.
+            {t("capabilityMap.noCapabilities")}
           </Typography>
         </Box>
       ) : (
