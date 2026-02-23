@@ -218,52 +218,31 @@ export default function IconPicker({ value, onChange, color, disabled }: IconPic
 
   return (
     <>
-      {/* Trigger — icon preview + name */}
-      <Box
-        sx={{
-          display: "flex",
-          gap: 1.5,
-          alignItems: "center",
-          cursor: disabled ? "default" : "pointer",
-          opacity: disabled ? 0.5 : 1,
-          border: "1px solid",
-          borderColor: "divider",
-          borderRadius: 1,
-          px: 1.5,
-          py: 0.75,
-          minHeight: 40,
-          "&:hover": disabled
-            ? {}
-            : { borderColor: "text.primary" },
-        }}
-        onClick={(e) => {
-          if (!disabled) setAnchorEl(e.currentTarget);
-        }}
-      >
+      {/* Trigger — compact icon swatch */}
+      <Tooltip title={value.replace(/_/g, " ")} placement="top">
         <Box
           sx={{
-            width: 32,
-            height: 32,
+            width: 40,
+            height: 40,
             borderRadius: 1,
             bgcolor: color || "action.hover",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            flexShrink: 0,
+            cursor: disabled ? "default" : "pointer",
+            opacity: disabled ? 0.5 : 1,
+            border: "2px solid",
+            borderColor: "divider",
+            transition: "border-color 0.15s",
+            "&:hover": disabled ? {} : { borderColor: "text.primary" },
+          }}
+          onClick={(e) => {
+            if (!disabled) setAnchorEl(e.currentTarget);
           }}
         >
-          <MaterialSymbol icon={value} size={20} color={color ? "#fff" : undefined} />
+          <MaterialSymbol icon={value} size={22} color={color ? "#fff" : undefined} />
         </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
-            {value.replace(/_/g, " ")}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap>
-            {value}
-          </Typography>
-        </Box>
-        <MaterialSymbol icon="expand_more" size={18} color="#999" />
-      </Box>
+      </Tooltip>
 
       {/* Popover with search + icon grid */}
       <Popover

@@ -416,13 +416,17 @@ export default function TypeDetailDrawer({
         <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>
           {t("metamodel.typeDrawer.typeProperties")}
         </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 2.5, mb: 1.5 }}>
-          <TextField
-            size="small"
-            label={t("metamodel.typeDrawer.label")}
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-          />
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 1.5 }}>
+          <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
+            <IconPicker value={icon} onChange={setIcon} color={color} />
+            <TextField
+              size="small"
+              label={t("metamodel.typeDrawer.label")}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              fullWidth
+            />
+          </Box>
           <TextField
             size="small"
             label={t("metamodel.typeDrawer.category")}
@@ -430,12 +434,6 @@ export default function TypeDetailDrawer({
             onChange={(e) => setCategory(e.target.value)}
             helperText={t("metamodel.typeDrawer.categoryHelper")}
           />
-          <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-              {t("metamodel.typeDrawer.icon")}
-            </Typography>
-            <IconPicker value={icon} onChange={setIcon} color={color} />
-          </Box>
         </Box>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2.5, mb: 2.5 }}>
           <TextField
