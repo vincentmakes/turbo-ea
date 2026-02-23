@@ -189,5 +189,26 @@
   "navigator.managementProcesses": "Management Processes",
   "navigator.coreProcesses": "Core Processes",
   "navigator.supportProcesses": "Support Processes",
-  "navigator.noProcessesDefined": "No {{type}} defined"
+  "navigator.noProcessesDefined": "No {{type}} defined",
+
+  "modeler.save": "Save",
+  "modeler.saving": "Saving...",
+  "modeler.draft": "Draft",
+  "modeler.revision": "Rev {{version}}",
+  "modeler.unsaved": "Unsaved",
+  "modeler.undo": "Undo (Ctrl+Z)",
+  "modeler.redo": "Redo (Ctrl+Y)",
+  "modeler.zoomIn": "Zoom In",
+  "modeler.zoomOut": "Zoom Out",
+  "modeler.fitToScreen": "Fit to Screen",
+  "modeler.exportSvg": "Export SVG",
+  "modeler.exportBpmn": "Export BPMN XML",
+  "modeler.importBpmn": "Import BPMN",
+  "modeler.modeSimple": "Simple",
+  "modeler.modeFull": "Full BPMN",
+  "modeler.noDraftVersion": "No draft version to save to",
+  "modeler.draftSaved": "Draft saved",
+  "modeler.saveFailed": "Save failed",
+  "modeler.importSuccess": "BPMN imported successfully",
+  "modeler.importInvalid": "Invalid BPMN file"
 }

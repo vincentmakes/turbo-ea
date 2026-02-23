@@ -431,7 +431,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/logo?v=${logoVersion}`}
-              alt="Current logo"
+              alt={t("settings.logo.currentAlt")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -457,7 +457,7 @@ function GeneralTab() {
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingLogo}
             >
-              Upload Logo
+              {t("settings.logo.upload")}
             </Button>
             {hasCustomLogo && (
               <Button
@@ -469,7 +469,7 @@ function GeneralTab() {
                 onClick={handleLogoReset}
                 disabled={uploadingLogo}
               >
-                Reset to Default
+                {t("settings.resetToDefault")}
               </Button>
             )}
           </Box>
@@ -481,19 +481,17 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="star" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Favicon
+            {t("settings.favicon.title")}
           </Typography>
           <Chip
-            label={hasCustomFavicon ? "Custom" : "Default"}
+            label={hasCustomFavicon ? t("settings.custom") : t("settings.default")}
             size="small"
             color={hasCustomFavicon ? "info" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Upload a custom favicon for the browser tab icon and Apple touch icon.
-          This can be different from the main logo. Recommended: square PNG,
-          at least 64x64 px. Max 2 MB.
+          {t("settings.favicon.description")}
         </Typography>
 
         <Box
@@ -520,7 +518,7 @@ function GeneralTab() {
           >
             <img
               src={`/api/v1/settings/favicon?v=${faviconVersion}`}
-              alt="Current favicon"
+              alt={t("settings.favicon.currentAlt")}
               style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
             />
           </Box>
@@ -546,7 +544,7 @@ function GeneralTab() {
               onClick={() => faviconFileInputRef.current?.click()}
               disabled={uploadingFavicon}
             >
-              Upload Favicon
+              {t("settings.favicon.upload")}
             </Button>
             {hasCustomFavicon && (
               <Button
@@ -558,7 +556,7 @@ function GeneralTab() {
                 onClick={handleFaviconReset}
                 disabled={uploadingFavicon}
               >
-                Reset to Default
+                {t("settings.resetToDefault")}
               </Button>
             )}
           </Box>
@@ -570,7 +568,7 @@ function GeneralTab() {
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="payments" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            Currency
+            {t("settings.currency.title")}
           </Typography>
           <Chip
             label={currentCurrency}
@@ -580,15 +578,14 @@ function GeneralTab() {
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Choose the currency used to display all cost values across reports,
-          dashboards, and card details.
+          {t("settings.currency.description")}
         </Typography>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <TextField
             select
             size="small"
-            label="Display Currency"
+            label={t("settings.currency.displayCurrency")}
             value={selectedCurrency}
             onChange={(e) => setSelectedCurrency(e.target.value)}
             sx={{ minWidth: 280 }}
@@ -607,32 +604,30 @@ function GeneralTab() {
             onClick={handleCurrencySave}
             disabled={savingCurrency || selectedCurrency === currentCurrency}
           >
-            {savingCurrency ? "Saving..." : "Save"}
+            {savingCurrency ? t("settings.saving") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>
 
       {/* ── Modules ───────────────────────────────────────────────── */}
-      <SectionHeader>Modules</SectionHeader>
+      <SectionHeader>{t("settings.sections.modules")}</SectionHeader>
 
       {/* BPM Module Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="route" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            BPM Module
+            {t("settings.bpm.title")}
           </Typography>
           <Chip
-            label={bpmEnabled ? "Enabled" : "Disabled"}
+            label={bpmEnabled ? t("settings.enabled") : t("settings.disabled")}
             size="small"
             color={bpmEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
           />
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Enable or disable the Business Process Management module. When
-          disabled, the BPM navigation item, BusinessProcess cards,
-          their relationships, and BPM reports will be hidden from all users.
+          {t("settings.bpm.description")}
         </Typography>
         <FormControlLabel
           control={
@@ -642,12 +637,12 @@ function GeneralTab() {
               disabled={savingBpm}
             />
           }
-          label={bpmEnabled ? "BPM features are visible to users" : "BPM features are hidden"}
+          label={bpmEnabled ? t("settings.bpm.visibleLabel") : t("settings.bpm.hiddenLabel")}
         />
       </Paper>
 
       {/* ── Authentication ────────────────────────────────────────── */}
-      <SectionHeader>Authentication</SectionHeader>
+      <SectionHeader>{t("settings.sections.authentication")}</SectionHeader>
 
       {/* Self-Registration Toggle */}
       <Paper sx={{ p: 3, mb: 3 }}>

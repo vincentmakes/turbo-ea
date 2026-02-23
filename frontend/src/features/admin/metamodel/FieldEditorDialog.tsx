@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -38,6 +39,7 @@ export interface FieldEditorProps {
 }
 
 export default function FieldEditorDialog({ open, field: initial, typeKey, fieldKey, onClose, onSave, isCalculated }: FieldEditorProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [field, setField] = useState<FieldDef>(initial);
 
   // Track which option keys existed before editing — these are locked
@@ -109,36 +111,35 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
-      <DialogTitle>{initial.key ? "Edit Field" : "Add Field"}</DialogTitle>
+      <DialogTitle>{initial.key ? t("metamodel.fieldEditor.editField") : t("metamodel.fieldEditor.addField")}</DialogTitle>
       <DialogContent>
         {isCalculated && (
           <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
-            This field is managed by a calculation. The field type is locked
-            to prevent breaking the formula. Labels and colors can be changed freely.
+            {t("metamodel.fieldEditor.calculatedInfo")}
           </Alert>
         )}
         <KeyInput
           fullWidth
-          label="Key"
+          label={t("metamodel.fieldEditor.keyLabel")}
           value={field.key}
           onChange={(v) => setField({ ...field, key: v })}
           sx={{ mt: 1, mb: 2 }}
           size="small"
           locked={!!initial.key}
-          lockedReason="Field key cannot be changed after creation"
+          lockedReason={t("metamodel.fieldEditor.keyLockedReason")}
         />
         <TextField
           fullWidth
-          label="Label"
+          label={t("metamodel.fieldEditor.labelLabel")}
           value={field.label}
           onChange={(e) => setField({ ...field, label: e.target.value })}
           sx={{ mb: 2 }}
         />
         <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>Type</InputLabel>
+          <InputLabel>{t("metamodel.fieldEditor.typeLabel")}</InputLabel>
           <Select
             value={field.type}
-            label="Type"
+            label={t("metamodel.fieldEditor.typeLabel")}
             disabled={!!isCalculated}
             onChange={(e) =>
               setField({ ...field, type: e.target.value as FieldDef["type"] })
@@ -161,10 +162,10 @@ export default function FieldEditorDialog({ open, field: initial, typeKey, field
                 }
               />
             }
-            label="Required"
+            label={t("metamodel.fieldEditor.required")}
           />
           <TextField
-            label="Weight"
+            label={t("metamodel.fieldEditor.weight")}
             type="number"
             value={field.weight ?? 0}
             onChange={(e) =>

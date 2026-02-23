@@ -975,7 +975,7 @@ export default function ProcessMapReport() {
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="open_in_new" size={14} />}
-                label="Open Card"
+                label={t("processMap.openCard")}
                 onClick={() => handleItemClick(drawer.id)}
                 sx={{ cursor: "pointer" }}
               />
@@ -983,7 +983,7 @@ export default function ProcessMapReport() {
                 <Chip
                   size="small"
                   icon={<MaterialSymbol icon="zoom_in" size={14} />}
-                  label="Drill Down"
+                  label={t("processMap.drillDown")}
                   onClick={() => handleDrillDown(drawer.id)}
                   sx={{ cursor: "pointer" }}
                   color="primary"
@@ -995,7 +995,7 @@ export default function ProcessMapReport() {
             {drawer.children.length > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Sub-Processes ({drawer.children.length})
+                  {t("processMap.subProcesses", { count: drawer.children.length })}
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
                   {drawer.children.map((ch) => (
@@ -1013,7 +1013,7 @@ export default function ProcessMapReport() {
 
             {/* Applications */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Applications ({drawer.deepAppCount})
+              {t("processMap.applications", { count: drawer.deepAppCount })}
             </Typography>
             <List dense>
               {Array.from(drawer.deepUniqueApps.values())
@@ -1031,7 +1031,7 @@ export default function ProcessMapReport() {
                 ))}
               {drawer.deepAppCount === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 1, textAlign: "center" }}>
-                  No linked applications
+                  {t("processMap.noLinkedApps")}
                 </Typography>
               )}
             </List>
@@ -1040,7 +1040,7 @@ export default function ProcessMapReport() {
             {drawer.deepDataObjects.size > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, mt: 2 }}>
-                  Data Objects ({drawer.deepDataObjects.size})
+                  {t("processMap.dataObjects", { count: drawer.deepDataObjects.size })}
                 </Typography>
                 <List dense>
                   {Array.from(drawer.deepDataObjects.values())

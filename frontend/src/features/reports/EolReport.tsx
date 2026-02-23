@@ -686,7 +686,7 @@ export default function EolReport() {
                     const eolDays =
                       typeof cd?.eol === "string" ? daysUntil(cd.eol) : null;
                     const productLabel = isManual
-                      ? "Manual"
+                      ? t("eol.manual")
                       : `${item.eol_product} ${item.eol_cycle}`;
                     const tipText = `${productLabel} \u00B7 EOL: ${fmtDate(cd?.eol)}${eolDays !== null ? ` (${countdownLabel(eolDays)})` : ""}`;
 
@@ -866,7 +866,7 @@ export default function EolReport() {
                     direction={sortK === "name" ? sortD : "asc"}
                     onClick={() => sort("name")}
                   >
-                    Name
+                    {t("common:labels.name")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -875,7 +875,7 @@ export default function EolReport() {
                     direction={sortK === "type" ? sortD : "asc"}
                     onClick={() => sort("type")}
                   >
-                    Type
+                    {t("common:labels.type")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -884,17 +884,17 @@ export default function EolReport() {
                     direction={sortK === "product" ? sortD : "asc"}
                     onClick={() => sort("product")}
                   >
-                    Product
+                    {t("eol.product")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Version</TableCell>
+                <TableCell>{t("eol.version")}</TableCell>
                 <TableCell>
                   <TableSortLabel
                     active={sortK === "source"}
                     direction={sortK === "source" ? sortD : "asc"}
                     onClick={() => sort("source")}
                   >
-                    Source
+                    {t("eol.source")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -903,7 +903,7 @@ export default function EolReport() {
                     direction={sortK === "status" ? sortD : "asc"}
                     onClick={() => sort("status")}
                   >
-                    Status
+                    {t("common:labels.status")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -912,18 +912,18 @@ export default function EolReport() {
                     direction={sortK === "eolDate" ? sortD : "asc"}
                     onClick={() => sort("eolDate")}
                   >
-                    EOL Date
+                    {t("eol.eolDate")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Support Until</TableCell>
-                <TableCell>Latest</TableCell>
+                <TableCell>{t("eol.supportUntil")}</TableCell>
+                <TableCell>{t("eol.latest")}</TableCell>
                 <TableCell>
                   <TableSortLabel
                     active={sortK === "impact"}
                     direction={sortK === "impact" ? sortD : "asc"}
                     onClick={() => sort("impact")}
                   >
-                    Impact
+                    {t("eol.impact")}
                   </TableSortLabel>
                 </TableCell>
               </TableRow>
@@ -983,7 +983,7 @@ export default function EolReport() {
                       ) : (
                         <Chip
                           size="small"
-                          label="API"
+                          label={t("eol.api")}
                           icon={<MaterialSymbol icon="cloud" size={12} />}
                           sx={{
                             height: 18,
@@ -1000,7 +1000,7 @@ export default function EolReport() {
                       <Chip
                         size="small"
                         icon={<MaterialSymbol icon={cfg.icon} size={14} />}
-                        label={cfg.label}
+                        label={t(cfg.labelKey)}
                         sx={{
                           bgcolor: cfg.color,
                           color: "#fff",
@@ -1048,7 +1048,7 @@ export default function EolReport() {
                         >
                           <Chip
                             size="small"
-                            label={`${item.affected_apps.length} app${item.affected_apps.length > 1 ? "s" : ""}`}
+                            label={t("eol.apps", { count: item.affected_apps.length })}
                             icon={<MaterialSymbol icon="apps" size={14} />}
                             sx={{
                               height: 22,

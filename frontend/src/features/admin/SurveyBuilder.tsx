@@ -705,7 +705,7 @@ export default function SurveyBuilder() {
       {activeStep === 3 && (
         <MuiCard sx={{ p: 3 }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Preview & Send
+            {t("surveyBuilder.preview.title")}
           </Typography>
 
           {previewing && (
@@ -722,7 +722,7 @@ export default function SurveyBuilder() {
                     {preview.total_cards}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Cards
+                    {t("surveyBuilder.preview.cards")}
                   </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -730,7 +730,7 @@ export default function SurveyBuilder() {
                     {preview.total_users}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Users to Notify
+                    {t("surveyBuilder.preview.usersToNotify")}
                   </Typography>
                 </MuiCard>
                 <MuiCard variant="outlined" sx={{ p: 2, flex: 1, textAlign: "center" }}>
@@ -738,37 +738,36 @@ export default function SurveyBuilder() {
                     {selectedFields.length}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Fields
+                    {t("surveyBuilder.preview.fields")}
                   </Typography>
                 </MuiCard>
               </Box>
 
               {preview.total_cards === 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  No cards matched your filters, or no stakeholders were found with the selected roles.
-                  Go back and adjust your targeting criteria.
+                  {t("surveyBuilder.preview.noMatches")}
                 </Alert>
               )}
 
               {preview.targets.length > 0 && (
                 <>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                    Target Breakdown
+                    {t("surveyBuilder.preview.targetBreakdown")}
                   </Typography>
                   <TableContainer sx={{ maxHeight: 400, mb: 3 }}>
                     <Table size="small" stickyHeader>
                       <TableHead>
                         <TableRow>
-                          <TableCell>Card</TableCell>
-                          <TableCell>Users</TableCell>
+                          <TableCell>{t("surveyBuilder.preview.columns.card")}</TableCell>
+                          <TableCell>{t("surveyBuilder.preview.columns.users")}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {preview.targets.map((t) => (
-                          <TableRow key={t.card_id}>
-                            <TableCell>{t.card_name}</TableCell>
+                        {preview.targets.map((tp) => (
+                          <TableRow key={tp.card_id}>
+                            <TableCell>{tp.card_name}</TableCell>
                             <TableCell>
-                              {t.users.map((u) => (
+                              {tp.users.map((u) => (
                                 <Chip
                                   key={u.user_id}
                                   label={`${u.display_name} (${u.role})`}
@@ -787,16 +786,16 @@ export default function SurveyBuilder() {
 
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Message Preview
+                {t("surveyBuilder.preview.messagePreview")}
               </Typography>
               <MuiCard variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "action.hover" }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                  {message || "(No message set)"}
+                  {message || t("surveyBuilder.preview.noMessage")}
                 </Typography>
               </MuiCard>
 
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Fields
+                {t("surveyBuilder.preview.fields")}
               </Typography>
               <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 3 }}>
                 {selectedFields.map((f) => (
@@ -815,7 +814,7 @@ export default function SurveyBuilder() {
           {!previewing && !preview && (
             <Box sx={{ textAlign: "center", py: 4 }}>
               <Button variant="outlined" onClick={loadPreview}>
-                Load Preview
+                {t("surveyBuilder.preview.loadPreview")}
               </Button>
             </Box>
           )}
@@ -829,7 +828,7 @@ export default function SurveyBuilder() {
           onClick={handleBack}
           startIcon={<MaterialSymbol icon="arrow_back" size={18} />}
         >
-          Back
+          {t("common:actions.back")}
         </Button>
         <Box sx={{ display: "flex", gap: 1 }}>
           {targetTypeKey && name.trim() && (
@@ -839,7 +838,7 @@ export default function SurveyBuilder() {
               disabled={saving}
               sx={{ textTransform: "none" }}
             >
-              {saving ? "Saving..." : "Save Draft"}
+              {saving ? t("surveyBuilder.savingDraft") : t("surveyBuilder.saveDraft")}
             </Button>
           )}
           {activeStep < STEPS.length - 1 ? (
@@ -849,7 +848,7 @@ export default function SurveyBuilder() {
               endIcon={<MaterialSymbol icon="arrow_forward" size={18} />}
               sx={{ textTransform: "none" }}
             >
-              Next
+              {t("common:actions.next")}
             </Button>
           ) : (
             <Button
@@ -864,7 +863,7 @@ export default function SurveyBuilder() {
               startIcon={<MaterialSymbol icon="send" size={18} />}
               sx={{ textTransform: "none" }}
             >
-              {sending ? "Sending..." : "Send Survey"}
+              {sending ? t("surveyBuilder.sendingSurvey") : t("surveyBuilder.sendSurvey")}
             </Button>
           )}
         </Box>
