@@ -52,9 +52,9 @@ interface TurboFieldOption {
   group: string;
 }
 
-function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[] {
+function getTurboFieldOptions(cardType: CardType | undefined, t: (key: string) => string): TurboFieldOption[] {
   const options: TurboFieldOption[] = [
-    { path: "name", label: "Name", group: "Core" },
+    { path: "name", label: t("common:labels.name"), group: t("servicenow.fieldGroups.core") },
     { path: "description", label: "Description", group: "Core" },
     { path: "lifecycle.plan", label: "Plan", group: "Lifecycle" },
     { path: "lifecycle.phaseIn", label: "Phase In", group: "Lifecycle" },
@@ -924,13 +924,13 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !connectionId || !cardTypeKey || !snowTable}
         >
-          {saving ? <CircularProgress size={20} /> : mapping ? "Update" : "Create"}
+          {saving ? <CircularProgress size={20} /> : mapping ? t("common:actions.save") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -942,6 +942,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
 // ---------------------------------------------------------------------------
 
 function SyncDashboardTab() {
+  const { t } = useTranslation(["admin", "common"]);
   const [mappings, setMappings] = useState<SnowMapping[]>([]);
   const [runs, setRuns] = useState<SnowSyncRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1006,24 +1007,24 @@ function SyncDashboardTab() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
 
       {/* Active mappings with sync triggers */}
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>Active Mappings</Typography>
+      <Typography fontWeight={600} sx={{ mb: 1.5 }}>{t("servicenow.sync.activeMappings")}</Typography>
       {mappings.filter((m) => m.is_active).length === 0 ? (
-        <Alert severity="info" sx={{ mb: 3 }}>No active mappings. Configure mappings first.</Alert>
+        <Alert severity="info" sx={{ mb: 3 }}>{t("servicenow.sync.noActiveMappings")}</Alert>
       ) : (
         <Stack spacing={1.5} sx={{ mb: 3 }}>
           {mappings.filter((m) => m.is_active).map((mapping) => {
-            const cardType = types.find((t) => t.key === mapping.card_type_key);
+            const ct = types.find((tp) => tp.key === mapping.card_type_key);
             return (
               <Card key={mapping.id} variant="outlined">
                 <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <MaterialSymbol
-                      icon={cardType?.icon || "swap_horiz"}
+                      icon={ct?.icon || "swap_horiz"}
                       size={20}
-                      color={cardType?.color || "#999"}
+                      color={ct?.color || "#999"}
                     />
                     <Typography fontWeight={500} sx={{ flex: 1 }}>
-                      {cardType?.label || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
+                      {ct?.label || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                     </Typography>
                     {(mapping.sync_direction === "snow_to_turbo" || mapping.sync_direction === "bidirectional") && (
                       <Button
@@ -1033,7 +1034,7 @@ function SyncDashboardTab() {
                         disabled={syncing === mapping.id}
                         onClick={() => triggerSync(mapping.id, "pull")}
                       >
-                        Pull
+                        {t("servicenow.sync.pull")}
                       </Button>
                     )}
                     {(mapping.sync_direction === "turbo_to_snow" || mapping.sync_direction === "bidirectional") && (
@@ -1044,7 +1045,7 @@ function SyncDashboardTab() {
                         disabled={syncing === mapping.id}
                         onClick={() => triggerSync(mapping.id, "push")}
                       >
-                        Push
+                        {t("servicenow.sync.push")}
                       </Button>
                     )}
                   </Box>
@@ -1056,9 +1057,9 @@ function SyncDashboardTab() {
       )}
 
       {/* Sync Run History */}
-      <Typography fontWeight={600} sx={{ mb: 1.5 }}>Sync History</Typography>
+      <Typography fontWeight={600} sx={{ mb: 1.5 }}>{t("servicenow.sync.history")}</Typography>
       {runs.length === 0 ? (
-        <Typography color="text.secondary" variant="body2">No sync runs yet.</Typography>
+        <Typography color="text.secondary" variant="body2">{t("servicenow.sync.noRuns")}</Typography>
       ) : (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
