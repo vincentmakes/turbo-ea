@@ -260,11 +260,11 @@ export default function MetamodelAdmin() {
         scrollButtons="auto"
         sx={{ mb: 3 }}
       >
-        <Tab label="Card Types" />
-        <Tab label="Relation Types" />
-        <Tab label="Calculations" />
-        <Tab label="Tags" />
-        <Tab label="Metamodel Graph" />
+        <Tab label={t("metamodel.tabs.cardTypes")} />
+        <Tab label={t("metamodel.tabs.relationTypes")} />
+        <Tab label={t("metamodel.tabs.calculations")} />
+        <Tab label={t("metamodel.tabs.tags")} />
+        <Tab label={t("metamodel.tabs.graph")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -287,14 +287,14 @@ export default function MetamodelAdmin() {
                   onChange={(e) => setShowHidden(e.target.checked)}
                 />
               }
-              label="Show hidden types"
+              label={t("metamodel.showHiddenTypes")}
             />
             <Button
               variant="contained"
               startIcon={<MaterialSymbol icon="add" size={18} />}
               onClick={() => setCreateTypeOpen(true)}
             >
-              New Type
+              {t("metamodel.newType")}
             </Button>
           </Box>
 
@@ -367,7 +367,7 @@ export default function MetamodelAdmin() {
                           color="text.secondary"
                           noWrap
                         >
-                          {t.category || "Uncategorized"}
+                          {t.category || t("metamodel.uncategorized")}
                         </Typography>
                       </Box>
                       <Tooltip title={t.is_hidden ? "Unhide" : "Hide"}>

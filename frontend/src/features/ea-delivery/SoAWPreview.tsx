@@ -79,7 +79,7 @@ export default function SoAWPreview() {
   if (error || !soaw) {
     return (
       <Box sx={{ maxWidth: 960, mx: "auto", py: 4 }}>
-        <Alert severity="error">{error || "SoAW not found"}</Alert>
+        <Alert severity="error">{error || t("preview.notFound")}</Alert>
       </Box>
     );
   }
@@ -104,10 +104,10 @@ export default function SoAWPreview() {
 
   const docInfo = soaw.document_info ?? { prepared_by: "", reviewed_by: "", review_date: "" };
   const versionHistory = soaw.version_history ?? [];
-  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number);
+  const bodyHtml = buildPreviewBody(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, t);
 
   const handleExportPdf = () =>
-    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at);
+    exportToPdf(soaw.name, docInfo, versionHistory, templateSections, customSections, soaw.revision_number, soaw.signatories, soaw.signed_at, t);
 
   return (
     <>
@@ -124,7 +124,7 @@ export default function SoAWPreview() {
           mx: "auto",
         }}
       >
-        <Tooltip title="Back to EA Delivery">
+        <Tooltip title={t("preview.backTooltip")}>
           <IconButton onClick={() => navigate("/ea-delivery")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -142,13 +142,13 @@ export default function SoAWPreview() {
           size="small"
           color={STATUS_COLORS[soaw.status] ?? "default"}
         />
-        <Tooltip title="Copy shareable link">
+        <Tooltip title={t("preview.copyLink")}>
           <IconButton onClick={handleCopyLink}>
             <MaterialSymbol icon="link" size={20} />
           </IconButton>
         </Tooltip>
         {compact ? (
-          <Tooltip title="Export PDF">
+          <Tooltip title={t("editor.exportPdf")}>
             <IconButton onClick={handleExportPdf}>
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -160,11 +160,11 @@ export default function SoAWPreview() {
             sx={{ textTransform: "none" }}
             onClick={handleExportPdf}
           >
-            PDF
+            {t("editor.pdf")}
           </Button>
         )}
         {compact ? (
-          <Tooltip title="Edit">
+          <Tooltip title={t("common:actions.edit")}>
             <IconButton onClick={() => navigate(`/ea-delivery/soaw/${id}`)}>
               <MaterialSymbol icon="edit" size={20} />
             </IconButton>

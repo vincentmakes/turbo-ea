@@ -384,12 +384,12 @@ export default function LifecycleReport() {
               />
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: UNSET_BAR_COLOR, flexShrink: 0 }} />
-                <Typography variant="caption" color="text.secondary">Not set</Typography>
+                <Typography variant="caption" color="text.secondary">{t("lifecycle.notSet")}</Typography>
               </Box>
             </>
           ) : (
             <>
-              <ReportLegend items={PHASES.map((p) => ({ label: p.label, color: p.color }))} />
+              <ReportLegend items={PHASES.map((p) => ({ label: t(p.labelKey), color: p.color }))} />
               {PHASES.map((p) => (
                 <Chip key={p.key} size="small" label={`${phaseCounts[p.key]}`} sx={{ bgcolor: p.color, color: "#fff", fontWeight: 600, fontSize: "0.7rem", height: 20 }} />
               ))}
@@ -400,14 +400,14 @@ export default function LifecycleReport() {
     >
       {!useCustomDates && eolCount > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }} icon={<MaterialSymbol icon="warning" size={20} />}>
-          {eolCount} item{eolCount > 1 ? "s" : ""} at End of Life
+          {t("lifecycle.eolAlert", { count: eolCount })}
         </Alert>
       )}
 
       {view === "chart" ? (
         <Paper variant="outlined" sx={{ p: 2 }}>
           {items.length === 0 ? (
-            <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>No lifecycle data found.</Typography>
+            <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>{t("lifecycle.noData")}</Typography>
           ) : (
             <Box sx={{ display: "flex" }}>
               {/* Fixed name column */}
@@ -563,8 +563,8 @@ export default function LifecycleReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>Name</TableSortLabel></TableCell>
-                <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>Type</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
+                <TableCell><TableSortLabel active={sortK === "type"} direction={sortK === "type" ? sortD : "asc"} onClick={() => sort("type")}>{t("common:labels.type")}</TableSortLabel></TableCell>
                 {useCustomDates ? (
                   <>
                     <TableCell><TableSortLabel active={sortK === "startDate"} direction={sortK === "startDate" ? sortD : "asc"} onClick={() => sort("startDate")}>{dateFields.find((f) => f.key === startDateKey)?.label || "Start"}</TableSortLabel></TableCell>
@@ -573,8 +573,8 @@ export default function LifecycleReport() {
                   </>
                 ) : (
                   <>
-                    <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>Current Phase</TableSortLabel></TableCell>
-                    {PHASES.map((p) => <TableCell key={p.key}>{p.label}</TableCell>)}
+                    <TableCell><TableSortLabel active={sortK === "phase"} direction={sortK === "phase" ? sortD : "asc"} onClick={() => sort("phase")}>{t("lifecycle.currentPhase")}</TableSortLabel></TableCell>
+                    {PHASES.map((p) => <TableCell key={p.key}>{t(p.labelKey)}</TableCell>)}
                   </>
                 )}
               </TableRow>

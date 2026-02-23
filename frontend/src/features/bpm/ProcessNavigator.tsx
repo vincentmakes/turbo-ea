@@ -717,6 +717,7 @@ function DrawerOverview({
   onSwitchNode: (n: ProcNode) => void;
   onDrill: (id: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [card, setCard] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -755,15 +756,15 @@ function DrawerOverview({
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepAppCount}</Typography>
-          <Typography variant="caption" color="text.secondary">Apps</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.apps")}</Typography>
         </Box>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.deepDataObjects.size}</Typography>
-          <Typography variant="caption" color="text.secondary">Data Objects</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.dataObjects")}</Typography>
         </Box>
         <Box sx={{ textAlign: "center", minWidth: 70 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{node.element_count ?? 0}</Typography>
-          <Typography variant="caption" color="text.secondary">Elements</Typography>
+          <Typography variant="caption" color="text.secondary">{t("navigator.elements")}</Typography>
         </Box>
       </Box>
 
@@ -772,7 +773,7 @@ function DrawerOverview({
         <Chip
           size="small"
           icon={<MaterialSymbol icon="open_in_new" size={14} />}
-          label="Open Card"
+          label={t("navigator.openCard")}
           onClick={() => onNavigate(node.id)}
           color="primary"
           sx={{ cursor: "pointer" }}
@@ -781,7 +782,7 @@ function DrawerOverview({
           <Chip
             size="small"
             icon={<MaterialSymbol icon="zoom_in" size={14} />}
-            label="Drill Down"
+            label={t("navigator.drillDown")}
             onClick={() => onDrill(node.id)}
             color="secondary"
             sx={{ cursor: "pointer" }}
@@ -791,7 +792,7 @@ function DrawerOverview({
           <Chip
             size="small"
             icon={<MaterialSymbol icon="schema" size={14} />}
-            label="View Flow"
+            label={t("navigator.viewFlow")}
             onClick={() => onNavigate(`/cards/${node.id}?tab=1`)}
             variant="outlined"
             sx={{ cursor: "pointer" }}
@@ -805,7 +806,7 @@ function DrawerOverview({
       {card && !!card.description && (
         <>
           <Divider sx={{ my: 1.5 }} />
-          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Description</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>{t("common:labels.description")}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", mb: 1 }}>
             {String(card.description)}
           </Typography>
