@@ -22,6 +22,7 @@ import Tab from "@mui/material/Tab";
 import LinearProgress from "@mui/material/LinearProgress";
 import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -54,6 +55,7 @@ function BpmDashboardContent() {
   const theme = useTheme();
   const [data, setData] = useState<BpmDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<BpmDashboardData>("/reports/bpm/dashboard")
@@ -243,7 +245,7 @@ function BpmDashboardContent() {
                     key={p.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/cards/${p.id}`)}
+                    onClick={() => setSidePanelCardId(p.id)}
                   >
                     <TableCell>{p.name}</TableCell>
                     <TableCell>
@@ -267,6 +269,11 @@ function BpmDashboardContent() {
           </CardContent>
         </Card>
       )}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
     </Box>
   );
 }

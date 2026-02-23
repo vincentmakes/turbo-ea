@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -18,6 +17,7 @@ import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import ReportLegend from "./ReportLegend";
@@ -95,7 +95,6 @@ function fmtDate(s: string | undefined): string {
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
-  const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -109,6 +108,7 @@ export default function LifecycleReport() {
   // Custom date-range mode controls
   const [useCustomDates, setUseCustomDates] = useState(false);
   const [customColorBy, setCustomColorBy] = useState("");
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
   // Load saved report config
   useEffect(() => {
@@ -418,7 +418,7 @@ export default function LifecycleReport() {
                     <Box
                       key={item.id}
                       sx={{ display: "flex", alignItems: "center", gap: 0.5, height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
-                      onClick={() => navigate(`/cards/${item.id}`)}
+                      onClick={() => setSidePanelCardId(item.id)}
                     >
                       {isEol && <MaterialSymbol icon="warning" size={14} color="#f44336" />}
                       <Typography variant="body2" noWrap sx={{ fontWeight: isEol ? 600 : 400 }}>
@@ -466,7 +466,7 @@ export default function LifecycleReport() {
                         <Box
                           key={item.id}
                           sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
-                          onClick={() => navigate(`/cards/${item.id}`)}
+                          onClick={() => setSidePanelCardId(item.id)}
                         >
                           <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                             <Tooltip title={tipText}>
@@ -506,7 +506,7 @@ export default function LifecycleReport() {
                       <Box
                         key={item.id}
                         sx={{ position: "relative", height: 32, cursor: "pointer", "&:hover": { bgcolor: "action.hover" } }}
-                        onClick={() => navigate(`/cards/${item.id}`)}
+                        onClick={() => setSidePanelCardId(item.id)}
                       >
                         <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                           {segments.map((s, i) => (
@@ -584,7 +584,7 @@ export default function LifecycleReport() {
                   const barColor = getCustomBarColor(d);
                   const hasColor = barColor !== UNSET_BAR_COLOR;
                   return (
-                    <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
+                    <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                       <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                       <TableCell>{d.type}</TableCell>
                       <TableCell>{fmtDate(d.attributes?.[startDateKey] as string)}</TableCell>
@@ -602,7 +602,7 @@ export default function LifecycleReport() {
                 const cp = currentPhase(d.lifecycle);
                 const phase = PHASES.find((p) => p.key === cp);
                 return (
-                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
+                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{d.type}</TableCell>
                     <TableCell>
@@ -616,6 +616,11 @@ export default function LifecycleReport() {
           </Table>
         </Paper>
       )}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

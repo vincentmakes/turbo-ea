@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -22,6 +21,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useTimeline } from "@/hooks/useTimeline";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
 
@@ -102,12 +102,12 @@ const TreemapContent = ({
 /* ------------------------------------------------------------------ */
 
 export default function CostReport() {
-  const navigate = useNavigate();
   const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
   const saved = useSavedReport("cost");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("Application");
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [costField, setCostField] = useState("costTotalAnnual");
   const [groupBy, setGroupBy] = useState("");
   const [rawItems, setRawItems] = useState<CostItem[] | null>(null);
@@ -402,7 +402,7 @@ export default function CostReport() {
                       </TableCell>
                     </TableRow>,
                     ...groupSorted.map((d) => (
-                      <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
+                      <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                         <TableCell sx={{ fontWeight: 500, pl: 4 }}>{d.name}</TableCell>
                         <TableCell align="right">{fmt.format(d.cost)}</TableCell>
                         <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
@@ -412,7 +412,7 @@ export default function CostReport() {
                 })
               ) : (
                 sorted.map((d) => (
-                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${d.id}`)}>
+                  <TableRow key={d.id} hover sx={{ cursor: "pointer" }} onClick={() => setSidePanelCardId(d.id)}>
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell align="right">{fmt.format(d.cost)}</TableCell>
                     <TableCell align="right">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}%` : "\u2014"}</TableCell>
@@ -428,6 +428,11 @@ export default function CostReport() {
           </Table>
         </Paper>
       )}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

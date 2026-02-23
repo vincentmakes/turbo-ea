@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -23,6 +22,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { CardType } from "@/types";
 
@@ -342,12 +342,12 @@ function computeTreeLayout(
 /* ------------------------------------------------------------------ */
 
 export default function DependencyReport() {
-  const navigate = useNavigate();
   const { types } = useMetamodel();
   const saved = useSavedReport("dependencies");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [center, setCenter] = useState("");
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<GNode[]>([]);
   const [edges, setEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1231,7 +1231,7 @@ export default function DependencyReport() {
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
-                        s && navigate(`/cards/${s.id}`)
+                        s && setSidePanelCardId(s.id)
                       }
                     >
                       {s?.name}
@@ -1248,7 +1248,7 @@ export default function DependencyReport() {
                     <TableCell
                       sx={{ cursor: "pointer", fontWeight: 500 }}
                       onClick={() =>
-                        t && navigate(`/cards/${t.id}`)
+                        t && setSidePanelCardId(t.id)
                       }
                     >
                       {t?.name}
@@ -1260,6 +1260,11 @@ export default function DependencyReport() {
           </Table>
         </Paper>
       )}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

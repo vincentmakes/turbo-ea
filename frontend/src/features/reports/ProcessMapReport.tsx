@@ -22,10 +22,10 @@ import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import Breadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
-import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
 import FilterSelect from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -517,7 +517,6 @@ function ProcessCard({
 /* ------------------------------------------------------------------ */
 
 export default function ProcessMapReport() {
-  const navigate = useNavigate();
   const { fmtShort } = useCurrency();
   const saved = useSavedReport("process-map");
 
@@ -526,6 +525,7 @@ export default function ProcessMapReport() {
   const [organizations, setOrganizations] = useState<RefItem[]>([]);
   const [contexts, setContexts] = useState<RefItem[]>([]);
   const [drawer, setDrawer] = useState<ProcNode | null>(null);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
   // Controls
   const [metric, setMetric] = useState<Metric>("maturity");
@@ -619,13 +619,10 @@ export default function ProcessMapReport() {
     [metric, fmtShort],
   );
 
-  const handleItemClick = useCallback(
-    (id: string) => {
-      setDrawer(null);
-      navigate(`/cards/${id}`);
-    },
-    [navigate],
-  );
+  const handleItemClick = useCallback((id: string) => {
+    setDrawer(null);
+    setSidePanelCardId(id);
+  }, []);
 
   // When clicking a process card: open drawer. Double-click (or drill-down button) to zoom.
   const handleProcClick = useCallback((node: ProcNode) => {
@@ -1052,6 +1049,11 @@ export default function ProcessMapReport() {
           </Box>
         )}
       </Drawer>
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
     </ReportShell>
   );
 }

@@ -3,7 +3,6 @@
  * Tabs: Process Map, Capability×Process, Process×App, Dependencies, Element-App Map
  */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -21,10 +20,12 @@ import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ProcessMapReport from "@/features/reports/ProcessMapReport";
 
 export default function BpmReportsContent() {
   const [tab, setTab] = useState(0);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 } }}>
@@ -43,10 +44,15 @@ export default function BpmReportsContent() {
       </Tabs>
 
       {tab === 0 && <ProcessMapReport />}
-      {tab === 1 && <CapabilityProcessMatrix />}
-      {tab === 2 && <ProcessAppMatrix />}
-      {tab === 3 && <ProcessDependencies />}
-      {tab === 4 && <ElementAppMap />}
+      {tab === 1 && <CapabilityProcessMatrix onOpenCard={setSidePanelCardId} />}
+      {tab === 2 && <ProcessAppMatrix onOpenCard={setSidePanelCardId} />}
+      {tab === 3 && <ProcessDependencies onOpenCard={setSidePanelCardId} />}
+      {tab === 4 && <ElementAppMap onOpenCard={setSidePanelCardId} />}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
     </Box>
   );
 }
@@ -55,8 +61,7 @@ export default function BpmReportsContent() {
 /*  Capability × Process Matrix                                        */
 /* ================================================================== */
 
-function CapabilityProcessMatrix() {
-  const navigate = useNavigate();
+function CapabilityProcessMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +93,7 @@ function CapabilityProcessMatrix() {
             </TableHead>
             <TableBody>
               {data.rows.map((r: any) => (
-                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${r.id}`)}>
+                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => onOpenCard(r.id)}>
                   <TableCell>{r.name}</TableCell>
                   {data.columns.map((c: any) => {
                     const cell = data.cells.find(
@@ -114,8 +119,7 @@ function CapabilityProcessMatrix() {
 /*  Process × Application Matrix                                       */
 /* ================================================================== */
 
-function ProcessAppMatrix() {
-  const navigate = useNavigate();
+function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -147,7 +151,7 @@ function ProcessAppMatrix() {
             </TableHead>
             <TableBody>
               {data.rows.map((r: any) => (
-                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/cards/${r.id}`)}>
+                <TableRow key={r.id} hover sx={{ cursor: "pointer" }} onClick={() => onOpenCard(r.id)}>
                   <TableCell>{r.name}</TableCell>
                   {data.columns.map((c: any) => {
                     const cells = data.cells.filter(
@@ -180,8 +184,7 @@ function ProcessAppMatrix() {
 /*  Process Dependencies                                               */
 /* ================================================================== */
 
-function ProcessDependencies() {
-  const navigate = useNavigate();
+function ProcessDependencies({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -219,7 +222,7 @@ function ProcessDependencies() {
                   <TableRow key={e.id} hover>
                     <TableCell
                       sx={{ cursor: "pointer", color: "primary.main" }}
-                      onClick={() => navigate(`/cards/${e.source}`)}
+                      onClick={() => onOpenCard(e.source)}
                     >
                       {src?.name || e.source}
                     </TableCell>
@@ -228,7 +231,7 @@ function ProcessDependencies() {
                     </TableCell>
                     <TableCell
                       sx={{ cursor: "pointer", color: "primary.main" }}
-                      onClick={() => navigate(`/cards/${e.target}`)}
+                      onClick={() => onOpenCard(e.target)}
                     >
                       {tgt?.name || e.target}
                     </TableCell>
@@ -247,8 +250,7 @@ function ProcessDependencies() {
 /*  Element-Application Map                                            */
 /* ================================================================== */
 
-function ElementAppMap() {
-  const navigate = useNavigate();
+function ElementAppMap({ onOpenCard }: { onOpenCard: (id: string) => void }) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -271,7 +273,7 @@ function ElementAppMap() {
             <Typography
               variant="subtitle2"
               sx={{ cursor: "pointer", color: "primary.main", mb: 1 }}
-              onClick={() => navigate(`/cards/${group.application_id}`)}
+              onClick={() => onOpenCard(group.application_id)}
             >
               {group.application_name} ({group.elements.length} elements)
             </Typography>
@@ -292,7 +294,7 @@ function ElementAppMap() {
                       <TableCell>{el.element_type}</TableCell>
                       <TableCell
                         sx={{ cursor: "pointer", color: "primary.main" }}
-                        onClick={() => navigate(`/cards/${el.process_id}`)}
+                        onClick={() => onOpenCard(el.process_id)}
                       >
                         {el.process_name}
                       </TableCell>

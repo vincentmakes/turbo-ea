@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -23,6 +22,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -185,12 +185,12 @@ function KpiCard({
 /* ------------------------------------------------------------------ */
 
 export default function EolReport() {
-  const navigate = useNavigate();
   const { getType } = useMetamodel();
   const saved = useSavedReport("eol");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<EolReportData | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterSource, setFilterSource] = useState("");
@@ -596,7 +596,7 @@ export default function EolReport() {
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/cards/${app.id}`);
+                              setSidePanelCardId(app.id);
                             }}
                           >
                             <MaterialSymbol icon="subdirectory_arrow_right" size={14} color="#90caf9" />
@@ -690,7 +690,7 @@ export default function EolReport() {
                             cursor: "pointer",
                             "&:hover .bar": { filter: "brightness(1.1)" },
                           }}
-                          onClick={() => navigate(`/cards/${item.id}`)}
+                          onClick={() => setSidePanelCardId(item.id)}
                         >
                           <Box
                             sx={{
@@ -933,7 +933,7 @@ export default function EolReport() {
                     key={item.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/cards/${item.id}`)}
+                    onClick={() => setSidePanelCardId(item.id)}
                   >
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -1066,6 +1066,11 @@ export default function EolReport() {
           </Table>
         </Paper>
       )}
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

@@ -13,12 +13,12 @@ import ListItemText from "@mui/material/ListItemText";
 import Chip from "@mui/material/Chip";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
-import { useNavigate } from "react-router-dom";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -580,7 +580,6 @@ function CapabilityCard({
 /* ------------------------------------------------------------------ */
 
 export default function CapabilityMapReport() {
-  const navigate = useNavigate();
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("capability-map");
@@ -591,6 +590,7 @@ export default function CapabilityMapReport() {
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
   const [filterableTypes, setFilterableTypes] = useState<Record<string, FilterableTypeRef[]>>({});
   const [drawer, setDrawer] = useState<CapNode | null>(null);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
   // Controls
   const [metric, setMetric] = useState<Metric>("app_count");
@@ -747,13 +747,10 @@ export default function CapabilityMapReport() {
     [metric, fmtShort],
   );
 
-  const handleAppClick = useCallback(
-    (id: string) => {
-      setDrawer(null);
-      navigate(`/cards/${id}`);
-    },
-    [navigate],
-  );
+  const handleAppClick = useCallback((id: string) => {
+    setDrawer(null);
+    setSidePanelCardId(id);
+  }, []);
 
   // Build relation filter options from filterable_types with metamodel labels
   const relationFilterOptions = useMemo(() => {
@@ -1275,6 +1272,11 @@ export default function CapabilityMapReport() {
           </Box>
         )}
       </Drawer>
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

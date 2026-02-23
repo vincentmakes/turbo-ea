@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -20,6 +19,7 @@ import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import {
   type MatrixItem,
@@ -82,7 +82,6 @@ const depthCounterStyle: React.CSSProperties = {
 };
 
 export default function MatrixReport() {
-  const navigate = useNavigate();
   const theme = useTheme();
   const cellBorder = `1px solid ${theme.palette.divider}`;
   const levelColors = [
@@ -98,6 +97,7 @@ export default function MatrixReport() {
   const [rowType, setRowType] = useState("Application");
   const [colType, setColType] = useState("BusinessCapability");
   const [data, setData] = useState<MatrixData | null>(null);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [cellMode, setCellMode] = useState<CellMode>("exists");
   const [sortRows, setSortRows] = useState<SortMode>("hierarchy");
   const [sortCols, setSortCols] = useState<SortMode>("hierarchy");
@@ -606,7 +606,7 @@ export default function MatrixReport() {
                           }}
                           onMouseEnter={() => setHoveredCol(cell.node.item.id)}
                           onMouseLeave={() => setHoveredCol(null)}
-                          onClick={() => navigate(`/cards/${cell.node.item.id}`)}
+                          onClick={() => setSidePanelCardId(cell.node.item.id)}
                         >
                           {isLeafCell
                             ? (cell.node.item.name.length > 24
@@ -685,7 +685,7 @@ export default function MatrixReport() {
                           }}
                           onMouseEnter={() => setHoveredRow(cell.node.item.id)}
                           onMouseLeave={() => setHoveredRow(null)}
-                          onClick={() => navigate(`/cards/${cell.node.item.id}`)}
+                          onClick={() => setSidePanelCardId(cell.node.item.id)}
                         >
                           <Tooltip title={cell.node.item.name} placement="right">
                             <span>
@@ -860,10 +860,10 @@ export default function MatrixReport() {
               </Typography>
               <Chip size="small" label={`${val} relation(s)`} variant="outlined" sx={{ mb: 1 }} />
               <List dense disablePadding>
-                <ListItemButton onClick={() => { setPopover(null); navigate(`/cards/${popover.rowId}`); }}>
+                <ListItemButton onClick={() => { setPopover(null); setSidePanelCardId(popover.rowId); }}>
                   <ListItemText primary={row?.name} secondary={rowLabel} />
                 </ListItemButton>
-                <ListItemButton onClick={() => { setPopover(null); navigate(`/cards/${popover.colId}`); }}>
+                <ListItemButton onClick={() => { setPopover(null); setSidePanelCardId(popover.colId); }}>
                   <ListItemText primary={col?.name} secondary={colLabel} />
                 </ListItemButton>
               </List>
@@ -871,6 +871,11 @@ export default function MatrixReport() {
           );
         })()}
       </Popover>
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}

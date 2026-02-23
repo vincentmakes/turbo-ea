@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -20,6 +19,7 @@ import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
 interface TypeStat {
@@ -68,12 +68,12 @@ function dataQualityLabel(v: number): string {
 }
 
 export default function DataQualityReport() {
-  const navigate = useNavigate();
   const theme = useTheme();
   const { types } = useMetamodel();
   const saved = useSavedReport("data-quality");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<DQData | null>(null);
+  const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
   // Load saved report config
@@ -331,7 +331,7 @@ export default function DataQualityReport() {
                     key={item.id}
                     hover
                     sx={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/cards/${item.id}`)}
+                    onClick={() => setSidePanelCardId(item.id)}
                   >
                     <TableCell sx={{ fontWeight: 500 }}>{item.name}</TableCell>
                     <TableCell>
@@ -399,6 +399,11 @@ export default function DataQualityReport() {
           <Typography variant="caption" color="text.secondary">Minimal (&lt;40%)</Typography>
         </Box>
       </Box>
+      <CardDetailSidePanel
+        cardId={sidePanelCardId}
+        open={!!sidePanelCardId}
+        onClose={() => setSidePanelCardId(null)}
+      />
       <SaveReportDialog
         open={saved.saveDialogOpen}
         onClose={() => saved.setSaveDialogOpen(false)}
