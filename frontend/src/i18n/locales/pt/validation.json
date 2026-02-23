@@ -1,15 +1,16 @@
 {
-  "required": "",
-  "invalidEmail": "",
-  "tooLong": "",
-  "tooShort": "",
-  "invalidUrl": "",
-  "key.mustStartWithLetter": "",
-  "key.noUnderscores": "",
-  "key.noSpaces": "",
-  "key.noAccents": "",
-  "key.lettersAndDigitsOnly": "",
-  "key.cannotChange": "",
-  "key.valid": "",
-  "key.hint": ""
+  "required": "Este campo é obrigatório",
+  "invalidEmail": "Endereço de e-mail inválido",
+  "tooLong": "Muito longo (máx. {{max}} caracteres)",
+  "tooShort": "Muito curto (mín. {{min}} caracteres)",
+  "invalidUrl": "URL inválida",
+
+  "key.mustStartWithLetter": "Deve começar com uma letra",
+  "key.noUnderscores": "Underscores não são permitidos — use camelCase",
+  "key.noSpaces": "Espaços não são permitidos — use camelCase",
+  "key.noAccents": "Caracteres acentuados não são permitidos",
+  "key.lettersAndDigitsOnly": "Apenas letras e dígitos são permitidos (camelCase)",
+  "key.cannotChange": "A chave não pode ser alterada após a criação",
+  "key.valid": "Chave válida",
+  "key.hint": "Apenas letras e dígitos, camelCase (ex: businessFit)"
 }

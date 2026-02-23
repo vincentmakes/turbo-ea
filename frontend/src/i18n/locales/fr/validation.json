@@ -1,15 +1,16 @@
 {
-  "required": "",
-  "invalidEmail": "",
-  "tooLong": "",
-  "tooShort": "",
-  "invalidUrl": "",
-  "key.mustStartWithLetter": "",
-  "key.noUnderscores": "",
-  "key.noSpaces": "",
-  "key.noAccents": "",
-  "key.lettersAndDigitsOnly": "",
-  "key.cannotChange": "",
-  "key.valid": "",
-  "key.hint": ""
+  "required": "Ce champ est obligatoire",
+  "invalidEmail": "Adresse e-mail invalide",
+  "tooLong": "Trop long (max. {{max}} caract\u00e8res)",
+  "tooShort": "Trop court (min. {{min}} caract\u00e8res)",
+  "invalidUrl": "URL invalide",
+
+  "key.mustStartWithLetter": "Doit commencer par une lettre",
+  "key.noUnderscores": "Les underscores ne sont pas autoris\u00e9s \u2014 utilisez le camelCase",
+  "key.noSpaces": "Les espaces ne sont pas autoris\u00e9s \u2014 utilisez le camelCase",
+  "key.noAccents": "Les caract\u00e8res accentu\u00e9s ne sont pas autoris\u00e9s",
+  "key.lettersAndDigitsOnly": "Seuls les lettres et les chiffres sont autoris\u00e9s (camelCase)",
+  "key.cannotChange": "La cl\u00e9 ne peut pas \u00eatre modifi\u00e9e apr\u00e8s la cr\u00e9ation",
+  "key.valid": "Cl\u00e9 valide",
+  "key.hint": "Lettres et chiffres uniquement, camelCase (ex. businessFit)"
 }

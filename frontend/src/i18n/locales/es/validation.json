@@ -1,15 +1,16 @@
 {
-  "required": "",
-  "invalidEmail": "",
-  "tooLong": "",
-  "tooShort": "",
-  "invalidUrl": "",
-  "key.mustStartWithLetter": "",
-  "key.noUnderscores": "",
-  "key.noSpaces": "",
-  "key.noAccents": "",
-  "key.lettersAndDigitsOnly": "",
-  "key.cannotChange": "",
-  "key.valid": "",
-  "key.hint": ""
+  "required": "Este campo es obligatorio",
+  "invalidEmail": "Direcci\u00f3n de correo electr\u00f3nico inv\u00e1lida",
+  "tooLong": "Demasiado largo (m\u00e1ximo {{max}} caracteres)",
+  "tooShort": "Demasiado corto (m\u00ednimo {{min}} caracteres)",
+  "invalidUrl": "URL inv\u00e1lida",
+
+  "key.mustStartWithLetter": "Debe comenzar con una letra",
+  "key.noUnderscores": "No se permiten guiones bajos \u2014 use camelCase",
+  "key.noSpaces": "No se permiten espacios \u2014 use camelCase",
+  "key.noAccents": "No se permiten caracteres acentuados",
+  "key.lettersAndDigitsOnly": "Solo se permiten letras y d\u00edgitos (camelCase)",
+  "key.cannotChange": "La clave no se puede cambiar despu\u00e9s de la creaci\u00f3n",
+  "key.valid": "Clave v\u00e1lida",
+  "key.hint": "Solo letras y d\u00edgitos, camelCase (ej. businessFit)"
 }
