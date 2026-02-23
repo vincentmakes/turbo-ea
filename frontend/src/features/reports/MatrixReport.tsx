@@ -43,15 +43,25 @@ interface MatrixData {
 type CellMode = "exists" | "count";
 type SortMode = "alpha" | "count" | "hierarchy";
 
-const HEAT_COLORS = [
+const HEAT_COLORS_LIGHT = [
   "#e3f2fd", "#bbdefb", "#90caf9", "#64b5f6", "#42a5f5",
   "#2196f3", "#1e88e5", "#1976d2", "#1565c0", "#0d47a1",
 ];
 
-function heatColor(value: number, max: number, paperBg: string): string {
+const HEAT_COLORS_DARK = [
+  "#0d2137", "#0d3054", "#0a3d6e", "#0d4a88", "#10579e",
+  "#1565c0", "#1976d2", "#1e88e5", "#2196f3", "#42a5f5",
+];
+
+function heatColor(
+  value: number, max: number, paperBg: string, isDark: boolean,
+): string {
   if (max <= 0 || value <= 0) return paperBg;
-  const idx = Math.min(Math.floor((value / max) * (HEAT_COLORS.length - 1)), HEAT_COLORS.length - 1);
-  return HEAT_COLORS[idx];
+  const scale = isDark ? HEAT_COLORS_DARK : HEAT_COLORS_LIGHT;
+  const idx = Math.min(
+    Math.floor((value / max) * (scale.length - 1)), scale.length - 1,
+  );
+  return scale[idx];
 }
 
 // Styling constants
@@ -83,6 +93,7 @@ const depthCounterStyle: React.CSSProperties = {
 
 export default function MatrixReport() {
   const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
   const cellBorder = `1px solid ${theme.palette.divider}`;
   const levelColors = [
     theme.palette.action.selected,
@@ -91,6 +102,16 @@ export default function MatrixReport() {
     theme.palette.background.paper,
     theme.palette.background.paper,
   ];
+  // Theme-aware highlight colors
+  const highlightBg = isDark ? "rgba(25, 118, 210, 0.18)" : "#e3f2fd";
+  const highlightBgStrong = isDark ? "rgba(25, 118, 210, 0.28)" : "#bbdefb";
+  const diagonalHighlight = isDark ? "rgba(69, 39, 160, 0.18)" : "#e8eaf6";
+  const dotColor = theme.palette.primary.main;
+  const dotColorDiag = isDark ? "#78909c" : "#9e9e9e";
+  const depthIconColor = isDark ? "#aaa" : "#555";
+  const countTextLow = isDark ? "#ccc" : "#333";
+  const countTextHigh = "#fff";
+  const countTextDiag = isDark ? "#aaa" : "#666";
   const { types, loading: ml } = useMetamodel();
   const saved = useSavedReport("matrix");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -529,7 +550,7 @@ export default function MatrixReport() {
                                 style={depthBtnStyle(effectiveRowDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
                               >
-                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color="#555" />
+                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
@@ -538,7 +559,7 @@ export default function MatrixReport() {
                                 style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
                               >
-                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color="#555" />
+                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
                             </Tooltip>
                           </div>
@@ -560,7 +581,7 @@ export default function MatrixReport() {
                                 style={depthBtnStyle(effectiveColDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
                               >
-                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color="#555" />
+                                <MaterialSymbol icon="do_not_disturb_on" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
@@ -569,7 +590,7 @@ export default function MatrixReport() {
                                 style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}
                               >
-                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color="#555" />
+                                <MaterialSymbol icon="add_circle" size={DEPTH_ICON_SIZE} color={depthIconColor} />
                               </span>
                             </Tooltip>
                           </div>
@@ -589,7 +610,7 @@ export default function MatrixReport() {
                             position: "sticky",
                             top: stickyTop,
                             zIndex: 3,
-                            background: isHighlighted ? "#e3f2fd" : (levelColors[levelIdx] || theme.palette.background.paper),
+                            background: isHighlighted ? highlightBg : (levelColors[levelIdx] || theme.palette.background.paper),
                             padding: isLeafCell ? "6px 3px" : "4px 6px",
                             borderBottom: cellBorder,
                             borderRight: cellBorder,
@@ -669,7 +690,7 @@ export default function MatrixReport() {
                             position: "sticky",
                             left: colIdx * ROW_HEADER_COL_WIDTH,
                             zIndex: 1,
-                            background: isHighlighted ? "#e3f2fd" : (levelColors[colIdx] || theme.palette.background.paper),
+                            background: isHighlighted ? highlightBg : (levelColors[colIdx] || theme.palette.background.paper),
                             borderRight: cellBorder,
                             borderBottom: cellBorder,
                             fontWeight: cell.isLeaf ? 500 : 700,
@@ -711,11 +732,11 @@ export default function MatrixReport() {
 
                       let bg = theme.palette.background.paper;
                       if (isDiagonal) {
-                        bg = isHighlighted ? "#e8eaf6" : theme.palette.action.hover;
+                        bg = isHighlighted ? diagonalHighlight : theme.palette.action.hover;
                       } else if (displayAsCount && val > 0) {
-                        bg = heatColor(val, maxCellCount, theme.palette.background.paper);
+                        bg = heatColor(val, maxCellCount, theme.palette.background.paper, isDark);
                       } else if (val > 0) {
-                        bg = isHighlighted ? "#bbdefb" : "#e3f2fd";
+                        bg = isHighlighted ? highlightBgStrong : highlightBg;
                       } else if (isHighlighted) {
                         bg = theme.palette.action.hover;
                       }
@@ -746,7 +767,7 @@ export default function MatrixReport() {
                                 variant="caption"
                                 sx={{
                                   fontWeight: 600,
-                                  color: isDiagonal ? "#666" : (val > maxCellCount * 0.5 ? "#fff" : "#333"),
+                                  color: isDiagonal ? countTextDiag : (val > maxCellCount * 0.5 ? countTextHigh : countTextLow),
                                   fontSize: 10,
                                 }}
                               >
@@ -759,7 +780,7 @@ export default function MatrixReport() {
                                 width: isDiagonal ? 8 : 10,
                                 height: isDiagonal ? 8 : 10,
                                 borderRadius: "50%",
-                                bgcolor: isDiagonal ? "#9e9e9e" : "#1976d2",
+                                bgcolor: isDiagonal ? dotColorDiag : dotColor,
                                 mx: "auto",
                               }} />
                             ) : null
