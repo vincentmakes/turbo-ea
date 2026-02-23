@@ -4,15 +4,15 @@ import type { FieldDef } from "@/types";
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; label: string }[] = [
-  { value: "text", label: "Text" },
-  { value: "number", label: "Number" },
-  { value: "cost", label: "Cost" },
-  { value: "boolean", label: "Boolean" },
-  { value: "date", label: "Date" },
-  { value: "url", label: "URL" },
-  { value: "single_select", label: "Single Select" },
-  { value: "multiple_select", label: "Multiple Select" },
+export const FIELD_TYPE_OPTIONS: { value: FieldDef["type"]; tKey: string }[] = [
+  { value: "text", tKey: "common:fieldTypes.text" },
+  { value: "number", tKey: "common:fieldTypes.number" },
+  { value: "cost", tKey: "common:fieldTypes.cost" },
+  { value: "boolean", tKey: "common:fieldTypes.boolean" },
+  { value: "date", tKey: "common:fieldTypes.date" },
+  { value: "url", tKey: "common:fieldTypes.url" },
+  { value: "single_select", tKey: "common:fieldTypes.singleSelect" },
+  { value: "multiple_select", tKey: "common:fieldTypes.multipleSelect" },
 ];
 
 export const CATEGORIES = [

@@ -1,4 +1,5 @@
 import { useState, useMemo, memo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -110,6 +111,7 @@ export interface GraphProps {
 }
 
 const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNodeClick }: GraphProps) {
+  const { t } = useTranslation(["admin"]);
   const theme = useTheme();
   const visibleTypes = useMemo(() => types.filter((t) => !t.is_hidden), [types]);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
@@ -533,7 +535,7 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
     return (
       <Box sx={{ p: 4, textAlign: "center" }}>
         <Typography color="text.secondary">
-          No visible types to display. Create some card types first.
+          {t("metamodel.graph.noTypes")}
         </Typography>
       </Box>
     );

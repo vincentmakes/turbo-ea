@@ -708,10 +708,10 @@ export function buildPreviewBody(
   // Signature block (for PDF/print)
   if (signatories && signatories.length > 0) {
     const allSigned = signatories.every((s) => s.status === "signed");
-    const sigTitle = t ? t("export.signatures") : "Signatures";
-    const sigFullySigned = t ? t("export.fullySigned") : "Fully Signed";
-    const sigApproved = t ? t("export.approved") : "Approved";
-    const sigPending = t ? t("export.pending") : "Pending";
+    const sigTitle = t("export.signatures");
+    const sigFullySigned = t("export.fullySigned");
+    const sigApproved = t("export.approved");
+    const sigPending = t("export.pending");
     html += `<div class="soaw-signatures">`;
     html += `<h2>${sigTitle}`;
     if (allSigned) html += ` <span class="sig-badge fully-signed">${sigFullySigned}</span>`;
@@ -724,7 +724,7 @@ export function buildPreviewBody(
       html += `<div class="sig-name">${sig.display_name}</div>`;
       if (sig.email) html += `<div class="sig-detail">${sig.email}</div>`;
       if (isSig && sig.signed_at) {
-        const signedLabel = t ? t("export.signed", { date: new Date(sig.signed_at).toLocaleString() }) : `Signed: ${new Date(sig.signed_at).toLocaleString()}`;
+        const signedLabel = t("export.signed", { date: new Date(sig.signed_at).toLocaleString() });
         html += `<div class="sig-detail">${signedLabel}</div>`;
       }
       html += `</div>`;
@@ -746,15 +746,15 @@ export function exportToPdf(
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
   signedAt?: string | null,
-  t?: TFunction,
 ) {
+  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
   const w = window.open("", "_blank");
   if (!w) {
-    alert(t ? t("export.popupBlocked") : "Please allow pop-ups to export PDF.");
+    alert(t("export.popupBlocked"));
     return;
   }
 
-  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, t);
+  const body = buildPreviewBody(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt);
 
   // Build footer for signed documents
   let footerHtml = "";
@@ -763,9 +763,9 @@ export function exportToPdf(
     const approvalDate = signedAt ? new Date(signedAt).toLocaleDateString() : (approver?.signed_at ? new Date(approver.signed_at).toLocaleDateString() : "");
     const printDate = new Date().toLocaleDateString();
     const parts: string[] = [];
-    if (approver) parts.push(t ? t("export.approvedBy", { name: approver.display_name }) : `Approved by: ${approver.display_name}`);
-    if (approvalDate) parts.push(t ? t("export.dateOfApproval", { date: approvalDate }) : `Date of approval: ${approvalDate}`);
-    parts.push(t ? t("export.printed", { date: printDate }) : `Printed: ${printDate}`);
+    if (approver) parts.push(t("export.approvedBy", { name: approver.display_name }));
+    if (approvalDate) parts.push(t("export.dateOfApproval", { date: approvalDate }));
+    parts.push(t("export.printed", { date: printDate }));
     footerHtml = `<div class="soaw-print-footer">${parts.join("  &middot;  ")}</div>`;
   }
 

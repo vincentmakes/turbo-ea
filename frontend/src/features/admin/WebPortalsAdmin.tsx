@@ -305,7 +305,7 @@ export default function WebPortalsAdmin() {
                   {portal.name}
                 </Typography>
                 <Chip
-                  label={portal.is_published ? "Published" : "Draft"}
+                  label={portal.is_published ? t("common:status.published") : t("common:status.draft")}
                   size="small"
                   color={portal.is_published ? "success" : "default"}
                   sx={{ height: 22, fontSize: "0.7rem" }}
@@ -352,7 +352,7 @@ export default function WebPortalsAdmin() {
               )}
             </Box>
             <Tooltip
-              title={portal.is_published ? "Unpublish" : "Publish"}
+              title={portal.is_published ? t("webPortals.unpublish") : t("webPortals.publish")}
             >
               <IconButton
                 size="small"
@@ -365,7 +365,7 @@ export default function WebPortalsAdmin() {
                 />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Open Portal">
+            <Tooltip title={t("webPortals.openPortal")}>
               <IconButton
                 size="small"
                 component="a"
@@ -376,7 +376,7 @@ export default function WebPortalsAdmin() {
                 <MaterialSymbol icon="open_in_new" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Copy portal URL">
+            <Tooltip title={t("webPortals.copyUrl")}>
               <IconButton
                 size="small"
                 onClick={() => {
@@ -388,12 +388,12 @@ export default function WebPortalsAdmin() {
                 <MaterialSymbol icon="content_copy" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit">
+            <Tooltip title={t("webPortals.editPortal")}>
               <IconButton size="small" onClick={() => openEdit(portal)}>
                 <MaterialSymbol icon="edit" size={20} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
+            <Tooltip title={t("common:actions.delete")}>
               <IconButton
                 size="small"
                 color="error"
@@ -414,7 +414,7 @@ export default function WebPortalsAdmin() {
         fullWidth
       >
         <DialogTitle>
-          {editingPortal ? "Edit Portal" : "Create Web Portal"}
+          {editingPortal ? t("webPortals.editPortal") : t("webPortals.createWebPortal")}
         </DialogTitle>
         <DialogContent>
           {error && (
@@ -428,19 +428,19 @@ export default function WebPortalsAdmin() {
             variant="overline"
             sx={{ display: "block", mt: 1, mb: 1.5, fontWeight: 700, color: "text.secondary", letterSpacing: 1 }}
           >
-            General
+            {t("webPortals.section.general")}
           </Typography>
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField
               fullWidth
-              label="Portal Name"
+              label={t("webPortals.portalName")}
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="e.g. Application Catalog"
             />
             <TextField
               fullWidth
-              label="URL Slug"
+              label={t("webPortals.urlSlug")}
               value={slug}
               onChange={(e) => {
                 setSlug(e.target.value);
@@ -452,7 +452,7 @@ export default function WebPortalsAdmin() {
           </Box>
           <TextField
             fullWidth
-            label="Description"
+            label={t("common:labels.description")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             sx={{ mt: 2 }}
