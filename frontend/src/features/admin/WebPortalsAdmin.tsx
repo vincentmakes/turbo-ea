@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -34,14 +35,14 @@ interface ToggleEntry {
 }
 type Toggles = Record<string, ToggleEntry>;
 
-const BUILT_IN_PROPERTIES = [
-  { key: "description", label: "Description" },
-  { key: "lifecycle", label: "Lifecycle" },
-  { key: "tags", label: "Tags" },
-  { key: "subscribers", label: "Team / Stakeholders" },
-  { key: "data_quality", label: "Data Quality" },
-  { key: "approval_status", label: "Approval Status" },
-];
+const BUILT_IN_PROPERTY_KEYS = [
+  "description",
+  "lifecycle",
+  "tags",
+  "subscribers",
+  "data_quality",
+  "approval_status",
+] as const;
 
 const DEFAULT_CARD: Record<string, boolean> = {
   description: true,
@@ -69,7 +70,13 @@ function slugify(text: string): string {
 }
 
 export default function WebPortalsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
+
+  const BUILT_IN_PROPERTIES = BUILT_IN_PROPERTY_KEYS.map((key) => ({
+    key,
+    label: t(`webPortals.builtInProps.${key}`),
+  }));
   const [portals, setPortals] = useState<WebPortal[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPortal, setEditingPortal] = useState<WebPortal | null>(null);
@@ -231,22 +238,20 @@ export default function WebPortalsAdmin() {
   };
 
   const getTypeLabel = (key: string) => {
-    const t = types.find((t) => t.key === key);
-    return t?.label || key;
+    const ct = types.find((tp) => tp.key === key);
+    return ct?.label || key;
   };
 
   const getTypeColor = (key: string) => {
-    const t = types.find((t) => t.key === key);
-    return t?.color || "#666";
+    const ct = types.find((tp) => tp.key === key);
+    return ct?.color || "#666";
   };
 
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
         <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-          Web portals are public-facing pages that display cards to end
-          users without requiring authentication. Configure which card type
-          to display, apply filters, and customize the card layout.
+          {t("webPortals.description")}
         </Typography>
         <Button
           variant="contained"
@@ -254,7 +259,7 @@ export default function WebPortalsAdmin() {
           onClick={openCreate}
           sx={{ flexShrink: 0 }}
         >
-          Create Portal
+          {t("webPortals.createPortal")}
         </Button>
       </Box>
 
@@ -272,13 +277,13 @@ export default function WebPortalsAdmin() {
               color="#ccc"
             />
             <Typography variant="h6" color="text.secondary" sx={{ mt: 1 }}>
-              No web portals yet
+              {t("webPortals.noPortals")}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Create your first portal to share card data with end users.
+              {t("webPortals.noPortalsHint")}
             </Typography>
             <Button variant="outlined" onClick={openCreate}>
-              Create Portal
+              {t("webPortals.createPortal")}
             </Button>
           </CardContent>
         </Card>

@@ -366,7 +366,7 @@ export async function exportToDocx(
         new Paragraph({
           children: [
             new TextRun({
-              text: `Part ${def.part}: ${def.part === "I" ? (t("export.partI")) : (t ? t("export.partII") : "Baseline and Target Architectures")}`,
+              text: `Part ${def.part}: ${def.part === "I" ? (t("export.partI")) : (t("export.partII"))}`,
               bold: true,
               font: FONT,
               size: SIZE_PART,
@@ -433,7 +433,7 @@ export async function exportToDocx(
     if (def.type === "togaf_phases" && data.togaf_data) {
       children.push(
         buildDocxTable(
-          [t ? t("export.phase") : "Phase", t ? t("export.relevantArtefacts") : "Relevant Artefacts"],
+          [t("export.phase"), t("export.relevantArtefacts")],
           TOGAF_PHASES.map((p) => [p.label, data.togaf_data?.[p.key] ?? ""]),
         ),
       );
@@ -600,14 +600,14 @@ export function buildPreviewBody(
   revisionNumber?: number,
   signatories?: SoAWSignatory[],
   _signedAt?: string | null,
-  t?: TFunction,
 ): string {
+  const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`delivery:${key}`, opts as never) as string;
   let html = "";
 
   // Title
-  const soawTitle = t ? t("export.soawTitle") : "Statement of Architecture Work";
+  const soawTitle = t("export.soawTitle");
   html += `<h1 style="text-align:center;border:none;">${soawTitle}</h1>`;
-  const revLabel = revisionNumber && revisionNumber > 1 ? (t ? t("export.revision", { number: revisionNumber }) : ` — Revision ${revisionNumber}`) : "";
+  const revLabel = revisionNumber && revisionNumber > 1 ? t("export.revision", { number: revisionNumber }) : "";
   html += `<p style="text-align:center;font-size:14pt;color:#555;">${name}${revLabel}</p>`;
 
   // Doc info (hide empty fields, hide entire section if all empty)
@@ -649,7 +649,7 @@ export function buildPreviewBody(
 
     if (def.part !== currentPart) {
       currentPart = def.part;
-      const partLabel = def.part === "I" ? (t("export.partI")) : (t ? t("export.partII") : "Baseline and Target Architectures");
+      const partLabel = def.part === "I" ? (t("export.partI")) : (t("export.partII"));
       html += `<div class="part-header">Part ${def.part}: ${partLabel}</div>`;
     }
 
@@ -673,8 +673,8 @@ export function buildPreviewBody(
     }
 
     if (def.type === "togaf_phases" && data.togaf_data) {
-      const phaseLabel = t ? t("export.phase") : "Phase";
-      const artefactsLabel = t ? t("export.relevantArtefacts") : "Relevant Artefacts";
+      const phaseLabel = t("export.phase");
+      const artefactsLabel = t("export.relevantArtefacts");
       html += `<table><tr><th>${phaseLabel}</th><th>${artefactsLabel}</th></tr>`;
       for (const p of TOGAF_PHASES) {
         html += `<tr><td>${p.label}</td><td>${data.togaf_data[p.key] || "\u2014"}</td></tr>`;
@@ -683,7 +683,7 @@ export function buildPreviewBody(
     }
 
     // Custom sections after this
-    const customBadge = t ? t("export.custom") : "Custom";
+    const customBadge = t("export.custom");
     for (const cs of customSections) {
       if (cs.insertAfter === def.id) {
         html += `<h3><span class="custom-badge">${customBadge}</span>${cs.title}</h3>`;
@@ -697,7 +697,7 @@ export function buildPreviewBody(
   }
 
   // Trailing custom sections
-  const trailingCustomBadge = t ? t("export.custom") : "Custom";
+  const trailingCustomBadge = t("export.custom");
   for (const cs of customSections) {
     if (!cs.insertAfter || !SOAW_TEMPLATE_SECTIONS.some((d) => d.id === cs.insertAfter)) {
       html += `<h3><span class="custom-badge">${trailingCustomBadge}</span>${cs.title}</h3>`;
