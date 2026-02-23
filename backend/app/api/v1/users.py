@@ -18,6 +18,8 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
+SUPPORTED_LOCALES = {"en", "fr", "es", "it", "pt", "zh"}
+
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -33,6 +35,7 @@ class UserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     password: str | None = None
+    locale: str | None = None
 
 
 class NotificationPreferencesUpdate(BaseModel):
@@ -53,6 +56,7 @@ def _user_response(u: User) -> dict:
         "display_name": u.display_name,
         "role": u.role,
         "is_active": u.is_active,
+        "locale": u.locale or "en",
         "auth_provider": u.auth_provider or "local",
         "has_password": bool(u.password_hash),
         "pending_setup": bool(u.password_setup_token),
@@ -275,11 +279,11 @@ async def update_user(
 
     data = body.model_dump(exclude_unset=True)
 
-    # Non-admin can only update own display_name and password
+    # Non-admin can only update own display_name, password, and locale
     if not is_admin:
-        allowed = {"display_name", "password"}
+        allowed = {"display_name", "password", "locale"}
         if not set(data.keys()).issubset(allowed):
-            raise HTTPException(403, "Non-admin can only update display_name and password")
+            raise HTTPException(403, "Non-admin can only update display_name, password, and locale")
 
     if "role" in data:
         role_result = await db.execute(select(Role).where(Role.key == data["role"]))
@@ -299,6 +303,10 @@ async def update_user(
         )
         if existing.scalar_one_or_none():
             raise HTTPException(409, "A user with this email already exists")
+
+    if "locale" in data:
+        if data["locale"] not in SUPPORTED_LOCALES:
+            raise HTTPException(400, f"Unsupported locale '{data['locale']}'")
 
     if "password" in data:
         # Block password changes for SSO users

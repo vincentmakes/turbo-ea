@@ -761,14 +761,49 @@ Update `seed.py` to include translations for all 14 built-in card types. Example
 }
 ```
 
-### 10.6 Admin UI Changes
+### 10.6 Admin UI Changes — Translation Tab Pattern
 
-In `TypeDetailDrawer.tsx` and `FieldEditorDialog.tsx`, add translation input fields:
+Every dialog or drawer that creates or edits a metamodel entity must include a **"Translations" tab** alongside its existing content. This tab shows translation inputs for all translatable labels in the entity being edited. The pattern applies to:
 
-- Below each label input, show a collapsible "Translations" section
-- Show one text field per supported locale (FR, ES, IT, PT, ZH)
-- Only show locales that differ from the base (English) label
-- Save translations alongside the label in the `translations` object
+- **TypeDetailDrawer**: Translations tab for the card type's `label` and `description`, each subtype label, each section heading, each group heading
+- **FieldEditorDialog**: Translations tab for the field `label` and each select option `label`
+- **StakeholderRolePanel** (create/edit role dialog): Translations tab for the role `label` and `description`
+- **MetamodelAdmin** (create/edit relation type dialog): Translations tab for the relation `label` and `reverse_label`
+- **TagsAdmin** (create/edit tag group / tag dialogs): Translations tab for tag group `name` and tag `name`
+
+**Tab UX pattern:**
+
+```
+┌─── General ──┬── Translations ──┐
+│                                  │
+│  (normal form fields)            │
+│  ← shown on General tab          │
+│                                  │
+│  ── OR ──                        │
+│                                  │
+│  Field: "Risk Level"             │
+│                                  │
+│  French (fr):     [Niveau de…  ] │
+│  Spanish (es):    [Nivel de …  ] │
+│  Italian (it):    [Livello di…]  │
+│  Portuguese (pt): [Nível de … ]  │
+│  Chinese (zh):    [风险级别    ]  │
+│                                  │
+│  (one row per translatable label │
+│   in the entity being edited)    │
+│                                  │
+└──────────────────────────────────┘
+```
+
+**Implementation details:**
+
+- The tabs use MUI `Tabs` / `Tab` components inside the dialog
+- The "General" tab contains the existing form fields (no change to current layout)
+- The "Translations" tab shows a form with one text field per supported locale (excluding `en`) for each translatable string in the entity
+- When the entity has multiple translatable strings (e.g., a field label + its option labels), group them with section headings
+- Empty translation fields are omitted from the saved `translations` object (only non-empty values are stored)
+- The translations object structure follows section 10.2 format
+- A shared `TranslationFields` component encapsulates the locale input rows to avoid duplication across dialogs
 
 ### 10.7 Frontend Resolution
 
@@ -1140,19 +1175,17 @@ Test with French (longest) and Chinese (shortest) to cover both extremes.
 
 **Scope**: Backend locale field + frontend i18n setup
 
-**Backend (done in this PR)**:
-- [ ]  User model: `locale` column
-- [ ]  Migration `036_add_user_locale.py`
+**Backend**:
+- [ ] User model: `locale` column
+- [ ] Migration `036_add_user_locale.py`
 - [ ] Auth schema: `locale` in `UserResponse`
 - [ ] Auth API: `/auth/me` returns `locale`
-- [ ]  Users API: `locale` in `UserUpdate`, validation, self-update
+- [ ] Users API: `locale` in `UserUpdate`, validation, self-update
 
-**Frontend (done in this PR)**:
+**Frontend**:
 - [ ] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
-
-**Frontend (remaining)**:
 - [ ] Create `src/i18n/index.ts` configuration
-- [ ] Create all 12 English namespace JSON files
+- [ ] Create all 12 English namespace JSON files (skeleton with initial keys)
 - [ ] Update `src/main.tsx` to import i18n
 - [ ] Add `locale` to `User` type
 - [ ] Sync locale in `useAuth.ts`

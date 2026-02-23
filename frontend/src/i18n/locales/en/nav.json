@@ -1,0 +1,36 @@
+{
+  "dashboard": "Dashboard",
+  "inventory": "Inventory",
+  "reports": "Reports",
+  "reports.portfolio": "Portfolio",
+  "reports.capabilityMap": "Capability Map",
+  "reports.lifecycle": "Lifecycle",
+  "reports.dependencies": "Dependencies",
+  "reports.cost": "Cost",
+  "reports.matrix": "Matrix",
+  "reports.dataQuality": "Data Quality",
+  "reports.endOfLife": "End of Life",
+  "reports.saved": "Saved Reports",
+  "reports.processMap": "Process Map",
+  "bpm": "BPM",
+  "diagrams": "Diagrams",
+  "delivery": "Delivery",
+  "todos": "Todos",
+
+  "admin": "Admin",
+  "admin.metamodel": "Metamodel",
+  "admin.usersAndRoles": "Users & Roles",
+  "admin.surveys": "Surveys",
+  "admin.settings": "Settings",
+
+  "userMenu.notificationSettings": "Notification Settings",
+  "userMenu.darkMode": "Dark Mode",
+  "userMenu.lightMode": "Light Mode",
+  "userMenu.language": "Language",
+
+  "search.placeholder": "Search cards...",
+  "search.viewAll": "View all results for \"{{query}}\"",
+
+  "createCard": "Create Card",
+  "create": "Create"
+}

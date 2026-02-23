@@ -1,0 +1,5 @@
+{
+  "page.title": "Inventory",
+  "selectedCount_one": "{{count}} card selected",
+  "selectedCount_other": "{{count}} cards selected"
+}

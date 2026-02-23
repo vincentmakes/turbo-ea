@@ -6,6 +6,7 @@ export interface User {
   role_label?: string;
   role_color?: string;
   is_active: boolean;
+  locale?: string;
   auth_provider?: string;
   has_password?: boolean;
   pending_setup?: boolean;

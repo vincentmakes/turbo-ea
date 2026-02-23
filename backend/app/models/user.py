@@ -47,6 +47,8 @@ class User(Base, UUIDMixin, TimestampMixin):
         JSONB, default=lambda: DEFAULT_NOTIFICATION_PREFERENCES.copy()
     )
 
+    locale: Mapped[str] = mapped_column(String(10), default="en", server_default="en")
+
     # M5: Account lockout after failed login attempts
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

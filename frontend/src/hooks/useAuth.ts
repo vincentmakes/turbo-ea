@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, setToken, clearToken } from "@/api/client";
+import i18n from "@/i18n";
 import type { User } from "@/types";
 
 const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // Refresh every 10 minutes
@@ -39,6 +40,7 @@ export function useAuth() {
     try {
       const u = await auth.me();
       setUser(u as User);
+      i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();
     } catch {
       clearToken();

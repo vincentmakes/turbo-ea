@@ -26,6 +26,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import NotificationBell from "@/components/NotificationBell";
 import NotificationPreferencesDialog from "@/components/NotificationPreferencesDialog";
@@ -34,50 +35,55 @@ import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import type { BadgeCounts } from "@/types";
+
+interface NavItemDef {
+  labelKey: string;
+  icon: string;
+  path?: string;
+  children?: { labelKey: string; icon: string; path: string }[];
+  permission?: string | string[];
+}
 
 interface NavItem {
   label: string;
   icon: string;
   path?: string;
   children?: { label: string; icon: string; path: string }[];
+  permission?: string | string[];
 }
 
-interface NavItemWithPermission extends NavItem {
-  permission?: string;
-  children?: (NavItem["children"] extends (infer T)[] | undefined ? T & { permission?: string } : never)[];
-}
-
-const NAV_ITEMS: NavItemWithPermission[] = [
-  { label: "Dashboard", icon: "dashboard", path: "/" },
-  { label: "Inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
+const NAV_ITEM_DEFS: NavItemDef[] = [
+  { labelKey: "dashboard", icon: "dashboard", path: "/" },
+  { labelKey: "inventory", icon: "inventory_2", path: "/inventory", permission: "inventory.view" },
   {
-    label: "Reports",
+    labelKey: "reports",
     icon: "analytics",
     permission: "reports.ea_dashboard",
     children: [
-      { label: "Portfolio", icon: "dashboard", path: "/reports/portfolio" },
-      { label: "Capability Map", icon: "grid_view", path: "/reports/capability-map" },
-      { label: "Lifecycle", icon: "timeline", path: "/reports/lifecycle" },
-      { label: "Dependencies", icon: "hub", path: "/reports/dependencies" },
-      { label: "Cost", icon: "payments", path: "/reports/cost" },
-      { label: "Matrix", icon: "table_chart", path: "/reports/matrix" },
-      { label: "Data Quality", icon: "verified", path: "/reports/data-quality" },
-      { label: "End of Life", icon: "update", path: "/reports/eol" },
-      { label: "Saved Reports", icon: "bookmarks", path: "/reports/saved" },
+      { labelKey: "reports.portfolio", icon: "dashboard", path: "/reports/portfolio" },
+      { labelKey: "reports.capabilityMap", icon: "grid_view", path: "/reports/capability-map" },
+      { labelKey: "reports.lifecycle", icon: "timeline", path: "/reports/lifecycle" },
+      { labelKey: "reports.dependencies", icon: "hub", path: "/reports/dependencies" },
+      { labelKey: "reports.cost", icon: "payments", path: "/reports/cost" },
+      { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
+      { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
+      { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
+      { labelKey: "reports.saved", icon: "bookmarks", path: "/reports/saved" },
     ],
   },
-  { label: "BPM", icon: "route", path: "/bpm", permission: "bpm.view" },
-  { label: "Diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
-  { label: "Delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
-  { label: "Todos", icon: "checklist", path: "/todos" },
+  { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
+  { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
+  { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
+  { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
-const ADMIN_ITEMS: (NavItem & { permission?: string | string[] })[] = [
-  { label: "Metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
-  { label: "Users & Roles", icon: "group", path: "/admin/users", permission: "admin.users" },
-  { label: "Surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { label: "Settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
+const ADMIN_ITEM_DEFS: NavItemDef[] = [
+  { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
+  { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
+  { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
+  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
 ];
 
 interface PermissionMap {
@@ -101,6 +107,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
+  const { t, i18n } = useTranslation("nav");
   const isMobile = useMediaQuery("(max-width:767px)");
   const isCompact = useMediaQuery("(max-width:1023px)");
   const isNarrow = useMediaQuery("(max-width:1160px)");
@@ -120,24 +127,32 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     [user.permissions]
   );
 
-  // Filter nav items based on BPM enabled state and permissions
+  // Resolve nav item labels via i18n and filter based on BPM/permissions
   const navItems = useMemo(() => {
-    let items = NAV_ITEMS as NavItemWithPermission[];
-    if (!bpmEnabled) items = items.filter((item) => item.label !== "BPM");
-    return items.filter(
-      (item) => !item.permission || can(item.permission)
-    );
-  }, [bpmEnabled, can]);
+    const resolve = (def: NavItemDef): NavItem => ({
+      ...def,
+      label: t(def.labelKey),
+      children: def.children?.map((c) => ({ ...c, label: t(c.labelKey) })),
+    });
+    let items = NAV_ITEM_DEFS as NavItemDef[];
+    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
+    return items
+      .filter((item) => {
+        if (!item.permission) return true;
+        if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
+        return can(item.permission);
+      })
+      .map(resolve);
+  }, [bpmEnabled, can, t]);
 
-  // Filter admin items based on permissions
+  // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
-    const filtered = ADMIN_ITEMS.filter((item) => {
+    return ADMIN_ITEM_DEFS.filter((item) => {
       if (!item.permission) return true;
       if (Array.isArray(item.permission)) return item.permission.some((p) => can(p));
       return can(item.permission);
-    });
-    return filtered;
-  }, [can]);
+    }).map((def) => ({ ...def, label: t(def.labelKey) }));
+  }, [can, t]);
 
   // Should the admin section be shown at all?
   const showAdmin = adminItems.length > 0;
@@ -155,7 +170,22 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [drawerReportsOpen, setDrawerReportsOpen] = useState(false);
   const [drawerAdminOpen, setDrawerAdminOpen] = useState(false);
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
+  const [langMenu, setLangMenu] = useState<HTMLElement | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
+
+  const handleLanguageChange = useCallback(
+    async (locale: SupportedLocale) => {
+      setLangMenu(null);
+      setUserMenu(null);
+      i18n.changeLanguage(locale);
+      try {
+        await api.patch(`/users/${user.id}`, { locale });
+      } catch {
+        // best-effort persistence
+      }
+    },
+    [i18n, user.id],
+  );
 
   const fetchBadgeCounts = useCallback(async () => {
     try {
@@ -289,8 +319,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     setDrawerOpen(false);
   };
 
-  const hasBadge = (label: string) =>
-    label === "Todos" && (badgeCounts.open_todos > 0 || badgeCounts.pending_surveys > 0);
+  const hasBadge = (path?: string) =>
+    path === "/todos" && (badgeCounts.open_todos > 0 || badgeCounts.pending_surveys > 0);
 
   // ── Mobile drawer ───────────────────────────────────────────────────────
 
@@ -319,7 +349,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         <TextField
           size="small"
           fullWidth
-          placeholder="Search cards..."
+          placeholder={t("search.placeholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={handleSearch}
@@ -447,7 +477,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               }}
             >
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
-                <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                <Badge color="error" variant="dot" invisible={!hasBadge(item.path)}>
                   <MaterialSymbol icon={item.icon} size={20} color="inherit" />
                 </Badge>
               </ListItemIcon>
@@ -471,7 +501,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
                 <MaterialSymbol icon="admin_panel_settings" size={20} color="inherit" />
               </ListItemIcon>
-              <ListItemText primary="Admin" />
+              <ListItemText primary={t("admin")} />
               <MaterialSymbol
                 icon={drawerAdminOpen ? "expand_less" : "expand_more"}
                 size={18}
@@ -510,7 +540,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <ListItemIcon sx={{ minWidth: 36, color: "inherit" }}>
                 <MaterialSymbol icon="add" size={20} color="inherit" />
               </ListItemIcon>
-              <ListItemText primary="Create Card" />
+              <ListItemText primary={t("createCard")} />
             </ListItemButton>
           </>
         )}
@@ -532,7 +562,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           startIcon={<MaterialSymbol icon="logout" size={18} />}
           onClick={() => { setDrawerOpen(false); onLogout(); }}
         >
-          Logout
+          {t("common:actions.logout")}
         </Button>
       </Box>
     </Drawer>
@@ -610,7 +640,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       }}
                       onClick={() => item.path && navigate(item.path)}
                     >
-                      <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                      <Badge color="error" variant="dot" invisible={!hasBadge(item.path)}>
                         <MaterialSymbol icon={item.icon} size={20} />
                       </Badge>
                     </IconButton>
@@ -620,7 +650,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     key={item.label}
                     size="small"
                     startIcon={
-                      <Badge color="error" variant="dot" invisible={!hasBadge(item.label)}>
+                      <Badge color="error" variant="dot" invisible={!hasBadge(item.path)}>
                         <MaterialSymbol icon={item.icon} size={18} />
                       </Badge>
                     }
@@ -668,7 +698,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
           {/* Search: narrow mode shows icon that expands on click */}
           {!isMobile && isNarrow && !searchExpanded && (
-            <Tooltip title="Search">
+            <Tooltip title={t("common:actions.search")}>
               <IconButton
                 sx={{ color: "rgba(255,255,255,0.7)" }}
                 onClick={() => setSearchExpanded(true)}
@@ -693,7 +723,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <TextField
                   size="small"
                   fullWidth={isNarrow && searchExpanded}
-                  placeholder="Search cards..."
+                  placeholder={t("search.placeholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearch}
@@ -803,7 +833,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                       >
                         <MaterialSymbol icon="search" size={16} />
                         <Typography variant="body2" sx={{ fontSize: "0.8rem" }}>
-                          View all results for &quot;{search.trim()}&quot;
+                          {t("search.viewAll", { query: search.trim() })}
                         </Typography>
                       </Box>
                     )}
@@ -816,7 +846,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           {/* Create button — icon-only on mobile or when search is expanded */}
           {can("inventory.create") && (
             isMobile || (isNarrow && searchExpanded) ? (
-              <Tooltip title="Create">
+              <Tooltip title={t("create")}>
                 <IconButton
                   sx={{ color: "#fff" }}
                   onClick={() => navigate("/inventory?create=true")}
@@ -832,7 +862,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 sx={{ ml: 1.5, px: 2, textTransform: "none", flexShrink: 0 }}
                 onClick={() => navigate("/inventory?create=true")}
               >
-                Create
+                {t("create")}
               </Button>
             )
           )}
@@ -875,13 +905,22 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <ListItemIcon>
                 <MaterialSymbol icon="notifications_active" size={18} />
               </ListItemIcon>
-              <ListItemText>Notification Settings</ListItemText>
+              <ListItemText>{t("userMenu.notificationSettings")}</ListItemText>
             </MenuItem>
             <MenuItem onClick={toggleMode}>
               <ListItemIcon>
                 <MaterialSymbol icon={mode === "dark" ? "light_mode" : "dark_mode"} size={18} />
               </ListItemIcon>
-              <ListItemText>{mode === "dark" ? "Light Mode" : "Dark Mode"}</ListItemText>
+              <ListItemText>{mode === "dark" ? t("userMenu.lightMode") : t("userMenu.darkMode")}</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={(e) => setLangMenu(e.currentTarget)}>
+              <ListItemIcon>
+                <MaterialSymbol icon="translate" size={18} />
+              </ListItemIcon>
+              <ListItemText>{t("userMenu.language")}</ListItemText>
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                {LOCALE_LABELS[(i18n.language as SupportedLocale)] || "English"}
+              </Typography>
             </MenuItem>
             {showAdmin && <Divider />}
             {showAdmin && (
@@ -889,7 +928,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 <ListItemIcon>
                   <MaterialSymbol icon="admin_panel_settings" size={18} />
                 </ListItemIcon>
-                <ListItemText primaryTypographyProps={{ variant: "caption", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Admin</ListItemText>
+                <ListItemText primaryTypographyProps={{ variant: "caption", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{t("admin")}</ListItemText>
               </MenuItem>
             )}
             {showAdmin && adminItems.map((item) => (
@@ -918,7 +957,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               <ListItemIcon>
                 <MaterialSymbol icon="logout" size={18} />
               </ListItemIcon>
-              <ListItemText>Logout</ListItemText>
+              <ListItemText>{t("common:actions.logout")}</ListItemText>
             </MenuItem>
           </Menu>
         </Toolbar>
@@ -929,6 +968,23 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         open={notifPrefsOpen}
         onClose={() => setNotifPrefsOpen(false)}
       />
+
+      {/* Language submenu */}
+      <Menu
+        anchorEl={langMenu}
+        open={!!langMenu}
+        onClose={() => setLangMenu(null)}
+      >
+        {SUPPORTED_LOCALES.map((locale) => (
+          <MenuItem
+            key={locale}
+            selected={i18n.language === locale}
+            onClick={() => handleLanguageChange(locale)}
+          >
+            <ListItemText>{LOCALE_LABELS[locale]}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
 
       {/* Mobile drawer */}
       {isMobile && renderDrawer()}

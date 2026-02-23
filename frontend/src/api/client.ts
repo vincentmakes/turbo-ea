@@ -109,7 +109,8 @@ export const auth = {
     api.post<{ access_token: string }>("/auth/register", { email, display_name, password }),
   me: () => api.get<{
     id: string; email: string; display_name: string; role: string;
-    role_label?: string; role_color?: string; permissions?: Record<string, boolean>;
+    role_label?: string; role_color?: string; locale?: string;
+    permissions?: Record<string, boolean>;
   }>("/auth/me"),
   refresh: () => api.post<{ access_token: string }>("/auth/refresh"),
   ssoConfig: () =>

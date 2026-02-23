@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-02-23
+
+### Added
+- Internationalization (i18n) infrastructure: react-i18next with 12 translation namespaces and 6 supported locales (EN, FR, ES, IT, PT, ZH)
+- Language switcher in the user menu to change the UI language
+- User locale preference stored on the backend and synced on login
+- Navigation bar labels, search placeholder, and action buttons now use translation keys
+
 ## [0.8.1] - 2026-02-23
 
 ### Fixed

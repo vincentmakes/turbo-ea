@@ -172,6 +172,7 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
         role_label=role_data["label"] if role_data else user.role,
         role_color=role_data["color"] if role_data else "#757575",
         is_active=user.is_active,
+        locale=user.locale or "en",
         permissions=role_data["permissions"] if role_data else {},
     )
 

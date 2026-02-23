@@ -42,6 +42,7 @@ class UserResponse(BaseModel):
     role_label: str | None = None
     role_color: str | None = None
     is_active: bool
+    locale: str = "en"
     permissions: dict[str, bool] | None = None
 
     model_config = {"from_attributes": True}
