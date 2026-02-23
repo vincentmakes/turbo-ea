@@ -122,6 +122,7 @@ export default function CostReport() {
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
+    tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (cfg.cardTypeKey) setCardTypeKey(cfg.cardTypeKey as string);
       if (cfg.costField) setCostField(cfg.costField as string);
@@ -129,7 +130,6 @@ export default function CostReport() {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
-      tl.restore(cfg.timelineDate as number | undefined);
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 

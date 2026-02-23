@@ -497,6 +497,7 @@ export default function PortfolioReport() {
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
+    tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (cfg.view) setView(cfg.view as "chart" | "table");
       if (cfg.groupByRaw) setGroupByRaw(cfg.groupByRaw as string);
@@ -506,7 +507,6 @@ export default function PortfolioReport() {
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Backwards compat: old saved configs may have filterOrgs
       if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
-      tl.restore(cfg.timelineDate as number | undefined);
       if (cfg.sortK) setSortK(cfg.sortK as string);
       if (cfg.sortD) setSortD(cfg.sortD as "asc" | "desc");
       setDefaultsApplied(true);

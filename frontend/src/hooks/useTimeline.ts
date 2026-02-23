@@ -43,9 +43,10 @@ export function useTimeline() {
       }
     : null;
 
-  /** Restore from saved config (call from consumeConfig handler). */
+  /** Restore from saved config. Resets to today if no saved value. */
   const restore = (saved: number | undefined | null) => {
     if (saved != null) setTimelineDate(saved);
+    else setTimelineDate(todayMs);
   };
 
   /** Reset timeline to today. */

@@ -63,19 +63,32 @@ describe("useTimeline", () => {
     expect(result.current.isTimeTraveling).toBe(true);
   });
 
-  it("restore ignores null/undefined", () => {
+  it("restore with null/undefined resets to today", () => {
     const { result } = renderHook(() => useTimeline());
-    const initialDate = result.current.timelineDate;
+    const todayMs = result.current.todayMs;
 
+    // Time-travel to a past date first
+    act(() => {
+      result.current.restore(new Date("2024-12-01T00:00:00Z").getTime());
+    });
+    expect(result.current.isTimeTraveling).toBe(true);
+
+    // Restore with null should snap back to today
     act(() => {
       result.current.restore(null);
     });
-    expect(result.current.timelineDate).toBe(initialDate);
+    expect(result.current.timelineDate).toBe(todayMs);
+    expect(result.current.isTimeTraveling).toBe(false);
 
+    // Time-travel again, then restore with undefined
+    act(() => {
+      result.current.restore(new Date("2024-12-01T00:00:00Z").getTime());
+    });
     act(() => {
       result.current.restore(undefined);
     });
-    expect(result.current.timelineDate).toBe(initialDate);
+    expect(result.current.timelineDate).toBe(todayMs);
+    expect(result.current.isTimeTraveling).toBe(false);
   });
 
   it("same day at different times is not time traveling", () => {

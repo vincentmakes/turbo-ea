@@ -609,12 +609,12 @@ export default function CapabilityMapReport() {
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
+    tl.restore(cfg?.timelineDate as number | undefined);
     if (cfg) {
       if (cfg.metric) setMetric(cfg.metric as Metric);
       if (cfg.displayLevel != null) setDisplayLevel(cfg.displayLevel as number);
       if (cfg.showApps != null) setShowApps(cfg.showApps as boolean);
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
-      tl.restore(cfg.timelineDate as number | undefined);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
       // Backwards compat
