@@ -801,17 +801,17 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 onChange={(e) => setSkipStaging(e.target.checked)}
               />
             }
-            label="Skip staging (apply changes directly)"
+            label={t("servicenow.mappings.dialog.skipStaging")}
           />
           {skipStaging && (
             <Alert severity="warning" sx={{ mt: -1 }}>
-              Changes will be applied immediately without review. Staged records will not be created.
+              {t("servicenow.mappings.dialog.skipStagingWarning")}
             </Alert>
           )}
 
           <Box>
             <Typography variant="body2" gutterBottom>
-              Max Deletion Ratio: {Math.round(maxDeletionRatio * 100)}%
+              {t("servicenow.mappings.dialog.maxDeletionRatio", { value: Math.round(maxDeletionRatio * 100) })}
             </Typography>
             <Slider
               value={maxDeletionRatio}
@@ -830,26 +830,26 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
           </Box>
 
           <TextField
-            label="Filter Query (optional)"
+            label={t("servicenow.mappings.dialog.filterQuery")}
             fullWidth
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
             placeholder="e.g. active=true^install_status=1"
-            helperText="ServiceNow encoded query syntax"
+            helperText={t("servicenow.mappings.dialog.filterQueryHelper")}
           />
 
           <Divider />
 
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography fontWeight={600}>Field Mappings</Typography>
+            <Typography fontWeight={600}>{t("servicenow.mappings.dialog.fieldMappings")}</Typography>
             <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={addFieldMapping}>
-              Add Field
+              {t("servicenow.mappings.dialog.addField")}
             </Button>
           </Box>
 
           {!cardTypeKey && fieldMappings.length === 0 && (
             <Typography variant="body2" color="text.secondary">
-              Select a Card Type above to get field suggestions.
+              {t("servicenow.mappings.dialog.selectCardTypeHint")}
             </Typography>
           )}
 
@@ -871,27 +871,27 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                   return found ? `${option} — ${found.label}` : option;
                 }}
                 renderInput={(params) => (
-                  <TextField {...params} label="Turbo EA Field" placeholder="name" />
+                  <TextField {...params} label={t("servicenow.mappings.dialog.turboEaField")} placeholder="name" />
                 )}
                 sx={{ flex: 1 }}
               />
               <MaterialSymbol icon="sync_alt" size={16} color="#999" />
               <TextField
-                label="SNOW Field"
+                label={t("servicenow.mappings.dialog.snowFieldLabel")}
                 size="small"
                 value={fm.snow_field}
                 onChange={(e) => updateFieldMapping(idx, "snow_field", e.target.value)}
                 placeholder="name"
                 sx={{ flex: 1 }}
               />
-              <Tooltip title="Per-field source of truth: which system's value wins during sync">
+              <Tooltip title={t("servicenow.mappings.dialog.fieldDirectionTooltip")}>
                 <FormControl size="small" sx={{ minWidth: 130 }}>
                   <Select
                     value={fm.direction}
                     onChange={(e) => updateFieldMapping(idx, "direction", e.target.value)}
                   >
-                    <MenuItem value="snow_leads">SNOW leads</MenuItem>
-                    <MenuItem value="turbo_leads">Turbo leads</MenuItem>
+                    <MenuItem value="snow_leads">{t("servicenow.mappings.direction.snowLeads")}</MenuItem>
+                    <MenuItem value="turbo_leads">{t("servicenow.mappings.direction.turboLeads")}</MenuItem>
                   </Select>
                 </FormControl>
               </Tooltip>
@@ -900,10 +900,10 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                   value={fm.transform_type}
                   onChange={(e) => updateFieldMapping(idx, "transform_type", e.target.value)}
                 >
-                  <MenuItem value="direct">Direct</MenuItem>
-                  <MenuItem value="value_map">Value Map</MenuItem>
-                  <MenuItem value="date_format">Date</MenuItem>
-                  <MenuItem value="boolean">Boolean</MenuItem>
+                  <MenuItem value="direct">{t("servicenow.mappings.dialog.direct")}</MenuItem>
+                  <MenuItem value="value_map">{t("servicenow.mappings.dialog.valueMap")}</MenuItem>
+                  <MenuItem value="date_format">{t("servicenow.mappings.dialog.dateFormat")}</MenuItem>
+                  <MenuItem value="boolean">{t("servicenow.mappings.dialog.boolean")}</MenuItem>
                 </Select>
               </FormControl>
               <FormControlLabel
