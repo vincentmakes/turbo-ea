@@ -393,7 +393,7 @@ export default function UsersAdmin() {
               <TableRow>
                 <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
-                    No users found.
+                    {t("users.noUsers")}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -460,7 +460,7 @@ export default function UsersAdmin() {
                           )}
                         </Select>
                         {roleMap.get(u.role)?.is_archived && (
-                          <Tooltip title="This user has an archived role. Consider reassigning.">
+                          <Tooltip title={t("users.archivedRoleWarning")}>
                             <span style={{ display: "inline-flex", alignItems: "center" }}>
                               <MaterialSymbol icon="warning" size={18} color="#ed6c02" />
                             </span>
@@ -475,18 +475,18 @@ export default function UsersAdmin() {
                   <TableCell>
                     <Chip
                       size="small"
-                      label={u.is_active ? "Active" : "Disabled"}
+                      label={u.is_active ? t("users.status.active") : t("users.status.disabled")}
                       color={u.is_active ? "success" : "default"}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Tooltip title="Edit user">
+                    <Tooltip title={t("users.editTooltip")}>
                       <IconButton size="small" onClick={() => openEdit(u)}>
                         <MaterialSymbol icon="edit" size={20} />
                       </IconButton>
                     </Tooltip>
                     <Tooltip
-                      title={u.is_active ? "Deactivate user" : "Activate user"}
+                      title={u.is_active ? t("users.deactivateTooltip") : t("users.activateTooltip")}
                     >
                       <IconButton
                         size="small"
@@ -500,7 +500,7 @@ export default function UsersAdmin() {
                       </IconButton>
                     </Tooltip>
                     {!u.is_active && (
-                      <Tooltip title="Delete user">
+                      <Tooltip title={t("users.deleteTooltip")}>
                         <IconButton
                           size="small"
                           color="error"
@@ -521,16 +521,16 @@ export default function UsersAdmin() {
       {invitations.length > 0 && (
         <Box sx={{ mt: 4 }}>
           <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
-            Pending Invitations
+            {t("users.pendingInvitations")}
           </Typography>
           <TableContainer component={Paper} variant="outlined">
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Pre-assigned Role</TableCell>
-                  <TableCell>Invited</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("users.invitations.email")}</TableCell>
+                  <TableCell>{t("users.invitations.role")}</TableCell>
+                  <TableCell>{t("users.invitations.invited")}</TableCell>
+                  <TableCell align="right">{t("users.columns.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

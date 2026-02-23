@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -22,6 +23,7 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
 };
 
 export default function SurveysAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<Survey[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function SurveysAdmin() {
       const data = await api.get<Survey[]>("/surveys");
       setSurveys(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load surveys");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export default function SurveysAdmin() {
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
         <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700, flex: 1 }}>
-          Surveys
+          {t("surveysAdmin.title")}
         </Typography>
         <Button
           variant="contained"
@@ -72,7 +74,7 @@ export default function SurveysAdmin() {
           sx={{ textTransform: "none" }}
           onClick={() => navigate("/admin/surveys/new")}
         >
-          New Survey
+          {t("surveysAdmin.newSurvey")}
         </Button>
       </Box>
 
@@ -83,15 +85,15 @@ export default function SurveysAdmin() {
       )}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label={`All (${surveys.length})`} />
-        <Tab label={`Draft (${surveys.filter((s) => s.status === "draft").length})`} />
-        <Tab label={`Active (${surveys.filter((s) => s.status === "active").length})`} />
-        <Tab label={`Closed (${surveys.filter((s) => s.status === "closed").length})`} />
+        <Tab label={t("surveysAdmin.tabs.all", { count: surveys.length })} />
+        <Tab label={t("surveysAdmin.tabs.draft", { count: surveys.filter((s) => s.status === "draft").length })} />
+        <Tab label={t("surveysAdmin.tabs.active", { count: surveys.filter((s) => s.status === "active").length })} />
+        <Tab label={t("surveysAdmin.tabs.closed", { count: surveys.filter((s) => s.status === "closed").length })} />
       </Tabs>
 
       {filtered.length === 0 && (
         <Alert severity="info">
-          {tab === 0 ? "No surveys yet. Create one to start collecting data from your team." : "No surveys in this category."}
+          {tab === 0 ? t("surveysAdmin.emptyAll") : t("surveysAdmin.emptyCategory")}
         </Alert>
       )}
 
@@ -141,7 +143,7 @@ export default function SurveysAdmin() {
                     />
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>
-                    {completed}/{total} responses ({pct}%)
+                    {t("surveysAdmin.responses", { completed, total, pct })}
                   </Typography>
                 </Box>
               )}
@@ -149,17 +151,17 @@ export default function SurveysAdmin() {
               <Box sx={{ display: "flex", gap: 2, mt: 1 }}>
                 {s.creator_name && (
                   <Typography variant="caption" color="text.secondary">
-                    By {s.creator_name}
+                    {t("surveysAdmin.byCreator", { name: s.creator_name })}
                   </Typography>
                 )}
                 {s.sent_at && (
                   <Typography variant="caption" color="text.secondary">
-                    Sent {new Date(s.sent_at).toLocaleDateString()}
+                    {t("surveysAdmin.sentDate", { date: new Date(s.sent_at).toLocaleDateString() })}
                   </Typography>
                 )}
                 {s.closed_at && (
                   <Typography variant="caption" color="text.secondary">
-                    Closed {new Date(s.closed_at).toLocaleDateString()}
+                    {t("surveysAdmin.closedDate", { date: new Date(s.closed_at).toLocaleDateString() })}
                   </Typography>
                 )}
               </Box>

@@ -235,31 +235,31 @@ export default function DataQualityReport() {
               {t("dataQuality.avgCompletionByType")}
             </Typography>
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {data.by_type.map((t) => {
-                const label = types.find((tp) => tp.key === t.type)?.label || t.type;
+              {data.by_type.map((bt) => {
+                const label = types.find((tp) => tp.key === bt.type)?.label || bt.type;
                 return (
-                  <Box key={t.type}>
+                  <Box key={bt.type}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                       <Typography variant="body2" sx={{ fontWeight: 500, fontSize: 13 }}>{label}</Typography>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Chip size="small" label={t("dataQuality.items", { count: bt.total })} variant="outlined" sx={{ height: 20, fontSize: 10 }} />
                         <Typography
                           variant="caption"
-                          sx={{ fontWeight: 700, color: dataQualityColor(t.avg_data_quality), minWidth: 36, textAlign: "right" }}
+                          sx={{ fontWeight: 700, color: dataQualityColor(bt.avg_data_quality), minWidth: 36, textAlign: "right" }}
                         >
-                          {t.avg_data_quality}%
+                          {bt.avg_data_quality}%
                         </Typography>
                       </Box>
                     </Box>
                     <LinearProgress
                       variant="determinate"
-                      value={t.avg_data_quality}
+                      value={bt.avg_data_quality}
                       sx={{
                         height: 8,
                         borderRadius: 4,
                         bgcolor: "action.selected",
                         "& .MuiLinearProgress-bar": {
-                          bgcolor: dataQualityColor(t.avg_data_quality),
+                          bgcolor: dataQualityColor(bt.avg_data_quality),
                           borderRadius: 4,
                         },
                       }}
@@ -275,33 +275,33 @@ export default function DataQualityReport() {
           {/* Type breakdown table */}
           <Paper variant="outlined" sx={{ overflow: "auto" }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, p: 2, pb: 0 }}>
-              By Type
+              {t("dataQuality.byType")}
             </Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Type</TableCell>
-                  <TableCell align="right">Total</TableCell>
-                  <TableCell align="right">Complete</TableCell>
-                  <TableCell align="right">Partial</TableCell>
-                  <TableCell align="right">Minimal</TableCell>
-                  <TableCell align="right">Avg Completion</TableCell>
+                  <TableCell>{t("common:labels.type")}</TableCell>
+                  <TableCell align="right">{t("cost.total")}</TableCell>
+                  <TableCell align="right">{t("dataQuality.complete")}</TableCell>
+                  <TableCell align="right">{t("dataQuality.partial")}</TableCell>
+                  <TableCell align="right">{t("dataQuality.minimal")}</TableCell>
+                  <TableCell align="right">{t("dataQuality.avgCompletion")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {data.by_type.map((t) => (
-                  <TableRow key={t.type} hover>
-                    <TableCell sx={{ fontWeight: 500 }}>{types.find((tp) => tp.key === t.type)?.label || t.type}</TableCell>
-                    <TableCell align="right">{t.total}</TableCell>
-                    <TableCell align="right" sx={{ color: QUALITY_COLORS.complete }}>{t.complete}</TableCell>
-                    <TableCell align="right" sx={{ color: QUALITY_COLORS.partial }}>{t.partial}</TableCell>
-                    <TableCell align="right" sx={{ color: QUALITY_COLORS.minimal }}>{t.minimal}</TableCell>
+                {data.by_type.map((bt) => (
+                  <TableRow key={bt.type} hover>
+                    <TableCell sx={{ fontWeight: 500 }}>{types.find((tp) => tp.key === bt.type)?.label || bt.type}</TableCell>
+                    <TableCell align="right">{bt.total}</TableCell>
+                    <TableCell align="right" sx={{ color: QUALITY_COLORS.complete }}>{bt.complete}</TableCell>
+                    <TableCell align="right" sx={{ color: QUALITY_COLORS.partial }}>{bt.partial}</TableCell>
+                    <TableCell align="right" sx={{ color: QUALITY_COLORS.minimal }}>{bt.minimal}</TableCell>
                     <TableCell align="right">
                       <Chip
                         size="small"
-                        label={`${t.avg_data_quality}%`}
+                        label={`${bt.avg_data_quality}%`}
                         sx={{
-                          bgcolor: dataQualityColor(t.avg_data_quality),
+                          bgcolor: dataQualityColor(bt.avg_data_quality),
                           color: "#fff",
                           fontWeight: 700,
                           height: 22,
@@ -318,16 +318,16 @@ export default function DataQualityReport() {
           {/* Worst offenders */}
           <Paper variant="outlined" sx={{ overflow: "auto" }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, p: 2, pb: 0 }}>
-              Lowest Quality Items
+              {t("dataQuality.lowestQuality")}
             </Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Type</TableCell>
-                  <TableCell align="right">Completion</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Last Updated</TableCell>
+                  <TableCell>{t("common:labels.name")}</TableCell>
+                  <TableCell>{t("common:labels.type")}</TableCell>
+                  <TableCell align="right">{t("dataQuality.completion")}</TableCell>
+                  <TableCell>{t("common:labels.status")}</TableCell>
+                  <TableCell>{t("dataQuality.lastUpdated")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -340,7 +340,7 @@ export default function DataQualityReport() {
                   >
                     <TableCell sx={{ fontWeight: 500 }}>{item.name}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={types.find((t) => t.key === item.type)?.label || item.type} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
+                      <Chip size="small" label={types.find((tp) => tp.key === item.type)?.label || item.type} variant="outlined" sx={{ height: 22, fontSize: 11 }} />
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, justifyContent: "flex-end" }}>

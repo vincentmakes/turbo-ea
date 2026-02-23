@@ -8,6 +8,7 @@
  * Modeled after CapabilityMapReport.
  */
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -76,46 +77,46 @@ type ShowRelated = "none" | "apps" | "data_objects";
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const METRIC_OPTIONS: { key: Metric; label: string; icon: string }[] = [
-  { key: "app_count", label: "Application Count", icon: "apps" },
-  { key: "maturity", label: "Maturity (CMMI)", icon: "trending_up" },
-  { key: "automation", label: "Automation Level", icon: "precision_manufacturing" },
-  { key: "risk", label: "Risk Level", icon: "warning" },
-  { key: "total_cost", label: "Total Cost", icon: "payments" },
+const METRIC_OPTIONS: { key: Metric; tKey: string; icon: string }[] = [
+  { key: "app_count", tKey: "processMap.metricAppCount", icon: "apps" },
+  { key: "maturity", tKey: "processMap.metricMaturity", icon: "trending_up" },
+  { key: "automation", tKey: "processMap.metricAutomation", icon: "precision_manufacturing" },
+  { key: "risk", tKey: "processMap.metricRisk", icon: "warning" },
+  { key: "total_cost", tKey: "processMap.metricTotalCost", icon: "payments" },
 ];
 
-const MATURITY_MAP: Record<string, { order: number; label: string; color: string }> = {
-  initial: { order: 1, label: "1 - Initial", color: "#d32f2f" },
-  managed: { order: 2, label: "2 - Managed", color: "#f57c00" },
-  defined: { order: 3, label: "3 - Defined", color: "#fbc02d" },
-  measured: { order: 4, label: "4 - Measured", color: "#66bb6a" },
-  optimized: { order: 5, label: "5 - Optimized", color: "#2e7d32" },
+const MATURITY_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  initial: { order: 1, tKey: "processMap.maturityInitial", color: "#d32f2f" },
+  managed: { order: 2, tKey: "processMap.maturityManaged", color: "#f57c00" },
+  defined: { order: 3, tKey: "processMap.maturityDefined", color: "#fbc02d" },
+  measured: { order: 4, tKey: "processMap.maturityMeasured", color: "#66bb6a" },
+  optimized: { order: 5, tKey: "processMap.maturityOptimized", color: "#2e7d32" },
 };
 
-const AUTOMATION_MAP: Record<string, { order: number; label: string; color: string }> = {
-  manual: { order: 1, label: "Manual", color: "#d32f2f" },
-  partially: { order: 2, label: "Partially Automated", color: "#f57c00" },
-  fully: { order: 3, label: "Fully Automated", color: "#2e7d32" },
+const AUTOMATION_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  manual: { order: 1, tKey: "processMap.automationManual", color: "#d32f2f" },
+  partially: { order: 2, tKey: "processMap.automationPartially", color: "#f57c00" },
+  fully: { order: 3, tKey: "processMap.automationFully", color: "#2e7d32" },
 };
 
-const RISK_MAP: Record<string, { order: number; label: string; color: string }> = {
-  low: { order: 1, label: "Low", color: "#66bb6a" },
-  medium: { order: 2, label: "Medium", color: "#fbc02d" },
-  high: { order: 3, label: "High", color: "#f57c00" },
-  critical: { order: 4, label: "Critical", color: "#d32f2f" },
+const RISK_MAP: Record<string, { order: number; tKey: string; color: string }> = {
+  low: { order: 1, tKey: "processMap.riskLow", color: "#66bb6a" },
+  medium: { order: 2, tKey: "processMap.riskMedium", color: "#fbc02d" },
+  high: { order: 3, tKey: "processMap.riskHigh", color: "#f57c00" },
+  critical: { order: 4, tKey: "processMap.riskCritical", color: "#d32f2f" },
 };
 
-const PROCESS_TYPE_MAP: Record<string, { label: string; color: string }> = {
-  core: { label: "Core", color: "#1976d2" },
-  support: { label: "Support", color: "#7b1fa2" },
-  management: { label: "Management", color: "#00695c" },
+const PROCESS_TYPE_MAP: Record<string, { tKey: string; color: string }> = {
+  core: { tKey: "processMap.processTypeCore", color: "#1976d2" },
+  support: { tKey: "processMap.processTypeSupport", color: "#7b1fa2" },
+  management: { tKey: "processMap.processTypeManagement", color: "#00695c" },
 };
 
-const SUBTYPE_LABELS: Record<string, string> = {
-  category: "Category",
-  group: "Group",
-  process: "Process",
-  variant: "Variant",
+const SUBTYPE_TKEYS: Record<string, string> = {
+  category: "processMap.subtypeCategory",
+  group: "processMap.subtypeGroup",
+  process: "processMap.subtypeProcess",
+  variant: "processMap.subtypeVariant",
 };
 
 /* ------------------------------------------------------------------ */
