@@ -1138,19 +1138,19 @@ Test with French (longest) and Chinese (shortest) to cover both extremes.
 
 ## 16. Phase Plan & Milestones
 
-### Phase 1: Infrastructure ✅ (partially done)
+### Phase 1: Infrastructure
 
 **Scope**: Backend locale field + frontend i18n setup
 
 **Backend (done in this PR)**:
-- ✅ User model: `locale` column
-- ✅ Migration `036_add_user_locale.py`
-- ✅ Auth schema: `locale` in `UserResponse`
-- ✅ Auth API: `/auth/me` returns `locale`
-- ✅ Users API: `locale` in `UserUpdate`, validation, self-update
+- [ ]  User model: `locale` column
+- [ ]  Migration `036_add_user_locale.py`
+- [ ] Auth schema: `locale` in `UserResponse`
+- [ ] Auth API: `/auth/me` returns `locale`
+- [ ]  Users API: `locale` in `UserUpdate`, validation, self-update
 
 **Frontend (done in this PR)**:
-- ✅ `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
+- [ ] `i18next`, `react-i18next`, `i18next-browser-languagedetector` installed
 
 **Frontend (remaining)**:
 - [ ] Create `src/i18n/index.ts` configuration
