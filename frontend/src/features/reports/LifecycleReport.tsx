@@ -489,7 +489,7 @@ export default function LifecycleReport() {
                     }
 
                     // Standard lifecycle phases mode
-                    const segments: { left: number; width: number; color: string; label: string }[] = [];
+                    const segments: { left: number; width: number; color: string; label: string; phaseKey: string }[] = [];
                     let eolPct: number | null = null;
                     for (let i = 0; i < PHASES.length; i++) {
                       const start = parseDate(item.lifecycle[PHASES[i].key]);
@@ -502,7 +502,7 @@ export default function LifecycleReport() {
                       const end = nextPhaseStart ?? totalMax;
                       const left = ((start - totalMin) / totalRange) * 100;
                       const width = Math.max(((end - start) / totalRange) * 100, 0.5);
-                      segments.push({ left, width, color: PHASES[i].color, label: PHASES[i].label });
+                      segments.push({ left, width, color: PHASES[i].color, label: t(PHASES[i].labelKey), phaseKey: PHASES[i].key });
                     }
                     return (
                       <Box
@@ -512,7 +512,7 @@ export default function LifecycleReport() {
                       >
                         <Box sx={{ position: "absolute", top: 8, left: 0, right: 0, height: 16 }}>
                           {segments.map((s, i) => (
-                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[PHASES.find((p) => p.label === s.label)?.key || ""])}`}>
+                            <Tooltip key={i} title={`${s.label}: ${fmtDate(item.lifecycle[s.phaseKey])}`}>
                               <Box
                                 sx={{
                                   position: "absolute",
@@ -608,7 +608,7 @@ export default function LifecycleReport() {
                     <TableCell sx={{ fontWeight: 500 }}>{d.name}</TableCell>
                     <TableCell>{d.type}</TableCell>
                     <TableCell>
-                      <Chip size="small" label={phase?.label || cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
+                      <Chip size="small" label={phase ? t(phase.labelKey) : cp} sx={{ bgcolor: phase?.color, color: "#fff", fontWeight: 600, height: 22, fontSize: "0.72rem" }} />
                     </TableCell>
                     {PHASES.map((p) => <TableCell key={p.key}>{fmtDate(d.lifecycle[p.key])}</TableCell>)}
                   </TableRow>

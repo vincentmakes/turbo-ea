@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -74,6 +75,7 @@ const PRESET_COLORS = [
 /* ------------------------------------------------------------------ */
 
 export default function RolesAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   /* ---- Data state ---- */
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [schema, setSchema] = useState<PermissionsSchema>({});
@@ -117,7 +119,7 @@ export default function RolesAdmin() {
       setRoles(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load roles");
+      setError(err instanceof Error ? err.message : t("roles.loadError"));
     } finally {
       setLoading(false);
     }
@@ -146,7 +148,7 @@ export default function RolesAdmin() {
       setDetailError(null);
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Failed to load role details"
+        err instanceof Error ? err.message : t("roles.loadError")
       );
     }
   }, []);
@@ -181,7 +183,7 @@ export default function RolesAdmin() {
   const handleSave = async () => {
     if (!selectedKey || !selectedRole) return;
     if (!editLabel.trim()) {
-      setDetailError("Label is required.");
+      setDetailError(t("roles.labelRequired"));
       return;
     }
     try {
@@ -194,13 +196,13 @@ export default function RolesAdmin() {
         is_default: editIsDefault,
         permissions: editPermissions,
       });
-      setSnack("Role saved successfully");
+      setSnack(t("roles.savedSuccess"));
       // Refresh list and detail
       await fetchRoles();
       await fetchRoleDetail(selectedKey);
     } catch (err) {
       setDetailError(
-        err instanceof Error ? err.message : "Failed to save role"
+        err instanceof Error ? err.message : t("roles.saveError")
       );
     } finally {
       setSaving(false);
@@ -209,7 +211,7 @@ export default function RolesAdmin() {
 
   const handleCreate = async () => {
     if (!createForm.key.trim() || !createForm.label.trim()) {
-      setCreateError("Key and label are required.");
+      setCreateError(t("roles.keyLabelRequired"));
       return;
     }
     try {
@@ -227,10 +229,10 @@ export default function RolesAdmin() {
       setCreateForm(EMPTY_CREATE_FORM);
       await fetchRoles();
       setSelectedKey(created.key);
-      setSnack("Role created successfully");
+      setSnack(t("roles.createdSuccess"));
     } catch (err) {
       setCreateError(
-        err instanceof Error ? err.message : "Failed to create role"
+        err instanceof Error ? err.message : t("roles.createError")
       );
     } finally {
       setCreateSubmitting(false);
@@ -252,10 +254,10 @@ export default function RolesAdmin() {
         setSelectedKey(null);
       }
       await fetchRoles();
-      setSnack("Role archived");
+      setSnack(t("roles.archivedSuccess"));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to archive role"
+        err instanceof Error ? err.message : t("roles.archiveError")
       );
       setArchiveConfirmOpen(false);
       setArchiveTarget(null);
@@ -269,10 +271,10 @@ export default function RolesAdmin() {
       if (selectedKey === key) {
         await fetchRoleDetail(key);
       }
-      setSnack("Role restored");
+      setSnack(t("roles.restoredSuccess"));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to restore role"
+        err instanceof Error ? err.message : t("roles.restoreError")
       );
     }
   };
@@ -324,7 +326,7 @@ export default function RolesAdmin() {
         }}
       >
         <Typography variant="h5" fontWeight={600}>
-          Role Management
+          {t("roles.title")}
         </Typography>
         <Button
           variant="contained"
@@ -335,7 +337,7 @@ export default function RolesAdmin() {
             setCreateOpen(true);
           }}
         >
-          Add Role
+          {t("roles.addRole")}
         </Button>
       </Box>
 
@@ -368,7 +370,7 @@ export default function RolesAdmin() {
                 }
                 label={
                   <Typography variant="body2" color="text.secondary">
-                    Show archived
+                    {t("roles.showArchived")}
                   </Typography>
                 }
               />
@@ -377,13 +379,13 @@ export default function RolesAdmin() {
 
             {loading && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="text.secondary">Loading roles...</Typography>
+                <Typography color="text.secondary">{t("roles.loadingRoles")}</Typography>
               </Box>
             )}
 
             {!loading && sortedRoles.length === 0 && (
               <Box sx={{ p: 3, textAlign: "center" }}>
-                <Typography color="text.secondary">No roles found.</Typography>
+                <Typography color="text.secondary">{t("roles.noRoles")}</Typography>
               </Box>
             )}
 

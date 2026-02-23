@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -102,6 +103,7 @@ const TreemapContent = ({
 /* ------------------------------------------------------------------ */
 
 export default function CostReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
   const { fmt } = useCurrency();
   const saved = useSavedReport("cost");
@@ -243,18 +245,18 @@ export default function CostReport() {
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const typeLabel = types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey;
-    params.push({ label: "Type", value: typeLabel });
+    const typeLabel = types.find((tp) => tp.key === cardTypeKey)?.label || cardTypeKey;
+    params.push({ label: t("common:labels.type"), value: typeLabel });
     if (costFields.length > 1) {
       const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
-      params.push({ label: "Cost Field", value: cfLabel });
+      params.push({ label: t("cost.costField"), value: cfLabel });
     }
     if (groupBy) {
       const gLabel = groupableFields.find((f) => f.key === groupBy)?.label || groupBy;
-      params.push({ label: "Group by", value: gLabel });
+      params.push({ label: t("cost.groupBy"), value: gLabel });
     }
     if (tl.printParam) params.push(tl.printParam);
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
   }, [cardTypeKey, types, costField, costFields, groupBy, groupableFields, tl.printParam, view]);
 
@@ -286,14 +288,14 @@ export default function CostReport() {
       <Paper sx={{ p: 1.5 }} elevation={3}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{d.name}</Typography>
         <Typography variant="caption" display="block">{fmt.format(d.cost)}</Typography>
-        <Typography variant="caption" color="text.secondary">{total > 0 ? `${((d.cost / total) * 100).toFixed(1)}% of total` : ""}</Typography>
+        <Typography variant="caption" color="text.secondary">{total > 0 ? t("cost.percentOfTotal", { pct: ((d.cost / total) * 100).toFixed(1) }) : ""}</Typography>
       </Paper>
     );
   };
 
   return (
     <ReportShell
-      title="Cost Analysis"
+      title={t("cost.title")}
       icon="payments"
       iconColor="#2e7d32"
       view={view}
@@ -306,18 +308,18 @@ export default function CostReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+          <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
           </TextField>
           {costFields.length > 1 && (
-            <TextField select size="small" label="Cost Field" value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
+            <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>
               {costFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
 
           {view === "table" && groupableFields.length > 0 && (
-            <TextField select size="small" label="Group By" value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>
-              <MenuItem value="">None</MenuItem>
+            <TextField select size="small" label={t("cost.groupBy")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)} sx={{ minWidth: 150 }}>
+              <MenuItem value="">{t("cost.none")}</MenuItem>
               {groupableFields.map((f) => <MenuItem key={f.key} value={f.key}>{f.label}</MenuItem>)}
             </TextField>
           )}
@@ -336,12 +338,12 @@ export default function CostReport() {
     >
       {/* Summary strip */}
       <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
-        <MetricCard label="Total Cost" value={fmt.format(total)} icon="payments" iconColor="#2e7d32" color="#2e7d32" />
-        <MetricCard label="Items" value={items.length} icon="inventory_2" />
-        <MetricCard label="Average" value={fmt.format(avgCost)} icon="calculate" />
+        <MetricCard label={t("cost.totalCost")} value={fmt.format(total)} icon="payments" iconColor="#2e7d32" color="#2e7d32" />
+        <MetricCard label={t("cost.items")} value={items.length} icon="inventory_2" />
+        <MetricCard label={t("cost.average")} value={fmt.format(avgCost)} icon="calculate" />
         {topDriver && (
           <MetricCard
-            label="Top Cost Driver"
+            label={t("cost.topCostDriver")}
             value={topDriver.name}
             subtitle={`${fmt.format(topDriver.cost)} (${total > 0 ? ((topDriver.cost / total) * 100).toFixed(0) : 0}%)`}
             icon="trending_up"
@@ -353,7 +355,7 @@ export default function CostReport() {
       {view === "chart" ? (
         items.length === 0 ? (
           <Box sx={{ py: 8, textAlign: "center" }}>
-            <Typography color="text.secondary">No cost data found.</Typography>
+            <Typography color="text.secondary">{t("cost.noData")}</Typography>
           </Box>
         ) : (
           <Paper variant="outlined" sx={{ p: 1 }}>
@@ -375,9 +377,9 @@ export default function CostReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>Name</TableSortLabel></TableCell>
-                <TableCell align="right"><TableSortLabel active={sortK === "cost"} direction={sortK === "cost" ? sortD : "asc"} onClick={() => sort("cost")}>Cost</TableSortLabel></TableCell>
-                <TableCell align="right">% of Total</TableCell>
+                <TableCell><TableSortLabel active={sortK === "name"} direction={sortK === "name" ? sortD : "asc"} onClick={() => sort("name")}>{t("common:labels.name")}</TableSortLabel></TableCell>
+                <TableCell align="right"><TableSortLabel active={sortK === "cost"} direction={sortK === "cost" ? sortD : "asc"} onClick={() => sort("cost")}>{t("cost.cost")}</TableSortLabel></TableCell>
+                <TableCell align="right">{t("cost.percentTotal")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -420,7 +422,7 @@ export default function CostReport() {
                 ))
               )}
               <TableRow sx={{ bgcolor: "action.selected" }}>
-                <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{t("cost.total")}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>{fmt.format(total)}</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 700 }}>100%</TableCell>
               </TableRow>

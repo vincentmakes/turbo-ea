@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -22,6 +23,7 @@ import type { Todo, MySurveyItem } from "@/types";
 /* ── Todos sub-panel ─────────────────────────────────────────────────── */
 
 function TodosPanel() {
+  const { t } = useTranslation("common");
   const navigate = useNavigate();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [tab, setTab] = useState(0);
@@ -34,7 +36,7 @@ function TodosPanel() {
   const toggleStatus = async (todo: Todo) => {
     const newStatus = todo.status === "open" ? "done" : "open";
     await api.patch(`/todos/${todo.id}`, { status: newStatus });
-    setTodos(todos.map((t) => (t.id === todo.id ? { ...t, status: newStatus } : t)));
+    setTodos(todos.map((td) => (td.id === todo.id ? { ...td, status: newStatus } : td)));
   };
 
   const handleTodoAction = (todo: Todo) => {
@@ -52,39 +54,39 @@ function TodosPanel() {
   return (
     <>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-        <Tab label="Open" />
-        <Tab label="Done" />
-        <Tab label="All" />
+        <Tab label={t("todos.tabs.open")} />
+        <Tab label={t("todos.tabs.done")} />
+        <Tab label={t("todos.tabs.all")} />
       </Tabs>
 
       <List>
-        {todos.map((t) => (
-          <Card key={t.id} sx={{ mb: 1 }}>
+        {todos.map((todo) => (
+          <Card key={todo.id} sx={{ mb: 1 }}>
             <ListItem>
-              {t.is_system ? (
-                <Tooltip title={t.link ? "Go to document" : ""}>
+              {todo.is_system ? (
+                <Tooltip title={todo.link ? t("todos.goToDocument") : ""}>
                   <IconButton
                     size="small"
-                    onClick={() => handleTodoAction(t)}
+                    onClick={() => handleTodoAction(todo)}
                     sx={{ mr: 1 }}
                   >
                     <MaterialSymbol
-                      icon={t.status === "done" ? "check_circle" : "open_in_new"}
+                      icon={todo.status === "done" ? "check_circle" : "open_in_new"}
                       size={22}
-                      color={t.status === "done" ? "#4caf50" : "#1976d2"}
+                      color={todo.status === "done" ? "#4caf50" : "#1976d2"}
                     />
                   </IconButton>
                 </Tooltip>
               ) : (
                 <IconButton
                   size="small"
-                  onClick={() => toggleStatus(t)}
+                  onClick={() => toggleStatus(todo)}
                   sx={{ mr: 1 }}
                 >
                   <MaterialSymbol
-                    icon={t.status === "done" ? "check_circle" : "radio_button_unchecked"}
+                    icon={todo.status === "done" ? "check_circle" : "radio_button_unchecked"}
                     size={22}
-                    color={t.status === "done" ? "#4caf50" : "#999"}
+                    color={todo.status === "done" ? "#4caf50" : "#999"}
                   />
                 </IconButton>
               )}
@@ -93,38 +95,38 @@ function TodosPanel() {
                   <Typography
                     variant="body1"
                     sx={{
-                      textDecoration: t.status === "done" ? "line-through" : "none",
-                      cursor: (t.is_system && t.link) || t.card_id ? "pointer" : "default",
+                      textDecoration: todo.status === "done" ? "line-through" : "none",
+                      cursor: (todo.is_system && todo.link) || todo.card_id ? "pointer" : "default",
                     }}
                     onClick={() => {
-                      if (t.is_system && t.link) navigate(t.link);
-                      else if (t.card_id) navigate(`/cards/${t.card_id}`);
+                      if (todo.is_system && todo.link) navigate(todo.link);
+                      else if (todo.card_id) navigate(`/cards/${todo.card_id}`);
                     }}
                   >
-                    {t.description}
+                    {todo.description}
                   </Typography>
                 }
                 secondary={
                   <Box sx={{ display: "flex", gap: 1, mt: 0.5, alignItems: "center" }}>
-                    {t.is_system && (
+                    {todo.is_system && (
                       <Chip
                         size="small"
-                        label="Action required"
+                        label={t("todos.actionRequired")}
                         color="warning"
                         variant="outlined"
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}
-                    {t.card_name && (
+                    {todo.card_name && (
                       <Chip
                         size="small"
-                        label={t.card_name}
-                        onClick={() => navigate(`/cards/${t.card_id}`)}
+                        label={todo.card_name}
+                        onClick={() => navigate(`/cards/${todo.card_id}`)}
                         sx={{ cursor: "pointer" }}
                       />
                     )}
-                    {t.due_date && (
-                      <Typography variant="caption">Due: {t.due_date}</Typography>
+                    {todo.due_date && (
+                      <Typography variant="caption">{t("todos.dueDate", { date: todo.due_date })}</Typography>
                     )}
                   </Box>
                 }
@@ -134,7 +136,7 @@ function TodosPanel() {
         ))}
         {todos.length === 0 && (
           <Typography color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
-            No todos found.
+            {t("todos.empty")}
           </Typography>
         )}
       </List>
@@ -145,6 +147,7 @@ function TodosPanel() {
 /* ── Surveys sub-panel ───────────────────────────────────────────────── */
 
 function SurveysPanel() {
+  const { t } = useTranslation("common");
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<MySurveyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,7 +157,7 @@ function SurveysPanel() {
     api
       .get<MySurveyItem[]>("/surveys/my")
       .then(setSurveys)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load surveys"))
+      .catch((e) => setError(e instanceof Error ? e.message : t("errors.generic")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -176,7 +179,7 @@ function SurveysPanel() {
 
       {surveys.length === 0 && (
         <Alert severity="info">
-          No pending surveys. You're all caught up!
+          {t("todos.surveysEmpty")}
         </Alert>
       )}
 
@@ -187,7 +190,7 @@ function SurveysPanel() {
               <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.survey_name}</Typography>
               <Chip
-                label={`${s.pending_count} pending`}
+                label={t("todos.surveyPendingCount", { count: s.pending_count })}
                 size="small"
                 color="warning"
               />
@@ -211,7 +214,7 @@ function SurveysPanel() {
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
                     {item.card_name}
                   </Typography>
-                  <Chip label="Respond" size="small" color="primary" variant="outlined" />
+                  <Chip label={t("todos.respond")} size="small" color="primary" variant="outlined" />
                 </CardActionArea>
               </Card>
             ))}
@@ -225,6 +228,7 @@ function SurveysPanel() {
 /* ── Main page ───────────────────────────────────────────────────────── */
 
 export default function TodosPage() {
+  const { t } = useTranslation("common");
   const [searchParams, setSearchParams] = useSearchParams();
   const section = searchParams.get("tab") === "surveys" ? 1 : 0;
 
@@ -244,7 +248,7 @@ export default function TodosPage() {
   return (
     <Box>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 2 }}>
-        My Tasks
+        {t("todos.title")}
       </Typography>
 
       <Tabs value={section} onChange={handleSectionChange} sx={{ mb: 2 }}>
@@ -256,7 +260,7 @@ export default function TodosPage() {
               max={99}
               sx={{ "& .MuiBadge-badge": { right: -12, top: 2 } }}
             >
-              Todos
+              {t("todos.tabs.todos")}
             </Badge>
           }
         />
@@ -268,7 +272,7 @@ export default function TodosPage() {
               max={99}
               sx={{ "& .MuiBadge-badge": { right: -12, top: 2 } }}
             >
-              Surveys
+              {t("todos.tabs.surveys")}
             </Badge>
           }
         />

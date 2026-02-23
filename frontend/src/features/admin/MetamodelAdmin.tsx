@@ -118,7 +118,7 @@ export default function MetamodelAdmin() {
   /* ---- Derived ---- */
   const displayTypes = showHidden
     ? types
-    : types.filter((t) => !t.is_hidden);
+    : types.filter((ct) => !ct.is_hidden);
 
   const displayRelationTypes = showHiddenRels
     ? relationTypes
@@ -241,7 +241,7 @@ export default function MetamodelAdmin() {
     setDrawerOpen(true);
   }, []);
 
-  const resolveType = (key: string) => types.find((t) => t.key === key);
+  const resolveType = (key: string) => types.find((ct) => ct.key === key);
 
   /* ================================================================ */
   /*  Render                                                           */
@@ -305,29 +305,29 @@ export default function MetamodelAdmin() {
               gap: 2,
             }}
           >
-            {displayTypes.map((t) => {
-              const fieldCount = t.fields_schema.reduce(
+            {displayTypes.map((ct) => {
+              const fieldCount = ct.fields_schema.reduce(
                 (sum, s) => sum + s.fields.length,
                 0,
               );
-              const subtypeCount = (t.subtypes || []).length;
+              const subtypeCount = (ct.subtypes || []).length;
               const relCount = relationTypes.filter(
                 (r) =>
-                  r.source_type_key === t.key ||
-                  r.target_type_key === t.key,
+                  r.source_type_key === ct.key ||
+                  r.target_type_key === ct.key,
               ).length;
 
               return (
                 <Card
-                  key={t.key}
+                  key={ct.key}
                   sx={{
                     cursor: "pointer",
                     transition: "box-shadow 0.2s, transform 0.15s",
                     "&:hover": { boxShadow: 6, transform: "translateY(-2px)" },
-                    opacity: t.is_hidden ? 0.55 : 1,
+                    opacity: ct.is_hidden ? 0.55 : 1,
                   }}
                   onClick={() => {
-                    setSelectedTypeKey(t.key);
+                    setSelectedTypeKey(ct.key);
                     setDrawerOpen(true);
                   }}
                 >
@@ -345,7 +345,7 @@ export default function MetamodelAdmin() {
                           width: 40,
                           height: 40,
                           borderRadius: "50%",
-                          bgcolor: t.color,
+                          bgcolor: ct.color,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -353,37 +353,37 @@ export default function MetamodelAdmin() {
                         }}
                       >
                         <MaterialSymbol
-                          icon={t.icon}
+                          icon={ct.icon}
                           size={22}
                           color="#fff"
                         />
                       </Box>
                       <Box sx={{ minWidth: 0, flex: 1 }}>
                         <Typography fontWeight={600} noWrap>
-                          {t.label}
+                          {ct.label}
                         </Typography>
                         <Typography
                           variant="caption"
                           color="text.secondary"
                           noWrap
                         >
-                          {t.category || t("metamodel.uncategorized")}
+                          {ct.category || t("metamodel.uncategorized")}
                         </Typography>
                       </Box>
-                      <Tooltip title={t.is_hidden ? "Unhide" : "Hide"}>
+                      <Tooltip title={ct.is_hidden ? t("common:actions.restore") : t("metamodel.hidden")}>
                         <IconButton
                           size="small"
                           onClick={(e) => {
                             e.stopPropagation();
                             api
-                              .patch(`/metamodel/types/${t.key}`, { is_hidden: !t.is_hidden })
+                              .patch(`/metamodel/types/${ct.key}`, { is_hidden: !ct.is_hidden })
                               .then(refresh);
                           }}
                         >
                           <MaterialSymbol
-                            icon={t.is_hidden ? "visibility_off" : "visibility"}
+                            icon={ct.is_hidden ? "visibility_off" : "visibility"}
                             size={18}
-                            color={t.is_hidden ? "#f57c00" : "#bbb"}
+                            color={ct.is_hidden ? "#f57c00" : "#bbb"}
                           />
                         </IconButton>
                       </Tooltip>
@@ -397,26 +397,26 @@ export default function MetamodelAdmin() {
                         mb: 1,
                       }}
                     >
-                      {t.has_hierarchy && (
+                      {ct.has_hierarchy && (
                         <Chip
                           size="small"
-                          label="Hierarchy"
+                          label={t("metamodel.hierarchy")}
                           variant="outlined"
                           sx={{ height: 22, fontSize: 11 }}
                         />
                       )}
-                      {t.built_in && (
+                      {ct.built_in && (
                         <Chip
                           size="small"
-                          label="Built-in"
+                          label={t("metamodel.builtIn")}
                           color="info"
                           sx={{ height: 22, fontSize: 11 }}
                         />
                       )}
-                      {t.is_hidden && (
+                      {ct.is_hidden && (
                         <Chip
                           size="small"
-                          label="Hidden"
+                          label={t("metamodel.hidden")}
                           sx={{ height: 22, fontSize: 11 }}
                         />
                       )}
@@ -424,13 +424,13 @@ export default function MetamodelAdmin() {
 
                     <Box sx={{ display: "flex", gap: 2 }}>
                       <Typography variant="caption" color="text.secondary">
-                        {fieldCount} field{fieldCount !== 1 ? "s" : ""}
+                        {t("metamodel.fields", { count: fieldCount })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {subtypeCount} subtype{subtypeCount !== 1 ? "s" : ""}
+                        {t("metamodel.subtypes", { count: subtypeCount })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {relCount} relation{relCount !== 1 ? "s" : ""}
+                        {t("metamodel.relations", { count: relCount })}
                       </Typography>
                     </Box>
                   </CardContent>
@@ -445,7 +445,7 @@ export default function MetamodelAdmin() {
               color="text.secondary"
               sx={{ mt: 2, textAlign: "center" }}
             >
-              No card types found.
+              {t("metamodel.noCardTypes")}
             </Typography>
           )}
         </Box>
@@ -471,14 +471,14 @@ export default function MetamodelAdmin() {
                   onChange={(e) => setShowHiddenRels(e.target.checked)}
                 />
               }
-              label="Show hidden relations"
+              label={t("metamodel.showHiddenRelations")}
             />
             <Button
               variant="contained"
               startIcon={<MaterialSymbol icon="add" size={18} />}
               onClick={() => openCreateRelation()}
             >
-              New Relation
+              {t("metamodel.newRelation")}
             </Button>
           </Box>
 
@@ -590,7 +590,7 @@ export default function MetamodelAdmin() {
                     {rt.built_in && (
                       <Chip
                         size="small"
-                        label="Built-in"
+                        label={t("metamodel.builtIn")}
                         color="info"
                         sx={{ height: 22, fontSize: 11 }}
                       />
@@ -598,14 +598,14 @@ export default function MetamodelAdmin() {
                     {rt.is_hidden && (
                       <Chip
                         size="small"
-                        label="Hidden"
+                        label={t("metamodel.hidden")}
                         color="warning"
                         sx={{ height: 22, fontSize: 11 }}
                       />
                     )}
 
                     {rt.is_hidden ? (
-                      <Tooltip title="Restore">
+                      <Tooltip title={t("common:actions.restore")}>
                         <IconButton
                           size="small"
                           onClick={() => handleRestoreRelation(rt.key)}
@@ -615,7 +615,7 @@ export default function MetamodelAdmin() {
                       </Tooltip>
                     ) : (
                       <>
-                        <Tooltip title="Edit">
+                        <Tooltip title={t("common:actions.edit")}>
                           <IconButton
                             size="small"
                             onClick={() => {
@@ -626,7 +626,7 @@ export default function MetamodelAdmin() {
                             <MaterialSymbol icon="edit" size={18} />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Delete">
+                        <Tooltip title={t("common:actions.delete")}>
                           <IconButton
                             size="small"
                             onClick={() => promptDeleteRelation(rt)}
@@ -648,7 +648,7 @@ export default function MetamodelAdmin() {
               color="text.secondary"
               sx={{ textAlign: "center", mt: 2 }}
             >
-              No relation types defined yet.
+              {t("metamodel.noRelationTypes")}
             </Typography>
           )}
         </Box>
@@ -697,11 +697,11 @@ export default function MetamodelAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Create Card Type</DialogTitle>
+        <DialogTitle>{t("metamodel.createCardType")}</DialogTitle>
         <DialogContent>
           <KeyInput
             fullWidth
-            label="Key (e.g. my_custom_type)"
+            label={t("metamodel.keyLabel")}
             value={newType.key}
             onChange={(v) => setNewType({ ...newType, key: v })}
             sx={{ mt: 1, mb: 2 }}
@@ -709,14 +709,14 @@ export default function MetamodelAdmin() {
           />
           <TextField
             fullWidth
-            label="Label"
+            label={t("common:labels.name")}
             value={newType.label}
             onChange={(e) => setNewType({ ...newType, label: e.target.value })}
             sx={{ mb: 2 }}
           />
           <TextField
             fullWidth
-            label="Description"
+            label={t("common:labels.description")}
             value={newType.description}
             onChange={(e) =>
               setNewType({ ...newType, description: e.target.value })
@@ -725,7 +725,7 @@ export default function MetamodelAdmin() {
           />
           <TextField
             fullWidth
-            label="Icon (Material Symbol name)"
+            label={t("metamodel.iconLabel")}
             value={newType.icon}
             onChange={(e) => setNewType({ ...newType, icon: e.target.value })}
             sx={{ mb: 2 }}
@@ -734,14 +734,14 @@ export default function MetamodelAdmin() {
             <ColorPicker
               value={newType.color}
               onChange={(c) => setNewType({ ...newType, color: c })}
-              label="Color"
+              label={t("tags.color")}
             />
           </Box>
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Category</InputLabel>
+            <InputLabel>{t("metamodel.category")}</InputLabel>
             <Select
               value={newType.category}
-              label="Category"
+              label={t("metamodel.category")}
               onChange={(e) =>
                 setNewType({ ...newType, category: e.target.value })
               }
@@ -762,17 +762,17 @@ export default function MetamodelAdmin() {
                 }
               />
             }
-            label="Supports Hierarchy (Parent / Child)"
+            label={t("metamodel.supportsHierarchy")}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateTypeOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateTypeOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreateType}
             disabled={!newType.key || !newType.label || !isValidKey(newType.key)}
           >
-            Create
+            {t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -787,13 +787,13 @@ export default function MetamodelAdmin() {
         fullWidth
         disableRestoreFocus
       >
-        <DialogTitle>Create Relation Type</DialogTitle>
+        <DialogTitle>{t("metamodel.createRelationType")}</DialogTitle>
         <DialogContent>
           <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
-            <InputLabel>Source Type</InputLabel>
+            <InputLabel>{t("metamodel.sourceType")}</InputLabel>
             <Select
               value={newRel.source_type_key}
-              label="Source Type"
+              label={t("metamodel.sourceType")}
               onChange={(e) => {
                 const src = e.target.value;
                 setNewRel({
@@ -806,8 +806,8 @@ export default function MetamodelAdmin() {
                 });
               }}
             >
-              {types.map((t) => (
-                <MenuItem key={t.key} value={t.key}>
+              {types.map((ct) => (
+                <MenuItem key={ct.key} value={ct.key}>
                   <Box
                     sx={{ display: "flex", alignItems: "center", gap: 1 }}
                   >
@@ -816,11 +816,11 @@ export default function MetamodelAdmin() {
                         width: 12,
                         height: 12,
                         borderRadius: "50%",
-                        bgcolor: t.color,
+                        bgcolor: ct.color,
                       }}
                     />
-                    <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                    {t.label}
+                    <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
+                    {ct.label}
                   </Box>
                 </MenuItem>
               ))}
@@ -828,10 +828,10 @@ export default function MetamodelAdmin() {
           </FormControl>
 
           <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Target Type</InputLabel>
+            <InputLabel>{t("metamodel.targetType")}</InputLabel>
             <Select
               value={newRel.target_type_key}
-              label="Target Type"
+              label={t("metamodel.targetType")}
               onChange={(e) => {
                 const tgt = e.target.value;
                 setNewRel({
@@ -844,8 +844,8 @@ export default function MetamodelAdmin() {
                 });
               }}
             >
-              {types.map((t) => (
-                <MenuItem key={t.key} value={t.key}>
+              {types.map((ct) => (
+                <MenuItem key={ct.key} value={ct.key}>
                   <Box
                     sx={{ display: "flex", alignItems: "center", gap: 1 }}
                   >
@@ -854,11 +854,11 @@ export default function MetamodelAdmin() {
                         width: 12,
                         height: 12,
                         borderRadius: "50%",
-                        bgcolor: t.color,
+                        bgcolor: ct.color,
                       }}
                     />
-                    <MaterialSymbol icon={t.icon} size={16} color={t.color} />
-                    {t.label}
+                    <MaterialSymbol icon={ct.icon} size={16} color={ct.color} />
+                    {ct.label}
                   </Box>
                 </MenuItem>
               ))}
@@ -867,7 +867,7 @@ export default function MetamodelAdmin() {
 
           <KeyInput
             fullWidth
-            label="Key"
+            label={t("metamodel.keyLabel")}
             value={newRel.key || autoRelKey}
             onChange={(v) => setNewRel({ ...newRel, key: v })}
             sx={{ mb: 2 }}
@@ -875,14 +875,14 @@ export default function MetamodelAdmin() {
           />
           <TextField
             fullWidth
-            label='Label (verb, e.g., "uses")'
+            label={t("metamodel.labelVerb")}
             value={newRel.label}
             onChange={(e) => setNewRel({ ...newRel, label: e.target.value })}
             sx={{ mb: 2 }}
           />
           <TextField
             fullWidth
-            label='Reverse Label (e.g., "is used by")'
+            label={t("metamodel.reverseLabel")}
             value={newRel.reverse_label}
             onChange={(e) =>
               setNewRel({ ...newRel, reverse_label: e.target.value })
@@ -890,10 +890,10 @@ export default function MetamodelAdmin() {
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth>
-            <InputLabel>Cardinality</InputLabel>
+            <InputLabel>{t("metamodel.cardinality")}</InputLabel>
             <Select
               value={newRel.cardinality}
-              label="Cardinality"
+              label={t("metamodel.cardinality")}
               onChange={(e) =>
                 setNewRel({
                   ...newRel,
@@ -910,7 +910,7 @@ export default function MetamodelAdmin() {
           </FormControl>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateRelOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateRelOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             onClick={handleCreateRelation}
@@ -922,7 +922,7 @@ export default function MetamodelAdmin() {
               !isValidKey(newRel.key || autoRelKey)
             }
           >
-            Create
+            {t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -937,7 +937,7 @@ export default function MetamodelAdmin() {
         fullWidth
         disableRestoreFocus
       >
-        <DialogTitle>Edit Relation Type</DialogTitle>
+        <DialogTitle>{t("metamodel.editRelationType")}</DialogTitle>
         {editRel && (
           <>
             <DialogContent>
@@ -966,7 +966,7 @@ export default function MetamodelAdmin() {
               </Box>
               <TextField
                 fullWidth
-                label="Label"
+                label={t("common:labels.name")}
                 value={editRel.label}
                 onChange={(e) =>
                   setEditRel({ ...editRel, label: e.target.value })
@@ -975,7 +975,7 @@ export default function MetamodelAdmin() {
               />
               <TextField
                 fullWidth
-                label="Reverse Label"
+                label={t("metamodel.reverseLabel")}
                 value={editRel.reverse_label || ""}
                 onChange={(e) =>
                   setEditRel({
@@ -986,10 +986,10 @@ export default function MetamodelAdmin() {
                 sx={{ mb: 2 }}
               />
               <FormControl fullWidth>
-                <InputLabel>Cardinality</InputLabel>
+                <InputLabel>{t("metamodel.cardinality")}</InputLabel>
                 <Select
                   value={editRel.cardinality}
-                  label="Cardinality"
+                  label={t("metamodel.cardinality")}
                   onChange={(e) =>
                     setEditRel({
                       ...editRel,
@@ -1006,9 +1006,9 @@ export default function MetamodelAdmin() {
               </FormControl>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setEditRelOpen(false)}>Cancel</Button>
+              <Button onClick={() => setEditRelOpen(false)}>{t("common:actions.cancel")}</Button>
               <Button variant="contained" onClick={handleUpdateRelation}>
-                Save
+                {t("common:actions.save")}
               </Button>
             </DialogActions>
           </>
@@ -1025,7 +1025,7 @@ export default function MetamodelAdmin() {
         fullWidth
         disableRestoreFocus
       >
-        <DialogTitle>Delete Relation Type?</DialogTitle>
+        <DialogTitle>{t("metamodel.deleteRelationType")}</DialogTitle>
         <DialogContent>
           {deleteRelConfirm && (
             <>
@@ -1038,27 +1038,22 @@ export default function MetamodelAdmin() {
                 </Box>
               ) : deleteRelConfirm.instanceCount > 0 ? (
                 <Alert severity="warning">
-                  This relation type has{" "}
-                  <strong>{deleteRelConfirm.instanceCount}</strong> relation
-                  instance(s) linking cards together. Deleting it will
-                  permanently remove all of them.
+                  <span dangerouslySetInnerHTML={{ __html: t("metamodel.deleteRelHasInstances", { count: deleteRelConfirm.instanceCount }) }} />
                 </Alert>
               ) : deleteRelConfirm.builtIn ? (
                 <Alert severity="info">
-                  This built-in relation type will be hidden and can be
-                  restored later.
+                  {t("metamodel.deleteRelBuiltInHidden")}
                 </Alert>
               ) : (
                 <Alert severity="info">
-                  This relation type has no instances and will be permanently
-                  deleted.
+                  {t("metamodel.deleteRelNoInstances")}
                 </Alert>
               )}
             </>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteRelConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteRelConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color="error"
@@ -1066,8 +1061,8 @@ export default function MetamodelAdmin() {
             onClick={confirmDeleteRelation}
           >
             {deleteRelConfirm?.builtIn && deleteRelConfirm.instanceCount === 0
-              ? "Hide"
-              : "Delete"}
+              ? t("metamodel.hidden")
+              : t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

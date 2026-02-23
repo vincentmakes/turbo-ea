@@ -214,7 +214,7 @@ export default function RelationCellPopover({
               return (
                 <Chip
                   key={r.id}
-                  label={other?.name || "Unknown"}
+                  label={other?.name || t("relation.unknown")}
                   onDelete={() => handleDelete(r.id)}
                   icon={otherType ? <MaterialSymbol icon={otherType.icon} size={16} color={otherType.color} /> : undefined}
                   sx={{ maxWidth: "100%" }}

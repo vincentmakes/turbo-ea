@@ -435,7 +435,7 @@ export default function InventoryPage() {
       }
     }
     return fields;
-  }, [typeConfig]);
+  }, [typeConfig, t]);
 
   const currentMassField = massEditableFields.find((f) => f.key === massEditField);
 

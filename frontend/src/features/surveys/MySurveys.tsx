@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -12,6 +13,7 @@ import { api } from "@/api/client";
 import type { MySurveyItem } from "@/types";
 
 export default function MySurveys() {
+  const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const [surveys, setSurveys] = useState<MySurveyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,7 @@ export default function MySurveys() {
         const data = await api.get<MySurveyItem[]>("/surveys/my");
         setSurveys(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load surveys");
+        setError(e instanceof Error ? e.message : t("surveys.my.error.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -44,7 +46,7 @@ export default function MySurveys() {
       <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
         <MaterialSymbol icon="assignment" size={28} color="#1976d2" />
         <Typography variant="h5" sx={{ ml: 1, fontWeight: 700 }}>
-          My Surveys
+          {t("surveys.my.title")}
         </Typography>
       </Box>
 
@@ -56,7 +58,7 @@ export default function MySurveys() {
 
       {surveys.length === 0 && (
         <Alert severity="info">
-          No pending surveys. You're all caught up!
+          {t("surveys.my.empty")}
         </Alert>
       )}
 
@@ -67,7 +69,7 @@ export default function MySurveys() {
               <MaterialSymbol icon="assignment" size={22} color="#1976d2" />
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{s.survey_name}</Typography>
               <Chip
-                label={`${s.pending_count} pending`}
+                label={t("surveys.my.pending", { count: s.pending_count })}
                 size="small"
                 color="warning"
               />
@@ -91,7 +93,7 @@ export default function MySurveys() {
                   <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
                     {item.card_name}
                   </Typography>
-                  <Chip label="Respond" size="small" color="primary" variant="outlined" />
+                  <Chip label={t("surveys.my.respond")} size="small" color="primary" variant="outlined" />
                 </CardActionArea>
               </Card>
             ))}

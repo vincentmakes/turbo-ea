@@ -177,7 +177,7 @@ export default function SoAWPreview() {
             sx={{ textTransform: "none" }}
             onClick={() => navigate(`/ea-delivery/soaw/${id}`)}
           >
-            Edit
+            {t("common:actions.edit")}
           </Button>
         )}
       </Box>
@@ -209,10 +209,10 @@ export default function SoAWPreview() {
               color={soaw.status === "signed" ? "#2e7d32" : "#ed6c02"}
             />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Signatures
+              {t("editor.signatures")}
             </Typography>
             {soaw.status === "signed" && (
-              <Chip label="Fully Signed" size="small" color="success" />
+              <Chip label={t("editor.fullySigned")} size="small" color="success" />
             )}
           </Box>
           <Box
@@ -250,7 +250,7 @@ export default function SoAWPreview() {
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "success.dark" }}
                       >
-                        Approved
+                        {t("editor.sigApproved")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -266,10 +266,9 @@ export default function SoAWPreview() {
                       color="text.secondary"
                       sx={{ display: "block", mt: 0.5 }}
                     >
-                      Signed:{" "}
-                      {sig.signed_at
+                      {t("editor.sigSignedAt", { date: sig.signed_at
                         ? new Date(sig.signed_at).toLocaleString()
-                        : "N/A"}
+                        : "N/A" })}
                     </Typography>
                   </>
                 ) : (
@@ -287,7 +286,7 @@ export default function SoAWPreview() {
                         variant="subtitle2"
                         sx={{ fontWeight: 700, color: "warning.dark" }}
                       >
-                        Pending
+                        {t("editor.sigPending")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>

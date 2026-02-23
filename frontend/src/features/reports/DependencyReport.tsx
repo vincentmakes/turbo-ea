@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -342,6 +343,7 @@ function computeTreeLayout(
 /* ------------------------------------------------------------------ */
 
 export default function DependencyReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { types } = useMetamodel();
   const saved = useSavedReport("dependencies");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -522,11 +524,11 @@ export default function DependencyReport() {
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     if (cardTypeKey) {
-      const typeLabel = types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey;
-      params.push({ label: "Type", value: typeLabel });
+      const typeLabel = types.find((tp) => tp.key === cardTypeKey)?.label || cardTypeKey;
+      params.push({ label: t("common:labels.type"), value: typeLabel });
     }
-    if (centerNode) params.push({ label: "Center", value: centerNode.name });
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
   }, [cardTypeKey, types, centerNode, view]);
 
@@ -543,7 +545,7 @@ export default function DependencyReport() {
 
   return (
     <ReportShell
-      title="Dependencies"
+      title={t("dependency.title")}
       icon="hub"
       iconColor="#6a1b9a"
       view={view}
@@ -559,7 +561,7 @@ export default function DependencyReport() {
           <TextField
             select
             size="small"
-            label="Type"
+            label={t("common:labels.type")}
             value={cardTypeKey}
             onChange={(e) => {
               setCardTypeKey(e.target.value);
@@ -568,10 +570,10 @@ export default function DependencyReport() {
             }}
             sx={{ minWidth: 150 }}
           >
-            <MenuItem value="">All Types</MenuItem>
-            {types.filter((t) => !t.is_hidden).map((t) => (
-              <MenuItem key={t.key} value={t.key}>
-                {t.label}
+            <MenuItem value="">{t("dependency.allTypes")}</MenuItem>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => (
+              <MenuItem key={tp.key} value={tp.key}>
+                {tp.label}
               </MenuItem>
             ))}
           </TextField>
@@ -607,13 +609,13 @@ export default function DependencyReport() {
               </li>
             )}
             renderInput={(params) => (
-              <TextField {...params} label="Center on" sx={{ minWidth: 220 }} />
+              <TextField {...params} label={t("dependency.centerOn")} sx={{ minWidth: 220 }} />
             )}
             sx={{ minWidth: 220 }}
           />
 
           {center && (
-            <Tooltip title="Collapse all branches">
+            <Tooltip title={t("dependency.collapseAll")}>
               <IconButton size="small" onClick={collapseAll}>
                 <MaterialSymbol icon="unfold_less" size={20} />
               </IconButton>
@@ -804,10 +806,10 @@ export default function DependencyReport() {
                       <span>
                         <strong>{tl(card.node.type, types)}</strong>
                         {" · "}
-                        {card.connectionCount} connections
-                        {card.isDuplicate ? " · Also appears elsewhere" : ""}
+                        {t("dependency.connections", { count: card.connectionCount })}
+                        {card.isDuplicate ? ` · ${t("dependency.alsoAppears")}` : ""}
                         <br />
-                        <em>Click to expand · Right-click to re-center</em>
+                        <em>{t("dependency.clickHint")}</em>
                       </span>
                     }
                     placement="top"
@@ -934,7 +936,7 @@ export default function DependencyReport() {
                       )}
 
                       {card.isDuplicate && !card.isRoot && (
-                        <Tooltip title="Also appears elsewhere in this tree" arrow>
+                        <Tooltip title={t("dependency.alsoAppearsTree")} arrow>
                           <Box sx={{ display: "flex" }}>
                             <MaterialSymbol icon="link" size={14} color="#bbb" />
                           </Box>
@@ -942,7 +944,7 @@ export default function DependencyReport() {
                       )}
 
                       {/* Open in new tab */}
-                      <Tooltip title="Open card" arrow>
+                      <Tooltip title={t("dependency.openCard")} arrow>
                         <IconButton
                           size="small"
                           sx={{ p: 0.25, ml: "auto" }}
@@ -997,7 +999,7 @@ export default function DependencyReport() {
             >
               <Chip
                 size="small"
-                label={`${layout.cards.length} nodes · ${layout.connections.length} relations`}
+                label={t("dependency.stats", { nodes: layout.cards.length, relations: layout.connections.length })}
                 variant="outlined"
                 sx={{ bgcolor: "background.paper" }}
               />
@@ -1011,11 +1013,10 @@ export default function DependencyReport() {
               <Box sx={{ textAlign: "center", mb: 2 }}>
                 <MaterialSymbol icon="account_tree" size={44} color="#bbb" />
                 <Typography variant="h6" color="text.secondary" sx={{ mt: 0.5 }}>
-                  Select a card to explore
+                  {t("dependency.selectCard")}
                 </Typography>
                 <Typography variant="body2" color="text.disabled" sx={{ maxWidth: 400, mx: "auto" }}>
-                  Search and pick a starting point. Click to center, then expand
-                  branches interactively.
+                  {t("dependency.selectHint")}
                 </Typography>
               </Box>
 
@@ -1023,7 +1024,7 @@ export default function DependencyReport() {
               <TextField
                 size="small"
                 fullWidth
-                placeholder="Search cards..."
+                placeholder={t("dependency.searchCards")}
                 value={pickerSearch}
                 onChange={(e) => setPickerSearch(e.target.value)}
                 InputProps={{
@@ -1051,7 +1052,7 @@ export default function DependencyReport() {
               {/* Type filter chips */}
               <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap", mb: 1.5 }}>
                 <Chip
-                  label="All"
+                  label={t("dependency.all")}
                   size="small"
                   variant={pickerTypeFilter === null ? "filled" : "outlined"}
                   onClick={() => setPickerTypeFilter(null)}
@@ -1103,8 +1104,8 @@ export default function DependencyReport() {
               <Box sx={{ py: 4, textAlign: "center" }}>
                 <Typography color="text.disabled" variant="body2">
                   {nodes.length === 0
-                    ? "No cards found."
-                    : "No results match your search."}
+                    ? t("dependency.noCards")
+                    : t("dependency.noResults")}
                 </Typography>
               </Box>
             ) : (
@@ -1217,9 +1218,9 @@ export default function DependencyReport() {
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell>Source</TableCell>
-                <TableCell>Relation</TableCell>
-                <TableCell>Target</TableCell>
+                <TableCell>{t("dependency.source")}</TableCell>
+                <TableCell>{t("dependency.relation")}</TableCell>
+                <TableCell>{t("dependency.target")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

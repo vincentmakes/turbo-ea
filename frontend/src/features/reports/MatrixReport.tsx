@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -92,6 +93,7 @@ const depthCounterStyle: React.CSSProperties = {
 };
 
 export default function MatrixReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
   const cellBorder = `1px solid ${theme.palette.divider}`;
@@ -423,16 +425,16 @@ export default function MatrixReport() {
   const rowLabel = rowMeta?.label || rowType;
   const colLabel = colMeta?.label || colType;
 
-  const sortModeLabel = (m: SortMode) => m === "alpha" ? "A\u2192Z" : m === "count" ? "By count" : "Hierarchy";
+  const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.sortAlpha") : m === "count" ? t("matrix.sortByCount") : t("matrix.sortHierarchy");
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    params.push({ label: "Rows", value: rowLabel });
-    params.push({ label: "Columns", value: colLabel });
-    params.push({ label: "Cell", value: cellMode === "exists" ? "Exists (dot)" : "Count (heatmap)" });
-    params.push({ label: "Sort Rows", value: sortModeLabel(sortRows) });
-    params.push({ label: "Sort Columns", value: sortModeLabel(sortCols) });
+    params.push({ label: t("matrix.rows"), value: rowLabel });
+    params.push({ label: t("matrix.columns"), value: colLabel });
+    params.push({ label: t("matrix.cell"), value: cellMode === "exists" ? t("matrix.existsDot") : t("matrix.countHeatmap") });
+    params.push({ label: t("matrix.sortRows"), value: sortModeLabel(sortRows) });
+    params.push({ label: t("matrix.sortColumns"), value: sortModeLabel(sortCols) });
     return params;
-  }, [rowLabel, colLabel, cellMode, sortRows, sortCols]);
+  }, [rowLabel, colLabel, cellMode, sortRows, sortCols, t]);
 
   if (ml || data === null)
     return <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}><CircularProgress /></Box>;
@@ -442,7 +444,7 @@ export default function MatrixReport() {
 
   return (
     <ReportShell
-      title="Matrix"
+      title={t("matrix.title")}
       icon="table_chart"
       iconColor="#6a1b9a"
       hasTableToggle={false}
@@ -455,25 +457,25 @@ export default function MatrixReport() {
       onReset={handleReset}
       toolbar={
         <>
-          <TextField select size="small" label="Rows" value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+          <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Columns" value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+          <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Cell Display" value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 140 }}>
-            <MenuItem value="exists">Exists (dot)</MenuItem>
-            <MenuItem value="count">Count (heatmap)</MenuItem>
+          <TextField select size="small" label={t("matrix.cellDisplay")} value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 140 }}>
+            <MenuItem value="exists">{t("matrix.existsDot")}</MenuItem>
+            <MenuItem value="count">{t("matrix.countHeatmap")}</MenuItem>
           </TextField>
-          <TextField select size="small" label="Sort Rows" value={sortRows} onChange={(e) => setSortRows(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
-            <MenuItem value="alpha">A → Z</MenuItem>
-            <MenuItem value="count">By count</MenuItem>
-            {rowHasHierarchy && <MenuItem value="hierarchy">Hierarchy</MenuItem>}
+          <TextField select size="small" label={t("matrix.sortRows")} value={sortRows} onChange={(e) => setSortRows(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
+            <MenuItem value="alpha">{t("matrix.sortAlpha")}</MenuItem>
+            <MenuItem value="count">{t("matrix.sortByCount")}</MenuItem>
+            {rowHasHierarchy && <MenuItem value="hierarchy">{t("matrix.sortHierarchy")}</MenuItem>}
           </TextField>
-          <TextField select size="small" label="Sort Columns" value={sortCols} onChange={(e) => setSortCols(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
-            <MenuItem value="alpha">A → Z</MenuItem>
-            <MenuItem value="count">By count</MenuItem>
-            {colHasHierarchy && <MenuItem value="hierarchy">Hierarchy</MenuItem>}
+          <TextField select size="small" label={t("matrix.sortColumns")} value={sortCols} onChange={(e) => setSortCols(e.target.value as SortMode)} sx={{ minWidth: 130 }}>
+            <MenuItem value="alpha">{t("matrix.sortAlpha")}</MenuItem>
+            <MenuItem value="count">{t("matrix.sortByCount")}</MenuItem>
+            {colHasHierarchy && <MenuItem value="hierarchy">{t("matrix.sortHierarchy")}</MenuItem>}
           </TextField>
         </>
       }
@@ -482,13 +484,13 @@ export default function MatrixReport() {
       <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap" }}>
         <MetricCard label={rowLabel} value={data.rows.length} icon={rowMeta?.icon || "table_rows"} iconColor={rowMeta?.color} color={rowMeta?.color} />
         <MetricCard label={colLabel} value={data.columns.length} icon={colMeta?.icon || "view_column"} iconColor={colMeta?.color} color={colMeta?.color} />
-        <MetricCard label="Relations" value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
-        <MetricCard label="Coverage" value={`${coverage}%`} icon="percent" />
+        <MetricCard label={t("matrix.relations")} value={totalIntersections} icon="link" iconColor="#6a1b9a" color="#6a1b9a" />
+        <MetricCard label={t("matrix.coverage")} value={`${coverage}%`} icon="percent" />
       </Box>
 
       {data.rows.length === 0 || data.columns.length === 0 ? (
         <Box sx={{ py: 8, textAlign: "center" }}>
-          <Typography color="text.secondary">No data found for this combination.</Typography>
+          <Typography color="text.secondary">{t("matrix.noData")}</Typography>
         </Box>
       ) : (
         <Paper
@@ -545,7 +547,7 @@ export default function MatrixReport() {
                             alignItems: "center",
                             gap: 3,
                           }}>
-                            <Tooltip title="Collapse rows">
+                            <Tooltip title={t("matrix.collapseRows")}>
                               <span
                                 style={depthBtnStyle(effectiveRowDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth > 0) setRowExpandedDepth((p) => Math.max(0, Math.min(p, rowTreeFull!.maxDepth) - 1)); }}
@@ -554,7 +556,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveRowDepth}/{rowTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand rows">
+                            <Tooltip title={t("matrix.expandRows")}>
                               <span
                                 style={depthBtnStyle(effectiveRowDepth >= rowTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveRowDepth < rowTreeFull!.maxDepth) setRowExpandedDepth((p) => Math.min(rowTreeFull!.maxDepth, (p === Infinity ? rowTreeFull!.maxDepth : p) + 1)); }}
@@ -576,7 +578,7 @@ export default function MatrixReport() {
                             alignItems: "center",
                             gap: 1,
                           }}>
-                            <Tooltip title="Collapse columns" placement="right">
+                            <Tooltip title={t("matrix.collapseColumns")} placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth <= 0)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth > 0) setColExpandedDepth((p) => Math.max(0, Math.min(p, colTreeFull!.maxDepth) - 1)); }}
@@ -585,7 +587,7 @@ export default function MatrixReport() {
                               </span>
                             </Tooltip>
                             <span style={depthCounterStyle}>{effectiveColDepth}/{colTreeFull!.maxDepth}</span>
-                            <Tooltip title="Expand columns" placement="right">
+                            <Tooltip title={t("matrix.expandColumns")} placement="right">
                               <span
                                 style={depthBtnStyle(effectiveColDepth >= colTreeFull!.maxDepth)}
                                 onClick={(e) => { e.stopPropagation(); if (effectiveColDepth < colTreeFull!.maxDepth) setColExpandedDepth((p) => Math.min(colTreeFull!.maxDepth, (p === Infinity ? colTreeFull!.maxDepth : p) + 1)); }}

@@ -93,6 +93,7 @@
   "relation.typeToSearch": "Type to search...",
   "relation.createNew": "Create new {{type}}",
   "relation.createAndAdd": "Create & Add",
+  "relation.unknown": "Unknown",
   "relation.addFailed": "Failed to add relation",
   "relation.removeFailed": "Failed to remove relation",
   "relation.createFailed": "Failed to create",

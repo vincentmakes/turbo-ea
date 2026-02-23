@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
@@ -97,11 +98,11 @@ function Icon({
   );
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  responsible: "Responsible",
-  observer: "Observer",
-  technical_application_owner: "Technical Owner",
-  business_application_owner: "Business Owner",
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  responsible: "portal.roles.responsible",
+  observer: "portal.roles.observer",
+  technical_application_owner: "portal.roles.technical_application_owner",
+  business_application_owner: "portal.roles.business_application_owner",
 };
 
 function initials(name: string): string {
@@ -113,14 +114,14 @@ function initials(name: string): string {
     .slice(0, 2);
 }
 
-function LifecycleBar({ lifecycle }: { lifecycle?: Record<string, string> }) {
+function LifecycleBar({ lifecycle, t }: { lifecycle?: Record<string, string>; t: (key: string) => string }) {
   if (!lifecycle) return null;
   const phases = [
-    { key: "plan", label: "Plan", color: "#90caf9" },
-    { key: "phaseIn", label: "Phase In", color: "#66bb6a" },
-    { key: "active", label: "Active", color: "#4caf50" },
-    { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
-    { key: "endOfLife", label: "End of Life", color: "#f44336" },
+    { key: "plan", label: t("lifecycle.plan"), color: "#90caf9" },
+    { key: "phaseIn", label: t("lifecycle.phaseIn"), color: "#66bb6a" },
+    { key: "active", label: t("lifecycle.active"), color: "#4caf50" },
+    { key: "phaseOut", label: t("lifecycle.phaseOut"), color: "#ff9800" },
+    { key: "endOfLife", label: t("lifecycle.endOfLife"), color: "#f44336" },
   ];
   const filled = phases.filter((p) => lifecycle[p.key]);
   if (filled.length === 0) return null;
@@ -235,6 +236,7 @@ function FieldValue({
 }
 
 export default function PortalViewer() {
+  const { t } = useTranslation("common");
   const { slug } = useParams<{ slug: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -415,10 +417,10 @@ export default function PortalViewer() {
       >
         <Icon name="error_outline" size={64} color="#bbb" />
         <Typography variant="h5" color="text.secondary">
-          {error || "Portal not found"}
+          {error || t("portal.notFound")}
         </Typography>
         <Typography variant="body2" color="text.disabled">
-          This portal may not exist or may not be published yet.
+          {t("portal.notFoundHint")}
         </Typography>
       </Box>
     );
@@ -482,8 +484,7 @@ export default function PortalViewer() {
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-                {total} {portal.type_info?.label || "item"}
-                {total !== 1 ? "s" : ""}
+                {t("portal.itemCount", { count: total, label: portal.type_info?.label || "item" })}
               </Typography>
             </Box>
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -19,9 +20,9 @@ import { api } from "@/api/client";
 import type { SurveyRespondForm, SurveyField } from "@/types";
 
 /** Resolve a value to its display label using field options when available. */
-function formatValue(val: unknown, field?: SurveyField & { current_value?: unknown }): string {
+function formatValue(val: unknown, field?: SurveyField & { current_value?: unknown }, t?: (key: string) => string): string {
   if (val === null || val === undefined || val === "") return "—";
-  if (typeof val === "boolean") return val ? "Yes" : "No";
+  if (typeof val === "boolean") return val ? (t ? t("common:labels.yes") : "Yes") : (t ? t("common:labels.no") : "No");
 
   const opts = field?.options;
   if (opts && opts.length > 0) {
@@ -44,6 +45,7 @@ interface FieldResponse {
 }
 
 export default function SurveyRespond() {
+  const { t } = useTranslation(["admin", "common"]);
   const { surveyId, cardId } = useParams<{ surveyId: string; cardId: string }>();
   const navigate = useNavigate();
 
@@ -89,7 +91,7 @@ export default function SurveyRespond() {
           setSubmitted(true);
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load survey");
+        setError(e instanceof Error ? e.message : t("surveys.respond.error.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -121,7 +123,7 @@ export default function SurveyRespond() {
       });
       setSubmitted(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to submit");
+      setError(e instanceof Error ? e.message : t("surveys.respond.error.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -141,7 +143,7 @@ export default function SurveyRespond() {
               onChange={(e) => setNewValue(field.key, e.target.checked)}
             />
           }
-          label={value ? "Yes" : "No"}
+          label={value ? t("common:labels.yes") : t("common:labels.no")}
         />
       );
     }
@@ -156,7 +158,7 @@ export default function SurveyRespond() {
           onChange={(e) => setNewValue(field.key, e.target.value)}
         >
           <MenuItem value="">
-            <em>None</em>
+            <em>{t("common:labels.none")}</em>
           </MenuItem>
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
@@ -233,7 +235,7 @@ export default function SurveyRespond() {
   }
 
   if (!form) {
-    return <Alert severity="error">{error || "Survey not found"}</Alert>;
+    return <Alert severity="error">{error || t("surveys.respond.notFound")}</Alert>;
   }
 
   if (submitted) {
@@ -241,13 +243,20 @@ export default function SurveyRespond() {
       <Box sx={{ maxWidth: 600, mx: "auto", py: 6, textAlign: "center" }}>
         <MaterialSymbol icon="check_circle" size={64} color="#2e7d32" />
         <Typography variant="h5" sx={{ mt: 2, fontWeight: 700 }}>
-          Response Submitted
+          {t("surveys.respond.success")}
         </Typography>
-        <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-          Thank you for completing the survey for <strong>{form.card.name}</strong>.
-        </Typography>
+        <Typography
+          color="text.secondary"
+          sx={{ mt: 1, mb: 3 }}
+          dangerouslySetInnerHTML={{
+            __html: t("surveys.respond.thankYou", {
+              name: form.card.name,
+              interpolation: { escapeValue: true },
+            }),
+          }}
+        />
         <Button variant="outlined" onClick={() => navigate("/surveys")}>
-          Back to My Surveys
+          {t("surveys.respond.backToSurveys")}
         </Button>
       </Box>
     );
@@ -257,7 +266,7 @@ export default function SurveyRespond() {
     <Box sx={{ maxWidth: 800, mx: "auto" }}>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-        <Tooltip title="Back to My Surveys">
+        <Tooltip title={t("surveys.respond.backTooltip")}>
           <IconButton onClick={() => navigate("/surveys")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -303,7 +312,7 @@ export default function SurveyRespond() {
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography sx={{ fontWeight: 600, flex: 1 }}>{field.label}</Typography>
               <Chip
-                label={isMaintain ? "Maintain" : "Confirm"}
+                label={isMaintain ? t("surveys.respond.maintain") : t("surveys.respond.confirmLabel")}
                 size="small"
                 color={isMaintain ? "primary" : "default"}
                 variant="outlined"
@@ -315,10 +324,10 @@ export default function SurveyRespond() {
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
               <Typography variant="body2" color="text.secondary">
-                Current value:
+                {t("surveys.respond.currentValue")}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {formatValue(field.current_value, field)}
+                {formatValue(field.current_value, field, t)}
               </Typography>
             </Box>
 
@@ -339,7 +348,7 @@ export default function SurveyRespond() {
                     }
                     label={
                       <Typography variant="body2" color="text.secondary">
-                        No change needed
+                        {t("surveys.respond.noChangeNeeded")}
                       </Typography>
                     }
                   />
@@ -347,7 +356,7 @@ export default function SurveyRespond() {
                 {!resp.confirmed && (
                   <Box sx={{ mt: 1.5 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      Updated value:
+                      {t("surveys.respond.updatedValue")}
                     </Typography>
                     {renderFieldInput(field, resp)}
                   </Box>
@@ -368,8 +377,8 @@ export default function SurveyRespond() {
                     label={
                       <Typography variant="body2">
                         {resp.confirmed
-                          ? "I confirm this value is correct"
-                          : "I want to propose a change"}
+                          ? t("surveys.respond.confirmCorrect")
+                          : t("surveys.respond.proposeChange")}
                       </Typography>
                     }
                   />
@@ -377,7 +386,7 @@ export default function SurveyRespond() {
                 {!resp.confirmed && (
                   <Box sx={{ mt: 1.5 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      Proposed value:
+                      {t("surveys.respond.proposedValue")}
                     </Typography>
                     {renderFieldInput(field, resp)}
                   </Box>
@@ -398,7 +407,7 @@ export default function SurveyRespond() {
           startIcon={<MaterialSymbol icon="send" size={18} />}
           sx={{ textTransform: "none" }}
         >
-          {submitting ? "Submitting..." : "Submit Response"}
+          {submitting ? t("surveys.respond.submitting") : t("surveys.respond.submit")}
         </Button>
       </Box>
     </Box>

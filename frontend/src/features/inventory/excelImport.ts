@@ -75,9 +75,9 @@ function fieldDefsForType(
   type: string,
   allTypes: CardType[],
 ): FieldDef[] {
-  const t = allTypes.find((x) => x.key === type);
-  if (!t) return [];
-  return t.fields_schema.flatMap((s) => s.fields);
+  const ct = allTypes.find((x) => x.key === type);
+  if (!ct) return [];
+  return ct.fields_schema.flatMap((s) => s.fields);
 }
 
 /**

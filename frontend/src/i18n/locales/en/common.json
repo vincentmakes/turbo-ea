@@ -160,5 +160,11 @@
   "portal.stakeholders": "Stakeholders",
   "portal.tags": "Tags",
   "portal.relatedItems": "Related Items",
-  "portal.lastUpdated": "Last updated: {{date}}"
+  "portal.lastUpdated": "Last updated: {{date}}",
+  "portal.filterSubtype": "Subtype",
+  "portal.allRelType": "All {{label}}s",
+  "portal.roles.responsible": "Responsible",
+  "portal.roles.observer": "Observer",
+  "portal.roles.technical_application_owner": "Technical Owner",
+  "portal.roles.business_application_owner": "Business Owner"
 }
