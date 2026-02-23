@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useTheme, alpha } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -78,10 +79,10 @@ interface EolReportData {
 /* ------------------------------------------------------------------ */
 
 const STATUS_CONFIG = {
-  eol: { label: "End of Life", color: "#d32f2f", icon: "cancel" },
-  approaching: { label: "Approaching EOL", color: "#ed6c02", icon: "warning" },
-  supported: { label: "Supported", color: "#2e7d32", icon: "check_circle" },
-  unknown: { label: "Unknown", color: "#9e9e9e", icon: "help" },
+  eol: { labelKey: "eol.statusEol", color: "#d32f2f", icon: "cancel" },
+  approaching: { labelKey: "eol.statusApproaching", color: "#ed6c02", icon: "warning" },
+  supported: { labelKey: "eol.statusSupported", color: "#2e7d32", icon: "check_circle" },
+  unknown: { labelKey: "eol.statusUnknown", color: "#9e9e9e", icon: "help" },
 };
 
 /* ------------------------------------------------------------------ */

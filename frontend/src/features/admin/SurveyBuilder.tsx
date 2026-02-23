@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -37,12 +38,18 @@ import type {
   StakeholderRoleDef,
 } from "@/types";
 
-const STEPS = ["Basics", "Target", "Fields", "Preview & Send"];
-
 export default function SurveyBuilder() {
+  const { t } = useTranslation(["admin", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types } = useMetamodel();
+
+  const STEPS = [
+    t("surveyBuilder.steps.basics"),
+    t("surveyBuilder.steps.target"),
+    t("surveyBuilder.steps.fields"),
+    t("surveyBuilder.steps.previewSend"),
+  ];
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(!!id);
@@ -94,7 +101,7 @@ export default function SurveyBuilder() {
         setSelectedFields(s.fields || []);
         setSurveyId(s.id);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load survey");
+        setError(e instanceof Error ? e.message : t("common:errors.generic"));
       } finally {
         setLoading(false);
       }
@@ -114,7 +121,7 @@ export default function SurveyBuilder() {
       setRelatedOptions([]);
       return;
     }
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const res = await api.get<{ items: Card[] }>(
           `/cards?search=${encodeURIComponent(relatedSearch)}&page_size=20`,
@@ -124,7 +131,7 @@ export default function SurveyBuilder() {
         // ignore
       }
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [relatedSearch]);
 
   // Merge selected items with search results so selected values are always in options
@@ -135,7 +142,7 @@ export default function SurveyBuilder() {
 
   // Get the selected type's fields schema
   const selectedType = useMemo(
-    () => types.find((t) => t.key === targetTypeKey),
+    () => types.find((ct) => ct.key === targetTypeKey),
     [types, targetTypeKey],
   );
 
@@ -158,7 +165,7 @@ export default function SurveyBuilder() {
 
   // All tags from all groups
   const allTags = useMemo(
-    () => tagGroups.flatMap((g) => g.tags.map((t) => ({ ...t, group_name: g.name }))),
+    () => tagGroups.flatMap((g) => g.tags.map((tg) => ({ ...tg, group_name: g.name }))),
     [tagGroups],
   );
 
@@ -189,7 +196,7 @@ export default function SurveyBuilder() {
         window.history.replaceState(null, "", `/admin/surveys/${created.id}`);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSaving(false);
     }

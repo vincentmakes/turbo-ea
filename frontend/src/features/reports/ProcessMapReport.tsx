@@ -157,13 +157,13 @@ function heatColor(value: number, max: number, metric: Metric): string {
   return `rgb(${r},${g},${b})`;
 }
 
-function metricLabel(attrs: Record<string, unknown>, metric: Metric, appCount: number, fmtCost: (v: number) => string, totalCost: number): string {
+function metricLabel(attrs: Record<string, unknown>, metric: Metric, appCount: number, fmtCost: (v: number) => string, totalCost: number, tr: (key: string) => string): string {
   if (metric === "app_count") return String(appCount);
   if (metric === "total_cost") return fmtCost(totalCost);
-  if (metric === "maturity") return MATURITY_MAP[attrs.maturity as string]?.label ?? "—";
-  if (metric === "automation") return AUTOMATION_MAP[attrs.automationLevel as string]?.label ?? "—";
-  if (metric === "risk") return RISK_MAP[attrs.riskLevel as string]?.label ?? "—";
-  return "—";
+  if (metric === "maturity") { const m = MATURITY_MAP[attrs.maturity as string]; return m ? tr(m.tKey) : "\u2014"; }
+  if (metric === "automation") { const a = AUTOMATION_MAP[attrs.automationLevel as string]; return a ? tr(a.tKey) : "\u2014"; }
+  if (metric === "risk") { const r = RISK_MAP[attrs.riskLevel as string]; return r ? tr(r.tKey) : "\u2014"; }
+  return "\u2014";
 }
 
 /* ------------------------------------------------------------------ */
@@ -335,6 +335,7 @@ function ProcessCard({
   onProcClick,
   onItemClick,
   fmtCost,
+  tr,
 }: {
   node: ProcNode;
   displayLevel: number;
@@ -344,10 +345,11 @@ function ProcessCard({
   onProcClick: (p: ProcNode) => void;
   onItemClick: (id: string) => void;
   fmtCost: (v: number) => string;
+  tr: (key: string, options?: Record<string, unknown>) => string;
 }) {
   const attrs = node.attributes || {};
   const val = metricValue(attrs, metric, node.deepAppCount, node.deepCost);
-  const label = metricLabel(attrs, metric, node.deepAppCount, fmtCost, node.deepCost);
+  const label = metricLabel(attrs, metric, node.deepAppCount, fmtCost, node.deepCost, tr);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
 
   const visibleApps = useMemo(
@@ -359,7 +361,7 @@ function ProcessCard({
     [node, displayLevel, showRelated],
   );
 
-  const subtypeLabel = SUBTYPE_LABELS[node.subtype || ""] || null;
+  const subtypeTKey = SUBTYPE_TKEYS[node.subtype || ""] || null;
   const processType = PROCESS_TYPE_MAP[attrs.processType as string];
   const isHighContrast = val > maxVal * 0.65 && maxVal > 0;
 
@@ -398,11 +400,11 @@ function ProcessCard({
           >
             {node.name}
           </Typography>
-          {subtypeLabel && (
-            <Chip size="small" label={subtypeLabel} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+          {subtypeTKey && (
+            <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
           )}
           {processType && (
-            <Chip size="small" label={processType.label}
+            <Chip size="small" label={tr(processType.tKey)}
               sx={{ height: 18, fontSize: "0.65rem", bgcolor: processType.color, color: "#fff" }} />
           )}
           <Chip size="small" label={label}
@@ -461,10 +463,10 @@ function ProcessCard({
         >
           {node.name}
         </Typography>
-        {subtypeLabel && (
-          <Chip size="small" label={subtypeLabel} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
+        {subtypeTKey && (
+          <Chip size="small" label={tr(subtypeTKey)} sx={{ height: 18, fontSize: "0.65rem", bgcolor: "rgba(255,255,255,0.6)" }} />
         )}
-        <Chip size="small" label={`${node.deepAppCount} apps`}
+        <Chip size="small" label={tr("processMap.apps", { count: node.deepAppCount })}
           sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }} />
       </Box>
 

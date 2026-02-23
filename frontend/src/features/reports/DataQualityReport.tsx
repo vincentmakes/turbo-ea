@@ -366,7 +366,7 @@ export default function DataQualityReport() {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={dataQualityLabel(item.data_quality)}
+                        label={t(dataQualityLabelKey(item.data_quality))}
                         sx={{
                           bgcolor: dataQualityColor(item.data_quality),
                           color: "#fff",
@@ -393,15 +393,15 @@ export default function DataQualityReport() {
       <Box sx={{ mt: 2, display: "flex", gap: 2, flexWrap: "wrap" }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: QUALITY_COLORS.complete }} />
-          <Typography variant="caption" color="text.secondary">Complete (≥80%)</Typography>
+          <Typography variant="caption" color="text.secondary">{t("dataQuality.completeLegend")}</Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: QUALITY_COLORS.partial }} />
-          <Typography variant="caption" color="text.secondary">Partial (40-79%)</Typography>
+          <Typography variant="caption" color="text.secondary">{t("dataQuality.partialLegend")}</Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: QUALITY_COLORS.minimal }} />
-          <Typography variant="caption" color="text.secondary">Minimal (&lt;40%)</Typography>
+          <Typography variant="caption" color="text.secondary">{t("dataQuality.minimalLegend")}</Typography>
         </Box>
       </Box>
       <CardDetailSidePanel

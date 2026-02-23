@@ -546,7 +546,7 @@ export default function UsersAdmin() {
                         : "—"}
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Revoke invitation">
+                      <Tooltip title={t("users.invitations.revokeTooltip")}>
                         <IconButton
                           size="small"
                           color="error"
@@ -571,23 +571,21 @@ export default function UsersAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Invite User</DialogTitle>
+        <DialogTitle>{t("users.invite.title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             {ssoEnabled && (
               <Alert severity="info" variant="outlined">
-                SSO is enabled. If no password is defined, the user will need to
-                sign in with Microsoft.
+                {t("users.invite.ssoHint")}
               </Alert>
             )}
             {!ssoEnabled && (
               <Alert severity="info" variant="outlined">
-                If no password is defined, the user will receive an email with a
-                link to set their password.
+                {t("users.invite.emailHint")}
               </Alert>
             )}
             <TextField
-              label="Display Name"
+              label={t("users.invite.displayName")}
               value={inviteForm.display_name}
               onChange={(e) =>
                 setInviteForm((p) => ({ ...p, display_name: e.target.value }))
@@ -598,7 +596,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Email"
+              label={t("users.columns.email")}
               type="email"
               value={inviteForm.email}
               onChange={(e) =>
@@ -609,7 +607,7 @@ export default function UsersAdmin() {
               size="small"
             />
             <TextField
-              label="Password (optional)"
+              label={t("users.invite.passwordOptional")}
               type="password"
               value={inviteForm.password}
               onChange={(e) =>
@@ -619,14 +617,14 @@ export default function UsersAdmin() {
               size="small"
               helperText={
                 ssoEnabled
-                  ? "If set, the user can also sign in with this password instead of SSO."
-                  : "Leave blank to send a password setup link via email."
+                  ? t("users.invite.passwordSsoHelperText")
+                  : t("users.invite.passwordHelperText")
               }
             />
             <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
+              <InputLabel>{t("users.columns.role")}</InputLabel>
               <Select
-                label="Role"
+                label={t("users.columns.role")}
                 value={inviteForm.role}
                 onChange={(e) =>
                   setInviteForm((p) => ({
@@ -664,7 +662,7 @@ export default function UsersAdmin() {
                   }
                 />
               }
-              label="Send invitation email"
+              label={t("users.invite.sendEmail")}
             />
             {inviteError && <Alert severity="error">{inviteError}</Alert>}
           </Stack>
@@ -674,14 +672,14 @@ export default function UsersAdmin() {
             onClick={() => setInviteOpen(false)}
             disabled={inviteSubmitting}
           >
-            Cancel
+            {t("common:actions.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleInvite}
             disabled={inviteSubmitting}
           >
-            {inviteSubmitting ? "Inviting..." : "Invite User"}
+            {inviteSubmitting ? t("users.invite.inviting") : t("users.inviteUser")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -693,11 +691,11 @@ export default function UsersAdmin() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Edit User</DialogTitle>
+        <DialogTitle>{t("users.edit.title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <TextField
-              label="Display Name"
+              label={t("users.invite.displayName")}
               value={editForm.display_name}
               onChange={(e) =>
                 setEditForm((p) => ({ ...p, display_name: e.target.value }))

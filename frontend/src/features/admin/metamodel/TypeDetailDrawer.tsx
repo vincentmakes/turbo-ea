@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -58,7 +59,8 @@ export default function TypeDetailDrawer({
   onRefresh,
   onCreateRelation,
 }: TypeDrawerProps) {
-  const cardTypeKey = types.find((t) => t.key === typeKey) || null;
+  const { t } = useTranslation(["admin", "common"]);
+  const cardTypeKey = types.find((ct) => ct.key === typeKey) || null;
 
   /* --- Editable header state --- */
   const [label, setLabel] = useState("");
@@ -147,9 +149,9 @@ export default function TypeDetailDrawer({
       });
       onRefresh();
       setError(null);
-      setSnack("Type saved");
+      setSnack(t("metamodel.typeDrawer.typeSaved"));
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
     } finally {
       setSaving(false);
     }
@@ -169,7 +171,7 @@ export default function TypeDetailDrawer({
       setNewSubLabel("");
       setAddSubOpen(false);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to add subtype");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToAddSubtype"));
     }
   };
 
@@ -179,7 +181,7 @@ export default function TypeDetailDrawer({
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
       onRefresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to remove subtype");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToRemoveSubtype"));
     }
   };
 
@@ -215,7 +217,7 @@ export default function TypeDetailDrawer({
       onRefresh();
       setFieldDialogOpen(false);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to save field");
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSaveField"));
     }
   };
 
