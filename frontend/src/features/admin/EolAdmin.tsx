@@ -344,7 +344,7 @@ export default function EolAdmin() {
 
       {saveResult && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSaveResult(null)}>
-          Successfully linked {saveResult.count} card(s) to EOL data.
+          {t("eol.linkSuccess", { count: saveResult.count })}
         </Alert>
       )}
 
@@ -356,7 +356,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Total
+                {t("eol.total")}
               </Typography>
               <Typography variant="h6" fontWeight={700}>
                 {results.length}
@@ -366,7 +366,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Already Linked
+                {t("eol.alreadyLinked")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="success.main">
                 {linkedCount}
@@ -376,7 +376,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Unlinked
+                {t("eol.unlinked")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="warning.main">
                 {unlinkedCount}
@@ -386,7 +386,7 @@ export default function EolAdmin() {
           <Card sx={{ flex: 1, minWidth: 140 }}>
             <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
               <Typography variant="caption" color="text.secondary">
-                Matches Found
+                {t("eol.matchesFound")}
               </Typography>
               <Typography variant="h6" fontWeight={700} color="info.main">
                 {withCandidatesCount}
@@ -457,12 +457,7 @@ export default function EolAdmin() {
                       }}
                     >
                       <MaterialSymbol icon="check_circle" size={18} color="#4caf50" />
-                      <Typography variant="body2">
-                        Will link to{" "}
-                        <strong>
-                          {selection.product} {selection.cycle}
-                        </strong>
-                      </Typography>
+                      <Typography variant="body2" dangerouslySetInnerHTML={{ __html: t("eol.willLinkTo", { product: selection.product, cycle: selection.cycle }) }} />
                       <IconButton
                         size="small"
                         onClick={() => handleRemoveSelection(r.card_id)}
@@ -478,13 +473,13 @@ export default function EolAdmin() {
                         color="text.secondary"
                         sx={{ display: "block", mb: 0.5 }}
                       >
-                        Suggested matches:
+                        {t("eol.suggestedMatches")}
                       </Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {r.candidates.map((c) => (
                           <Tooltip
                             key={c.eol_product}
-                            title={`Match score: ${Math.round(c.score * 100)}% — Click to select version`}
+                            title={t("eol.matchScore", { score: Math.round(c.score * 100) })}
                           >
                             <Chip
                               label={c.eol_product}
@@ -512,7 +507,7 @@ export default function EolAdmin() {
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      No matches found on endoflife.date
+                      {t("eol.noMatches")}
                     </Typography>
                   )}
                 </Box>
@@ -528,9 +523,7 @@ export default function EolAdmin() {
           <CardContent sx={{ textAlign: "center", py: 6 }}>
             <MaterialSymbol icon="search" size={48} color="#ccc" />
             <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-              Click "Search EOL Data" to scan your{" "}
-              {typeKey === "ITComponent" ? "IT Components" : "Applications"} against
-              endoflife.date
+              {t("eol.emptyState", { type: typeKey === "ITComponent" ? t("eol.itComponents") : t("eol.applications") })}
             </Typography>
           </CardContent>
         </Card>
@@ -556,7 +549,7 @@ export default function EolAdmin() {
         >
           <MaterialSymbol icon="link" size={20} color="#1976d2" />
           <Typography variant="body2" fontWeight={600}>
-            {selectedCount} card(s) selected for EOL linking
+            {t("eol.selectedForLinking", { count: selectedCount })}
           </Typography>
           <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
             <Button

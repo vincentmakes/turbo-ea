@@ -377,7 +377,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
     <Box sx={{ position: "relative" }} ref={containerRef}>
       <style>{HL_STYLES}</style>
       <Typography variant="caption" sx={{ color: "text.secondary", mb: 0.5, display: "block" }}>
-        {t("calculations.formulaLabel")}
+        {t("calculations.formula")}
       </Typography>
       <Box
         sx={{
@@ -508,7 +508,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           ))}
           <Box sx={{ px: 1.5, pt: 0.5, borderTop: "1px solid", borderColor: "divider" }}>
             <Typography variant="caption" color="text.disabled">
-              {t("calculations.suggestionHint")}
+              {t("calculations.insertHint")}
             </Typography>
           </Box>
         </Paper>

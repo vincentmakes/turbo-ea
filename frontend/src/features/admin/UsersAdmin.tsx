@@ -104,7 +104,7 @@ export default function UsersAdmin() {
       setUsers(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("users.loadError"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ export default function UsersAdmin() {
         prev.map((u) => (u.id === userId ? { ...u, role } : u))
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("users.updateRoleError"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
   };
 
@@ -158,7 +158,7 @@ export default function UsersAdmin() {
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("users.toggleStatusError")
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     }
   };
@@ -173,7 +173,7 @@ export default function UsersAdmin() {
       await api.delete(`/users/${user.id}`);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("users.deleteError"));
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
   };
 
@@ -205,7 +205,7 @@ export default function UsersAdmin() {
       fetchInvitations();
     } catch (err) {
       setInviteError(
-        err instanceof Error ? err.message : t("users.inviteError")
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     } finally {
       setInviteSubmitting(false);
@@ -253,7 +253,7 @@ export default function UsersAdmin() {
       setEditingUser(null);
     } catch (err) {
       setEditError(
-        err instanceof Error ? err.message : t("users.editError")
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     } finally {
       setEditSubmitting(false);
@@ -267,7 +267,7 @@ export default function UsersAdmin() {
       setInvitations((prev) => prev.filter((i) => i.id !== inv.id));
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("users.deleteInvitationError")
+        err instanceof Error ? err.message : t("common:errors.generic")
       );
     }
   };

@@ -214,7 +214,7 @@ function ConnectionsTab() {
                     variant="outlined"
                     sx={{ fontSize: "0.7rem" }}
                   />
-                  <Tooltip title="Test Connection">
+                  <Tooltip title={t("servicenow.connections.testTooltip")}>
                     <IconButton
                       size="small"
                       onClick={() => handleTest(conn.id)}
@@ -227,7 +227,7 @@ function ConnectionsTab() {
                       )}
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Edit">
+                  <Tooltip title={t("common:actions.edit")}>
                     <IconButton
                       size="small"
                       onClick={() => { setEditing(conn); setDialogOpen(true); }}
@@ -235,7 +235,7 @@ function ConnectionsTab() {
                       <MaterialSymbol icon="edit" size={18} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title={t("common:actions.delete")}>
                     <IconButton size="small" onClick={() => handleDelete(conn.id)}>
                       <MaterialSymbol icon="delete" size={18} color="#f44336" />
                     </IconButton>
@@ -278,6 +278,7 @@ interface ConnectionDialogProps {
 }
 
 function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDialogProps) {
+  const { t } = useTranslation(["admin", "common"]);
   const [name, setName] = useState("");
   const [instanceUrl, setInstanceUrl] = useState("");
   const [authType, setAuthType] = useState("basic");
@@ -330,77 +331,77 @@ function ConnectionDialog({ open, connection, onClose, onSaved }: ConnectionDial
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{connection ? "Edit Connection" : "New Connection"}</DialogTitle>
+      <DialogTitle>{connection ? t("servicenow.connections.dialog.editConnection") : t("servicenow.connections.dialog.newConnection")}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ mt: 1 }}>
           <TextField
-            label="Name"
+            label={t("common:labels.name")}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Production ServiceNow"
           />
           <TextField
-            label="Instance URL"
+            label={t("servicenow.connections.dialog.instanceUrl")}
             fullWidth
             value={instanceUrl}
             onChange={(e) => setInstanceUrl(e.target.value)}
             placeholder="https://company.service-now.com"
-            helperText="Must use HTTPS"
+            helperText={t("servicenow.connections.dialog.instanceUrlHelper")}
           />
           <FormControl fullWidth>
-            <InputLabel>Auth Type</InputLabel>
-            <Select value={authType} label="Auth Type" onChange={(e) => setAuthType(e.target.value)}>
-              <MenuItem value="basic">Basic Auth</MenuItem>
-              <MenuItem value="oauth2">OAuth 2.0</MenuItem>
+            <InputLabel>{t("servicenow.connections.dialog.authType")}</InputLabel>
+            <Select value={authType} label={t("servicenow.connections.dialog.authType")} onChange={(e) => setAuthType(e.target.value)}>
+              <MenuItem value="basic">{t("servicenow.connections.dialog.basicAuth")}</MenuItem>
+              <MenuItem value="oauth2">{t("servicenow.connections.dialog.oauth2")}</MenuItem>
             </Select>
           </FormControl>
           {authType === "basic" ? (
             <>
               <TextField
-                label="Username"
+                label={t("servicenow.connections.dialog.username")}
                 fullWidth
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
               <TextField
-                label="Password"
+                label={t("servicenow.connections.dialog.password")}
                 type="password"
                 fullWidth
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={connection ? "Leave blank to keep existing" : ""}
+                placeholder={connection ? t("servicenow.connections.dialog.keepExisting") : ""}
               />
             </>
           ) : (
             <>
               <TextField
-                label="Client ID"
+                label={t("servicenow.connections.dialog.clientId")}
                 fullWidth
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
               />
               <TextField
-                label="Client Secret"
+                label={t("servicenow.connections.dialog.clientSecret")}
                 type="password"
                 fullWidth
                 value={clientSecret}
                 onChange={(e) => setClientSecret(e.target.value)}
-                placeholder={connection ? "Leave blank to keep existing" : ""}
+                placeholder={connection ? t("servicenow.connections.dialog.keepExisting") : ""}
               />
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !name || !instanceUrl}
         >
-          {saving ? <CircularProgress size={20} /> : connection ? "Update" : "Create"}
+          {saving ? <CircularProgress size={20} /> : connection ? t("common:actions.save") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>

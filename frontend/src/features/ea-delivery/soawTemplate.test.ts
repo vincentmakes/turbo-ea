@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
-  SOAW_TEMPLATE_SECTIONS,
-  TOGAF_PHASES,
+  getTemplateSections,
+  getTogafPhases,
   buildDefaultSections,
 } from "./soawTemplate";
 
-describe("SOAW_TEMPLATE_SECTIONS", () => {
+describe("getTemplateSections", () => {
   it("contains 18 template sections", () => {
-    expect(SOAW_TEMPLATE_SECTIONS).toHaveLength(18);
+    expect(getTemplateSections()).toHaveLength(18);
   });
 
   it("every section has required fields", () => {
-    for (const section of SOAW_TEMPLATE_SECTIONS) {
+    for (const section of getTemplateSections()) {
       expect(section.id).toBeTruthy();
       expect(section.title).toBeTruthy();
       expect(["rich_text", "table", "togaf_phases"]).toContain(section.type);
@@ -21,19 +21,19 @@ describe("SOAW_TEMPLATE_SECTIONS", () => {
   });
 
   it("has unique IDs", () => {
-    const ids = SOAW_TEMPLATE_SECTIONS.map((s) => s.id);
+    const ids = getTemplateSections().map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("Part I sections come first", () => {
-    const parts = SOAW_TEMPLATE_SECTIONS.map((s) => s.part);
+    const parts = getTemplateSections().map((s) => s.part);
     const firstPart2Idx = parts.indexOf("II");
     const lastPart1Idx = parts.lastIndexOf("I");
     expect(lastPart1Idx).toBeLessThan(firstPart2Idx);
   });
 
   it("table sections have columns defined", () => {
-    const tableSections = SOAW_TEMPLATE_SECTIONS.filter(
+    const tableSections = getTemplateSections().filter(
       (s) => s.type === "table",
     );
     expect(tableSections.length).toBeGreaterThan(0);
@@ -44,7 +44,7 @@ describe("SOAW_TEMPLATE_SECTIONS", () => {
   });
 
   it("has exactly one togaf_phases section", () => {
-    const togafSections = SOAW_TEMPLATE_SECTIONS.filter(
+    const togafSections = getTemplateSections().filter(
       (s) => s.type === "togaf_phases",
     );
     expect(togafSections).toHaveLength(1);
@@ -52,23 +52,24 @@ describe("SOAW_TEMPLATE_SECTIONS", () => {
   });
 });
 
-describe("TOGAF_PHASES", () => {
+describe("getTogafPhases", () => {
   it("contains 9 phases (A-H + RM)", () => {
-    expect(TOGAF_PHASES).toHaveLength(9);
+    expect(getTogafPhases()).toHaveLength(9);
   });
 
   it("has unique keys", () => {
-    const keys = TOGAF_PHASES.map((p) => p.key);
+    const keys = getTogafPhases().map((p) => p.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("starts with phase A and ends with RM", () => {
-    expect(TOGAF_PHASES[0].key).toBe("A");
-    expect(TOGAF_PHASES[TOGAF_PHASES.length - 1].key).toBe("RM");
+    const phases = getTogafPhases();
+    expect(phases[0].key).toBe("A");
+    expect(phases[phases.length - 1].key).toBe("RM");
   });
 
   it("every phase has a label", () => {
-    for (const phase of TOGAF_PHASES) {
+    for (const phase of getTogafPhases()) {
       expect(phase.label).toBeTruthy();
     }
   });
@@ -77,7 +78,7 @@ describe("TOGAF_PHASES", () => {
 describe("buildDefaultSections", () => {
   it("creates an entry for every template section", () => {
     const sections = buildDefaultSections();
-    for (const def of SOAW_TEMPLATE_SECTIONS) {
+    for (const def of getTemplateSections()) {
       expect(sections[def.id]).toBeDefined();
     }
   });
@@ -92,7 +93,7 @@ describe("buildDefaultSections", () => {
 
   it("table sections have table_data with columns and one empty row", () => {
     const sections = buildDefaultSections();
-    const tableDefs = SOAW_TEMPLATE_SECTIONS.filter(
+    const tableDefs = getTemplateSections().filter(
       (s) => s.type === "table",
     );
     for (const def of tableDefs) {
@@ -110,14 +111,14 @@ describe("buildDefaultSections", () => {
     const sections = buildDefaultSections();
     const togafSection = sections["3.1"];
     expect(togafSection.togaf_data).toBeDefined();
-    for (const phase of TOGAF_PHASES) {
+    for (const phase of getTogafPhases()) {
       expect(togafSection.togaf_data![phase.key]).toBe("");
     }
   });
 
   it("rich_text sections have no table_data or togaf_data", () => {
     const sections = buildDefaultSections();
-    const richTextDefs = SOAW_TEMPLATE_SECTIONS.filter(
+    const richTextDefs = getTemplateSections().filter(
       (s) => s.type === "rich_text",
     );
     for (const def of richTextDefs) {
