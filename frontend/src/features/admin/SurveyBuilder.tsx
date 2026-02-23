@@ -28,6 +28,7 @@ import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type {
   Survey,
   SurveyField,
@@ -43,6 +44,8 @@ export default function SurveyBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
 
   const STEPS = [
     t("surveyBuilder.steps.basics"),
@@ -154,14 +157,14 @@ export default function SurveyBuilder() {
         fields.push({
           section: section.section,
           key: f.key,
-          label: f.label,
+          label: rl(f.label, f.translations),
           type: f.type,
-          options: f.options,
+          options: f.options?.map((o) => ({ ...o, label: rl(o.label, o.translations) })),
         });
       }
     }
     return fields;
-  }, [selectedType]);
+  }, [selectedType, rl]);
 
   // All tags from all groups
   const allTags = useMemo(
@@ -422,7 +425,7 @@ export default function SurveyBuilder() {
                 <MenuItem key={ct.key} value={ct.key}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
-                    {ct.label}
+                    {rml(ct.label, ct.translations, "label")}
                   </Box>
                 </MenuItem>
               ))}
@@ -620,7 +623,7 @@ export default function SurveyBuilder() {
             {t("surveyBuilder.fields.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            {t("surveyBuilder.fields.description", { type: selectedType?.label || "card" })}
+            {t("surveyBuilder.fields.description", { type: rml(selectedType?.label ?? "", selectedType?.translations, "label") || "card" })}
           </Typography>
 
           {!selectedType && (

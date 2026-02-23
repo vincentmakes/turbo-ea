@@ -26,6 +26,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -585,6 +586,7 @@ export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -763,7 +765,7 @@ export default function CapabilityMapReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: typeMeta?.label || typeKey,
+        label: rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey,
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });
     }

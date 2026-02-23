@@ -31,6 +31,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -470,6 +471,7 @@ export default function PortfolioReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("portfolio");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
 
@@ -568,7 +570,7 @@ export default function PortfolioReport() {
     for (const [typeKey, members] of Object.entries(data.groupable_types)) {
       if (members.length > 0) {
         const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
-        const label = typeMeta?.label || typeKey;
+        const label = rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey;
         const icon = typeMeta?.icon || "link";
         opts.push({ key: `rel:${typeKey}`, label, icon });
       }
@@ -749,7 +751,7 @@ export default function PortfolioReport() {
       const typeMeta = metamodelTypes.find((t) => t.key === typeKey);
       out.push({
         typeKey,
-        label: typeMeta?.label || typeKey,
+        label: rml(typeMeta?.label ?? "", typeMeta?.translations, "label") || typeKey,
         icon: typeMeta?.icon || "link",
         options: members.map((m) => ({ key: m.id, label: m.name })),
       });

@@ -14,12 +14,14 @@ import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, StakeholderRef, StakeholderRoleDef, User } from "@/types";
 
 // ── Tab: Stakeholders ──────────────────────────────────────────
 function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { card: Card; onRefresh: () => void; canManageStakeholders?: boolean }) {
   const { t } = useTranslation(["cards", "common"]);
+  const rl = useResolveLabel();
   const [subs, setSubs] = useState<StakeholderRef[]>([]);
   const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -84,11 +86,11 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
         <MuiCard key={role.key} sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              {role.label}
+              {rl(role.label, role.translations)}
             </Typography>
             {items.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                {t("stakeholders.noneAssigned", { role: role.label.toLowerCase() })}
+                {t("stakeholders.noneAssigned", { role: rl(role.label, role.translations).toLowerCase() })}
               </Typography>
             ) : (
               <List dense disablePadding>
@@ -127,7 +129,7 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
                 <InputLabel>{t("stakeholders.role")}</InputLabel>
                 <Select value={addRole} label={t("stakeholders.role")} onChange={(e) => setAddRole(e.target.value)}>
                   {roles.map((r) => (
-                    <MenuItem key={r.key} value={r.key}>{r.label}</MenuItem>
+                    <MenuItem key={r.key} value={r.key}>{rl(r.label, r.translations)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

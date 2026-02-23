@@ -23,6 +23,9 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
@@ -30,12 +33,41 @@ import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
+import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import type {
   CardType as FSType,
   RelationType as RType,
+  MetamodelTranslations,
+  TranslationMap,
 } from "@/types";
 import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
+
+/** Locales to show translation inputs for (all except English). */
+const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
+
+/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
+function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
+  if (!map) return undefined;
+  const cleaned: TranslationMap = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (v && v.trim()) cleaned[k] = v.trim();
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/** Clean a MetamodelTranslations object, removing empty maps. */
+function cleanTranslations(
+  trans: MetamodelTranslations | undefined,
+): MetamodelTranslations | undefined {
+  if (!trans) return undefined;
+  const cleaned: MetamodelTranslations = {};
+  for (const [key, map] of Object.entries(trans)) {
+    const c = cleanTranslationMap(map);
+    if (c) cleaned[key] = c;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
 
 /* ================================================================== */
 /*  Main Component                                                     */
@@ -77,11 +109,12 @@ export default function MetamodelAdmin() {
     source_type_key: "",
     target_type_key: "",
     cardinality: "1:n" as "1:1" | "1:n" | "n:m",
+    translations: {} as MetamodelTranslations,
   });
 
   /* --- Edit relation dialog --- */
   const [editRelOpen, setEditRelOpen] = useState(false);
-  const [editRel, setEditRel] = useState<RType | null>(null);
+  const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(null);
 
   /* --- Delete relation confirmation --- */
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
@@ -151,11 +184,13 @@ export default function MetamodelAdmin() {
 
   const handleCreateRelation = async () => {
     const finalKey = newRel.key || autoRelKey;
+    const { translations: rawTrans, ...rest } = newRel;
     await api.post("/metamodel/relation-types", {
-      ...newRel,
+      ...rest,
       key: finalKey,
       attributes_schema: [],
       built_in: false,
+      translations: cleanTranslations(rawTrans) || undefined,
     });
     refresh();
     setCreateRelOpen(false);
@@ -166,6 +201,7 @@ export default function MetamodelAdmin() {
       source_type_key: "",
       target_type_key: "",
       cardinality: "1:n",
+      translations: {},
     });
   };
 
@@ -175,6 +211,7 @@ export default function MetamodelAdmin() {
       label: editRel.label,
       reverse_label: editRel.reverse_label,
       cardinality: editRel.cardinality,
+      translations: cleanTranslations(editRel.translations) || null,
     });
     refresh();
     setEditRelOpen(false);
@@ -232,6 +269,7 @@ export default function MetamodelAdmin() {
       source_type_key: preselectedTypeKey || "",
       target_type_key: "",
       cardinality: "1:n",
+      translations: {},
     });
     setCreateRelOpen(true);
   };
@@ -889,6 +927,65 @@ export default function MetamodelAdmin() {
             }
             sx={{ mb: 2 }}
           />
+          <Accordion variant="outlined" sx={{ mb: 2, "&:before": { display: "none" } }} disableGutters>
+            <AccordionSummary
+              expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
+              sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                <MaterialSymbol icon="translate" size={16} color="#999" />
+                <Typography variant="body2" color="text.secondary">
+                  {t("metamodel.translations")}
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+                {t("metamodel.translations.labelTranslations")}
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 2 }}>
+                {TRANSLATION_LOCALES.map((locale) => (
+                  <TextField
+                    key={`newrel-label-${locale}`}
+                    size="small"
+                    label={LOCALE_LABELS[locale]}
+                    value={newRel.translations.label?.[locale] || ""}
+                    onChange={(e) =>
+                      setNewRel({
+                        ...newRel,
+                        translations: {
+                          ...newRel.translations,
+                          label: { ...newRel.translations.label, [locale]: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                ))}
+              </Box>
+              <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+                {t("metamodel.translations.reverseLabelTranslations")}
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                {TRANSLATION_LOCALES.map((locale) => (
+                  <TextField
+                    key={`newrel-revlabel-${locale}`}
+                    size="small"
+                    label={LOCALE_LABELS[locale]}
+                    value={newRel.translations.reverse_label?.[locale] || ""}
+                    onChange={(e) =>
+                      setNewRel({
+                        ...newRel,
+                        translations: {
+                          ...newRel.translations,
+                          reverse_label: { ...newRel.translations.reverse_label, [locale]: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                ))}
+              </Box>
+            </AccordionDetails>
+          </Accordion>
           <FormControl fullWidth>
             <InputLabel>{t("metamodel.cardinality")}</InputLabel>
             <Select
@@ -985,6 +1082,65 @@ export default function MetamodelAdmin() {
                 }
                 sx={{ mb: 2 }}
               />
+              <Accordion variant="outlined" sx={{ mb: 2, "&:before": { display: "none" } }} disableGutters>
+                <AccordionSummary
+                  expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                  sx={{ minHeight: 36, "& .MuiAccordionSummary-content": { my: 0.25 } }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <MaterialSymbol icon="translate" size={16} color="#999" />
+                    <Typography variant="body2" color="text.secondary">
+                      {t("metamodel.translations")}
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0 }}>
+                  <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+                    {t("metamodel.translations.labelTranslations")}
+                  </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 2 }}>
+                    {TRANSLATION_LOCALES.map((locale) => (
+                      <TextField
+                        key={`editrel-label-${locale}`}
+                        size="small"
+                        label={LOCALE_LABELS[locale]}
+                        value={editRel.translations?.label?.[locale] || ""}
+                        onChange={(e) =>
+                          setEditRel({
+                            ...editRel,
+                            translations: {
+                              ...editRel.translations,
+                              label: { ...editRel.translations?.label, [locale]: e.target.value },
+                            },
+                          })
+                        }
+                      />
+                    ))}
+                  </Box>
+                  <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+                    {t("metamodel.translations.reverseLabelTranslations")}
+                  </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                    {TRANSLATION_LOCALES.map((locale) => (
+                      <TextField
+                        key={`editrel-revlabel-${locale}`}
+                        size="small"
+                        label={LOCALE_LABELS[locale]}
+                        value={editRel.translations?.reverse_label?.[locale] || ""}
+                        onChange={(e) =>
+                          setEditRel({
+                            ...editRel,
+                            translations: {
+                              ...editRel.translations,
+                              reverse_label: { ...editRel.translations?.reverse_label, [locale]: e.target.value },
+                            },
+                          })
+                        }
+                      />
+                    ))}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
               <FormControl fullWidth>
                 <InputLabel>{t("metamodel.cardinality")}</InputLabel>
                 <Select

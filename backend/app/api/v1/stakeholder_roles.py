@@ -35,6 +35,7 @@ class StakeholderRoleCreate(BaseModel):
     description: str | None = None
     color: str = "#757575"
     permissions: dict[str, bool] = {}
+    translations: dict = {}
 
     @field_validator("key")
     @classmethod
@@ -61,6 +62,7 @@ class StakeholderRoleUpdate(BaseModel):
     color: str | None = None
     permissions: dict[str, bool] | None = None
     sort_order: int | None = None
+    translations: dict | None = None
 
     @field_validator("permissions")
     @classmethod
@@ -92,6 +94,7 @@ def _srd_response(srd: StakeholderRoleDefinition, stakeholder_count: int | None 
         "updated_at": srd.updated_at.isoformat() if srd.updated_at else None,
         "archived_at": srd.archived_at.isoformat() if srd.archived_at else None,
         "archived_by": str(srd.archived_by) if srd.archived_by else None,
+        "translations": srd.translations or {},
     }
     if stakeholder_count is not None:
         data["stakeholder_count"] = stakeholder_count
@@ -199,6 +202,7 @@ async def create_stakeholder_role(
         color=body.color,
         permissions=body.permissions,
         sort_order=next_order,
+        translations=body.translations,
     )
     db.add(srd)
     await db.commit()

@@ -23,3 +23,4 @@ class RelationType(Base, UUIDMixin, TimestampMixin):
     built_in: Mapped[bool] = mapped_column(Boolean, default=True)
     is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    translations: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")

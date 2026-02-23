@@ -36,6 +36,7 @@ import CodeEditor from "react-simple-code-editor";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { Calculation, Card as CardItem, CardType, FieldDef, RelationType } from "@/types";
 
 // ── Suggestion types ───────────────────────────────────────────────
@@ -160,6 +161,8 @@ const TEXTAREA_ID = "formula-editor-textarea";
 
 function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEditorProps) {
   const { t } = useTranslation(["admin"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -235,7 +238,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
           items.push({
             insert: f.key,
             label: f.key,
-            detail: `${f.label} (${f.type})`,
+            detail: `${rl(f.label, f.translations)} (${f.type})`,
             category: section.section,
           });
         }
@@ -252,7 +255,7 @@ function FormulaEditor({ value, onChange, cardType, relationTypes }: FormulaEdit
       .map((rt) => ({
         insert: rt.key,
         label: rt.key,
-        detail: `${rt.label} (${rt.source_type_key} → ${rt.target_type_key})`,
+        detail: `${rml(rt.label, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`,
         category: "Relation Types",
       }));
   }, [cardType, relationTypes]);
@@ -601,6 +604,8 @@ interface FormulaReferenceProps {
 
 function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
   const { t } = useTranslation(["admin"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const relTypes = relationTypes.filter(
     (rt) =>
       cardType &&
@@ -651,7 +656,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                       size="small"
                       label={`data.${f.key}`}
                       variant="outlined"
-                      title={`${f.label} (${f.type})`}
+                      title={`${rl(f.label, f.translations)} (${f.type})`}
                     />
                   ))
                 )}
@@ -671,7 +676,7 @@ function FormulaReference({ cardType, relationTypes }: FormulaReferenceProps) {
                     size="small"
                     label={`relations.${rt.key}`}
                     variant="outlined"
-                    title={`${rt.label} (${rt.source_type_key} → ${rt.target_type_key})`}
+                    title={`${rml(rt.label, rt.translations, "label")} (${rt.source_type_key} → ${rt.target_type_key})`}
                   />
                 ))}
               </Box>
@@ -724,6 +729,8 @@ interface EditDialogProps {
 
 function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSave }: EditDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [form, setForm] = useState<Partial<Calculation>>({});
   const [saving, setSaving] = useState(false);
   const [validating, setValidating] = useState(false);
@@ -820,7 +827,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
               >
                 {cardTypes.map((ct) => (
                   <MenuItem key={ct.key} value={ct.key}>
-                    {ct.label}
+                    {rml(ct.label, ct.translations, "label")}
                   </MenuItem>
                 ))}
               </Select>
@@ -835,7 +842,7 @@ function EditDialog({ open, calculation, cardTypes, relationTypes, onClose, onSa
               >
                 {eligibleFields.map((f) => (
                   <MenuItem key={f.key} value={f.key}>
-                    {f.label} ({f.type})
+                    {rl(f.label, f.translations)} ({f.type})
                   </MenuItem>
                 ))}
               </Select>
@@ -921,6 +928,7 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
   const [result, setResult] = useState<{ success: boolean; error?: string; computed_value?: unknown; card_name?: string } | null>(null);
 
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   useEffect(() => {
     if (open) {
@@ -970,7 +978,8 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
     }
   };
 
-  const typeLabel = types.find((ct) => ct.key === calculation?.target_type_key)?.label || calculation?.target_type_key || "card";
+  const typeFound = types.find((ct) => ct.key === calculation?.target_type_key);
+  const typeLabel = rml(typeFound?.label ?? "", typeFound?.translations, "label") || calculation?.target_type_key || "card";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -1057,6 +1066,8 @@ function TestDialog({ open, calculation, onClose }: TestDialogProps) {
 export default function CalculationsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [calculations, setCalculations] = useState<Calculation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1151,14 +1162,17 @@ export default function CalculationsAdmin() {
     ? calculations.filter((c) => c.target_type_key === filterType)
     : calculations;
 
-  const getTypeLabel = (key: string) => types.find((ct) => ct.key === key)?.label || key;
+  const getTypeLabel = (key: string) => {
+    const ct = types.find((ct) => ct.key === key);
+    return rml(ct?.label ?? "", ct?.translations, "label") || key;
+  };
 
   const getFieldLabel = (typeKey: string, fieldKey: string) => {
     const cardType = types.find((ct) => ct.key === typeKey);
     if (!cardType) return fieldKey;
     for (const section of cardType.fields_schema || []) {
       for (const field of section.fields) {
-        if (field.key === fieldKey) return field.label;
+        if (field.key === fieldKey) return rl(field.label, field.translations);
       }
     }
     return fieldKey;
@@ -1182,7 +1196,7 @@ export default function CalculationsAdmin() {
             <MenuItem value="">{t("calculations.allTypes")}</MenuItem>
             {visibleTypes.map((ct) => (
               <MenuItem key={ct.key} value={ct.key}>
-                {ct.label}
+                {rml(ct.label, ct.translations, "label")}
               </MenuItem>
             ))}
           </Select>

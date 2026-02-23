@@ -21,6 +21,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { DataQualityRing } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -55,6 +56,7 @@ export default function CardDetail() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const [card, setCard] = useState<Card | null>(null);
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
@@ -176,7 +178,7 @@ export default function CardDetail() {
           </Typography>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              {typeConfig?.label || card.type}
+              {rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type}
             </Typography>
             {card.subtype && typeof card.subtype === "string" && (
               <Chip size="small" label={card.subtype} variant="outlined" sx={{ height: 20 }} />

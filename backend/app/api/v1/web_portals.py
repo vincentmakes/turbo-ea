@@ -190,6 +190,7 @@ async def get_public_portal(
             "color": fst.color,
             "fields_schema": fst.fields_schema,
             "subtypes": fst.subtypes,
+            "translations": fst.translations or {},
         }
 
     # Fetch available relation types for this card type (for filter options)
@@ -242,6 +243,7 @@ async def get_public_portal(
                 "target_type_key": rt.target_type_key,
                 "other_type_key": other_type,
                 "other_type_label": type_labels.get(other_type, other_type),
+                "translations": rt.translations or {},
             }
         )
 

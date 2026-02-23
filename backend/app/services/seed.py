@@ -172,6 +172,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Ziel",
+                "fr": "Objectif",
+                "es": "Objetivo",
+                "it": "Obiettivo",
+                "pt": "Objetivo",
+                "zh": "目标",
+            },
+            "description": {
+                "de": "Strategische Ziele und Vorgaben, die die Unternehmensarchitektur vorantreiben.",
+                "fr": "Objectifs stratégiques qui orientent l'architecture d'entreprise.",
+                "es": "Objetivos estratégicos que impulsan la arquitectura empresarial.",
+                "it": "Obiettivi strategici che guidano l'architettura aziendale.",
+                "pt": "Objetivos estratégicos que direcionam a arquitetura empresarial.",
+                "zh": "驱动企业架构的战略目标。",
+            },
+        },
     },
     {
         "key": "Platform",
@@ -203,6 +221,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Plattform",
+                "fr": "Plateforme",
+                "es": "Plataforma",
+                "it": "Piattaforma",
+                "pt": "Plataforma",
+                "zh": "平台",
+            },
+            "description": {
+                "de": "Technologie- oder Geschäftsplattformen, die Anwendungen und Komponenten bündeln.",
+                "fr": "Plateformes technologiques ou métier regroupant applications et composants.",
+                "es": "Plataformas tecnológicas o de negocio que agrupan aplicaciones y componentes.",
+                "it": "Piattaforme tecnologiche o di business che raggruppano applicazioni e componenti.",
+                "pt": "Plataformas de tecnologia ou negócio que agrupam aplicações e componentes.",
+                "zh": "将应用和组件进行分组的技术或业务平台。",
+            },
+        },
     },
     {
         "key": "Initiative",
@@ -264,6 +300,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Initiative",
+                "fr": "Initiative",
+                "es": "Iniciativa",
+                "it": "Iniziativa",
+                "pt": "Iniciativa",
+                "zh": "举措",
+            },
+            "description": {
+                "de": "Projekte, Programme und Epics, die die Unternehmensarchitektur transformieren.",
+                "fr": "Projets, programmes et epics qui transforment l'architecture d'entreprise.",
+                "es": "Proyectos, programas y epics que transforman la arquitectura empresarial.",
+                "it": "Progetti, programmi ed epic che trasformano l'architettura aziendale.",
+                "pt": "Projetos, programas e épicos que transformam a arquitetura empresarial.",
+                "zh": "转变企业架构的项目、计划和史诗。",
+            },
+        },
     },
     # -- Business Architecture layer --
     {
@@ -291,6 +345,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Organisation",
+                "fr": "Organisation",
+                "es": "Organización",
+                "it": "Organizzazione",
+                "pt": "Organização",
+                "zh": "组织",
+            },
+            "description": {
+                "de": "Organisationseinheiten, Regionen, Rechtseinheiten, Teams und Kunden.",
+                "fr": "Unités organisationnelles, régions, entités juridiques, équipes et clients.",
+                "es": "Unidades organizativas, regiones, entidades legales, equipos y clientes.",
+                "it": "Unità organizzative, regioni, entità giuridiche, team e clienti.",
+                "pt": "Unidades organizacionais, regiões, entidades legais, equipes e clientes.",
+                "zh": "组织单元、区域、法律实体、团队和客户。",
+            },
+        },
     },
     {
         "key": "BusinessCapability",
@@ -353,6 +425,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Geschäftsfähigkeit",
+                "fr": "Capacité métier",
+                "es": "Capacidad de negocio",
+                "it": "Capacità aziendale",
+                "pt": "Capacidade de negócio",
+                "zh": "业务能力",
+            },
+            "description": {
+                "de": "Stabile Zerlegung dessen, was das Unternehmen tut, unabhängig davon, wie es umgesetzt wird.",
+                "fr": "Décomposition stable de ce que fait l'entreprise, indépendamment de la mise en œuvre.",
+                "es": "Descomposición estable de lo que hace la empresa, independiente de cómo se realiza.",
+                "it": "Scomposizione stabile di ciò che fa l'azienda, indipendente da come viene realizzata.",
+                "pt": "Decomposição estável do que a empresa faz, independente de como é realizado.",
+                "zh": "企业职能的稳定分解，与具体实现方式无关。",
+            },
+        },
     },
     {
         "key": "BusinessContext",
@@ -389,6 +479,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Geschäftskontext",
+                "fr": "Contexte métier",
+                "es": "Contexto de negocio",
+                "it": "Contesto aziendale",
+                "pt": "Contexto de negócio",
+                "zh": "业务上下文",
+            },
+            "description": {
+                "de": "Geschäftsprozesse, Wertströme, Customer Journeys und Produkte.",
+                "fr": "Processus métier, chaînes de valeur, parcours clients et produits.",
+                "es": "Procesos de negocio, cadenas de valor, recorridos del cliente y productos.",
+                "it": "Processi aziendali, flussi di valore, percorsi del cliente e prodotti.",
+                "pt": "Processos de negócio, cadeias de valor, jornadas do cliente e produtos.",
+                "zh": "业务流程、价值流、客户旅程和产品。",
+            },
+        },
     },
     # -- BPM layer --
     {
@@ -471,6 +579,24 @@ TYPES = [
             {"key": "process_owner", "label": "Process Owner"},
             {"key": "observer", "label": "Observer"},
         ],
+        "translations": {
+            "label": {
+                "de": "Geschäftsprozess",
+                "fr": "Processus métier",
+                "es": "Proceso de negocio",
+                "it": "Processo aziendale",
+                "pt": "Processo de negócio",
+                "zh": "业务流程",
+            },
+            "description": {
+                "de": "Geschäftsprozesse mit BPMN-2.0-Modellierung, Lebenszyklus- und Reifegradüberwachung.",
+                "fr": "Processus métier avec modélisation BPMN 2.0, cycle de vie et suivi de maturité.",
+                "es": "Procesos de negocio con modelado BPMN 2.0, ciclo de vida y seguimiento de madurez.",
+                "it": "Processi aziendali con modellazione BPMN 2.0, ciclo di vita e monitoraggio della maturità.",
+                "pt": "Processos de negócio com modelagem BPMN 2.0, ciclo de vida e acompanhamento de maturidade.",
+                "zh": "具有BPMN 2.0流程建模、生命周期和成熟度跟踪的业务流程。",
+            },
+        },
     },
     # -- Application & Data Architecture layer --
     {
@@ -551,6 +677,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Anwendung",
+                "fr": "Application",
+                "es": "Aplicación",
+                "it": "Applicazione",
+                "pt": "Aplicação",
+                "zh": "应用程序",
+            },
+            "description": {
+                "de": "Softwareanwendungen, Microservices und Deployments in der IT-Landschaft.",
+                "fr": "Applications logicielles, microservices et déploiements dans le paysage IT.",
+                "es": "Aplicaciones de software, microservicios y despliegues en el panorama de TI.",
+                "it": "Applicazioni software, microservizi e distribuzioni nel panorama IT.",
+                "pt": "Aplicações de software, microsserviços e implantações no cenário de TI.",
+                "zh": "IT环境中的软件应用、微服务和部署。",
+            },
+        },
     },
     {
         "key": "Interface",
@@ -582,6 +726,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Schnittstelle",
+                "fr": "Interface",
+                "es": "Interfaz",
+                "it": "Interfaccia",
+                "pt": "Interface",
+                "zh": "接口",
+            },
+            "description": {
+                "de": "Datenflüsse und Integrationen zwischen Anwendungen.",
+                "fr": "Flux de données et intégrations entre applications.",
+                "es": "Flujos de datos e integraciones entre aplicaciones.",
+                "it": "Flussi di dati e integrazioni tra applicazioni.",
+                "pt": "Fluxos de dados e integrações entre aplicações.",
+                "zh": "应用之间的数据流和集成。",
+            },
+        },
     },
     {
         "key": "DataObject",
@@ -614,6 +776,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Datenobjekt",
+                "fr": "Objet de données",
+                "es": "Objeto de datos",
+                "it": "Oggetto dati",
+                "pt": "Objeto de dados",
+                "zh": "数据对象",
+            },
+            "description": {
+                "de": "Geschäftsdatenobjekte und deren Klassifikationen.",
+                "fr": "Objets de données métier et leurs classifications.",
+                "es": "Objetos de datos de negocio y sus clasificaciones.",
+                "it": "Oggetti dati aziendali e relative classificazioni.",
+                "pt": "Objetos de dados de negócio e suas classificações.",
+                "zh": "业务数据对象及其分类。",
+            },
+        },
     },
     # -- Technical Architecture layer --
     {
@@ -669,6 +849,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "IT-Komponente",
+                "fr": "Composant IT",
+                "es": "Componente TI",
+                "it": "Componente IT",
+                "pt": "Componente de TI",
+                "zh": "IT组件",
+            },
+            "description": {
+                "de": "Technologiekomponenten: Software, Hardware, SaaS, PaaS, IaaS, Services.",
+                "fr": "Composants technologiques : logiciels, matériel, SaaS, PaaS, IaaS, services.",
+                "es": "Componentes tecnológicos: software, hardware, SaaS, PaaS, IaaS, servicios.",
+                "it": "Componenti tecnologici: software, hardware, SaaS, PaaS, IaaS, servizi.",
+                "pt": "Componentes tecnológicos: software, hardware, SaaS, PaaS, IaaS, serviços.",
+                "zh": "技术组件：软件、硬件、SaaS、PaaS、IaaS、服务。",
+            },
+        },
     },
     {
         "key": "TechCategory",
@@ -681,6 +879,24 @@ TYPES = [
         "subtypes": [],
         "sort_order": 11,
         "fields_schema": [],
+        "translations": {
+            "label": {
+                "de": "Technologiekategorie",
+                "fr": "Catégorie technologique",
+                "es": "Categoría tecnológica",
+                "it": "Categoria tecnologica",
+                "pt": "Categoria tecnológica",
+                "zh": "技术类别",
+            },
+            "description": {
+                "de": "Technologiekategorien zur Klassifizierung von IT-Komponenten (z. B. Datenbanken, Middleware).",
+                "fr": "Catégories technologiques pour classifier les composants IT (ex. bases de données, middleware).",
+                "es": "Categorías tecnológicas para clasificar componentes de TI (p. ej., bases de datos, middleware).",
+                "it": "Categorie tecnologiche per classificare i componenti IT (es. database, middleware).",
+                "pt": "Categorias tecnológicas para classificar componentes de TI (ex.: bancos de dados, middleware).",
+                "zh": "用于分类IT组件的技术类别（如数据库、中间件）。",
+            },
+        },
     },
     {
         "key": "Provider",
@@ -717,6 +933,24 @@ TYPES = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "Anbieter",
+                "fr": "Fournisseur",
+                "es": "Proveedor",
+                "it": "Fornitore",
+                "pt": "Fornecedor",
+                "zh": "供应商",
+            },
+            "description": {
+                "de": "Externe Technologieanbieter und Lieferanten.",
+                "fr": "Fournisseurs et prestataires technologiques externes.",
+                "es": "Proveedores y vendedores de tecnología externos.",
+                "it": "Fornitori e venditori di tecnologia esterni.",
+                "pt": "Fornecedores e vendedores de tecnologia externos.",
+                "zh": "外部技术供应商和厂商。",
+            },
+        },
     },
 ]
 
@@ -733,6 +967,24 @@ RELATIONS = [
         "target_type_key": "BusinessCapability",
         "cardinality": "n:m",
         "sort_order": 0,
+        "translations": {
+            "label": {
+                "de": "verbessert",
+                "fr": "améliore",
+                "es": "mejora",
+                "it": "migliora",
+                "pt": "melhora",
+                "zh": "改进",
+            },
+            "reverse_label": {
+                "de": "wird verbessert durch",
+                "fr": "est amélioré par",
+                "es": "es mejorado por",
+                "it": "è migliorato da",
+                "pt": "é melhorado por",
+                "zh": "被改进",
+            },
+        },
     },
     {
         "key": "relPlatformToObjective",
@@ -742,6 +994,24 @@ RELATIONS = [
         "target_type_key": "Objective",
         "cardinality": "n:m",
         "sort_order": 1,
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relPlatformToApp",
@@ -751,6 +1021,24 @@ RELATIONS = [
         "target_type_key": "Application",
         "cardinality": "n:m",
         "sort_order": 2,
+        "translations": {
+            "label": {
+                "de": "betreibt",
+                "fr": "exécute",
+                "es": "ejecuta",
+                "it": "esegue",
+                "pt": "executa",
+                "zh": "运行",
+            },
+            "reverse_label": {
+                "de": "läuft auf",
+                "fr": "s'exécute sur",
+                "es": "se ejecuta en",
+                "it": "è eseguito su",
+                "pt": "é executado em",
+                "zh": "运行于",
+            },
+        },
     },
     {
         "key": "relPlatformToITC",
@@ -760,6 +1048,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 3,
+        "translations": {
+            "label": {
+                "de": "implementiert",
+                "fr": "implémente",
+                "es": "implementa",
+                "it": "implementa",
+                "pt": "implementa",
+                "zh": "实现",
+            },
+            "reverse_label": {
+                "de": "wird implementiert von",
+                "fr": "est implémenté par",
+                "es": "es implementado por",
+                "it": "è implementato da",
+                "pt": "é implementado por",
+                "zh": "被实现",
+            },
+        },
     },
     {
         "key": "relInitiativeToObjective",
@@ -769,6 +1075,24 @@ RELATIONS = [
         "target_type_key": "Objective",
         "cardinality": "n:m",
         "sort_order": 4,
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relInitiativeToPlatform",
@@ -778,6 +1102,24 @@ RELATIONS = [
         "target_type_key": "Platform",
         "cardinality": "n:m",
         "sort_order": 5,
+        "translations": {
+            "label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+            "reverse_label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+        },
     },
     {
         "key": "relInitiativeToBC",
@@ -787,6 +1129,24 @@ RELATIONS = [
         "target_type_key": "BusinessCapability",
         "cardinality": "n:m",
         "sort_order": 6,
+        "translations": {
+            "label": {
+                "de": "verbessert",
+                "fr": "améliore",
+                "es": "mejora",
+                "it": "migliora",
+                "pt": "melhora",
+                "zh": "改进",
+            },
+            "reverse_label": {
+                "de": "wird verbessert durch",
+                "fr": "est amélioré par",
+                "es": "es mejorado por",
+                "it": "è migliorato da",
+                "pt": "é melhorado por",
+                "zh": "被改进",
+            },
+        },
     },
     {
         "key": "relInitiativeToApp",
@@ -796,6 +1156,24 @@ RELATIONS = [
         "target_type_key": "Application",
         "cardinality": "n:m",
         "sort_order": 7,
+        "translations": {
+            "label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+            "reverse_label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+        },
     },
     {
         "key": "relInitiativeToInterface",
@@ -805,6 +1183,24 @@ RELATIONS = [
         "target_type_key": "Interface",
         "cardinality": "n:m",
         "sort_order": 8,
+        "translations": {
+            "label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+            "reverse_label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+        },
     },
     {
         "key": "relInitiativeToDataObj",
@@ -814,6 +1210,24 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 9,
+        "translations": {
+            "label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+            "reverse_label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+        },
     },
     {
         "key": "relInitiativeToITC",
@@ -823,6 +1237,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 10,
+        "translations": {
+            "label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+            "reverse_label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+        },
     },
     # Organization connections
     {
@@ -833,6 +1265,24 @@ RELATIONS = [
         "target_type_key": "Objective",
         "cardinality": "n:m",
         "sort_order": 12,
+        "translations": {
+            "label": {
+                "de": "besitzt",
+                "fr": "possède",
+                "es": "posee",
+                "it": "possiede",
+                "pt": "possui",
+                "zh": "拥有",
+            },
+            "reverse_label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+        },
     },
     {
         "key": "relOrgToInitiative",
@@ -842,6 +1292,24 @@ RELATIONS = [
         "target_type_key": "Initiative",
         "cardinality": "n:m",
         "sort_order": 13,
+        "translations": {
+            "label": {
+                "de": "besitzt",
+                "fr": "possède",
+                "es": "posee",
+                "it": "possiede",
+                "pt": "possui",
+                "zh": "拥有",
+            },
+            "reverse_label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+        },
     },
     {
         "key": "relOrgToBizCtx",
@@ -851,6 +1319,24 @@ RELATIONS = [
         "target_type_key": "BusinessContext",
         "cardinality": "n:m",
         "sort_order": 14,
+        "translations": {
+            "label": {
+                "de": "besitzt",
+                "fr": "possède",
+                "es": "posee",
+                "it": "possiede",
+                "pt": "possui",
+                "zh": "拥有",
+            },
+            "reverse_label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+        },
     },
     {
         "key": "relOrgToApp",
@@ -868,6 +1354,24 @@ RELATIONS = [
                 "options": USAGE_TYPE_OPTIONS,
             },
         ],
+        "translations": {
+            "label": {
+                "de": "nutzt",
+                "fr": "utilise",
+                "es": "utiliza",
+                "it": "utilizza",
+                "pt": "utiliza",
+                "zh": "使用",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     {
         "key": "relOrgToITC",
@@ -877,6 +1381,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 16,
+        "translations": {
+            "label": {
+                "de": "besitzt",
+                "fr": "possède",
+                "es": "posee",
+                "it": "possiede",
+                "pt": "possui",
+                "zh": "拥有",
+            },
+            "reverse_label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+        },
     },
     # Application connections
     {
@@ -901,6 +1423,24 @@ RELATIONS = [
                 "options": SUPPORT_TYPE_OPTIONS,
             },
         ],
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relAppToBizCtx",
@@ -910,6 +1450,24 @@ RELATIONS = [
         "target_type_key": "BusinessContext",
         "cardinality": "n:m",
         "sort_order": 18,
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relAppToInterface",
@@ -919,6 +1477,24 @@ RELATIONS = [
         "target_type_key": "Interface",
         "cardinality": "n:m",
         "sort_order": 19,
+        "translations": {
+            "label": {
+                "de": "stellt bereit / konsumiert",
+                "fr": "fournit / consomme",
+                "es": "provee / consume",
+                "it": "fornisce / consuma",
+                "pt": "fornece / consome",
+                "zh": "提供 / 消费",
+            },
+            "reverse_label": {
+                "de": "wird bereitgestellt / konsumiert von",
+                "fr": "est fourni / consommé par",
+                "es": "es provisto / consumido por",
+                "it": "è fornito / consumato da",
+                "pt": "é fornecido / consumido por",
+                "zh": "被提供 / 被消费",
+            },
+        },
     },
     {
         "key": "relAppToDataObj",
@@ -934,6 +1510,24 @@ RELATIONS = [
             {"key": "crudUpdate", "label": "Update", "type": "boolean"},
             {"key": "crudDelete", "label": "Delete", "type": "boolean"},
         ],
+        "translations": {
+            "label": {
+                "de": "CRUD",
+                "fr": "CRUD",
+                "es": "CRUD",
+                "it": "CRUD",
+                "pt": "CRUD",
+                "zh": "CRUD",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     {
         "key": "relAppToITC",
@@ -952,6 +1546,24 @@ RELATIONS = [
             },
             {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
         ],
+        "translations": {
+            "label": {
+                "de": "nutzt",
+                "fr": "utilise",
+                "es": "utiliza",
+                "it": "utilizza",
+                "pt": "utiliza",
+                "zh": "使用",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     # IT Component connections
     {
@@ -970,6 +1582,24 @@ RELATIONS = [
                 "options": RESOURCE_CLASSIFICATION_OPTIONS,
             },
         ],
+        "translations": {
+            "label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+            "reverse_label": {
+                "de": "umfasst",
+                "fr": "inclut",
+                "es": "incluye",
+                "it": "include",
+                "pt": "inclui",
+                "zh": "包含",
+            },
+        },
     },
     {
         "key": "relITCToPlatform",
@@ -979,6 +1609,24 @@ RELATIONS = [
         "target_type_key": "Platform",
         "cardinality": "n:m",
         "sort_order": 24,
+        "translations": {
+            "label": {
+                "de": "implementiert",
+                "fr": "implémente",
+                "es": "implementa",
+                "it": "implementa",
+                "pt": "implementa",
+                "zh": "实现",
+            },
+            "reverse_label": {
+                "de": "wird implementiert von",
+                "fr": "est implémenté par",
+                "es": "es implementado por",
+                "it": "è implementato da",
+                "pt": "é implementado por",
+                "zh": "被实现",
+            },
+        },
     },
     # Interface connections
     {
@@ -989,6 +1637,24 @@ RELATIONS = [
         "target_type_key": "DataObject",
         "cardinality": "n:m",
         "sort_order": 25,
+        "translations": {
+            "label": {
+                "de": "überträgt",
+                "fr": "transfère",
+                "es": "transfiere",
+                "it": "trasferisce",
+                "pt": "transfere",
+                "zh": "传输",
+            },
+            "reverse_label": {
+                "de": "wird übertragen von",
+                "fr": "est transféré par",
+                "es": "es transferido por",
+                "it": "è trasferito da",
+                "pt": "é transferido por",
+                "zh": "被传输",
+            },
+        },
     },
     {
         "key": "relInterfaceToITC",
@@ -998,6 +1664,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 26,
+        "translations": {
+            "label": {
+                "de": "nutzt",
+                "fr": "utilise",
+                "es": "utiliza",
+                "it": "utilizza",
+                "pt": "utiliza",
+                "zh": "使用",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     # Provider connections
     {
@@ -1008,6 +1692,24 @@ RELATIONS = [
         "target_type_key": "Initiative",
         "cardinality": "n:m",
         "sort_order": 27,
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relProviderToApp",
@@ -1017,6 +1719,24 @@ RELATIONS = [
         "target_type_key": "Application",
         "cardinality": "n:m",
         "sort_order": 28,
+        "translations": {
+            "label": {
+                "de": "bietet an",
+                "fr": "propose",
+                "es": "ofrece",
+                "it": "offre",
+                "pt": "oferece",
+                "zh": "提供",
+            },
+            "reverse_label": {
+                "de": "wird angeboten von",
+                "fr": "est proposé par",
+                "es": "es ofrecido por",
+                "it": "è offerto da",
+                "pt": "é oferecido por",
+                "zh": "由...提供",
+            },
+        },
     },
     {
         "key": "relProviderToITC",
@@ -1026,6 +1746,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 29,
+        "translations": {
+            "label": {
+                "de": "bietet an",
+                "fr": "propose",
+                "es": "ofrece",
+                "it": "offre",
+                "pt": "oferece",
+                "zh": "提供",
+            },
+            "reverse_label": {
+                "de": "wird angeboten von",
+                "fr": "est proposé par",
+                "es": "es ofrecido por",
+                "it": "è offerto da",
+                "pt": "é oferecido por",
+                "zh": "由...提供",
+            },
+        },
     },
     # Business Context connections
     {
@@ -1036,6 +1774,24 @@ RELATIONS = [
         "target_type_key": "BusinessCapability",
         "cardinality": "n:m",
         "sort_order": 30,
+        "translations": {
+            "label": {
+                "de": "ist verknüpft mit",
+                "fr": "est associé à",
+                "es": "está asociado con",
+                "it": "è associato a",
+                "pt": "está associado a",
+                "zh": "关联于",
+            },
+            "reverse_label": {
+                "de": "ist verknüpft mit",
+                "fr": "est associé à",
+                "es": "está asociado con",
+                "it": "è associato a",
+                "pt": "está associado a",
+                "zh": "关联于",
+            },
+        },
     },
     # BPM — Business Process connections
     {
@@ -1054,6 +1810,24 @@ RELATIONS = [
                 "options": SUPPORT_TYPE_OPTIONS,
             },
         ],
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relProcessToApp",
@@ -1088,6 +1862,24 @@ RELATIONS = [
                 ],
             },
         ],
+        "translations": {
+            "label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+            "reverse_label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+        },
     },
     {
         "key": "relProcessToDataObj",
@@ -1103,6 +1895,24 @@ RELATIONS = [
             {"key": "crudUpdate", "label": "Update", "type": "boolean"},
             {"key": "crudDelete", "label": "Delete", "type": "boolean"},
         ],
+        "translations": {
+            "label": {
+                "de": "nutzt",
+                "fr": "utilise",
+                "es": "utiliza",
+                "it": "utilizza",
+                "pt": "utiliza",
+                "zh": "使用",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     {
         "key": "relProcessToITC",
@@ -1112,6 +1922,24 @@ RELATIONS = [
         "target_type_key": "ITComponent",
         "cardinality": "n:m",
         "sort_order": 34,
+        "translations": {
+            "label": {
+                "de": "nutzt",
+                "fr": "utilise",
+                "es": "utiliza",
+                "it": "utilizza",
+                "pt": "utiliza",
+                "zh": "使用",
+            },
+            "reverse_label": {
+                "de": "wird genutzt von",
+                "fr": "est utilisé par",
+                "es": "es utilizado por",
+                "it": "è utilizzato da",
+                "pt": "é utilizado por",
+                "zh": "被使用",
+            },
+        },
     },
     {
         "key": "relProcessDependency",
@@ -1121,6 +1949,24 @@ RELATIONS = [
         "target_type_key": "BusinessProcess",
         "cardinality": "n:m",
         "sort_order": 35,
+        "translations": {
+            "label": {
+                "de": "hängt ab von",
+                "fr": "dépend de",
+                "es": "depende de",
+                "it": "dipende da",
+                "pt": "depende de",
+                "zh": "依赖于",
+            },
+            "reverse_label": {
+                "de": "wird benötigt von",
+                "fr": "est requis par",
+                "es": "es requerido por",
+                "it": "è richiesto da",
+                "pt": "é requerido por",
+                "zh": "被依赖",
+            },
+        },
     },
     {
         "key": "relProcessToOrg",
@@ -1130,6 +1976,24 @@ RELATIONS = [
         "target_type_key": "Organization",
         "cardinality": "n:m",
         "sort_order": 36,
+        "translations": {
+            "label": {
+                "de": "gehört zu",
+                "fr": "appartient à",
+                "es": "pertenece a",
+                "it": "appartiene a",
+                "pt": "pertence a",
+                "zh": "属于",
+            },
+            "reverse_label": {
+                "de": "besitzt",
+                "fr": "possède",
+                "es": "posee",
+                "it": "possiede",
+                "pt": "possui",
+                "zh": "拥有",
+            },
+        },
     },
     {
         "key": "relProcessToInitiative",
@@ -1139,6 +2003,24 @@ RELATIONS = [
         "target_type_key": "Initiative",
         "cardinality": "n:m",
         "sort_order": 37,
+        "translations": {
+            "label": {
+                "de": "wird beeinflusst von",
+                "fr": "est affecté par",
+                "es": "es afectado por",
+                "it": "è influenzato da",
+                "pt": "é afetado por",
+                "zh": "被影响",
+            },
+            "reverse_label": {
+                "de": "beeinflusst",
+                "fr": "affecte",
+                "es": "afecta",
+                "it": "influenza",
+                "pt": "afeta",
+                "zh": "影响",
+            },
+        },
     },
     {
         "key": "relProcessToObjective",
@@ -1148,6 +2030,24 @@ RELATIONS = [
         "target_type_key": "Objective",
         "cardinality": "n:m",
         "sort_order": 38,
+        "translations": {
+            "label": {
+                "de": "unterstützt",
+                "fr": "prend en charge",
+                "es": "apoya",
+                "it": "supporta",
+                "pt": "suporta",
+                "zh": "支持",
+            },
+            "reverse_label": {
+                "de": "wird unterstützt von",
+                "fr": "est pris en charge par",
+                "es": "es apoyado por",
+                "it": "è supportato da",
+                "pt": "é suportado por",
+                "zh": "被支持",
+            },
+        },
     },
     {
         "key": "relProcessToBizCtx",
@@ -1157,6 +2057,24 @@ RELATIONS = [
         "target_type_key": "BusinessContext",
         "cardinality": "n:m",
         "sort_order": 39,
+        "translations": {
+            "label": {
+                "de": "realisiert",
+                "fr": "réalise",
+                "es": "realiza",
+                "it": "realizza",
+                "pt": "realiza",
+                "zh": "实现",
+            },
+            "reverse_label": {
+                "de": "wird realisiert durch",
+                "fr": "est réalisé par",
+                "es": "es realizado por",
+                "it": "è realizzato da",
+                "pt": "é realizado por",
+                "zh": "被实现",
+            },
+        },
     },
 ]
 
@@ -1196,6 +2114,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
             # (like BPM Assessment on BusinessCapability) are picked up
             existing = existing_types[key]
             if existing.built_in:
+                # Update translations if not set
+                seed_translations = t.get("translations", {})
+                if seed_translations and not existing.translations:
+                    existing.translations = seed_translations
                 seed_schema = t.get("fields_schema", [])
                 current_schema = existing.fields_schema or []
                 current_sections = {s["section"] for s in current_schema}
@@ -1219,6 +2141,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             built_in=True,
             is_hidden=t.get("is_hidden", False),
             sort_order=t.get("sort_order", i),
+            translations=t.get("translations", {}),
         )
         db.add(fst)
 
@@ -1242,6 +2165,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             built_in=True,
             is_hidden=False,
             sort_order=r.get("sort_order", i),
+            translations=r.get("translations", {}),
         )
         db.add(rt)
 

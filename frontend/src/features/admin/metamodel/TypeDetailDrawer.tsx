@@ -20,21 +20,53 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CardLayoutEditor from "@/features/admin/CardLayoutEditor";
 import { api } from "@/api/client";
+import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import type {
   CardType as FSType,
   RelationType as RType,
   FieldDef,
   SectionDef,
+  MetamodelTranslations,
+  TranslationMap,
 } from "@/types";
 import { emptyField } from "./helpers";
 import FieldEditorDialog from "./FieldEditorDialog";
 import StakeholderRolePanel from "./StakeholderRolePanel";
+
+/** Locales to show translation inputs for (all except English). */
+const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
+
+/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
+function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
+  if (!map) return undefined;
+  const cleaned: TranslationMap = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (v && v.trim()) cleaned[k] = v.trim();
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/** Clean a MetamodelTranslations object, removing empty maps. */
+function cleanTranslations(
+  trans: MetamodelTranslations | undefined,
+): MetamodelTranslations | undefined {
+  if (!trans) return undefined;
+  const cleaned: MetamodelTranslations = {};
+  for (const [key, map] of Object.entries(trans)) {
+    const c = cleanTranslationMap(map);
+    if (c) cleaned[key] = c;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Type Detail Dialog (full-width, 2-panel layout)                    */
@@ -69,6 +101,7 @@ export default function TypeDetailDrawer({
   const [color, setColor] = useState("#1976d2");
   const [icon, setIcon] = useState("category");
   const [hasHierarchy, setHasHierarchy] = useState(false);
+  const [translations, setTranslations] = useState<MetamodelTranslations>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState("");
@@ -77,6 +110,7 @@ export default function TypeDetailDrawer({
   const [addSubOpen, setAddSubOpen] = useState(false);
   const [newSubKey, setNewSubKey] = useState("");
   const [newSubLabel, setNewSubLabel] = useState("");
+  const [newSubTranslations, setNewSubTranslations] = useState<TranslationMap>({});
 
   /* --- Field editor --- */
   const [fieldDialogOpen, setFieldDialogOpen] = useState(false);
@@ -122,6 +156,7 @@ export default function TypeDetailDrawer({
       setColor(cardTypeKey.color);
       setIcon(cardTypeKey.icon);
       setHasHierarchy(cardTypeKey.has_hierarchy);
+      setTranslations(cardTypeKey.translations || {});
       setError(null);
       setAddSubOpen(false);
       setDeleteFieldConfirm(null);
@@ -146,6 +181,7 @@ export default function TypeDetailDrawer({
         color,
         icon,
         has_hierarchy: hasHierarchy,
+        translations: cleanTranslations(translations) || null,
       });
       onRefresh();
       setError(null);
@@ -161,14 +197,16 @@ export default function TypeDetailDrawer({
   const handleAddSubtype = async () => {
     if (!newSubKey || !newSubLabel) return;
     try {
+      const cleanedSubTrans = cleanTranslationMap(newSubTranslations);
       const updated = [
         ...(cardTypeKey.subtypes || []),
-        { key: newSubKey, label: newSubLabel },
+        { key: newSubKey, label: newSubLabel, ...(cleanedSubTrans ? { translations: cleanedSubTrans } : {}) },
       ];
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
       onRefresh();
       setNewSubKey("");
       setNewSubLabel("");
+      setNewSubTranslations({});
       setAddSubOpen(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToAddSubtype"));
@@ -451,6 +489,61 @@ export default function TypeDetailDrawer({
           </Box>
         </Box>
 
+        {/* -- Translations -- */}
+        <Accordion variant="outlined" sx={{ mb: 2.5, "&:before": { display: "none" } }} disableGutters>
+          <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />} sx={{ minHeight: 40, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <MaterialSymbol icon="translate" size={18} color="#666" />
+              <Typography variant="body2" fontWeight={600}>{t("metamodel.translations")}</Typography>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 1.5, display: "block" }}>
+              {t("metamodel.translations.hint")}
+            </Typography>
+            {/* Label translations */}
+            <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+              {t("metamodel.translations.labelTranslations")}
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 1, mb: 2 }}>
+              {TRANSLATION_LOCALES.map((locale) => (
+                <TextField
+                  key={`label-${locale}`}
+                  size="small"
+                  label={LOCALE_LABELS[locale]}
+                  value={translations.label?.[locale] || ""}
+                  onChange={(e) =>
+                    setTranslations({
+                      ...translations,
+                      label: { ...translations.label, [locale]: e.target.value },
+                    })
+                  }
+                />
+              ))}
+            </Box>
+            {/* Description translations */}
+            <Typography variant="caption" fontWeight={600} sx={{ mb: 0.5, display: "block" }}>
+              {t("metamodel.translations.descriptionTranslations")}
+            </Typography>
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" }, gap: 1 }}>
+              {TRANSLATION_LOCALES.map((locale) => (
+                <TextField
+                  key={`desc-${locale}`}
+                  size="small"
+                  label={LOCALE_LABELS[locale]}
+                  value={translations.description?.[locale] || ""}
+                  onChange={(e) =>
+                    setTranslations({
+                      ...translations,
+                      description: { ...translations.description, [locale]: e.target.value },
+                    })
+                  }
+                />
+              ))}
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+
         {/* -- Subtypes + Relations (side by side) -- */}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 3 }}>
           {/* Subtypes */}
@@ -458,44 +551,119 @@ export default function TypeDetailDrawer({
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1.5 }}>
               {t("metamodel.typeDrawer.subtypes")}
             </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 1.5 }}>
-              {(cardTypeKey.subtypes || []).map((s) => (
-                <Chip
-                  key={s.key}
-                  label={`${s.label} (${s.key})`}
-                  onDelete={() => handleRemoveSubtype(s.key)}
-                  variant="outlined"
-                  size="small"
-                />
-              ))}
-              {(!cardTypeKey.subtypes || cardTypeKey.subtypes.length === 0) && (
-                <Typography variant="body2" color="text.secondary">
-                  {t("metamodel.typeDrawer.noSubtypes")}
-                </Typography>
-              )}
-            </Box>
+            {(cardTypeKey.subtypes || []).length > 0 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1.5 }}>
+                {(cardTypeKey.subtypes || []).map((s) => (
+                  <Box key={s.key}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <Chip
+                        label={`${s.label} (${s.key})`}
+                        onDelete={() => handleRemoveSubtype(s.key)}
+                        variant="outlined"
+                        size="small"
+                      />
+                    </Box>
+                    <Accordion
+                      variant="outlined"
+                      disableGutters
+                      sx={{ mt: 0.5, "&:before": { display: "none" } }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                        sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
+                      >
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <MaterialSymbol icon="translate" size={14} color="#999" />
+                          <Typography variant="caption" color="text.secondary">
+                            {t("metamodel.translations")}
+                          </Typography>
+                        </Box>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                          {TRANSLATION_LOCALES.map((locale) => (
+                            <TextField
+                              key={`sub-${s.key}-${locale}`}
+                              size="small"
+                              label={LOCALE_LABELS[locale]}
+                              defaultValue={s.translations?.[locale] || ""}
+                              onBlur={(e) => {
+                                const val = e.target.value;
+                                const updated = (cardTypeKey.subtypes || []).map((sub) =>
+                                  sub.key === s.key
+                                    ? { ...sub, translations: cleanTranslationMap({ ...sub.translations, [locale]: val }) }
+                                    : sub,
+                                );
+                                api
+                                  .patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated })
+                                  .then(() => onRefresh())
+                                  .catch(() => {});
+                              }}
+                            />
+                          ))}
+                        </Box>
+                      </AccordionDetails>
+                    </Accordion>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                {t("metamodel.typeDrawer.noSubtypes")}
+              </Typography>
+            )}
             {addSubOpen ? (
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                <KeyInput
-                  size="small"
-                  label={t("metamodel.typeDrawer.key")}
-                  value={newSubKey}
-                  onChange={setNewSubKey}
-                  sx={{ flex: 1 }}
-                />
-                <TextField
-                  size="small"
-                  label={t("metamodel.typeDrawer.label")}
-                  value={newSubLabel}
-                  onChange={(e) => setNewSubLabel(e.target.value)}
-                  sx={{ flex: 1 }}
-                />
-                <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}>
-                  {t("common:actions.add")}
-                </Button>
-                <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); }}>
-                  <MaterialSymbol icon="close" size={18} />
-                </IconButton>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <KeyInput
+                    size="small"
+                    label={t("metamodel.typeDrawer.key")}
+                    value={newSubKey}
+                    onChange={setNewSubKey}
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    size="small"
+                    label={t("metamodel.typeDrawer.label")}
+                    value={newSubLabel}
+                    onChange={(e) => setNewSubLabel(e.target.value)}
+                    sx={{ flex: 1 }}
+                  />
+                  <Button size="small" variant="contained" onClick={handleAddSubtype} disabled={!newSubKey || !newSubLabel || !isValidKey(newSubKey)}>
+                    {t("common:actions.add")}
+                  </Button>
+                  <IconButton size="small" onClick={() => { setAddSubOpen(false); setNewSubKey(""); setNewSubLabel(""); setNewSubTranslations({}); }}>
+                    <MaterialSymbol icon="close" size={18} />
+                  </IconButton>
+                </Box>
+                <Accordion variant="outlined" disableGutters sx={{ "&:before": { display: "none" } }}>
+                  <AccordionSummary
+                    expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                    sx={{ minHeight: 32, "& .MuiAccordionSummary-content": { my: 0.25 } }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <MaterialSymbol icon="translate" size={14} color="#999" />
+                      <Typography variant="caption" color="text.secondary">
+                        {t("metamodel.translations")}
+                      </Typography>
+                    </Box>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1 }}>
+                      {TRANSLATION_LOCALES.map((locale) => (
+                        <TextField
+                          key={`newsub-${locale}`}
+                          size="small"
+                          label={LOCALE_LABELS[locale]}
+                          value={newSubTranslations[locale] || ""}
+                          onChange={(e) =>
+                            setNewSubTranslations({ ...newSubTranslations, [locale]: e.target.value })
+                          }
+                        />
+                      ))}
+                    </Box>
+                  </AccordionDetails>
+                </Accordion>
               </Box>
             ) : (
               <Button size="small" startIcon={<MaterialSymbol icon="add" size={16} />} onClick={() => setAddSubOpen(true)}>

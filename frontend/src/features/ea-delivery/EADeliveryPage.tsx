@@ -37,6 +37,7 @@ import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Card, SoAW, DiagramSummary, Relation } from "@/types";
 
@@ -72,6 +73,8 @@ export default function EADeliveryPage() {
   const { t } = useTranslation(["delivery", "common"]);
   const navigate = useNavigate();
   const { types: metamodelTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
 
   const SOAW_STATUS_LABELS: Record<string, string> = {
     draft: t("status.draft"),
@@ -265,9 +268,10 @@ export default function EADeliveryPage() {
 
   const getTypeLabel = useCallback(
     (typeKey: string) => {
-      return metamodelTypes.find((t) => t.key === typeKey)?.label ?? typeKey;
+      const tp = metamodelTypes.find((t) => t.key === typeKey);
+      return rml(tp?.label ?? "", tp?.translations, "label") || typeKey;
     },
-    [metamodelTypes],
+    [metamodelTypes, rml],
   );
 
   // ── create SoAW ────────────────────────────────────────────────────────
@@ -832,7 +836,7 @@ export default function EADeliveryPage() {
           <MenuItem value="">{t("filter.allSubtypes")}</MenuItem>
           {subtypes.map((st) => (
             <MenuItem key={st.key} value={st.key}>
-              {st.label}
+              {rl(st.label, st.translations)}
             </MenuItem>
           ))}
         </TextField>

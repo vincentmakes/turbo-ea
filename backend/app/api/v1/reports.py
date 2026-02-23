@@ -374,6 +374,7 @@ async def app_portfolio(
                     "source_type_key": rt.source_type_key,
                     "target_type_key": rt.target_type_key,
                     "other_type_key": other,
+                    "translations": rt.translations or {},
                 }
             )
 

@@ -658,5 +658,15 @@
   "servicenow.sync.staged.cardId": "Card ID",
   "servicenow.sync.staged.changes": "Changes",
   "servicenow.sync.staged.error": "Error",
-  "calculations.test": "Test"
+  "calculations.test": "Test",
+  "metamodel.translations": "Translations",
+  "metamodel.translations.hint": "Provide translations for non-English locales",
+  "metamodel.translations.labelTranslations": "Label Translations",
+  "metamodel.translations.descriptionTranslations": "Description Translations",
+  "metamodel.translations.reverseLabelTranslations": "Reverse Label Translations",
+  "metamodel.translations.subtypeTranslations": "Subtype \"{{label}}\" Translations",
+  "metamodel.translations.sectionTranslations": "Section Name Translations",
+  "metamodel.translations.fieldTranslations": "Field Label Translations",
+  "metamodel.translations.optionTranslations": "Option \"{{label}}\" Translations",
+  "metamodel.translations.roleTranslations": "Role Label Translations"
 }

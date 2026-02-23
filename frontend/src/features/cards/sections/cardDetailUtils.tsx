@@ -13,6 +13,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import type { FieldDef } from "@/types";
 
 // ── URL validation (matches backend _ALLOWED_URL_SCHEMES) ────────
@@ -129,6 +130,7 @@ export function chipWidthForField(options: FieldDef["options"]): number {
 // ── Read-only field value renderer ──────────────────────────────
 export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; value: unknown; currencyFmt?: Intl.NumberFormat }) {
   const { t } = useTranslation(["cards", "common"]);
+  const rl = useResolveLabel();
 
   if (value == null || value === "") {
     return <Typography variant="body2" color="text.secondary">—</Typography>;
@@ -144,7 +146,7 @@ export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; val
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={rl(opt.label, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={t("utils.unknownOption", { key: strVal })}>
         <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
@@ -161,7 +163,7 @@ export function FieldValue({ field, value, currencyFmt }: { field: FieldDef; val
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={opt.label} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={rl(opt.label, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
             <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
@@ -222,6 +224,7 @@ export function FieldEditor({
   error?: string;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const rl = useResolveLabel();
 
   // Sanitize: ensure value passed to MUI is always the expected primitive type
   const strVal = typeof value === "string" ? value : (value != null ? safeString(value) : "");
@@ -231,10 +234,10 @@ export function FieldEditor({
     case "single_select":
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{field.label}</InputLabel>
+          <InputLabel>{rl(field.label, field.translations)}</InputLabel>
           <Select
             value={strVal}
-            label={field.label}
+            label={rl(field.label, field.translations)}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
             <MenuItem value="">
@@ -253,7 +256,7 @@ export function FieldEditor({
                       }}
                     />
                   )}
-                  {opt.label}
+                  {rl(opt.label, opt.translations)}
                 </Box>
               </MenuItem>
             ))}
@@ -264,11 +267,11 @@ export function FieldEditor({
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{field.label}</InputLabel>
+          <InputLabel>{rl(field.label, field.translations)}</InputLabel>
           <Select
             multiple
             value={arrVal}
-            label={field.label}
+            label={rl(field.label, field.translations)}
             onChange={(e) => {
               const v = e.target.value;
               onChange(typeof v === "string" ? v.split(",") : v);
@@ -277,7 +280,7 @@ export function FieldEditor({
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                 {(selected as string[]).map((key) => {
                   const opt = field.options?.find((o) => o.key === key);
-                  return <Chip key={key} size="small" label={opt?.label || key} sx={{ height: 22 }} />;
+                  return <Chip key={key} size="small" label={opt ? rl(opt.label, opt.translations) : key} sx={{ height: 22 }} />;
                 })}
               </Box>
             )}
@@ -288,7 +291,7 @@ export function FieldEditor({
                   {opt.color && (
                     <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                   )}
-                  {opt.label}
+                  {rl(opt.label, opt.translations)}
                 </Box>
               </MenuItem>
             ))}
@@ -300,7 +303,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={field.label}
+          label={rl(field.label, field.translations)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -314,7 +317,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={field.label}
+          label={rl(field.label, field.translations)}
           type="number"
           value={numVal}
           onChange={(e) =>
@@ -332,14 +335,14 @@ export function FieldEditor({
               onChange={(e) => onChange(e.target.checked)}
             />
           }
-          label={field.label}
+          label={rl(field.label, field.translations)}
         />
       );
     case "date":
       return (
         <TextField
           size="small"
-          label={field.label}
+          label={rl(field.label, field.translations)}
           type="date"
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
@@ -351,7 +354,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={field.label}
+          label={rl(field.label, field.translations)}
           type="url"
           placeholder="https://"
           value={strVal}
@@ -365,7 +368,7 @@ export function FieldEditor({
       return (
         <TextField
           size="small"
-          label={field.label}
+          label={rl(field.label, field.translations)}
           value={strVal}
           onChange={(e) => onChange(e.target.value || undefined)}
           sx={{ minWidth: 300 }}

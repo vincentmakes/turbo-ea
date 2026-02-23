@@ -35,6 +35,7 @@ import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import type { BadgeCounts } from "@/types";
 
@@ -113,6 +114,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const isNarrow = useMediaQuery("(max-width:1160px)");
   const isCondensed = useMediaQuery("(max-width:1279px)");
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
   const { mode, toggleMode } = useThemeMode();
 
@@ -408,7 +410,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                     {item.name}
                   </Typography>
                   <Chip
-                    label={typeConfig?.label || item.type}
+                    label={typeConfig ? rml(typeConfig.label, typeConfig.translations, "label") : item.type}
                     size="small"
                     sx={{
                       height: 18,
@@ -800,7 +802,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                             </Typography>
                           </Box>
                           <Chip
-                            label={typeConfig?.label || item.type}
+                            label={typeConfig ? rml(typeConfig.label, typeConfig.translations, "label") : item.type}
                             size="small"
                             sx={{
                               height: 20,

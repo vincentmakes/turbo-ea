@@ -11,6 +11,7 @@ import Chip from "@mui/material/Chip";
 import InputAdornment from "@mui/material/InputAdornment";
 import Tooltip from "@mui/material/Tooltip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Card, CardListResponse } from "@/types";
 
@@ -20,6 +21,7 @@ interface Props {
 
 export default function CardSidebar({ onInsert }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   const [types, setTypes] = useState<CardType[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [search, setSearch] = useState("");
@@ -126,7 +128,7 @@ export default function CardSidebar({ onInsert }: Props) {
                 >
                   <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
                   <ListItemText
-                    primary={ct.label}
+                    primary={rml(ct.label, ct.translations, "label")}
                     primaryTypographyProps={{
                       variant: "body2",
                       fontWeight: 600,

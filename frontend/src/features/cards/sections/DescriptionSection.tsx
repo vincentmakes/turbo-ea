@@ -11,6 +11,7 @@ import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
 
@@ -31,6 +32,7 @@ function DescriptionSection({
   currencyFmt?: Intl.NumberFormat;
 }) {
   const { t } = useTranslation(["cards", "common"]);
+  const rl = useResolveLabel();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(card.name);
   const [description, setDescription] = useState(card.description || "");
@@ -150,7 +152,7 @@ function DescriptionSection({
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
                 {extraFields.map((field) => (
                   <Box key={field.key} sx={{ display: "contents" }}>
-                    <Typography variant="body2" color="text.secondary">{field.label}</Typography>
+                    <Typography variant="body2" color="text.secondary">{rl(field.label, field.translations)}</Typography>
                     <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={currencyFmt} />
                   </Box>
                 ))}

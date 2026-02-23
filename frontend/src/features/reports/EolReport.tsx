@@ -23,6 +23,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 
@@ -189,6 +190,7 @@ function KpiCard({
 export default function EolReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("eol");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [data, setData] = useState<EolReportData | null>(null);
@@ -964,7 +966,7 @@ export default function EolReport() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" color="text.secondary">
-                        {typeConf?.label || item.type}
+                        {rml(typeConf?.label ?? "", typeConf?.translations, "label") || item.type}
                       </Typography>
                     </TableCell>
                     <TableCell>

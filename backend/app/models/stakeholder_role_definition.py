@@ -32,3 +32,4 @@ class StakeholderRoleDefinition(Base, UUIDMixin, TimestampMixin):
     archived_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+    translations: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")

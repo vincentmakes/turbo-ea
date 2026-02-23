@@ -11,6 +11,9 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import Accordion from "@mui/material/Accordion";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import AccordionDetails from "@mui/material/AccordionDetails";
 
 import {
   DndContext,
@@ -38,9 +41,24 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-import type { CardType, SectionDef, FieldDef, SectionConfig } from "@/types";
+import type { CardType, SectionDef, FieldDef, SectionConfig, TranslationMap } from "@/types";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
+import { SUPPORTED_LOCALES, LOCALE_LABELS } from "@/i18n";
 import MaterialSymbol from "@/components/MaterialSymbol";
+
+/** Locales to show translation inputs for (all except English). */
+const TRANSLATION_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== "en");
+
+/** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
+function cleanTranslationMap(map: TranslationMap | undefined): TranslationMap | undefined {
+  if (!map) return undefined;
+  const cleaned: TranslationMap = {};
+  for (const [k, v] of Object.entries(map)) {
+    if (v && v.trim()) cleaned[k] = v.trim();
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -178,6 +196,7 @@ function FieldCard({
   onDelete?: () => void;
   isDragging?: boolean;
 }) {
+  const rl = useResolveLabel();
   return (
     <Box
       sx={{
@@ -193,7 +212,7 @@ function FieldCard({
         <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "#1976d2", flexShrink: 0 }} />
       )}
       <Typography variant="body2" fontWeight={500} sx={{ flex: 1 }} noWrap>
-        {field.label}
+        {rl(field.label, field.translations)}
         {isCalc && <Chip component="span" size="small" label="calc" color="info" sx={{ ml: 0.5, height: 16, fontSize: "0.6rem" }} />}
       </Typography>
       <Chip size="small" label={field.type.replace("_", " ")} sx={{ bgcolor: fieldTypeColor(field.type), color: "#fff", height: 18, fontSize: "0.6rem" }} />
@@ -839,7 +858,7 @@ function DescriptionFieldsPanel({
 
 function SortableSectionItem({
   id, sectionKey, info, cfg, expanded, onToggleExpand,
-  onToggleCollapsed, onToggleHidden, onDelete, children,
+  onToggleCollapsed, onToggleHidden, onDelete, sectionTranslations, onSaveSectionTranslations, children,
 }: {
   id: string; sectionKey: string;
   info: { label: string; icon: string; isCustom: boolean; labelKey?: string };
@@ -848,9 +867,12 @@ function SortableSectionItem({
   onToggleCollapsed: () => void;
   onToggleHidden: () => void;
   onDelete?: () => void;
+  sectionTranslations?: TranslationMap;
+  onSaveSectionTranslations?: (translations: TranslationMap | undefined) => void;
   children?: React.ReactNode;
 }) {
   const { t } = useTranslation(["admin"]);
+  const rl = useResolveLabel();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const canExpand = (info.isCustom || sectionKey === "description") && !cfg.hidden;
@@ -863,7 +885,7 @@ function SortableSectionItem({
         </Box>
         <Box onClick={canExpand ? onToggleExpand : undefined} sx={{ display: "flex", alignItems: "center", gap: 0.75, flex: 1, cursor: canExpand ? "pointer" : "default" }}>
           <MaterialSymbol icon={info.icon} size={20} color={cfg.hidden ? "#bbb" : "#666"} />
-          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.labelKey ? t(info.labelKey) : info.label}</Typography>
+          <Typography variant="body2" fontWeight={600} sx={{ color: cfg.hidden ? "text.disabled" : "text.primary" }}>{info.labelKey ? t(info.labelKey) : (info.isCustom ? rl(info.label, sectionTranslations) : info.label)}</Typography>
         </Box>
         <Tooltip title={t("cardLayout.collapsedByDefault")}>
           <FormControlLabel
@@ -892,7 +914,44 @@ function SortableSectionItem({
           </IconButton>
         )}
       </Box>
-      {expanded && !cfg.hidden && children}
+      {expanded && !cfg.hidden && (
+        <>
+          {info.isCustom && onSaveSectionTranslations && (
+            <Box sx={{ px: 1.5, pb: 1 }}>
+              <Accordion variant="outlined" disableGutters sx={{ "&:before": { display: "none" } }}>
+                <AccordionSummary
+                  expandIcon={<MaterialSymbol icon="expand_more" size={16} />}
+                  sx={{ minHeight: 28, "& .MuiAccordionSummary-content": { my: 0.25 } }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <MaterialSymbol icon="translate" size={14} color="#999" />
+                    <Typography variant="caption" color="text.secondary">
+                      {t("metamodel.translations.sectionTranslations")}
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails sx={{ pt: 0, pb: 1 }}>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1 }}>
+                    {TRANSLATION_LOCALES.map((locale) => (
+                      <TextField
+                        key={`sec-${id}-${locale}`}
+                        size="small"
+                        label={LOCALE_LABELS[locale]}
+                        defaultValue={sectionTranslations?.[locale] || ""}
+                        onBlur={(e) => {
+                          const updated = { ...sectionTranslations, [locale]: e.target.value };
+                          onSaveSectionTranslations(cleanTranslationMap(updated));
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            </Box>
+          )}
+          {children}
+        </>
+      )}
     </Box>
   );
 }
@@ -1011,6 +1070,15 @@ export default function CardLayoutEditor({
                 onToggleCollapsed={() => updateSectionProp(key, { defaultExpanded: cfgForSection.defaultExpanded === false })}
                 onToggleHidden={() => updateSectionProp(key, { hidden: !cfgForSection.hidden })}
                 onDelete={info.isCustom && promptDeleteSection && schemaIdx >= 0 ? () => promptDeleteSection(schemaIdx) : undefined}
+                sectionTranslations={info.isCustom && info.section ? info.section.translations : undefined}
+                onSaveSectionTranslations={info.isCustom && schemaIdx >= 0 ? (trans) => {
+                  const schema = cardType.fields_schema.map((s, i) =>
+                    i === schemaIdx ? { ...s, translations: trans } : s,
+                  );
+                  api.patch(`/metamodel/types/${cardType.key}`, { fields_schema: schema })
+                    .then(() => onRefresh())
+                    .catch(() => {});
+                } : undefined}
               >
                 {info.isCustom && info.section && schemaIdx >= 0 && (
                   <VisualFieldLayout

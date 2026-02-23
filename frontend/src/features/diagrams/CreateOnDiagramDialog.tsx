@@ -10,6 +10,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { CardType } from "@/types";
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
  */
 export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   const [selectedType, setSelectedType] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -69,19 +71,19 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
         >
-          {visibleTypes.map((t) => (
-            <MenuItem key={t.key} value={t.key}>
+          {visibleTypes.map((tp) => (
+            <MenuItem key={tp.key} value={tp.key}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Box
                   sx={{
                     width: 10,
                     height: 10,
                     borderRadius: "50%",
-                    bgcolor: t.color,
+                    bgcolor: tp.color,
                     flexShrink: 0,
                   }}
                 />
-                {t.label}
+                {rml(tp.label, tp.translations, "label")}
               </Box>
             </MenuItem>
           ))}
@@ -113,7 +115,7 @@ export default function CreateOnDiagramDialog({ open, types, onClose, onCreate }
         {typeInfo && (
           <Typography variant="caption" color="text.disabled">
             {t("createOnDiagram.pendingHintPre")}{" "}
-            <strong style={{ color: typeInfo.color }}>{typeInfo.label}</strong>.{" "}
+            <strong style={{ color: typeInfo.color }}>{rml(typeInfo.label, typeInfo.translations, "label")}</strong>.{" "}
             {t("createOnDiagram.pendingHintPost")}
           </Typography>
         )}

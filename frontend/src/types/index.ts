@@ -47,6 +47,7 @@ export interface StakeholderRoleDefinitionFull {
   updated_at?: string;
   archived_at?: string;
   archived_by?: string;
+  translations?: MetamodelTranslations;
 }
 
 export interface CardEffectivePermissions {
@@ -90,12 +91,25 @@ export interface StakeholderRoleDef {
   key: string;
   label: string;
   allowed_types: string[] | null;
+  translations?: TranslationMap;
+}
+
+/** Locale-keyed translations for a single property (e.g., label). */
+export type TranslationMap = Record<string, string>;
+
+/** Top-level translations stored in the `translations` JSONB column. */
+export interface MetamodelTranslations {
+  label?: TranslationMap;
+  description?: TranslationMap;
+  reverse_label?: TranslationMap;
+  [key: string]: TranslationMap | undefined;
 }
 
 export interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  translations?: TranslationMap;
 }
 
 export interface FieldDef {
@@ -108,11 +122,13 @@ export interface FieldDef {
   readonly?: boolean;
   group?: string;
   column?: 0 | 1;
+  translations?: TranslationMap;
 }
 
 export interface SubtypeDef {
   key: string;
   label: string;
+  translations?: TranslationMap;
 }
 
 export interface SectionDef {
@@ -121,11 +137,13 @@ export interface SectionDef {
   defaultExpanded?: boolean;
   columns?: 1 | 2;
   groups?: string[];
+  translations?: TranslationMap;
 }
 
 export interface StakeholderRoleDefinition {
   key: string;
   label: string;
+  translations?: TranslationMap;
 }
 
 export interface SectionConfig {
@@ -149,6 +167,7 @@ export interface CardType {
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;
+  translations?: MetamodelTranslations;
 }
 
 export interface RelationType {
@@ -163,6 +182,7 @@ export interface RelationType {
   built_in: boolean;
   is_hidden: boolean;
   sort_order: number;
+  translations?: MetamodelTranslations;
 }
 
 export interface TagRef {
@@ -633,6 +653,7 @@ export interface PortalTypeInfo {
   color: string;
   fields_schema: SectionDef[];
   subtypes?: SubtypeDef[];
+  translations?: MetamodelTranslations;
 }
 
 export interface PortalRelationType {
@@ -643,6 +664,7 @@ export interface PortalRelationType {
   target_type_key: string;
   other_type_key: string;
   other_type_label: string;
+  translations?: MetamodelTranslations;
 }
 
 export interface PortalTagGroup {

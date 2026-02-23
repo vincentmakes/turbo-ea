@@ -27,6 +27,7 @@ import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { WebPortal } from "@/types";
 
 interface ToggleEntry {
@@ -72,6 +73,8 @@ function slugify(text: string): string {
 export default function WebPortalsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { types, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
 
   const BUILT_IN_PROPERTIES = BUILT_IN_PROPERTY_KEYS.map((key) => ({
     key,
@@ -182,7 +185,8 @@ export default function WebPortalsAdmin() {
       rt.source_type_key === cardType
         ? rt.target_type_key
         : rt.source_type_key;
-    return types.find((tp) => tp.key === otherKey)?.label || otherKey;
+    const tp = types.find((tp) => tp.key === otherKey);
+    return rml(tp?.label ?? "", tp?.translations, "label") || otherKey;
   };
 
   const handleSave = async () => {
@@ -239,7 +243,7 @@ export default function WebPortalsAdmin() {
 
   const getTypeLabel = (key: string) => {
     const ct = types.find((tp) => tp.key === key);
-    return ct?.label || key;
+    return rml(ct?.label ?? "", ct?.translations, "label") || key;
   };
 
   const getTypeColor = (key: string) => {
@@ -490,7 +494,7 @@ export default function WebPortalsAdmin() {
                     size={18}
                     color={ct.color}
                   />
-                  {ct.label}
+                  {rml(ct.label, ct.translations, "label")}
                 </Box>
               </MenuItem>
             ))}
@@ -515,7 +519,7 @@ export default function WebPortalsAdmin() {
             >
               {selectedType.subtypes.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {st.label}
+                  {rl(st.label, st.translations)}
                 </MenuItem>
               ))}
             </TextField>
@@ -615,7 +619,7 @@ export default function WebPortalsAdmin() {
                     return (
                       <TableRow key={fKey}>
                         <TableCell>
-                          <Typography variant="body2">{field.label}</Typography>
+                          <Typography variant="body2">{rl(field.label, field.translations)}</Typography>
                         </TableCell>
                         <TableCell align="center">
                           <Checkbox
@@ -678,8 +682,8 @@ export default function WebPortalsAdmin() {
                     const detailChecked = tog ? tog.detail : false;
                     const verb =
                       rt.source_type_key === cardType
-                        ? rt.label
-                        : rt.reverse_label || rt.label;
+                        ? rml(rt.label, rt.translations, "label")
+                        : rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label");
                     return (
                       <TableRow key={rKey}>
                         <TableCell>

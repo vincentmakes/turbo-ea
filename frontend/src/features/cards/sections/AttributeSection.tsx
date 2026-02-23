@@ -13,8 +13,9 @@ import Alert from "@mui/material/Alert";
 import { useTranslation } from "react-i18next";
 import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { ApiError } from "@/api/client";
-import type { Card, FieldDef } from "@/types";
+import type { Card, FieldDef, SectionDef } from "@/types";
 
 // ── Section: Type-specific attributes ───────────────────────────
 const VENDOR_ELIGIBLE_TYPES = ["ITComponent", "Application"];
@@ -28,7 +29,7 @@ function AttributeSection({
   calculatedFieldKeys = [],
   initialExpanded,
 }: {
-  section: { section: string; fields: FieldDef[]; defaultExpanded?: boolean; columns?: 1 | 2 };
+  section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
   onSave: (u: Record<string, unknown>) => Promise<void>;
   onRelationChange?: () => void;
@@ -38,6 +39,7 @@ function AttributeSection({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
+  const rl = useResolveLabel();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
     card.attributes || {}
@@ -119,7 +121,7 @@ function AttributeSection({
       {fields.map((field) => (
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
-            {field.label}
+            {rl(field.label, field.translations)}
             {calculatedFieldKeys.includes(field.key) ? (
               <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
@@ -138,7 +140,7 @@ function AttributeSection({
       {fields.map((field) =>
         field.readonly || calculatedFieldKeys.includes(field.key) ? (
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{field.label}</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{rl(field.label, field.translations)}</Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
             <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
           </Box>
@@ -206,7 +208,7 @@ function AttributeSection({
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="tune" size={20} />
-          <Typography fontWeight={600}>{section.section}</Typography>
+          <Typography fontWeight={600}>{rl(section.section, section.translations)}</Typography>
           <Chip
             size="small"
             label={`${filled}/${section.fields.length}`}

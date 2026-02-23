@@ -40,6 +40,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type { SnowConnection, SnowMapping, SnowSyncRun, SnowStagedRecord, CardType } from "@/types";
 
 // ---------------------------------------------------------------------------
@@ -52,7 +53,10 @@ interface TurboFieldOption {
   group: string;
 }
 
-function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[] {
+function getTurboFieldOptions(
+  cardType: CardType | undefined,
+  rl?: (label: string, translations?: Record<string, string>) => string,
+): TurboFieldOption[] {
   const options: TurboFieldOption[] = [
     { path: "name", label: "Name", group: "Core" },
     { path: "description", label: "Description", group: "Core" },
@@ -68,7 +72,7 @@ function getTurboFieldOptions(cardType: CardType | undefined): TurboFieldOption[
       for (const field of section.fields) {
         options.push({
           path: `attributes.${field.key}`,
-          label: field.label,
+          label: rl ? rl(field.label, field.translations) : field.label,
           group: section.section,
         });
       }
@@ -421,6 +425,7 @@ function MappingsTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SnowMapping | null>(null);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -509,7 +514,7 @@ function MappingsTab() {
                     />
                     <Box sx={{ flex: 1 }}>
                       <Typography fontWeight={600}>
-                        {ct?.label || mapping.card_type_key}
+                        {rml(ct?.label ?? "", ct?.translations, "label") || mapping.card_type_key}
                         {" "}
                         <Typography component="span" color="text.secondary" fontSize="0.85rem">
                           <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
@@ -633,6 +638,8 @@ interface MappingDialogProps {
 function MappingDialog({ open, mapping, connections, onClose, onSaved }: MappingDialogProps) {
   const { t } = useTranslation(["admin", "common"]);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const [connectionId, setConnectionId] = useState("");
   const [cardTypeKey, setCardTypeKey] = useState("");
   const [snowTable, setSnowTable] = useState("");
@@ -650,8 +657,8 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
     [types, cardTypeKey],
   );
   const turboFieldOptions = useMemo(
-    () => getTurboFieldOptions(selectedCardType),
-    [selectedCardType],
+    () => getTurboFieldOptions(selectedCardType, rl),
+    [selectedCardType, rl],
   );
 
   useEffect(() => {
@@ -751,7 +758,7 @@ function MappingDialog({ open, mapping, connections, onClose, onSaved }: Mapping
                 onChange={(e) => setCardTypeKey(e.target.value)}
               >
                 {types.filter((ct) => !ct.is_hidden).map((ct) => (
-                  <MenuItem key={ct.key} value={ct.key}>{ct.label}</MenuItem>
+                  <MenuItem key={ct.key} value={ct.key}>{rml(ct.label, ct.translations, "label")}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -952,6 +959,7 @@ function SyncDashboardTab() {
   const [stagedRecords, setStagedRecords] = useState<SnowStagedRecord[]>([]);
   const [stagedLoading, setStagedLoading] = useState(false);
   const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1024,7 +1032,7 @@ function SyncDashboardTab() {
                       color={ct?.color || "#999"}
                     />
                     <Typography fontWeight={500} sx={{ flex: 1 }}>
-                      {ct?.label || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
+                      {rml(ct?.label ?? "", ct?.translations, "label") || mapping.card_type_key} <MaterialSymbol icon="sync_alt" size={14} /> {mapping.snow_table}
                     </Typography>
                     {(mapping.sync_direction === "snow_to_turbo" || mapping.sync_direction === "bidirectional") && (
                       <Button

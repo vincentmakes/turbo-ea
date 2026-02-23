@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import i18n from "@/i18n";
+import { resolveLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, FieldDef } from "@/types";
 import { api } from "@/api/client";
 
@@ -445,7 +446,7 @@ export function validateImport(
           errors.push({
             row: rowNum,
             column: colKey,
-            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: field.label }),
+            message: t("import.errors.requiredFieldEmpty", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language) }),
           });
           rowHasAttrError = true;
         }
@@ -462,7 +463,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsNumber", { row: rowNum, field: field.label, value: val }),
+              message: t("import.errors.expectsNumber", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -481,7 +482,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.expectsBoolean", { row: rowNum, field: field.label, value: val }),
+              message: t("import.errors.expectsBoolean", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           }
@@ -493,7 +494,7 @@ export function validateImport(
             errors.push({
               row: rowNum,
               column: colKey,
-              message: t("import.errors.invalidDate", { row: rowNum, field: field.label, value: val }),
+              message: t("import.errors.invalidDate", { row: rowNum, field: resolveLabel(field.label, field.translations, i18n.language), value: val }),
             });
             rowHasAttrError = true;
           } else {
@@ -509,7 +510,7 @@ export function validateImport(
               errors.push({
                 row: rowNum,
                 column: colKey,
-                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: field.label, valid: validKeys.join(", ") }),
+                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: resolveLabel(field.label, field.translations, i18n.language), valid: validKeys.join(", ") }),
               });
               rowHasAttrError = true;
             } else {
@@ -529,7 +530,7 @@ export function validateImport(
                 errors.push({
                   row: rowNum,
                   column: colKey,
-                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: field.label, valid: validKeys.join(", ") }),
+                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: resolveLabel(field.label, field.translations, i18n.language), valid: validKeys.join(", ") }),
                 });
                 rowHasAttrError = true;
               }

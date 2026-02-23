@@ -30,6 +30,7 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Bookmark, FieldDef, RelationType, User } from "@/types";
 
@@ -109,6 +110,8 @@ export default function InventoryFilterSidebar({
   currentUserId,
 }: Props) {
   const { t } = useTranslation(["inventory", "common"]);
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const [tab, setTab] = useState(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     types: true,
@@ -523,7 +526,7 @@ export default function InventoryFilterSidebar({
                         </ListItemIcon>
                         <MaterialSymbol icon={t.icon} size={16} color={t.color} />
                         <ListItemText
-                          primary={t.label}
+                          primary={rml(t.label, t.translations, "label")}
                           primaryTypographyProps={{
                             fontSize: 14,
                             ml: 0.75,
@@ -550,7 +553,7 @@ export default function InventoryFilterSidebar({
                       {subtypeOptions.map((st) => (
                         <Chip
                           key={st.key}
-                          label={st.label}
+                          label={rl(st.label, st.translations)}
                           size="small"
                           onClick={() => toggleSubtype(st.key)}
                           variant={filters.subtypes.includes(st.key) ? "filled" : "outlined"}
@@ -661,15 +664,15 @@ export default function InventoryFilterSidebar({
                           const optionMap = new Map(field.options.map((o) => [o.key, o]));
                           const searchTerm = (dropdownSearch[field.key] || "").toLowerCase();
                           const filteredOpts = searchTerm
-                            ? field.options.filter((o) => o.label.toLowerCase().includes(searchTerm))
+                            ? field.options.filter((o) => rl(o.label, o.translations).toLowerCase().includes(searchTerm))
                             : field.options;
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{rl(field.label, field.translations)}</InputLabel>
                               <Select
                                 multiple
                                 value={Array.isArray(selected) ? selected : []}
-                                label={field.label}
+                                label={rl(field.label, field.translations)}
                                 onChange={(e) => setAttr(field.key, e.target.value as string[])}
                                 onClose={() => setDropdownSearch((s) => ({ ...s, [field.key]: "" }))}
                                 sx={{ fontSize: 14 }}
@@ -681,7 +684,7 @@ export default function InventoryFilterSidebar({
                                       return (
                                         <Chip
                                           key={v}
-                                          label={opt?.label ?? v}
+                                          label={opt ? rl(opt.label, opt.translations) : v}
                                           size="small"
                                           sx={{
                                             height: 20, fontSize: 12,
@@ -721,7 +724,7 @@ export default function InventoryFilterSidebar({
                                       {opt.color && (
                                         <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                                       )}
-                                      {opt.label}
+                                      {rl(opt.label, opt.translations)}
                                     </Box>
                                   </MenuItem>
                                 ))}
@@ -739,10 +742,10 @@ export default function InventoryFilterSidebar({
                         if (field.type === "boolean") {
                           return (
                             <FormControl key={field.key} size="small" fullWidth>
-                              <InputLabel sx={{ fontSize: 14 }}>{field.label}</InputLabel>
+                              <InputLabel sx={{ fontSize: 14 }}>{rl(field.label, field.translations)}</InputLabel>
                               <Select
                                 value={(filters.attributes[field.key] as string) ?? ""}
-                                label={field.label}
+                                label={rl(field.label, field.translations)}
                                 onChange={(e) => setAttr(field.key, e.target.value as string)}
                                 sx={{ fontSize: 14 }}
                               >
@@ -759,7 +762,7 @@ export default function InventoryFilterSidebar({
                               key={field.key}
                               size="small"
                               fullWidth
-                              label={field.label}
+                              label={rl(field.label, field.translations)}
                               placeholder={t("filter.minValue")}
                               type="number"
                               value={(filters.attributes[field.key] as string) || ""}
@@ -775,7 +778,7 @@ export default function InventoryFilterSidebar({
                             key={field.key}
                             size="small"
                             fullWidth
-                            label={field.label}
+                            label={rl(field.label, field.translations)}
                             type={field.type === "date" ? "date" : "text"}
                             placeholder={field.type === "date" ? "" : t("filter.contains")}
                             value={(filters.attributes[field.key] as string) || ""}
@@ -808,7 +811,7 @@ export default function InventoryFilterSidebar({
                         const isSource = rt.source_type_key === (filters.types.length === 1 ? filters.types[0] : "");
                         const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
                         const otherType = types.find((t) => t.key === otherTypeKey);
-                        const label = otherType?.label || otherTypeKey;
+                        const label = otherType ? rml(otherType.label, otherType.translations, "label") : otherTypeKey;
                         const selected = (filters.relations || {})[rt.key] || [];
                         const searchKey = `rel_${rt.key}`;
                         const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
@@ -1295,6 +1298,7 @@ function BookmarkListItem({
   onDelete?: (bm: Bookmark) => void;
 }) {
   const { t } = useTranslation(["inventory", "common"]);
+  const rml = useResolveMetaLabel();
   const bmFilters = bm.filters as Record<string, unknown> | undefined;
   const bmTypes = (bmFilters?.types as string[]) || [];
   const matchedType = bmTypes.length === 1 ? types.find((t) => t.key === bmTypes[0]) : null;
@@ -1327,7 +1331,7 @@ function BookmarkListItem({
           !bm.is_owner
             ? t("inventory:views.byOwner", { name: bm.owner_name || t("inventory:views.unknown") })
             : matchedType
-            ? matchedType.label
+            ? rml(matchedType.label, matchedType.translations, "label")
             : bmTypes.length > 1
             ? t("inventory:views.nTypes", { count: bmTypes.length })
             : t("inventory:views.allTypes")

@@ -25,6 +25,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -98,6 +99,7 @@ function fmtDate(s: string | undefined): string {
 export default function LifecycleReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [cardTypeKey, setCardTypeKey] = useState("");
@@ -276,7 +278,8 @@ export default function LifecycleReport() {
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const typeLabel = cardTypeKey ? (types.find((tp) => tp.key === cardTypeKey)?.label || cardTypeKey) : t("lifecycle.allTypes");
+    const tp = types.find((tp) => tp.key === cardTypeKey);
+    const typeLabel = cardTypeKey ? (rml(tp?.label ?? "", tp?.translations, "label") || cardTypeKey) : t("lifecycle.allTypes");
     params.push({ label: t("common:labels.type"), value: typeLabel });
     if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
@@ -338,7 +341,7 @@ export default function LifecycleReport() {
         <>
           <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
             <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
           </TextField>
 
           {hasDateFields && (

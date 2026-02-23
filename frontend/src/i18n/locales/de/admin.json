@@ -658,5 +658,15 @@
   "servicenow.sync.staged.cardId": "",
   "servicenow.sync.staged.changes": "",
   "servicenow.sync.staged.error": "",
-  "calculations.test": ""
+  "calculations.test": "",
+  "metamodel.translations": "",
+  "metamodel.translations.hint": "",
+  "metamodel.translations.labelTranslations": "",
+  "metamodel.translations.descriptionTranslations": "",
+  "metamodel.translations.reverseLabelTranslations": "",
+  "metamodel.translations.subtypeTranslations": "",
+  "metamodel.translations.sectionTranslations": "",
+  "metamodel.translations.fieldTranslations": "",
+  "metamodel.translations.optionTranslations": "",
+  "metamodel.translations.roleTranslations": ""
 }

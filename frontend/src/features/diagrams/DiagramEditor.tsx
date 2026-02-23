@@ -40,6 +40,7 @@ import {
 } from "./drawio-shapes";
 import type { ExpandChildData } from "./drawio-shapes";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { Card, CardType, Relation, RelationType } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -237,6 +238,7 @@ export default function DiagramEditor() {
 
   // Metamodel
   const { types: fsTypes, relationTypes } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const fsTypesRef = useRef(fsTypes);
   fsTypesRef.current = fsTypes;
   const relTypesRef = useRef(relationTypes);
@@ -521,7 +523,7 @@ export default function DiagramEditor() {
         return {
           cellId: p.cellId,
           type: p.type,
-          typeLabel: typeInfo?.label || p.type,
+          typeLabel: rml(typeInfo?.label ?? "", typeInfo?.translations, "label") || p.type,
           typeColor: typeInfo?.color || "#999",
           name: p.name,
         };

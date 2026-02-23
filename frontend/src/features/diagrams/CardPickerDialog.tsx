@@ -13,6 +13,7 @@ import ListItemText from "@mui/material/ListItemText";
 import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { CardType, Card, CardListResponse } from "@/types";
 
@@ -28,6 +29,7 @@ export default function CardPickerDialog({
   onInsert,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   const [types, setTypes] = useState<CardType[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -110,26 +112,26 @@ export default function CardPickerDialog({
 
         {/* Type filter chips */}
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2 }}>
-          {types.map((t) => (
+          {types.map((tp) => (
             <Chip
-              key={t.key}
-              label={t.label}
+              key={tp.key}
+              label={rml(tp.label, tp.translations, "label")}
               size="small"
               icon={
                 <MaterialSymbol
-                  icon={t.icon}
+                  icon={tp.icon}
                   size={16}
-                  color={selectedType === t.key ? "#fff" : t.color}
+                  color={selectedType === tp.key ? "#fff" : tp.color}
                 />
               }
-              variant={selectedType === t.key ? "filled" : "outlined"}
+              variant={selectedType === tp.key ? "filled" : "outlined"}
               sx={
-                selectedType === t.key
-                  ? { bgcolor: t.color, color: "#fff" }
+                selectedType === tp.key
+                  ? { bgcolor: tp.color, color: "#fff" }
                   : {}
               }
               onClick={() =>
-                setSelectedType((prev) => (prev === t.key ? null : t.key))
+                setSelectedType((prev) => (prev === tp.key ? null : tp.key))
               }
             />
           ))}
@@ -162,19 +164,19 @@ export default function CardPickerDialog({
           ) : (
             <List dense disablePadding>
               {cards.map((card) => {
-                const t = typeMap.get(card.type);
+                const ct = typeMap.get(card.type);
                 return (
                   <ListItemButton key={card.id} onClick={() => handleSelect(card)}>
-                    {t && (
+                    {ct && (
                       <MaterialSymbol
-                        icon={t.icon}
+                        icon={ct.icon}
                         size={18}
-                        color={t.color}
+                        color={ct.color}
                       />
                     )}
                     <ListItemText
                       primary={card.name}
-                      secondary={t?.label}
+                      secondary={ct ? rml(ct.label, ct.translations, "label") : undefined}
                       primaryTypographyProps={{ noWrap: true, ml: 1 }}
                       secondaryTypographyProps={{
                         noWrap: true,

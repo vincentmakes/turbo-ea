@@ -25,6 +25,7 @@ import Divider from "@mui/material/Divider";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
+import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
 import type {
   PublicPortal,
   PortalCard,
@@ -167,9 +168,10 @@ function FieldValue({
   value: unknown;
   field?: {
     type: string;
-    options?: { key: string; label: string; color?: string }[];
+    options?: { key: string; label: string; color?: string; translations?: Record<string, string> }[];
   };
 }) {
+  const rl = useResolveLabel();
   if (value === null || value === undefined || value === "") {
     return (
       <Typography variant="body2" color="text.disabled">
@@ -191,7 +193,7 @@ function FieldValue({
     if (opt) {
       return (
         <Chip
-          label={opt.label}
+          label={rl(opt.label, opt.translations)}
           size="small"
           sx={{
             height: 26,
@@ -217,7 +219,7 @@ function FieldValue({
           return (
             <Chip
               key={v}
-              label={opt?.label || v}
+              label={opt ? rl(opt.label, opt.translations) : v}
               size="small"
               sx={{
                 height: 24,
@@ -237,6 +239,8 @@ function FieldValue({
 
 export default function PortalViewer() {
   const { t } = useTranslation("common");
+  const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const { slug } = useParams<{ slug: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -484,7 +488,7 @@ export default function PortalViewer() {
                 </Typography>
               )}
               <Typography variant="body2" sx={{ mt: 1.5, opacity: 0.5, fontSize: "0.8rem" }}>
-                {t("portal.itemCount", { count: total, label: portal.type_info?.label || "item" })}
+                {t("portal.itemCount", { count: total, label: rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || "item" })}
               </Typography>
             </Box>
 
@@ -532,7 +536,7 @@ export default function PortalViewer() {
         >
           <TextField
             size="small"
-            placeholder={t("portal.searchPlaceholder", { label: portal.type_info?.label || "items" })}
+            placeholder={t("portal.searchPlaceholder", { label: rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || "items" })}
             defaultValue={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             sx={{ flex: 1, minWidth: 200 }}
@@ -607,7 +611,7 @@ export default function PortalViewer() {
                   <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
                     <MenuItem key={st.key} value={st.key}>
-                      {st.label}
+                      {rl(st.label, st.translations)}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -618,7 +622,7 @@ export default function PortalViewer() {
                 key={field.key}
                 select
                 size="small"
-                label={field.label}
+                label={rl(field.label, field.translations)}
                 value={attrFilters[field.key] || ""}
                 onChange={(e) => {
                   setAttrFilters((prev) => ({
@@ -633,7 +637,7 @@ export default function PortalViewer() {
                 <MenuItem value="">{t("labels.all")}</MenuItem>
                 {field.options!.map((opt) => (
                   <MenuItem key={opt.key} value={opt.key}>
-                    {opt.label}
+                    {rl(opt.label, opt.translations)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -783,9 +787,12 @@ export default function PortalViewer() {
                           variant="caption"
                           sx={{ color: "text.secondary", fontSize: "0.75rem" }}
                         >
-                          {portal.type_info?.subtypes?.find(
-                            (st) => st.key === card.subtype
-                          )?.label || card.subtype}
+                          {(() => {
+                            const stDef = portal.type_info?.subtypes?.find(
+                              (st) => st.key === card.subtype
+                            );
+                            return stDef ? rl(stDef.label, stDef.translations) : card.subtype;
+                          })()}
                         </Typography>
                       )}
                     </Box>
@@ -838,7 +845,7 @@ export default function PortalViewer() {
                                 mb: 0.4,
                               }}
                             >
-                              {field.label}
+                              {rl(field.label, field.translations)}
                             </Typography>
                             <FieldValue value={val} field={field} />
                           </Box>
@@ -1114,7 +1121,7 @@ export default function PortalViewer() {
                   }}
                 >
                   <Chip
-                    label={portal.type_info?.label || selectedFs.type}
+                    label={rml(portal.type_info?.label ?? "", portal.type_info?.translations, "label") || selectedFs.type}
                     size="small"
                     sx={{
                       height: 28,
@@ -1128,9 +1135,12 @@ export default function PortalViewer() {
                   {selectedFs.subtype && (
                     <Chip
                       label={
-                        portal.type_info?.subtypes?.find(
-                          (st) => st.key === selectedFs.subtype
-                        )?.label || selectedFs.subtype
+                        (() => {
+                          const stDef = portal.type_info?.subtypes?.find(
+                            (st) => st.key === selectedFs.subtype
+                          );
+                          return stDef ? rl(stDef.label, stDef.translations) : selectedFs.subtype;
+                        })()
                       }
                       size="small"
                       variant="outlined"
@@ -1311,7 +1321,7 @@ export default function PortalViewer() {
                             variant="caption"
                             sx={{ display: "block", fontSize: "0.73rem", color: "text.secondary", mb: 0.25 }}
                           >
-                            {field.label}
+                            {rl(field.label, field.translations)}
                           </Typography>
                           <FieldValue
                             value={selectedFs.attributes?.[field.key]}
@@ -1443,8 +1453,8 @@ export default function PortalViewer() {
                   const rt = portal.relation_types.find((r) => r.key === rel.type);
                   const label =
                     rel.direction === "outgoing"
-                      ? rt?.label || rel.type
-                      : rt?.reverse_label || rt?.label || rel.type;
+                      ? (rt ? rml(rt.label, rt.translations, "label") : rel.type)
+                      : (rt ? (rml(rt.reverse_label || rt.label, rt.translations, "reverse_label") || rml(rt.label, rt.translations, "label")) : rel.type);
                   grouped[label] = grouped[label] || [];
                   grouped[label].push(rel);
                 }

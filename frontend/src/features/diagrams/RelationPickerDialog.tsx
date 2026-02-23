@@ -11,6 +11,7 @@ import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type { RelationType } from "@/types";
 
 export interface EdgeEndpoints {
@@ -44,6 +45,7 @@ export default function RelationPickerDialog({
   onSelect,
 }: Props) {
   const { t } = useTranslation(["diagrams", "common"]);
+  const rml = useResolveMetaLabel();
   if (!endpoints) return null;
 
   // Find relation types valid for this pair (in either direction)
@@ -96,7 +98,7 @@ export default function RelationPickerDialog({
                   sx={{ borderRadius: 1, mx: 1, my: 0.25 }}
                 >
                   <ListItemText
-                    primary={rt.label}
+                    primary={rml(rt.label, rt.translations, "label")}
                     secondary={
                       <>
                         {srcName} → {tgtName}

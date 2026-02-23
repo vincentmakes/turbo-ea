@@ -25,6 +25,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { FieldDef, Card, EolCycle, EolProductMatch } from "@/types";
 
@@ -60,6 +61,8 @@ export default function CreateCardDialog({
   const navigate = useNavigate();
   const { t } = useTranslation(["cards", "common"]);
   const { types } = useMetamodel();
+  const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
 
   const [selectedType, setSelectedType] = useState(initialType || "");
   const [subtype, setSubtype] = useState("");
@@ -279,10 +282,10 @@ export default function CreateCardDialog({
       case "single_select":
         return (
           <FormControl fullWidth key={field.key} sx={{ mb: 2 }}>
-            <InputLabel>{field.label}</InputLabel>
+            <InputLabel>{rl(field.label, field.translations)}</InputLabel>
             <Select
               value={(attributes[field.key] as string) ?? ""}
-              label={field.label}
+              label={rl(field.label, field.translations)}
               onChange={(e) => setAttr(field.key, e.target.value || undefined)}
             >
               <MenuItem value="">
@@ -302,7 +305,7 @@ export default function CreateCardDialog({
                         }}
                       />
                     )}
-                    {opt.label}
+                    {rl(opt.label, opt.translations)}
                   </Box>
                 </MenuItem>
               ))}
@@ -316,7 +319,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={field.label}
+            label={rl(field.label, field.translations)}
             type="number"
             value={attributes[field.key] ?? ""}
             onChange={(e) =>
@@ -339,7 +342,7 @@ export default function CreateCardDialog({
                 onChange={(e) => setAttr(field.key, e.target.checked)}
               />
             }
-            label={field.label}
+            label={rl(field.label, field.translations)}
             sx={{ mb: 1, display: "block" }}
           />
         );
@@ -349,7 +352,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={field.label}
+            label={rl(field.label, field.translations)}
             type="date"
             value={(attributes[field.key] as string) ?? ""}
             onChange={(e) => setAttr(field.key, e.target.value || undefined)}
@@ -364,7 +367,7 @@ export default function CreateCardDialog({
           <TextField
             key={field.key}
             fullWidth
-            label={field.label}
+            label={rl(field.label, field.translations)}
             value={(attributes[field.key] as string) ?? ""}
             onChange={(e) => setAttr(field.key, e.target.value || undefined)}
             sx={{ mb: 2 }}
@@ -426,7 +429,7 @@ export default function CreateCardDialog({
                     }}
                   />
                   <MaterialSymbol icon={t.icon} size={20} color={t.color} />
-                  {t.label}
+                  {rml(t.label, t.translations, "label")}
                 </Box>
               </MenuItem>
             ))}
@@ -447,7 +450,7 @@ export default function CreateCardDialog({
               </MenuItem>
               {typeConfig!.subtypes!.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {st.label}
+                  {rl(st.label, st.translations)}
                 </MenuItem>
               ))}
             </Select>

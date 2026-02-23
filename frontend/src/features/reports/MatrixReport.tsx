@@ -20,6 +20,7 @@ import MetricCard from "./MetricCard";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import {
@@ -115,6 +116,7 @@ export default function MatrixReport() {
   const countTextHigh = "#fff";
   const countTextDiag = isDark ? "#aaa" : "#666";
   const { types, loading: ml } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const saved = useSavedReport("matrix");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
   const [rowType, setRowType] = useState("Application");
@@ -422,8 +424,8 @@ export default function MatrixReport() {
 
   const rowMeta = types.find((t) => t.key === rowType);
   const colMeta = types.find((t) => t.key === colType);
-  const rowLabel = rowMeta?.label || rowType;
-  const colLabel = colMeta?.label || colType;
+  const rowLabel = rml(rowMeta?.label ?? "", rowMeta?.translations, "label") || rowType;
+  const colLabel = rml(colMeta?.label ?? "", colMeta?.translations, "label") || colType;
 
   const sortModeLabel = (m: SortMode) => m === "alpha" ? t("matrix.sortAlpha") : m === "count" ? t("matrix.sortByCount") : t("matrix.sortHierarchy");
   const printParams = useMemo(() => {
@@ -458,10 +460,10 @@ export default function MatrixReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("matrix.rows")} value={rowType} onChange={(e) => setRowType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
           </TextField>
           <TextField select size="small" label={t("matrix.columns")} value={colType} onChange={(e) => setColType(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
           </TextField>
           <TextField select size="small" label={t("matrix.cellDisplay")} value={cellMode} onChange={(e) => setCellMode(e.target.value as CellMode)} sx={{ minWidth: 140 }}>
             <MenuItem value="exists">{t("matrix.existsDot")}</MenuItem>

@@ -22,6 +22,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useTimeline } from "@/hooks/useTimeline";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
@@ -105,6 +106,7 @@ const TreemapContent = ({
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const { fmt } = useCurrency();
   const saved = useSavedReport("cost");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -245,7 +247,8 @@ export default function CostReport() {
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const typeLabel = types.find((tp) => tp.key === cardTypeKey)?.label || cardTypeKey;
+    const tp = types.find((tp) => tp.key === cardTypeKey);
+    const typeLabel = rml(tp?.label ?? "", tp?.translations, "label") || cardTypeKey;
     params.push({ label: t("common:labels.type"), value: typeLabel });
     if (costFields.length > 1) {
       const cfLabel = costFields.find((f) => f.key === costField)?.label || costField;
@@ -309,7 +312,7 @@ export default function CostReport() {
       toolbar={
         <>
           <TextField select size="small" label={t("cost.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 150 }}>
-            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{rml(tp.label, tp.translations, "label")}</MenuItem>)}
           </TextField>
           {costFields.length > 1 && (
             <TextField select size="small" label={t("cost.costField")} value={costField} onChange={(e) => setCostField(e.target.value)} sx={{ minWidth: 160 }}>

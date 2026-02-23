@@ -40,6 +40,7 @@ def _serialize_type(t: CardType) -> dict:
         "built_in": t.built_in,
         "is_hidden": t.is_hidden,
         "sort_order": t.sort_order,
+        "translations": t.translations or {},
     }
 
 
@@ -56,6 +57,7 @@ def _serialize_relation_type(r: RelationType) -> dict:
         "built_in": r.built_in,
         "is_hidden": r.is_hidden,
         "sort_order": r.sort_order,
+        "translations": r.translations or {},
     }
 
 
@@ -329,6 +331,7 @@ async def create_type(
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
+        translations=body.get("translations", {}),
     )
     db.add(t)
     await db.commit()
@@ -391,6 +394,7 @@ async def update_type(
         "section_config",
         "sort_order",
         "is_hidden",
+        "translations",
     ]
     for field in updatable:
         if field in body:
@@ -527,6 +531,7 @@ async def create_relation_type(
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
+        translations=body.get("translations", {}),
     )
     db.add(rt)
     await db.commit()
@@ -590,6 +595,7 @@ async def update_relation_type(
         "is_hidden",
         "source_type_key",
         "target_type_key",
+        "translations",
     ]
     for field in updatable:
         if field in body:

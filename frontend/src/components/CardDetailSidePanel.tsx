@@ -13,6 +13,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
 import LifecycleBadge from "@/components/LifecycleBadge";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import { DataQualityRing } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -44,6 +45,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
   const navigate = useNavigate();
   const { t } = useTranslation("common");
   const { getType } = useMetamodel();
+  const rml = useResolveMetaLabel();
 
   const [card, setCard] = useState<Card | null>(null);
   const [error, setError] = useState("");
@@ -125,7 +127,7 @@ export default function CardDetailSidePanel({ cardId, open, onClose }: Props) {
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
-                    {typeConfig?.label || card.type}
+                    {rml(typeConfig?.label ?? "", typeConfig?.translations, "label") || card.type}
                   </Typography>
                   {card.subtype && typeof card.subtype === "string" && (
                     <Chip
