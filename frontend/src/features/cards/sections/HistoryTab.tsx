@@ -2,45 +2,66 @@ import { useState, useEffect } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import { PHASE_LABELS } from "@/features/cards/sections/cardDetailUtils";
+import { getPhaseLabels } from "@/features/cards/sections/cardDetailUtils";
 import type { EventEntry } from "@/types";
 
 // ── Tab: History ────────────────────────────────────────────────
-const EVENT_META: Record<string, { label: string; icon: string; color: string }> = {
-  "card.created": { label: "Created", icon: "add_circle", color: "#4caf50" },
-  "card.updated": { label: "Updated", icon: "edit", color: "#1976d2" },
-  "card.archived": { label: "Archived", icon: "archive", color: "#ff9800" },
-  "card.restored": { label: "Restored", icon: "restore", color: "#4caf50" },
-  "card.deleted": { label: "Deleted", icon: "delete", color: "#f44336" },
-  "card.approval_status.approve": { label: "Approved", icon: "verified", color: "#4caf50" },
-  "card.approval_status.reject": { label: "Rejected", icon: "cancel", color: "#f44336" },
-  "card.approval_status.reset": { label: "Reset to Draft", icon: "restart_alt", color: "#9e9e9e" },
+const EVENT_META_ICONS: Record<string, { icon: string; color: string }> = {
+  "card.created": { icon: "add_circle", color: "#4caf50" },
+  "card.updated": { icon: "edit", color: "#1976d2" },
+  "card.archived": { icon: "archive", color: "#ff9800" },
+  "card.restored": { icon: "restore", color: "#4caf50" },
+  "card.deleted": { icon: "delete", color: "#f44336" },
+  "card.approval_status.approve": { icon: "verified", color: "#4caf50" },
+  "card.approval_status.reject": { icon: "cancel", color: "#f44336" },
+  "card.approval_status.reset": { icon: "restart_alt", color: "#9e9e9e" },
 };
 
-const FIELD_LABELS: Record<string, string> = {
-  name: "Name", description: "Description", subtype: "Subtype",
-  lifecycle: "Lifecycle", parent_id: "Parent", alias: "Alias",
-  external_id: "External ID", approval_status: "Approval Status",
-};
+function getEventMeta(t: (key: string) => string): Record<string, { label: string; icon: string; color: string }> {
+  return {
+    "card.created": { label: t("history.events.created"), ...EVENT_META_ICONS["card.created"] },
+    "card.updated": { label: t("history.events.updated"), ...EVENT_META_ICONS["card.updated"] },
+    "card.archived": { label: t("history.events.archived"), ...EVENT_META_ICONS["card.archived"] },
+    "card.restored": { label: t("history.events.restored"), ...EVENT_META_ICONS["card.restored"] },
+    "card.deleted": { label: t("history.events.deleted"), ...EVENT_META_ICONS["card.deleted"] },
+    "card.approval_status.approve": { label: t("history.events.approved"), ...EVENT_META_ICONS["card.approval_status.approve"] },
+    "card.approval_status.reject": { label: t("history.events.rejected"), ...EVENT_META_ICONS["card.approval_status.reject"] },
+    "card.approval_status.reset": { label: t("history.events.resetToDraft"), ...EVENT_META_ICONS["card.approval_status.reset"] },
+  };
+}
 
-function fmtVal(val: unknown): string {
+function getFieldLabels(t: (key: string) => string): Record<string, string> {
+  return {
+    name: t("common:labels.name"),
+    description: t("common:labels.description"),
+    subtype: t("common:labels.subtype"),
+    lifecycle: t("history.fields.lifecycle"),
+    parent_id: t("common:labels.parent"),
+    alias: t("history.fields.alias"),
+    external_id: t("history.fields.externalId"),
+    approval_status: t("history.fields.approvalStatus"),
+  };
+}
+
+function fmtVal(val: unknown, phaseLabels: Record<string, string>): string {
   if (val == null || val === "") return "\u2014";
   if (typeof val === "string") return val;
   if (typeof val === "number" || typeof val === "boolean") return String(val);
-  if (Array.isArray(val)) return val.map(fmtVal).join(", ");
+  if (Array.isArray(val)) return val.map((v) => fmtVal(v, phaseLabels)).join(", ");
   if (typeof val === "object") {
     const entries = Object.entries(val as Record<string, unknown>).filter(([, v]) => v != null && v !== "");
     if (entries.length === 0) return "\u2014";
-    return entries.map(([k, v]) => `${PHASE_LABELS[k] || k}: ${v}`).join(", ");
+    return entries.map(([k, v]) => `${phaseLabels[k] || k}: ${v}`).join(", ");
   }
   return String(val);
 }
 
 interface ChangeRow { field: string; oldVal: string; newVal: string }
 
-function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
+function parseChanges(changes: Record<string, unknown>, fieldLabels: Record<string, string>, phaseLabels: Record<string, string>): ChangeRow[] {
   const rows: ChangeRow[] = [];
   for (const [field, change] of Object.entries(changes)) {
     if (!change || typeof change !== "object" || !("old" in change) || !("new" in change)) {
@@ -53,7 +74,7 @@ function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
       const newA = (c.new || {}) as Record<string, unknown>;
       for (const key of new Set([...Object.keys(oldA), ...Object.keys(newA)])) {
         if (JSON.stringify(oldA[key]) !== JSON.stringify(newA[key])) {
-          rows.push({ field: key, oldVal: fmtVal(oldA[key]), newVal: fmtVal(newA[key]) });
+          rows.push({ field: key, oldVal: fmtVal(oldA[key], phaseLabels), newVal: fmtVal(newA[key], phaseLabels) });
         }
       }
     } else if (field === "lifecycle" && typeof c.old === "object" && typeof c.new === "object") {
@@ -61,33 +82,37 @@ function parseChanges(changes: Record<string, unknown>): ChangeRow[] {
       const newL = (c.new || {}) as Record<string, unknown>;
       for (const key of new Set([...Object.keys(oldL), ...Object.keys(newL)])) {
         if (oldL[key] !== newL[key]) {
-          rows.push({ field: PHASE_LABELS[key] || key, oldVal: fmtVal(oldL[key]), newVal: fmtVal(newL[key]) });
+          rows.push({ field: phaseLabels[key] || key, oldVal: fmtVal(oldL[key], phaseLabels), newVal: fmtVal(newL[key], phaseLabels) });
         }
       }
     } else {
-      rows.push({ field: FIELD_LABELS[field] || field, oldVal: fmtVal(c.old), newVal: fmtVal(c.new) });
+      rows.push({ field: fieldLabels[field] || field, oldVal: fmtVal(c.old, phaseLabels), newVal: fmtVal(c.new, phaseLabels) });
     }
   }
   return rows;
 }
 
 function HistoryTab({ fsId }: { fsId: string }) {
+  const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
+  const eventMeta = getEventMeta(t);
+  const fieldLabels = getFieldLabels(t);
+  const phaseLabels = getPhaseLabels(t);
   const [events, setEvents] = useState<EventEntry[]>([]);
   useEffect(() => {
     api.get<EventEntry[]>(`/cards/${fsId}/history`).then(setEvents).catch(() => {});
   }, [fsId]);
 
   if (events.length === 0) {
-    return <Typography color="text.secondary" variant="body2">No history yet.</Typography>;
+    return <Typography color="text.secondary" variant="body2">{t("history.empty")}</Typography>;
   }
 
   return (
     <Box>
       {events.map((e) => {
-        const meta = EVENT_META[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
+        const meta = eventMeta[e.event_type] || { label: e.event_type, icon: "info", color: "#9e9e9e" };
         const changes = e.data?.changes as Record<string, unknown> | undefined;
-        const rows = changes ? parseChanges(changes) : [];
+        const rows = changes ? parseChanges(changes, fieldLabels, phaseLabels) : [];
 
         return (
           <Box key={e.id} sx={{ display: "flex", gap: 1.5, mb: 2 }}>
@@ -105,7 +130,7 @@ function HistoryTab({ fsId }: { fsId: string }) {
               <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                 <Typography variant="body2" fontWeight={600}>{meta.label}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  by {e.user_display_name || "System"}
+                  {t("history.by", { user: e.user_display_name || t("common:labels.system") })}
                 </Typography>
                 <Typography variant="caption" color="text.disabled" sx={{ ml: "auto", whiteSpace: "nowrap" }}>
                   {e.created_at ? new Date(e.created_at).toLocaleString() : ""}

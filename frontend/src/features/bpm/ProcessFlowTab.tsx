@@ -332,9 +332,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
       );
       // Reload draft elements to get resolved names
       await loadDraftElements(draftId);
-      setSnack("Draft element link updated");
+      setSnack(t("flowTab.draftElementLinkUpdated"));
     } catch {
-      setSnack("Failed to update draft element link");
+      setSnack(t("flowTab.draftElementLinkFailed"));
     }
     setEditingCell(null);
     setCardOptions([]);
@@ -439,10 +439,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 <body>
   <div class="no-print" style="padding:12px;text-align:center;background:#f5f5f5;border-bottom:1px solid #ddd">
     <button id="turbo-print-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#1976d2;color:#fff;border:none;border-radius:4px">
-      Print / Save as PDF
+      ${t("flowTab.printSaveAsPdf")}
     </button>
     <button id="turbo-close-btn" style="padding:8px 24px;font-size:14px;cursor:pointer;background:#fff;color:#333;border:1px solid #ccc;border-radius:4px;margin-left:8px">
-      Close
+      ${t("common:actions.close")}
     </button>
   </div>
   <div class="header">
@@ -454,7 +454,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   </div>
   <div class="diagram">${svgContent}</div>
   <div class="footer">
-    <span>Printed on ${new Date().toLocaleDateString()}</span>
+    <span>${t("flowTab.printedOn", { date: new Date().toLocaleDateString() })}</span>
     <span>${watermarkText}</span>
   </div>
 </body>
@@ -508,7 +508,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           renderInput={(params) => (
             <TextField
               {...params}
-              placeholder={`Search ${cardTypeKey}...`}
+              placeholder={t("flowTab.searchCardType", { type: cardTypeKey })}
               variant="outlined"
               size="small"
               autoFocus
@@ -535,7 +535,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <MaterialSymbol icon="add_link" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">Link {cardTypeKey}</Typography>
+            <Typography variant="caption" color="text.disabled">{t("flowTab.linkCardType", { type: cardTypeKey })}</Typography>
           </Box>
         )}
       </Box>
@@ -584,7 +584,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <MaterialSymbol icon="edit" size={14} color="#bbb" />
-            <Typography variant="caption" color="text.disabled">Add</Typography>
+            <Typography variant="caption" color="text.disabled">{t("common:actions.add")}</Typography>
           </Box>
         )}
       </Box>
@@ -595,8 +595,8 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
     elems: ProcessElement[],
     onUpdate: (id: string, updates: Record<string, unknown>) => void,
     idField: "id" | "bpmn_element_id" = "id",
-    title = "Process Steps & Elements",
-    subtitle = "Click on Application, Data Object, IT Component, or TCode cells to edit. Automation is auto-determined from the BPMN element type.",
+    title = t("flowTab.processStepsAndElements"),
+    subtitle = t("flowTab.elementsTableSubtitle"),
   ) => {
     const namedElements = elems.filter((e) => e.name);
     if (namedElements.length === 0) return null;
@@ -614,18 +614,18 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Lane</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.name")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("common:labels.type")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.lane")}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
-                  <Tooltip title="Auto-determined from BPMN element type (serviceTask, scriptTask, businessRuleTask = Yes)">
-                    <span>Automated</span>
+                  <Tooltip title={t("flowTab.automatedTooltip")}>
+                    <span>{t("flowTab.automated")}</span>
                   </Tooltip>
                 </TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>TCode</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Application</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Data Object</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>IT Component</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.tCode")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.application")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.dataObject")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("flowTab.itComponent")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -641,9 +641,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     <TableCell>{e.lane_name || "\u2014"}</TableCell>
                     <TableCell>
                       {e.is_automated ? (
-                        <Chip label="Yes" size="small" color="success" />
+                        <Chip label={t("common:labels.yes")} size="small" color="success" />
                       ) : (
-                        <Typography variant="body2" color="text.secondary">No</Typography>
+                        <Typography variant="body2" color="text.secondary">{t("common:labels.no")}</Typography>
                       )}
                     </TableCell>
                     <TableCell>{renderTCodeCell(e, onUpdate, elemKey)}</TableCell>
@@ -665,7 +665,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const renderPublished = () => {
     if (loadingPub) {
       return (
-        <Typography color="text.secondary">Loading published flow...</Typography>
+        <Typography color="text.secondary">{t("flowTab.loadingPublished")}</Typography>
       );
     }
     if (!published) {
@@ -674,13 +674,13 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         <Box sx={{ textAlign: "center", py: 4 }}>
           <MaterialSymbol icon="route" size={48} color="#666" />
           <Typography variant="h6" gutterBottom>
-            No published process flow yet
+            {t("flowTab.noPublishedYet")}
           </Typography>
           {hasDrafts ? (
             <>
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                {drafts.length} draft{drafts.length !== 1 ? "s" : ""} available.
-                Submit a draft for approval to publish it here.
+                {t("flowTab.draftsAvailable", { count: drafts.length })}{" "}
+                {t("flowTab.submitDraftToPublish")}
               </Typography>
               {perms.can_view_drafts && (
                 <Button
@@ -688,14 +688,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   startIcon={<MaterialSymbol icon="edit_note" />}
                   onClick={() => setSubTab(1)}
                 >
-                  View Drafts
+                  {t("flowTab.viewDrafts")}
                 </Button>
               )}
             </>
           ) : (
             <>
               <Typography color="text.secondary" sx={{ mb: 2 }}>
-                Create a draft, then submit it for approval to publish.
+                {t("flowTab.createDraftToPublish")}
               </Typography>
               {perms.can_edit_draft && (
                 <Button
@@ -703,7 +703,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   startIcon={<MaterialSymbol icon="add" />}
                   onClick={() => setShowTemplateChooser(true)}
                 >
-                  New Draft from Template
+                  {t("flowTab.newDraftFromTemplate")}
                 </Button>
               )}
             </>
@@ -725,8 +725,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           icon={<MaterialSymbol icon="verified" size={20} />}
           sx={{ mb: 2 }}
         >
-          <strong>Approved</strong> by {published.approved_by_name || "\u2014"} on{" "}
-          {formatDate(published.approved_at)} &mdash; Revision {published.revision}
+          <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: published.approved_by_name || "\u2014", date: formatDate(published.approved_at), revision: published.revision })}
         </Alert>
 
         {/* Actions */}
@@ -738,7 +737,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
               startIcon={<MaterialSymbol icon="content_copy" />}
               onClick={() => handleCreateDraftFromVersion(published.id)}
             >
-              Create New Draft from This
+              {t("flowTab.createNewDraftFromThis")}
             </Button>
           )}
           <Box sx={{ flex: 1 }} />
@@ -748,7 +747,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             startIcon={<MaterialSymbol icon="fullscreen" />}
             onClick={openPublishedFullScreen}
           >
-            View Full Size
+            {t("flowTab.viewFullSize")}
           </Button>
           <Button
             variant="outlined"
@@ -756,10 +755,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
             startIcon={<MaterialSymbol icon="print" />}
             onClick={() => handlePrint(published)}
           >
-            Print / PDF
+            {t("flowTab.printPdf")}
           </Button>
           <Chip
-            label={`Revision ${published.revision}`}
+            label={t("flowTab.revisionLabel", { revision: published.revision })}
             size="small"
             variant="outlined"
           />
@@ -786,7 +785,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const renderDrafts = () => {
     if (loadingDrafts) {
       return (
-        <Typography color="text.secondary">Loading drafts...</Typography>
+        <Typography color="text.secondary">{t("flowTab.loadingDrafts")}</Typography>
       );
     }
 
@@ -800,7 +799,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
               startIcon={<MaterialSymbol icon="add" />}
               onClick={() => setShowTemplateChooser(true)}
             >
-              New Draft from Template
+              {t("flowTab.newDraftFromTemplate")}
             </Button>
             {published && (
               <Button
@@ -809,7 +808,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 startIcon={<MaterialSymbol icon="content_copy" />}
                 onClick={() => handleCreateDraftFromVersion(published.id)}
               >
-                Clone Published Version
+                {t("flowTab.clonePublishedVersion")}
               </Button>
             )}
           </Box>
@@ -817,7 +816,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
         {drafts.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 3 }}>
-            <Typography color="text.secondary">No draft process flows.</Typography>
+            <Typography color="text.secondary">{t("flowTab.noDrafts")}</Typography>
           </Box>
         ) : (
           <List disablePadding>
@@ -835,7 +834,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     primary={
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Typography variant="body1" fontWeight={500}>
-                          Revision {d.revision}
+                          {t("flowTab.revisionLabel", { revision: d.revision })}
                         </Typography>
                         <Chip
                           label={d.status}
@@ -846,10 +845,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                     }
                     secondary={
                       <>
-                        Created by {d.created_by_name || "\u2014"} on{" "}
-                        {formatDate(d.created_at)}
+                        {t("flowTab.createdByOn", { name: d.created_by_name || "\u2014", date: formatDate(d.created_at) })}
                         {d.status === "pending" && d.submitted_by_name && (
-                          <> &mdash; Submitted by {d.submitted_by_name}</>
+                          <> &mdash; {t("flowTab.submittedBy", { name: d.submitted_by_name })}</>
                         )}
                       </>
                     }
@@ -865,7 +863,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <Box sx={{ display: "flex", gap: 0.5, px: 2, pb: 1 }}>
                   {d.status === "draft" && perms.can_edit_draft && (
                     <>
-                      <Tooltip title="Edit in BPMN editor">
+                      <Tooltip title={t("flowTab.editInBpmnEditor")}>
                         <Button
                           size="small"
                           variant="outlined"
@@ -876,10 +874,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             )
                           }
                         >
-                          Edit
+                          {t("common:actions.edit")}
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Submit for approval">
+                      <Tooltip title={t("flowTab.submitForApproval")}>
                         <Button
                           size="small"
                           variant="contained"
@@ -888,10 +886,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             setConfirmAction({ type: "submit", version: d })
                           }
                         >
-                          Submit
+                          {t("common:actions.submit")}
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Delete draft">
+                      <Tooltip title={t("flowTab.deleteDraft")}>
                         <Button
                           size="small"
                           variant="outlined"
@@ -900,14 +898,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             setConfirmAction({ type: "delete", version: d })
                           }
                         >
-                          Delete
+                          {t("common:actions.delete")}
                         </Button>
                       </Tooltip>
                     </>
                   )}
                   {d.status === "pending" && perms.can_approve && (
                     <>
-                      <Tooltip title="Approve and publish">
+                      <Tooltip title={t("flowTab.approveAndPublish")}>
                         <Button
                           size="small"
                           variant="contained"
@@ -916,10 +914,10 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             setConfirmAction({ type: "approve", version: d })
                           }
                         >
-                          Approve
+                          {t("common:actions.approve")}
                         </Button>
                       </Tooltip>
-                      <Tooltip title="Reject and return to draft">
+                      <Tooltip title={t("flowTab.rejectAndReturnToDraft")}>
                         <Button
                           size="small"
                           variant="outlined"
@@ -928,12 +926,12 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                             setConfirmAction({ type: "reject", version: d })
                           }
                         >
-                          Reject
+                          {t("common:actions.reject")}
                         </Button>
                       </Tooltip>
                     </>
                   )}
-                  <Tooltip title="View full screen">
+                  <Tooltip title={t("flowTab.viewFullScreen")}>
                     <IconButton size="small" onClick={() => loadVersionDetail(d.id)}>
                       <MaterialSymbol icon="fullscreen" size={18} />
                     </IconButton>
@@ -957,24 +955,24 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                       />
                     ) : (
                       <Typography color="text.secondary" sx={{ textAlign: "center", py: 2 }}>
-                        Loading preview...
+                        {t("flowTab.loadingPreview")}
                       </Typography>
                     )}
 
                     {/* Draft element pre-linking table */}
                     {draftElementsLoading[d.id] ? (
-                      <Typography color="text.secondary" sx={{ mt: 2 }}>Loading elements...</Typography>
+                      <Typography color="text.secondary" sx={{ mt: 2 }}>{t("flowTab.loadingElements")}</Typography>
                     ) : draftElements[d.id] && draftElements[d.id].length > 0 ? (
                       renderElementsTable(
                         draftElements[d.id],
                         (bpmnElemId, updates) => handleDraftElementUpdate(d.id, bpmnElemId, updates),
                         "bpmn_element_id",
-                        "Pre-link Elements",
-                        "Pre-link applications, data objects, IT components, and TCodes before publishing. These links will be applied when this version is approved.",
+                        t("flowTab.preLinkElements"),
+                        t("flowTab.preLinkElementsSubtitle"),
                       )
                     ) : draftElements[d.id] ? (
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                        No named elements found in this draft.
+                        {t("flowTab.noNamedElements")}
                       </Typography>
                     ) : null}
                   </Box>
@@ -998,14 +996,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
   const renderArchived = () => {
     if (loadingArchived) {
       return (
-        <Typography color="text.secondary">Loading archived flows...</Typography>
+        <Typography color="text.secondary">{t("flowTab.loadingArchived")}</Typography>
       );
     }
 
     if (archived.length === 0) {
       return (
         <Box sx={{ textAlign: "center", py: 3 }}>
-          <Typography color="text.secondary">No archived process flows.</Typography>
+          <Typography color="text.secondary">{t("flowTab.noArchived")}</Typography>
         </Box>
       );
     }
@@ -1022,16 +1020,14 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 primary={
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Typography variant="body1" fontWeight={500}>
-                      Revision {a.revision}
+                      {t("flowTab.revisionLabel", { revision: a.revision })}
                     </Typography>
-                    <Chip label="Archived" size="small" color="info" />
+                    <Chip label={t("common:status.archived")} size="small" color="info" />
                   </Box>
                 }
                 secondary={
                   <>
-                    Approved by {a.approved_by_name || "\u2014"} on{" "}
-                    {formatDate(a.approved_at)} &mdash; Archived on{" "}
-                    {formatDate(a.archived_at)}
+                    {t("flowTab.approvedByOnArchivedOn", { name: a.approved_by_name || "\u2014", approvedDate: formatDate(a.approved_at), archivedDate: formatDate(a.archived_at) })}
                   </>
                 }
               />
@@ -1062,7 +1058,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 <MaterialSymbol icon="close" />
               </IconButton>
               <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-                {processName || "Process Flow"} &mdash; Revision {viewingVersion.revision}
+                {processName || t("flowTab.processFlow")} &mdash; {t("flowTab.revisionLabel", { revision: viewingVersion.revision })}
               </Typography>
               <Chip
                 label={viewingVersion.status}
@@ -1076,7 +1072,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                   startIcon={<MaterialSymbol icon="print" />}
                   onClick={() => handlePrint(viewingVersion)}
                 >
-                  Print / PDF
+                  {t("flowTab.printPdf")}
                 </Button>
               )}
             </Toolbar>
@@ -1089,22 +1085,17 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
                 icon={<MaterialSymbol icon="verified" size={20} />}
                 sx={{ borderRadius: 0 }}
               >
-                <strong>Approved</strong> by {viewingVersion.approved_by_name || "\u2014"} on{" "}
-                {formatDate(viewingVersion.approved_at)} &mdash; Revision {viewingVersion.revision}
+                <strong>{t("common:status.approved")}</strong> {t("flowTab.byOnRevision", { name: viewingVersion.approved_by_name || "\u2014", date: formatDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
               </Alert>
             )}
             {viewingVersion.status === "archived" && (
               <Alert severity="info" sx={{ borderRadius: 0 }}>
-                <strong>Archived</strong> on {formatDate(viewingVersion.archived_at)}.
-                Originally approved by {viewingVersion.approved_by_name || "\u2014"} on{" "}
-                {formatDate(viewingVersion.approved_at)} &mdash; Revision {viewingVersion.revision}
+                <strong>{t("common:status.archived")}</strong> {t("flowTab.archivedOnOriginallyApproved", { archivedDate: formatDate(viewingVersion.archived_at), name: viewingVersion.approved_by_name || "\u2014", approvedDate: formatDate(viewingVersion.approved_at), revision: viewingVersion.revision })}
               </Alert>
             )}
             {viewingVersion.status === "pending" && (
               <Alert severity="warning" sx={{ borderRadius: 0 }}>
-                <strong>Pending Approval</strong> &mdash; Submitted by{" "}
-                {viewingVersion.submitted_by_name || "\u2014"} on{" "}
-                {formatDate(viewingVersion.submitted_at)} &mdash; Revision {viewingVersion.revision}
+                <strong>{t("flowTab.pendingApproval")}</strong> &mdash; {t("flowTab.submittedByOnRevision", { name: viewingVersion.submitted_by_name || "\u2014", date: formatDate(viewingVersion.submitted_at), revision: viewingVersion.revision })}
               </Alert>
             )}
 
@@ -1129,30 +1120,27 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   const actionLabels: Record<string, { title: string; description: string; button: string; color: "primary" | "success" | "error" }> = {
     submit: {
-      title: "Submit for Approval?",
-      description:
-        "This draft will be sent to the business process owner for approval. You will not be able to edit it while it is pending.",
-      button: "Submit",
+      title: t("flowTab.confirmSubmitTitle"),
+      description: t("flowTab.confirmSubmitDescription"),
+      button: t("common:actions.submit"),
       color: "primary",
     },
     approve: {
-      title: "Approve and Publish?",
-      description:
-        "This will publish the process flow. The current published version (if any) will be archived. This action cannot be undone.",
-      button: "Approve & Publish",
+      title: t("flowTab.confirmApproveTitle"),
+      description: t("flowTab.confirmApproveDescription"),
+      button: t("flowTab.approveAndPublishButton"),
       color: "success",
     },
     reject: {
-      title: "Reject Draft?",
-      description:
-        "This will return the draft to the author for revision. They will be notified.",
-      button: "Reject",
+      title: t("flowTab.confirmRejectTitle"),
+      description: t("flowTab.confirmRejectDescription"),
+      button: t("common:actions.reject"),
       color: "error",
     },
     delete: {
-      title: "Delete Draft?",
-      description: "This will permanently delete the draft. This cannot be undone.",
-      button: "Delete",
+      title: t("flowTab.confirmDeleteTitle"),
+      description: t("flowTab.confirmDeleteDescription"),
+      button: t("common:actions.delete"),
       color: "error",
     },
   };
@@ -1166,7 +1154,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         <DialogContent>
           <DialogContentText>{labels.description}</DialogContentText>
           <Typography variant="body2" sx={{ mt: 1 }}>
-            Revision: {confirmAction.version.revision}
+            {t("flowTab.revisionLabel", { revision: confirmAction.version.revision })}
           </Typography>
           {actionError && (
             <Alert severity="error" sx={{ mt: 1 }}>
@@ -1175,7 +1163,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmAction(null)}>Cancel</Button>
+          <Button onClick={() => setConfirmAction(null)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             color={labels.color}
@@ -1197,9 +1185,9 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
         onChange={(_, v) => setSubTab(v)}
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        <Tab label="Published" />
-        {perms.can_view_drafts && <Tab label="Drafts" />}
-        {perms.can_view_drafts && <Tab label="Archived" />}
+        <Tab label={t("common:status.published")} />
+        {perms.can_view_drafts && <Tab label={t("flowTab.drafts")} />}
+        {perms.can_view_drafts && <Tab label={t("common:status.archived")} />}
       </Tabs>
 
       {subTab === 0 && renderPublished()}

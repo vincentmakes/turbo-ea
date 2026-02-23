@@ -3,6 +3,7 @@
  * Search for Applications, Data Objects, IT Components and assign them.
  */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -29,6 +30,7 @@ interface CardOption {
 }
 
 export default function ElementLinker({ open, onClose, element, processId, onSaved }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [apps, setApps] = useState<CardOption[]>([]);
   const [dataObjects, setDataObjects] = useState<CardOption[]>([]);
   const [itComponents, setItComponents] = useState<CardOption[]>([]);
@@ -82,11 +84,11 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        Link "{element?.name || "(unnamed)"}" to EA
+        {t("linker.linkToEA", { name: element?.name || t("viewer.unnamed") })}
       </DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {element?.element_type} {element?.lane_name ? `| Lane: ${element.lane_name}` : ""}
+          {element?.element_type} {element?.lane_name ? `| ${t("flowTab.lane")}: ${element.lane_name}` : ""}
         </Typography>
 
         <Autocomplete
@@ -95,7 +97,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           value={selectedApp}
           onChange={(_, v) => setSelectedApp(v)}
           isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label="Application" margin="normal" />}
+          renderInput={(params) => <TextField {...params} label={t("linker.application")} margin="normal" />}
         />
 
         <Autocomplete
@@ -104,7 +106,7 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           value={selectedData}
           onChange={(_, v) => setSelectedData(v)}
           isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label="Data Object" margin="normal" />}
+          renderInput={(params) => <TextField {...params} label={t("linker.dataObject")} margin="normal" />}
         />
 
         <Autocomplete
@@ -113,13 +115,13 @@ export default function ElementLinker({ open, onClose, element, processId, onSav
           value={selectedItc}
           onChange={(_, v) => setSelectedItc(v)}
           isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(params) => <TextField {...params} label="IT Component" margin="normal" />}
+          renderInput={(params) => <TextField {...params} label={t("linker.itComponent")} margin="normal" />}
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("linker.saving") : t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

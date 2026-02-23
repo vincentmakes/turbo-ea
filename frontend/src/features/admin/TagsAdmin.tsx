@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -16,6 +17,7 @@ import { api } from "@/api/client";
 import type { TagGroup } from "@/types";
 
 export default function TagsAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -45,10 +47,10 @@ export default function TagsAdmin() {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-        <Typography variant="h5" fontWeight={600}>Tag Management</Typography>
+        <Typography variant="h5" fontWeight={600}>{t("tags.title")}</Typography>
         <Box sx={{ flex: 1 }} />
         <Button variant="contained" startIcon={<MaterialSymbol icon="add" size={18} />} onClick={() => setCreateGroupOpen(true)}>
-          New Tag Group
+          {t("tags.newGroup")}
         </Button>
       </Box>
 
@@ -59,38 +61,38 @@ export default function TagsAdmin() {
               <Typography variant="subtitle1" fontWeight={600}>{g.name}</Typography>
               <Chip size="small" label={g.mode} variant="outlined" />
               <Box sx={{ flex: 1 }} />
-              <Button size="small" onClick={() => setAddTagGroupId(g.id)}>Add Tag</Button>
+              <Button size="small" onClick={() => setAddTagGroupId(g.id)}>{t("tags.addTag")}</Button>
             </Box>
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {g.tags.map((t) => (
                 <Chip key={t.id} label={t.name} sx={t.color ? { bgcolor: t.color, color: "#fff" } : {}} />
               ))}
-              {g.tags.length === 0 && <Typography variant="body2" color="text.secondary">No tags</Typography>}
+              {g.tags.length === 0 && <Typography variant="body2" color="text.secondary">{t("tags.noTags")}</Typography>}
             </Box>
           </CardContent>
         </Card>
       ))}
 
       <Dialog open={createGroupOpen} onClose={() => setCreateGroupOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>New Tag Group</DialogTitle>
+        <DialogTitle>{t("tags.newGroup")}</DialogTitle>
         <DialogContent>
-          <TextField fullWidth label="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} sx={{ mt: 1 }} />
+          <TextField fullWidth label={t("tags.groupName")} value={groupName} onChange={(e) => setGroupName(e.target.value)} sx={{ mt: 1 }} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateGroupOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={createGroup} disabled={!groupName.trim()}>Create</Button>
+          <Button onClick={() => setCreateGroupOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={createGroup} disabled={!groupName.trim()}>{t("common:actions.create")}</Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={!!addTagGroupId} onClose={() => setAddTagGroupId(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Tag</DialogTitle>
+        <DialogTitle>{t("tags.addTag")}</DialogTitle>
         <DialogContent>
-          <TextField fullWidth label="Tag Name" value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
-          <ColorPicker value={tagColor} onChange={setTagColor} label="Color" />
+          <TextField fullWidth label={t("tags.tagName")} value={tagName} onChange={(e) => setTagName(e.target.value)} sx={{ mt: 1, mb: 2 }} />
+          <ColorPicker value={tagColor} onChange={setTagColor} label={t("tags.color")} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddTagGroupId(null)}>Cancel</Button>
-          <Button variant="contained" onClick={createTag} disabled={!tagName.trim()}>Add</Button>
+          <Button onClick={() => setAddTagGroupId(null)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={createTag} disabled={!tagName.trim()}>{t("common:actions.add")}</Button>
         </DialogActions>
       </Dialog>
     </Box>

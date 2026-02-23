@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -48,18 +49,19 @@ import type { Card, SoAW, SoAWSectionData, SoAWSignatory, User } from "@/types";
 
 // ─── constants ──────────────────────────────────────────────────────────────
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: "draft", label: "Draft" },
-  { value: "in_review", label: "In Review" },
-  { value: "approved", label: "Approved" },
-  { value: "signed", label: "Signed" },
-];
-
 // ─── component ──────────────────────────────────────────────────────────────
 
 export default function SoAWEditor() {
+  const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const STATUS_OPTIONS: { value: string; label: string }[] = [
+    { value: "draft", label: t("status.draft") },
+    { value: "in_review", label: t("status.inReview") },
+    { value: "approved", label: t("status.approved") },
+    { value: "signed", label: t("status.signed") },
+  ];
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = !id;
@@ -194,7 +196,7 @@ export default function SoAWEditor() {
         }
         setSections(merged);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
+        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -268,7 +270,7 @@ export default function SoAWEditor() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      setError("Document name is required");
+      setError(t("editor.documentNameRequired"));
       return;
     }
     setSaving(true);
@@ -302,9 +304,9 @@ export default function SoAWEditor() {
         // Update URL without re-rendering
         window.history.replaceState(null, "", `/ea-delivery/soaw/${created.id}`);
       }
-      setSnack("Saved successfully");
+      setSnack(t("editor.savedSuccessfully"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
+      setError(e instanceof Error ? e.message : t("editor.error.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -325,9 +327,9 @@ export default function SoAWEditor() {
       setStatus(data.status);
       setSignDialogOpen(false);
       setSelectedSignatories([]);
-      setSnack("Signature requests sent");
+      setSnack(t("editor.signatureRequestsSent"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to request signatures");
+      setError(e instanceof Error ? e.message : t("editor.error.requestSignaturesFailed"));
     } finally {
       setSaving(false);
     }
@@ -342,9 +344,9 @@ export default function SoAWEditor() {
       setSignatories(data.signatories ?? []);
       setStatus(data.status);
       setSignedAt(data.signed_at);
-      setSnack(data.status === "signed" ? "Document fully signed" : "Signature recorded");
+      setSnack(data.status === "signed" ? t("editor.documentFullySigned") : t("editor.signatureRecorded"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to sign");
+      setError(e instanceof Error ? e.message : t("editor.error.signFailed"));
     } finally {
       setSaving(false);
     }
@@ -358,7 +360,7 @@ export default function SoAWEditor() {
       const data = await api.post<SoAW>(`/soaw/${soawIdRef.current}/revise`);
       navigate(`/ea-delivery/soaw/${data.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create revision");
+      setError(e instanceof Error ? e.message : t("editor.error.reviseFailed"));
     } finally {
       setSaving(false);
     }
@@ -455,7 +457,7 @@ export default function SoAWEditor() {
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
       {/* Top bar */}
       <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", mb: 3, gap: 1 }}>
-        <Tooltip title="Back to EA Delivery">
+        <Tooltip title={t("editor.backTooltip")}>
           <IconButton onClick={() => navigate("/ea-delivery")}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
@@ -466,11 +468,11 @@ export default function SoAWEditor() {
           sx={{ fontWeight: 700, flex: 1, minWidth: 0 }}
           noWrap
         >
-          {isNew ? "New Statement of Architecture Work" : name || "Untitled"}
+          {isNew ? t("editor.newTitle") : name || t("editor.untitled")}
         </Typography>
         {!isNew && (
           compact ? (
-            <Tooltip title="Preview">
+            <Tooltip title={t("editor.preview")}>
               <IconButton onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}>
                 <MaterialSymbol icon="visibility" size={20} />
               </IconButton>
@@ -482,14 +484,14 @@ export default function SoAWEditor() {
               sx={{ textTransform: "none" }}
               onClick={() => navigate(`/ea-delivery/soaw/${soawIdRef.current}/preview`)}
             >
-              Preview
+              {t("editor.preview")}
             </Button>
           )
         )}
         {compact ? (
-          <Tooltip title="Export PDF">
+          <Tooltip title={t("editor.exportPdf")}>
             <IconButton
-              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
+              onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, t)}
             >
               <MaterialSymbol icon="picture_as_pdf" size={20} />
             </IconButton>
@@ -499,15 +501,15 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="picture_as_pdf" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt)}
+            onClick={() => exportToPdf(name, docInfo, versionHistory, sections, customSections, revisionNumber, signatories, signedAt, t)}
           >
-            PDF
+            {t("editor.pdf")}
           </Button>
         )}
         {!isSigned && (compact ? (
-          <Tooltip title="Export Word">
+          <Tooltip title={t("editor.exportWord")}>
             <IconButton
-              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+              onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, t)}
             >
               <MaterialSymbol icon="article" size={20} />
             </IconButton>
@@ -517,9 +519,9 @@ export default function SoAWEditor() {
             size="small"
             startIcon={<MaterialSymbol icon="article" size={18} />}
             sx={{ textTransform: "none" }}
-            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections)}
+            onClick={() => exportToDocx(name, docInfo, versionHistory, sections, customSections, t)}
           >
-            Word
+            {t("editor.word")}
           </Button>
         ))}
         {!isSigned && (
@@ -531,7 +533,7 @@ export default function SoAWEditor() {
             disabled={saving}
             onClick={handleSave}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("editor.saving") : t("editor.save")}
           </Button>
         )}
         {/* Signing actions */}
@@ -543,7 +545,7 @@ export default function SoAWEditor() {
             sx={{ textTransform: "none" }}
             onClick={() => setSignDialogOpen(true)}
           >
-            Request Signatures
+            {t("editor.requestSignatures")}
           </Button>
         )}
         {currentUserIsSignatory && (
@@ -556,7 +558,7 @@ export default function SoAWEditor() {
             disabled={saving}
             onClick={handleSign}
           >
-            Sign
+            {t("editor.sign")}
           </Button>
         )}
         {isSigned && (
@@ -568,7 +570,7 @@ export default function SoAWEditor() {
             disabled={saving}
             onClick={handleRevise}
           >
-            New Revision
+            {t("editor.newRevision")}
           </Button>
         )}
       </Box>
@@ -582,8 +584,8 @@ export default function SoAWEditor() {
       {/* Signed banner */}
       {isSigned && (
         <Alert severity="success" sx={{ mb: 2 }} icon={<MaterialSymbol icon="verified" size={20} />}>
-          This document was signed on {signedAt ? new Date(signedAt).toLocaleDateString() : "N/A"} and is read-only.
-          {revisionNumber > 1 && ` (Revision ${revisionNumber})`}
+          {t("editor.signedBanner", { date: signedAt ? new Date(signedAt).toLocaleDateString() : "N/A" })}
+          {revisionNumber > 1 && t("editor.signedBannerRevision", { number: revisionNumber })}
         </Alert>
       )}
 
@@ -594,20 +596,19 @@ export default function SoAWEditor() {
           sx={{ mb: 2 }}
           icon={<MaterialSymbol icon="draw" size={20} />}
         >
-          {signatories.filter((s) => s.status === "signed").length} of{" "}
-          {signatories.length} signatures collected
+          {t("editor.signaturesProgress", { signed: signatories.filter((s) => s.status === "signed").length, total: signatories.length })}
         </Alert>
       )}
 
       {/* ── Document metadata ──────────────────────────────────────────── */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-          Document Information
+          {t("editor.documentInfo")}
         </Typography>
 
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mb: 2 }}>
           <TextField
-            label="Document Name"
+            label={t("editor.documentName")}
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -616,14 +617,14 @@ export default function SoAWEditor() {
           />
           <TextField
             select
-            label="Initiative"
+            label={t("editor.initiative")}
             fullWidth
             value={initiativeId}
             onChange={(e) => setInitiativeId(e.target.value)}
             disabled={isSigned}
           >
             <MenuItem value="">
-              <em>None</em>
+              <em>{t("common:labels.none")}</em>
             </MenuItem>
             {initiatives.map((init) => (
               <MenuItem key={init.id} value={init.id}>
@@ -635,7 +636,7 @@ export default function SoAWEditor() {
 
         <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 2, mb: 2 }}>
           <TextField
-            label="Prepared By"
+            label={t("editor.preparedBy")}
             fullWidth
             value={docInfo.prepared_by}
             onChange={(e) =>
@@ -644,7 +645,7 @@ export default function SoAWEditor() {
             disabled={isSigned}
           />
           <TextField
-            label="Reviewed By"
+            label={t("editor.reviewedBy")}
             fullWidth
             value={docInfo.reviewed_by}
             onChange={(e) =>
@@ -653,7 +654,7 @@ export default function SoAWEditor() {
             disabled={isSigned}
           />
           <TextField
-            label="Review Date"
+            label={t("editor.reviewDate")}
             fullWidth
             type="date"
             InputLabelProps={{ shrink: true }}
@@ -666,10 +667,10 @@ export default function SoAWEditor() {
         </Box>
 
         <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Status</InputLabel>
+          <InputLabel>{t("editor.status")}</InputLabel>
           <Select
             value={status}
-            label="Status"
+            label={t("editor.status")}
             onChange={(e) => setStatus(e.target.value)}
             disabled={isSigned}
           >
@@ -682,7 +683,7 @@ export default function SoAWEditor() {
         </FormControl>
         {revisionNumber > 1 && (
           <Chip
-            label={`Revision ${revisionNumber}`}
+            label={t("editor.revisionLabel", { number: revisionNumber })}
             size="small"
             variant="outlined"
             sx={{ ml: 1 }}
@@ -694,10 +695,10 @@ export default function SoAWEditor() {
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600, flex: 1 }}>
-            Document Version History
+            {t("editor.versionHistory")}
           </Typography>
           {!isSigned && (
-            <Tooltip title="Add version entry">
+            <Tooltip title={t("editor.addVersionEntry")}>
               <IconButton size="small" onClick={addVersionRow}>
                 <MaterialSymbol icon="add" size={18} />
               </IconButton>
@@ -707,10 +708,10 @@ export default function SoAWEditor() {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ bgcolor: "action.hover" }}>
-              <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Revised By</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("editor.version")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("editor.date")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("editor.revisedBy")}</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>{t("editor.description")}</TableCell>
               <TableCell sx={{ width: 40 }} />
             </TableRow>
           </TableHead>
@@ -800,8 +801,8 @@ export default function SoAWEditor() {
               >
                 Part {entry.part}:{" "}
                 {entry.part === "I"
-                  ? "Statement of Architecture Work"
-                  : "Baseline and Target Architectures"}
+                  ? t("editor.partI")
+                  : t("editor.partII")}
               </Typography>
             </Box>
           );
@@ -812,12 +813,12 @@ export default function SoAWEditor() {
           return (
             <Paper key={cs.id} sx={{ p: 3, mb: 2, borderLeft: "4px solid #1976d2" }}>
               <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
-                <Chip label="Custom" size="small" color="primary" sx={{ mr: 1 }} />
+                <Chip label={t("editor.customLabel")} size="small" color="primary" sx={{ mr: 1 }} />
                 <Typography sx={{ fontWeight: 600, flex: 1 }}>
                   {cs.title}
                 </Typography>
                 {!isSigned && (
-                  <Tooltip title="Remove custom section">
+                  <Tooltip title={t("editor.removeCustomSection")}>
                     <IconButton
                       size="small"
                       onClick={() => removeCustomSection(cs.id)}

@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
@@ -65,6 +66,7 @@ export default function ReportShell({
   printParams,
   children,
 }: Props) {
+  const { t } = useTranslation(["reports", "common"]);
   const navigate = useNavigate();
   const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
 
@@ -87,12 +89,14 @@ export default function ReportShell({
           action={
             onResetSavedReport && (
               <Button size="small" onClick={onResetSavedReport} sx={{ textTransform: "none" }}>
-                Reset to defaults
+                {t("shell.resetDefaults")}
               </Button>
             )
           }
         >
-          Viewing saved report: <strong>{savedReportName}</strong>
+          <Trans i18nKey="shell.viewingSavedReport" ns="reports" values={{ name: savedReportName }}>
+            Viewing saved report: <strong>{{ savedReportName } as any}</strong>
+          </Trans>
         </Alert>
       )}
 
@@ -112,14 +116,14 @@ export default function ReportShell({
               onChange={(_, v) => v && onViewChange(v)}
             >
               <ToggleButton value="chart">
-                <Tooltip title="Chart view">
+                <Tooltip title={t("shell.chartView")}>
                   <Box sx={{ display: "flex" }}>
                     <MaterialSymbol icon="bar_chart" size={18} />
                   </Box>
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="table">
-                <Tooltip title="Table view">
+                <Tooltip title={t("shell.tableView")}>
                   <Box sx={{ display: "flex" }}>
                     <MaterialSymbol icon="table_rows" size={18} />
                   </Box>
@@ -129,7 +133,7 @@ export default function ReportShell({
           )}
 
           {onSaveReport && (
-            <Tooltip title="Save report">
+            <Tooltip title={t("shell.saveReport")}>
               <IconButton size="small" onClick={onSaveReport}>
                 <MaterialSymbol icon="bookmark_add" size={20} />
               </IconButton>
@@ -137,20 +141,20 @@ export default function ReportShell({
           )}
 
           {onReset && (
-            <Tooltip title="Reset to defaults">
+            <Tooltip title={t("shell.resetDefaults")}>
               <IconButton size="small" onClick={onReset}>
                 <MaterialSymbol icon="restart_alt" size={20} />
               </IconButton>
             </Tooltip>
           )}
 
-          <Tooltip title="Print / Save as PDF">
+          <Tooltip title={t("shell.printPdf")}>
             <IconButton size="small" onClick={() => window.print()}>
               <MaterialSymbol icon="print" size={20} />
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="More actions">
+          <Tooltip title={t("shell.moreActions")}>
             <IconButton size="small" onClick={(e) => setExportMenu(e.currentTarget)}>
               <MaterialSymbol icon="more_vert" size={20} />
             </IconButton>
@@ -163,7 +167,7 @@ export default function ReportShell({
           >
             <MenuItem onClick={handleCopyLink}>
               <ListItemIcon><MaterialSymbol icon="link" size={18} /></ListItemIcon>
-              <ListItemText>Copy link</ListItemText>
+              <ListItemText>{t("shell.copyLink")}</ListItemText>
             </MenuItem>
             <MenuItem
               onClick={() => {
@@ -172,7 +176,7 @@ export default function ReportShell({
               }}
             >
               <ListItemIcon><MaterialSymbol icon="bookmarks" size={18} /></ListItemIcon>
-              <ListItemText>View all saved reports</ListItemText>
+              <ListItemText>{t("shell.viewAllSaved")}</ListItemText>
             </MenuItem>
           </Menu>
         </Box>

@@ -22,6 +22,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
@@ -29,6 +30,7 @@ import type { Relation } from "@/types";
 
 // ── Section: Relations (with CRUD) ──────────────────────────────
 function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelations = true, initialExpanded = false }: { fsId: string; cardTypeKey: string; refreshKey?: number; canManageRelations?: boolean; initialExpanded?: boolean }) {
+  const { t } = useTranslation(["cards", "common"]);
   const [relations, setRelations] = useState<Relation[]>([]);
   const { types: allTypes, relationTypes, getType } = useMetamodel();
   const visibleTypeKeys = useMemo(() => new Set(allTypes.map((t) => t.key)), [allTypes]);
@@ -101,7 +103,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
       setSelectedTarget(null);
       setTargetSearch("");
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Failed to create relation");
+      setAddError(e instanceof Error ? e.message : t("relations.errors.create"));
     }
   };
 
@@ -123,7 +125,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
       setCreateOpen(false);
       setCreateName("");
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : "Failed to create card");
+      setAddError(e instanceof Error ? e.message : t("relations.errors.createCard"));
     } finally {
       setCreateLoading(false);
     }
@@ -145,7 +147,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="hub" size={20} />
-          <Typography fontWeight={600}>Relations</Typography>
+          <Typography fontWeight={600}>{t("relations.title")}</Typography>
           <Chip size="small" label={relations.length} sx={{ ml: 1, height: 20, fontSize: "0.7rem" }} />
         </Box>
       </AccordionSummary>
@@ -158,12 +160,12 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
               startIcon={<MaterialSymbol icon="add_link" size={16} />}
               onClick={() => setAddDialogOpen(true)}
             >
-              Add Relation
+              {t("relations.add")}
             </Button>
           </Box>
         )}
         {grouped.length === 0 && (
-          <Typography color="text.secondary" variant="body2">No relations yet.</Typography>
+          <Typography color="text.secondary" variant="body2">{t("relations.empty")}</Typography>
         )}
         {grouped.map(({ rt, verb, otherType, rels }) => (
           <Box key={rt.key} sx={{ mb: 2 }}>
@@ -197,7 +199,7 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                       onClick={() => other && navigate(`/cards/${other.id}`)}
                       sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
                     >
-                      <ListItemText primary={other?.name || "Unknown"} secondary={other?.type} />
+                      <ListItemText primary={other?.name || t("relations.unknown")} secondary={other?.type} />
                     </Box>
                   </ListItem>
                 );
@@ -209,14 +211,14 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
 
       {/* ── Add Relation Dialog ── */}
       <Dialog open={addDialogOpen} onClose={() => { setAddDialogOpen(false); setCreateOpen(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Relation</DialogTitle>
+        <DialogTitle>{t("relations.add")}</DialogTitle>
         <DialogContent>
           {addError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAddError("")}>{addError}</Alert>}
           <FormControl fullWidth size="small" sx={{ mt: 1, mb: 2 }}>
-            <InputLabel>Relation Type</InputLabel>
+            <InputLabel>{t("relations.relationType")}</InputLabel>
             <Select
               value={addRelType}
-              label="Relation Type"
+              label={t("relations.relationType")}
               onChange={(e) => { setAddRelType(e.target.value); setSelectedTarget(null); setTargetSearch(""); setCreateOpen(false); }}
             >
               {relevantRTs.map((rt) => {
@@ -267,11 +269,11 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                   <TextField
                     {...params}
                     size="small"
-                    label={`Search ${targetTypeConfig?.label || targetTypeKey}`}
-                    placeholder="Type to search..."
+                    label={t("relations.search", { type: targetTypeConfig?.label || targetTypeKey })}
+                    placeholder={t("relations.searchPlaceholder")}
                   />
                 )}
-                noOptionsText={targetSearch ? "No results found" : "Type to search..."}
+                noOptionsText={targetSearch ? t("common:labels.noResults") : t("relations.searchPlaceholder")}
                 filterOptions={(x) => x}
               />
               <Button
@@ -280,19 +282,19 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
                 startIcon={<MaterialSymbol icon="add" size={16} />}
                 onClick={() => { setCreateOpen(true); setCreateName(targetSearch); }}
               >
-                Create new {targetTypeConfig?.label || targetTypeKey}
+                {t("relations.createNew", { type: targetTypeConfig?.label || targetTypeKey })}
               </Button>
             </>
           )}
           {addRelType && createOpen && (
             <Box sx={{ mt: 1, p: 2, border: "1px solid", borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                Create new {targetTypeConfig?.label || targetTypeKey}
+                {t("relations.createNew", { type: targetTypeConfig?.label || targetTypeKey })}
               </Typography>
               <TextField
                 fullWidth
                 size="small"
-                label="Name"
+                label={t("common:labels.name")}
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleQuickCreate()}
@@ -301,19 +303,19 @@ function RelationsSection({ fsId, cardTypeKey, refreshKey = 0, canManageRelation
               />
               <Box sx={{ display: "flex", gap: 1 }}>
                 <Button size="small" variant="contained" onClick={handleQuickCreate} disabled={!createName.trim() || createLoading}>
-                  Create & Select
+                  {t("relations.createAndSelect")}
                 </Button>
                 <Button size="small" onClick={() => setCreateOpen(false)}>
-                  Back to search
+                  {t("relations.backToSearch")}
                 </Button>
               </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setAddDialogOpen(false); setCreateOpen(false); }}>Cancel</Button>
+          <Button onClick={() => { setAddDialogOpen(false); setCreateOpen(false); }}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" onClick={handleAddRelation} disabled={!selectedRT || !selectedTarget}>
-            Add
+            {t("common:actions.add")}
           </Button>
         </DialogActions>
       </Dialog>

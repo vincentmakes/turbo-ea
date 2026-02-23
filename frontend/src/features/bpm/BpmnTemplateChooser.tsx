@@ -3,6 +3,7 @@
  * Also supports importing an existing .bpmn file.
  */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -34,6 +35,7 @@ const TEMPLATE_ICONS: Record<string, string> = {
 };
 
 export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [templates, setTemplates] = useState<BpmnTemplate[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) 
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Start your process diagram</DialogTitle>
+      <DialogTitle>{t("templates.startYourDiagram")}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           {templates.map((t) => (
@@ -105,18 +107,18 @@ export default function BpmnTemplateChooser({ open, onClose, onSelect }: Props) 
 
         <Box sx={{ mt: 2, textAlign: "center" }}>
           <Button variant="text" startIcon={<MaterialSymbol icon="upload" />} onClick={handleImport}>
-            Import existing BPMN file...
+            {t("templates.importBpmnFile")}
           </Button>
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleCreate}
           disabled={!selected || loading}
         >
-          {loading ? "Loading..." : "Create"}
+          {loading ? t("common:labels.loading") : t("common:actions.create")}
         </Button>
       </DialogActions>
     </Dialog>

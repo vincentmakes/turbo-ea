@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -44,6 +45,7 @@ export default function ImportDialog({
   allTypes,
   preSelectedType,
 }: ImportDialogProps) {
+  const { t } = useTranslation(["inventory", "common"]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -87,7 +89,7 @@ export default function ImportDialog({
       setReport(rpt);
       setStep("report");
     } catch {
-      setParseError("Failed to parse the file. Make sure it is a valid .xlsx or .xls file.");
+      setParseError(t("import.parseError"));
     }
   };
 
@@ -119,17 +121,17 @@ export default function ImportDialog({
   const pct = progressTotal > 0 ? Math.round((progress / progressTotal) * 100) : 0;
 
   const fmtVal = (v: unknown): string => {
-    if (v == null) return "(empty)";
-    if (Array.isArray(v)) return v.join(", ") || "(empty)";
+    if (v == null) return t("import.empty");
+    if (Array.isArray(v)) return v.join(", ") || t("import.empty");
     const s = String(v);
-    return s || "(empty)";
+    return s || t("import.empty");
   };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth={step === "report" && report && report.updates.length > 0 ? "md" : "sm"} fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="upload_file" size={22} />
-        Import Cards
+        {t("import.title")}
       </DialogTitle>
 
       <DialogContent dividers sx={{ minHeight: 250 }}>
@@ -153,10 +155,10 @@ export default function ImportDialog({
             >
               <MaterialSymbol icon="cloud_upload" size={48} />
               <Typography variant="body1" sx={{ mt: 1 }}>
-                Drop an Excel file here or click to browse
+                {t("import.dropOrBrowse")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                .xlsx or .xls
+                {t("import.fileTypes")}
               </Typography>
               <input
                 ref={fileRef}
@@ -168,7 +170,7 @@ export default function ImportDialog({
             </Box>
             {fileName && (
               <Typography variant="body2" sx={{ mt: 1.5 }}>
-                Selected: <strong>{fileName}</strong>
+                {t("import.selected")}: <strong>{fileName}</strong>
               </Typography>
             )}
             {parseError && (
@@ -178,8 +180,7 @@ export default function ImportDialog({
             )}
             <Alert severity="info" sx={{ mt: 2 }} icon={<MaterialSymbol icon="info" size={20} />}>
               <Typography variant="body2">
-                <strong>Tip:</strong> Export your current inventory first to get a template
-                with the correct column format and card IDs.
+                <strong>{t("import.tip")}:</strong> {t("import.tipDescription")}
               </Typography>
             </Alert>
           </>
@@ -189,22 +190,22 @@ export default function ImportDialog({
         {step === "report" && report && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              File: <strong>{fileName}</strong> — {report.totalRows} row(s)
-              {report.skipped > 0 && `, ${report.skipped} unchanged/empty row(s) skipped`}
+              {t("import.fileInfo", { fileName, totalRows: report.totalRows })}
+              {report.skipped > 0 && `, ${t("import.skippedRows", { count: report.skipped })}`}
             </Typography>
 
             {/* Summary chips */}
             <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
               <Chip
                 icon={<MaterialSymbol icon="add_circle" size={16} />}
-                label={`${report.creates.length} to create`}
+                label={t("import.toCreate", { count: report.creates.length })}
                 color="success"
                 variant="outlined"
                 size="small"
               />
               <Chip
                 icon={<MaterialSymbol icon="edit" size={16} />}
-                label={`${report.updates.length} to update`}
+                label={t("import.toUpdate", { count: report.updates.length })}
                 color="info"
                 variant="outlined"
                 size="small"
@@ -212,7 +213,7 @@ export default function ImportDialog({
               {report.errors.length > 0 && (
                 <Chip
                   icon={<MaterialSymbol icon="error" size={16} />}
-                  label={`${report.errors.length} error(s)`}
+                  label={t("import.errorCount", { count: report.errors.length })}
                   color="error"
                   variant="outlined"
                   size="small"
@@ -221,7 +222,7 @@ export default function ImportDialog({
               {report.warnings.length > 0 && (
                 <Chip
                   icon={<MaterialSymbol icon="warning" size={16} />}
-                  label={`${report.warnings.length} warning(s)`}
+                  label={t("import.warningCount", { count: report.warnings.length })}
                   color="warning"
                   variant="outlined"
                   size="small"
@@ -233,7 +234,7 @@ export default function ImportDialog({
             {report.errors.length > 0 && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                  Errors ({report.errors.length}) — fix these before importing
+                  {t("import.errorsTitle", { count: report.errors.length })}
                 </Typography>
                 <Box
                   component="ul"
@@ -260,7 +261,7 @@ export default function ImportDialog({
                 onClick={() => setWarningsExpanded((v) => !v)}
               >
                 <Typography variant="subtitle2">
-                  Warnings ({report.warnings.length})
+                  {t("import.warningsTitle", { count: report.warnings.length })}
                   <MaterialSymbol
                     icon={warningsExpanded ? "expand_less" : "expand_more"}
                     size={16}
@@ -287,7 +288,7 @@ export default function ImportDialog({
                 onClick={() => setUpdatesExpanded((v) => !v)}
               >
                 <Typography variant="subtitle2">
-                  Changes to review ({report.updates.length})
+                  {t("import.changesToReview", { count: report.updates.length })}
                   <MaterialSymbol
                     icon={updatesExpanded ? "expand_less" : "expand_more"}
                     size={16}
@@ -298,10 +299,10 @@ export default function ImportDialog({
                     <Table size="small" sx={{ "& td, & th": { fontSize: 13, py: 0.5, px: 1 } }}>
                       <TableHead>
                         <TableRow>
-                          <TableCell sx={{ fontWeight: 600 }}>Card</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>Field</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>Current</TableCell>
-                          <TableCell sx={{ fontWeight: 600 }}>New</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{t("import.card")}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{t("import.field")}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{t("import.current")}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>{t("import.new")}</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -343,7 +344,7 @@ export default function ImportDialog({
             {report.errors.length === 0 &&
               (report.creates.length > 0 || report.updates.length > 0) && (
                 <Alert severity="success">
-                  Validation passed — ready to import.
+                  {t("import.validationPassed")}
                 </Alert>
               )}
 
@@ -351,7 +352,7 @@ export default function ImportDialog({
             {report.errors.length === 0 &&
               report.creates.length === 0 &&
               report.updates.length === 0 && (
-                <Alert severity="info">No rows to import.</Alert>
+                <Alert severity="info">{t("import.noRows")}</Alert>
               )}
           </>
         )}
@@ -360,7 +361,7 @@ export default function ImportDialog({
         {step === "progress" && (
           <Box sx={{ textAlign: "center", py: 4 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
-              Importing...
+              {t("import.importing")}
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -383,19 +384,19 @@ export default function ImportDialog({
                 color={result.failed > 0 ? "#ff9800" : "#4caf50"}
               />
               <Typography variant="h6" sx={{ mt: 1 }}>
-                Import Complete
+                {t("import.complete")}
               </Typography>
             </Box>
 
             <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mb: 2 }}>
               {result.created > 0 && (
-                <Chip label={`${result.created} created`} color="success" size="small" />
+                <Chip label={t("import.createdCount", { count: result.created })} color="success" size="small" />
               )}
               {result.updated > 0 && (
-                <Chip label={`${result.updated} updated`} color="info" size="small" />
+                <Chip label={t("import.updatedCount", { count: result.updated })} color="info" size="small" />
               )}
               {result.failed > 0 && (
-                <Chip label={`${result.failed} failed`} color="error" size="small" />
+                <Chip label={t("import.failedCount", { count: result.failed })} color="error" size="small" />
               )}
             </Box>
 
@@ -406,7 +407,7 @@ export default function ImportDialog({
                 onClick={() => setFailedExpanded((v) => !v)}
               >
                 <Typography variant="subtitle2">
-                  Failed rows ({result.failedDetails.length})
+                  {t("import.failedRows", { count: result.failedDetails.length })}
                   <MaterialSymbol
                     icon={failedExpanded ? "expand_less" : "expand_more"}
                     size={16}
@@ -419,7 +420,7 @@ export default function ImportDialog({
                   >
                     {result.failedDetails.map((d, i) => (
                       <li key={i}>
-                        Row {d.row}: {d.message}
+                        {t("import.rowError", { row: d.row, message: d.message })}
                       </li>
                     ))}
                   </Box>
@@ -431,13 +432,13 @@ export default function ImportDialog({
       </DialogContent>
 
       <DialogActions>
-        {step === "upload" && <Button onClick={handleClose}>Cancel</Button>}
+        {step === "upload" && <Button onClick={handleClose}>{t("common:actions.cancel")}</Button>}
 
         {step === "report" && (
           <>
-            <Button onClick={reset}>Back</Button>
+            <Button onClick={reset}>{t("common:actions.back")}</Button>
             <Box sx={{ flex: 1 }} />
-            <Button onClick={handleClose}>Cancel</Button>
+            <Button onClick={handleClose}>{t("common:actions.cancel")}</Button>
             <Button
               variant="contained"
               onClick={handleImport}
@@ -448,14 +449,14 @@ export default function ImportDialog({
               }
               startIcon={<MaterialSymbol icon="upload" size={18} />}
             >
-              Import {report ? report.creates.length + report.updates.length : 0} row(s)
+              {t("import.importRows", { count: report ? report.creates.length + report.updates.length : 0 })}
             </Button>
           </>
         )}
 
         {step === "done" && (
           <Button variant="contained" onClick={handleClose}>
-            Done
+            {t("common:actions.done")}
           </Button>
         )}
       </DialogActions>

@@ -12,12 +12,14 @@ import ListItem from "@mui/material/ListItem";
 import ListItemText from "@mui/material/ListItemText";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { Card, StakeholderRef, StakeholderRoleDef, User } from "@/types";
 
 // ── Tab: Stakeholders ──────────────────────────────────────────
 function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { card: Card; onRefresh: () => void; canManageStakeholders?: boolean }) {
+  const { t } = useTranslation(["cards", "common"]);
   const [subs, setSubs] = useState<StakeholderRef[]>([]);
   const [roles, setRoles] = useState<StakeholderRoleDef[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -74,7 +76,7 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
             startIcon={<MaterialSymbol icon="person_add" size={16} />}
             onClick={() => setAddOpen(true)}
           >
-            Add Stakeholder
+            {t("stakeholders.add")}
           </Button>
         </Box>
       )}
@@ -86,7 +88,7 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
             </Typography>
             {items.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No {role.label.toLowerCase()} assigned
+                {t("stakeholders.noneAssigned", { role: role.label.toLowerCase() })}
               </Typography>
             ) : (
               <List dense disablePadding>
@@ -118,30 +120,30 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
         <MuiCard sx={{ mb: 2, border: "1px solid", borderColor: "primary.main" }}>
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-              Add Stakeholder
+              {t("stakeholders.add")}
             </Typography>
             <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", flexWrap: "wrap" }}>
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Role</InputLabel>
-                <Select value={addRole} label="Role" onChange={(e) => setAddRole(e.target.value)}>
+                <InputLabel>{t("stakeholders.role")}</InputLabel>
+                <Select value={addRole} label={t("stakeholders.role")} onChange={(e) => setAddRole(e.target.value)}>
                   {roles.map((r) => (
                     <MenuItem key={r.key} value={r.key}>{r.label}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>User</InputLabel>
-                <Select value={addUserId} label="User" onChange={(e) => setAddUserId(e.target.value)}>
+                <InputLabel>{t("stakeholders.user")}</InputLabel>
+                <Select value={addUserId} label={t("stakeholders.user")} onChange={(e) => setAddUserId(e.target.value)}>
                   {users.filter((u) => u.is_active).map((u) => (
                     <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <Button size="small" variant="contained" onClick={handleAdd} disabled={!addRole || !addUserId}>
-                Add
+                {t("common:actions.add")}
               </Button>
               <Button size="small" onClick={() => { setAddOpen(false); setAddRole(""); setAddUserId(""); }}>
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
             </Box>
           </CardContent>

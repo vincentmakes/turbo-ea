@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -26,6 +27,7 @@ export default function CardPickerDialog({
   onClose,
   onInsert,
 }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
   const [types, setTypes] = useState<CardType[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -86,14 +88,14 @@ export default function CardPickerDialog({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>Insert Card</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>{t("cardPicker.title")}</DialogTitle>
       <DialogContent>
         {/* Search */}
         <TextField
           autoFocus
           size="small"
           fullWidth
-          placeholder="Search cards..."
+          placeholder={t("cardPicker.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
@@ -154,8 +156,8 @@ export default function CardPickerDialog({
               sx={{ textAlign: "center", py: 4 }}
             >
               {selectedType || search.trim()
-                ? "No cards found"
-                : "Select a type or search to browse"}
+                ? t("common:emptyStates.noCards")
+                : t("cardPicker.selectOrSearch")}
             </Typography>
           ) : (
             <List dense disablePadding>

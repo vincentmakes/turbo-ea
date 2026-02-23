@@ -25,7 +25,9 @@ function LifecycleSection({
   canEdit?: boolean;
   initialExpanded?: boolean;
 }) {
+  const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
+  const phaseLabels = getPhaseLabels(t);
   const [editing, setEditing] = useState(false);
   const [lifecycle, setLifecycle] = useState<Record<string, string>>(
     card.lifecycle || {}
@@ -45,7 +47,7 @@ function LifecycleSection({
       <AccordionSummary expandIcon={<MaterialSymbol icon="expand_more" size={20} />}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flex: 1 }}>
           <MaterialSymbol icon="timeline" size={20} />
-          <Typography fontWeight={600}>Lifecycle</Typography>
+          <Typography fontWeight={600}>{t("lifecycle.title")}</Typography>
         </Box>
         {!editing && canEdit && (
           <IconButton
@@ -107,7 +109,7 @@ function LifecycleSection({
                     color: isCurrent || isPast ? "text.primary" : "text.secondary",
                   }}
                 >
-                  {PHASE_LABELS[phase]}
+                  {phaseLabels[phase]}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {date || "—"}
@@ -122,7 +124,7 @@ function LifecycleSection({
               {PHASES.map((phase) => (
                 <TextField
                   key={phase}
-                  label={PHASE_LABELS[phase]}
+                  label={phaseLabels[phase]}
                   type="date"
                   size="small"
                   value={lifecycle[phase] || ""}
@@ -142,10 +144,10 @@ function LifecycleSection({
                   setEditing(false);
                 }}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button size="small" variant="contained" onClick={save}>
-                Save
+                {t("common:actions.save")}
               </Button>
             </Box>
           </Box>

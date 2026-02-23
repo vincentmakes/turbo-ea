@@ -3,6 +3,7 @@
  * Embedded as a tab in CardDetail for BusinessProcess type.
  */
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -43,6 +44,7 @@ const DIMENSIONS = [
 ];
 
 export default function ProcessAssessmentPanel({ processId }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const theme = useTheme();
   const [assessments, setAssessments] = useState<ProcessAssessment[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -78,7 +80,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this assessment?")) return;
+    if (!confirm(t("assessment.confirmDelete"))) return;
     await api.delete(`/bpm/processes/${processId}/assessments/${id}`);
     load();
   };
@@ -96,14 +98,14 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
   return (
     <Box>
       <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2, alignItems: "center" }}>
-        <Typography variant="subtitle1">Process Assessments</Typography>
+        <Typography variant="subtitle1">{t("assessment.title")}</Typography>
         <Button
           variant="contained"
           size="small"
           startIcon={<MaterialSymbol icon="add" />}
           onClick={() => setDialogOpen(true)}
         >
-          New Assessment
+          {t("assessment.newAssessment")}
         </Button>
       </Box>
 
@@ -138,14 +140,14 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Assessor</TableCell>
-                <TableCell align="center">Overall</TableCell>
-                <TableCell align="center">Efficiency</TableCell>
-                <TableCell align="center">Effectiveness</TableCell>
-                <TableCell align="center">Compliance</TableCell>
-                <TableCell align="center">Automation</TableCell>
-                <TableCell>Notes</TableCell>
+                <TableCell>{t("common:labels.date")}</TableCell>
+                <TableCell>{t("assessment.assessor")}</TableCell>
+                <TableCell align="center">{t("assessment.overall")}</TableCell>
+                <TableCell align="center">{t("assessment.efficiency")}</TableCell>
+                <TableCell align="center">{t("assessment.effectiveness")}</TableCell>
+                <TableCell align="center">{t("assessment.compliance")}</TableCell>
+                <TableCell align="center">{t("assessment.automation")}</TableCell>
+                <TableCell>{t("assessment.notes")}</TableCell>
                 <TableCell />
               </TableRow>
             </TableHead>
@@ -174,16 +176,16 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
         </TableContainer>
       ) : (
         <Typography color="text.secondary" sx={{ textAlign: "center", py: 3 }}>
-          No assessments yet. Create one to start tracking process maturity.
+          {t("assessment.noAssessments")}
         </Typography>
       )}
 
       {/* Create Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Assessment</DialogTitle>
+        <DialogTitle>{t("assessment.newAssessment")}</DialogTitle>
         <DialogContent>
           <TextField
-            label="Date"
+            label={t("common:labels.date")}
             type="date"
             fullWidth
             margin="normal"
@@ -213,7 +215,7 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
             </Box>
           ))}
           <TextField
-            label="Notes"
+            label={t("assessment.notes")}
             multiline
             rows={3}
             fullWidth
@@ -223,8 +225,8 @@ export default function ProcessAssessmentPanel({ processId }: Props) {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>Save</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
+          <Button variant="contained" onClick={handleSubmit}>{t("common:actions.save")}</Button>
         </DialogActions>
       </Dialog>
     </Box>

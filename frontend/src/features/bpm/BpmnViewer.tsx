@@ -4,6 +4,7 @@
  * Click element to see details in popover. Color overlay for automation.
  */
 import { useRef, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Popover from "@mui/material/Popover";
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function BpmnViewer({ bpmnXml, elements, onElementClick, height = 400 }: Props) {
+  const { t } = useTranslation(["bpm", "common"]);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
   const [popover, setPopover] = useState<{
@@ -128,7 +130,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
       >
         {popover?.element && (
           <Box sx={{ p: 2, maxWidth: 300 }}>
-            <Typography variant="subtitle2">{popover.element.name || "(unnamed)"}</Typography>
+            <Typography variant="subtitle2">{popover.element.name || t("viewer.unnamed")}</Typography>
             <Typography variant="body2" color="text.secondary">
               {popover.element.element_type}
               {popover.element.lane_name && ` | ${popover.element.lane_name}`}
@@ -139,7 +141,7 @@ export default function BpmnViewer({ bpmnXml, elements, onElementClick, height =
               </Typography>
             )}
             <Box sx={{ mt: 1, display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-              {popover.element.is_automated && <Chip label="Automated" size="small" color="success" />}
+              {popover.element.is_automated && <Chip label={t("viewer.automated")} size="small" color="success" />}
               {popover.element.application_name && (
                 <Chip label={popover.element.application_name} size="small" color="primary" />
               )}

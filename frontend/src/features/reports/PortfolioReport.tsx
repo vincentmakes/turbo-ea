@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { alpha, useTheme } from "@mui/material/styles";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
@@ -344,6 +345,7 @@ function GroupCard({
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
 }) {
+  const { t } = useTranslation(["reports"]);
   const count = group.apps.length;
 
   /* Build color-by distribution for the stacked bar */
@@ -404,7 +406,7 @@ function GroupCard({
         </Typography>
         <Chip
           size="small"
-          label={`${count} apps`}
+          label={t("portfolio.apps", { count })}
           sx={{
             height: 22,
             fontSize: "0.72rem",
@@ -465,6 +467,7 @@ function GroupCard({
 /* ------------------------------------------------------------------ */
 
 export default function PortfolioReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
   const saved = useSavedReport("portfolio");
@@ -603,13 +606,13 @@ export default function PortfolioReport() {
   // Color-by options: all single_select fields + "none"
   const colorByOptions = useMemo(() => {
     const opts: { key: string; label: string }[] = [
-      { key: "", label: "No color" },
+      { key: "", label: t("portfolio.noColor") },
     ];
     for (const f of selectFields) {
       opts.push({ key: f.key, label: f.label });
     }
     return opts;
-  }, [selectFields]);
+  }, [selectFields, t]);
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
@@ -774,21 +777,21 @@ export default function PortfolioReport() {
   }, [filteredApps, sortK, sortD]);
 
   const groupByLabel =
-    groupByOptions.find((o) => o.key === groupByKey)?.label || "Group";
+    groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
   const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    params.push({ label: "Group by", value: groupByLabel });
-    if (colorBy) params.push({ label: "Color by", value: colorByLabel });
-    if (search) params.push({ label: "Search", value: search });
+    params.push({ label: t("portfolio.groupBy"), value: groupByLabel });
+    if (colorBy) params.push({ label: t("common.colorBy"), value: colorByLabel });
+    if (search) params.push({ label: t("common.search"), value: search });
     if (tl.printParam) params.push(tl.printParam);
-    if (view === "table") params.push({ label: "View", value: "Table" });
-    if (activeFilterCount > 0) params.push({ label: "Filters", value: `${activeFilterCount} active` });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    if (activeFilterCount > 0) params.push({ label: t("common.filters"), value: t("common.filtersActive", { count: activeFilterCount }) });
     return params;
-  }, [groupByLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount]);
+  }, [groupByLabel, colorBy, colorByLabel, search, tl.printParam, view, activeFilterCount, t]);
 
   if (!data)
     return (
@@ -799,7 +802,7 @@ export default function PortfolioReport() {
 
   return (
     <ReportShell
-      title="Application Portfolio"
+      title={t("portfolio.title")}
       icon="dashboard"
       iconColor="#0f7eb5"
       view={view}
@@ -816,14 +819,14 @@ export default function PortfolioReport() {
           <TextField
             select
             size="small"
-            label="Group by"
+            label={t("portfolio.groupBy")}
             value={groupByKey}
             onChange={(e) => setGroupByRaw(e.target.value)}
             sx={{ minWidth: 200 }}
           >
             {groupByOptions.length > 0 && (
               <MenuItem disabled sx={{ opacity: 0.6, fontSize: "0.75rem", fontWeight: 600 }}>
-                Attributes
+                {t("portfolio.attributes")}
               </MenuItem>
             )}
             {groupByOptions
@@ -838,7 +841,7 @@ export default function PortfolioReport() {
               ))}
             {groupByOptions.some((o) => o.key.startsWith("rel:")) && (
               <MenuItem disabled sx={{ opacity: 0.6, fontSize: "0.75rem", fontWeight: 600 }}>
-                Related Types
+                {t("portfolio.relatedTypes")}
               </MenuItem>
             )}
             {groupByOptions
@@ -856,7 +859,7 @@ export default function PortfolioReport() {
           <TextField
             select
             size="small"
-            label="Color apps by"
+            label={t("portfolio.colorAppsBy")}
             value={colorBy}
             onChange={(e) => setColorBy(e.target.value)}
             sx={{ minWidth: 180 }}
@@ -870,7 +873,7 @@ export default function PortfolioReport() {
 
           <TextField
             size="small"
-            label="Search"
+            label={t("common.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             sx={{ minWidth: 160 }}
@@ -914,12 +917,12 @@ export default function PortfolioReport() {
                 color="text.secondary"
                 sx={{ fontWeight: 600 }}
               >
-                Application Filters
+                {t("portfolio.applicationFilters")}
               </Typography>
               {hasActiveFilters && (
                 <Chip
                   size="small"
-                  label="Clear all"
+                  label={t("portfolio.clearAll")}
                   variant="outlined"
                   onDelete={clearFilters}
                   sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
@@ -951,7 +954,7 @@ export default function PortfolioReport() {
                     variant="caption"
                     sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    Related By
+                    {t("portfolio.relatedBy")}
                   </Typography>
                   {relationFilterOptions.slice(0, showAllRelFilters ? undefined : 2).map((rf) => (
                     <FilterSelect
@@ -965,11 +968,11 @@ export default function PortfolioReport() {
                     />
                   ))}
                   {!showAllRelFilters && relationFilterOptions.length > 2 && (
-                    <Tooltip title={`Show ${relationFilterOptions.length - 2} more relation filters`}>
+                    <Tooltip title={t("portfolio.showMore", { count: relationFilterOptions.length - 2 })}>
                       <Chip
                         size="small"
                         icon={<MaterialSymbol icon="add" size={14} />}
-                        label={`${relationFilterOptions.length - 2} more`}
+                        label={t("portfolio.more", { count: relationFilterOptions.length - 2 })}
                         onClick={() => setShowAllRelFilters(true)}
                         sx={{
                           height: 26,
@@ -987,7 +990,7 @@ export default function PortfolioReport() {
                   {showAllRelFilters && relationFilterOptions.length > 2 && (
                     <Chip
                       size="small"
-                      label="Less"
+                      label={t("portfolio.less")}
                       onClick={() => setShowAllRelFilters(false)}
                       sx={{
                         height: 26,
@@ -1020,7 +1023,7 @@ export default function PortfolioReport() {
                     variant="caption"
                     sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
                   >
-                    Fields
+                    {t("portfolio.fields")}
                   </Typography>
                   {selectFields
                     .filter((f) => f.options && f.options.length > 0)
@@ -1059,21 +1062,21 @@ export default function PortfolioReport() {
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
               <MaterialSymbol icon="apps" size={16} color="#1976d2" />
               <Typography variant="caption" color="text.secondary">
-                <strong>{stats.total}</strong> applications
+                <strong>{stats.total}</strong> {t("portfolio.applications")}
               </Typography>
             </Box>
             {stats.withEol > 0 && (
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
                 <Typography variant="caption" color="text.secondary">
-                  <strong>{stats.withEol}</strong> with EOL
+                  <strong>{stats.withEol}</strong> {t("portfolio.withEol")}
                 </Typography>
               </Box>
             )}
             {ungrouped.length > 0 && (
               <Chip
                 size="small"
-                label={`${ungrouped.length} ungrouped`}
+                label={`${ungrouped.length} ${t("portfolio.ungrouped")}`}
                 color="warning"
                 variant="outlined"
                 sx={{ fontSize: "0.72rem" }}
@@ -1128,7 +1131,7 @@ export default function PortfolioReport() {
                   }}
                 />
                 <Typography variant="caption" color="text.secondary">
-                  Not set
+                  {t("portfolio.notSet")}
                 </Typography>
               </Box>
             </Box>
@@ -1142,8 +1145,8 @@ export default function PortfolioReport() {
             <Box sx={{ py: 8, textAlign: "center" }}>
               <Typography color="text.secondary">
                 {hasActiveFilters
-                  ? "No applications match current filters."
-                  : "No applications found. Create applications to see the portfolio."}
+                  ? t("portfolio.noAppsFiltered")
+                  : t("portfolio.noAppsEmpty")}
               </Typography>
             </Box>
           ) : (
@@ -1198,7 +1201,7 @@ export default function PortfolioReport() {
                     }}
                     onClick={() =>
                       setDrawer({
-                        label: `Ungrouped (not linked to any ${groupByLabel})`,
+                        label: t("portfolio.ungroupedLabel", { groupBy: groupByLabel }),
                         apps: ungrouped,
                       })
                     }
@@ -1212,11 +1215,11 @@ export default function PortfolioReport() {
                       variant="subtitle2"
                       sx={{ fontWeight: 600, color: "text.secondary", flex: 1 }}
                     >
-                      Not assigned to any {groupByLabel}
+                      {t("portfolio.notAssignedTo", { groupBy: groupByLabel })}
                     </Typography>
                     <Chip
                       size="small"
-                      label={`${ungrouped.length} apps`}
+                      label={t("portfolio.apps", { count: ungrouped.length })}
                       sx={{
                         height: 22,
                         fontSize: "0.72rem",
@@ -1288,7 +1291,7 @@ export default function PortfolioReport() {
                     direction={sortK === "name" ? sortD : "asc"}
                     onClick={() => tableSort("name")}
                   >
-                    Name
+                    {t("common:labels.name")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -1297,7 +1300,7 @@ export default function PortfolioReport() {
                     direction={sortK === "subtype" ? sortD : "asc"}
                     onClick={() => tableSort("subtype")}
                   >
-                    Subtype
+                    {t("common:labels.subtype")}
                   </TableSortLabel>
                 </TableCell>
                 {groupByMode.kind === "attribute" && (
@@ -1425,7 +1428,7 @@ export default function PortfolioReport() {
                   {drawer.apps.length}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Applications
+                  {t("portfolio.applications")}
                 </Typography>
               </Box>
               {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length > 0 && (
@@ -1434,7 +1437,7 @@ export default function PortfolioReport() {
                     {drawer.apps.filter((a) => a.lifecycle?.endOfLife).length}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    EOL Risk
+                    {t("portfolio.eolRisk")}
                   </Typography>
                 </Box>
               )}
@@ -1445,7 +1448,7 @@ export default function PortfolioReport() {
               variant="subtitle2"
               sx={{ fontWeight: 600, mb: 1 }}
             >
-              Applications ({drawer.apps.length})
+              {t("portfolio.applications")} ({drawer.apps.length})
             </Typography>
             <List dense>
               {drawer.apps
@@ -1497,7 +1500,7 @@ export default function PortfolioReport() {
                   color="text.secondary"
                   sx={{ py: 2, textAlign: "center" }}
                 >
-                  No applications in this group
+                  {t("portfolio.noAppsInGroup")}
                 </Typography>
               )}
             </List>

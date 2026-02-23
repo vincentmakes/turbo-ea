@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function CardSidebar({ onInsert }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
   const [types, setTypes] = useState<CardType[]>([]);
   const [cards, setCards] = useState<Card[]>([]);
   const [search, setSearch] = useState("");
@@ -88,12 +90,12 @@ export default function CardSidebar({ onInsert }: Props) {
       {/* Header */}
       <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
         <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-          Cards
+          {t("common:labels.cards")}
         </Typography>
         <TextField
           size="small"
           fullWidth
-          placeholder="Search..."
+          placeholder={t("cardSidebar.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           InputProps={{
@@ -109,22 +111,22 @@ export default function CardSidebar({ onInsert }: Props) {
       {/* Type groups */}
       <Box sx={{ flex: 1, overflow: "auto" }}>
         <List dense disablePadding>
-          {visibleTypes.map((t) => {
+          {visibleTypes.map((ct) => {
             const isExpanded = isSearchMode
-              ? grouped.has(t.key)
-              : expandedType === t.key;
-            const items = grouped.get(t.key) || [];
+              ? grouped.has(ct.key)
+              : expandedType === ct.key;
+            const items = grouped.get(ct.key) || [];
 
             return (
-              <Box key={t.key}>
+              <Box key={ct.key}>
                 {/* Type header */}
                 <ListItemButton
-                  onClick={() => toggleType(t.key)}
+                  onClick={() => toggleType(ct.key)}
                   sx={{ py: 0.5, gap: 1 }}
                 >
-                  <MaterialSymbol icon={t.icon} size={18} color={t.color} />
+                  <MaterialSymbol icon={ct.icon} size={18} color={ct.color} />
                   <ListItemText
-                    primary={t.label}
+                    primary={ct.label}
                     primaryTypographyProps={{
                       variant: "body2",
                       fontWeight: 600,
@@ -143,13 +145,13 @@ export default function CardSidebar({ onInsert }: Props) {
 
                 {/* Card items */}
                 <Collapse in={isExpanded} unmountOnExit>
-                  {loadingType === t.key && items.length === 0 ? (
+                  {loadingType === ct.key && items.length === 0 ? (
                     <Typography
                       variant="caption"
                       color="text.secondary"
                       sx={{ pl: 5, py: 0.5, display: "block" }}
                     >
-                      Loading...
+                      {t("common:labels.loading")}
                     </Typography>
                   ) : items.length === 0 && isExpanded ? (
                     <Typography
@@ -157,20 +159,20 @@ export default function CardSidebar({ onInsert }: Props) {
                       color="text.secondary"
                       sx={{ pl: 5, py: 0.5, display: "block" }}
                     >
-                      No cards found
+                      {t("common:emptyStates.noCards")}
                     </Typography>
                   ) : (
                     <List dense disablePadding>
                       {items.map((card) => (
                         <Tooltip
                           key={card.id}
-                          title={`Click to insert "${card.name}" into diagram`}
+                          title={t("cardSidebar.insertTooltip", { name: card.name })}
                           placement="right"
                           arrow
                         >
                           <ListItemButton
                             sx={{ pl: 5, py: 0.25 }}
-                            onClick={() => onInsert(card, t)}
+                            onClick={() => onInsert(card, ct)}
                           >
                             <ListItemText
                               primary={card.name}
@@ -196,7 +198,7 @@ export default function CardSidebar({ onInsert }: Props) {
             color="text.secondary"
             sx={{ textAlign: "center", py: 3 }}
           >
-            No results
+            {t("common:labels.noResults")}
           </Typography>
         )}
       </Box>

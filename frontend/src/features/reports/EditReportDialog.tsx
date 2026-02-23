@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function EditReportDialog({ open, report, onClose, onUpdated }: Props) {
+  const { t } = useTranslation(["reports", "common"]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"private" | "public" | "shared">("private");
@@ -76,11 +78,11 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="edit" size={22} color="#1976d2" />
-        Edit Saved Report
+        {t("edit.title")}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "8px !important" }}>
         <TextField
-          label="Name"
+          label={t("common:labels.name")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           fullWidth
@@ -89,7 +91,7 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
           size="small"
         />
         <TextField
-          label="Description"
+          label={t("common:labels.description")}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           fullWidth
@@ -99,7 +101,7 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
         />
         <TextField
           select
-          label="Visibility"
+          label={t("save.visibility")}
           value={visibility}
           onChange={(e) => setVisibility(e.target.value as "private" | "public" | "shared")}
           fullWidth
@@ -108,19 +110,19 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
           <MenuItem value="private">
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <MaterialSymbol icon="lock" size={16} />
-              Private — Only me
+              {t("save.visibilityPrivate")}
             </Box>
           </MenuItem>
           <MenuItem value="public">
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <MaterialSymbol icon="public" size={16} />
-              Public — All users
+              {t("save.visibilityPublic")}
             </Box>
           </MenuItem>
           <MenuItem value="shared">
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <MaterialSymbol icon="group" size={16} />
-              Shared — Specific users
+              {t("save.visibilityShared")}
             </Box>
           </MenuItem>
         </TextField>
@@ -139,21 +141,21 @@ export default function EditReportDialog({ open, report, onClose, onUpdated }: P
               ))
             }
             renderInput={(params) => (
-              <TextField {...params} label="Share with" size="small" placeholder="Search users..." />
+              <TextField {...params} label={t("save.shareWith")} size="small" placeholder={t("save.searchUsers")} />
             )}
             size="small"
           />
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={!name.trim() || saving}
           startIcon={saving ? <CircularProgress size={16} /> : <MaterialSymbol icon="save" size={18} />}
         >
-          Save
+          {t("common:actions.save")}
         </Button>
       </DialogActions>
     </Dialog>

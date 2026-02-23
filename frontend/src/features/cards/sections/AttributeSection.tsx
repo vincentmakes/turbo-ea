@@ -10,7 +10,8 @@ import IconButton from "@mui/material/IconButton";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import VendorField from "@/components/VendorField";
 import Alert from "@mui/material/Alert";
-import { FieldValue, FieldEditor, isValidUrl, URL_ERROR_MSG } from "@/features/cards/sections/cardDetailUtils";
+import { useTranslation } from "react-i18next";
+import { FieldValue, FieldEditor, isValidUrl, getUrlErrorMsg } from "@/features/cards/sections/cardDetailUtils";
 import { useCurrency } from "@/hooks/useCurrency";
 import { ApiError } from "@/api/client";
 import type { Card, FieldDef } from "@/types";
@@ -35,6 +36,7 @@ function AttributeSection({
   calculatedFieldKeys?: string[];
   initialExpanded?: boolean;
 }) {
+  const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
   const [editing, setEditing] = useState(false);
   const [attrs, setAttrs] = useState<Record<string, unknown>>(
@@ -51,7 +53,7 @@ function AttributeSection({
     if (f.type === "url") {
       const val = attrs[f.key];
       if (typeof val === "string" && val && !isValidUrl(val)) {
-        urlErrors[f.key] = URL_ERROR_MSG;
+        urlErrors[f.key] = getUrlErrorMsg(t);
       }
     }
   }
@@ -119,9 +121,9 @@ function AttributeSection({
           <Typography variant="body2" color="text.secondary">
             {field.label}
             {calculatedFieldKeys.includes(field.key) ? (
-              <Chip component="span" size="small" label="calculated" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+              <Chip component="span" size="small" label={t("attributes.calculated")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : field.readonly ? (
-              <Chip component="span" size="small" label="auto" sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
+              <Chip component="span" size="small" label={t("attributes.auto")} sx={{ height: 16, fontSize: "0.55rem", ml: 0.5, verticalAlign: "middle" }} />
             ) : null}
           </Typography>
           <FieldValue field={field} value={(card.attributes || {})[field.key]} currencyFmt={fmt} />
@@ -138,7 +140,7 @@ function AttributeSection({
           <Box key={field.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ minWidth: 160 }}>{field.label}</Typography>
             <FieldValue field={field} value={attrs[field.key]} currencyFmt={fmt} />
-            <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? "calculated" : "auto"} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
+            <Chip size="small" label={calculatedFieldKeys.includes(field.key) ? t("attributes.calculated") : t("attributes.auto")} sx={{ height: 18, fontSize: "0.6rem", ml: 0.5 }} />
           </Box>
         ) : isVendorField(field) ? (
           <VendorField
@@ -241,10 +243,10 @@ function AttributeSection({
                   setSaveError(null);
                 }}
               >
-                Cancel
+                {t("common:actions.cancel")}
               </Button>
               <Button size="small" variant="contained" onClick={save} disabled={hasValidationErrors}>
-                Save
+                {t("common:actions.save")}
               </Button>
             </Box>
           </Box>

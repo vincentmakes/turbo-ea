@@ -3,6 +3,7 @@
  * Tabs: Process Map, Capability×Process, Process×App, Dependencies, Element-App Map
  */
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -24,6 +25,7 @@ import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import ProcessMapReport from "@/features/reports/ProcessMapReport";
 
 export default function BpmReportsContent() {
+  const { t } = useTranslation(["bpm", "common"]);
   const [tab, setTab] = useState(0);
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
 
@@ -36,11 +38,11 @@ export default function BpmReportsContent() {
         variant="scrollable"
         scrollButtons="auto"
       >
-        <Tab label="Process Map" icon={<MaterialSymbol icon="account_tree" size={18} />} iconPosition="start" />
-        <Tab label="Capability × Process" />
-        <Tab label="Process × Application" />
-        <Tab label="Process Dependencies" />
-        <Tab label="Element-Application Map" />
+        <Tab label={t("reports.processMap")} icon={<MaterialSymbol icon="account_tree" size={18} />} iconPosition="start" />
+        <Tab label={t("reports.capabilityProcess")} />
+        <Tab label={t("reports.processApplication")} />
+        <Tab label={t("reports.processDependencies")} />
+        <Tab label={t("reports.elementApplicationMap")} />
       </Tabs>
 
       {tab === 0 && <ProcessMapReport />}
@@ -62,6 +64,7 @@ export default function BpmReportsContent() {
 /* ================================================================== */
 
 function CapabilityProcessMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -73,17 +76,17 @@ function CapabilityProcessMatrix({ onOpenCard }: { onOpenCard: (id: string) => v
   }, []);
 
   if (loading) return <LinearProgress />;
-  if (!data || !data.rows.length) return <Typography color="text.secondary">No data. Link processes to capabilities first.</Typography>;
+  if (!data || !data.rows.length) return <Typography color="text.secondary">{t("reports.noDataLinkCapabilities")}</Typography>;
 
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle2" gutterBottom>Capability × Process Matrix</Typography>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.capabilityProcessMatrix")}</Typography>
         <TableContainer sx={{ maxHeight: 500 }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Process</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.process")}</TableCell>
                 {data.columns.map((c: any) => (
                   <TableCell key={c.id} align="center" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>
                     {c.name}
@@ -120,6 +123,7 @@ function CapabilityProcessMatrix({ onOpenCard }: { onOpenCard: (id: string) => v
 /* ================================================================== */
 
 function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -131,17 +135,17 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
   }, []);
 
   if (loading) return <LinearProgress />;
-  if (!data || !data.rows.length) return <Typography color="text.secondary">No data. Link processes to applications first.</Typography>;
+  if (!data || !data.rows.length) return <Typography color="text.secondary">{t("reports.noDataLinkApplications")}</Typography>;
 
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle2" gutterBottom>Process × Application Matrix</Typography>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.processApplicationMatrix")}</Typography>
         <TableContainer sx={{ maxHeight: 500 }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Process</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.process")}</TableCell>
                 {data.columns.map((c: any) => (
                   <TableCell key={c.id} align="center" sx={{ fontWeight: "bold", whiteSpace: "nowrap" }}>
                     {c.name}
@@ -164,7 +168,7 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
                             label={cells.some((x: any) => x.source === "element") ? "E" : "R"}
                             size="small"
                             color={cells.some((x: any) => x.source === "element") ? "secondary" : "primary"}
-                            title={cells.map((x: any) => x.source === "element" ? `Element: ${x.element_name}` : "Relation").join(", ")}
+                            title={cells.map((x: any) => x.source === "element" ? `${t("reports.element")}: ${x.element_name}` : t("reports.relation")).join(", ")}
                           />
                         ) : ""}
                       </TableCell>
@@ -185,6 +189,7 @@ function ProcessAppMatrix({ onOpenCard }: { onOpenCard: (id: string) => void }) 
 /* ================================================================== */
 
 function ProcessDependencies({ onOpenCard }: { onOpenCard: (id: string) => void }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -196,22 +201,22 @@ function ProcessDependencies({ onOpenCard }: { onOpenCard: (id: string) => void 
   }, []);
 
   if (loading) return <LinearProgress />;
-  if (!data || !data.nodes.length) return <Typography color="text.secondary">No process dependencies defined yet.</Typography>;
+  if (!data || !data.nodes.length) return <Typography color="text.secondary">{t("reports.noDependencies")}</Typography>;
 
   return (
     <Card>
       <CardContent>
-        <Typography variant="subtitle2" gutterBottom>Process Dependencies</Typography>
+        <Typography variant="subtitle2" gutterBottom>{t("reports.processDependenciesTitle")}</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {data.nodes.length} processes, {data.edges.length} dependencies
+          {t("reports.dependenciesSummary", { processes: data.nodes.length, dependencies: data.edges.length })}
         </Typography>
         <TableContainer>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>From Process</TableCell>
-                <TableCell align="center">depends on</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>To Process</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.fromProcess")}</TableCell>
+                <TableCell align="center">{t("reports.dependsOn")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("reports.toProcess")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

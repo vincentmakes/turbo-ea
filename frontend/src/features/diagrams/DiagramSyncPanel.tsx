@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import Typography from "@mui/material/Typography";
@@ -80,6 +81,7 @@ export default function DiagramSyncPanel({
   onCheckUpdates,
   checkingUpdates,
 }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
   const totalPending = pendingCards.length + pendingRels.length;
 
   return (
@@ -98,7 +100,7 @@ export default function DiagramSyncPanel({
       >
         <MaterialSymbol icon="sync" size={22} color="#1976d2" />
         <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
-          Synchronise
+          {t("sync.title")}
         </Typography>
         <IconButton size="small" onClick={onClose}>
           <MaterialSymbol icon="close" size={18} />
@@ -115,7 +117,7 @@ export default function DiagramSyncPanel({
             startIcon={syncing ? <CircularProgress size={14} /> : <MaterialSymbol icon="cloud_upload" size={16} />}
             onClick={onSyncAll}
           >
-            Push all ({totalPending})
+            {t("sync.pushAll", { count: totalPending })}
           </Button>
           <Button
             size="small"
@@ -124,14 +126,14 @@ export default function DiagramSyncPanel({
             startIcon={checkingUpdates ? <CircularProgress size={14} /> : <MaterialSymbol icon="cloud_download" size={16} />}
             onClick={onCheckUpdates}
           >
-            Check updates
+            {t("sync.checkUpdates")}
           </Button>
         </Box>
 
         {/* ---- Pending cards ---- */}
         {pendingCards.length > 0 && (
           <>
-            <SectionTitle icon="note_add" label="New Cards" count={pendingCards.length} />
+            <SectionTitle icon="note_add" label={t("sync.newCards")} count={pendingCards.length} />
             {pendingCards.map((card) => (
               <ItemRow key={card.cellId}>
                 <Box
@@ -145,12 +147,12 @@ export default function DiagramSyncPanel({
                     {card.typeLabel}
                   </Typography>
                 </Box>
-                <Tooltip title="Push to inventory">
+                <Tooltip title={t("sync.pushToInventory")}>
                   <IconButton size="small" onClick={() => onSyncFS(card.cellId)} disabled={syncing}>
                     <MaterialSymbol icon="cloud_upload" size={16} />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Remove from diagram">
+                <Tooltip title={t("sync.removeFromDiagram")}>
                   <IconButton size="small" onClick={() => onRemoveFS(card.cellId)} disabled={syncing}>
                     <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
                   </IconButton>
@@ -163,7 +165,7 @@ export default function DiagramSyncPanel({
         {/* ---- Pending relations ---- */}
         {pendingRels.length > 0 && (
           <>
-            <SectionTitle icon="link" label="New Relations" count={pendingRels.length} />
+            <SectionTitle icon="link" label={t("sync.newRelations")} count={pendingRels.length} />
             {pendingRels.map((rel) => (
               <ItemRow key={rel.edgeCellId}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -175,12 +177,12 @@ export default function DiagramSyncPanel({
                     {rel.targetName}
                   </Typography>
                 </Box>
-                <Tooltip title="Push to inventory">
+                <Tooltip title={t("sync.pushToInventory")}>
                   <IconButton size="small" onClick={() => onSyncRel(rel.edgeCellId)} disabled={syncing}>
                     <MaterialSymbol icon="cloud_upload" size={16} />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Remove from diagram">
+                <Tooltip title={t("sync.removeFromDiagram")}>
                   <IconButton size="small" onClick={() => onRemoveRel(rel.edgeCellId)} disabled={syncing}>
                     <MaterialSymbol icon="delete_outline" size={16} color="#c62828" />
                   </IconButton>
@@ -193,7 +195,7 @@ export default function DiagramSyncPanel({
         {/* ---- Stale / out-of-sync items ---- */}
         {staleItems.length > 0 && (
           <>
-            <SectionTitle icon="update" label="Inventory Changed" count={staleItems.length} />
+            <SectionTitle icon="update" label={t("sync.inventoryChanged")} count={staleItems.length} />
             {staleItems.map((item) => (
               <ItemRow key={item.cellId}>
                 <Box
@@ -205,7 +207,7 @@ export default function DiagramSyncPanel({
                     <strong>{item.inventoryName}</strong>
                   </Typography>
                 </Box>
-                <Tooltip title="Accept update from inventory">
+                <Tooltip title={t("sync.acceptUpdate")}>
                   <IconButton size="small" onClick={() => onAcceptStale(item.cellId)}>
                     <MaterialSymbol icon="check" size={16} color="#2e7d32" />
                   </IconButton>
@@ -220,7 +222,7 @@ export default function DiagramSyncPanel({
           <Box sx={{ textAlign: "center", py: 4 }}>
             <MaterialSymbol icon="check_circle" size={36} color="#66bb6a" />
             <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
-              Everything is in sync.
+              {t("sync.allInSync")}
             </Typography>
           </Box>
         )}

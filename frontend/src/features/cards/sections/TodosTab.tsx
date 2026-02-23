@@ -13,12 +13,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Autocomplete from "@mui/material/Autocomplete";
+import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import type { Todo, User } from "@/types";
 
 // ── Tab: Todos ──────────────────────────────────────────────────
 function TodosTab({ fsId }: { fsId: string }) {
+  const { t } = useTranslation(["cards", "common"]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -80,7 +82,7 @@ function TodosTab({ fsId }: { fsId: string }) {
           sx={{ textTransform: "none" }}
           onClick={() => setDialogOpen(true)}
         >
-          Add Todo
+          {t("todos.add")}
         </Button>
       </Box>
       <List dense>
@@ -140,18 +142,18 @@ function TodosTab({ fsId }: { fsId: string }) {
         ))}
         {todos.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
-            No todos yet.
+            {t("todos.empty")}
           </Typography>
         )}
       </List>
 
       {/* Add Todo Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Todo</DialogTitle>
+        <DialogTitle>{t("todos.add")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
-            label="Description"
+            label={t("common:labels.description")}
             fullWidth
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
@@ -165,12 +167,12 @@ function TodosTab({ fsId }: { fsId: string }) {
               value={users.find((u) => u.id === newAssignee) || null}
               onChange={(_, val) => setNewAssignee(val?.id ?? "")}
               renderInput={(params) => (
-                <TextField {...params} label="Assign to" size="small" />
+                <TextField {...params} label={t("todos.assignTo")} size="small" />
               )}
               size="small"
             />
             <TextField
-              label="Due date"
+              label={t("todos.dueDate")}
               type="date"
               size="small"
               InputLabelProps={{ shrink: true }}
@@ -180,9 +182,9 @@ function TodosTab({ fsId }: { fsId: string }) {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" disabled={!newDesc.trim() || saving} onClick={handleAdd}>
-            {saving ? "Adding\u2026" : "Add"}
+            {saving ? t("todos.adding") : t("common:actions.add")}
           </Button>
         </DialogActions>
       </Dialog>

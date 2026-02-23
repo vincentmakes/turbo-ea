@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -25,25 +26,43 @@ import EditReportDialog from "./EditReportDialog";
 import { api } from "@/api/client";
 import type { SavedReport } from "@/types";
 
-const REPORT_TYPE_META: Record<string, { label: string; icon: string; color: string; path: string }> = {
-  portfolio: { label: "Portfolio", icon: "dashboard", color: "#1976d2", path: "/reports/portfolio" },
-  "capability-map": { label: "Capability Map", icon: "grid_view", color: "#003399", path: "/reports/capability-map" },
-  lifecycle: { label: "Lifecycle", icon: "timeline", color: "#2e7d32", path: "/reports/lifecycle" },
-  dependencies: { label: "Dependencies", icon: "hub", color: "#e65100", path: "/reports/dependencies" },
-  cost: { label: "Cost", icon: "payments", color: "#6a1b9a", path: "/reports/cost" },
-  matrix: { label: "Matrix", icon: "table_chart", color: "#6a1b9a", path: "/reports/matrix" },
-  "data-quality": { label: "Data Quality", icon: "verified", color: "#00695c", path: "/reports/data-quality" },
-  eol: { label: "End of Life", icon: "update", color: "#bf360c", path: "/reports/eol" },
+const REPORT_TYPE_STYLE: Record<string, { icon: string; color: string; path: string }> = {
+  portfolio: { icon: "dashboard", color: "#1976d2", path: "/reports/portfolio" },
+  "capability-map": { icon: "grid_view", color: "#003399", path: "/reports/capability-map" },
+  lifecycle: { icon: "timeline", color: "#2e7d32", path: "/reports/lifecycle" },
+  dependencies: { icon: "hub", color: "#e65100", path: "/reports/dependencies" },
+  cost: { icon: "payments", color: "#6a1b9a", path: "/reports/cost" },
+  matrix: { icon: "table_chart", color: "#6a1b9a", path: "/reports/matrix" },
+  "data-quality": { icon: "verified", color: "#00695c", path: "/reports/data-quality" },
+  eol: { icon: "update", color: "#bf360c", path: "/reports/eol" },
 };
 
-const VISIBILITY_ICONS: Record<string, { icon: string; label: string; color: string }> = {
-  private: { icon: "lock", label: "Private", color: "#757575" },
-  public: { icon: "public", label: "Public", color: "#2e7d32" },
-  shared: { icon: "group", label: "Shared", color: "#1565c0" },
+const VISIBILITY_STYLE: Record<string, { icon: string; color: string }> = {
+  private: { icon: "lock", color: "#757575" },
+  public: { icon: "public", color: "#2e7d32" },
+  shared: { icon: "group", color: "#1565c0" },
 };
 
 export default function SavedReportsPage() {
+  const { t } = useTranslation(["reports", "common"]);
   const navigate = useNavigate();
+
+  const REPORT_TYPE_LABELS: Record<string, string> = useMemo(() => ({
+    portfolio: t("saved.typePortfolio"),
+    "capability-map": t("saved.typeCapabilityMap"),
+    lifecycle: t("saved.typeLifecycle"),
+    dependencies: t("saved.typeDependencies"),
+    cost: t("saved.typeCost"),
+    matrix: t("saved.typeMatrix"),
+    "data-quality": t("saved.typeDataQuality"),
+    eol: t("saved.typeEol"),
+  }), [t]);
+
+  const VISIBILITY_LABELS: Record<string, string> = useMemo(() => ({
+    private: t("saved.visibilityPrivate"),
+    public: t("saved.visibilityPublic"),
+    shared: t("saved.visibilityShared"),
+  }), [t]);
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(0); // 0 = My Reports, 1 = Shared with Me, 2 = Public
@@ -69,9 +88,9 @@ export default function SavedReportsPage() {
   }, [fetchReports]);
 
   const handleOpen = (report: SavedReport) => {
-    const meta = REPORT_TYPE_META[report.report_type];
-    if (meta) {
-      navigate(`${meta.path}?saved_report_id=${report.id}`);
+    const style = REPORT_TYPE_STYLE[report.report_type];
+    if (style) {
+      navigate(`${style.path}?saved_report_id=${report.id}`);
     }
   };
 
@@ -92,26 +111,26 @@ export default function SavedReportsPage() {
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
         <MaterialSymbol icon="bookmarks" size={26} color="#1976d2" />
         <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-          Saved Reports
+          {t("saved.title")}
         </Typography>
       </Box>
 
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab
-          label="My Reports"
+          label={t("saved.myReports")}
           icon={<MaterialSymbol icon="person" size={18} />}
           iconPosition="start"
           sx={{ textTransform: "none", minHeight: 42 }}
         />
         <Tab
-          label="Shared with Me"
+          label={t("saved.sharedWithMe")}
           icon={<MaterialSymbol icon="group" size={18} />}
           iconPosition="start"
           sx={{ textTransform: "none", minHeight: 42 }}
         />
         <Tab
-          label="Public"
+          label={t("saved.public")}
           icon={<MaterialSymbol icon="public" size={18} />}
           iconPosition="start"
           sx={{ textTransform: "none", minHeight: 42 }}
@@ -126,21 +145,22 @@ export default function SavedReportsPage() {
       ) : reports.length === 0 ? (
         <Alert severity="info" sx={{ maxWidth: 500 }}>
           {tab === 0
-            ? "You haven't saved any reports yet. Open a report, configure it, and click the save button to create one."
+            ? t("saved.emptyMy")
             : tab === 1
-              ? "No reports have been shared with you yet."
-              : "No public reports available."}
+              ? t("saved.emptyShared")
+              : t("saved.emptyPublic")}
         </Alert>
       ) : (
         <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 2 }}>
           {reports.map((report) => {
-            const meta = REPORT_TYPE_META[report.report_type] || {
-              label: report.report_type,
+            const style = REPORT_TYPE_STYLE[report.report_type] || {
               icon: "analytics",
               color: "text.secondary",
               path: "#",
             };
-            const vis = VISIBILITY_ICONS[report.visibility] || VISIBILITY_ICONS.private;
+            const metaLabel = REPORT_TYPE_LABELS[report.report_type] || report.report_type;
+            const visStyle = VISIBILITY_STYLE[report.visibility] || VISIBILITY_STYLE.private;
+            const visLabel = VISIBILITY_LABELS[report.visibility] || VISIBILITY_LABELS.private;
 
             return (
               <Card key={report.id} variant="outlined" sx={{ position: "relative" }}>
@@ -168,12 +188,12 @@ export default function SavedReportsPage() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        bgcolor: `${meta.color}08`,
+                        bgcolor: `${style.color}08`,
                         borderBottom: "1px solid",
                         borderColor: "divider",
                       }}
                     >
-                      <MaterialSymbol icon={meta.icon} size={56} color={`${meta.color}40`} />
+                      <MaterialSymbol icon={style.icon} size={56} color={`${style.color}40`} />
                     </Box>
                   )}
                   <CardContent sx={{ pb: "12px !important" }}>
@@ -189,21 +209,21 @@ export default function SavedReportsPage() {
                     )}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                       <Chip
-                        icon={<MaterialSymbol icon={meta.icon} size={14} />}
-                        label={meta.label}
+                        icon={<MaterialSymbol icon={style.icon} size={14} />}
+                        label={metaLabel}
                         size="small"
-                        sx={{ height: 22, fontSize: "0.7rem", bgcolor: `${meta.color}14`, color: meta.color, fontWeight: 600 }}
+                        sx={{ height: 22, fontSize: "0.7rem", bgcolor: `${style.color}14`, color: style.color, fontWeight: 600 }}
                       />
                       <Chip
-                        icon={<MaterialSymbol icon={vis.icon} size={14} />}
-                        label={vis.label}
+                        icon={<MaterialSymbol icon={visStyle.icon} size={14} />}
+                        label={visLabel}
                         size="small"
                         variant="outlined"
-                        sx={{ height: 22, fontSize: "0.7rem", color: vis.color, borderColor: `${vis.color}40` }}
+                        sx={{ height: 22, fontSize: "0.7rem", color: visStyle.color, borderColor: `${visStyle.color}40` }}
                       />
                       {!report.is_owner && report.owner_name && (
                         <Typography variant="caption" color="text.secondary">
-                          by {report.owner_name}
+                          {t("saved.byOwner", { name: report.owner_name })}
                         </Typography>
                       )}
                     </Box>
@@ -242,7 +262,7 @@ export default function SavedReportsPage() {
           }}
         >
           <ListItemIcon><MaterialSymbol icon="edit" size={18} /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t("common:actions.edit")}</ListItemText>
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -252,7 +272,7 @@ export default function SavedReportsPage() {
           sx={{ color: "error.main" }}
         >
           <ListItemIcon><MaterialSymbol icon="delete" size={18} color="#d32f2f" /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t("common:actions.delete")}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -266,16 +286,18 @@ export default function SavedReportsPage() {
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)} maxWidth="xs">
-        <DialogTitle>Delete Saved Report</DialogTitle>
+        <DialogTitle>{t("saved.deleteTitle")}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete <strong>{deleteConfirm?.name}</strong>? This cannot be undone.
+            <Trans i18nKey="saved.deleteConfirm" ns="reports" values={{ name: deleteConfirm?.name }}>
+              Are you sure you want to delete <strong>{{ name: deleteConfirm?.name } as any}</strong>? This cannot be undone.
+            </Trans>
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirm(null)}>{t("common:actions.cancel")}</Button>
           <Button variant="contained" color="error" onClick={handleDelete}>
-            Delete
+            {t("common:actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>

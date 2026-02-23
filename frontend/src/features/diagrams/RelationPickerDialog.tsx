@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -42,6 +43,7 @@ export default function RelationPickerDialog({
   onClose,
   onSelect,
 }: Props) {
+  const { t } = useTranslation(["diagrams", "common"]);
   if (!endpoints) return null;
 
   // Find relation types valid for this pair (in either direction)
@@ -60,7 +62,7 @@ export default function RelationPickerDialog({
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <MaterialSymbol icon="link" size={22} color="#1976d2" />
-        Pick Relation Type
+        {t("relationPicker.title")}
       </DialogTitle>
       <DialogContent sx={{ px: 1, pt: "0 !important" }}>
         {/* Show source → target labels */}
@@ -80,7 +82,7 @@ export default function RelationPickerDialog({
 
         {matches.length === 0 ? (
           <Typography variant="body2" color="text.disabled" sx={{ px: 2, py: 2 }}>
-            No valid relation types exist between these two card types in the metamodel.
+            {t("relationPicker.noValidTypes")}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -122,7 +124,7 @@ export default function RelationPickerDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
       </DialogActions>
     </Dialog>
   );

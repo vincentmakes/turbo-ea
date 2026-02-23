@@ -5,11 +5,13 @@ import TextField from "@mui/material/TextField";
 import Button from "@mui/material/Button";
 import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { Comment as CommentType } from "@/types";
 
 // ── Tab: Comments ───────────────────────────────────────────────
 function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canManageComments = true }: { fsId: string; canCreateComments?: boolean; canManageComments?: boolean }) {
+  const { t } = useTranslation(["cards", "common"]);
   const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState("");
 
@@ -35,7 +37,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
           <TextField
             fullWidth
             size="small"
-            placeholder="Write a comment..."
+            placeholder={t("comments.placeholder")}
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
@@ -45,13 +47,13 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
             onClick={handleAdd}
             disabled={!newComment.trim()}
           >
-            Post
+            {t("comments.post")}
           </Button>
         </Box>
       )}
       {comments.length === 0 && (
         <Typography color="text.secondary" variant="body2">
-          No comments yet.
+          {t("comments.empty")}
         </Typography>
       )}
       {comments.map((c) => (
@@ -61,7 +63,7 @@ function CommentsTab({ fsId, canCreateComments = true, canManageComments: _canMa
               sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}
             >
               <Typography variant="subtitle2">
-                {c.user_display_name || "User"}
+                {c.user_display_name || t("stakeholders.user")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {c.created_at ? new Date(c.created_at).toLocaleString() : ""}
