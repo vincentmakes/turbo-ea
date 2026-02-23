@@ -17,7 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("card_types", sa.Column("translations", JSONB, server_default="{}", nullable=False))
+    op.add_column(
+        "card_types", sa.Column("translations", JSONB, server_default="{}", nullable=False)
+    )
     op.add_column(
         "relation_types", sa.Column("translations", JSONB, server_default="{}", nullable=False)
     )
