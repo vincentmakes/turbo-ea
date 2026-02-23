@@ -127,7 +127,7 @@ export default function SurveyResults() {
         { response_ids: Array.from(selected) },
       );
       if (result.errors.length > 0) {
-        setError(`Applied ${result.applied}, but ${result.errors.length} error(s): ${result.errors.map((e) => e.error).join(", ")}`);
+        setError(t("surveyResults.applyPartial", { applied: result.applied, errorCount: result.errors.length, errors: result.errors.map((e) => e.error).join(", ") }));
       }
       setSelected(new Set());
       await fetchData();

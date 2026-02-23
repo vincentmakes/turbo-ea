@@ -94,7 +94,7 @@ export default function WebPortalsAdmin() {
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
   const [showLogo, setShowLogo] = useState(true);
 
-  const visibleTypes = types.filter((t) => !t.is_hidden);
+  const visibleTypes = types.filter((tp) => !tp.is_hidden);
 
   const load = async () => {
     try {
@@ -156,13 +156,13 @@ export default function WebPortalsAdmin() {
     }
   };
 
-  const selectedType = visibleTypes.find((t) => t.key === cardType);
+  const selectedType = visibleTypes.find((tp) => tp.key === cardType);
   const allFields =
     selectedType?.fields_schema?.flatMap((s) => s.fields) || [];
 
   // Relation types applicable to the selected card type
   // Since the API excludes hidden types, check that the other-end type exists in visible types
-  const visibleTypeKeys = new Set(types.map((t) => t.key));
+  const visibleTypeKeys = new Set(types.map((tp) => tp.key));
   const applicableRelTypes = cardType
     ? relationTypes.filter(
         (r) =>
@@ -182,7 +182,7 @@ export default function WebPortalsAdmin() {
       rt.source_type_key === cardType
         ? rt.target_type_key
         : rt.source_type_key;
-    return types.find((t) => t.key === otherKey)?.label || otherKey;
+    return types.find((tp) => tp.key === otherKey)?.label || otherKey;
   };
 
   const handleSave = async () => {
