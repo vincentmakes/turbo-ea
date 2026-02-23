@@ -86,11 +86,26 @@ import deliveryZh from "./locales/zh/delivery.json";
 import notificationsZh from "./locales/zh/notifications.json";
 import validationZh from "./locales/zh/validation.json";
 
-export const SUPPORTED_LOCALES = ["en", "fr", "es", "it", "pt", "zh"] as const;
+// German
+import commonDe from "./locales/de/common.json";
+import authDe from "./locales/de/auth.json";
+import navDe from "./locales/de/nav.json";
+import inventoryDe from "./locales/de/inventory.json";
+import cardsDe from "./locales/de/cards.json";
+import reportsDe from "./locales/de/reports.json";
+import adminDe from "./locales/de/admin.json";
+import bpmDe from "./locales/de/bpm.json";
+import diagramsDe from "./locales/de/diagrams.json";
+import deliveryDe from "./locales/de/delivery.json";
+import notificationsDe from "./locales/de/notifications.json";
+import validationDe from "./locales/de/validation.json";
+
+export const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   en: "English",
+  de: "Deutsch",
   fr: "Français",
   es: "Español",
   it: "Italiano",
@@ -186,6 +201,20 @@ i18n
         delivery: deliveryZh,
         notifications: notificationsZh,
         validation: validationZh,
+      },
+      de: {
+        common: commonDe,
+        auth: authDe,
+        nav: navDe,
+        inventory: inventoryDe,
+        cards: cardsDe,
+        reports: reportsDe,
+        admin: adminDe,
+        bpm: bpmDe,
+        diagrams: diagramsDe,
+        delivery: deliveryDe,
+        notifications: notificationsDe,
+        validation: validationDe,
       },
     },
     fallbackLng: "en",
