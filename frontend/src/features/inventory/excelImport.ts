@@ -509,7 +509,7 @@ export function validateImport(
               errors.push({
                 row: rowNum,
                 column: colKey,
-                message: `Row ${rowNum}: invalid value "${val}" for field "${field.label}" (valid: ${validKeys.join(", ")})`,
+                message: t("import.errors.invalidSelectValue", { row: rowNum, value: val, field: field.label, valid: validKeys.join(", ") }),
               });
               rowHasAttrError = true;
             } else {
@@ -529,7 +529,7 @@ export function validateImport(
                 errors.push({
                   row: rowNum,
                   column: colKey,
-                  message: `Row ${rowNum}: invalid value "${part}" for field "${field.label}" (valid: ${validKeys.join(", ")})`,
+                  message: t("import.errors.invalidSelectValue", { row: rowNum, value: part, field: field.label, valid: validKeys.join(", ") }),
                 });
                 rowHasAttrError = true;
               }
@@ -624,7 +624,7 @@ export async function executeImport(
       failed++;
       failedDetails.push({
         row: row.rowIndex,
-        message: e instanceof Error ? e.message : "Unknown error",
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
       });
     }
     done++;
@@ -644,7 +644,7 @@ export async function executeImport(
       failed++;
       failedDetails.push({
         row: row.rowIndex,
-        message: e instanceof Error ? e.message : "Unknown error",
+        message: e instanceof Error ? e.message : t("import.errors.unknown"),
       });
     }
     done++;

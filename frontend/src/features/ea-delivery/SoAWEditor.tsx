@@ -1014,14 +1014,14 @@ export default function SoAWEditor() {
           />
           <TextField
             select
-            label="Insert after"
+            label={t("editor.insertAfter")}
             fullWidth
             value={newSectionAfter}
             onChange={(e) => setNewSectionAfter(e.target.value)}
-            helperText="Choose where to place the new section"
+            helperText={t("editor.insertAfterHelper")}
           >
             <MenuItem value="">
-              <em>End of document</em>
+              <em>{t("editor.endOfDocument")}</em>
             </MenuItem>
             {SOAW_TEMPLATE_SECTIONS.map((s) => (
               <MenuItem key={s.id} value={s.id}>
@@ -1031,13 +1031,13 @@ export default function SoAWEditor() {
           </TextField>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddSectionOpen(false)}>Cancel</Button>
+          <Button onClick={() => setAddSectionOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             disabled={!newSectionTitle.trim()}
             onClick={addCustomSection}
           >
-            Add
+            {t("common:actions.add")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1052,10 +1052,10 @@ export default function SoAWEditor() {
               color={isSigned ? "#2e7d32" : "#ed6c02"}
             />
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              Signatures
+              {t("editor.signatures")}
             </Typography>
             {isSigned && (
-              <Chip label="Fully Signed" size="small" color="success" />
+              <Chip label={t("editor.fullySigned")} size="small" color="success" />
             )}
           </Box>
           <Divider sx={{ mb: 2 }} />
@@ -1076,7 +1076,7 @@ export default function SoAWEditor() {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                       <MaterialSymbol icon="verified" size={20} color="#2e7d32" />
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "success.dark" }}>
-                        Approved
+                        {t("editor.sigApproved")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -1088,7 +1088,7 @@ export default function SoAWEditor() {
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                      Signed: {sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "N/A"}
+                      {t("editor.sigSignedAt", { date: sig.signed_at ? new Date(sig.signed_at).toLocaleString() : "N/A" })}
                     </Typography>
                   </>
                 ) : (
@@ -1096,7 +1096,7 @@ export default function SoAWEditor() {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                       <MaterialSymbol icon="pending" size={20} color="#ed6c02" />
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "warning.dark" }}>
-                        Pending
+                        {t("editor.sigPending")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -1129,7 +1129,7 @@ export default function SoAWEditor() {
           sx={{ textTransform: "none" }}
           onClick={() => navigate("/ea-delivery")}
         >
-          Back
+          {t("common:actions.back")}
         </Button>
         {!isSigned && (
           <Button
@@ -1139,7 +1139,7 @@ export default function SoAWEditor() {
             disabled={saving}
             onClick={handleSave}
           >
-            {saving ? "Saving..." : "Save"}
+            {saving ? t("editor.saving") : t("editor.save")}
           </Button>
         )}
         {isSigned && (
@@ -1150,7 +1150,7 @@ export default function SoAWEditor() {
             disabled={saving}
             onClick={handleRevise}
           >
-            New Revision
+            {t("editor.newRevision")}
           </Button>
         )}
       </Box>
@@ -1162,11 +1162,10 @@ export default function SoAWEditor() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Request Signatures</DialogTitle>
+        <DialogTitle>{t("editor.signDialog.title")}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Select users who should sign this document. A todo will be created for
-            each signatory and they will receive a notification.
+            {t("editor.signDialog.description")}
           </Typography>
           <List dense sx={{ maxHeight: 400, overflow: "auto" }}>
             {users
@@ -1204,13 +1203,13 @@ export default function SoAWEditor() {
           </List>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSignDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setSignDialogOpen(false)}>{t("common:actions.cancel")}</Button>
           <Button
             variant="contained"
             disabled={saving || selectedSignatories.length === 0}
             onClick={handleRequestSignatures}
           >
-            {saving ? "Sending..." : `Request ${selectedSignatories.length} Signature${selectedSignatories.length !== 1 ? "s" : ""}`}
+            {saving ? t("editor.signDialog.sending") : t("editor.signDialog.requestCount", { count: selectedSignatories.length })}
           </Button>
         </DialogActions>
       </Dialog>

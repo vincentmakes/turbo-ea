@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useParams, useNavigate } from "react-router-dom";
 import DOMPurify from "dompurify";
 import Box from "@mui/material/Box";
@@ -18,13 +19,6 @@ import { buildPreviewBody, exportToPdf, PREVIEW_CSS } from "./soawExport";
 import { api } from "@/api/client";
 import type { SoAW, SoAWSectionData } from "@/types";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Draft",
-  in_review: "In Review",
-  approved: "Approved",
-  signed: "Signed",
-};
-
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> = {
   draft: "default",
   in_review: "warning",
@@ -33,8 +27,16 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "info"> 
 };
 
 export default function SoAWPreview() {
+  const { t } = useTranslation(["delivery", "common"]);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const STATUS_LABELS: Record<string, string> = {
+    draft: t("status.draft"),
+    in_review: t("status.inReview"),
+    approved: t("status.approved"),
+    signed: t("status.signed"),
+  };
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
 
@@ -51,7 +53,7 @@ export default function SoAWPreview() {
         const data = await api.get<SoAW>(`/soaw/${id}`);
         setSoaw(data);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
+        setError(e instanceof Error ? e.message : t("editor.error.loadFailed"));
       } finally {
         setLoading(false);
       }
@@ -61,8 +63,8 @@ export default function SoAWPreview() {
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href).then(
-      () => setSnack("Link copied to clipboard"),
-      () => setSnack("Failed to copy link"),
+      () => setSnack(t("preview.linkCopied")),
+      () => setSnack(t("preview.linkCopyFailed")),
     );
   };
 

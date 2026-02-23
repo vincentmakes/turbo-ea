@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef, useLayoutEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
@@ -44,11 +45,11 @@ interface RoadmapItem {
 /* ------------------------------------------------------------------ */
 
 const PHASES = [
-  { key: "plan", label: "Plan", color: "#9e9e9e" },
-  { key: "phaseIn", label: "Phase In", color: "#2196f3" },
-  { key: "active", label: "Active", color: "#4caf50" },
-  { key: "phaseOut", label: "Phase Out", color: "#ff9800" },
-  { key: "endOfLife", label: "End of Life", color: "#f44336" },
+  { key: "plan", labelKey: "lifecycle.phasePlan", color: "#9e9e9e" },
+  { key: "phaseIn", labelKey: "lifecycle.phasePhaseIn", color: "#2196f3" },
+  { key: "active", labelKey: "lifecycle.phaseActive", color: "#4caf50" },
+  { key: "phaseOut", labelKey: "lifecycle.phasePhaseOut", color: "#ff9800" },
+  { key: "endOfLife", labelKey: "lifecycle.phaseEndOfLife", color: "#f44336" },
 ];
 
 const UNSET_BAR_COLOR = "#bdbdbd";
@@ -95,6 +96,7 @@ function fmtDate(s: string | undefined): string {
 /* ------------------------------------------------------------------ */
 
 export default function LifecycleReport() {
+  const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -274,14 +276,14 @@ export default function LifecycleReport() {
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
-    const typeLabel = cardTypeKey ? (types.find((t) => t.key === cardTypeKey)?.label || cardTypeKey) : "All Types";
-    params.push({ label: "Type", value: typeLabel });
-    if (useCustomDates) params.push({ label: "Mode", value: "Date Range" });
+    const typeLabel = cardTypeKey ? (types.find((tp) => tp.key === cardTypeKey)?.label || cardTypeKey) : t("lifecycle.allTypes");
+    params.push({ label: t("common:labels.type"), value: typeLabel });
+    if (useCustomDates) params.push({ label: t("common.mode"), value: t("lifecycle.dateRangeView") });
     if (useCustomDates && customColorBy) {
       const cLabel = colorByOptions.find((o) => o.key === customColorBy)?.label || customColorBy;
-      params.push({ label: "Color by", value: cLabel });
+      params.push({ label: t("common.colorBy"), value: cLabel });
     }
-    if (view === "table") params.push({ label: "View", value: "Table" });
+    if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
     return params;
   }, [cardTypeKey, types, useCustomDates, customColorBy, colorByOptions, view]);
 
@@ -321,7 +323,7 @@ export default function LifecycleReport() {
 
   return (
     <ReportShell
-      title="Technology Lifecycle"
+      title={t("lifecycle.title")}
       icon="timeline"
       iconColor="#e65100"
       view={view}
@@ -334,9 +336,9 @@ export default function LifecycleReport() {
       printParams={printParams}
       toolbar={
         <>
-          <TextField select size="small" label="Card Type" value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
-            <MenuItem value="">All Types</MenuItem>
-            {types.filter((t) => !t.is_hidden).map((t) => <MenuItem key={t.key} value={t.key}>{t.label}</MenuItem>)}
+          <TextField select size="small" label={t("lifecycle.cardType")} value={cardTypeKey} onChange={(e) => setCardTypeKey(e.target.value)} sx={{ minWidth: 180 }}>
+            <MenuItem value="">{t("lifecycle.allTypes")}</MenuItem>
+            {types.filter((tp) => !tp.is_hidden).map((tp) => <MenuItem key={tp.key} value={tp.key}>{tp.label}</MenuItem>)}
           </TextField>
 
           {hasDateFields && (
@@ -351,7 +353,7 @@ export default function LifecycleReport() {
                 }
                 label={
                   <Typography variant="body2" color="text.secondary">
-                    Date Range View
+                    {t("lifecycle.dateRangeView")}
                   </Typography>
                 }
               />
@@ -359,7 +361,7 @@ export default function LifecycleReport() {
                 <TextField
                   select
                   size="small"
-                  label="Color By"
+                  label={t("lifecycle.colorBy")}
                   value={customColorBy}
                   onChange={(e) => setCustomColorBy(e.target.value)}
                   sx={{ minWidth: 150 }}

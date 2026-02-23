@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -41,6 +42,7 @@ import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
 /* ================================================================== */
 
 export default function MetamodelAdmin() {
+  const { t } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
 
   const [tab, setTab] = useState(0);
@@ -248,7 +250,7 @@ export default function MetamodelAdmin() {
   return (
     <Box>
       <Typography variant="h5" fontWeight={600} sx={{ mb: 2 }}>
-        Metamodel Configuration
+        {t("metamodel.title")}
       </Typography>
 
       <Tabs

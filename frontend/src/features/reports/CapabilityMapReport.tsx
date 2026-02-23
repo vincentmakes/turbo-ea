@@ -400,6 +400,7 @@ function CapabilityCard({
   onAppClick: (id: string) => void;
   fmtCost: (v: number) => string;
 }) {
+  const { t } = useTranslation(["reports"]);
   const val = nodeMetric(node, metric);
   const fmtVal = (v: number) =>
     metric === "total_cost" ? fmtCost(v) : String(v);
@@ -457,7 +458,7 @@ function CapabilityCard({
             sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
           />
           {node.deepRiskCount > 0 && metric !== "risk_count" && (
-            <Tooltip title={`${node.deepRiskCount} EOL risk`}>
+            <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
               <Box sx={{ display: "flex" }}>
                 <MaterialSymbol icon="warning" size={16} color="#e65100" />
               </Box>
@@ -524,11 +525,11 @@ function CapabilityCard({
         </Typography>
         <Chip
           size="small"
-          label={`${node.deepAppCount} apps`}
+          label={t("capabilityMap.apps", { count: node.deepAppCount })}
           sx={{ height: 20, fontSize: "0.7rem", bgcolor: "rgba(255,255,255,0.7)" }}
         />
         {node.deepRiskCount > 0 && metric !== "risk_count" && (
-          <Tooltip title={`${node.deepRiskCount} EOL risk`}>
+          <Tooltip title={t("capabilityMap.eolRisk", { count: node.deepRiskCount })}>
             <Box sx={{ display: "flex" }}>
               <MaterialSymbol icon="warning" size={16} color="#e65100" />
             </Box>
@@ -1193,7 +1194,7 @@ export default function CapabilityMapReport() {
                       : nodeMetric(drawer, o.key)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {o.label}
+                    {t(o.labelKey)}
                   </Typography>
                 </Box>
               ))}
@@ -1203,7 +1204,7 @@ export default function CapabilityMapReport() {
             {drawer.children.length > 0 && (
               <>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Sub-Capabilities ({drawer.children.length})
+                  {t("capabilityMap.subCapabilities", { count: drawer.children.length })}
                 </Typography>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
                   {drawer.children.map((ch) => (
@@ -1221,7 +1222,7 @@ export default function CapabilityMapReport() {
 
             {/* Supporting applications — all unique apps in the subtree */}
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-              Supporting Applications ({drawer.deepAppCount})
+              {t("capabilityMap.supportingApps", { count: drawer.deepAppCount })}
             </Typography>
             <List dense>
               {Array.from(drawer.deepUniqueApps.values())
@@ -1267,8 +1268,8 @@ export default function CapabilityMapReport() {
                   sx={{ py: 2, textAlign: "center" }}
                 >
                   {hasActiveFilters
-                    ? "No applications match current filters"
-                    : "No linked applications"}
+                    ? t("capabilityMap.noAppsFiltered")
+                    : t("capabilityMap.noLinkedApps")}
                 </Typography>
               )}
             </List>

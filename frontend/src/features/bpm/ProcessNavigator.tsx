@@ -11,6 +11,7 @@ import {
   useCallback,
   useRef,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -121,11 +122,11 @@ type ViewMode = "house" | "matrix" | "dependencies";
 /*  Constants                                                          */
 /* ================================================================== */
 
-const OVERLAY_OPTIONS: { key: ColorOverlay; label: string; icon: string }[] = [
-  { key: "processType", label: "Type", icon: "category" },
-  { key: "maturity", label: "Maturity", icon: "trending_up" },
-  { key: "automationLevel", label: "Automation", icon: "precision_manufacturing" },
-  { key: "riskLevel", label: "Risk", icon: "warning" },
+const OVERLAY_OPTIONS: { key: ColorOverlay; labelKey: string; icon: string }[] = [
+  { key: "processType", labelKey: "navigator.overlayType", icon: "category" },
+  { key: "maturity", labelKey: "navigator.overlayMaturity", icon: "trending_up" },
+  { key: "automationLevel", labelKey: "navigator.overlayAutomation", icon: "precision_manufacturing" },
+  { key: "riskLevel", labelKey: "navigator.overlayRisk", icon: "warning" },
 ];
 
 const ATTR_COLORS: Record<string, Record<string, { label: string; color: string }>> = {
@@ -342,6 +343,7 @@ function HouseCard({
   dragRef?: React.MutableRefObject<{ id: string; rowType: string } | null>;
   onDragDrop?: (dragId: string, dropId: string, rowType: string) => void;
 }) {
+  const { t } = useTranslation(["bpm", "common"]);
   const color = getCardColor(node, overlay);
   const isLeaf = node.level >= displayLevel || node.children.length === 0;
   const childCount = node.children.length;
@@ -484,7 +486,7 @@ function HouseCard({
           }}
         >
           {node.deepAppCount > 0 && (
-            <Tooltip title={`${node.deepAppCount} application(s)`}>
+            <Tooltip title={t("navigator.applicationCount", { count: node.deepAppCount })}>
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="apps" size={12} />}
@@ -494,7 +496,7 @@ function HouseCard({
             </Tooltip>
           )}
           {hasElements && (
-            <Tooltip title={`${node.element_count} BPMN elements`}>
+            <Tooltip title={t("navigator.bpmnElementCount", { count: node.element_count })}>
               <Chip
                 size="small"
                 icon={<MaterialSymbol icon="checklist" size={12} />}
@@ -504,7 +506,7 @@ function HouseCard({
             </Tooltip>
           )}
           {hasDiagram && (
-            <Tooltip title="Has BPMN diagram">
+            <Tooltip title={t("navigator.hasBpmnDiagram")}>
               <Box sx={{ display: "flex", alignItems: "center" }}>
                 <MaterialSymbol icon="schema" size={14} color="#7b1fa2" />
               </Box>
@@ -512,7 +514,7 @@ function HouseCard({
           )}
           <Box sx={{ flex: 1 }} />
           {childCount > 0 && !isNested && (
-            <Tooltip title={`${childCount} sub-process(es) — click to drill down`}>
+            <Tooltip title={t("navigator.subProcessDrillDown", { count: childCount })}>
               <Chip
                 size="small"
                 label={`+${childCount}`}
@@ -635,7 +637,7 @@ function HouseCard({
           </Typography>
         )}
         {(hasDiagram || hasElements) && (
-          <Tooltip title={hasDiagram ? `Has process flow (${node.element_count ?? 0} elements)` : `${node.element_count} BPMN elements`}>
+          <Tooltip title={hasDiagram ? t("navigator.hasProcessFlow", { count: node.element_count ?? 0 }) : t("navigator.bpmnElementCount", { count: node.element_count })}>
             <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, ml: 0.25, opacity: 0.85 }}>
               <MaterialSymbol icon="schema" size={16} />
               {hasElements && (
@@ -659,7 +661,7 @@ function HouseCard({
           }}
         />
         {!isNested && (
-          <Tooltip title="Drill down into this process">
+          <Tooltip title={t("navigator.drillDown")}>
             <IconButton
               size="small"
               onClick={(e) => { e.stopPropagation(); onDrill(node.id); }}
@@ -732,7 +734,7 @@ function DrawerOverview({
   for (const opt of OVERLAY_OPTIONS) {
     const val = (node.attributes || {})[opt.key] as string | undefined;
     const info = val ? ATTR_COLORS[opt.key]?.[val] : null;
-    if (info) attrChips.push({ label: `${opt.label}: ${info.label}`, color: info.color });
+    if (info) attrChips.push({ label: `${t(opt.labelKey)}: ${info.label}`, color: info.color });
   }
 
   return (
@@ -2204,7 +2206,7 @@ export default function ProcessNavigator() {
               <Chip
                 key={opt.key}
                 icon={<MaterialSymbol icon={opt.icon} size={14} />}
-                label={opt.label}
+                label={t(opt.labelKey)}
                 onClick={() => setOverlay(opt.key)}
                 variant={overlay === opt.key ? "filled" : "outlined"}
                 color={overlay === opt.key ? "primary" : "default"}

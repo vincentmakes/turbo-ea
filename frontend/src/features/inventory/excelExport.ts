@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import i18n from "@/i18n";
 import type { Card, CardType } from "@/types";
 
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
@@ -67,7 +68,7 @@ export function exportToExcel(
   });
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Cards");
+  XLSX.utils.book_append_sheet(wb, ws, i18n.t("common:labels.cards"));
 
   // Build filename
   const typeLabel = typeConfig?.label ?? "cards";
