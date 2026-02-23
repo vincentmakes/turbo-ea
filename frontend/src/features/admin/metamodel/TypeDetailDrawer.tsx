@@ -374,15 +374,14 @@ export default function TypeDetailDrawer({
               {cardTypeKey.key}
             </Typography>
           </Box>
-          <Tooltip title={t("metamodel.translationDialog.manage")}>
-            <IconButton
-              size="small"
-              onClick={() => setTranslationDialogOpen(true)}
-              sx={{ ml: 0.5 }}
-            >
-              <MaterialSymbol icon="translate" size={20} color="#999" />
-            </IconButton>
-          </Tooltip>
+          <Chip
+            icon={<MaterialSymbol icon="translate" size={16} />}
+            label={t("metamodel.translationDialog.manage")}
+            size="small"
+            variant="outlined"
+            onClick={() => setTranslationDialogOpen(true)}
+            sx={{ ml: 1, cursor: "pointer" }}
+          />
         </Box>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           <Tooltip title={cardTypeKey.is_hidden ? t("metamodel.typeDrawer.unhideType") : t("metamodel.typeDrawer.hideType")}>

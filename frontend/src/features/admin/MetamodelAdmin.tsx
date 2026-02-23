@@ -28,6 +28,7 @@ import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
+import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
@@ -761,13 +762,16 @@ export default function MetamodelAdmin() {
             }
             sx={{ mb: 2 }}
           />
-          <TextField
-            fullWidth
-            label={t("metamodel.iconLabel")}
-            value={newType.icon}
-            onChange={(e) => setNewType({ ...newType, icon: e.target.value })}
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
+              {t("metamodel.iconLabel")}
+            </Typography>
+            <IconPicker
+              value={newType.icon}
+              onChange={(v) => setNewType({ ...newType, icon: v })}
+              color={newType.color}
+            />
+          </Box>
           <Box sx={{ mb: 2 }}>
             <ColorPicker
               value={newType.color}
