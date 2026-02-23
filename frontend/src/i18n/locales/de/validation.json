@@ -1,1 +1,15 @@
-{}
+{
+  "required": "",
+  "invalidEmail": "",
+  "tooLong": "",
+  "tooShort": "",
+  "invalidUrl": "",
+  "key.mustStartWithLetter": "",
+  "key.noUnderscores": "",
+  "key.noSpaces": "",
+  "key.noAccents": "",
+  "key.lettersAndDigitsOnly": "",
+  "key.cannotChange": "",
+  "key.valid": "",
+  "key.hint": ""
+}

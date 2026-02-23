@@ -1,1 +1,20 @@
-{}
+{
+  "title": "",
+  "markAllRead": "",
+  "noNotifications": "",
+  "preferences.title": "",
+  "preferences.description": "",
+  "preferences.notification": "",
+  "preferences.inApp": "",
+  "preferences.email": "",
+  "preferences.saving": "",
+  "preferences.loadFailed": "",
+  "preferences.saveFailed": "",
+  "preferences.todoAssigned": "",
+  "preferences.cardUpdated": "",
+  "preferences.commentAdded": "",
+  "preferences.approvalStatusChanged": "",
+  "preferences.soawSignRequested": "",
+  "preferences.soawSigned": "",
+  "preferences.surveyRequest": ""
+}

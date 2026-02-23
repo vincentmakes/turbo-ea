@@ -988,102 +988,103 @@ This is the complete list of files requiring migration, grouped by priority.
 - [x] `src/components/KeyInput.tsx`
 - [x] `src/components/TimelineSlider.tsx`
 
-### Priority 5: Inventory
+### Priority 5: Inventory ✅
 
-- [ ] `src/features/inventory/InventoryPage.tsx`
-- [ ] `src/features/inventory/InventoryFilterSidebar.tsx`
-- [ ] `src/features/inventory/ImportDialog.tsx`
-- [ ] `src/features/inventory/RelationCellPopover.tsx`
-- [ ] `src/features/inventory/excelExport.ts`
-- [ ] `src/features/inventory/excelImport.ts`
+- [x] `src/features/inventory/InventoryPage.tsx`
+- [x] `src/features/inventory/InventoryFilterSidebar.tsx`
+- [x] `src/features/inventory/ImportDialog.tsx`
+- [x] `src/features/inventory/RelationCellPopover.tsx`
+- [x] `src/features/inventory/excelExport.ts`
+- [x] `src/features/inventory/excelImport.ts`
 
-### Priority 6: Card Detail
+### Priority 6: Card Detail ✅
 
-- [ ] `src/features/cards/CardDetail.tsx`
-- [ ] `src/features/cards/sections/DescriptionSection.tsx`
-- [ ] `src/features/cards/sections/LifecycleSection.tsx`
-- [ ] `src/features/cards/sections/AttributeSection.tsx`
-- [ ] `src/features/cards/sections/HierarchySection.tsx`
-- [ ] `src/features/cards/sections/RelationsSection.tsx`
-- [ ] `src/features/cards/sections/StakeholdersTab.tsx`
-- [ ] `src/features/cards/sections/CommentsTab.tsx`
-- [ ] `src/features/cards/sections/TodosTab.tsx`
-- [ ] `src/features/cards/sections/HistoryTab.tsx`
-- [ ] `src/features/cards/sections/cardDetailUtils.tsx`
+- [x] `src/features/cards/CardDetail.tsx`
+- [x] `src/features/cards/sections/DescriptionSection.tsx`
+- [x] `src/features/cards/sections/LifecycleSection.tsx`
+- [x] `src/features/cards/sections/AttributeSection.tsx`
+- [x] `src/features/cards/sections/HierarchySection.tsx`
+- [x] `src/features/cards/sections/RelationsSection.tsx`
+- [x] `src/features/cards/sections/StakeholdersTab.tsx`
+- [x] `src/features/cards/sections/CommentsTab.tsx`
+- [x] `src/features/cards/sections/TodosTab.tsx`
+- [x] `src/features/cards/sections/HistoryTab.tsx`
+- [x] `src/features/cards/sections/cardDetailUtils.tsx`
 
-### Priority 7: Reports
+### Priority 7: Reports ✅
 
-- [ ] `src/features/reports/ReportShell.tsx`
-- [ ] `src/features/reports/MetricCard.tsx`
-- [ ] `src/features/reports/ReportLegend.tsx`
-- [ ] `src/features/reports/SaveReportDialog.tsx`
-- [ ] `src/features/reports/EditReportDialog.tsx`
-- [ ] `src/features/reports/SavedReportsPage.tsx`
-- [ ] `src/features/reports/PortfolioReport.tsx`
-- [ ] `src/features/reports/CapabilityMapReport.tsx`
-- [ ] `src/features/reports/LifecycleReport.tsx`
-- [ ] `src/features/reports/DependencyReport.tsx`
-- [ ] `src/features/reports/CostReport.tsx`
-- [ ] `src/features/reports/MatrixReport.tsx`
-- [ ] `src/features/reports/DataQualityReport.tsx`
-- [ ] `src/features/reports/EolReport.tsx`
-- [ ] `src/features/reports/ProcessMapReport.tsx`
+- [x] `src/features/reports/ReportShell.tsx`
+- [x] `src/features/reports/MetricCard.tsx` (presentational — no hardcoded strings)
+- [x] `src/features/reports/ReportLegend.tsx` (presentational — no hardcoded strings)
+- [x] `src/features/reports/SaveReportDialog.tsx`
+- [x] `src/features/reports/EditReportDialog.tsx`
+- [x] `src/features/reports/SavedReportsPage.tsx`
+- [x] `src/features/reports/PortfolioReport.tsx`
+- [x] `src/features/reports/CapabilityMapReport.tsx`
+- [x] `src/features/reports/LifecycleReport.tsx`
+- [x] `src/features/reports/DependencyReport.tsx`
+- [x] `src/features/reports/CostReport.tsx`
+- [x] `src/features/reports/MatrixReport.tsx`
+- [x] `src/features/reports/DataQualityReport.tsx`
+- [x] `src/features/reports/EolReport.tsx`
+- [x] `src/features/reports/ProcessMapReport.tsx`
 
-### Priority 8: BPM
+### Priority 8: BPM ✅
 
-- [ ] `src/features/bpm/BpmDashboard.tsx`
-- [ ] `src/features/bpm/ProcessFlowEditorPage.tsx`
-- [ ] `src/features/bpm/ProcessFlowTab.tsx`
-- [ ] `src/features/bpm/ProcessAssessmentPanel.tsx`
-- [ ] `src/features/bpm/BpmnTemplateChooser.tsx`
-- [ ] `src/features/bpm/BpmnViewer.tsx`
-- [ ] `src/features/bpm/ElementLinker.tsx`
-- [ ] `src/features/bpm/ProcessNavigator.tsx`
-- [ ] `src/features/bpm/BpmReportPage.tsx`
+- [x] `src/features/bpm/BpmDashboard.tsx`
+- [x] `src/features/bpm/ProcessFlowEditorPage.tsx`
+- [x] `src/features/bpm/ProcessFlowTab.tsx`
+- [x] `src/features/bpm/ProcessAssessmentPanel.tsx`
+- [x] `src/features/bpm/BpmnTemplateChooser.tsx`
+- [x] `src/features/bpm/BpmnViewer.tsx`
+- [x] `src/features/bpm/ElementLinker.tsx`
+- [x] `src/features/bpm/ProcessNavigator.tsx`
+- [x] `src/features/bpm/BpmReportPage.tsx`
+- [x] `src/features/bpm/BpmnModeler.tsx`
 
-### Priority 9: Diagrams
+### Priority 9: Diagrams ✅
 
-- [ ] `src/features/diagrams/DiagramsPage.tsx`
-- [ ] `src/features/diagrams/DiagramEditor.tsx`
-- [ ] `src/features/diagrams/DiagramSyncPanel.tsx`
-- [ ] `src/features/diagrams/CardSidebar.tsx`
-- [ ] `src/features/diagrams/CardPickerDialog.tsx`
-- [ ] `src/features/diagrams/CreateOnDiagramDialog.tsx`
-- [ ] `src/features/diagrams/RelationPickerDialog.tsx`
+- [x] `src/features/diagrams/DiagramsPage.tsx`
+- [x] `src/features/diagrams/DiagramEditor.tsx`
+- [x] `src/features/diagrams/DiagramSyncPanel.tsx`
+- [x] `src/features/diagrams/CardSidebar.tsx`
+- [x] `src/features/diagrams/CardPickerDialog.tsx`
+- [x] `src/features/diagrams/CreateOnDiagramDialog.tsx`
+- [x] `src/features/diagrams/RelationPickerDialog.tsx`
 
-### Priority 10: Admin
+### Priority 10: Admin ✅
 
-- [ ] `src/features/admin/MetamodelAdmin.tsx`
-- [ ] `src/features/admin/metamodel/TypeDetailDrawer.tsx`
-- [ ] `src/features/admin/metamodel/FieldEditorDialog.tsx`
-- [ ] `src/features/admin/metamodel/StakeholderRolePanel.tsx`
-- [ ] `src/features/admin/metamodel/MetamodelGraph.tsx`
-- [ ] `src/features/admin/metamodel/constants.ts`
-- [ ] `src/features/admin/RolesAdmin.tsx`
-- [ ] `src/features/admin/UsersAdmin.tsx`
-- [ ] `src/features/admin/SettingsAdmin.tsx`
-- [ ] `src/features/admin/CalculationsAdmin.tsx`
-- [ ] `src/features/admin/TagsAdmin.tsx`
-- [ ] `src/features/admin/CardLayoutEditor.tsx`
-- [ ] `src/features/admin/EolAdmin.tsx`
-- [ ] `src/features/admin/SurveysAdmin.tsx`
-- [ ] `src/features/admin/SurveyBuilder.tsx`
-- [ ] `src/features/admin/SurveyResults.tsx`
-- [ ] `src/features/admin/WebPortalsAdmin.tsx`
-- [ ] `src/features/admin/ServiceNowAdmin.tsx`
+- [x] `src/features/admin/MetamodelAdmin.tsx`
+- [x] `src/features/admin/metamodel/TypeDetailDrawer.tsx`
+- [x] `src/features/admin/metamodel/FieldEditorDialog.tsx`
+- [x] `src/features/admin/metamodel/StakeholderRolePanel.tsx`
+- [x] `src/features/admin/metamodel/MetamodelGraph.tsx`
+- [x] `src/features/admin/metamodel/constants.ts`
+- [x] `src/features/admin/RolesAdmin.tsx`
+- [x] `src/features/admin/UsersAdmin.tsx`
+- [x] `src/features/admin/SettingsAdmin.tsx`
+- [x] `src/features/admin/CalculationsAdmin.tsx`
+- [x] `src/features/admin/TagsAdmin.tsx`
+- [x] `src/features/admin/CardLayoutEditor.tsx`
+- [x] `src/features/admin/EolAdmin.tsx`
+- [x] `src/features/admin/SurveysAdmin.tsx`
+- [x] `src/features/admin/SurveyBuilder.tsx`
+- [x] `src/features/admin/SurveyResults.tsx`
+- [x] `src/features/admin/WebPortalsAdmin.tsx`
+- [x] `src/features/admin/ServiceNowAdmin.tsx`
 
-### Priority 11: Other Features
+### Priority 11: Other Features ✅
 
-- [ ] `src/features/ea-delivery/EADeliveryPage.tsx`
-- [ ] `src/features/ea-delivery/SoAWEditor.tsx`
-- [ ] `src/features/ea-delivery/SoAWPreview.tsx`
-- [ ] `src/features/ea-delivery/RichTextEditor.tsx`
-- [ ] `src/features/ea-delivery/soawTemplate.ts`
-- [ ] `src/features/ea-delivery/soawExport.ts`
-- [ ] `src/features/todos/TodosPage.tsx`
-- [ ] `src/features/surveys/SurveyRespond.tsx`
-- [ ] `src/features/surveys/MySurveys.tsx`
-- [ ] `src/features/web-portals/PortalViewer.tsx`
+- [x] `src/features/ea-delivery/EADeliveryPage.tsx`
+- [x] `src/features/ea-delivery/SoAWEditor.tsx`
+- [x] `src/features/ea-delivery/SoAWPreview.tsx`
+- [x] `src/features/ea-delivery/RichTextEditor.tsx`
+- [x] `src/features/ea-delivery/soawTemplate.ts`
+- [x] `src/features/ea-delivery/soawExport.ts`
+- [x] `src/features/todos/TodosPage.tsx`
+- [x] `src/features/surveys/SurveyRespond.tsx`
+- [x] `src/features/surveys/MySurveys.tsx`
+- [x] `src/features/web-portals/PortalViewer.tsx`
 
 ### Priority 12: MUI & AG Grid Locale
 
@@ -1216,17 +1217,17 @@ Test with German (longest) and Chinese (shortest) to cover both extremes.
 - [x] `ColorPicker.tsx` + `KeyInput.tsx` + `TimelineSlider.tsx`
 - [x] English translation JSONs populated (common, auth, cards, notifications, validation)
 
-### Phase 3: Feature Migration
+### Phase 3: Feature Migration ✅
 
 **Scope**: Migrate ~80 feature files
 
-- [ ] Inventory (6 files)
-- [ ] Card Detail (11 files)
-- [ ] Reports (15 files)
-- [ ] Admin (18 files)
-- [ ] BPM (9 files)
-- [ ] Diagrams (7 files)
-- [ ] Other features (10 files)
+- [x] Inventory (6 files) — 154 translation keys
+- [x] Card Detail (11 files) — 126 translation keys
+- [x] Reports (15 files) — 293 translation keys
+- [x] Admin (18 files) — 658 translation keys
+- [x] BPM (10 files) — 202 translation keys
+- [x] Diagrams (7 files) — 66 translation keys
+- [x] Other features (10 files) — 237 delivery + 155 common + 18 notification keys
 
 ### Phase 4: Notification Refactoring
 
