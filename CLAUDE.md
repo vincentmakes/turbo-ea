@@ -69,6 +69,20 @@ When working on this codebase, follow these conventions:
 4. **Backend locale column** (`users.locale`): The Alembic migration already stores locale as a free-form string, so no migration is needed.
 5. **Validate**: Run `python3 -c "import json, glob; [json.load(open(f)) for f in glob.glob('src/i18n/locales/{code}/*.json')]"` to check JSON validity. Then run `npm run build` and `npm run test:run`.
 
+#### Translation Checklist for Code Changes
+
+Every change that introduces user-visible content must include translations. Before marking a task as complete, verify:
+
+- [ ] **New UI strings**: Added translation keys to `frontend/src/i18n/locales/en/{namespace}.json` and all 6 non-English locale files (`de`, `fr`, `es`, `it`, `pt`, `zh`). Never hardcode English text in components.
+- [ ] **New metamodel content** (card types, subtypes, fields, options, sections, relation types): Added `"translations"` dicts with all 6 non-English locales in `backend/app/services/seed.py`.
+- [ ] **New select options** (in seed data or reusable option arrays): Each option object includes a `"translations"` dict.
+- [ ] **New field labels**: Each field in `fields_schema` includes a `"translations"` dict.
+- [ ] **New section names**: Each section in `fields_schema` includes a `"translations"` dict.
+- [ ] **New subtypes**: Each subtype includes a `"translations"` dict.
+- [ ] **Interpolation preserved**: `{{variable}}` placeholders are identical across all locales.
+- [ ] **Plurals**: Keys using counts include both `_one` and `_other` variants in all locales.
+- [ ] **JSON valid**: No unescaped double quotes in JSON values. Chinese uses `「」`, others use `«»` or `\"`.
+
 ### Security Requirements
 - Never store plaintext secrets in the database — use `encrypt_value()`.
 - Never expose sensitive fields (password hashes, encrypted secrets) in API responses.

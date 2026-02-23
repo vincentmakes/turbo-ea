@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.14.2] - 2026-02-23
+
+### Added
+- Translation checklist in CLAUDE.md to ensure all new content includes i18n translations
+- Comprehensive i18n test suites for both frontend (locale file completeness, interpolation, plurals, resolveLabel) and backend (seed data translation coverage for all types, subtypes, sections, fields, options, relations)
+
+### Changed
+- Moved "Manage Translations" button to the TypeDetailDrawer header bar for quicker access
+
+### Fixed
+- Seed metamodel now merges translations into existing built-in types on upgrade (subtypes, sections, fields, and options were missing translations in pre-existing instances)
+- Icon field alignment in TypeDetailDrawer first row
+
 ## [0.14.1] - 2026-02-23
 
 ### Added

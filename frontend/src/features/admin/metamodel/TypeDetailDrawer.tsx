@@ -374,6 +374,15 @@ export default function TypeDetailDrawer({
               {cardTypeKey.key}
             </Typography>
           </Box>
+          <Tooltip title={t("metamodel.translationDialog.manage")}>
+            <IconButton
+              size="small"
+              onClick={() => setTranslationDialogOpen(true)}
+              sx={{ ml: 0.5 }}
+            >
+              <MaterialSymbol icon="translate" size={20} color="#999" />
+            </IconButton>
+          </Tooltip>
         </Box>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           <Tooltip title={cardTypeKey.is_hidden ? t("metamodel.typeDrawer.unhideType") : t("metamodel.typeDrawer.hideType")}>
@@ -425,7 +434,7 @@ export default function TypeDetailDrawer({
             onChange={(e) => setCategory(e.target.value)}
             helperText={t("metamodel.typeDrawer.categoryHelper")}
           />
-          <Box>
+          <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
               {t("metamodel.typeDrawer.icon")}
             </Typography>
@@ -454,17 +463,6 @@ export default function TypeDetailDrawer({
             />
           </Box>
         </Box>
-
-        {/* -- Manage Translations button -- */}
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<MaterialSymbol icon="translate" size={18} />}
-          onClick={() => setTranslationDialogOpen(true)}
-          sx={{ mb: 2.5 }}
-        >
-          {t("metamodel.translationDialog.manage")}
-        </Button>
 
         {/* -- Subtypes + Relations (side by side) -- */}
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3, mb: 3 }}>

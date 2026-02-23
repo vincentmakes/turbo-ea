@@ -4225,20 +4225,98 @@ async def seed_metamodel(db: AsyncSession) -> None:
     for i, t in enumerate(TYPES):
         key = t["key"]
         if key in existing_types:
-            # Update fields_schema on existing built-in types so new sections
-            # (like BPM Assessment on BusinessCapability) are picked up
+            # Update built-in types: add new sections & merge translations
             existing = existing_types[key]
             if existing.built_in:
-                # Update translations if not set
+                # Merge type-level translations
                 seed_translations = t.get("translations", {})
-                if seed_translations and not existing.translations:
-                    existing.translations = seed_translations
+                if seed_translations:
+                    existing.translations = {
+                        **(existing.translations or {}),
+                        **seed_translations,
+                    }
+
+                # Merge subtype translations
+                seed_subtypes = t.get("subtypes", [])
+                if seed_subtypes and existing.subtypes:
+                    seed_sub_map = {s["key"]: s for s in seed_subtypes}
+                    updated_subtypes = []
+                    for sub in existing.subtypes:
+                        seed_sub = seed_sub_map.get(sub["key"])
+                        if seed_sub and "translations" in seed_sub:
+                            merged = dict(sub)
+                            merged["translations"] = {
+                                **merged.get("translations", {}),
+                                **seed_sub["translations"],
+                            }
+                            updated_subtypes.append(merged)
+                        else:
+                            updated_subtypes.append(sub)
+                    existing.subtypes = updated_subtypes
+
+                # Merge fields_schema: add new sections & merge translations
                 seed_schema = t.get("fields_schema", [])
                 current_schema = existing.fields_schema or []
                 current_sections = {s["section"] for s in current_schema}
+
+                # Build seed lookup by section name
+                seed_section_map = {s["section"]: s for s in seed_schema}
+
+                # Merge translations into existing sections
+                updated_schema = []
+                for sec in current_schema:
+                    seed_sec = seed_section_map.get(sec["section"])
+                    if seed_sec:
+                        merged_sec = dict(sec)
+                        # Merge section-level translations
+                        if "translations" in seed_sec:
+                            merged_sec["translations"] = {
+                                **merged_sec.get("translations", {}),
+                                **seed_sec["translations"],
+                            }
+                        # Merge field-level translations
+                        seed_field_map = {f["key"]: f for f in seed_sec.get("fields", [])}
+                        merged_fields = []
+                        for field in merged_sec.get("fields", []):
+                            seed_field = seed_field_map.get(field["key"])
+                            if seed_field:
+                                mf = dict(field)
+                                if "translations" in seed_field:
+                                    mf["translations"] = {
+                                        **mf.get("translations", {}),
+                                        **seed_field["translations"],
+                                    }
+                                # Merge option translations
+                                seed_opts = seed_field.get("options", [])
+                                if seed_opts and mf.get("options"):
+                                    seed_opt_map = {o["key"]: o for o in seed_opts}
+                                    merged_opts = []
+                                    for opt in mf["options"]:
+                                        seed_opt = seed_opt_map.get(opt["key"])
+                                        if seed_opt and "translations" in seed_opt:
+                                            mo = dict(opt)
+                                            mo["translations"] = {
+                                                **mo.get("translations", {}),
+                                                **seed_opt["translations"],
+                                            }
+                                            merged_opts.append(mo)
+                                        else:
+                                            merged_opts.append(opt)
+                                    mf["options"] = merged_opts
+                                merged_fields.append(mf)
+                            else:
+                                merged_fields.append(field)
+                        merged_sec["fields"] = merged_fields
+                        updated_schema.append(merged_sec)
+                    else:
+                        updated_schema.append(sec)
+
+                # Add new sections that don't exist yet
                 new_sections = [s for s in seed_schema if s["section"] not in current_sections]
                 if new_sections:
-                    existing.fields_schema = current_schema + new_sections
+                    updated_schema = updated_schema + new_sections
+
+                existing.fields_schema = updated_schema
             continue
 
         roles = _app_roles if key == "Application" else _default_roles
