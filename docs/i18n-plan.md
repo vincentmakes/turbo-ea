@@ -172,8 +172,6 @@ Pluralization uses i18next's `_one` / `_other` suffix convention.
 
 ### 5.1 User Locale Preference
 
-**Already implemented** (part of this PR):
-
 | File | Change |
 |------|--------|
 | `backend/app/models/user.py` | Added `locale` column (`String(10)`, default `"en"`, server_default `"en"`) |
