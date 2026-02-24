@@ -6,6 +6,7 @@ end-of-life / release-cycle data without running into CORS restrictions.
 
 from __future__ import annotations
 
+import logging
 import re
 from difflib import SequenceMatcher
 
@@ -20,6 +21,8 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.user import User
 from app.services.permission_service import PermissionService
+
+logger = logging.getLogger("turboea.eol")
 
 router = APIRouter(prefix="/eol", tags=["End of Life"])
 
@@ -116,7 +119,8 @@ async def _get_all_products() -> list[str]:
     except httpx.HTTPError as exc:
         if _products_cache is not None:
             return _products_cache
-        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
+        logger.warning("endoflife.date API error: %s", exc)
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
 
     _products_cache = resp.json()
     _products_cache_time = now
@@ -258,9 +262,11 @@ async def get_product_cycles(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail=f"Product '{product}' not found") from exc
-        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
+        logger.warning("endoflife.date API error for product '%s': %s", product, exc)
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"endoflife.date API error: {exc}") from exc
+        logger.warning("endoflife.date API error for product '%s': %s", product, exc)
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
 
     return resp.json()
 
