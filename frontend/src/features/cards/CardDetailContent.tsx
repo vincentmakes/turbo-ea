@@ -18,6 +18,7 @@ import {
   LifecycleSection,
   AttributeSection,
   HierarchySection,
+  SuccessorsSection,
   RelationsSection,
   CommentsTab,
   TodosTab,
@@ -101,13 +102,22 @@ export default function CardDetailContent({
       for (const k of customKeys) {
         if (!existing.has(k)) result.push(k);
       }
-      if (!typeConfig?.has_hierarchy)
-        return result.filter((k) => k !== "hierarchy");
-      return result;
+      // Inject "successors" before "relations" if not already present
+      if (!existing.has("successors") && typeConfig?.has_successors) {
+        const relIdx = result.indexOf("relations");
+        if (relIdx >= 0) result.splice(relIdx, 0, "successors");
+        else result.push("successors");
+      }
+      return result.filter((k) => {
+        if (k === "hierarchy" && !typeConfig?.has_hierarchy) return false;
+        if (k === "successors" && !typeConfig?.has_successors) return false;
+        return true;
+      });
     }
     const order: string[] = ["description", "eol", "lifecycle"];
     customSections.forEach((_, i) => order.push(`custom:${i}`));
     if (typeConfig?.has_hierarchy) order.push("hierarchy");
+    if (typeConfig?.has_successors) order.push("successors");
     order.push("relations");
     return order;
   })();
@@ -172,6 +182,17 @@ export default function CardDetailContent({
               api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)
             }
             canEdit={perms.can_edit}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "successors") {
+      return (
+        <ErrorBoundary key={key} label="Successors" inline>
+          <SuccessorsSection
+            card={card}
+            canEdit={perms.can_manage_relations}
             initialExpanded={exp}
           />
         </ErrorBoundary>

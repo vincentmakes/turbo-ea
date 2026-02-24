@@ -19,6 +19,7 @@ class CardType(Base, UUIDMixin, TimestampMixin):
     color: Mapped[str] = mapped_column(String(20), default="#1976d2")
     category: Mapped[str | None] = mapped_column(String(100))  # free-text layer label, not enum
     has_hierarchy: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_successors: Mapped[bool] = mapped_column(Boolean, default=False)
     subtypes: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]
     fields_schema: Mapped[list] = mapped_column(JSONB, default=list)
     stakeholder_roles: Mapped[list | None] = mapped_column(JSONB, default=list)  # [{key, label}]

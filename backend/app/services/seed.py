@@ -1084,6 +1084,7 @@ TYPES = [
         "color": "#027446",
         "category": "Strategy & Transformation",
         "has_hierarchy": False,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "digital",
@@ -1195,6 +1196,7 @@ TYPES = [
         "color": "#33cc58",
         "category": "Strategy & Transformation",
         "has_hierarchy": True,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "idea",
@@ -2026,6 +2028,7 @@ TYPES = [
         "color": "#e65100",
         "category": "Business Architecture",
         "has_hierarchy": True,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "category",
@@ -2242,6 +2245,7 @@ TYPES = [
         "color": "#0f7eb5",
         "category": "Application & Data",
         "has_hierarchy": True,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "businessApplication",
@@ -2481,6 +2485,7 @@ TYPES = [
         "color": "#02afa4",
         "category": "Application & Data",
         "has_hierarchy": False,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "logicalInterface",
@@ -2605,6 +2610,7 @@ TYPES = [
         "color": "#774fcc",
         "category": "Application & Data",
         "has_hierarchy": True,
+        "has_successors": True,
         "subtypes": [],
         "sort_order": 9,
         "fields_schema": [
@@ -2693,6 +2699,7 @@ TYPES = [
         "color": "#d29270",
         "category": "Technical Architecture",
         "has_hierarchy": True,
+        "has_successors": True,
         "subtypes": [
             {
                 "key": "software",
@@ -4191,6 +4198,196 @@ RELATIONS = [
             },
         },
     },
+    # ── Successor / Predecessor (self-referencing, per card type) ───
+    {
+        "key": "relAppSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "Application",
+        "target_type_key": "Application",
+        "cardinality": "n:m",
+        "sort_order": 40,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relITCSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "ITComponent",
+        "target_type_key": "ITComponent",
+        "cardinality": "n:m",
+        "sort_order": 41,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relInitiativeSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "Initiative",
+        "target_type_key": "Initiative",
+        "cardinality": "n:m",
+        "sort_order": 42,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relPlatformSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "Platform",
+        "target_type_key": "Platform",
+        "cardinality": "n:m",
+        "sort_order": 43,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relProcessSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "BusinessProcess",
+        "target_type_key": "BusinessProcess",
+        "cardinality": "n:m",
+        "sort_order": 44,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relInterfaceSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "Interface",
+        "target_type_key": "Interface",
+        "cardinality": "n:m",
+        "sort_order": 45,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
+    {
+        "key": "relDataObjectSuccessor",
+        "label": "succeeds",
+        "reverse_label": "is preceded by",
+        "source_type_key": "DataObject",
+        "target_type_key": "DataObject",
+        "cardinality": "n:m",
+        "sort_order": 46,
+        "translations": {
+            "label": {
+                "de": "folgt auf",
+                "fr": "succède à",
+                "es": "sucede a",
+                "it": "succede a",
+                "pt": "sucede a",
+                "zh": "继承",
+            },
+            "reverse_label": {
+                "de": "wird abgelöst durch",
+                "fr": "est précédé par",
+                "es": "es precedido por",
+                "it": "è preceduto da",
+                "pt": "é precedido por",
+                "zh": "被继承",
+            },
+        },
+    },
 ]
 
 
@@ -4261,9 +4458,6 @@ async def seed_metamodel(db: AsyncSession) -> None:
     existing_rels_result = await db.execute(select(RelationType))
     existing_rels_list = existing_rels_result.scalars().all()
     existing_rels = {r.key for r in existing_rels_list}
-    existing_rel_pairs = {
-        (r.source_type_key, r.target_type_key) for r in existing_rels_list if not r.is_hidden
-    }
 
     # Ensure English labels are present in all translation dicts
     for t in TYPES:
@@ -4277,6 +4471,10 @@ async def seed_metamodel(db: AsyncSession) -> None:
             # Update built-in types: add new sections & merge translations
             existing = existing_types[key]
             if existing.built_in:
+                # Sync has_successors flag
+                if t.get("has_successors") and not existing.has_successors:
+                    existing.has_successors = True
+
                 # Merge type-level translations
                 seed_translations = t.get("translations", {})
                 if seed_translations:
@@ -4377,6 +4575,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
             color=t.get("color", "#1976d2"),
             category=t.get("category"),
             has_hierarchy=t.get("has_hierarchy", False),
+            has_successors=t.get("has_successors", False),
             subtypes=t.get("subtypes", []),
             fields_schema=t.get("fields_schema", []),
             stakeholder_roles=t.get("stakeholder_roles", roles),
@@ -4389,10 +4588,6 @@ async def seed_metamodel(db: AsyncSession) -> None:
 
     for i, r in enumerate(RELATIONS):
         if r["key"] in existing_rels:
-            continue
-        # Skip if a relation with same source+target already exists
-        pair = (r["source_type_key"], r["target_type_key"])
-        if pair in existing_rel_pairs:
             continue
 
         rt = RelationType(

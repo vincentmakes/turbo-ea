@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.16.0] - 2026-02-24
+### Added
+- Successor / Predecessor relationships: new `has_successors` toggle on card types enables a dedicated Lineage section on card detail pages
+- Built-in successor relation types for Application, IT Component, Initiative, Platform, Business Process, Interface, and Data Object card types
+- Admin UI toggle and card layout support for the Lineage section
+- 
 ## [0.15.3] - 2026-02-24
 
 ### Security
@@ -14,11 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Fixed ReDoS vulnerability in calculation engine — replaced polynomial regex with string-based assignment parsing
 - Fixed path traversal in BPM template endpoint — template keys are now validated and resolved paths are confined to the template directory
 - Fixed information exposure in ServiceNow connection test, calculation test, and formula validation endpoints — error responses no longer leak internal exception details
-
-## [0.15.2] - 2026-02-24
-
-### Security
-- Added least-privilege `permissions` to CI workflow — all jobs now explicitly declare `contents: read` instead of using the default permissive token
 
 ## [0.15.1] - 2026-02-24
 
