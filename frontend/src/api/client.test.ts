@@ -36,15 +36,17 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("setToken / clearToken", () => {
-  it("stores token in memory", () => {
+  it("stores token in sessionStorage", () => {
     setToken("my-jwt");
     expect(getToken()).toBe("my-jwt");
+    expect(sessionStorage.getItem("token")).toBe("my-jwt");
   });
 
-  it("removes token from memory", () => {
+  it("removes token from sessionStorage", () => {
     setToken("my-jwt");
     clearToken();
     expect(getToken()).toBeNull();
+    expect(sessionStorage.getItem("token")).toBeNull();
   });
 });
 
