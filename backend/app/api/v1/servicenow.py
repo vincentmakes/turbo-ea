@@ -956,7 +956,7 @@ async def apply_staged_records(
         raise HTTPException(502, "Failed to connect to ServiceNow")
 
     apply_failed = False
-    applied = 0
+    applied: dict[str, int] = {}
     try:
         engine = SyncEngine(db, client)
         applied = await engine._apply_staged(run)
