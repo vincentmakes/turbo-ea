@@ -102,6 +102,12 @@ export default function CardDetailContent({
       for (const k of customKeys) {
         if (!existing.has(k)) result.push(k);
       }
+      // Inject "successors" before "relations" if not already present
+      if (!existing.has("successors") && typeConfig?.has_successors) {
+        const relIdx = result.indexOf("relations");
+        if (relIdx >= 0) result.splice(relIdx, 0, "successors");
+        else result.push("successors");
+      }
       return result.filter((k) => {
         if (k === "hierarchy" && !typeConfig?.has_hierarchy) return false;
         if (k === "successors" && !typeConfig?.has_successors) return false;

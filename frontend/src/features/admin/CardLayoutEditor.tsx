@@ -64,6 +64,12 @@ function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: Sec
     const existing = new Set(raw);
     const result = [...raw];
     for (const k of customKeys) { if (!existing.has(k)) result.push(k); }
+    // Inject "successors" before "relations" if not already present
+    if (!existing.has("successors") && hasSuccessors) {
+      const relIdx = result.indexOf("relations");
+      if (relIdx >= 0) result.splice(relIdx, 0, "successors");
+      else result.push("successors");
+    }
     return result.filter((k) => {
       if (k === "hierarchy" && !hasHierarchy) return false;
       if (k === "successors" && !hasSuccessors) return false;
