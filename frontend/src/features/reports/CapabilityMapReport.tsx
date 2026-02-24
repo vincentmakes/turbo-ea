@@ -26,7 +26,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -36,6 +36,7 @@ interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  translations?: Record<string, string>;
 }
 
 interface FieldDef {
@@ -43,6 +44,7 @@ interface FieldDef {
   label: string;
   type: string;
   options?: FieldOption[];
+  translations?: Record<string, string>;
 }
 
 interface SectionDef {
@@ -166,7 +168,7 @@ function getAppColorLabel(
 ): string | null {
   if (!colorBy || colorBy === "none") return null;
   const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return "Not set";
+  if (!val) return null;
   const fd = selectFields.find((f) => f.key === colorBy);
   const opt = fd?.options?.find((o) => o.key === val);
   return opt?.label || val;
@@ -586,6 +588,7 @@ export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
+  const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -647,8 +650,18 @@ export default function CapabilityMapReport() {
     setShowAllRelFilters(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Derived: select fields from schema
-  const selectFields = useMemo(() => pickSelectFields(fieldsSchema), [fieldsSchema]);
+  // Derived: select fields from schema — resolve labels for the current locale
+  const selectFields = useMemo(() => {
+    const raw = pickSelectFields(fieldsSchema);
+    return raw.map((f) => ({
+      ...f,
+      label: rl(f.key, f.translations),
+      options: f.options?.map((o) => ({
+        ...o,
+        label: rl(o.key, o.translations),
+      })),
+    }));
+  }, [fieldsSchema, rl]);
 
   // Color-by options: all single_select fields + "none"
   const colorByOptions = useMemo(() => {
@@ -1234,7 +1247,7 @@ export default function CapabilityMapReport() {
                   const parts: string[] = [];
                   if (colorBy && colorBy !== "none") {
                     const lbl = getAppColorLabel(a, colorBy, selectFields);
-                    if (lbl && lbl !== "Not set") parts.push(lbl);
+                    if (lbl) parts.push(lbl);
                   }
                   if (a.lifecycle?.endOfLife)
                     parts.push(`EOL: ${a.lifecycle.endOfLife}`);

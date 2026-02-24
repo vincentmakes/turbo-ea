@@ -112,6 +112,10 @@
   "lifecycle.noData": "未找到生命周期数据。",
   "lifecycle.currentPhase": "当前阶段",
   "lifecycle.notSet": "未设置",
+  "lifecycle.start": "开始",
+  "lifecycle.end": "结束",
+  "lifecycle.status": "状态",
+
   "dependency.title": "依赖关系",
   "dependency.allTypes": "所有类型",
   "dependency.centerOn": "居中于",

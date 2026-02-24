@@ -119,6 +119,9 @@
   "lifecycle.noData": "Aucune donn\u00e9e de cycle de vie trouv\u00e9e.",
   "lifecycle.currentPhase": "Phase actuelle",
   "lifecycle.notSet": "Non d\u00e9fini",
+  "lifecycle.start": "D\u00e9but",
+  "lifecycle.end": "Fin",
+  "lifecycle.status": "Statut",
 
   "dependency.title": "D\u00e9pendances",
   "dependency.allTypes": "Tous les types",

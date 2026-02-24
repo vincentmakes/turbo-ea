@@ -119,6 +119,9 @@
   "lifecycle.noData": "No lifecycle data found.",
   "lifecycle.currentPhase": "Current Phase",
   "lifecycle.notSet": "Not set",
+  "lifecycle.start": "Start",
+  "lifecycle.end": "End",
+  "lifecycle.status": "Status",
 
   "dependency.title": "Dependencies",
   "dependency.allTypes": "All Types",

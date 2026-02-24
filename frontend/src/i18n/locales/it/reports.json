@@ -112,6 +112,10 @@
   "lifecycle.noData": "Nessun dato sul ciclo di vita trovato.",
   "lifecycle.currentPhase": "Fase corrente",
   "lifecycle.notSet": "Non impostato",
+  "lifecycle.start": "Inizio",
+  "lifecycle.end": "Fine",
+  "lifecycle.status": "Stato",
+
   "dependency.title": "Dipendenze",
   "dependency.allTypes": "Tutti i tipi",
   "dependency.centerOn": "Centra su",

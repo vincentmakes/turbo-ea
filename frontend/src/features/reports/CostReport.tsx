@@ -22,7 +22,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
 import type { FieldDef } from "@/types";
@@ -106,6 +106,7 @@ const TreemapContent = ({
 export default function CostReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
+  const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const { fmt } = useCurrency();
   const saved = useSavedReport("cost");
@@ -158,7 +159,10 @@ export default function CostReport() {
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeDef = useMemo(() => types.find((t) => t.key === cardTypeKey), [types, cardTypeKey]);
-  const costFields = useMemo(() => (typeDef ? pickCostFields(typeDef.fields_schema) : []), [typeDef]);
+  const costFields = useMemo(() => {
+    const raw = typeDef ? pickCostFields(typeDef.fields_schema) : [];
+    return raw.map((f) => ({ ...f, label: rl(f.key, f.translations) }));
+  }, [typeDef, rl]);
 
   // Auto-select cost field when card type changes
   useEffect(() => {
@@ -173,10 +177,14 @@ export default function CostReport() {
     if (!typeDef) return [];
     const out: FieldDef[] = [];
     for (const s of typeDef.fields_schema) for (const f of s.fields) {
-      if (f.type === "single_select") out.push(f);
+      if (f.type === "single_select") out.push({
+        ...f,
+        label: rl(f.key, f.translations),
+        options: f.options?.map((o) => ({ ...o, label: rl(o.key, o.translations) })),
+      });
     }
     return out;
-  }, [typeDef]);
+  }, [typeDef, rl]);
 
   useEffect(() => {
     const p = new URLSearchParams({ type: cardTypeKey, cost_field: costField });
@@ -236,14 +244,14 @@ export default function CostReport() {
     const map = new Map<string, { label: string; items: CostItem[]; cost: number }>();
     for (const item of items) {
       const val = String((item.attributes as Record<string, unknown>)?.[groupBy] ?? "");
-      const label = optionMap.get(val) || val || "Unspecified";
+      const label = optionMap.get(val) || val || t("cost.unspecified");
       const g = map.get(label) || { label, items: [], cost: 0 };
       g.items.push(item);
       g.cost += item.cost;
       map.set(label, g);
     }
     return [...map.values()].sort((a, b) => b.cost - a.cost);
-  }, [items, groupBy, groupedField]);
+  }, [items, groupBy, groupedField, t]);
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
