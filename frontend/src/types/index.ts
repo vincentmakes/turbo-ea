@@ -184,6 +184,10 @@ export interface RelationType {
   is_hidden: boolean;
   sort_order: number;
   translations?: MetamodelTranslations;
+  source_visible: boolean;
+  source_mandatory: boolean;
+  target_visible: boolean;
+  target_mandatory: boolean;
 }
 
 export interface TagRef {
