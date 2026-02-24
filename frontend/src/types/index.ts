@@ -160,6 +160,7 @@ export interface CardType {
   color: string;
   category?: string;
   has_hierarchy: boolean;
+  has_successors: boolean;
   subtypes?: SubtypeDef[];
   fields_schema: SectionDef[];
   stakeholder_roles?: StakeholderRoleDefinition[];

@@ -49,27 +49,32 @@ const BUILTIN_SECTIONS: { key: string; labelKey: string; icon: string; onlyIf?: 
   { key: "eol", labelKey: "cardLayout.builtinSections.eol", icon: "update" },
   { key: "lifecycle", labelKey: "cardLayout.builtinSections.lifecycle", icon: "timeline" },
   { key: "hierarchy", labelKey: "cardLayout.builtinSections.hierarchy", icon: "account_tree", onlyIf: (ct) => ct.has_hierarchy },
+  { key: "successors", labelKey: "cardLayout.builtinSections.successors", icon: "arrow_forward", onlyIf: (ct) => ct.has_successors },
   { key: "relations", labelKey: "cardLayout.builtinSections.relations", icon: "hub" },
 ];
 
-const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "relations"];
+const DEFAULT_ORDER = ["description", "eol", "lifecycle", "__custom__", "hierarchy", "successors", "relations"];
 
 // ── Helpers ──────────────────────────────────────────────────────
 
-function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: SectionDef[], hasHierarchy: boolean): string[] {
+function getSectionOrder(cfg: Record<string, SectionConfig>, customSections: SectionDef[], hasHierarchy: boolean, hasSuccessors: boolean): string[] {
   const raw = cfg?.__order as unknown as string[] | undefined;
   if (raw && Array.isArray(raw) && raw.length > 0) {
     const customKeys = customSections.map((_, i) => `custom:${i}`);
     const existing = new Set(raw);
     const result = [...raw];
     for (const k of customKeys) { if (!existing.has(k)) result.push(k); }
-    if (!hasHierarchy) return result.filter((k) => k !== "hierarchy");
-    return result;
+    return result.filter((k) => {
+      if (k === "hierarchy" && !hasHierarchy) return false;
+      if (k === "successors" && !hasSuccessors) return false;
+      return true;
+    });
   }
   const order: string[] = [];
   for (const key of DEFAULT_ORDER) {
     if (key === "__custom__") customSections.forEach((_, i) => order.push(`custom:${i}`));
     else if (key === "hierarchy" && !hasHierarchy) { /* skip */ }
+    else if (key === "successors" && !hasSuccessors) { /* skip */ }
     else order.push(key);
   }
   return order;
@@ -917,7 +922,7 @@ export default function CardLayoutEditor({
   const { t } = useTranslation(["admin", "common"]);
   const secCfg = (cardType.section_config || {}) as Record<string, SectionConfig> & { __order?: string[] };
   const customSections = cardType.fields_schema.filter((s) => s.section !== "__description");
-  const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy);
+  const sectionOrder = getSectionOrder(secCfg, customSections, cardType.has_hierarchy, cardType.has_successors);
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();

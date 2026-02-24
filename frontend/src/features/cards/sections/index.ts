@@ -13,6 +13,7 @@ export { default as DescriptionSection } from "@/features/cards/sections/Descrip
 export { default as LifecycleSection } from "@/features/cards/sections/LifecycleSection";
 export { default as AttributeSection } from "@/features/cards/sections/AttributeSection";
 export { default as HierarchySection } from "@/features/cards/sections/HierarchySection";
+export { default as SuccessorsSection } from "@/features/cards/sections/SuccessorsSection";
 export { default as RelationsSection } from "@/features/cards/sections/RelationsSection";
 export { default as CommentsTab } from "@/features/cards/sections/CommentsTab";
 export { default as TodosTab } from "@/features/cards/sections/TodosTab";

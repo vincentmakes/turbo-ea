@@ -91,6 +91,7 @@ export default function MetamodelAdmin() {
     color: "#1976d2",
     category: "Application & Data",
     has_hierarchy: false,
+    has_successors: false,
     description: "",
   });
 
@@ -172,6 +173,7 @@ export default function MetamodelAdmin() {
       color: "#1976d2",
       category: "Application & Data",
       has_hierarchy: false,
+      has_successors: false,
       description: "",
     });
   };
@@ -433,6 +435,14 @@ export default function MetamodelAdmin() {
                         <Chip
                           size="small"
                           label={t("metamodel.hierarchy")}
+                          variant="outlined"
+                          sx={{ height: 22, fontSize: 11 }}
+                        />
+                      )}
+                      {ct.has_successors && (
+                        <Chip
+                          size="small"
+                          label={t("metamodel.successors")}
                           variant="outlined"
                           sx={{ height: 22, fontSize: 11 }}
                         />
@@ -798,6 +808,17 @@ export default function MetamodelAdmin() {
               />
             }
             label={t("metamodel.supportsHierarchy")}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={newType.has_successors}
+                onChange={(e) =>
+                  setNewType({ ...newType, has_successors: e.target.checked })
+                }
+              />
+            }
+            label={t("metamodel.supportsSuccessors")}
           />
         </DialogContent>
         <DialogActions>

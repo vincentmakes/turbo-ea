@@ -72,6 +72,7 @@ export default function TypeDetailDrawer({
   const [color, setColor] = useState("#1976d2");
   const [icon, setIcon] = useState("category");
   const [hasHierarchy, setHasHierarchy] = useState(false);
+  const [hasSuccessors, setHasSuccessors] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [snack, setSnack] = useState("");
@@ -128,6 +129,7 @@ export default function TypeDetailDrawer({
       setColor(cardTypeKey.color);
       setIcon(cardTypeKey.icon);
       setHasHierarchy(cardTypeKey.has_hierarchy);
+      setHasSuccessors(cardTypeKey.has_successors);
       setError(null);
       setAddSubOpen(false);
       setDeleteFieldConfirm(null);
@@ -157,6 +159,7 @@ export default function TypeDetailDrawer({
         color,
         icon,
         has_hierarchy: hasHierarchy,
+        has_successors: hasSuccessors,
         translations: mergedTranslations,
       });
       onRefresh();
@@ -462,6 +465,10 @@ export default function TypeDetailDrawer({
             <FormControlLabel
               control={<Switch checked={hasHierarchy} onChange={(e) => setHasHierarchy(e.target.checked)} />}
               label={t("metamodel.typeDrawer.supportsHierarchy")}
+            />
+            <FormControlLabel
+              control={<Switch checked={hasSuccessors} onChange={(e) => setHasSuccessors(e.target.checked)} />}
+              label={t("metamodel.typeDrawer.supportsSuccessors")}
             />
           </Box>
         </Box>
