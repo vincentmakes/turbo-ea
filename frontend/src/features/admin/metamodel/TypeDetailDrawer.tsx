@@ -12,6 +12,9 @@ import FormControlLabel from "@mui/material/FormControlLabel";
 import Switch from "@mui/material/Switch";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
@@ -530,74 +533,34 @@ export default function TypeDetailDrawer({
               {t("metamodel.typeDrawer.relations")}
             </Typography>
             {connectedRelations.length > 0 ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 1 }}>
+              <List dense disablePadding sx={{ mb: 1 }}>
                 {connectedRelations.map((r) => {
                   const isSource = r.source_type_key === cardTypeKey.key;
                   const otherKey = isSource ? r.target_type_key : r.source_type_key;
                   const otherType = types.find((ct) => ct.key === otherKey);
-                  const isVisible = isSource ? r.source_visible : r.target_visible;
-                  const isMandatory = isSource ? r.source_mandatory : r.target_mandatory;
-                  const handleToggle = async (field: string, value: boolean) => {
-                    try {
-                      await api.patch(`/metamodel/relation-types/${r.key}`, { [field]: value });
-                      onRefresh();
-                    } catch {
-                      setError(t("common:errors.generic"));
-                    }
-                  };
                   return (
-                    <Box
-                      key={r.key}
-                      sx={{
-                        p: 1.5,
-                        border: "1px solid",
-                        borderColor: "divider",
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mb: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          {isSource ? r.label : r.reverse_label || r.label}
-                        </Typography>
-                        <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
-                        {otherType && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                            <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
-                            <Typography variant="body2">{otherType.label}</Typography>
+                    <ListItem key={r.key} sx={{ pl: 0, py: 0.25 }}>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                            <Typography variant="body2" fontWeight={500}>
+                              {isSource ? r.label : r.reverse_label || r.label}
+                            </Typography>
+                            <MaterialSymbol icon={isSource ? "arrow_forward" : "arrow_back"} size={14} color="#999" />
+                            {otherType && (
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                                <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: otherType.color, flexShrink: 0 }} />
+                                <Typography variant="body2">{otherType.label}</Typography>
+                              </Box>
+                            )}
+                            <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
                           </Box>
-                        )}
-                        <Chip size="small" label={r.cardinality} variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-                      </Box>
-                      <Box sx={{ display: "flex", gap: 2 }}>
-                        <Tooltip title={t("metamodel.typeDrawer.visibleTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isVisible}
-                                onChange={(_, v) => handleToggle(isSource ? "source_visible" : "target_visible", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.visible")}</Typography>}
-                          />
-                        </Tooltip>
-                        <Tooltip title={t("metamodel.typeDrawer.mandatoryTooltip")}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                size="small"
-                                checked={isMandatory}
-                                onChange={(_, v) => handleToggle(isSource ? "source_mandatory" : "target_mandatory", v)}
-                              />
-                            }
-                            label={<Typography variant="caption">{t("metamodel.typeDrawer.mandatory")}</Typography>}
-                          />
-                        </Tooltip>
-                      </Box>
-                    </Box>
+                        }
+                      />
+                    </ListItem>
                   );
                 })}
-              </Box>
+              </List>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 {t("metamodel.typeDrawer.noRelations")}

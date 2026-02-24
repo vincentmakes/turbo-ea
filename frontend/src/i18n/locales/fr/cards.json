@@ -81,11 +81,6 @@
   "relations.createNew": "Cr\u00e9er un nouveau {{type}}",
   "relations.createAndSelect": "Cr\u00e9er et s\u00e9lectionner",
   "relations.backToSearch": "Retour \u00e0 la recherche",
-  "relations.required": "Obligatoire",
-  "relations.addSpecific": "Ajouter {{type}}",
-  "relations.emptyMandatory": "Aucune relation — cette relation est obligatoire.",
-  "relations.emptyVisible": "Aucune relation.",
-  "relations.createAndAdd": "Créer & Ajouter",
   "relations.errors.create": "\u00c9chec de la cr\u00e9ation de la relation",
   "relations.errors.createCard": "\u00c9chec de la cr\u00e9ation de la fiche",
 

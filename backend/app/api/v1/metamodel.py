@@ -59,10 +59,6 @@ def _serialize_relation_type(r: RelationType) -> dict:
         "is_hidden": r.is_hidden,
         "sort_order": r.sort_order,
         "translations": r.translations or {},
-        "source_visible": r.source_visible,
-        "source_mandatory": r.source_mandatory,
-        "target_visible": r.target_visible,
-        "target_mandatory": r.target_mandatory,
     }
 
 
@@ -539,10 +535,6 @@ async def create_relation_type(
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
         translations=body.get("translations", {}),
-        source_visible=body.get("source_visible", True),
-        source_mandatory=body.get("source_mandatory", False),
-        target_visible=body.get("target_visible", True),
-        target_mandatory=body.get("target_mandatory", False),
     )
     db.add(rt)
     await db.commit()
@@ -607,10 +599,6 @@ async def update_relation_type(
         "source_type_key",
         "target_type_key",
         "translations",
-        "source_visible",
-        "source_mandatory",
-        "target_visible",
-        "target_mandatory",
     ]
     for field in updatable:
         if field in body:

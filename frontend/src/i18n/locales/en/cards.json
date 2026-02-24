@@ -81,11 +81,6 @@
   "relations.createNew": "Create new {{type}}",
   "relations.createAndSelect": "Create & Select",
   "relations.backToSearch": "Back to search",
-  "relations.required": "Required",
-  "relations.addSpecific": "Add {{type}}",
-  "relations.emptyMandatory": "No relations yet — this relation is required.",
-  "relations.emptyVisible": "No relations yet.",
-  "relations.createAndAdd": "Create & Add",
   "relations.errors.create": "Failed to create relation",
   "relations.errors.createCard": "Failed to create card",
 
