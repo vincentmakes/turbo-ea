@@ -246,19 +246,23 @@ async def sso_callback(
     token_url = f"https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
 
     # Exchange the authorization code for tokens
-    async with httpx.AsyncClient() as client:
-        token_response = await client.post(
-            token_url,
-            data={
-                "grant_type": "authorization_code",
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "code": body.code,
-                "redirect_uri": body.redirect_uri,
-                "scope": "openid email profile",
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            token_response = await client.post(
+                token_url,
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "code": body.code,
+                    "redirect_uri": body.redirect_uri,
+                    "scope": "openid email profile",
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+    except httpx.HTTPError:
+        logger.exception("SSO token exchange request failed")
+        raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
     if token_response.status_code != 200:
         # ── H8: Don't leak error details to the client ──

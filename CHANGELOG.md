@@ -5,16 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.17.0] - 2026-02-24
+## [0.16.2] - 2026-02-24
 
-### Added
-- Visible and Mandatory toggles per relation type in the Card Type admin drawer, configurable independently for source and target sides
-- Visible/mandatory relation types are always displayed on card detail pages, even when empty
-- Inline add button per relation type group on card detail pages for faster relation creation without a generic dialog
-- Required badge on mandatory relation types in card detail view
-
-### Changed
-- Redesigned Relations section on card detail pages with grouped card-style layout and per-relation-type inline search
+### Security
+- Fixed exception information exposure in ServiceNow integration endpoints — all external service calls now catch exceptions and return sanitized error messages instead of leaking internal details
+- Fixed unhandled httpx exception in SSO token exchange that could expose the identity provider URL and tenant ID on network failures
 
 ## [0.16.1] - 2026-02-24
 
