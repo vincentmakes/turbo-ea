@@ -137,7 +137,9 @@ export default function TypeDetailDrawer({
   if (!cardTypeKey) return null;
 
   const connectedRelations = relationTypes.filter(
-    (r) => r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key,
+    (r) =>
+      (r.source_type_key === cardTypeKey.key || r.target_type_key === cardTypeKey.key) &&
+      !r.key.endsWith("Successor"),
   );
 
   /* --- Save header --- */

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.17.1] - 2026-02-24
+
+### Fixed
+- Hidden successor/lineage relation types from admin Card Type drawer, Relation Types tab, and metamodel graph since they are already managed via the Lineage toggle
+- Limited the Add Relation dialog on card detail pages to only show relation types not already visible as dedicated sections
+
 ## [0.17.0] - 2026-02-24
 
 ### Added

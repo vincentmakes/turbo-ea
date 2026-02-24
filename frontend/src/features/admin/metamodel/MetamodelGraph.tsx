@@ -163,7 +163,10 @@ const MetamodelGraph = memo(function MetamodelGraph({ types, relationTypes, onNo
   /* ================================================================ */
   const edges = useMemo(() => {
     const visible = relationTypes.filter(
-      (r) => layout.map[r.source_type_key] && layout.map[r.target_type_key],
+      (r) =>
+        !r.key.endsWith("Successor") &&
+        layout.map[r.source_type_key] &&
+        layout.map[r.target_type_key],
     );
     if (visible.length === 0) return [];
 

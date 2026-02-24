@@ -403,11 +403,13 @@ function RelationsSection({
   useEffect(load, [load, refreshKey]);
 
   // All relevant (non-hidden) relation types for this card type
+  // Successor relations are excluded — they are handled by SuccessorsSection
   const relevantRTs = useMemo(
     () =>
       relationTypes.filter(
         (rt) =>
           !rt.is_hidden &&
+          !rt.key.endsWith("Successor") &&
           (rt.source_type_key === cardTypeKey || rt.target_type_key === cardTypeKey) &&
           visibleTypeKeys.has(
             rt.source_type_key === cardTypeKey ? rt.target_type_key : rt.source_type_key,
@@ -590,7 +592,7 @@ function RelationsSection({
                 setCreateOpen(false);
               }}
             >
-              {relevantRTs.map((rt) => {
+              {hiddenRTs.map((rt) => {
                 const rtIsSource = rt.source_type_key === cardTypeKey;
                 const verb = rtIsSource
                   ? rml(rt.key, rt.translations, "label")
