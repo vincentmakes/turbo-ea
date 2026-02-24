@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.16.0] - 2026-02-24
 
 ### Added
-- Successor / Predecessor relationships: new `has_successors` toggle on card types enables a dedicated Successors section on card detail pages
+- Successor / Predecessor relationships: new `has_successors` toggle on card types enables a dedicated Lineage section on card detail pages
 - Built-in successor relation types for Application, IT Component, Initiative, Platform, Business Process, Interface, and Data Object card types
-- Admin UI toggle and card layout support for the Successors section
+- Admin UI toggle and card layout support for the Lineage section
 
 ## [0.15.1] - 2026-02-24
 

@@ -54,7 +54,7 @@
   "hierarchy.errors.addChild": "Failed to add child",
   "hierarchy.errors.create": "Failed to create",
 
-  "successors.title": "Successors",
+  "successors.title": "Lineage",
   "successors.predecessors": "Predecessors",
   "successors.successorsList": "Successors",
   "successors.noPredecessors": "No predecessors.",

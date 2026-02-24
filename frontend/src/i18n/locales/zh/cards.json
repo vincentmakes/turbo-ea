@@ -48,7 +48,7 @@
   "hierarchy.errors.addChild": "添加子级失败",
   "hierarchy.errors.create": "创建失败",
 
-  "successors.title": "继承者",
+  "successors.title": "谱系",
   "successors.predecessors": "前任",
   "successors.successorsList": "继承者",
   "successors.noPredecessors": "没有前任。",

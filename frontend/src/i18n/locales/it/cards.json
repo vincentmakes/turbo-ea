@@ -48,7 +48,7 @@
   "hierarchy.errors.addChild": "Aggiunta figlio non riuscita",
   "hierarchy.errors.create": "Creazione non riuscita",
 
-  "successors.title": "Successori",
+  "successors.title": "Lignaggio",
   "successors.predecessors": "Predecessori",
   "successors.successorsList": "Successori",
   "successors.noPredecessors": "Nessun predecessore.",

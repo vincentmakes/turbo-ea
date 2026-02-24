@@ -54,7 +54,7 @@
   "hierarchy.errors.addChild": "Error al agregar subordinado",
   "hierarchy.errors.create": "Error al crear",
 
-  "successors.title": "Sucesores",
+  "successors.title": "Linaje",
   "successors.predecessors": "Predecesores",
   "successors.successorsList": "Sucesores",
   "successors.noPredecessors": "Sin predecesores.",

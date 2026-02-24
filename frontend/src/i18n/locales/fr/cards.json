@@ -54,7 +54,7 @@
   "hierarchy.errors.addChild": "\u00c9chec de l\u2019ajout de l\u2019enfant",
   "hierarchy.errors.create": "\u00c9chec de la cr\u00e9ation",
 
-  "successors.title": "Successeurs",
+  "successors.title": "Lign\u00e9e",
   "successors.predecessors": "Pr\u00e9d\u00e9cesseurs",
   "successors.successorsList": "Successeurs",
   "successors.noPredecessors": "Aucun pr\u00e9d\u00e9cesseur.",
