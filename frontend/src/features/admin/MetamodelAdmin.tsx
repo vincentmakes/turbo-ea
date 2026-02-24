@@ -148,9 +148,10 @@ export default function MetamodelAdmin() {
     ? types
     : types.filter((ct) => !ct.is_hidden);
 
-  const displayRelationTypes = showHiddenRels
+  const displayRelationTypes = (showHiddenRels
     ? relationTypes
-    : relationTypes.filter((r) => !r.is_hidden);
+    : relationTypes.filter((r) => !r.is_hidden)
+  ).filter((r) => !r.key.endsWith("Successor"));
 
   const autoRelKey =
     newRel.source_type_key && newRel.target_type_key
@@ -347,8 +348,9 @@ export default function MetamodelAdmin() {
               const subtypeCount = (ct.subtypes || []).length;
               const relCount = relationTypes.filter(
                 (r) =>
-                  r.source_type_key === ct.key ||
-                  r.target_type_key === ct.key,
+                  !r.key.endsWith("Successor") &&
+                  (r.source_type_key === ct.key ||
+                  r.target_type_key === ct.key),
               ).length;
 
               return (

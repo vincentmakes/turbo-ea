@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.17.1] - 2026-02-24
+
+### Fixed
+- Hidden successor/lineage relation types from admin Card Type drawer, Relation Types tab, and metamodel graph since they are already managed via the Lineage toggle
+- Limited the Add Relation dialog on card detail pages to only show relation types not already visible as dedicated sections
+
+## [0.17.0] - 2026-02-24
+
+### Added
+- Visible and Mandatory toggles per relation type in the Card Type admin drawer, configurable independently for source and target sides
+- Visible/mandatory relation types are always displayed on card detail pages, even when empty
+- Inline add button per relation type group on card detail pages for faster relation creation without a generic dialog
+- Required badge on mandatory relation types in card detail view
+
+### Changed
+- Redesigned Relations section on card detail pages with grouped card-style layout and per-relation-type inline search
+
 ## [0.16.2] - 2026-02-24
 
 ### Security
@@ -21,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Successor / Predecessor relationships: new `has_successors` toggle on card types enables a dedicated Lineage section on card detail pages
 - Built-in successor relation types for Application, IT Component, Initiative, Platform, Business Process, Interface, and Data Object card types
 - Admin UI toggle and card layout support for the Lineage section
-- 
+-
 ## [0.15.3] - 2026-02-24
 
 ### Security
