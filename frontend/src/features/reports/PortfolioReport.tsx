@@ -31,7 +31,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -58,6 +58,7 @@ interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  translations?: Record<string, string>;
 }
 
 interface FieldDef {
@@ -65,6 +66,7 @@ interface FieldDef {
   label: string;
   type: string;
   options?: FieldOption[];
+  translations?: Record<string, string>;
 }
 
 interface SectionDef {
@@ -471,6 +473,7 @@ export default function PortfolioReport() {
   const { t } = useTranslation(["reports", "common"]);
   const theme = useTheme();
   const { types: metamodelTypes } = useMetamodel();
+  const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const saved = useSavedReport("portfolio");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -548,11 +551,18 @@ export default function PortfolioReport() {
       .then((r) => setData(r));
   }, []);
 
-  // Derived data
-  const selectFields = useMemo(
-    () => (data ? pickSelectFields(data.fields_schema) : []),
-    [data],
-  );
+  // Derived data — resolve field & option labels for the current locale
+  const selectFields = useMemo(() => {
+    const raw = data ? pickSelectFields(data.fields_schema) : [];
+    return raw.map((f) => ({
+      ...f,
+      label: rl(f.key, f.translations),
+      options: f.options?.map((o) => ({
+        ...o,
+        label: rl(o.key, o.translations),
+      })),
+    }));
+  }, [data, rl]);
 
   // Build group-by options from schema + relation types
   const groupByOptions = useMemo(() => {

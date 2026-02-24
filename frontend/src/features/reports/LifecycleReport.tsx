@@ -25,7 +25,7 @@ import ReportLegend from "./ReportLegend";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 
 /* ------------------------------------------------------------------ */
@@ -59,6 +59,7 @@ interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  translations?: Record<string, string>;
 }
 
 interface FieldDef {
@@ -66,6 +67,7 @@ interface FieldDef {
   label: string;
   type: string;
   options?: FieldOption[];
+  translations?: Record<string, string>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -99,6 +101,7 @@ function fmtDate(s: string | undefined): string {
 export default function LifecycleReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { types, loading: ml } = useMetamodel();
+  const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const saved = useSavedReport("lifecycle");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -157,12 +160,20 @@ export default function LifecycleReport() {
     if (!selectedType) return { dateFields: dFields, selectFields: sFields };
     for (const section of selectedType.fields_schema) {
       for (const f of section.fields) {
-        if (f.type === "date") dFields.push(f);
-        if (f.type === "single_select" && f.options && f.options.length > 0) sFields.push(f);
+        const resolved: FieldDef = {
+          ...f,
+          label: rl(f.key, f.translations),
+          options: f.options?.map((o) => ({
+            ...o,
+            label: rl(o.key, o.translations),
+          })),
+        };
+        if (f.type === "date") dFields.push(resolved);
+        if (f.type === "single_select" && f.options && f.options.length > 0) sFields.push(resolved);
       }
     }
     return { dateFields: dFields, selectFields: sFields };
-  }, [selectedType]);
+  }, [selectedType, rl]);
 
   // A type supports custom date mode if it has at least 2 date fields
   const hasDateFields = dateFields.length >= 2;

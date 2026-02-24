@@ -26,7 +26,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -36,6 +36,7 @@ interface FieldOption {
   key: string;
   label: string;
   color?: string;
+  translations?: Record<string, string>;
 }
 
 interface FieldDef {
@@ -43,6 +44,7 @@ interface FieldDef {
   label: string;
   type: string;
   options?: FieldOption[];
+  translations?: Record<string, string>;
 }
 
 interface SectionDef {
@@ -586,6 +588,7 @@ export default function CapabilityMapReport() {
   const { t } = useTranslation(["reports", "common"]);
   const { fmtShort } = useCurrency();
   const { types: metamodelTypes } = useMetamodel();
+  const rl = useResolveLabel();
   const rml = useResolveMetaLabel();
   const saved = useSavedReport("capability-map");
   const { chartRef, thumbnail, captureAndSave } = useThumbnailCapture(() => saved.setSaveDialogOpen(true));
@@ -647,8 +650,18 @@ export default function CapabilityMapReport() {
     setShowAllRelFilters(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Derived: select fields from schema
-  const selectFields = useMemo(() => pickSelectFields(fieldsSchema), [fieldsSchema]);
+  // Derived: select fields from schema — resolve labels for the current locale
+  const selectFields = useMemo(() => {
+    const raw = pickSelectFields(fieldsSchema);
+    return raw.map((f) => ({
+      ...f,
+      label: rl(f.key, f.translations),
+      options: f.options?.map((o) => ({
+        ...o,
+        label: rl(o.key, o.translations),
+      })),
+    }));
+  }, [fieldsSchema, rl]);
 
   // Color-by options: all single_select fields + "none"
   const colorByOptions = useMemo(() => {
