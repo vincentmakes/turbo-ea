@@ -120,9 +120,7 @@ async def _get_all_products() -> list[str]:
         if _products_cache is not None:
             return _products_cache
         logger.warning("endoflife.date API error: %s", exc)
-        raise HTTPException(
-            status_code=502, detail="endoflife.date API is unavailable"
-        ) from exc
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
 
     _products_cache = resp.json()
     _products_cache_time = now
@@ -265,14 +263,10 @@ async def get_product_cycles(
         if exc.response.status_code == 404:
             raise HTTPException(status_code=404, detail=f"Product '{product}' not found") from exc
         logger.warning("endoflife.date API error for product '%s': %s", product, exc)
-        raise HTTPException(
-            status_code=502, detail="endoflife.date API is unavailable"
-        ) from exc
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
     except httpx.HTTPError as exc:
         logger.warning("endoflife.date API error for product '%s': %s", product, exc)
-        raise HTTPException(
-            status_code=502, detail="endoflife.date API is unavailable"
-        ) from exc
+        raise HTTPException(status_code=502, detail="endoflife.date API is unavailable") from exc
 
     return resp.json()
 
