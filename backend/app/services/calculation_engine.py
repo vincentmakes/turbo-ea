@@ -382,9 +382,8 @@ async def execute_calculation(
         return True, None
 
     except (NameNotDefined, FunctionNotDefined) as e:
-        error = f"Formula error: {e}"
-        logger.warning("Calculation '%s' failed for card %s: %s", calc.name, card.id, error)
-        return False, error
+        logger.warning("Calculation '%s' failed for card %s: %s", calc.name, card.id, e)
+        return False, "Formula references an undefined name or function"
 
     except Exception as e:
         # Log full error internally but return sanitized message
@@ -440,7 +439,7 @@ async def run_calculations_for_card(
                 "name": calc.name,
                 "target_field": calc.target_field_key,
                 "success": success,
-                "error": error,
+                "error": error if not success else None,
             }
         )
 
@@ -533,10 +532,12 @@ async def validate_formula(formula: str, target_type_key: str, db: AsyncSession)
         result = _evaluate_formula(formula, context)
         return {"valid": True, "error": None, "preview_result": result}
 
+    except (NameNotDefined, FunctionNotDefined):
+        return {"valid": False, "error": "Formula references an undefined name or function"}
     except Exception as e:
-        # Limit error detail to avoid leaking internal paths or stack info
-        err_msg = str(e)[:200] if str(e) else "unknown error"
-        return {"valid": False, "error": f"{type(e).__name__}: {err_msg}"}
+        # Log full error internally but return sanitized message
+        logger.warning("Formula validation failed: %s: %s", type(e).__name__, e)
+        return {"valid": False, "error": "Formula validation failed"}
 
 
 async def detect_cycles(db: AsyncSession, new_calc: Calculation) -> list[str] | None:

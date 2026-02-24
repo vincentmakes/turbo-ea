@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.16.1] - 2026-02-24
+
+### Security
+- Fixed remaining information exposure through exceptions in calculation engine, ServiceNow sync, and EOL proxy endpoints — error responses no longer leak internal exception details
+
 ## [0.16.0] - 2026-02-24
 ### Added
 - Successor / Predecessor relationships: new `has_successors` toggle on card types enables a dedicated Lineage section on card detail pages

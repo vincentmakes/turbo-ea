@@ -433,7 +433,7 @@ class SyncEngine:
         except Exception as exc:
             logger.error("Sync run %s failed: %s", run.id, exc)
             run.status = "failed"
-            run.error_message = str(exc)[:2000]
+            run.error_message = "Sync operation failed"
             run.completed_at = datetime.now(timezone.utc)
 
         await self.db.flush()
@@ -686,7 +686,7 @@ class SyncEngine:
             except Exception as exc:
                 logger.error("Failed to apply staged record %s: %s", staged.id, exc)
                 staged.status = "error"
-                staged.error_message = str(exc)[:1000]
+                staged.error_message = "Failed to apply record"
                 applied["errors"] += 1
 
         return applied
@@ -913,7 +913,7 @@ class SyncEngine:
         except Exception as exc:
             logger.error("Push sync run %s failed: %s", run.id, exc)
             run.status = "failed"
-            run.error_message = str(exc)[:2000]
+            run.error_message = "Push sync operation failed"
             run.completed_at = datetime.now(timezone.utc)
 
         await self.db.flush()
