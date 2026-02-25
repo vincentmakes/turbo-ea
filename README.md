@@ -11,7 +11,9 @@ Enterprise Architecture in practice : https://www.turbo-ea.org/blog
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/vincentmakes)
 
-Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
+Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.  
+
+[Business case / Slides Pitch](https://github.com/vincentmakes/turbo-ea/blob/561db6f635eadaf69c890b2ba98280b73e723ad7/docs/business%20case/turbo_ea_pitch_business_case.pdf)
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
