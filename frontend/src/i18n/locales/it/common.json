@@ -23,6 +23,7 @@
   "actions.submit": "Invia",
   "actions.approve": "Approva",
   "actions.reject": "Rifiuta",
+  "actions.resetToDraft": "Ripristina a bozza",
   "actions.send": "Invia",
   "actions.back": "Indietro",
   "actions.next": "Avanti",

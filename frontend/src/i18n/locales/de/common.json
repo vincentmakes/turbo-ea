@@ -23,6 +23,7 @@
   "actions.submit": "Absenden",
   "actions.approve": "Genehmigen",
   "actions.reject": "Ablehnen",
+  "actions.resetToDraft": "Auf Entwurf zurücksetzen",
   "actions.send": "Senden",
   "actions.back": "Zurück",
   "actions.next": "Weiter",

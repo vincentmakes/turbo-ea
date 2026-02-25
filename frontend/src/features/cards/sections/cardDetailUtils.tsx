@@ -32,8 +32,8 @@ export function getUrlErrorMsg(t: (key: string) => string): string {
 export function DataQualityRing({ value }: { value: number }) {
   const { t } = useTranslation(["cards", "common"]);
   const theme = useTheme();
-  const size = 52;
-  const sw = 5;
+  const size = 36;
+  const sw = 3.5;
   const r = (size - sw) / 2;
   const circ = 2 * Math.PI * r;
   const offset = circ - (value / 100) * circ;
@@ -74,7 +74,7 @@ export function DataQualityRing({ value }: { value: number }) {
         <Typography
           variant="caption"
           fontWeight={700}
-          sx={{ position: "absolute" }}
+          sx={{ position: "absolute", fontSize: "0.625rem" }}
         >
           {Math.round(value)}%
         </Typography>

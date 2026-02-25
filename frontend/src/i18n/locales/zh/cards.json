@@ -1,10 +1,9 @@
 {
   "detail.title": "卡片详情",
-  "detail.approvalStatus": "审批状态",
   "detail.archivedBanner": "此卡片已归档。",
   "detail.purgeWarning_one": "将在 {{count}} 天后被永久删除。",
   "detail.purgeWarning_other": "将在 {{count}} 天后被永久删除。",
-  "detail.actions.resetToDraft": "重置为草稿",
+  "detail.actions.moreActions": "更多操作",
   "detail.actions.archiveTooltip": "归档此卡片",
   "detail.actions.deleteTooltip": "永久删除此卡片",
   "detail.dialogs.archive.title": "归档卡片",

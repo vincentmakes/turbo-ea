@@ -281,7 +281,7 @@ describe("CardDetail", () => {
     expect(screen.queryByRole("tab", { name: /process flow/i })).not.toBeInTheDocument();
   });
 
-  it("shows Approval Status button when user has permission", async () => {
+  it("renders approval status badge as interactive chip when user has permission", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
       return Promise.resolve(mockCard);
@@ -290,11 +290,15 @@ describe("CardDetail", () => {
     renderCardDetail();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /approval status/i })).toBeInTheDocument();
+      expect(screen.getByText("My Application")).toBeInTheDocument();
     });
+    // The approval chip should render the status text and be clickable
+    const draftChip = screen.getByText(/draft/i).closest(".MuiChip-root");
+    expect(draftChip).toBeInTheDocument();
+    expect(draftChip).toHaveClass("MuiChip-clickable");
   });
 
-  it("hides Approval Status button when user lacks permission", async () => {
+  it("renders approval status badge as non-interactive when user lacks permission", async () => {
     const restrictedPerms = {
       effective: { ...mockPerms.effective, can_approval_status: false },
     };
@@ -308,10 +312,14 @@ describe("CardDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("My Application")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /approval status/i })).not.toBeInTheDocument();
+    // The approval chip should still show status but NOT be clickable
+    const draftChip = screen.getByText(/draft/i).closest(".MuiChip-root");
+    expect(draftChip).toBeInTheDocument();
+    expect(draftChip).not.toHaveClass("MuiChip-clickable");
   });
 
-  it("shows Archive and Delete buttons for active card with permissions", async () => {
+  it("shows overflow menu with Archive and Delete for active card with permissions", async () => {
+    const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
       return Promise.resolve(mockCard);
@@ -320,9 +328,15 @@ describe("CardDetail", () => {
     renderCardDetail();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /archive/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
     });
-    expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: /archive/i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
   });
 
   it("shows archived banner for archived card", async () => {
@@ -343,7 +357,7 @@ describe("CardDetail", () => {
     });
   });
 
-  it("shows archive confirmation dialog when Archive is clicked", async () => {
+  it("shows archive confirmation dialog when Archive is clicked via overflow menu", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
@@ -353,17 +367,23 @@ describe("CardDetail", () => {
     renderCardDetail();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /archive/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /archive/i }));
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: /archive/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: /archive/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/are you sure you want to archive/i)).toBeInTheDocument();
     });
   });
 
-  it("shows delete confirmation dialog when Delete is clicked", async () => {
+  it("shows delete confirmation dialog when Delete is clicked via overflow menu", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
@@ -373,17 +393,23 @@ describe("CardDetail", () => {
     renderCardDetail();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole("button", { name: /delete/i }));
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole("menuitem", { name: /delete/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/are you sure you want to permanently delete/i)).toBeInTheDocument();
     });
   });
 
-  it("calls api.delete on delete confirmation", async () => {
+  it("calls api.delete on delete confirmation via overflow menu", async () => {
     const user = userEvent.setup();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
@@ -393,12 +419,17 @@ describe("CardDetail", () => {
 
     renderCardDetail();
 
+    // Open overflow menu
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /more actions/i })).toBeInTheDocument();
     });
+    await user.click(screen.getByRole("button", { name: /more actions/i }));
 
-    // Open delete dialog
-    await user.click(screen.getByRole("button", { name: /delete/i }));
+    // Click Delete menu item
+    await waitFor(() => {
+      expect(screen.getByRole("menuitem", { name: /delete/i })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("menuitem", { name: /delete/i }));
 
     // Confirm delete
     await waitFor(() => {

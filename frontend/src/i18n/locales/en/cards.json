@@ -1,10 +1,9 @@
 {
   "detail.title": "Card Detail",
-  "detail.approvalStatus": "Approval Status",
   "detail.archivedBanner": "This card is archived.",
   "detail.purgeWarning_one": "It will be permanently deleted in {{count}} day.",
   "detail.purgeWarning_other": "It will be permanently deleted in {{count}} days.",
-  "detail.actions.resetToDraft": "Reset to Draft",
+  "detail.actions.moreActions": "More actions",
   "detail.actions.archiveTooltip": "Archive this card",
   "detail.actions.deleteTooltip": "Permanently delete this card",
   "detail.dialogs.archive.title": "Archive Card",
