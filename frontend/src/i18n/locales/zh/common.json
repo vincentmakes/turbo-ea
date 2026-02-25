@@ -23,6 +23,7 @@
   "actions.submit": "提交",
   "actions.approve": "批准",
   "actions.reject": "拒绝",
+  "actions.resetToDraft": "重置为草稿",
   "actions.send": "发送",
   "actions.back": "返回",
   "actions.next": "下一步",

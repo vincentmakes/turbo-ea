@@ -1,10 +1,8 @@
 {
   "detail.title": "Detalhe da ficha",
-  "detail.approvalStatus": "Status de aprovação",
   "detail.archivedBanner": "Esta ficha está arquivada.",
   "detail.purgeWarning_one": "Será excluída permanentemente em {{count}} dia.",
   "detail.purgeWarning_other": "Será excluída permanentemente em {{count}} dias.",
-  "detail.actions.resetToDraft": "Redefinir para rascunho",
   "detail.actions.archiveTooltip": "Arquivar esta ficha",
   "detail.actions.deleteTooltip": "Excluir permanentemente esta ficha",
   "detail.dialogs.archive.title": "Arquivar ficha",

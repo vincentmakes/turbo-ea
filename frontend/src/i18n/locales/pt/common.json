@@ -23,6 +23,7 @@
   "actions.submit": "Enviar",
   "actions.approve": "Aprovar",
   "actions.reject": "Rejeitar",
+  "actions.resetToDraft": "Redefinir para rascunho",
   "actions.send": "Enviar",
   "actions.back": "Voltar",
   "actions.next": "Avançar",

@@ -281,7 +281,7 @@ describe("CardDetail", () => {
     expect(screen.queryByRole("tab", { name: /process flow/i })).not.toBeInTheDocument();
   });
 
-  it("shows Approval Status button when user has permission", async () => {
+  it("renders approval status badge as interactive chip when user has permission", async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path.includes("/my-permissions")) return Promise.resolve(mockPerms);
       return Promise.resolve(mockCard);
@@ -290,11 +290,15 @@ describe("CardDetail", () => {
     renderCardDetail();
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /approval status/i })).toBeInTheDocument();
+      expect(screen.getByText("My Application")).toBeInTheDocument();
     });
+    // The approval chip should render the status text and be clickable
+    const draftChip = screen.getByText(/draft/i).closest(".MuiChip-root");
+    expect(draftChip).toBeInTheDocument();
+    expect(draftChip).toHaveClass("MuiChip-clickable");
   });
 
-  it("hides Approval Status button when user lacks permission", async () => {
+  it("renders approval status badge as non-interactive when user lacks permission", async () => {
     const restrictedPerms = {
       effective: { ...mockPerms.effective, can_approval_status: false },
     };
@@ -308,7 +312,10 @@ describe("CardDetail", () => {
     await waitFor(() => {
       expect(screen.getByText("My Application")).toBeInTheDocument();
     });
-    expect(screen.queryByRole("button", { name: /approval status/i })).not.toBeInTheDocument();
+    // The approval chip should still show status but NOT be clickable
+    const draftChip = screen.getByText(/draft/i).closest(".MuiChip-root");
+    expect(draftChip).toBeInTheDocument();
+    expect(draftChip).not.toHaveClass("MuiChip-clickable");
   });
 
   it("shows Archive and Delete buttons for active card with permissions", async () => {

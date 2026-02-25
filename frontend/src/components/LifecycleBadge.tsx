@@ -1,4 +1,6 @@
+import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 
 const PHASE_COLORS: Record<string, "default" | "primary" | "success" | "warning" | "error"> = {
@@ -27,13 +29,31 @@ interface Props {
 
 export default function LifecycleBadge({ lifecycle, size = "small" }: Props) {
   const { t } = useTranslation("common");
+  const theme = useTheme();
   const phase = getCurrentPhase(lifecycle);
   if (!phase) return null;
+  const chipColor = PHASE_COLORS[phase] || "default";
+  const dotColor =
+    chipColor === "default"
+      ? theme.palette.text.secondary
+      : theme.palette[chipColor].main;
   return (
     <Chip
       size={size}
       label={t(`lifecycle.${phase}`) || phase}
-      color={PHASE_COLORS[phase] || "default"}
+      color={chipColor}
+      variant="outlined"
+      icon={
+        <Box
+          sx={{
+            width: 8,
+            height: 8,
+            borderRadius: "50%",
+            bgcolor: dotColor,
+            flexShrink: 0,
+          }}
+        />
+      }
     />
   );
 }

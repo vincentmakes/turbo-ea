@@ -23,6 +23,7 @@
   "actions.submit": "Soumettre",
   "actions.approve": "Approuver",
   "actions.reject": "Rejeter",
+  "actions.resetToDraft": "Remettre en brouillon",
   "actions.send": "Envoyer",
   "actions.back": "Retour",
   "actions.next": "Suivant",

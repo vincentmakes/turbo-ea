@@ -4,12 +4,10 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import MenuItem from "@mui/material/MenuItem";
 import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
-import Menu from "@mui/material/Menu";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import Dialog from "@mui/material/Dialog";
@@ -61,9 +59,6 @@ export default function CardDetail() {
   const [initialTab, setInitialTab] = useState(0);
   const [initialSubTab, setInitialSubTab] = useState<number | undefined>(undefined);
   const [error, setError] = useState("");
-  const [approvalMenuAnchor, setApprovalMenuAnchor] = useState<HTMLElement | null>(
-    null
-  );
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -111,8 +106,7 @@ export default function CardDetail() {
 
   const typeConfig = getType(card.type);
 
-  const handleApprovalAction = async (action: string) => {
-    setApprovalMenuAnchor(null);
+  const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
     await api.post(`/cards/${card.id}/approval-status?action=${action}`);
     const newStatus =
       action === "approve"
@@ -189,47 +183,12 @@ export default function CardDetail() {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
           <DataQualityRing value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
-          <ApprovalStatusBadge status={card.approval_status} />
-          {perms.can_approval_status && (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={(e) => setApprovalMenuAnchor(e.currentTarget)}
-              endIcon={<MaterialSymbol icon="arrow_drop_down" size={18} />}
-            >
-              {t("detail.approvalStatus")}
-            </Button>
-          )}
+          <ApprovalStatusBadge
+            status={card.approval_status}
+            canChange={perms.can_approval_status}
+            onAction={handleApprovalAction}
+          />
         </Box>
-        {perms.can_approval_status && (
-          <Menu
-            anchorEl={approvalMenuAnchor}
-            open={!!approvalMenuAnchor}
-            onClose={() => setApprovalMenuAnchor(null)}
-          >
-            <MenuItem
-              onClick={() => handleApprovalAction("approve")}
-              disabled={card.approval_status === "APPROVED"}
-            >
-              <MaterialSymbol icon="verified" size={18} color="#4caf50" />
-              <Typography sx={{ ml: 1 }}>{t("common:actions.approve")}</Typography>
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleApprovalAction("reject")}
-              disabled={card.approval_status === "REJECTED"}
-            >
-              <MaterialSymbol icon="cancel" size={18} color="#f44336" />
-              <Typography sx={{ ml: 1 }}>{t("common:actions.reject")}</Typography>
-            </MenuItem>
-            <MenuItem
-              onClick={() => handleApprovalAction("reset")}
-              disabled={card.approval_status === "DRAFT"}
-            >
-              <MaterialSymbol icon="restart_alt" size={18} color="#9e9e9e" />
-              <Typography sx={{ ml: 1 }}>{t("detail.actions.resetToDraft")}</Typography>
-            </MenuItem>
-          </Menu>
-        )}
       </Box>
 
       {/* ── Archive confirmation dialog ── */}

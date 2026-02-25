@@ -23,6 +23,7 @@
   "actions.submit": "Enviar",
   "actions.approve": "Aprobar",
   "actions.reject": "Rechazar",
+  "actions.resetToDraft": "Restablecer a borrador",
   "actions.send": "Enviar",
   "actions.back": "Atr\u00e1s",
   "actions.next": "Siguiente",

@@ -23,6 +23,7 @@
   "actions.submit": "Submit",
   "actions.approve": "Approve",
   "actions.reject": "Reject",
+  "actions.resetToDraft": "Reset to Draft",
   "actions.send": "Send",
   "actions.back": "Back",
   "actions.next": "Next",

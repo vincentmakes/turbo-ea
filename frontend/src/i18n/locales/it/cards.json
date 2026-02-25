@@ -1,10 +1,8 @@
 {
   "detail.title": "Dettaglio scheda",
-  "detail.approvalStatus": "Stato di approvazione",
   "detail.archivedBanner": "Questa scheda \u00e8 archiviata.",
   "detail.purgeWarning_one": "Verr\u00e0 eliminata definitivamente tra {{count}} giorno.",
   "detail.purgeWarning_other": "Verr\u00e0 eliminata definitivamente tra {{count}} giorni.",
-  "detail.actions.resetToDraft": "Reimposta a bozza",
   "detail.actions.archiveTooltip": "Archivia questa scheda",
   "detail.actions.deleteTooltip": "Elimina definitivamente questa scheda",
   "detail.dialogs.archive.title": "Archivia scheda",

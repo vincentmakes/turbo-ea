@@ -1,10 +1,8 @@
 {
   "detail.title": "D\u00e9tail de la fiche",
-  "detail.approvalStatus": "Statut d\u2019approbation",
   "detail.archivedBanner": "Cette fiche est archiv\u00e9e.",
   "detail.purgeWarning_one": "Elle sera d\u00e9finitivement supprim\u00e9e dans {{count}} jour.",
   "detail.purgeWarning_other": "Elle sera d\u00e9finitivement supprim\u00e9e dans {{count}} jours.",
-  "detail.actions.resetToDraft": "R\u00e9initialiser en brouillon",
   "detail.actions.archiveTooltip": "Archiver cette fiche",
   "detail.actions.deleteTooltip": "Supprimer d\u00e9finitivement cette fiche",
   "detail.dialogs.archive.title": "Archiver la fiche",
