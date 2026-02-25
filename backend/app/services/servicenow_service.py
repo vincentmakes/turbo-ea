@@ -122,9 +122,15 @@ class ServiceNowClient:
             )
             if resp.status_code == 200:
                 return True, "Connection successful"
-            return False, f"HTTP {resp.status_code}: {resp.text[:200]}"
-        except httpx.HTTPError as exc:
-            return False, f"Connection failed: {exc}"
+            logger.warning(
+                "ServiceNow connection test failed: HTTP %s – %s",
+                resp.status_code,
+                resp.text[:200],
+            )
+            return False, "Connection failed"
+        except httpx.HTTPError:
+            logger.exception("ServiceNow connection test error")
+            return False, "Connection failed"
 
     async def list_tables(self, search: str = "") -> list[dict[str, str]]:
         """List accessible ServiceNow tables."""
