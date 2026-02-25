@@ -445,8 +445,13 @@ async def set_password(
 
     try:
         _validate_password_strength(body.password)
-    except ValueError as e:
-        raise HTTPException(400, str(e)) from e
+    except ValueError:
+        raise HTTPException(
+            400,
+            "Password does not meet strength requirements: "
+            "minimum 10 characters, at least one uppercase letter, "
+            "and at least one digit.",
+        )
 
     result = await db.execute(select(User).where(User.password_setup_token == body.token))
     user = result.scalar_one_or_none()
