@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { auth, setToken, clearToken, hasToken } from "@/api/client";
+import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -14,11 +14,10 @@ export function useAuth() {
     if (refreshTimer.current) clearInterval(refreshTimer.current);
     refreshTimer.current = setInterval(async () => {
       try {
-        const { access_token } = await auth.refresh();
-        setToken(access_token);
+        await auth.refresh();
       } catch {
         // Token refresh failed — session expired
-        clearToken();
+        setAuthenticated(false);
         setUser(null);
       }
     }, TOKEN_REFRESH_INTERVAL);
@@ -32,17 +31,14 @@ export function useAuth() {
   }, []);
 
   const loadUser = useCallback(async () => {
-    if (!hasToken()) {
-      setLoading(false);
-      return;
-    }
     try {
       const u = await auth.me();
       setUser(u as User);
+      setAuthenticated(true);
       i18n.changeLanguage(u.locale || "en");
       startRefreshTimer();
     } catch {
-      clearToken();
+      setAuthenticated(false);
     } finally {
       setLoading(false);
     }
@@ -77,7 +73,12 @@ export function useAuth() {
     await loadUser();
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await auth.logout();
+    } catch {
+      // Best-effort — clear local state regardless
+    }
     clearToken();
     stopRefreshTimer();
     setUser(null);

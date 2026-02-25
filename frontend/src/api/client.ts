@@ -12,43 +12,43 @@ export class ApiError extends Error {
   }
 }
 
-// Token persisted in sessionStorage — scoped to the browser tab and cleared
-// on tab close.  This survives page refreshes while still limiting exposure
-// compared to localStorage.
-const TOKEN_KEY = "token";
+// Authentication is handled via httpOnly cookies set by the backend.
+// The cookie is sent automatically by the browser on same-origin requests.
+// These lightweight helpers track auth state in memory for the UI only —
+// they never touch the actual token.
+let _authenticated = false;
 
-let _token: string | null = sessionStorage.getItem(TOKEN_KEY);
-
-export function getToken(): string | null {
-  return _token;
+export function setAuthenticated(value: boolean): void {
+  _authenticated = value;
 }
 
-export function setToken(token: string): void {
-  _token = token;
-  sessionStorage.setItem(TOKEN_KEY, token);
+export function isAuthenticated(): boolean {
+  return _authenticated;
 }
 
-export function clearToken(): void {
-  _token = null;
-  sessionStorage.removeItem(TOKEN_KEY);
-}
-
-export function hasToken(): boolean {
-  return _token !== null;
-}
+// Legacy aliases kept for minimal diff in useAuth / useEventStream.
+export const setToken = (_token: string): void => {
+  _authenticated = true;
+};
+export const clearToken = (): void => {
+  _authenticated = false;
+};
+export const hasToken = (): boolean => _authenticated;
 
 async function request<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: "same-origin",
+  });
   if (res.status === 204) return undefined as T;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -67,12 +67,14 @@ async function request<T>(
 }
 
 async function requestRaw(path: string, options: RequestInit = {}): Promise<Response> {
-  const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: "same-origin",
+  });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const msg = Array.isArray(err.detail)
@@ -96,10 +98,11 @@ export const api = {
   upload: <T>(path: string, file: File, fieldName = "file") => {
     const form = new FormData();
     form.append(fieldName, file);
-    const token = getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return fetch(`${BASE}${path}`, { method: "POST", headers, body: form }).then(
+    return fetch(`${BASE}${path}`, {
+      method: "POST",
+      body: form,
+      credentials: "same-origin",
+    }).then(
       async (res) => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -126,6 +129,7 @@ export const auth = {
     permissions?: Record<string, boolean>;
   }>("/auth/me"),
   refresh: () => api.post<{ access_token: string }>("/auth/refresh"),
+  logout: () => api.post<{ ok: boolean }>("/auth/logout"),
   ssoConfig: () =>
     api.get<{
       enabled: boolean;

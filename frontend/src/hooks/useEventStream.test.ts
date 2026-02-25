@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useEventStream } from "./useEventStream";
-import { setToken, clearToken } from "@/api/client";
+import { setAuthenticated } from "@/api/client";
 
 // ---------------------------------------------------------------------------
 // Mock EventSource globally
@@ -26,22 +26,20 @@ vi.stubGlobal("EventSource", MockEventSource);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  clearToken();
+  setAuthenticated(false);
 });
 
 describe("useEventStream", () => {
-  it("creates EventSource with correct URL when token exists", () => {
-    setToken("my-jwt");
+  it("creates EventSource with correct URL when authenticated", () => {
+    setAuthenticated(true);
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
 
-    expect(MockEventSource).toHaveBeenCalledWith(
-      "/api/v1/events/stream?token=my-jwt"
-    );
+    expect(MockEventSource).toHaveBeenCalledWith("/api/v1/events/stream");
   });
 
-  it("does NOT create EventSource when no token", () => {
+  it("does NOT create EventSource when not authenticated", () => {
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -49,19 +47,8 @@ describe("useEventStream", () => {
     expect(MockEventSource).not.toHaveBeenCalled();
   });
 
-  it("encodes token in URL", () => {
-    setToken("token with spaces&special=chars");
-    const onEvent = vi.fn();
-
-    renderHook(() => useEventStream(onEvent));
-
-    expect(MockEventSource).toHaveBeenCalledWith(
-      `/api/v1/events/stream?token=${encodeURIComponent("token with spaces&special=chars")}`
-    );
-  });
-
   it("parses incoming messages and calls onEvent", () => {
-    setToken("jwt");
+    setAuthenticated(true);
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -74,7 +61,7 @@ describe("useEventStream", () => {
   });
 
   it("ignores messages with invalid JSON", () => {
-    setToken("jwt");
+    setAuthenticated(true);
     const onEvent = vi.fn();
 
     renderHook(() => useEventStream(onEvent));
@@ -86,7 +73,7 @@ describe("useEventStream", () => {
   });
 
   it("cleanup closes EventSource on unmount", () => {
-    setToken("jwt");
+    setAuthenticated(true);
     const onEvent = vi.fn();
 
     const { unmount } = renderHook(() => useEventStream(onEvent));

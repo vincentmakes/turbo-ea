@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.17.3] - 2026-02-25
+
+### Security
+- Moved JWT storage from sessionStorage to httpOnly cookies, preventing JavaScript access to authentication tokens (CWE-922)
+- Added `POST /auth/logout` endpoint to clear the auth cookie server-side
+
+### Fixed
+- Login session no longer lost on page refresh
+
 ## [0.17.2] - 2026-02-24
 
 ### Security

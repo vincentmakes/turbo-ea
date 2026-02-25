@@ -13,9 +13,13 @@ from app.models.user import User
 
 async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> User:
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    if auth.startswith("Bearer "):
+        token = auth[7:]
+    else:
+        # Fall back to httpOnly cookie set by /auth/login
+        token = request.cookies.get("access_token", "")
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    token = auth[7:]
     payload = decode_access_token(token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -29,7 +33,7 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
 
 async def get_optional_user(request: Request, db: AsyncSession = Depends(get_db)) -> User | None:
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    if not auth.startswith("Bearer ") and not request.cookies.get("access_token"):
         return None
     try:
         return await get_current_user(request, db)

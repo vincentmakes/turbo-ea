@@ -6,13 +6,14 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from jwt import PyJWKClient
 from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
+from app.config import settings
 from app.core.encryption import decrypt_value
 from app.core.rate_limit import limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -24,6 +25,40 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserR
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
+
+AUTH_COOKIE = "access_token"
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    """Set an httpOnly cookie carrying the JWT.
+
+    - httponly: prevents JS from reading the token (XSS-safe)
+    - samesite "lax": sent on same-site navigations, blocked cross-site
+    - secure: only over HTTPS (disabled in development for http://localhost)
+    - path restricted to /api so the cookie isn't sent for static assets
+    """
+    is_prod = settings.ENVIRONMENT != "development"
+    response.set_cookie(
+        key=AUTH_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=is_prod,
+        path="/api",
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+
+def _clear_auth_cookie(response: Response) -> None:
+    """Delete the auth cookie."""
+    is_prod = settings.ENVIRONMENT != "development"
+    response.delete_cookie(
+        key=AUTH_COOKIE,
+        httponly=True,
+        samesite="lax",
+        secure=is_prod,
+        path="/api",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +111,12 @@ def _verify_id_token(token: str, client_id: str, tenant: str) -> dict:
 
 @router.post("/register", response_model=TokenResponse)
 @limiter.limit("5/minute")
-async def register(request: Request, body: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(
+    request: Request,
+    response: Response,
+    body: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+):
     general = await _get_general_settings(db)
 
     # ── M1: Use advisory lock to prevent race condition on first-user admin ──
@@ -113,12 +153,19 @@ async def register(request: Request, body: RegisterRequest, db: AsyncSession = D
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    return TokenResponse(access_token=create_access_token(user.id, user.role))
+    token = create_access_token(user.id, user.role)
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    request: Request,
+    response: Response,
+    body: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user:
@@ -156,7 +203,9 @@ async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends
     user.locked_until = None
     await db.commit()
 
-    return TokenResponse(access_token=create_access_token(user.id, user.role))
+    token = create_access_token(user.id, user.role)
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
 
 
 @router.get("/me", response_model=UserResponse)
@@ -180,13 +229,16 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 # ── H3: Token refresh endpoint ──
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    response: Response,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """Issue a new short-lived access token. Re-reads role and active status from DB."""
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
-    return TokenResponse(access_token=create_access_token(user.id, user.role))
+    token = create_access_token(user.id, user.role)
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +281,8 @@ class SsoCallbackRequest(BaseModel):
 @router.post("/sso/callback", response_model=TokenResponse)
 @limiter.limit("20/minute")
 async def sso_callback(
-    request: Request, body: SsoCallbackRequest, db: AsyncSession = Depends(get_db)
+    request: Request, response: Response, body: SsoCallbackRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """Exchange an authorization code from Microsoft Entra ID for a Turbo EA JWT."""
     sso = await _get_sso_config(db)
@@ -307,7 +360,9 @@ async def sso_callback(
         # Existing SSO user — just return a token
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
-        return TokenResponse(access_token=create_access_token(user.id, user.role))
+        tk = create_access_token(user.id, user.role)
+        _set_auth_cookie(response, tk)
+        return TokenResponse(access_token=tk)
 
     # ── M11: Don't auto-merge local accounts with SSO ──
     result = await db.execute(select(User).where(User.email == email))
@@ -328,7 +383,9 @@ async def sso_callback(
         await db.commit()
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
-        return TokenResponse(access_token=create_access_token(user.id, user.role))
+        tk = create_access_token(user.id, user.role)
+        _set_auth_cookie(response, tk)
+        return TokenResponse(access_token=tk)
 
     # New user — check for an invitation to determine the role
     role = "viewer"  # Default role for SSO users
@@ -352,7 +409,9 @@ async def sso_callback(
     await db.commit()
     await db.refresh(user)
 
-    return TokenResponse(access_token=create_access_token(user.id, user.role))
+    tk = create_access_token(user.id, user.role)
+    _set_auth_cookie(response, tk)
+    return TokenResponse(access_token=tk)
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +435,9 @@ async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/set-password", response_model=TokenResponse)
-async def set_password(body: SetPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def set_password(
+    response: Response, body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
+):
     """Set a password for an invited user using a one-time setup token."""
     from app.schemas.auth import _validate_password_strength
 
@@ -396,7 +457,16 @@ async def set_password(body: SetPasswordRequest, db: AsyncSession = Depends(get_
         user.auth_provider = "local"
     await db.commit()
 
-    return TokenResponse(access_token=create_access_token(user.id, user.role))
+    token = create_access_token(user.id, user.role)
+    _set_auth_cookie(response, token)
+    return TokenResponse(access_token=token)
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Clear the auth cookie."""
+    _clear_auth_cookie(response)
+    return {"ok": True}
 
 
 def generate_setup_token() -> str:

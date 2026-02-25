@@ -18,9 +18,12 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.get("/stream")
-async def event_stream(request: Request, token: str = Query(...)):
-    """SSE endpoint. Accepts token via query parameter because EventSource cannot set headers."""
-    payload = decode_access_token(token)
+async def event_stream(request: Request, token: str = Query("")):
+    """SSE endpoint. Accepts token via query parameter or httpOnly cookie."""
+    effective_token = token or request.cookies.get("access_token", "")
+    if not effective_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_access_token(effective_token)
     if payload is None:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 

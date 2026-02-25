@@ -1,5 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { api, ApiError, setToken, clearToken, getToken, auth } from "./client";
+import {
+  api,
+  ApiError,
+  setToken,
+  clearToken,
+  hasToken,
+  isAuthenticated,
+  setAuthenticated,
+  auth,
+} from "./client";
 
 // ---------------------------------------------------------------------------
 // Mock fetch globally
@@ -35,43 +44,50 @@ beforeEach(() => {
 // Token management
 // ---------------------------------------------------------------------------
 
-describe("setToken / clearToken", () => {
-  it("stores token in sessionStorage", () => {
+describe("setToken / clearToken / isAuthenticated", () => {
+  it("marks user as authenticated", () => {
     setToken("my-jwt");
-    expect(getToken()).toBe("my-jwt");
-    expect(sessionStorage.getItem("token")).toBe("my-jwt");
+    expect(hasToken()).toBe(true);
+    expect(isAuthenticated()).toBe(true);
   });
 
-  it("removes token from sessionStorage", () => {
+  it("clears authenticated state", () => {
     setToken("my-jwt");
     clearToken();
-    expect(getToken()).toBeNull();
-    expect(sessionStorage.getItem("token")).toBeNull();
+    expect(hasToken()).toBe(false);
+    expect(isAuthenticated()).toBe(false);
+  });
+
+  it("setAuthenticated controls auth state directly", () => {
+    setAuthenticated(true);
+    expect(isAuthenticated()).toBe(true);
+    setAuthenticated(false);
+    expect(isAuthenticated()).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// JWT injection
+// Cookie-based auth (no Authorization header)
 // ---------------------------------------------------------------------------
 
-describe("Authorization header", () => {
-  it("includes Bearer token when set", async () => {
+describe("Cookie-based auth", () => {
+  it("does not include Authorization header", async () => {
     setToken("test-token");
     mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
 
     await api.get("/test");
 
     const [, options] = mockFetch.mock.calls[0];
-    expect(options.headers["Authorization"]).toBe("Bearer test-token");
+    expect(options.headers["Authorization"]).toBeUndefined();
   });
 
-  it("omits Authorization when no token", async () => {
+  it("includes credentials: same-origin", async () => {
     mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
 
     await api.get("/test");
 
     const [, options] = mockFetch.mock.calls[0];
-    expect(options.headers["Authorization"]).toBeUndefined();
+    expect(options.credentials).toBe("same-origin");
   });
 });
 
@@ -87,7 +103,7 @@ describe("api.get", () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       "/api/v1/cards",
-      expect.objectContaining({ headers: expect.any(Object) })
+      expect.objectContaining({ headers: expect.any(Object) }),
     );
     expect(result).toEqual({ items: [] });
   });
@@ -171,9 +187,7 @@ describe("204 handling", () => {
 
 describe("error handling", () => {
   it("throws ApiError with status and detail for error responses", async () => {
-    mockFetch.mockReturnValueOnce(
-      jsonResponse({ detail: "Not found" }, 404)
-    );
+    mockFetch.mockReturnValueOnce(jsonResponse({ detail: "Not found" }, 404));
 
     try {
       await api.get("/missing");
@@ -196,12 +210,12 @@ describe("error handling", () => {
             { msg: "Invalid email", loc: ["body", "email"] },
           ],
         },
-        422
-      )
+        422,
+      ),
     );
 
     await expect(api.post("/auth/register", {})).rejects.toThrow(
-      "Field required; Invalid email"
+      "Field required; Invalid email",
     );
   });
 
@@ -209,8 +223,8 @@ describe("error handling", () => {
     mockFetch.mockReturnValueOnce(
       jsonResponse(
         { detail: { message: "Custom error", key: "app_to_itc" } },
-        409
-      )
+        409,
+      ),
     );
 
     await expect(api.delete("/relation-types/x")).rejects.toThrow("Custom error");
@@ -223,7 +237,7 @@ describe("error handling", () => {
         status: 500,
         statusText: "Internal Server Error",
         json: () => Promise.reject(new Error("not json")),
-      })
+      }),
     );
 
     await expect(api.get("/fail")).rejects.toThrow("Internal Server Error");
@@ -236,9 +250,7 @@ describe("error handling", () => {
 
 describe("auth helpers", () => {
   it("auth.login calls POST /auth/login", async () => {
-    mockFetch.mockReturnValueOnce(
-      jsonResponse({ access_token: "jwt-123" })
-    );
+    mockFetch.mockReturnValueOnce(jsonResponse({ access_token: "jwt-123" }));
 
     const result = await auth.login("user@test.com", "pass");
 
@@ -253,9 +265,7 @@ describe("auth helpers", () => {
   });
 
   it("auth.register calls POST /auth/register", async () => {
-    mockFetch.mockReturnValueOnce(
-      jsonResponse({ access_token: "jwt-456" })
-    );
+    mockFetch.mockReturnValueOnce(jsonResponse({ access_token: "jwt-456" }));
 
     const result = await auth.register("u@t.com", "User", "pass");
 
@@ -267,12 +277,20 @@ describe("auth helpers", () => {
 
   it("auth.me calls GET /auth/me", async () => {
     mockFetch.mockReturnValueOnce(
-      jsonResponse({ id: "1", email: "a@b.com", role: "admin" })
+      jsonResponse({ id: "1", email: "a@b.com", role: "admin" }),
     );
 
     const user = await auth.me();
 
     expect(user.email).toBe("a@b.com");
     expect(mockFetch.mock.calls[0][0]).toBe("/api/v1/auth/me");
+  });
+
+  it("auth.logout calls POST /auth/logout", async () => {
+    mockFetch.mockReturnValueOnce(jsonResponse({ ok: true }));
+
+    await auth.logout();
+
+    expect(mockFetch.mock.calls[0][0]).toBe("/api/v1/auth/logout");
   });
 });
