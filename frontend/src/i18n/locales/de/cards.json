@@ -3,6 +3,7 @@
   "detail.archivedBanner": "Diese Karte ist archiviert.",
   "detail.purgeWarning_one": "Sie wird in {{count}} Tag endgültig gelöscht.",
   "detail.purgeWarning_other": "Sie wird in {{count}} Tagen endgültig gelöscht.",
+  "detail.actions.moreActions": "Weitere Aktionen",
   "detail.actions.archiveTooltip": "Diese Karte archivieren",
   "detail.actions.deleteTooltip": "Diese Karte endgültig löschen",
   "detail.dialogs.archive.title": "Karte archivieren",

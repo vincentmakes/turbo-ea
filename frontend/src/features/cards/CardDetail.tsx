@@ -5,6 +5,10 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
 import LinearProgress from "@mui/material/LinearProgress";
 import Tooltip from "@mui/material/Tooltip";
@@ -62,6 +66,7 @@ export default function CardDetail() {
   const [perms, setPerms] = useState<CardEffectivePermissions["effective"]>(DEFAULT_PERMISSIONS);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
   // Fetch effective permissions for this card
   useEffect(() => {
@@ -179,7 +184,7 @@ export default function CardDetail() {
             )}
           </Box>
         </Box>
-        {/* Badges — wrap to second row on mobile */}
+        {/* Badges + overflow menu — wrap to second row on mobile */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: { xs: "100%", sm: "auto" }, justifyContent: { xs: "flex-end", sm: "flex-start" } }}>
           <DataQualityRing value={card.data_quality} />
           <LifecycleBadge lifecycle={card.lifecycle} />
@@ -188,6 +193,41 @@ export default function CardDetail() {
             canChange={perms.can_approval_status}
             onAction={handleApprovalAction}
           />
+          {!isArchived && (perms.can_archive || perms.can_delete) && (
+            <>
+              <Tooltip title={t("detail.actions.moreActions")}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => setActionsMenuAnchor(e.currentTarget)}
+                  aria-label={t("detail.actions.moreActions")}
+                >
+                  <MaterialSymbol icon="more_vert" size={20} />
+                </IconButton>
+              </Tooltip>
+              <Menu
+                anchorEl={actionsMenuAnchor}
+                open={!!actionsMenuAnchor}
+                onClose={() => setActionsMenuAnchor(null)}
+              >
+                {perms.can_archive && (
+                  <MenuItem onClick={() => { setActionsMenuAnchor(null); setArchiveDialogOpen(true); }}>
+                    <ListItemIcon>
+                      <MaterialSymbol icon="archive" size={20} color="#ed6c02" />
+                    </ListItemIcon>
+                    <ListItemText>{t("common:actions.archive")}</ListItemText>
+                  </MenuItem>
+                )}
+                {perms.can_delete && (
+                  <MenuItem onClick={() => { setActionsMenuAnchor(null); setDeleteDialogOpen(true); }}>
+                    <ListItemIcon>
+                      <MaterialSymbol icon="delete_forever" size={20} color="#d32f2f" />
+                    </ListItemIcon>
+                    <ListItemText>{t("common:actions.delete")}</ListItemText>
+                  </MenuItem>
+                )}
+              </Menu>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -257,37 +297,6 @@ export default function CardDetail() {
               </Alert>
             )}
 
-            {/* Archive / Delete action buttons (active cards) */}
-            {!isArchived && (perms.can_archive || perms.can_delete) && (
-              <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 1 }}>
-                {perms.can_archive && (
-                  <Tooltip title={t("detail.actions.archiveTooltip")}>
-                    <Button
-                      size="small"
-                      color="warning"
-                      variant="outlined"
-                      onClick={() => setArchiveDialogOpen(true)}
-                      startIcon={<MaterialSymbol icon="archive" size={18} />}
-                    >
-                      {t("common:actions.archive")}
-                    </Button>
-                  </Tooltip>
-                )}
-                {perms.can_delete && (
-                  <Tooltip title={t("detail.actions.deleteTooltip")}>
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="outlined"
-                      onClick={() => setDeleteDialogOpen(true)}
-                      startIcon={<MaterialSymbol icon="delete_forever" size={18} />}
-                    >
-                      {t("common:actions.delete")}
-                    </Button>
-                  </Tooltip>
-                )}
-              </Box>
-            )}
           </>
         }
       />

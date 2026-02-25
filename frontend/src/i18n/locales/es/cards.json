@@ -3,6 +3,7 @@
   "detail.archivedBanner": "Esta ficha est\u00e1 archivada.",
   "detail.purgeWarning_one": "Ser\u00e1 eliminada permanentemente en {{count}} d\u00eda.",
   "detail.purgeWarning_other": "Ser\u00e1 eliminada permanentemente en {{count}} d\u00edas.",
+  "detail.actions.moreActions": "Más acciones",
   "detail.actions.archiveTooltip": "Archivar esta ficha",
   "detail.actions.deleteTooltip": "Eliminar permanentemente esta ficha",
   "detail.dialogs.archive.title": "Archivar ficha",
