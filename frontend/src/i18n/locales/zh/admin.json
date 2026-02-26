@@ -310,7 +310,7 @@
   "settings.ai.chatDisabledLabel": "聊天助手已禁用",
   "settings.ai.chatActive": "已启用",
   "settings.ai.chatInactive": "已关闭",
-  "settings.ai.chatModelHint": "为了获得更好的对话质量，建议使用更大的模型（如 gemma3:27b，约 17 GB）。较小的模型可能会产生有限的回答。",
+  "settings.ai.chatModelHint": "\u4e3a\u4e86\u83b7\u5f97\u66f4\u597d\u7684\u5bf9\u8bdd\u8d28\u91cf\uff0c\u5efa\u8bae\u4f7f\u7528 7B \u6a21\u578b\uff08\u5982 qwen2.5:7b\uff0c\u7ea6 5 GB\uff09\u3002\u5b83\u9002\u7528\u4e8e\u5927\u591a\u6570 6+ GB \u663e\u5b58\u7684 GPU\u3002",
   "settings.ai.chatPrivacyNote": "对话永远不会被存储。所有 AI 处理均在您的本地基础设施上运行——没有数据会离开您的环境。",
   "settings.registration.title": "自助注册",
   "settings.registration.description": "允许新用户从登录页面自行创建账户。禁用后，用户只能由管理员添加（或通过 SSO，如已配置）。第一个用户始终可以注册以引导管理员账户。",

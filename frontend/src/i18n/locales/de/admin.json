@@ -310,7 +310,7 @@
   "settings.ai.chatDisabledLabel": "Chat-Assistent ist deaktiviert",
   "settings.ai.chatActive": "Aktiv",
   "settings.ai.chatInactive": "Aus",
-  "settings.ai.chatModelHint": "F\u00fcr Konversationsqualit\u00e4t wird ein gr\u00f6\u00dferes Modell wie gemma3:27b (~17 GB) empfohlen. Kleinere Modelle liefern m\u00f6glicherweise eingeschr\u00e4nkte Antworten.",
+  "settings.ai.chatModelHint": "F\u00fcr Konversationsqualit\u00e4t wird ein 7B-Modell wie qwen2.5:7b (~5 GB) empfohlen. Es passt auf die meisten GPUs mit 6+ GB VRAM.",
   "settings.ai.chatPrivacyNote": "Gespr\u00e4che werden niemals gespeichert. Die gesamte KI-Verarbeitung l\u00e4uft lokal auf Ihrer Infrastruktur \u2014 keine Daten verlassen Ihre Umgebung.",
   "settings.registration.title": "Selbstregistrierung",
   "settings.registration.description": "Erlauben Sie neuen Benutzern, sich selbst über die Anmeldeseite zu registrieren. Wenn deaktiviert, können Benutzer nur von einem Administrator hinzugefügt werden (oder über SSO, falls konfiguriert). Der erste Benutzer kann sich immer registrieren, um das Admin-Konto einzurichten.",

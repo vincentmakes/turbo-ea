@@ -310,7 +310,7 @@
   "settings.ai.chatDisabledLabel": "O assistente de chat est\u00e1 desativado",
   "settings.ai.chatActive": "Ativo",
   "settings.ai.chatInactive": "Desligado",
-  "settings.ai.chatModelHint": "Para qualidade conversacional, recomenda-se um modelo maior como gemma3:27b (~17 GB). Modelos menores podem produzir respostas limitadas.",
+  "settings.ai.chatModelHint": "Para qualidade conversacional, recomenda-se um modelo 7B como qwen2.5:7b (~5 GB). Funciona na maioria das GPUs com 6+ GB de VRAM.",
   "settings.ai.chatPrivacyNote": "As conversas nunca s\u00e3o armazenadas. Todo o processamento de IA \u00e9 executado localmente na sua infraestrutura \u2014 nenhum dado sai do seu ambiente.",
   "settings.registration.title": "Autorregistro",
   "settings.registration.description": "Permita que novos usuários criem contas pela página de login. Quando desabilitado, os usuários só podem ser adicionados por um administrador (ou via SSO, se configurado). O primeiro usuário sempre pode se registrar para criar a conta de admin.",

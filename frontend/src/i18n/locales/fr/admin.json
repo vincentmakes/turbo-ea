@@ -310,7 +310,7 @@
   "settings.ai.chatDisabledLabel": "L\u2019assistant de chat est d\u00e9sactiv\u00e9",
   "settings.ai.chatActive": "Actif",
   "settings.ai.chatInactive": "Inactif",
-  "settings.ai.chatModelHint": "Pour une qualit\u00e9 conversationnelle, un mod\u00e8le plus grand comme gemma3:27b (~17 Go) est recommand\u00e9. Les mod\u00e8les plus petits peuvent produire des r\u00e9ponses limit\u00e9es.",
+  "settings.ai.chatModelHint": "Pour une qualit\u00e9 conversationnelle, un mod\u00e8le 7B comme qwen2.5:7b (~5 Go) est recommand\u00e9. Il fonctionne sur la plupart des GPU avec 6+ Go de VRAM.",
   "settings.ai.chatPrivacyNote": "Les conversations ne sont jamais stock\u00e9es. Tout le traitement IA s\u2019effectue localement sur votre infrastructure \u2014 aucune donn\u00e9e ne quitte votre environnement.",
   "settings.registration.title": "Auto-inscription",
   "settings.registration.description": "Autorisez les nouveaux utilisateurs \u00e0 cr\u00e9er eux-m\u00eames un compte depuis la page de connexion. Lorsque d\u00e9sactiv\u00e9, seuls les administrateurs peuvent ajouter des utilisateurs (ou via SSO si configur\u00e9). Le premier utilisateur peut toujours s\u2019inscrire pour cr\u00e9er le compte admin.",

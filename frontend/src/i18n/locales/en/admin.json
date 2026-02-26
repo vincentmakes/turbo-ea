@@ -310,7 +310,7 @@
   "settings.ai.chatDisabledLabel": "Chat assistant is disabled",
   "settings.ai.chatActive": "Active",
   "settings.ai.chatInactive": "Off",
-  "settings.ai.chatModelHint": "For conversational quality, a larger model such as gemma3:27b (~17 GB) is recommended. Smaller models may produce limited answers.",
+  "settings.ai.chatModelHint": "For conversational quality, a 7B model such as qwen2.5:7b (~5 GB) is recommended. It fits on most GPUs with 6+ GB VRAM.",
   "settings.ai.chatPrivacyNote": "Conversations are never stored. All AI processing runs locally on your infrastructure \u2014 no data leaves your environment.",
   "settings.registration.title": "Self-Registration",
   "settings.registration.description": "Allow new users to create accounts themselves from the login page. When disabled, users can only be added by an administrator (or via SSO if configured). The first user can always register to bootstrap the admin account.",
