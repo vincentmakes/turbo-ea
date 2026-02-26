@@ -570,6 +570,7 @@ async def update_registration_settings(
 
 class AiSettingsPayload(BaseModel):
     enabled: bool = False
+    chat_enabled: bool = False
     provider_url: str = ""
     model: str = ""
     search_provider: str = "duckduckgo"
@@ -590,6 +591,7 @@ async def get_ai_settings(
     ai = general.get("ai", {})
     return {
         "enabled": ai.get("enabled", False),
+        "chat_enabled": ai.get("chatEnabled", False),
         "provider_url": ai.get("providerUrl", ""),
         "model": ai.get("model", ""),
         "search_provider": ai.get("searchProvider", "duckduckgo"),
@@ -611,6 +613,7 @@ async def update_ai_settings(
     general = dict(row.general_settings or {})
     general["ai"] = {
         "enabled": body.enabled,
+        "chatEnabled": body.chat_enabled,
         "providerUrl": body.provider_url,
         "model": body.model,
         "searchProvider": body.search_provider,

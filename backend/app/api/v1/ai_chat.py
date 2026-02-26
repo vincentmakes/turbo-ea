@@ -35,6 +35,7 @@ def _get_ai_config(general: dict) -> dict:
     ai = general.get("ai", {})
     return {
         "enabled": ai.get("enabled", False),
+        "chat_enabled": ai.get("chatEnabled", False),
         "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
         "model": ai.get("model") or app_config.AI_MODEL,
     }
@@ -59,10 +60,10 @@ async def chat(
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
 
-    if not ai_cfg["enabled"]:
+    if not ai_cfg["enabled"] or not ai_cfg["chat_enabled"]:
         raise HTTPException(
             status_code=400,
-            detail="AI is not enabled. An admin must configure this in Settings.",
+            detail="AI Chat is not enabled. An admin must enable it in Settings.",
         )
     if not ai_cfg["provider_url"] or not ai_cfg["model"]:
         raise HTTPException(
@@ -114,7 +115,7 @@ async def chat_status(
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
 
-    enabled = ai_cfg["enabled"] and has_perm
+    enabled = ai_cfg["enabled"] and ai_cfg["chat_enabled"] and has_perm
     configured = bool(ai_cfg["provider_url"] and ai_cfg["model"])
 
     return {

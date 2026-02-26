@@ -12,12 +12,14 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 
 interface AiSettings {
   enabled: boolean;
+  chat_enabled: boolean;
   provider_url: string;
   model: string;
   search_provider: string;
@@ -33,6 +35,7 @@ export default function AiAdmin() {
 
   // AI settings state
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(false);
   const [aiProviderUrl, setAiProviderUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
   const [aiSearchProvider, setAiSearchProvider] = useState("duckduckgo");
@@ -50,6 +53,7 @@ export default function AiAdmin() {
       .get<AiSettings>("/settings/ai")
       .then((data) => {
         setAiEnabled(data.enabled);
+        setChatEnabled(data.chat_enabled);
         setAiProviderUrl(data.provider_url);
         setAiModel(data.model);
         setAiSearchProvider(data.search_provider);
@@ -66,6 +70,7 @@ export default function AiAdmin() {
     try {
       await api.patch("/settings/ai", {
         enabled: aiEnabled,
+        chat_enabled: chatEnabled,
         provider_url: aiProviderUrl,
         model: aiModel,
         search_provider: aiSearchProvider,
@@ -128,7 +133,7 @@ export default function AiAdmin() {
         </Alert>
       )}
 
-      {/* ── AI Cards ──────────────────────────────────────────────── */}
+      {/* ── AI Provider ─────────────────────────────────────────── */}
       <Typography
         variant="overline"
         sx={{
@@ -141,19 +146,18 @@ export default function AiAdmin() {
           fontSize: "0.75rem",
         }}
       >
-        {t("settings.ai.sectionCards")}
+        {t("settings.ai.sectionProvider")}
       </Typography>
 
-      {/* AI Suggestions */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
+          <MaterialSymbol icon="smart_toy" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            {t("settings.ai.title")}
+            {t("settings.ai.providerTitle")}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t("settings.ai.description")}
+          {t("settings.ai.providerDescription")}
         </Typography>
 
         <FormControlLabel
@@ -207,6 +211,70 @@ export default function AiAdmin() {
                 sx={{ mb: 2 }}
               />
             )}
+          </>
+        )}
+
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+          {aiEnabled && aiProviderUrl && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={
+                testingAi ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MaterialSymbol icon="cable" size={18} />
+                )
+              }
+              sx={{ textTransform: "none" }}
+              onClick={handleAiTest}
+              disabled={testingAi || savingAi}
+            >
+              {testingAi ? t("common:labels.loading") : t("settings.ai.testConnection")}
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleAiSave}
+            disabled={savingAi}
+          >
+            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* ── Feature sections (only show when AI provider is enabled) ── */}
+      {aiEnabled && (
+        <>
+          {/* ── AI Descriptions ──────────────────────────────────── */}
+          <Typography
+            variant="overline"
+            sx={{
+              display: "block",
+              mb: 1.5,
+              fontWeight: 700,
+              color: "text.secondary",
+              letterSpacing: 1,
+              fontSize: "0.75rem",
+            }}
+          >
+            {t("settings.ai.sectionDescriptions")}
+          </Typography>
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+              <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
+              <Typography variant="h6" fontWeight={600}>
+                {t("settings.ai.title")}
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {t("settings.ai.description")}
+            </Typography>
+
             <TextField
               select
               label={t("settings.ai.searchProvider")}
@@ -265,40 +333,87 @@ export default function AiAdmin() {
                 />
               ))}
             </Box>
-          </>
-        )}
 
-        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {aiEnabled && aiProviderUrl && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                testingAi ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <MaterialSymbol icon="cable" size={18} />
-                )
-              }
-              sx={{ textTransform: "none" }}
-              onClick={handleAiTest}
-              disabled={testingAi || savingAi}
-            >
-              {testingAi ? t("common:labels.loading") : t("settings.ai.testConnection")}
-            </Button>
-          )}
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="save" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={handleAiSave}
-            disabled={savingAi}
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<MaterialSymbol icon="save" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleAiSave}
+                disabled={savingAi}
+              >
+                {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* ── AI Chat ──────────────────────────────────────────── */}
+          <Typography
+            variant="overline"
+            sx={{
+              display: "block",
+              mb: 1.5,
+              fontWeight: 700,
+              color: "text.secondary",
+              letterSpacing: 1,
+              fontSize: "0.75rem",
+            }}
           >
-            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
-          </Button>
-        </Box>
-      </Paper>
+            {t("settings.ai.sectionChat")}
+          </Typography>
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+              <MaterialSymbol icon="chat" size={22} color="#555" />
+              <Typography variant="h6" fontWeight={600}>
+                {t("settings.ai.chatTitle")}
+              </Typography>
+              <Chip
+                label={chatEnabled ? t("settings.ai.chatActive") : t("settings.ai.chatInactive")}
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  bgcolor: chatEnabled ? "success.main" : "action.disabledBackground",
+                  color: chatEnabled ? "#fff" : "text.secondary",
+                }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              {t("settings.ai.chatDescription")}
+            </Typography>
+
+            <FormControlLabel
+              control={
+                <Switch checked={chatEnabled} onChange={(e) => setChatEnabled(e.target.checked)} />
+              }
+              label={chatEnabled ? t("settings.ai.chatEnabledLabel") : t("settings.ai.chatDisabledLabel")}
+              sx={{ mb: 2, display: "block" }}
+            />
+
+            {chatEnabled && (
+              <Alert severity="info" sx={{ mb: 2 }} icon={<MaterialSymbol icon="shield" size={20} />}>
+                {t("settings.ai.chatPrivacyNote")}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<MaterialSymbol icon="save" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleAiSave}
+                disabled={savingAi}
+              >
+                {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+              </Button>
+            </Box>
+          </Paper>
+        </>
+      )}
 
       <Snackbar
         open={!!snack}

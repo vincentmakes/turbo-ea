@@ -22,7 +22,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
-from sqlalchemy import Float, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.card import Card
@@ -55,12 +55,9 @@ async def _build_landscape_summary(db: AsyncSession) -> str:
     total = sum(c for _, c in type_counts)
 
     # Average data quality
-    dq_result = await db.execute(
-        select(func.round(func.avg(Card.data_quality).cast(Float), 1)).where(
-            Card.status == "ACTIVE"
-        )
-    )
-    avg_dq = dq_result.scalar() or 0
+    dq_result = await db.execute(select(func.avg(Card.data_quality)).where(Card.status == "ACTIVE"))
+    raw_dq = dq_result.scalar()
+    avg_dq = round(raw_dq, 1) if raw_dq is not None else 0
 
     # Relation count
     rel_result = await db.execute(select(func.count(Relation.id)))
