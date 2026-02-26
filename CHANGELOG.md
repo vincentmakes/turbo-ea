@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] - 2026-02-26
+
+### Added
+- AI Chat assistant — conversational interface to ask questions about the EA landscape, accessible via a floating action button
+- Streaming responses from the local LLM with real-time token display
+- Privacy-first design: conversations are session-only (never persisted), all AI processing runs locally via Ollama
+- Context-aware responses built from landscape data, card search, relations, and metamodel information
+- Suggested starter questions and a clear privacy notice in the chat welcome screen
+- New `ai.chat` permission controlling access to the chat feature (granted to admin, bpm_admin, and member roles)
+
 ## [0.21.0] - 2026-02-26
 
 ### Changed

@@ -925,3 +925,17 @@ export interface AiStatus {
   running_models: string[];
   model?: string;
 }
+
+// ---------------------------------------------------------------------------
+// AI Chat
+// ---------------------------------------------------------------------------
+
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AiChatStatus {
+  available: boolean;
+  model?: string;
+}
