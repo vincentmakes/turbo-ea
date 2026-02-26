@@ -29,6 +29,7 @@ def _get_ai_config(general: dict) -> dict:
     ai = general.get("ai", {})
     return {
         "enabled": ai.get("enabled", False),
+        "descriptions_enabled": ai.get("descriptionsEnabled", True),
         "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
         "model": ai.get("model") or app_config.AI_MODEL,
         "search_provider": (
@@ -57,7 +58,7 @@ async def suggest(
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
 
-    if not ai_cfg["enabled"]:
+    if not ai_cfg["enabled"] or not ai_cfg["descriptions_enabled"]:
         raise HTTPException(
             status_code=400,
             detail="AI suggestions are not enabled. An admin must configure this in Settings.",
@@ -127,7 +128,7 @@ async def ai_status(
     # Check if user has the permission
     has_perm = await PermissionService.check_permission(db, user, "ai.suggest")
 
-    enabled = ai_cfg["enabled"] and has_perm
+    enabled = ai_cfg["enabled"] and ai_cfg["descriptions_enabled"] and has_perm
     configured = bool(ai_cfg["provider_url"] and ai_cfg["model"])
 
     # Try to fetch the currently loaded model from Ollama

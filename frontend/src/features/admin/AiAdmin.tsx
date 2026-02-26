@@ -19,6 +19,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 
 interface AiSettings {
   enabled: boolean;
+  descriptions_enabled: boolean;
   chat_enabled: boolean;
   provider_url: string;
   model: string;
@@ -35,6 +36,7 @@ export default function AiAdmin() {
 
   // AI settings state
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [descriptionsEnabled, setDescriptionsEnabled] = useState(true);
   const [chatEnabled, setChatEnabled] = useState(false);
   const [aiProviderUrl, setAiProviderUrl] = useState("");
   const [aiModel, setAiModel] = useState("");
@@ -53,6 +55,7 @@ export default function AiAdmin() {
       .get<AiSettings>("/settings/ai")
       .then((data) => {
         setAiEnabled(data.enabled);
+        setDescriptionsEnabled(data.descriptions_enabled);
         setChatEnabled(data.chat_enabled);
         setAiProviderUrl(data.provider_url);
         setAiModel(data.model);
@@ -70,6 +73,7 @@ export default function AiAdmin() {
     try {
       await api.patch("/settings/ai", {
         enabled: aiEnabled,
+        descriptions_enabled: descriptionsEnabled,
         chat_enabled: chatEnabled,
         provider_url: aiProviderUrl,
         model: aiModel,
@@ -170,7 +174,7 @@ export default function AiAdmin() {
 
         {aiEnabled && (
           <>
-            <TextField
+          <TextField
               label={t("settings.ai.providerUrl")}
               fullWidth
               value={aiProviderUrl}
@@ -270,11 +274,43 @@ export default function AiAdmin() {
               <Typography variant="h6" fontWeight={600}>
                 {t("settings.ai.title")}
               </Typography>
+              <Chip
+                label={
+                  descriptionsEnabled
+                    ? t("settings.ai.descriptionsActive")
+                    : t("settings.ai.descriptionsInactive")
+                }
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  bgcolor: descriptionsEnabled ? "success.main" : "action.disabledBackground",
+                  color: descriptionsEnabled ? "#fff" : "text.secondary",
+                }}
+              />
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {t("settings.ai.description")}
             </Typography>
 
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={descriptionsEnabled}
+                  onChange={(e) => setDescriptionsEnabled(e.target.checked)}
+                />
+              }
+              label={
+                descriptionsEnabled
+                  ? t("settings.ai.descriptionsEnabledLabel")
+                  : t("settings.ai.descriptionsDisabledLabel")
+              }
+              sx={{ mb: 2, display: "block" }}
+            />
+
+            {descriptionsEnabled && (
+            <>
             <TextField
               select
               label={t("settings.ai.searchProvider")}
@@ -333,6 +369,8 @@ export default function AiAdmin() {
                 />
               ))}
             </Box>
+            </>
+            )}
 
             <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
               <Button
