@@ -59,8 +59,29 @@ services:
     ports:
       - "${HOST_PORT:-8920}:80"
 
+  # Optional: bundled Ollama for AI suggestions.
+  # Activate with:  docker compose -f docker-compose.db.yml --profile ai up -d
+  # Or set AI_PROVIDER_URL to an external Ollama instance and skip this.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ai"]
+    restart: unless-stopped
+    networks:
+      - turboea
+    expose:
+      - "11434"
+    volumes:
+      - turboea-ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 networks:
   turboea:
 
 volumes:
   turboea-pgdata:
+  turboea-ollama:
