@@ -13,7 +13,7 @@ Enterprise Architecture in practice : https://www.turbo-ea.org/blog
 
 Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.  
 
-[Business case / Slides Pitch](https://github.com/vincentmakes/turbo-ea/blob/75752c944d8a66c5ab3ea277b122654e8dd5e7ef/docs/business%20case/turbo%20ea%20pitch%20business%20case.pdf))
+[Business case / Slides Pitch](https://github.com/vincentmakes/turbo-ea/blob/75752c944d8a66c5ab3ea277b122654e8dd5e7ef/docs/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
