@@ -300,18 +300,31 @@ export default function AiSuggestPanel({
         );
       })}
 
-      {/* Sources */}
-      {response.sources && response.sources.length > 0 && (
+      {/* Sources & model */}
+      {(response.sources?.length || response.model) && (
         <>
           <Divider sx={{ my: 1.5 }} />
-          <Typography variant="caption" color="text.secondary">
-            {t("ai.sources")}:{" "}
-            {response.sources
-              .filter((s) => s.title)
-              .slice(0, 5)
-              .map((s) => s.title)
-              .join(", ")}
-          </Typography>
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
+            {response.model && (
+              <Chip
+                label={response.model}
+                size="small"
+                variant="outlined"
+                icon={<MaterialSymbol icon="smart_toy" size={14} />}
+                sx={{ height: 20, fontSize: "0.7rem" }}
+              />
+            )}
+            {response.sources && response.sources.length > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                {t("ai.sources")}:{" "}
+                {response.sources
+                  .filter((s) => s.title)
+                  .slice(0, 5)
+                  .map((s) => s.title)
+                  .join(", ")}
+              </Typography>
+            )}
+          </Box>
         </>
       )}
 

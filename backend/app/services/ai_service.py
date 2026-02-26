@@ -45,6 +45,33 @@ async def _get_client() -> httpx.AsyncClient:
 
 
 # ---------------------------------------------------------------------------
+# Ollama introspection
+# ---------------------------------------------------------------------------
+
+
+async def fetch_running_models(provider_url: str) -> list[dict[str, Any]]:
+    """Return the models currently loaded in Ollama via ``GET /api/ps``.
+
+    Each entry has ``name`` (model tag) and ``size`` (VRAM bytes).
+    Returns an empty list on any error so callers can degrade gracefully.
+    """
+    client = await _get_llm_client()
+    try:
+        resp = await client.get(
+            f"{provider_url.rstrip('/')}/api/ps",
+            timeout=5.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return [
+            {"name": m.get("name", ""), "size": m.get("size", 0)} for m in data.get("models", [])
+        ]
+    except Exception as exc:
+        logger.debug("Could not fetch running models from %s: %s", provider_url, exc)
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Web search providers
 # ---------------------------------------------------------------------------
 
@@ -203,8 +230,7 @@ def build_llm_prompt(
     snippets_text = ""
     for i, sr in enumerate(search_results, 1):
         snippets_text += (
-            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n"
-            f"    {sr.get('snippet', '')}\n\n"
+            f"[{i}] {sr.get('title', '')} ({sr.get('url', '')})\n    {sr.get('snippet', '')}\n\n"
         )
 
     has_search = bool(snippets_text.strip())

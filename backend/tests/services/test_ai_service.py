@@ -17,6 +17,7 @@ from app.services.ai_service import (
     _search_searxng,
     build_llm_prompt,
     call_llm,
+    fetch_running_models,
     suggest_metadata,
     validate_suggestions,
     web_search,
@@ -544,6 +545,58 @@ class TestCallLLM:
             assert payload["messages"] == messages
             assert payload["stream"] is False
             assert payload["format"] == "json"
+
+
+# ---------------------------------------------------------------------------
+# fetch_running_models
+# ---------------------------------------------------------------------------
+
+
+class TestFetchRunningModels:
+    @pytest.mark.asyncio
+    async def test_returns_model_list(self):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "models": [
+                {"name": "mistral:latest", "size": 4_000_000_000},
+                {"name": "llama3:8b", "size": 8_000_000_000},
+            ]
+        }
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_resp)
+
+            result = await fetch_running_models("http://ollama:11434")
+            assert len(result) == 2
+            assert result[0]["name"] == "mistral:latest"
+            assert result[1]["name"] == "llama3:8b"
+
+    @pytest.mark.asyncio
+    async def test_empty_on_error(self):
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.get = AsyncMock(side_effect=httpx.HTTPError("Connection refused"))
+
+            result = await fetch_running_models("http://ollama:11434")
+            assert result == []
+
+    @pytest.mark.asyncio
+    async def test_empty_when_no_models(self):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"models": []}
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("app.services.ai_service._get_llm_client") as mock_get:
+            mock_client = AsyncMock()
+            mock_get.return_value = mock_client
+            mock_client.get = AsyncMock(return_value=mock_resp)
+
+            result = await fetch_running_models("http://ollama:11434")
+            assert result == []
 
 
 # ---------------------------------------------------------------------------

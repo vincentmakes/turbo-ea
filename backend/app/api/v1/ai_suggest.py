@@ -16,7 +16,7 @@ from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
 from app.models.user import User
 from app.schemas.ai_suggest import AiSuggestRequest, AiSuggestResponse
-from app.services.ai_service import suggest_metadata
+from app.services.ai_service import fetch_running_models, suggest_metadata
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger("turboea.ai")
@@ -128,8 +128,19 @@ async def ai_status(
     # Check if user has the permission
     has_perm = await PermissionService.check_permission(db, user, "ai.suggest")
 
+    enabled = ai_cfg["enabled"] and has_perm
+    configured = bool(ai_cfg["provider_url"] and ai_cfg["model"])
+
+    # Try to fetch the currently loaded model from Ollama
+    running_models: list[str] = []
+    if enabled and configured and ai_cfg["provider_url"]:
+        models = await fetch_running_models(ai_cfg["provider_url"])
+        running_models = [m["name"] for m in models]
+
     return {
-        "enabled": ai_cfg["enabled"] and has_perm,
-        "configured": bool(ai_cfg["provider_url"] and ai_cfg["model"]),
+        "enabled": enabled,
+        "configured": configured,
         "enabled_types": ai_cfg["enabled_types"] if ai_cfg["enabled"] else [],
+        "running_models": running_models,
+        "model": ai_cfg["model"] if enabled else None,
     }

@@ -924,4 +924,6 @@ export interface AiStatus {
   enabled: boolean;
   configured: boolean;
   enabled_types: string[];
+  running_models: string[];
+  model?: string;
 }
