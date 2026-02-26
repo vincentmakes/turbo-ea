@@ -290,9 +290,12 @@ export default function AiAdmin() {
                 }}
               />
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t("settings.ai.description")}
             </Typography>
+            <Alert severity="info" sx={{ mb: 3, "& .MuiAlert-message": { fontSize: "0.8rem" } }}>
+              {t("settings.ai.descriptionsModelHint")}
+            </Alert>
 
             <FormControlLabel
               control={
@@ -419,9 +422,12 @@ export default function AiAdmin() {
                 }}
               />
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t("settings.ai.chatDescription")}
             </Typography>
+            <Alert severity="info" sx={{ mb: 3, "& .MuiAlert-message": { fontSize: "0.8rem" } }}>
+              {t("settings.ai.chatModelHint")}
+            </Alert>
 
             <FormControlLabel
               control={
