@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.23.0] - 2026-02-26
+
+### Changed
+- AI Chat now uses intent detection to understand questions about specific card types, lifecycle/EOL dates, time windows, and cross-type relations
+- Chat model recommendation updated from gemma3:27b to qwen2.5:7b (~5 GB) for lower hardware requirements
+
+### Added
+- Type-aware context: asking about "IT components" or "applications" fetches all cards of that type automatically
+- Lifecycle/EOL filtering: questions about end-of-life or phase-out dates query cards with matching lifecycle data
+- Temporal queries: "next 12 months", "this year", "within 6 months" filter lifecycle dates to the specified window
+- Cross-relation traversal: "which apps have IT components reaching EOL" follows relations between card types
+- Higher context limits (50 cards) for analytical questions like summaries, counts, and landscape overviews
+
 ## [0.22.0] - 2026-02-26
 
 ### Added
