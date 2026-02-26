@@ -5,6 +5,7 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import LinearProgress from "@mui/material/LinearProgress";
+import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
@@ -158,13 +159,29 @@ export default function AiSuggestPanel({
             />
           )}
           {response.sources && response.sources.length > 0 && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" component="span">
               {t("ai.sources")}:{" "}
               {response.sources
                 .filter((s) => s.title)
                 .slice(0, 5)
-                .map((s) => s.title)
-                .join(", ")}
+                .map((s, i) => (
+                  <span key={i}>
+                    {i > 0 && ", "}
+                    {s.url ? (
+                      <Link
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="caption"
+                        underline="hover"
+                      >
+                        {s.title}
+                      </Link>
+                    ) : (
+                      s.title
+                    )}
+                  </span>
+                ))}
             </Typography>
           )}
         </Box>
