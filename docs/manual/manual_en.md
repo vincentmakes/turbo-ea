@@ -201,6 +201,7 @@ Turbo EA can use **AI to generate a description** for any card. This works on bo
 - **Privacy-first**: The LLM runs locally via Ollama — your data never leaves your infrastructure
 - **Admin-controlled**: AI suggestions must be enabled by an administrator in Settings → AI Cards. Admins can choose which card types show the suggestion button, configure the LLM provider URL and model, and select the web search provider (DuckDuckGo, Google Custom Search, or SearXNG)
 - **Permission-based**: Only users with the `ai.suggest` permission can use this feature (enabled by default for Admin, BPM Admin, and Member roles)
+6. Click **CREATE**
 
 ---
 
