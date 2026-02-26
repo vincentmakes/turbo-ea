@@ -8,19 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.21.0] - 2026-02-26
 
 ### Changed
-- AI suggestions now generate only a description instead of populating multiple metadata fields
-- AI description suggestions are card-type-aware — the LLM prompt contextualizes the item based on its type (e.g., "software application", "technology vendor")
+- AI suggestions now generate only a type-aware description instead of populating multiple metadata fields — cleaner, more reliable results
+- AI web search queries are type-aware: searches for Applications use "software application", Organizations use "company", Providers use "technology vendor", etc.
+- Simplified AI suggestion panel UI to show a single editable description with confidence score and clickable source links
+
+### Removed
 - Removed per-field `ai_suggest` flag from the metamodel — no longer needed since only description is suggested
-
-## [0.20.1] - 2026-02-26
-
-### Changed
-- AI web search queries are now type-aware — searches for Organizations use "company", Providers use "vendor", etc. instead of always appending "software"
-- AI LLM prompt describes the item contextually based on card type instead of always saying "software product or IT asset"
-- Decision fields (business criticality, suitability scores, maturity levels, costs, risk levels, etc.) are now permanently excluded from AI suggestions and cannot be re-enabled
-
-### Fixed
-- Added Alembic migration to backfill `ai_suggest: "never"` on decision fields in existing databases (seed.py alone only applies to fresh installs)
 
 ## [0.20.0] - 2026-02-26
 

@@ -47,6 +47,10 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 - **Diagram Editor** — Self-hosted DrawIO integration for creating architecture diagrams linked to your cards. Shapes are colored by card type with synced/pending states.
 - **EA Delivery** — TOGAF-compliant Statement of Architecture Work (SoAW) editor with rich text editing (TipTap), version history, sign-off requests, and DOCX export.
 
+### AI-Powered Assistance
+
+- **AI Description Suggestions** — Generate card descriptions with a single click using a two-step pipeline: web search (DuckDuckGo, Google Custom Search, or SearXNG) followed by local LLM extraction (Ollama). Suggestions are type-aware — the prompt contextualizes each card based on its type (e.g., "software application", "technology vendor", "business process"). Results include a confidence score, editable text, and clickable source links. Requires a local Ollama instance; optionally bundled via Docker Compose profile (`--profile ai`).
+
 ### Data Governance
 
 - **Data Maintenance Surveys** — Admin-driven workflows for keeping card data accurate at scale. Target by card type with tag/relation/attribute filters. Users maintain or confirm field values; admins review and apply changes in bulk.
