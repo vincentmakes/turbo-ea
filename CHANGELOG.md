@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.19.0] - 2026-02-26
+
+### Added
+- Bundled Ollama container in Docker Compose for turnkey AI metadata suggestions — no external LLM setup required
+- Auto-configuration of AI settings on startup when the bundled Ollama is present (`AI_AUTO_CONFIGURE=true`)
+- Background model pull on first startup (default: `gemma3:4b`) with persistent volume so models survive restarts
+
 ## [0.18.0] - 2026-02-26
 
 ### Added

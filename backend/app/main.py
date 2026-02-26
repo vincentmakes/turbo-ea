@@ -36,6 +36,7 @@ def _run_alembic_upgrade(alembic_cfg, revision):
 
 _PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
 _PURGE_RETENTION_DAYS = 30
+_OLLAMA_PULL_TIMEOUT = 600  # 10 minutes max for model pull
 
 
 async def _purge_archived_cards_loop() -> None:
@@ -90,6 +91,86 @@ async def _purge_archived_cards_loop() -> None:
             raise
         except Exception:
             logger.exception("Error in archived card purge loop")
+
+
+async def _auto_configure_ai() -> None:
+    """Write AI config into app_settings when AI_AUTO_CONFIGURE is enabled.
+
+    Runs on startup — only writes the DB row if AI is not already configured.
+    """
+    from sqlalchemy import select as _sel
+
+    from app.database import async_session
+    from app.models.app_settings import AppSettings
+
+    provider_url = settings.AI_PROVIDER_URL
+    model = settings.AI_MODEL
+    if not provider_url or not model:
+        return
+
+    async with async_session() as db:
+        result = await db.execute(_sel(AppSettings).where(AppSettings.id == "default"))
+        row = result.scalar_one_or_none()
+        if not row:
+            row = AppSettings(id="default")
+            db.add(row)
+
+        general = dict(row.general_settings or {})
+        ai = general.get("ai", {})
+
+        # Skip if admin already configured AI manually
+        if ai.get("enabled") and ai.get("providerUrl") and ai.get("model"):
+            logger.info("[ai] AI already configured — skipping auto-configure")
+            return
+
+        general["ai"] = {
+            "enabled": True,
+            "providerUrl": provider_url,
+            "model": model,
+            "searchProvider": settings.AI_SEARCH_PROVIDER or "duckduckgo",
+            "searchUrl": settings.AI_SEARCH_URL or "",
+            "enabledTypes": ai.get("enabledTypes", []),
+        }
+        row.general_settings = general
+        await db.commit()
+        logger.info("[ai] Auto-configured AI: provider=%s  model=%s", provider_url, model)
+
+
+async def _ensure_ollama_model() -> None:
+    """Background task: pull the configured model if Ollama doesn't have it yet."""
+    import httpx
+
+    provider_url = settings.AI_PROVIDER_URL
+    model = settings.AI_MODEL
+    if not provider_url or not model:
+        return
+
+    tags_url = f"{provider_url.rstrip('/')}/api/tags"
+    pull_url = f"{provider_url.rstrip('/')}/api/pull"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(tags_url)
+            resp.raise_for_status()
+            available = [m.get("name", "") for m in resp.json().get("models", [])]
+            # Check both exact match and name without tag (e.g. "gemma3:4b" or "gemma3")
+            if any(model in m or m.startswith(model.split(":")[0]) for m in available):
+                logger.info("[ai] Model '%s' already available in Ollama", model)
+                return
+    except httpx.HTTPError as exc:
+        logger.warning("[ai] Cannot reach Ollama at %s: %s", tags_url, exc)
+        return
+
+    logger.info("[ai] Pulling model '%s' from Ollama (this may take several minutes)...", model)
+    try:
+        async with httpx.AsyncClient(timeout=_OLLAMA_PULL_TIMEOUT) as client:
+            resp = await client.post(pull_url, json={"name": model, "stream": False})
+            resp.raise_for_status()
+        logger.info("[ai] Model '%s' pulled successfully", model)
+    except httpx.HTTPError as exc:
+        logger.warning("[ai] Failed to pull model '%s': %s", model, exc)
+    except Exception:
+        logger.exception("[ai] Unexpected error pulling model '%s'", model)
 
 
 @asynccontextmanager
@@ -229,17 +310,29 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_bpm] Skipped: {result.get('reason', 'unknown')}")
 
+    # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
+    ollama_task = None
+    if settings.AI_AUTO_CONFIGURE:
+        await _auto_configure_ai()
+        ollama_task = asyncio.create_task(_ensure_ollama_model())
+
     # Start background task for auto-purging archived cards after 30 days
     purge_task = asyncio.create_task(_purge_archived_cards_loop())
 
     yield
 
-    # Cancel background purge task on shutdown
+    # Cancel background tasks on shutdown
     purge_task.cancel()
     try:
         await purge_task
     except asyncio.CancelledError:
         pass
+    if ollama_task and not ollama_task.done():
+        ollama_task.cancel()
+        try:
+            await ollama_task
+        except asyncio.CancelledError:
+            pass
 
 
 # ── H6: Conditionally disable OpenAPI docs in production ──

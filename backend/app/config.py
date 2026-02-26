@@ -56,6 +56,7 @@ class Settings:
     AI_MODEL: str = os.getenv("AI_MODEL", "")
     AI_SEARCH_PROVIDER: str = os.getenv("AI_SEARCH_PROVIDER", "")
     AI_SEARCH_URL: str = os.getenv("AI_SEARCH_URL", "")
+    AI_AUTO_CONFIGURE: bool = os.getenv("AI_AUTO_CONFIGURE", "").lower() in ("1", "true", "yes")
 
     @property
     def database_url(self) -> str:
