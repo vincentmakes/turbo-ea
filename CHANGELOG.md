@@ -8,9 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.19.0] - 2026-02-26
 
 ### Added
-- Bundled Ollama container in Docker Compose for turnkey AI metadata suggestions — no external LLM setup required
-- Auto-configuration of AI settings on startup when the bundled Ollama is present (`AI_AUTO_CONFIGURE=true`)
-- Background model pull on first startup (default: `gemma3:4b`) with persistent volume so models survive restarts
+- Auto-configuration of AI settings on startup when `AI_AUTO_CONFIGURE=true` is set, so pointing to an external Ollama instance requires only env vars — no manual admin setup
+- Background model pull on startup when the configured model is not yet available in Ollama
 
 ## [0.18.0] - 2026-02-26
 

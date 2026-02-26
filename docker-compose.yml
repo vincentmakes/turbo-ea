@@ -1,20 +1,4 @@
 services:
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    networks:
-      - guac-net
-    volumes:
-      - ollama-data:/root/.ollama
-    expose:
-      - "11434"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   backend:
     build:
       context: .
@@ -30,9 +14,6 @@ services:
           memory: 512M
     networks:
       - guac-net
-    depends_on:
-      ollama:
-        condition: service_healthy
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
@@ -46,9 +27,9 @@ services:
       SEED_BPM: ${SEED_BPM:-false}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
-      AI_PROVIDER_URL: ${AI_PROVIDER_URL:-http://ollama:11434}
-      AI_MODEL: ${AI_MODEL:-gemma3:4b}
-      AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-true}
+      AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
@@ -83,6 +64,3 @@ services:
 networks:
   guac-net:
     external: true
-
-volumes:
-  ollama-data:
