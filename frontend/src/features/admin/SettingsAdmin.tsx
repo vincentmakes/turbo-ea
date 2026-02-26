@@ -169,6 +169,7 @@ function GeneralTab() {
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
+  const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
 
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
@@ -471,10 +472,13 @@ function GeneralTab() {
       const res = await api.post<{ ok: boolean; available_models: string[]; model_found: boolean }>(
         "/settings/ai/test"
       );
+      setAiAvailableModels(res.available_models);
       if (res.model_found) {
         setSnack(t("settings.ai.testSuccess"));
-      } else {
+      } else if (res.available_models.length > 0) {
         setSnack(t("settings.ai.testNoModel", { models: res.available_models.slice(0, 5).join(", ") }));
+      } else {
+        setSnack(t("settings.ai.testNoModels"));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
@@ -848,15 +852,38 @@ function GeneralTab() {
               helperText={t("settings.ai.providerUrlHelper")}
               sx={{ mb: 2 }}
             />
-            <TextField
-              label={t("settings.ai.model")}
-              fullWidth
-              value={aiModel}
-              onChange={(e) => setAiModel(e.target.value)}
-              placeholder="llama3.1:8b"
-              helperText={t("settings.ai.modelHelper")}
-              sx={{ mb: 2 }}
-            />
+            {aiAvailableModels.length > 0 ? (
+              <TextField
+                select
+                label={t("settings.ai.model")}
+                fullWidth
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                helperText={t("settings.ai.modelPickerHelper")}
+                sx={{ mb: 2 }}
+              >
+                {!aiModel && (
+                  <MenuItem value="" disabled>
+                    {t("settings.ai.selectModel")}
+                  </MenuItem>
+                )}
+                {aiAvailableModels.map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {m}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <TextField
+                label={t("settings.ai.model")}
+                fullWidth
+                value={aiModel}
+                onChange={(e) => setAiModel(e.target.value)}
+                placeholder="gemma3:4b"
+                helperText={t("settings.ai.modelHelper")}
+                sx={{ mb: 2 }}
+              />
+            )}
             <TextField
               select
               label={t("settings.ai.searchProvider")}
