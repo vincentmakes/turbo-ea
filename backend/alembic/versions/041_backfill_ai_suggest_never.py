@@ -10,6 +10,8 @@ Revises: 040
 Create Date: 2026-02-26
 """
 
+import json
+
 import sqlalchemy as sa
 
 from alembic import op
@@ -73,8 +75,8 @@ def upgrade() -> None:
 
         if changed:
             conn.execute(
-                sa.text("UPDATE card_types SET fields_schema = :s WHERE key = :k"),
-                {"s": sa.type_coerce(schema, sa.JSON), "k": type_key},
+                sa.text("UPDATE card_types SET fields_schema = :s::jsonb WHERE key = :k"),
+                {"s": json.dumps(schema), "k": type_key},
             )
 
 
@@ -98,6 +100,6 @@ def downgrade() -> None:
 
         if changed:
             conn.execute(
-                sa.text("UPDATE card_types SET fields_schema = :s WHERE key = :k"),
-                {"s": sa.type_coerce(schema, sa.JSON), "k": type_key},
+                sa.text("UPDATE card_types SET fields_schema = :s::jsonb WHERE key = :k"),
+                {"s": json.dumps(schema), "k": type_key},
             )
