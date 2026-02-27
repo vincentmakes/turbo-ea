@@ -72,7 +72,7 @@ async def fetch_running_models(provider_url: str) -> list[dict[str, Any]]:
             {"name": m.get("name", ""), "size": m.get("size", 0)} for m in data.get("models", [])
         ]
     except Exception as exc:
-        logger.debug("Could not fetch running models from %s: %s", provider_url, exc)
+        logger.debug("Could not fetch running models: %s", exc)
         return []
 
 
@@ -638,7 +638,7 @@ async def suggest_metadata(
         search_results=search_results,
         context=context,
     )
-    logger.info("[ai] Calling LLM %s at %s (provider=%s)", model, provider_url, provider_type)
+    logger.info("[ai] Calling LLM model=%s (provider=%s)", model, provider_type)
     raw_response = await call_llm(
         provider_url, model, messages, provider_type=provider_type, api_key=api_key
     )
