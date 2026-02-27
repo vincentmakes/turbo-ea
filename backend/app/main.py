@@ -125,12 +125,10 @@ async def _auto_configure_ai() -> None:
 
         general["ai"] = {
             "enabled": True,
-            "providerType": "ollama",
             "providerUrl": provider_url,
-            "apiKey": "",
             "model": model,
-            "searchProvider": "duckduckgo",
-            "searchUrl": "",
+            "searchProvider": settings.AI_SEARCH_PROVIDER or "duckduckgo",
+            "searchUrl": settings.AI_SEARCH_URL or "",
             "enabledTypes": ai.get("enabledTypes", []),
         }
         row.general_settings = general
@@ -139,36 +137,13 @@ async def _auto_configure_ai() -> None:
 
 
 async def _ensure_ollama_model() -> None:
-    """Background task: pull the configured model if Ollama doesn't have it yet.
-
-    Only runs when providerType is 'ollama' (or unset, for backward compat).
-    """
+    """Background task: pull the configured model if Ollama doesn't have it yet."""
     import httpx
-    from sqlalchemy import select as _sel2
-
-    from app.database import async_session as _async_session2
-    from app.models import app_settings as _as_mod
 
     provider_url = settings.AI_PROVIDER_URL
     model = settings.AI_MODEL
     if not provider_url or not model:
         return
-
-    # Check if provider type is Ollama (skip model pull for commercial providers)
-    try:
-        async with _async_session2() as db:
-            result = await db.execute(
-                _sel2(_as_mod.AppSettings).where(_as_mod.AppSettings.id == "default")
-            )
-            row = result.scalar_one_or_none()
-            if row:
-                ai = (row.general_settings or {}).get("ai", {})
-                pt = ai.get("providerType", "ollama")
-                if pt != "ollama":
-                    logger.info("[ai] Provider type is '%s' — skipping Ollama model pull", pt)
-                    return
-    except Exception:
-        pass  # Proceed with pull attempt if DB check fails
 
     tags_url = f"{provider_url.rstrip('/')}/api/tags"
     pull_url = f"{provider_url.rstrip('/')}/api/pull"

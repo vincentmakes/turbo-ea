@@ -921,8 +921,21 @@ export interface AiSuggestResponse {
 export interface AiStatus {
   enabled: boolean;
   configured: boolean;
-  provider_type?: string;
   enabled_types: string[];
   running_models: string[];
+  model?: string;
+}
+
+// ---------------------------------------------------------------------------
+// AI Chat
+// ---------------------------------------------------------------------------
+
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AiChatStatus {
+  available: boolean;
   model?: string;
 }

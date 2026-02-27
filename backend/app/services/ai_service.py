@@ -1,13 +1,8 @@
-"""AI service — web search + LLM description generation for cards.
+"""AI service — web search + local LLM description generation for cards.
 
 Two-step pipeline:
-  1. Web search (DuckDuckGo HTML scrape) for the card name
+  1. Web search (DuckDuckGo HTML scrape or SearXNG) for the card name
   2. LLM prompt with search snippets → card description (type-aware)
-
-Supports multiple LLM providers:
-  - Ollama (self-hosted, /api/chat)
-  - OpenAI-compatible (OpenAI, Gemini, Azure, OpenRouter, LM Studio, vLLM)
-  - Anthropic Claude (/v1/messages)
 """
 
 from __future__ import annotations
@@ -72,7 +67,7 @@ async def fetch_running_models(provider_url: str) -> list[dict[str, Any]]:
             {"name": m.get("name", ""), "size": m.get("size", 0)} for m in data.get("models", [])
         ]
     except Exception as exc:
-        logger.debug("Could not fetch running models: %s", exc)
+        logger.debug("Could not fetch running models from %s: %s", provider_url, exc)
         return []
 
 
@@ -348,30 +343,16 @@ def build_llm_prompt(
 
 
 # ---------------------------------------------------------------------------
-# LLM call — multi-provider dispatch
+# LLM call
 # ---------------------------------------------------------------------------
 
 
-def _parse_llm_content(content: str) -> dict[str, Any]:
-    """Parse JSON from LLM response content, with markdown code-block fallback."""
-    try:
-        result: dict[str, Any] = json.loads(content)
-        return result
-    except json.JSONDecodeError:
-        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
-        if json_match:
-            result = json.loads(json_match.group(1))
-            return result
-        logger.warning("LLM returned non-JSON content: %.200s", content)
-        return {}
-
-
-async def _call_ollama(
+async def call_llm(
     provider_url: str,
     model: str,
     messages: list[dict[str, str]],
 ) -> dict[str, Any]:
-    """Call an Ollama-compatible /api/chat endpoint."""
+    """Call the LLM API (Ollama-compatible /api/chat endpoint)."""
     client = await _get_llm_client()
     url = f"{provider_url.rstrip('/')}/api/chat"
 
@@ -387,181 +368,23 @@ async def _call_ollama(
         resp = await client.post(url, json=payload)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
-        logger.warning("Ollama API call failed: %s", exc)
+        logger.warning("LLM API call failed: %s", exc)
         raise
 
     data = resp.json()
     content = data.get("message", {}).get("content", "{}")
-    return _parse_llm_content(content)
-
-
-async def _call_openai_compatible(
-    provider_url: str,
-    api_key: str,
-    model: str,
-    messages: list[dict[str, str]],
-) -> dict[str, Any]:
-    """Call an OpenAI-compatible /v1/chat/completions endpoint.
-
-    Works with OpenAI, Google Gemini, Azure OpenAI, OpenRouter, LM Studio, vLLM.
-    """
-    client = await _get_llm_client()
-    url = f"{provider_url.rstrip('/')}/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
 
     try:
-        resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        logger.warning("OpenAI-compatible API call failed: %s", type(exc).__name__)
-        raise
-
-    data = resp.json()
-    content = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-    return _parse_llm_content(content)
-
-
-async def _call_anthropic(
-    provider_url: str,
-    api_key: str,
-    model: str,
-    messages: list[dict[str, str]],
-) -> dict[str, Any]:
-    """Call the Anthropic /v1/messages endpoint.
-
-    Anthropic requires system messages as a top-level parameter, not in the messages array.
-    """
-    client = await _get_llm_client()
-    url = f"{provider_url.rstrip('/')}/v1/messages"
-
-    # Separate system message from user/assistant messages
-    system_text = ""
-    chat_messages: list[dict[str, str]] = []
-    for msg in messages:
-        if msg["role"] == "system":
-            system_text = msg["content"]
-        else:
-            chat_messages.append(msg)
-
-    headers = {
-        "x-api-key": api_key,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-    }
-    payload: dict[str, Any] = {
-        "model": model,
-        "max_tokens": 1024,
-        "messages": chat_messages,
-        "temperature": 0.1,
-    }
-    if system_text:
-        payload["system"] = system_text
-
-    try:
-        resp = await client.post(url, json=payload, headers=headers)
-        resp.raise_for_status()
-    except httpx.HTTPError as exc:
-        logger.warning("Anthropic API call failed: %s", type(exc).__name__)
-        raise
-
-    data = resp.json()
-    content_blocks = data.get("content", [])
-    text = content_blocks[0].get("text", "{}") if content_blocks else "{}"
-    return _parse_llm_content(text)
-
-
-async def call_llm(
-    provider_url: str,
-    model: str,
-    messages: list[dict[str, str]],
-    *,
-    provider_type: str = "ollama",
-    api_key: str = "",
-) -> dict[str, Any]:
-    """Dispatch an LLM call to the configured provider.
-
-    Supported provider_type values: "ollama", "openai", "anthropic".
-    """
-    if provider_type == "openai":
-        return await _call_openai_compatible(provider_url, api_key, model, messages)
-    if provider_type == "anthropic":
-        return await _call_anthropic(provider_url, api_key, model, messages)
-    return await _call_ollama(provider_url, model, messages)
-
-
-# ---------------------------------------------------------------------------
-# Provider connection test
-# ---------------------------------------------------------------------------
-
-
-async def check_provider_connection(
-    provider_url: str,
-    provider_type: str = "ollama",
-    api_key: str = "",
-    model: str = "",
-) -> dict[str, Any]:
-    """Test connectivity to an LLM provider. Returns available models and status."""
-    client = await _get_llm_client()
-
-    if provider_type == "openai":
-        url = f"{provider_url.rstrip('/')}/v1/models"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        try:
-            resp = await client.get(url, headers=headers, timeout=10.0)
-            resp.raise_for_status()
-            data = resp.json()
-            available = [m.get("id", "") for m in data.get("data", [])]
-            model_found = any(model in m for m in available) if model else False
-            return {"ok": True, "available_models": available[:20], "model_found": model_found}
-        except httpx.HTTPError as exc:
-            raise httpx.HTTPError(f"Cannot reach provider: {type(exc).__name__}") from exc
-
-    if provider_type == "anthropic":
-        # Anthropic has no model-list endpoint; make a minimal test call
-        url = f"{provider_url.rstrip('/')}/v1/messages"
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        }
-        payload = {
-            "model": model or "claude-haiku-4-5-20251001",
-            "max_tokens": 1,
-            "messages": [{"role": "user", "content": "Hi"}],
-        }
-        try:
-            resp = await client.post(url, json=payload, headers=headers, timeout=10.0)
-            resp.raise_for_status()
-            return {"ok": True, "available_models": [], "model_found": True}
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code == 401:
-                raise httpx.HTTPError("Invalid API key") from exc
-            # Other errors (e.g. invalid model) still mean connectivity works
-            raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
-        except httpx.HTTPError as exc:
-            raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
-
-    # Default: Ollama
-    url = f"{provider_url.rstrip('/')}/api/tags"
-    try:
-        resp = await client.get(url, timeout=10.0)
-        resp.raise_for_status()
-        data = resp.json()
-        available = [m.get("name", "") for m in data.get("models", [])]
-        model_found = any(model in m for m in available) if model else False
-        return {"ok": True, "available_models": available[:20], "model_found": model_found}
-    except httpx.HTTPError as exc:
-        raise httpx.HTTPError(f"Cannot reach Ollama: {type(exc).__name__}") from exc
+        parsed: dict[str, Any] = json.loads(content)
+        return parsed
+    except json.JSONDecodeError:
+        # Try to extract JSON from markdown code block
+        json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
+        if json_match:
+            parsed = json.loads(json_match.group(1))
+            return parsed
+        logger.warning("LLM returned non-JSON content: %.200s", content)
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -617,18 +440,15 @@ async def suggest_metadata(
     search_provider: str = "duckduckgo",
     search_url: str = "",
     context: str | None = None,
-    *,
-    provider_type: str = "ollama",
-    api_key: str = "",
 ) -> dict[str, Any]:
     """Full pipeline: web search → LLM description → validated suggestion."""
-    # Step 1: Web search (always DuckDuckGo — commercial APIs have no web access)
+    # Step 1: Web search (type-aware query)
     search_suffix = _get_search_suffix(type_key, subtype)
     query = f"{name} {search_suffix}"
     if subtype:
         query += f" {subtype}"
-    logger.info("[ai] Searching for '%s' via duckduckgo", query)
-    search_results = await web_search(query, "duckduckgo")
+    logger.info("[ai] Searching for '%s' via %s", query, search_provider)
+    search_results = await web_search(query, search_provider, search_url)
     logger.info("[ai] Search returned %d results", len(search_results))
 
     # Step 2: Build prompt and call LLM
@@ -640,10 +460,8 @@ async def suggest_metadata(
         search_results=search_results,
         context=context,
     )
-    logger.info("[ai] Calling LLM")
-    raw_response = await call_llm(
-        provider_url, model, messages, provider_type=provider_type, api_key=api_key
-    )
+    logger.info("[ai] Calling LLM %s at %s", model, provider_url)
+    raw_response = await call_llm(provider_url, model, messages)
     logger.info("[ai] LLM returned %d raw keys", len(raw_response))
 
     # Step 3: Validate (description only)
@@ -659,5 +477,5 @@ async def suggest_metadata(
         "suggestions": suggestions,
         "sources": sources,
         "model": model,
-        "search_provider": "duckduckgo",
+        "search_provider": search_provider,
     }

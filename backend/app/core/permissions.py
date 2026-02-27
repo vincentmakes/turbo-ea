@@ -137,9 +137,10 @@ APP_PERMISSIONS: dict[str, dict] = {
         },
     },
     "ai": {
-        "label": "AI Suggestions",
+        "label": "AI",
         "permissions": {
             "ai.suggest": "Use AI-powered metadata suggestions when creating or editing cards",
+            "ai.chat": "Use the AI chat assistant to ask questions about the EA landscape",
         },
     },
     "admin": {
@@ -255,6 +256,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": True,
+    "ai.chat": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -308,6 +310,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": True,
+    "ai.chat": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -361,6 +364,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": False,
+    "ai.chat": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,

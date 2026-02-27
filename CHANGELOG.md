@@ -5,21 +5,28 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.22.0] - 2026-02-27
+## [0.23.0] - 2026-02-26
+
+### Changed
+- AI Chat now uses intent detection to understand questions about specific card types, lifecycle/EOL dates, time windows, and cross-type relations
+- Chat model recommendation updated from gemma3:27b to qwen2.5:7b (~5 GB) for lower hardware requirements
 
 ### Added
-- Support for commercial LLM providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) for AI description suggestions
-- Encrypted API key storage for commercial LLM providers
-- Provider type selector in AI admin settings with conditional form fields
+- Type-aware context: asking about "IT components" or "applications" fetches all cards of that type automatically
+- Lifecycle/EOL filtering: questions about end-of-life or phase-out dates query cards with matching lifecycle data
+- Temporal queries: "next 12 months", "this year", "within 6 months" filter lifecycle dates to the specified window
+- Cross-relation traversal: "which apps have IT components reaching EOL" follows relations between card types
+- Higher context limits (50 cards) for analytical questions like summaries, counts, and landscape overviews
 
-### Changed
-- Simplified AI search provider — DuckDuckGo is always used automatically for web context
-- AI admin UI now shows provider-specific fields (URL, API key, model placeholders) based on selected provider type
+## [0.22.0] - 2026-02-26
 
-## [0.21.1] - 2026-02-27
-
-### Changed
-- AI admin page now uses Ollama-specific terminology instead of generic LLM references, with gemma3:4b recommended as the default model for description generation
+### Added
+- AI Chat assistant — conversational interface to ask questions about the EA landscape, accessible via a floating action button
+- Streaming responses from the local LLM with real-time token display
+- Privacy-first design: conversations are session-only (never persisted), all AI processing runs locally via Ollama
+- Context-aware responses built from landscape data, card search, relations, and metamodel information
+- Suggested starter questions and a clear privacy notice in the chat welcome screen
+- New `ai.chat` permission controlling access to the chat feature (granted to admin, bpm_admin, and member roles)
 
 ## [0.21.0] - 2026-02-26
 

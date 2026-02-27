@@ -11,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.config import settings as app_config
-from app.core.encryption import decrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
@@ -28,15 +27,15 @@ router = APIRouter(prefix="/ai", tags=["AI Suggestions"])
 def _get_ai_config(general: dict) -> dict:
     """Resolve AI configuration from DB settings with env-var fallback."""
     ai = general.get("ai", {})
-    encrypted_key = ai.get("apiKey", "")
     return {
         "enabled": ai.get("enabled", False),
-        "provider_type": ai.get("providerType", "ollama"),
+        "descriptions_enabled": ai.get("descriptionsEnabled", True),
         "provider_url": ai.get("providerUrl") or app_config.AI_PROVIDER_URL,
-        "api_key": decrypt_value(encrypted_key) if encrypted_key else "",
         "model": ai.get("model") or app_config.AI_MODEL,
-        "search_provider": "duckduckgo",
-        "search_url": "",
+        "search_provider": (
+            ai.get("searchProvider") or app_config.AI_SEARCH_PROVIDER or "duckduckgo"
+        ),
+        "search_url": ai.get("searchUrl") or app_config.AI_SEARCH_URL,
         "enabled_types": ai.get("enabledTypes", []),
     }
 
@@ -59,7 +58,7 @@ async def suggest(
     general = (row.general_settings if row else None) or {}
     ai_cfg = _get_ai_config(general)
 
-    if not ai_cfg["enabled"]:
+    if not ai_cfg["enabled"] or not ai_cfg["descriptions_enabled"]:
         raise HTTPException(
             status_code=400,
             detail="AI suggestions are not enabled. An admin must configure this in Settings.",
@@ -69,13 +68,6 @@ async def suggest(
         raise HTTPException(
             status_code=400,
             detail="AI provider URL and model must be configured in Settings.",
-        )
-
-    # Commercial providers require an API key
-    if ai_cfg["provider_type"] in ("openai", "anthropic") and not ai_cfg["api_key"]:
-        raise HTTPException(
-            status_code=400,
-            detail="API key is required for commercial LLM providers.",
         )
 
     # Validate that the card type is enabled for AI suggestions
@@ -99,9 +91,9 @@ async def suggest(
             subtype=body.subtype,
             provider_url=ai_cfg["provider_url"],
             model=ai_cfg["model"],
+            search_provider=ai_cfg["search_provider"],
+            search_url=ai_cfg["search_url"],
             context=body.context,
-            provider_type=ai_cfg["provider_type"],
-            api_key=ai_cfg["api_key"],
         )
     except httpx.HTTPError as exc:
         logger.warning("AI suggestion failed for '%s': %s", body.name, exc)
@@ -136,20 +128,18 @@ async def ai_status(
     # Check if user has the permission
     has_perm = await PermissionService.check_permission(db, user, "ai.suggest")
 
-    enabled = ai_cfg["enabled"] and has_perm
+    enabled = ai_cfg["enabled"] and ai_cfg["descriptions_enabled"] and has_perm
     configured = bool(ai_cfg["provider_url"] and ai_cfg["model"])
-    provider_type = ai_cfg["provider_type"]
 
-    # Only fetch running models for Ollama (commercial providers have no such endpoint)
+    # Try to fetch the currently loaded model from Ollama
     running_models: list[str] = []
-    if enabled and configured and provider_type == "ollama" and ai_cfg["provider_url"]:
+    if enabled and configured and ai_cfg["provider_url"]:
         models = await fetch_running_models(ai_cfg["provider_url"])
         running_models = [m["name"] for m in models]
 
     return {
         "enabled": enabled,
         "configured": configured,
-        "provider_type": provider_type,
         "enabled_types": ai_cfg["enabled_types"] if ai_cfg["enabled"] else [],
         "running_models": running_models,
         "model": ai_cfg["model"] if enabled else None,

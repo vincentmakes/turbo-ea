@@ -12,22 +12,21 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 
 interface AiSettings {
   enabled: boolean;
-  provider_type: string;
+  descriptions_enabled: boolean;
+  chat_enabled: boolean;
   provider_url: string;
-  api_key: string;
   model: string;
   search_provider: string;
   search_url: string;
   enabled_types: string[];
 }
-
-const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
 export default function AiAdmin() {
   const { t } = useTranslation(["admin", "common"]);
@@ -37,10 +36,12 @@ export default function AiAdmin() {
 
   // AI settings state
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiProviderType, setAiProviderType] = useState("ollama");
+  const [descriptionsEnabled, setDescriptionsEnabled] = useState(true);
+  const [chatEnabled, setChatEnabled] = useState(false);
   const [aiProviderUrl, setAiProviderUrl] = useState("");
-  const [aiApiKey, setAiApiKey] = useState("");
   const [aiModel, setAiModel] = useState("");
+  const [aiSearchProvider, setAiSearchProvider] = useState("duckduckgo");
+  const [aiSearchUrl, setAiSearchUrl] = useState("");
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
@@ -54,10 +55,12 @@ export default function AiAdmin() {
       .get<AiSettings>("/settings/ai")
       .then((data) => {
         setAiEnabled(data.enabled);
-        setAiProviderType(data.provider_type || "ollama");
+        setDescriptionsEnabled(data.descriptions_enabled);
+        setChatEnabled(data.chat_enabled);
         setAiProviderUrl(data.provider_url);
-        setAiApiKey(data.api_key || "");
         setAiModel(data.model);
+        setAiSearchProvider(data.search_provider);
+        setAiSearchUrl(data.search_url);
         setAiEnabledTypes(data.enabled_types);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
@@ -70,12 +73,12 @@ export default function AiAdmin() {
     try {
       await api.patch("/settings/ai", {
         enabled: aiEnabled,
-        provider_type: aiProviderType,
+        descriptions_enabled: descriptionsEnabled,
+        chat_enabled: chatEnabled,
         provider_url: aiProviderUrl,
-        api_key: aiApiKey,
         model: aiModel,
-        search_provider: "duckduckgo",
-        search_url: "",
+        search_provider: aiSearchProvider,
+        search_url: aiSearchUrl,
         enabled_types: aiEnabledTypes,
       });
       setSnack(t("settings.ai.savedSuccess"));
@@ -101,11 +104,7 @@ export default function AiAdmin() {
           t("settings.ai.testNoModel", { models: res.available_models.slice(0, 5).join(", ") }),
         );
       } else {
-        if (aiProviderType === "ollama") {
-          setSnack(t("settings.ai.testNoModels"));
-        } else {
-          setSnack(t("settings.ai.testSuccess"));
-        }
+        setSnack(t("settings.ai.testNoModels"));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
@@ -121,36 +120,6 @@ export default function AiAdmin() {
       setAiEnabledTypes((prev) => prev.filter((k) => k !== typeKey));
     }
   };
-
-  const handleProviderTypeChange = (newType: string) => {
-    setAiProviderType(newType);
-    setAiAvailableModels([]);
-    // Reset fields when switching providers
-    if (newType === "anthropic") {
-      setAiProviderUrl("");
-    }
-  };
-
-  const showProviderUrl = aiProviderType !== "anthropic";
-  const showApiKey = aiProviderType !== "ollama";
-  const hasApiKeySet = aiApiKey === AI_KEY_MASK;
-
-  const providerUrlPlaceholder =
-    aiProviderType === "openai" ? "https://api.openai.com" : "http://localhost:11434";
-
-  const modelPlaceholder =
-    aiProviderType === "openai"
-      ? "gpt-4o-mini"
-      : aiProviderType === "anthropic"
-        ? "claude-sonnet-4-20250514"
-        : "gemma3:4b";
-
-  const modelHelper =
-    aiProviderType === "openai"
-      ? t("settings.ai.modelHelperOpenai")
-      : aiProviderType === "anthropic"
-        ? t("settings.ai.modelHelperAnthropic")
-        : t("settings.ai.modelHelper");
 
   if (loading) {
     return (
@@ -168,7 +137,7 @@ export default function AiAdmin() {
         </Alert>
       )}
 
-      {/* ── AI Cards ──────────────────────────────────────────────── */}
+      {/* ── AI Provider ─────────────────────────────────────────── */}
       <Typography
         variant="overline"
         sx={{
@@ -181,19 +150,18 @@ export default function AiAdmin() {
           fontSize: "0.75rem",
         }}
       >
-        {t("settings.ai.sectionCards")}
+        {t("settings.ai.sectionProvider")}
       </Typography>
 
-      {/* AI Suggestions */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
+          <MaterialSymbol icon="smart_toy" size={22} color="#555" />
           <Typography variant="h6" fontWeight={600}>
-            {t("settings.ai.title")}
+            {t("settings.ai.providerTitle")}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t("settings.ai.description")}
+          {t("settings.ai.providerDescription")}
         </Typography>
 
         <FormControlLabel
@@ -206,64 +174,16 @@ export default function AiAdmin() {
 
         {aiEnabled && (
           <>
-            {/* Provider Type */}
-            <TextField
-              select
-              label={t("settings.ai.providerType")}
+          <TextField
+              label={t("settings.ai.providerUrl")}
               fullWidth
-              value={aiProviderType}
-              onChange={(e) => handleProviderTypeChange(e.target.value)}
-              sx={{ mb: 1 }}
-            >
-              <MenuItem value="ollama">{t("settings.ai.providerOllama")}</MenuItem>
-              <MenuItem value="openai">{t("settings.ai.providerOpenai")}</MenuItem>
-              <MenuItem value="anthropic">{t("settings.ai.providerAnthropic")}</MenuItem>
-            </TextField>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-              {aiProviderType === "ollama"
-                ? t("settings.ai.providerOllamaDesc")
-                : aiProviderType === "openai"
-                  ? t("settings.ai.providerOpenaiDesc")
-                  : t("settings.ai.providerAnthropicDesc")}
-            </Typography>
-
-            {/* Provider URL (hidden for Anthropic) */}
-            {showProviderUrl && (
-              <TextField
-                label={t("settings.ai.providerUrl")}
-                fullWidth
-                value={aiProviderUrl}
-                onChange={(e) => setAiProviderUrl(e.target.value)}
-                placeholder={providerUrlPlaceholder}
-                helperText={
-                  aiProviderType === "openai"
-                    ? t("settings.ai.providerUrlHelperOpenai")
-                    : t("settings.ai.providerUrlHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {/* API Key (hidden for Ollama) */}
-            {showApiKey && (
-              <TextField
-                label={t("settings.ai.apiKey")}
-                fullWidth
-                type="password"
-                value={aiApiKey}
-                onChange={(e) => setAiApiKey(e.target.value)}
-                placeholder={hasApiKeySet ? "" : "sk-..."}
-                helperText={
-                  hasApiKeySet
-                    ? t("settings.ai.apiKeySet")
-                    : t("settings.ai.apiKeyHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {/* Model */}
-            {aiProviderType === "ollama" && aiAvailableModels.length > 0 ? (
+              value={aiProviderUrl}
+              onChange={(e) => setAiProviderUrl(e.target.value)}
+              placeholder="http://localhost:11434"
+              helperText={t("settings.ai.providerUrlHelper")}
+              sx={{ mb: 2 }}
+            />
+            {aiAvailableModels.length > 0 ? (
               <TextField
                 select
                 label={t("settings.ai.model")}
@@ -284,72 +204,22 @@ export default function AiAdmin() {
                   </MenuItem>
                 ))}
               </TextField>
-            ) : aiProviderType === "openai" && aiAvailableModels.length > 0 ? (
-              <TextField
-                select
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                helperText={modelHelper}
-                sx={{ mb: 2 }}
-              >
-                {!aiModel && (
-                  <MenuItem value="" disabled>
-                    {t("settings.ai.selectModel")}
-                  </MenuItem>
-                )}
-                {aiAvailableModels.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m}
-                  </MenuItem>
-                ))}
-              </TextField>
             ) : (
               <TextField
                 label={t("settings.ai.model")}
                 fullWidth
                 value={aiModel}
                 onChange={(e) => setAiModel(e.target.value)}
-                placeholder={modelPlaceholder}
-                helperText={modelHelper}
+                placeholder="gemma3:4b"
+                helperText={t("settings.ai.modelHelper")}
                 sx={{ mb: 2 }}
               />
             )}
-
-            {/* Search Info */}
-            <Alert severity="info" icon={false} sx={{ mb: 2, py: 0.5 }}>
-              <Typography variant="caption">{t("settings.ai.searchInfo")}</Typography>
-            </Alert>
-
-            {/* Enabled Types */}
-            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-              {t("settings.ai.enabledTypes")}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-              {t("settings.ai.enabledTypesHelper")}
-            </Typography>
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
-              {availableTypes.map((ct) => (
-                <FormControlLabel
-                  key={ct.key}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={aiEnabledTypes.includes(ct.key)}
-                      onChange={(e) => handleAiTypeToggle(ct.key, e.target.checked)}
-                    />
-                  }
-                  label={ct.label}
-                  sx={{ mr: 2 }}
-                />
-              ))}
-            </Box>
           </>
         )}
 
         <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {aiEnabled && (aiProviderUrl || aiProviderType === "anthropic") && (
+          {aiEnabled && aiProviderUrl && (
             <Button
               variant="outlined"
               size="small"
@@ -379,6 +249,215 @@ export default function AiAdmin() {
           </Button>
         </Box>
       </Paper>
+
+      {/* ── Feature sections (only show when AI provider is enabled) ── */}
+      {aiEnabled && (
+        <>
+          {/* ── AI Descriptions ──────────────────────────────────── */}
+          <Typography
+            variant="overline"
+            sx={{
+              display: "block",
+              mb: 1.5,
+              fontWeight: 700,
+              color: "text.secondary",
+              letterSpacing: 1,
+              fontSize: "0.75rem",
+            }}
+          >
+            {t("settings.ai.sectionDescriptions")}
+          </Typography>
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+              <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
+              <Typography variant="h6" fontWeight={600}>
+                {t("settings.ai.title")}
+              </Typography>
+              <Chip
+                label={
+                  descriptionsEnabled
+                    ? t("settings.ai.descriptionsActive")
+                    : t("settings.ai.descriptionsInactive")
+                }
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  bgcolor: descriptionsEnabled ? "success.main" : "action.disabledBackground",
+                  color: descriptionsEnabled ? "#fff" : "text.secondary",
+                }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t("settings.ai.description")}
+            </Typography>
+            <Alert severity="info" sx={{ mb: 3, "& .MuiAlert-message": { fontSize: "0.8rem" } }}>
+              {t("settings.ai.descriptionsModelHint")}
+            </Alert>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={descriptionsEnabled}
+                  onChange={(e) => setDescriptionsEnabled(e.target.checked)}
+                />
+              }
+              label={
+                descriptionsEnabled
+                  ? t("settings.ai.descriptionsEnabledLabel")
+                  : t("settings.ai.descriptionsDisabledLabel")
+              }
+              sx={{ mb: 2, display: "block" }}
+            />
+
+            {descriptionsEnabled && (
+            <>
+            <TextField
+              select
+              label={t("settings.ai.searchProvider")}
+              fullWidth
+              value={aiSearchProvider}
+              onChange={(e) => setAiSearchProvider(e.target.value)}
+              helperText={t("settings.ai.searchProviderHelper")}
+              sx={{ mb: 2 }}
+            >
+              <MenuItem value="duckduckgo">DuckDuckGo</MenuItem>
+              <MenuItem value="google">Google Custom Search</MenuItem>
+              <MenuItem value="searxng">SearXNG</MenuItem>
+            </TextField>
+            {(aiSearchProvider === "searxng" || aiSearchProvider === "google") && (
+              <TextField
+                label={
+                  aiSearchProvider === "google"
+                    ? t("settings.ai.googleCredentials")
+                    : t("settings.ai.searxngUrl")
+                }
+                fullWidth
+                value={aiSearchUrl}
+                onChange={(e) => setAiSearchUrl(e.target.value)}
+                placeholder={
+                  aiSearchProvider === "google"
+                    ? "API_KEY:SEARCH_ENGINE_ID"
+                    : "http://localhost:8888"
+                }
+                helperText={
+                  aiSearchProvider === "google"
+                    ? t("settings.ai.googleCredentialsHelper")
+                    : t("settings.ai.searxngUrlHelper")
+                }
+                sx={{ mb: 2 }}
+              />
+            )}
+            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+              {t("settings.ai.enabledTypes")}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+              {t("settings.ai.enabledTypesHelper")}
+            </Typography>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 2 }}>
+              {availableTypes.map((ct) => (
+                <FormControlLabel
+                  key={ct.key}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={aiEnabledTypes.includes(ct.key)}
+                      onChange={(e) => handleAiTypeToggle(ct.key, e.target.checked)}
+                    />
+                  }
+                  label={ct.label}
+                  sx={{ mr: 2 }}
+                />
+              ))}
+            </Box>
+            </>
+            )}
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<MaterialSymbol icon="save" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleAiSave}
+                disabled={savingAi}
+              >
+                {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* ── AI Chat ──────────────────────────────────────────── */}
+          <Typography
+            variant="overline"
+            sx={{
+              display: "block",
+              mb: 1.5,
+              fontWeight: 700,
+              color: "text.secondary",
+              letterSpacing: 1,
+              fontSize: "0.75rem",
+            }}
+          >
+            {t("settings.ai.sectionChat")}
+          </Typography>
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+              <MaterialSymbol icon="chat" size={22} color="#555" />
+              <Typography variant="h6" fontWeight={600}>
+                {t("settings.ai.chatTitle")}
+              </Typography>
+              <Chip
+                label={chatEnabled ? t("settings.ai.chatActive") : t("settings.ai.chatInactive")}
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: "0.7rem",
+                  fontWeight: 600,
+                  bgcolor: chatEnabled ? "success.main" : "action.disabledBackground",
+                  color: chatEnabled ? "#fff" : "text.secondary",
+                }}
+              />
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t("settings.ai.chatDescription")}
+            </Typography>
+            <Alert severity="info" sx={{ mb: 3, "& .MuiAlert-message": { fontSize: "0.8rem" } }}>
+              {t("settings.ai.chatModelHint")}
+            </Alert>
+
+            <FormControlLabel
+              control={
+                <Switch checked={chatEnabled} onChange={(e) => setChatEnabled(e.target.checked)} />
+              }
+              label={chatEnabled ? t("settings.ai.chatEnabledLabel") : t("settings.ai.chatDisabledLabel")}
+              sx={{ mb: 2, display: "block" }}
+            />
+
+            {chatEnabled && (
+              <Alert severity="info" sx={{ mb: 2 }} icon={<MaterialSymbol icon="shield" size={20} />}>
+                {t("settings.ai.chatPrivacyNote")}
+              </Alert>
+            )}
+
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<MaterialSymbol icon="save" size={18} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleAiSave}
+                disabled={savingAi}
+              >
+                {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+              </Button>
+            </Box>
+          </Paper>
+        </>
+      )}
 
       <Snackbar
         open={!!snack}

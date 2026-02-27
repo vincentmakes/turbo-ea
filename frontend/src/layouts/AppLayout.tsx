@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Box from "@mui/material/Box";
 import AppBar from "@mui/material/AppBar";
@@ -24,6 +24,8 @@ import Paper from "@mui/material/Paper";
 import ClickAwayListener from "@mui/material/ClickAwayListener";
 import CircularProgress from "@mui/material/CircularProgress";
 import Chip from "@mui/material/Chip";
+import Fab from "@mui/material/Fab";
+import Zoom from "@mui/material/Zoom";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
@@ -38,7 +40,9 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
-import type { BadgeCounts } from "@/types";
+import type { AiChatStatus, BadgeCounts } from "@/types";
+
+const AiChatDrawer = lazy(() => import("@/features/ai-chat/AiChatDrawer"));
 
 interface NavItemDef {
   labelKey: string;
@@ -176,6 +180,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [langMenu, setLangMenu] = useState<HTMLElement | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
+  const [chatOpen, setChatOpen] = useState(false);
+  const [aiChatAvailable, setAiChatAvailable] = useState(false);
 
   const handleLanguageChange = useCallback(
     async (locale: SupportedLocale) => {
@@ -190,6 +196,15 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     },
     [i18n, user.id],
   );
+
+  // Check AI chat availability
+  useEffect(() => {
+    let cancelled = false;
+    api.get<AiChatStatus>("/ai/chat/status")
+      .then((res) => { if (!cancelled) setAiChatAvailable(res.available); })
+      .catch(() => { if (!cancelled) setAiChatAvailable(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const fetchBadgeCounts = useCallback(async () => {
     try {
@@ -1006,6 +1021,30 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       >
         <Box sx={{ p: { xs: 1.5, sm: 3 } }}>{children}</Box>
       </Box>
+
+      {/* AI Chat FAB */}
+      <Zoom in={aiChatAvailable && !chatOpen}>
+        <Fab
+          color="primary"
+          aria-label={t("common:aiChat.title")}
+          onClick={() => setChatOpen(true)}
+          sx={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: theme.zIndex.drawer - 1,
+          }}
+        >
+          <MaterialSymbol icon="smart_toy" size={24} color="#fff" />
+        </Fab>
+      </Zoom>
+
+      {/* AI Chat Drawer */}
+      {aiChatAvailable && chatOpen && (
+        <Suspense fallback={null}>
+          <AiChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+        </Suspense>
+      )}
     </Box>
   );
 }
