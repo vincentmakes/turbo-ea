@@ -190,13 +190,26 @@ def _get_provider_config(sso: dict) -> dict:
 def _verify_id_token(token: str, client_id: str, jwks_uri: str, issuer: str) -> dict:
     jwks_client = _get_jwks_client(jwks_uri)
     signing_key = jwks_client.get_signing_key_from_jwt(token)
-    return jwt.decode(
-        token,
-        signing_key.key,
-        algorithms=["RS256"],
-        audience=client_id,
-        issuer=issuer,
-    )
+    algorithms = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256"]
+    try:
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=algorithms,
+            audience=client_id,
+            issuer=issuer,
+        )
+    except jwt.InvalidIssuerError:
+        # Retry with opposite trailing-slash variant — providers like
+        # Authentik may include/omit a trailing slash in the iss claim.
+        alt_issuer = issuer + "/" if not issuer.endswith("/") else issuer.rstrip("/")
+        return jwt.decode(
+            token,
+            signing_key.key,
+            algorithms=algorithms,
+            audience=client_id,
+            issuer=alt_issuer,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -455,8 +468,9 @@ async def sso_callback(
             )
 
     # Exchange the authorization code for tokens
+    logger.info("SSO token exchange: POST %s (provider=%s)", token_url, provider)
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             token_response = await client.post(
                 token_url,
                 data={
@@ -469,32 +483,84 @@ async def sso_callback(
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
+    except httpx.ConnectError:
+        logger.exception(
+            "SSO token exchange: cannot connect to %s — check Docker networking", token_url
+        )
+        raise HTTPException(
+            502,
+            "Cannot reach identity provider for token exchange. "
+            "Check that the backend container can reach the token endpoint.",
+        )
     except httpx.HTTPError:
-        logger.exception("SSO token exchange request failed")
+        logger.exception("SSO token exchange request failed to %s", token_url)
         raise HTTPException(502, "SSO authentication failed. Identity provider is unavailable.")
 
     if token_response.status_code != 200:
-        # ── H8: Don't leak error details to the client ──
         error_data = (
             token_response.json()
             if token_response.headers.get("content-type", "").startswith("application/json")
             else {}
         )
         error_desc = error_data.get("error_description", "Token exchange failed")
-        logger.error("SSO token exchange failed (%s): %s", provider, error_desc)
-        raise HTTPException(401, "SSO authentication failed. Please try again.")
+        error_code = error_data.get("error", "unknown")
+        logger.error(
+            "SSO token exchange failed (%s): status=%s error=%s desc=%s",
+            provider,
+            token_response.status_code,
+            error_code,
+            error_desc,
+        )
+        raise HTTPException(
+            401,
+            f"SSO authentication failed: {error_desc}",
+        )
 
     tokens = token_response.json()
     id_token = tokens.get("id_token")
     if not id_token:
+        logger.error(
+            "SSO token response missing id_token (%s). Keys received: %s",
+            provider,
+            list(tokens.keys()),
+        )
         raise HTTPException(401, "No id_token received from identity provider")
 
     # ── C5: Verify the id_token signature ──
     try:
         claims = _verify_id_token(id_token, client_id, jwks_uri, issuer)
+    except jwt.InvalidIssuerError:
+        # Decode without verification to log the actual issuer
+        unverified = jwt.decode(id_token, options={"verify_signature": False})
+        actual_issuer = unverified.get("iss", "unknown")
+        logger.error(
+            "SSO id_token issuer mismatch (%s): expected=%s actual=%s",
+            provider,
+            issuer,
+            actual_issuer,
+        )
+        raise HTTPException(
+            401,
+            f"SSO token issuer mismatch: expected {issuer!r}, "
+            f"got {actual_issuer!r}. Check issuer URL in SSO settings.",
+        )
+    except jwt.InvalidAudienceError:
+        unverified = jwt.decode(id_token, options={"verify_signature": False})
+        actual_aud = unverified.get("aud", "unknown")
+        logger.error(
+            "SSO id_token audience mismatch (%s): expected=%s actual=%s",
+            provider,
+            client_id,
+            actual_aud,
+        )
+        raise HTTPException(401, "SSO token audience mismatch. Check Client ID in SSO settings.")
     except Exception:
-        logger.exception("Failed to verify SSO id_token (%s)", provider)
-        raise HTTPException(401, "Failed to verify SSO token")
+        logger.exception("Failed to verify SSO id_token (%s, jwks=%s)", provider, jwks_uri)
+        raise HTTPException(
+            401,
+            "Failed to verify SSO token signature. "
+            "Check JWKS URI and that the backend can reach it.",
+        )
 
     # Extract user info from claims (provider-aware)
     sso_subject_id = claims.get(subject_claim) or claims.get("sub")
