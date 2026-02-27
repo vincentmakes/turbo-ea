@@ -355,11 +355,13 @@ def build_llm_prompt(
 def _parse_llm_content(content: str) -> dict[str, Any]:
     """Parse JSON from LLM response content, with markdown code-block fallback."""
     try:
-        return json.loads(content)
+        result: dict[str, Any] = json.loads(content)
+        return result
     except json.JSONDecodeError:
         json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", content)
         if json_match:
-            return json.loads(json_match.group(1))
+            result = json.loads(json_match.group(1))
+            return result
         logger.warning("LLM returned non-JSON content: %.200s", content)
         return {}
 
