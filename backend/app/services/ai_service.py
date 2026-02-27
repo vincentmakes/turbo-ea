@@ -640,7 +640,7 @@ async def suggest_metadata(
         search_results=search_results,
         context=context,
     )
-    logger.info("[ai] Calling LLM model=%s (provider=%s)", model, provider_type)
+    logger.info("[ai] Calling LLM")
     raw_response = await call_llm(
         provider_url, model, messages, provider_type=provider_type, api_key=api_key
     )
