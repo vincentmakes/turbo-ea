@@ -423,7 +423,7 @@ async def _call_openai_compatible(
         resp = await client.post(url, json=payload, headers=headers)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
-        logger.warning("OpenAI-compatible API call failed: %s", exc)
+        logger.warning("OpenAI-compatible API call failed: %s", type(exc).__name__)
         raise
 
     data = resp.json()
@@ -471,7 +471,7 @@ async def _call_anthropic(
         resp = await client.post(url, json=payload, headers=headers)
         resp.raise_for_status()
     except httpx.HTTPError as exc:
-        logger.warning("Anthropic API call failed: %s", exc)
+        logger.warning("Anthropic API call failed: %s", type(exc).__name__)
         raise
 
     data = resp.json()
@@ -524,7 +524,7 @@ async def check_provider_connection(
             model_found = any(model in m for m in available) if model else False
             return {"ok": True, "available_models": available[:20], "model_found": model_found}
         except httpx.HTTPError as exc:
-            raise httpx.HTTPError(f"Cannot reach provider at {provider_url}: {exc}") from exc
+            raise httpx.HTTPError(f"Cannot reach provider: {type(exc).__name__}") from exc
 
     if provider_type == "anthropic":
         # Anthropic has no model-list endpoint; make a minimal test call
@@ -547,9 +547,9 @@ async def check_provider_connection(
             if exc.response.status_code == 401:
                 raise httpx.HTTPError("Invalid API key") from exc
             # Other errors (e.g. invalid model) still mean connectivity works
-            raise httpx.HTTPError(f"Cannot reach Anthropic at {provider_url}: {exc}") from exc
+            raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
         except httpx.HTTPError as exc:
-            raise httpx.HTTPError(f"Cannot reach Anthropic at {provider_url}: {exc}") from exc
+            raise httpx.HTTPError(f"Cannot reach Anthropic: {type(exc).__name__}") from exc
 
     # Default: Ollama
     url = f"{provider_url.rstrip('/')}/api/tags"
@@ -561,7 +561,7 @@ async def check_provider_connection(
         model_found = any(model in m for m in available) if model else False
         return {"ok": True, "available_models": available[:20], "model_found": model_found}
     except httpx.HTTPError as exc:
-        raise httpx.HTTPError(f"Cannot reach Ollama at {provider_url}: {exc}") from exc
+        raise httpx.HTTPError(f"Cannot reach Ollama: {type(exc).__name__}") from exc
 
 
 # ---------------------------------------------------------------------------
