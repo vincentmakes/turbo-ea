@@ -23,6 +23,9 @@ interface SsoSettings {
   tenant_id: string;
   domain: string;
   issuer_url: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
 }
 
 const SSO_PROVIDERS = [
@@ -69,6 +72,9 @@ export default function AuthAdmin() {
   const [ssoTenantId, setSsoTenantId] = useState("organizations");
   const [ssoDomain, setSsoDomain] = useState("");
   const [ssoIssuerUrl, setSsoIssuerUrl] = useState("");
+  const [ssoAuthEndpoint, setSsoAuthEndpoint] = useState("");
+  const [ssoTokenEndpoint, setSsoTokenEndpoint] = useState("");
+  const [ssoJwksUri, setSsoJwksUri] = useState("");
   const [savingSso, setSavingSso] = useState(false);
 
   useEffect(() => {
@@ -84,6 +90,9 @@ export default function AuthAdmin() {
         setSsoTenantId(ssoData.tenant_id);
         setSsoDomain(ssoData.domain || "");
         setSsoIssuerUrl(ssoData.issuer_url || "");
+        setSsoAuthEndpoint(ssoData.authorization_endpoint || "");
+        setSsoTokenEndpoint(ssoData.token_endpoint || "");
+        setSsoJwksUri(ssoData.jwks_uri || "");
         setRegistrationEnabled(regData.enabled);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
@@ -120,6 +129,9 @@ export default function AuthAdmin() {
         tenant_id: ssoTenantId,
         domain: ssoDomain,
         issuer_url: ssoIssuerUrl,
+        authorization_endpoint: ssoAuthEndpoint,
+        token_endpoint: ssoTokenEndpoint,
+        jwks_uri: ssoJwksUri,
       });
       setSnack(t("settings.sso.savedSuccess"));
     } catch (e) {
@@ -295,15 +307,53 @@ export default function AuthAdmin() {
 
             {/* Generic OIDC: Issuer URL */}
             {ssoProvider === "oidc" && (
-              <TextField
-                label={t("settings.sso.issuerUrl")}
-                fullWidth
-                value={ssoIssuerUrl}
-                onChange={(e) => setSsoIssuerUrl(e.target.value)}
-                placeholder="https://auth.example.com/realms/myapp"
-                helperText={t("settings.sso.issuerUrlHelper")}
-                sx={{ mb: 2 }}
-              />
+              <>
+                <TextField
+                  label={t("settings.sso.issuerUrl")}
+                  fullWidth
+                  value={ssoIssuerUrl}
+                  onChange={(e) => setSsoIssuerUrl(e.target.value)}
+                  placeholder="https://auth.example.com/realms/myapp"
+                  helperText={t("settings.sso.issuerUrlHelper")}
+                  sx={{ mb: 2 }}
+                />
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1.5, mt: 1 }}
+                >
+                  {t("settings.sso.manualEndpointsLabel")}
+                </Typography>
+
+                <TextField
+                  label={t("settings.sso.authorizationEndpoint")}
+                  fullWidth
+                  value={ssoAuthEndpoint}
+                  onChange={(e) => setSsoAuthEndpoint(e.target.value)}
+                  placeholder="https://auth.example.com/realms/myapp/protocol/openid-connect/auth"
+                  helperText={t("settings.sso.authorizationEndpointHelper")}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  label={t("settings.sso.tokenEndpoint")}
+                  fullWidth
+                  value={ssoTokenEndpoint}
+                  onChange={(e) => setSsoTokenEndpoint(e.target.value)}
+                  placeholder="https://auth.example.com/realms/myapp/protocol/openid-connect/token"
+                  helperText={t("settings.sso.tokenEndpointHelper")}
+                  sx={{ mb: 2 }}
+                />
+                <TextField
+                  label={t("settings.sso.jwksUri")}
+                  fullWidth
+                  value={ssoJwksUri}
+                  onChange={(e) => setSsoJwksUri(e.target.value)}
+                  placeholder="https://auth.example.com/realms/myapp/protocol/openid-connect/certs"
+                  helperText={t("settings.sso.jwksUriHelper")}
+                  sx={{ mb: 2 }}
+                />
+              </>
             )}
 
             {/* Redirect URI info */}

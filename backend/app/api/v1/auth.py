@@ -29,34 +29,44 @@ logger = logging.getLogger(__name__)
 AUTH_COOKIE = "access_token"
 
 
-def _set_auth_cookie(response: Response, token: str) -> None:
+def _is_secure_request(request: Request) -> bool:
+    """Detect whether the original client connection used HTTPS.
+
+    Checks X-Forwarded-Proto (set by reverse proxies / TLS terminators)
+    and falls back to the request URL scheme. This avoids hardcoding
+    Secure=True for 'production' environments that run behind plain HTTP
+    (e.g. local-network deployments without TLS).
+    """
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    return forwarded_proto == "https" or request.url.scheme == "https"
+
+
+def _set_auth_cookie(response: Response, token: str, *, secure: bool) -> None:
     """Set an httpOnly cookie carrying the JWT.
 
     - httponly: prevents JS from reading the token (XSS-safe)
     - samesite "lax": sent on same-site navigations, blocked cross-site
-    - secure: only over HTTPS (disabled in development for http://localhost)
+    - secure: only over HTTPS (auto-detected from the request)
     - path restricted to /api so the cookie isn't sent for static assets
     """
-    is_prod = settings.ENVIRONMENT != "development"
     response.set_cookie(
         key=AUTH_COOKIE,
         value=token,
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=secure,
         path="/api",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
 
-def _clear_auth_cookie(response: Response) -> None:
+def _clear_auth_cookie(response: Response, *, secure: bool) -> None:
     """Delete the auth cookie."""
-    is_prod = settings.ENVIRONMENT != "development"
     response.delete_cookie(
         key=AUTH_COOKIE,
         httponly=True,
         samesite="lax",
-        secure=is_prod,
+        secure=secure,
         path="/api",
     )
 
@@ -157,17 +167,21 @@ def _get_provider_config(sso: dict) -> dict:
     elif provider == "oidc":
         if not issuer_url:
             raise ValueError("Issuer URL is required for Generic OIDC")
-        # For OIDC, we return partial config; the discovery document
-        # fills in the actual endpoints at callback time.
+        # Use manually-configured endpoints if provided; otherwise
+        # flag that auto-discovery is required.
+        manual_auth = sso.get("authorization_endpoint", "")
+        manual_token = sso.get("token_endpoint", "")
+        manual_jwks = sso.get("jwks_uri", "")
+        has_manual_endpoints = bool(manual_auth and manual_token and manual_jwks)
         return {
-            "authorization_endpoint": "",  # filled from discovery
-            "token_endpoint": "",  # filled from discovery
-            "jwks_uri": "",  # filled from discovery
+            "authorization_endpoint": manual_auth,
+            "token_endpoint": manual_token,
+            "jwks_uri": manual_jwks,
             "issuer": issuer_url.rstrip("/"),
             "scopes": "openid email profile",
             "extra_auth_params": {},
             "subject_claim": "sub",
-            "discovery_required": True,
+            "discovery_required": not has_manual_endpoints,
         }
     else:
         raise ValueError(f"Unknown SSO provider: {provider}")
@@ -235,7 +249,7 @@ async def register(
     await db.commit()
     await db.refresh(user)
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -283,7 +297,7 @@ async def login(
     await db.commit()
 
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -308,6 +322,7 @@ async def me(user: User = Depends(get_current_user), db: AsyncSession = Depends(
 # ── H3: Token refresh endpoint ──
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
+    request: Request,
     response: Response,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -316,7 +331,7 @@ async def refresh_token(
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
@@ -360,11 +375,18 @@ async def sso_config_endpoint(db: AsyncSession = Depends(get_db)):
     # For Generic OIDC, fetch discovery document to get the authorization endpoint
     if provider_cfg.get("discovery_required"):
         issuer_url = sso.get("issuer_url", "")
+        discovery_url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
         try:
             discovery = await _discover_oidc(issuer_url)
             auth_endpoint = discovery["authorization_endpoint"]
         except Exception:
-            logger.exception("Failed to fetch OIDC discovery document")
+            logger.exception(
+                "Failed to fetch OIDC discovery document from %s. "
+                "Ensure the backend container can reach this URL, or configure "
+                "manual endpoints (authorization_endpoint, token_endpoint, jwks_uri) "
+                "in SSO settings.",
+                discovery_url,
+            )
             return {"enabled": False, "registration_enabled": registration_enabled}
 
     result = {
@@ -504,7 +526,7 @@ async def sso_callback(
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
         tk = create_access_token(user.id, user.role)
-        _set_auth_cookie(response, tk)
+        _set_auth_cookie(response, tk, secure=_is_secure_request(request))
         return TokenResponse(access_token=tk)
 
     # ── M11: Don't auto-merge local accounts with SSO ──
@@ -527,7 +549,7 @@ async def sso_callback(
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
         tk = create_access_token(user.id, user.role)
-        _set_auth_cookie(response, tk)
+        _set_auth_cookie(response, tk, secure=_is_secure_request(request))
         return TokenResponse(access_token=tk)
 
     # New user — check for an invitation to determine the role
@@ -553,7 +575,7 @@ async def sso_callback(
     await db.refresh(user)
 
     tk = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, tk)
+    _set_auth_cookie(response, tk, secure=_is_secure_request(request))
     return TokenResponse(access_token=tk)
 
 
@@ -579,7 +601,10 @@ async def validate_setup_token(token: str, db: AsyncSession = Depends(get_db)):
 
 @router.post("/set-password", response_model=TokenResponse)
 async def set_password(
-    response: Response, body: SetPasswordRequest, db: AsyncSession = Depends(get_db)
+    request: Request,
+    response: Response,
+    body: SetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
 ):
     """Set a password for an invited user using a one-time setup token."""
     from app.schemas.auth import _validate_password_strength
@@ -606,14 +631,14 @@ async def set_password(
     await db.commit()
 
     token = create_access_token(user.id, user.role)
-    _set_auth_cookie(response, token)
+    _set_auth_cookie(response, token, secure=_is_secure_request(request))
     return TokenResponse(access_token=token)
 
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
     """Clear the auth cookie."""
-    _clear_auth_cookie(response)
+    _clear_auth_cookie(response, secure=_is_secure_request(request))
     return {"ok": True}
 
 
