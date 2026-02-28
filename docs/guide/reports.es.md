@@ -52,6 +52,8 @@ El **Informe de Dependencias** visualiza las **conexiones entre componentes** co
 
 ## Informe de Costos
 
+![Informe de Costos](../assets/img/es/34_informe_costos.png)
+
 El **Informe de Costos** proporciona un análisis financiero de su panorama tecnológico:
 
 - **Vista de mapa de árbol** — Rectángulos anidados dimensionados por costo, con agrupación opcional (por ejemplo, por organización o capacidad)
@@ -59,6 +61,8 @@ El **Informe de Costos** proporciona un análisis financiero de su panorama tecn
 - **Agregación** — Los costos pueden sumarse desde fichas relacionadas usando campos calculados
 
 ## Informe de Matriz
+
+![Informe de Matriz](../assets/img/es/35_informe_matriz.png)
 
 El **Informe de Matriz** crea una **cuadrícula de referencias cruzadas** entre dos tipos de fichas. Por ejemplo:
 
@@ -70,6 +74,8 @@ Esto es útil para identificar brechas de cobertura (capacidades sin aplicacione
 
 ## Informe de Calidad de Datos
 
+![Informe de Calidad de Datos](../assets/img/es/33_informe_calidad_datos.png)
+
 El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qué tan bien están completados los datos de su arquitectura. Basado en los pesos de campos configurados en el metamodelo:
 
 - **Puntuación general** — Calidad de datos promedio en todas las fichas
@@ -78,11 +84,19 @@ El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qu
 
 ## Informe de Fin de Vida (EOL)
 
+![Informe de Fin de Vida](../assets/img/es/32_informe_eol.png)
+
 El **Informe de EOL** muestra el estado de soporte de los productos tecnológicos vinculados a través de la función de [Administración de EOL](../admin/eol.es.md):
 
 - **Distribución de estados** — Cuántos productos tienen Soporte, se Acercan a EOL o están en Fin de Vida
 - **Línea temporal** — Cuándo los productos perderán soporte
 - **Priorización de riesgos** — Enfóquese en componentes de misión crítica que se acercan a EOL
+
+## Informes Guardados
+
+![Galería de Informes Guardados](../assets/img/es/36_informes_guardados.png)
+
+Guarde cualquier configuración de informe para acceso rápido. Los informes guardados incluyen una vista previa en miniatura y pueden compartirse en toda la organización.
 
 ## Mapa de Procesos
 

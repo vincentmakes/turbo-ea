@@ -1,5 +1,7 @@
 # Autenticación y SSO
 
+![Configuración de Autenticación y SSO](../assets/img/es/25_admin_config_autenticacion.png)
+
 La pestaña **Autenticación** en Configuración permite a los administradores configurar cómo los usuarios inician sesión en la plataforma.
 
 #### Auto-registro

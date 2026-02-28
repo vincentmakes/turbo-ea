@@ -1,5 +1,7 @@
 # Authentication & SSO
 
+![Authentication & SSO Settings](../assets/img/en/25_admin_settings_auth.png)
+
 The **Authentication** tab in Settings allows administrators to configure how users sign in to the platform.
 
 #### Self-Registration

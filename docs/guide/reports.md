@@ -52,6 +52,8 @@ The **Dependencies Report** visualizes **connections between components** as a n
 
 ## Cost Report
 
+![Cost Report](../assets/img/en/34_report_cost.png)
+
 The **Cost Report** provides financial analysis of your technology landscape:
 
 - **Treemap view** — Nested rectangles sized by cost, with optional grouping (e.g., by organization or capability)
@@ -59,6 +61,8 @@ The **Cost Report** provides financial analysis of your technology landscape:
 - **Aggregation** — Costs can be summed from related cards using calculated fields
 
 ## Matrix Report
+
+![Matrix Report](../assets/img/en/35_report_matrix.png)
 
 The **Matrix Report** creates a **cross-reference grid** between two card types. For example:
 
@@ -70,6 +74,8 @@ This is useful for identifying coverage gaps (capabilities with no supporting ap
 
 ## Data Quality Report
 
+![Data Quality Report](../assets/img/en/33_report_data_quality.png)
+
 The **Data Quality Report** is a **completeness dashboard** that shows how well your architecture data is filled in. Based on field weights configured in the metamodel:
 
 - **Overall score** — Average data quality across all cards
@@ -78,11 +84,19 @@ The **Data Quality Report** is a **completeness dashboard** that shows how well 
 
 ## End of Life (EOL) Report
 
+![End of Life Report](../assets/img/en/32_report_eol.png)
+
 The **EOL Report** shows the support status of technology products linked via the [EOL Administration](../admin/eol.md) feature:
 
 - **Status distribution** — How many products are Supported, Approaching EOL, or End of Life
 - **Timeline** — When products will lose support
 - **Risk prioritization** — Focus on mission-critical components approaching EOL
+
+## Saved Reports
+
+![Saved Reports Gallery](../assets/img/en/36_saved_reports.png)
+
+Save any report configuration for quick access later. Saved reports include a thumbnail preview and can be shared across the organization.
 
 ## Process Map
 
