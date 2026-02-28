@@ -1,5 +1,7 @@
 # AI Description Suggestions
 
+![AI Suggestion Settings](../assets/img/en/26_admin_settings_ai.png)
+
 Turbo EA can generate card descriptions automatically using a combination of **web search** and a **Large Language Model (LLM)**. When a user clicks the AI suggest button on a card, the system searches the web for relevant information about the component, then uses an LLM to produce a concise, type-aware description — complete with a confidence score and clickable source links.
 
 This feature is **optional** and **fully admin-controlled**. It can run entirely on your own infrastructure using a local Ollama instance, or connect to commercial LLM providers.
@@ -115,6 +117,8 @@ For Ollama, the admin UI shows all models currently downloaded on the Ollama ins
 ---
 
 ## Using AI Suggestions
+
+![AI Suggestion Panel on Card Detail](../assets/img/en/27_ai_suggest_panel.png)
 
 Once configured by an admin, users with the `ai.suggest` permission (granted to Admin, BPM Admin, and Member roles by default) will see a sparkle button on card detail pages and in the create card dialog.
 

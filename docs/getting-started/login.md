@@ -2,6 +2,8 @@
 
 ### Logging In
 
+![Login Screen](../assets/img/en/24_login.png)
+
 When accessing the platform, the login screen is displayed where you must enter your email address and password.
 
 **Steps to log in:**

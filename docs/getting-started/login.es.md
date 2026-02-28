@@ -2,6 +2,8 @@
 
 ### Inicio de Sesión
 
+![Pantalla de Inicio de Sesión](../assets/img/es/24_inicio_sesion.png)
+
 Al acceder a la plataforma, se muestra la pantalla de inicio de sesión donde debe ingresar su correo electrónico y contraseña.
 
 **Pasos para iniciar sesión:**

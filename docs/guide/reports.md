@@ -28,10 +28,36 @@ The **Lifecycle Report** shows the temporal state of technology components. It i
 
 The **Dependencies Report** visualizes **connections between components**. Fundamental for impact analysis, identifying critical points, planning migrations, and reducing risks.
 
-## Other Available Reports
+## Cost Report
 
-- **Cost Report**: Analysis of licensing, maintenance, and operation costs
-- **Matrix Report**: Cross-view comparing two dimensions of the architecture
-- **Data Quality**: Shows which cards have incomplete information
+![Cost Report](../assets/img/en/34_report_cost.png)
+
+The **Cost Report** analyzes **licensing, maintenance, and operation costs** across the architecture. View cost distribution by type, category, or organizational unit with treemap and bar chart visualizations.
+
+## Matrix Report
+
+![Matrix Report](../assets/img/en/35_report_matrix.png)
+
+The **Matrix Report** provides a **cross-reference grid** comparing two dimensions of the architecture. Useful for identifying coverage gaps, redundancies, and relationships between different architecture layers.
+
+## Data Quality
+
+![Data Quality Report](../assets/img/en/33_report_data_quality.png)
+
+The **Data Quality Report** shows which cards have **incomplete information**, helping identify gaps in documentation and prioritize data entry efforts.
+
+## End of Life (EOL)
+
+![End of Life Report](../assets/img/en/32_report_eol.png)
+
+The **End of Life (EOL) Report** tracks **end-of-support dates** for technology products, helping plan migrations and avoid unsupported components.
+
+## Saved Reports
+
+![Saved Reports Gallery](../assets/img/en/36_saved_reports.png)
+
+Save any report configuration for quick access later. Saved reports include a thumbnail preview and can be shared across the organization.
+
+## Other Reports
+
 - **Process Map**: Visualization of the business process chain
-- **End of Life (EOL)**: End-of-support dates for technology products

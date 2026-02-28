@@ -1,5 +1,7 @@
 # Sugerencias de Descripción con IA
 
+![Configuración de Sugerencias IA](../assets/img/es/26_admin_config_ia.png)
+
 Turbo EA puede generar descripciones de fichas automáticamente usando una combinación de **búsqueda web** y un **Modelo de Lenguaje Grande (LLM)**. Cuando un usuario hace clic en el botón de sugerencia IA en una ficha, el sistema busca en la web información relevante sobre el componente, y luego utiliza un LLM para producir una descripción concisa y adaptada al tipo — con una puntuación de confianza y enlaces a las fuentes.
 
 Esta funcionalidad es **opcional** y está **completamente controlada por el administrador**. Puede ejecutarse completamente en su propia infraestructura usando una instancia local de Ollama, o conectarse a proveedores comerciales de LLM.
@@ -115,6 +117,8 @@ Para Ollama, la interfaz de administración muestra todos los modelos descargado
 ---
 
 ## Uso de las Sugerencias de IA
+
+![Panel de Sugerencia IA en Detalle de Ficha](../assets/img/es/27_panel_sugerencia_ia.png)
 
 Una vez configurado por un administrador, los usuarios con el permiso `ai.suggest` (otorgado a los roles Admin, BPM Admin y Miembro por defecto) verán un botón con un destello en las páginas de detalle de fichas y en el diálogo de creación de fichas.
 

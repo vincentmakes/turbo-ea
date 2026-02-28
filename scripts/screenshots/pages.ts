@@ -351,6 +351,211 @@ export const DOC_PAGES: PageDef[] = [
       es: "23_inventario_filtros",
     },
   },
+
+  // ── Login Page ──────────────────────────────────────────────────────────
+  {
+    id: "24_login",
+    route: "/login",
+    waitFor: "form, [class*='Login'], .MuiPaper-root",
+    actions: [{ type: "wait", ms: 400 }],
+    filenames: {
+      en: "24_login",
+      es: "24_inicio_sesion",
+    },
+  },
+
+  // ── Admin Settings: Authentication / SSO ────────────────────────────────
+  {
+    id: "25_admin_settings_auth",
+    route: "/admin/settings?tab=authentication",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "25_admin_settings_auth",
+      es: "25_admin_config_autenticacion",
+    },
+  },
+
+  // ── Admin Settings: AI Suggestions ──────────────────────────────────────
+  {
+    id: "26_admin_settings_ai",
+    route: "/admin/settings?tab=ai",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "26_admin_settings_ai",
+      es: "26_admin_config_ia",
+    },
+  },
+
+  // ── AI Suggest Panel on Card Detail ─────────────────────────────────────
+  {
+    id: "27_ai_suggest_panel",
+    route: "/cards/{{cardId:sampleApp}}",
+    waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
+    actions: [
+      { type: "wait", ms: 400 },
+      // Click the AI suggest sparkle button
+      { type: "click", selector: "button[aria-label*='AI'], button[aria-label*='suggest'], button:has(.material-symbols-outlined:has-text('auto_awesome')), [data-testid='ai-suggest-btn']" },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "27_ai_suggest_panel",
+      es: "27_panel_sugerencia_ia",
+    },
+  },
+
+  // ── Admin Settings: General ─────────────────────────────────────────────
+  {
+    id: "28_admin_settings_general",
+    route: "/admin/settings?tab=general",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "28_admin_settings_general",
+      es: "28_admin_config_general",
+    },
+  },
+
+  // ── Admin Settings: EOL ─────────────────────────────────────────────────
+  {
+    id: "29_admin_settings_eol",
+    route: "/admin/settings?tab=eol",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "29_admin_settings_eol",
+      es: "29_admin_config_eol",
+    },
+  },
+
+  // ── Admin Settings: Web Portals ─────────────────────────────────────────
+  {
+    id: "30_admin_settings_web_portals",
+    route: "/admin/settings?tab=web-portals",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "30_admin_settings_web_portals",
+      es: "30_admin_config_portales_web",
+    },
+  },
+
+  // ── Admin Settings: ServiceNow ──────────────────────────────────────────
+  {
+    id: "31_admin_settings_servicenow",
+    route: "/admin/settings?tab=servicenow",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "31_admin_settings_servicenow",
+      es: "31_admin_config_servicenow",
+    },
+  },
+
+  // ── EOL Report ──────────────────────────────────────────────────────────
+  {
+    id: "32_report_eol",
+    route: "/reports/eol",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "32_report_eol",
+      es: "32_informe_eol",
+    },
+  },
+
+  // ── Data Quality Report ─────────────────────────────────────────────────
+  {
+    id: "33_report_data_quality",
+    route: "/reports/data-quality",
+    waitFor: ".MuiPaper-root, .recharts-responsive-container",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "33_report_data_quality",
+      es: "33_informe_calidad_datos",
+    },
+  },
+
+  // ── Cost Report ─────────────────────────────────────────────────────────
+  {
+    id: "34_report_cost",
+    route: "/reports/cost",
+    waitFor: ".recharts-responsive-container, [class*='Cost']",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "34_report_cost",
+      es: "34_informe_costos",
+    },
+  },
+
+  // ── Matrix Report ───────────────────────────────────────────────────────
+  {
+    id: "35_report_matrix",
+    route: "/reports/matrix",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "35_report_matrix",
+      es: "35_informe_matriz",
+    },
+  },
+
+  // ── Saved Reports ───────────────────────────────────────────────────────
+  {
+    id: "36_saved_reports",
+    route: "/reports/saved",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "36_saved_reports",
+      es: "36_informes_guardados",
+    },
+  },
+
+  // ── Admin Surveys ───────────────────────────────────────────────────────
+  {
+    id: "37_admin_surveys",
+    route: "/admin/surveys",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 600 }],
+    filenames: {
+      en: "37_admin_surveys",
+      es: "37_admin_encuestas",
+    },
+  },
+
+  // ── Metamodel Graph ─────────────────────────────────────────────────────
+  {
+    id: "38_metamodel_graph",
+    route: "/admin/metamodel",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: "button:has-text('Metamodel Graph'), [role='tab']:has-text('Metamodel Graph'), [role='tab']:has-text('Grafo')" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "38_metamodel_graph",
+      es: "38_grafo_metamodelo",
+    },
+  },
+
+  // ── Roles Admin ─────────────────────────────────────────────────────────
+  {
+    id: "39_admin_roles",
+    route: "/admin/users",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: "button:has-text('Roles'), [role='tab']:has-text('Roles')" },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "39_admin_roles",
+      es: "39_admin_roles",
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
