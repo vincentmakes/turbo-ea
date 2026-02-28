@@ -232,9 +232,7 @@ async def lifespan(app: FastAPI):
         # Stamp in a separate connection so Alembic can manage its own
         # transaction (avoids SAVEPOINT deadlock through greenlet bridge).
         async with engine.connect() as conn:
-            await conn.run_sync(
-                lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
-            )
+            await conn.run_sync(lambda sc: _alembic_stamp_sync(sc, alembic_cfg))
         logger.info("[startup] RESET_DB complete")
     else:
         # Determine DB state before touching anything
@@ -250,7 +248,8 @@ async def lifespan(app: FastAPI):
 
         logger.info(
             "[startup] has_alembic=%s, alembic_version=%s",
-            has_alembic, alembic_version,
+            has_alembic,
+            alembic_version,
         )
 
         if not has_alembic or alembic_version is None:
@@ -260,9 +259,7 @@ async def lifespan(app: FastAPI):
                 await conn.run_sync(Base.metadata.create_all)
             logger.info("[startup] create_all done, stamping head...")
             async with engine.connect() as conn:
-                await conn.run_sync(
-                    lambda sc: _alembic_stamp_sync(sc, alembic_cfg)
-                )
+                await conn.run_sync(lambda sc: _alembic_stamp_sync(sc, alembic_cfg))
             logger.info("[startup] Stamp complete")
         else:
             # Existing DB: run migrations, then create_all for new tables.
@@ -279,13 +276,12 @@ async def lifespan(app: FastAPI):
             else:
                 logger.info(
                     "[startup] Upgrading from %s to %s...",
-                    alembic_version, head_rev,
+                    alembic_version,
+                    head_rev,
                 )
                 try:
                     async with engine.connect() as conn:
-                        await conn.run_sync(
-                            lambda sc: _alembic_upgrade_sync(sc, alembic_cfg)
-                        )
+                        await conn.run_sync(lambda sc: _alembic_upgrade_sync(sc, alembic_cfg))
                 except Exception:
                     logger.exception("Alembic migration failed")
                     raise
