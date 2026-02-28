@@ -1,6 +1,6 @@
 # Acceso a la Plataforma
 
-### Inicio de Sesión
+## Inicio de Sesión
 
 Al acceder a la plataforma, se muestra la pantalla de inicio de sesión donde debe ingresar su correo electrónico y contraseña.
 
@@ -13,9 +13,9 @@ Al acceder a la plataforma, se muestra la pantalla de inicio de sesión donde de
 
 **Nota importante:** El primer usuario que se registre en la plataforma recibirá automáticamente el rol de **Administrador**, lo que le permite configurar todo el sistema.
 
-### Inicio de Sesión con SSO (Single Sign-On)
+## Inicio de Sesión con SSO (Single Sign-On)
 
-Si su organización ha configurado SSO, aparecerá un botón **Iniciar sesión con [Proveedor]** en la página de inicio de sesión debajo del formulario de contraseña. La etiqueta del botón muestra el nombre del proveedor configurado (por ejemplo, "Iniciar sesión con Microsoft", "Iniciar sesión con Okta", "Iniciar sesión con SSO").
+Si su organización ha configurado SSO, aparecerá un botón **Iniciar sesión con [Proveedor]** en la página de inicio de sesión debajo del formulario de contraseña. La etiqueta del botón muestra el nombre del proveedor configurado (por ejemplo, «Iniciar sesión con Microsoft», «Iniciar sesión con Okta», «Iniciar sesión con SSO»).
 
 **Pasos para iniciar sesión con SSO:**
 
@@ -26,18 +26,26 @@ Si su organización ha configurado SSO, aparecerá un botón **Iniciar sesión c
 5. Después de la autenticación exitosa, será redirigido de vuelta a Turbo EA e iniciará sesión automáticamente
 
 **Notas:**
+
 - Si su cuenta aún no existe en Turbo EA, se creará automáticamente en el primer inicio de sesión con SSO (si el auto-registro está habilitado) o se vinculará a una invitación previamente creada
 - Si un administrador ya lo ha invitado por correo electrónico, su inicio de sesión con SSO se vinculará a esa cuenta y heredará el rol preasignado
-- Los usuarios de SSO pueden tener una contraseña local como respaldo, si lo configura el administrador
+- Los usuarios de SSO pueden tener una contraseña local configurada como respaldo, si lo configura el administrador
 
-### Registro de Nuevos Usuarios
+## Registro de Nuevos Usuarios
 
-Si es la primera vez que accede a la plataforma, puede registrarse haciendo clic en "Registrarse". Los administradores también pueden invitar usuarios desde el panel de administración (consulte [Usuarios y Roles](../admin/users.md)).
+Si es la primera vez que accede a la plataforma, puede registrarse haciendo clic en «Registrarse». Los administradores también pueden invitar usuarios desde el panel de administración (consulte [Usuarios y Roles](../admin/users.es.md)).
 
-### Cambio de Idioma
+## Cambio de Idioma
 
-La plataforma soporta múltiples idiomas. Para cambiar el idioma:
+La plataforma soporta siete idiomas. Para cambiar el idioma:
 
 1. Haga clic en su icono de perfil (esquina superior derecha)
 2. Seleccione **Idioma**
-3. Elija el idioma deseado (Español, English, Français, Deutsch, Italiano, Português, Chinese)
+3. Elija el idioma deseado:
+   - English
+   - Español
+   - Français
+   - Deutsch
+   - Italiano
+   - Português
+   - 中文 (Chinese)

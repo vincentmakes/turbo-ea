@@ -68,3 +68,11 @@ La pestaña **Roles** permite gestionar los roles a nivel de aplicación. Cada r
 | **Visor** | Acceso de solo lectura en todas las áreas |
 
 Se pueden crear roles personalizados con control granular de permisos sobre inventario, relaciones, partes interesadas, comentarios, documentos, diagramas, BPM, informes y más.
+
+#### Desactivar un Usuario
+
+Haga clic en el **icono de alternancia** en la columna de Acciones para activar o desactivar un usuario. Los usuarios desactivados:
+
+- No pueden iniciar sesión
+- Conservan sus datos (fichas, comentarios, historial) para fines de auditoría
+- Pueden ser reactivados en cualquier momento

@@ -56,7 +56,7 @@ The simplest way to get started. Turbo EA includes an optional Ollama container 
 **1. Start with the AI profile:**
 
 ```bash
-docker compose -f docker-compose.db.yml --profile ai up --build -d
+docker compose --profile ai up --build -d
 ```
 
 **2. Enable auto-configuration** by adding these variables to your `.env`:

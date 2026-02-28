@@ -1,6 +1,6 @@
 # Informes
 
-Turbo EA incluye un potente módulo de **informes visuales** que permite analizar la arquitectura empresarial desde diferentes perspectivas. Los informes están diseñados para facilitar la **toma de decisiones** por parte de los directivos.
+Turbo EA incluye un potente módulo de **informes visuales** que permite analizar la arquitectura empresarial desde diferentes perspectivas. Todos los informes pueden ser [guardados para reutilización](saved-reports.es.md) con su configuración actual de filtros y ejes.
 
 ![Menú de Informes Disponibles](../assets/img/es/09_menu_informes.png)
 
@@ -8,30 +8,82 @@ Turbo EA incluye un potente módulo de **informes visuales** que permite analiza
 
 ![Informe de Portafolio](../assets/img/es/10_informe_portafolio.png)
 
-El **Informe de Portafolio** proporciona una **visión general de todos los componentes de la arquitectura** agrupados por tipo. Es ideal para evaluar el tamaño del portafolio tecnológico, identificar áreas de concentración, comparar categorías y filtrar por diferentes criterios.
+El **Informe de Portafolio** muestra un **gráfico de burbujas** (o diagrama de dispersión) configurable de sus fichas. Usted elige qué representa cada eje:
+
+- **Eje X** — Seleccione cualquier campo numérico o de selección (por ejemplo, Idoneidad Técnica)
+- **Eje Y** — Seleccione cualquier campo numérico o de selección (por ejemplo, Criticidad de Negocio)
+- **Tamaño de burbuja** — Asigne a un campo numérico (por ejemplo, Costo Anual)
+- **Color de burbuja** — Asigne a un campo de selección o estado del ciclo de vida
+
+Esto es ideal para el análisis de portafolio — por ejemplo, representar aplicaciones por valor de negocio vs. aptitud técnica para identificar candidatos para inversión, reemplazo o retiro.
 
 ## Mapa de Capacidades
 
 ![Mapa de Capacidades de Negocio](../assets/img/es/11_mapa_capacidades.png)
 
-El **Mapa de Capacidades** muestra una vista jerárquica de las **capacidades de negocio** de la organización. Cada bloque representa una capacidad de negocio, los colores pueden indicar el nivel de madurez o estado, y la jerarquía muestra las capacidades principales y sus sub-capacidades.
+El **Mapa de Capacidades** muestra un **mapa de calor** jerárquico de las capacidades de negocio de la organización. Cada bloque representa una capacidad, con:
 
-## Ciclo de Vida
+- **Jerarquía** — Las capacidades principales contienen sus sub-capacidades
+- **Coloración por mapa de calor** — Los bloques se colorean según una métrica seleccionada (por ejemplo, número de aplicaciones que las soportan, calidad de datos promedio o nivel de riesgo)
+- **Clic para explorar** — Haga clic en cualquier capacidad para profundizar en sus detalles y aplicaciones de soporte
+
+## Informe de Ciclo de Vida
 
 ![Informe de Ciclo de Vida](../assets/img/es/12_ciclo_vida.png)
 
-El **Informe de Ciclo de Vida** muestra el estado temporal de los componentes tecnológicos. Es crítico para la planificación de retiro, la gestión de obsolescencia y la planificación presupuestaria. Estados: **Activo**, **En Desarrollo**, **En Fase de Retiro**, **Retirado**.
+El **Informe de Ciclo de Vida** muestra una **visualización de línea temporal** de cuándo se introdujeron los componentes tecnológicos y cuándo está planificado su retiro. Es crítico para:
 
-## Dependencias
+- **Planificación de retiro** — Vea qué componentes se acercan al fin de vida
+- **Planificación de inversión** — Identifique brechas donde se necesita nueva tecnología
+- **Coordinación de migración** — Visualice períodos superpuestos de entrada y salida de fase
+
+Los componentes se muestran como barras horizontales que abarcan sus fases de ciclo de vida: Plan, Entrada en Fase, Activo, Salida de Fase y Fin de Vida.
+
+## Informe de Dependencias
 
 ![Informe de Dependencias](../assets/img/es/13_dependencias.png)
 
-El **Informe de Dependencias** visualiza las **conexiones entre componentes**. Fundamental para el análisis de impacto, la identificación de puntos críticos, la planificación de migraciones y la reducción de riesgos.
+El **Informe de Dependencias** visualiza las **conexiones entre componentes** como un grafo de red. Los nodos representan fichas y las aristas representan relaciones. Características:
 
-## Otros Informes Disponibles
+- **Control de profundidad** — Limite cuántos saltos desde el nodo central se muestran (limitación de profundidad BFS)
+- **Filtrado por tipo** — Muestre solo tipos de fichas y tipos de relaciones específicos
+- **Exploración interactiva** — Haga clic en cualquier nodo para recentrar el grafo en esa ficha
+- **Análisis de impacto** — Comprenda el radio de impacto de los cambios en un componente específico
 
-- **Informe de Costos**: Análisis de costos de licenciamiento, mantenimiento y operación
-- **Informe de Matriz**: Vista cruzada que compara dos dimensiones de la arquitectura
-- **Calidad de Datos**: Muestra qué fichas tienen información incompleta
-- **Mapa de Procesos**: Visualización de la cadena de procesos de negocio
-- **Fin de Vida (EOL)**: Fechas de fin de soporte de productos tecnológicos
+## Informe de Costos
+
+El **Informe de Costos** proporciona un análisis financiero de su panorama tecnológico:
+
+- **Vista de mapa de árbol** — Rectángulos anidados dimensionados por costo, con agrupación opcional (por ejemplo, por organización o capacidad)
+- **Vista de gráfico de barras** — Comparación de costos entre componentes
+- **Agregación** — Los costos pueden sumarse desde fichas relacionadas usando campos calculados
+
+## Informe de Matriz
+
+El **Informe de Matriz** crea una **cuadrícula de referencias cruzadas** entre dos tipos de fichas. Por ejemplo:
+
+- **Filas** — Aplicaciones
+- **Columnas** — Capacidades de Negocio
+- **Celdas** — Indican si existe una relación (y cuántas)
+
+Esto es útil para identificar brechas de cobertura (capacidades sin aplicaciones de soporte) o redundancias (capacidades soportadas por demasiadas aplicaciones).
+
+## Informe de Calidad de Datos
+
+El **Informe de Calidad de Datos** es un **panel de completitud** que muestra qué tan bien están completados los datos de su arquitectura. Basado en los pesos de campos configurados en el metamodelo:
+
+- **Puntuación general** — Calidad de datos promedio en todas las fichas
+- **Por tipo** — Desglose que muestra qué tipos de fichas tienen la mejor/peor completitud
+- **Fichas individuales** — Lista de fichas con la calidad de datos más baja, priorizadas para mejora
+
+## Informe de Fin de Vida (EOL)
+
+El **Informe de EOL** muestra el estado de soporte de los productos tecnológicos vinculados a través de la función de [Administración de EOL](../admin/eol.es.md):
+
+- **Distribución de estados** — Cuántos productos tienen Soporte, se Acercan a EOL o están en Fin de Vida
+- **Línea temporal** — Cuándo los productos perderán soporte
+- **Priorización de riesgos** — Enfóquese en componentes de misión crítica que se acercan a EOL
+
+## Mapa de Procesos
+
+El **Mapa de Procesos** visualiza el panorama de procesos de negocio de la organización como un mapa estructurado, mostrando las categorías de procesos (Gestión, Principal, Soporte) y sus relaciones jerárquicas.

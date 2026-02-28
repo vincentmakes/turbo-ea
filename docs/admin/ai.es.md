@@ -56,7 +56,7 @@ La forma más sencilla de empezar. Turbo EA incluye un contenedor opcional de Ol
 **1. Inicie con el perfil de IA:**
 
 ```bash
-docker compose -f docker-compose.db.yml --profile ai up --build -d
+docker compose --profile ai up --build -d
 ```
 
 **2. Habilite la auto-configuración** agregando estas variables a su `.env`:

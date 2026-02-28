@@ -68,3 +68,11 @@ The **Roles** tab allows managing application-level roles. Each role defines a s
 | **Viewer** | Read-only access across all areas |
 
 Custom roles can be created with granular permission control over inventory, relations, stakeholders, comments, documents, diagrams, BPM, reports, and more.
+
+#### Deactivating a User
+
+Click the **toggle icon** in the Actions column to activate or deactivate a user. Deactivated users:
+
+- Cannot log in
+- Retain their data (cards, comments, history) for audit purposes
+- Can be reactivated at any time

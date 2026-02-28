@@ -109,16 +109,25 @@ nav:
       - Inventory: guide/inventory.md
       - Card Details: guide/card-details.md
       - Reports: guide/reports.md
+      - Saved Reports: guide/saved-reports.md
       - BPM: guide/bpm.md
       - Diagrams: guide/diagrams.md
       - EA Delivery: guide/delivery.md
       - Tasks & Surveys: guide/tasks.md
+      - Notifications: guide/notifications.md
   - Administration:
       - admin/index.md
+      - General Settings: admin/settings.md
       - Metamodel: admin/metamodel.md
+      - Calculations: admin/calculations.md
+      - Tags: admin/tags.md
       - Users & Roles: admin/users.md
       - Authentication & SSO: admin/sso.md
       - AI Suggestions: admin/ai.md
+      - End-of-Life (EOL): admin/eol.md
+      - Surveys: admin/surveys.md
+      - Web Portals: admin/web-portals.md
+      - ServiceNow Integration: admin/servicenow.md
   - Reference:
       - Glossary: reference/glossary.md
 
