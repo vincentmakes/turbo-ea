@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.23.2] - 2026-02-28
+
+### Added
+- MCP Integration admin documentation page with full setup guide, tool reference, security details, and troubleshooting (all 7 locales)
+- MCP Server section in README with feature description and project structure entry
+- MCP glossary term added to all 7 locale glossaries
+- Navigation entry for MCP Integration in mkdocs.yml with translated labels for all 6 non-English locales
+
+### Fixed
+- Frontend nginx crash on startup when MCP server is not running — deferred DNS resolution to request time so missing upstream returns 502 instead of crashing
+
 ## [0.23.1] - 2026-02-28
 
 ### Fixed

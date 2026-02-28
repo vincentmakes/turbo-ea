@@ -69,6 +69,7 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 > If you are interested, please check the discussions or raise an issue.
 
 - **SSO / Single Sign-On** — Support for multiple identity providers: **Microsoft Entra ID**, **Google Workspace**, **Okta**, and any **Generic OIDC** provider with automatic discovery document support. Provider-specific branded login buttons, Google hosted domain restriction, Okta domain configuration, manual OIDC endpoint configuration as fallback, and admin ability to link existing local accounts to SSO. Dedicated Authentication tab in admin settings.
+- **MCP Server (AI Tool Access)** — Built-in [Model Context Protocol](https://modelcontextprotocol.io/) server that lets AI tools (Claude Desktop, GitHub Copilot, Cursor, VS Code) query your EA data with per-user RBAC. Users authenticate via SSO — no shared service accounts. The MCP server is read-only (8 tools for searching cards, exploring relations, browsing the metamodel, and viewing dashboards). Activate with `docker compose --profile mcp up -d` and toggle on in admin settings. Also supports a local stdio mode for testing without SSO.
 - **ServiceNow Integration** — Bidirectional sync with ServiceNow CMDB. Connection management, field mapping with transform rules, direction control (Turbo EA → SNOW, SNOW → Turbo EA, or bidirectional), staged record review before applying, and encrypted credential storage.
 - **Web Portals** — Public, slug-based views of your EA landscape (no login required). Configurable card type display, field selection, card layout, per-portal logo toggle, and relation-based filtering.
 - **OData Feeds** — Generate OData-compatible feeds from saved views and saved reports for consumption by external tools (Excel, Power BI, etc.).
@@ -402,6 +403,12 @@ turbo-ea/
 │   ├── nginx.conf           # Production reverse proxy config
 │   ├── package.json
 │   └── Dockerfile           # Multi-stage: node build → drawio clone → nginx
+│
+├── mcp-server/              # MCP server for AI tool integration
+│   ├── turbo_ea_mcp/        # Server implementation (FastMCP + OAuth 2.1)
+│   ├── tests/
+│   ├── pyproject.toml
+│   └── Dockerfile
 │
 ├── docker-compose.yml       # Backend + frontend only (external DB)
 ├── docker-compose.db.yml    # Full stack including PostgreSQL

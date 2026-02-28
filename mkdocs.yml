@@ -83,6 +83,7 @@ plugins:
             Users & Roles: Usuarios y roles
             Authentication & SSO: Autenticación y SSO
             AI Suggestions: Sugerencias de IA
+            MCP Integration: Integracion MCP
             End-of-Life (EOL): Fin de vida (EOL)
             Surveys: Encuestas
             Web Portals: Portales web
@@ -115,6 +116,7 @@ plugins:
             Users & Roles: Benutzer und Rollen
             Authentication & SSO: Authentifizierung und SSO
             AI Suggestions: KI-Vorschläge
+            MCP Integration: MCP-Integration
             End-of-Life (EOL): End-of-Life (EOL)
             Surveys: Umfragen
             Web Portals: Webportale
@@ -147,6 +149,7 @@ plugins:
             Users & Roles: Utilisateurs et rôles
             Authentication & SSO: Authentification et SSO
             AI Suggestions: Suggestions IA
+            MCP Integration: Integration MCP
             End-of-Life (EOL): Fin de vie (EOL)
             Surveys: Enquêtes
             Web Portals: Portails web
@@ -179,6 +182,7 @@ plugins:
             Users & Roles: Utenti e ruoli
             Authentication & SSO: Autenticazione e SSO
             AI Suggestions: Suggerimenti IA
+            MCP Integration: Integrazione MCP
             End-of-Life (EOL): Fine vita (EOL)
             Surveys: Sondaggi
             Web Portals: Portali web
@@ -211,6 +215,7 @@ plugins:
             Users & Roles: Usuários e papéis
             Authentication & SSO: Autenticação e SSO
             AI Suggestions: Sugestões de IA
+            MCP Integration: Integracao MCP
             End-of-Life (EOL): Fim de vida (EOL)
             Surveys: Pesquisas
             Web Portals: Portais web
@@ -243,6 +248,7 @@ plugins:
             Users & Roles: 用户与角色
             Authentication & SSO: 认证与 SSO
             AI Suggestions: AI 建议
+            MCP Integration: MCP 集成
             End-of-Life (EOL): 生命周期结束 (EOL)
             Surveys: 调查
             Web Portals: Web 门户
@@ -301,6 +307,7 @@ nav:
       - Users & Roles: admin/users.md
       - Authentication & SSO: admin/sso.md
       - AI Suggestions: admin/ai.md
+      - MCP Integration: admin/mcp.md
       - End-of-Life (EOL): admin/eol.md
       - Surveys: admin/surveys.md
       - Web Portals: admin/web-portals.md

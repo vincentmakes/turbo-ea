@@ -19,6 +19,7 @@
 | **项目** | 涉及架构变更的项目或计划 |
 | **生命周期** | 组件经历的五个阶段：规划、引入、活跃、淘汰、生命周期结束 |
 | **LLM** | 大型语言模型 —— 生成文本的 AI 模型（例如 Ollama、OpenAI、Anthropic Claude、Google Gemini） |
+| **MCP** | Model Context Protocol —— 一种开放标准，允许 AI 工具（Claude、Copilot、Cursor）连接到外部数据源。Turbo EA 的内置 MCP 服务器提供按用户 RBAC 的只读 EA 数据访问 |
 | **元模型** | 定义平台结构的数据驱动模型：卡片类型、字段、关系和角色 |
 | **通知** | 由系统事件触发的应用内或电子邮件提醒（待办分配、卡片更新、评论添加等） |
 | **Ollama** | 用于在本地硬件上运行 LLM 的开源工具 |
