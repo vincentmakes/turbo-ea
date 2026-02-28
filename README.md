@@ -1,9 +1,6 @@
 # Turbo EA
 
-
-**https://www.turbo-ea.org**
-
-Enterprise Architecture in practice : https://www.turbo-ea.org/blog
+Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.
 
 [![CI](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentmakes/turbo-ea/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,11 +8,7 @@ Enterprise Architecture in practice : https://www.turbo-ea.org/blog
 [![React 18](https://img.shields.io/badge/react-18-61DAFB.svg)](https://react.dev/)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20this%20project-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/vincentmakes)
 
-Self-hosted Enterprise Architecture Management platform that creates a **digital twin of your IT landscape**. Inspired by LeanIX, with a fully admin-configurable metamodel — card types, fields, subtypes, and relations are all data, not code.  
-
-[User Guide](https://docs.turbo-ea.org)  
-  
-[Business case / Slides Pitch](https://github.com/vincentmakes/turbo-ea/blob/10b9a0409ae801c92581443b69b87fd337da7ead/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
+[Website](https://www.turbo-ea.org) | [User Guide](https://docs.turbo-ea.org) | [Blog](https://www.turbo-ea.org/blog) | [Business Case / Pitch](https://github.com/vincentmakes/turbo-ea/blob/10b9a0409ae801c92581443b69b87fd337da7ead/business%20case/turbo%20ea%20pitch%20business%20case.pdf)
 
 ![Dashboard](marketing-site/assets/screenshots/dashboard.png)
 
