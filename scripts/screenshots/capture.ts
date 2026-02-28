@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: Config = {
   baseUrl: process.env.BASE_URL || "http://localhost:8920",
   email: process.env.SCREENSHOT_EMAIL || "admin@turboea.local",
   password: process.env.SCREENSHOT_PASSWORD || "admin123",
-  locales: ["en", "es"],
+  locales: ["en", "de", "fr", "es", "it", "pt", "zh"],
   captureDocs: true,
   captureMarketing: false,
   only: [],
@@ -117,7 +117,7 @@ Options:
   --base-url <url>     App base URL (default: http://localhost:8920)
   --email <email>      Login email (default: admin@turboea.local)
   --password <pw>      Login password (default: admin123)
-  --locale <code>      Capture only this locale (default: en,es)
+  --locale <code>      Capture only this locale (default: all 7 supported)
   --marketing          Capture marketing screenshots
   --docs               Capture documentation screenshots (default)
   --all                Capture both docs and marketing
@@ -157,8 +157,8 @@ async function login(
   console.log(`  Logging in as ${config.email}...`);
 
   const resp = await page.request.post(`${config.baseUrl}/api/v1/auth/login`, {
-    form: {
-      username: config.email,
+    data: {
+      email: config.email,
       password: config.password,
     },
   });
