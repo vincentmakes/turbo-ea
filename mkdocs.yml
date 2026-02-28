@@ -1,0 +1,147 @@
+# =============================================================================
+# Turbo EA — User Manual (MkDocs Material + i18n)
+# =============================================================================
+# Docs:  https://squidfunk.github.io/mkdocs-material/
+# i18n:  https://github.com/ultrabug/mkdocs-static-i18n
+# =============================================================================
+
+site_name: Turbo EA — User Manual
+site_description: User manual for Turbo EA – Enterprise Architecture Management Platform
+site_url: https://docs.example.com  # TODO: Replace with your Cloudflare Pages URL
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs              # Top-level sections as tabs
+    - navigation.sections          # Collapsible sidebar sections
+    - navigation.top               # Back-to-top button
+    - navigation.indexes           # Section index pages (index.md)
+    - navigation.expand            # Auto-expand sidebar sections
+    - search.suggest               # Search autocomplete
+    - search.highlight             # Highlight search terms on page
+    - content.code.copy            # Copy button on code blocks
+    - toc.integrate                # TOC in left sidebar
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    logo: material/book-open-page-variant
+
+# ---------------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------------
+plugins:
+  # i18n — suffix-based: page.md (EN), page.es.md (ES), page.de.md (DE)…
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          name: English
+          build: true
+          default: true
+        - locale: es
+          name: Español
+          build: true
+        # ── Add more languages here ──────────────────────────────────
+        # - locale: de
+        #   name: Deutsch
+        #   build: true
+        # - locale: fr
+        #   name: Français
+        #   build: true
+        # - locale: it
+        #   name: Italiano
+        #   build: true
+        # - locale: pt
+        #   name: Português
+        #   build: true
+        # - locale: zh
+        #   name: 中文
+        #   build: true
+
+  - search:
+      lang:
+        - en
+        - es
+
+# ---------------------------------------------------------------------------
+# Markdown extensions
+# ---------------------------------------------------------------------------
+markdown_extensions:
+  - admonition                     # Note / Warning / Tip callout boxes
+  - pymdownx.details               # Collapsible admonitions (??? note)
+  - pymdownx.superfences            # Fenced code blocks, diagrams
+  - pymdownx.tabbed:                # Content tabs
+      alternate_style: true
+  - attr_list                       # HTML attributes on elements
+  - md_in_html                      # Markdown inside HTML blocks
+  - tables                          # Pipe tables
+  - toc:
+      permalink: true               # Anchor links on headings
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Accessing the Platform: getting-started/login.md
+  - User Guide:
+      - Dashboard: guide/dashboard.md
+      - Inventory: guide/inventory.md
+      - Card Details: guide/card-details.md
+      - Reports: guide/reports.md
+      - BPM: guide/bpm.md
+      - Diagrams: guide/diagrams.md
+      - EA Delivery: guide/delivery.md
+      - Tasks & Surveys: guide/tasks.md
+  - Administration:
+      - admin/index.md
+      - Metamodel: admin/metamodel.md
+      - Users & Roles: admin/users.md
+      - Authentication & SSO: admin/sso.md
+  - Reference:
+      - Glossary: reference/glossary.md
+
+# ---------------------------------------------------------------------------
+# Extra
+# ---------------------------------------------------------------------------
+extra:
+  # Language selector in the header
+  alternate:
+    - name: English
+      link: /en/
+      lang: en
+    - name: Español
+      link: /es/
+      lang: es
+
+  # Optional: version banner
+  # version:
+  #   provider: mike
+
+  # Optional: social links in footer
+  # social:
+  #   - icon: fontawesome/brands/github
+  #     link: https://github.com/youruser/turbo-ea
+
+# Optional: copyright line in footer
+copyright: Turbo EA — Enterprise Architecture Management Platform
