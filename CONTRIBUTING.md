@@ -26,7 +26,7 @@ Use descriptive branch names with a category prefix:
 | `docs/` | Documentation only |
 | `chore/` | Maintenance, dependency updates, CI config |
 
-Example: `feature/add-csv-import-validation`, `fix/stakeholder-permission-check`
+Example: `feature/add-csv-import-validation`, `fix/stakeholder-permission-check`, `docs/update-bpm-screenshots`
 
 ---
 
@@ -73,7 +73,89 @@ pytest
 cd frontend
 npm run lint
 npm run build
+
+# Docs (if you changed anything in docs/ or mkdocs.yml)
+pip install -r requirements-docs.txt
+mkdocs build --strict
 ```
+
+---
+
+## Maintaining the User Manual
+
+The user manual lives in the `docs/` directory and is built with **MkDocs Material** + **mkdocs-static-i18n**. It deploys automatically to Cloudflare Pages on every push to `main`.
+
+### Structure
+
+```
+docs/
+├── index.md / index.es.md              ← Homepage & introduction
+├── assets/img/{en,es}/                 ← Per-language screenshots
+├── getting-started/login.md / .es.md   ← Accessing the platform
+├── guide/                              ← Feature documentation
+│   ├── dashboard.md / .es.md
+│   ├── inventory.md / .es.md
+│   └── ...
+├── admin/                              ← Administration guides
+│   ├── metamodel.md / .es.md
+│   ├── users.md / .es.md
+│   └── sso.md / .es.md
+└── reference/glossary.md / .es.md      ← Glossary
+```
+
+### i18n Convention
+
+Files use a **suffix-based** naming scheme: `page.md` is English (default), `page.es.md` is Spanish, `page.de.md` is German, etc. Untranslated pages fall back to English automatically.
+
+### Editing Existing Pages
+
+1. Find the Markdown file under `docs/` and its language-suffixed variants.
+2. Edit the content — use `mkdocs serve` locally to preview changes.
+3. If you update a screenshot, replace the PNG in `docs/assets/img/{locale}/` using the existing naming convention (`NN_short_description.png`).
+4. Ensure you update **all language variants** if the change is structural (new sections, reordered content). Content-only translation updates can be done per-language.
+
+### Adding a New Page
+
+1. Create `docs/path/to/page.md` (English) and `docs/path/to/page.es.md` (Spanish).
+2. Add the page to the `nav:` section in `mkdocs.yml`.
+3. If the page includes screenshots, add them under `docs/assets/img/en/` and `docs/assets/img/es/` following the numbered naming pattern.
+
+### Adding a New Language
+
+1. Uncomment or add the locale block in `mkdocs.yml` → `plugins.i18n.languages`.
+2. Add the locale to `plugins.search.lang` and `extra.alternate`.
+3. Create `*.xx.md` files for each page (copy the English files as starting points):
+   ```bash
+   for f in $(find docs -name "*.md" ! -name "*.*.md"); do
+     cp "$f" "${f%.md}.xx.md"
+   done
+   ```
+4. Translate the content in each `.xx.md` file.
+5. Add the corresponding screenshot folder `docs/assets/img/xx/` with localized screenshots. You can initially symlink or copy the English images and replace them as translations are captured.
+
+### Screenshots
+
+- Store in `docs/assets/img/{locale}/` (one folder per language).
+- Naming: `NN_short_description.png` (e.g., `01_dashboard.png`, `22_create_card.png`).
+- Take screenshots in the matching UI language.
+- Reference with relative paths: `![alt](../assets/img/en/01_dashboard.png)`.
+
+### Local Preview
+
+```bash
+pip install -r requirements-docs.txt
+mkdocs serve
+# → http://127.0.0.1:8000
+```
+
+### When to Update Docs
+
+- **New feature**: Add or update the relevant guide page in all supported languages.
+- **UI change**: Replace affected screenshots in all locale folders.
+- **New admin setting**: Update the appropriate admin page.
+- **Terminology change**: Update the glossary.
+
+Use the `docs/` branch prefix for documentation-only PRs.
 
 ---
 
@@ -206,7 +288,7 @@ to `main` via **Settings > Branches > Branch protection rules**:
 | Rule | Setting | Why |
 |------|---------|-----|
 | **Require pull request reviews** | 1 approval minimum | Prevents unreviewed code from landing |
-| **Require status checks to pass** | Backend Lint, Backend Tests, Frontend Lint, Frontend Build, Frontend Tests | Prevents broken code from merging |
+| **Require status checks to pass** | Backend Lint, Backend Tests, Frontend Lint, Frontend Build, Frontend Tests, Docs Build | Prevents broken code or docs from merging |
 | **Require branches to be up to date** | Enabled | Ensures CI ran against the latest `main` |
 | **Require conversation resolution** | Enabled | Review comments must be addressed |
 | **Restrict force pushes** | Block everyone | Protects commit history |

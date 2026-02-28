@@ -1,0 +1,349 @@
+# =============================================================================
+# Turbo EA — User Manual (MkDocs Material + i18n)
+# =============================================================================
+# Docs:  https://squidfunk.github.io/mkdocs-material/
+# i18n:  https://github.com/ultrabug/mkdocs-static-i18n
+# =============================================================================
+
+site_name: Turbo EA — User Manual
+site_description: User manual for Turbo EA – Enterprise Architecture Management Platform
+site_url: https://docs.example.com  # TODO: Replace with your Cloudflare Pages URL
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs              # Top-level sections as tabs
+    - navigation.sections          # Collapsible sidebar sections
+    - navigation.top               # Back-to-top button
+    - navigation.indexes           # Section index pages (index.md)
+    - navigation.expand            # Auto-expand sidebar sections
+    - search.suggest               # Search autocomplete
+    - search.highlight             # Highlight search terms on page
+    - content.code.copy            # Copy button on code blocks
+    - toc.integrate                # TOC in left sidebar
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    logo: material/book-open-page-variant
+
+# ---------------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------------
+plugins:
+  # i18n — suffix-based: page.md (EN), page.es.md (ES), page.de.md (DE)…
+  - i18n:
+      docs_structure: suffix
+      languages:
+        - locale: en
+          name: English
+          build: true
+          default: true
+        - locale: es
+          name: Español
+          build: true
+          nav_translations:
+            Home: Inicio
+            Getting Started: Primeros pasos
+            Accessing the Platform: Acceso a la plataforma
+            User Guide: Guía del usuario
+            Dashboard: Panel de control
+            Inventory: Inventario
+            Card Details: Detalles de ficha
+            Reports: Informes
+            Saved Reports: Informes guardados
+            BPM: BPM
+            Diagrams: Diagramas
+            EA Delivery: Entrega EA
+            Tasks & Surveys: Tareas y encuestas
+            Notifications: Notificaciones
+            Administration: Administración
+            General Settings: Configuración general
+            Metamodel: Metamodelo
+            Calculations: Cálculos
+            Tags: Etiquetas
+            Users & Roles: Usuarios y roles
+            Authentication & SSO: Autenticación y SSO
+            AI Suggestions: Sugerencias de IA
+            End-of-Life (EOL): Fin de vida (EOL)
+            Surveys: Encuestas
+            Web Portals: Portales web
+            ServiceNow Integration: Integración con ServiceNow
+            Reference: Referencia
+            Glossary: Glosario
+        - locale: de
+          name: Deutsch
+          build: true
+          nav_translations:
+            Home: Startseite
+            Getting Started: Erste Schritte
+            Accessing the Platform: Zugang zur Plattform
+            User Guide: Benutzerhandbuch
+            Dashboard: Dashboard
+            Inventory: Inventar
+            Card Details: Kartendetails
+            Reports: Berichte
+            Saved Reports: Gespeicherte Berichte
+            BPM: BPM
+            Diagrams: Diagramme
+            EA Delivery: EA-Bereitstellung
+            Tasks & Surveys: Aufgaben und Umfragen
+            Notifications: Benachrichtigungen
+            Administration: Administration
+            General Settings: Allgemeine Einstellungen
+            Metamodel: Metamodell
+            Calculations: Berechnungen
+            Tags: Tags
+            Users & Roles: Benutzer und Rollen
+            Authentication & SSO: Authentifizierung und SSO
+            AI Suggestions: KI-Vorschläge
+            End-of-Life (EOL): End-of-Life (EOL)
+            Surveys: Umfragen
+            Web Portals: Webportale
+            ServiceNow Integration: ServiceNow-Integration
+            Reference: Referenz
+            Glossary: Glossar
+        - locale: fr
+          name: Français
+          build: true
+          nav_translations:
+            Home: Accueil
+            Getting Started: Premiers pas
+            Accessing the Platform: Accès à la plateforme
+            User Guide: Guide utilisateur
+            Dashboard: Tableau de bord
+            Inventory: Inventaire
+            Card Details: Détails de la fiche
+            Reports: Rapports
+            Saved Reports: Rapports enregistrés
+            BPM: BPM
+            Diagrams: Diagrammes
+            EA Delivery: Livraison EA
+            Tasks & Surveys: Tâches et enquêtes
+            Notifications: Notifications
+            Administration: Administration
+            General Settings: Paramètres généraux
+            Metamodel: Métamodèle
+            Calculations: Calculs
+            Tags: Tags
+            Users & Roles: Utilisateurs et rôles
+            Authentication & SSO: Authentification et SSO
+            AI Suggestions: Suggestions IA
+            End-of-Life (EOL): Fin de vie (EOL)
+            Surveys: Enquêtes
+            Web Portals: Portails web
+            ServiceNow Integration: Intégration ServiceNow
+            Reference: Référence
+            Glossary: Glossaire
+        - locale: it
+          name: Italiano
+          build: true
+          nav_translations:
+            Home: Home
+            Getting Started: Per iniziare
+            Accessing the Platform: Accesso alla piattaforma
+            User Guide: Guida utente
+            Dashboard: Dashboard
+            Inventory: Inventario
+            Card Details: Dettagli della card
+            Reports: Report
+            Saved Reports: Report salvati
+            BPM: BPM
+            Diagrams: Diagrammi
+            EA Delivery: Consegna EA
+            Tasks & Surveys: Attività e sondaggi
+            Notifications: Notifiche
+            Administration: Amministrazione
+            General Settings: Impostazioni generali
+            Metamodel: Metamodello
+            Calculations: Calcoli
+            Tags: Tag
+            Users & Roles: Utenti e ruoli
+            Authentication & SSO: Autenticazione e SSO
+            AI Suggestions: Suggerimenti IA
+            End-of-Life (EOL): Fine vita (EOL)
+            Surveys: Sondaggi
+            Web Portals: Portali web
+            ServiceNow Integration: Integrazione ServiceNow
+            Reference: Riferimenti
+            Glossary: Glossario
+        - locale: pt
+          name: Português
+          build: true
+          nav_translations:
+            Home: Início
+            Getting Started: Primeiros passos
+            Accessing the Platform: Acesso à plataforma
+            User Guide: Guia do usuário
+            Dashboard: Painel de controle
+            Inventory: Inventário
+            Card Details: Detalhes do card
+            Reports: Relatórios
+            Saved Reports: Relatórios salvos
+            BPM: BPM
+            Diagrams: Diagramas
+            EA Delivery: Entrega EA
+            Tasks & Surveys: Tarefas e pesquisas
+            Notifications: Notificações
+            Administration: Administração
+            General Settings: Configurações gerais
+            Metamodel: Metamodelo
+            Calculations: Cálculos
+            Tags: Tags
+            Users & Roles: Usuários e papéis
+            Authentication & SSO: Autenticação e SSO
+            AI Suggestions: Sugestões de IA
+            End-of-Life (EOL): Fim de vida (EOL)
+            Surveys: Pesquisas
+            Web Portals: Portais web
+            ServiceNow Integration: Integração com ServiceNow
+            Reference: Referência
+            Glossary: Glossário
+        - locale: zh
+          name: 中文
+          build: true
+          nav_translations:
+            Home: 首页
+            Getting Started: 快速开始
+            Accessing the Platform: 访问平台
+            User Guide: 用户指南
+            Dashboard: 仪表盘
+            Inventory: 资产清单
+            Card Details: 卡片详情
+            Reports: 报告
+            Saved Reports: 已保存的报告
+            BPM: 业务流程管理
+            Diagrams: 图表
+            EA Delivery: EA 交付
+            Tasks & Surveys: 任务与调查
+            Notifications: 通知
+            Administration: 管理
+            General Settings: 常规设置
+            Metamodel: 元模型
+            Calculations: 计算
+            Tags: 标签
+            Users & Roles: 用户与角色
+            Authentication & SSO: 认证与 SSO
+            AI Suggestions: AI 建议
+            End-of-Life (EOL): 生命周期结束 (EOL)
+            Surveys: 调查
+            Web Portals: Web 门户
+            ServiceNow Integration: ServiceNow 集成
+            Reference: 参考
+            Glossary: 术语表
+
+  - search:
+      lang:
+        - en
+        - es
+        - de
+        - fr
+        - it
+        - pt
+
+# ---------------------------------------------------------------------------
+# Markdown extensions
+# ---------------------------------------------------------------------------
+markdown_extensions:
+  - admonition                     # Note / Warning / Tip callout boxes
+  - pymdownx.details               # Collapsible admonitions (??? note)
+  - pymdownx.superfences            # Fenced code blocks, diagrams
+  - pymdownx.tabbed:                # Content tabs
+      alternate_style: true
+  - attr_list                       # HTML attributes on elements
+  - md_in_html                      # Markdown inside HTML blocks
+  - tables                          # Pipe tables
+  - toc:
+      permalink: true               # Anchor links on headings
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Accessing the Platform: getting-started/login.md
+  - User Guide:
+      - Dashboard: guide/dashboard.md
+      - Inventory: guide/inventory.md
+      - Card Details: guide/card-details.md
+      - Reports: guide/reports.md
+      - Saved Reports: guide/saved-reports.md
+      - BPM: guide/bpm.md
+      - Diagrams: guide/diagrams.md
+      - EA Delivery: guide/delivery.md
+      - Tasks & Surveys: guide/tasks.md
+      - Notifications: guide/notifications.md
+  - Administration:
+      - admin/index.md
+      - General Settings: admin/settings.md
+      - Metamodel: admin/metamodel.md
+      - Calculations: admin/calculations.md
+      - Tags: admin/tags.md
+      - Users & Roles: admin/users.md
+      - Authentication & SSO: admin/sso.md
+      - AI Suggestions: admin/ai.md
+      - End-of-Life (EOL): admin/eol.md
+      - Surveys: admin/surveys.md
+      - Web Portals: admin/web-portals.md
+      - ServiceNow Integration: admin/servicenow.md
+  - Reference:
+      - Glossary: reference/glossary.md
+
+# ---------------------------------------------------------------------------
+# Extra
+# ---------------------------------------------------------------------------
+extra:
+  # Language selector in the header
+  alternate:
+    - name: English
+      link: /
+      lang: en
+    - name: Español
+      link: /es/
+      lang: es
+    - name: Deutsch
+      link: /de/
+      lang: de
+    - name: Français
+      link: /fr/
+      lang: fr
+    - name: Italiano
+      link: /it/
+      lang: it
+    - name: Português
+      link: /pt/
+      lang: pt
+    - name: 中文
+      link: /zh/
+      lang: zh
+
+  # Optional: version banner
+  # version:
+  #   provider: mike
+
+  # Optional: social links in footer
+  # social:
+  #   - icon: fontawesome/brands/github
+  #     link: https://github.com/youruser/turbo-ea
+
+# Optional: copyright line in footer
+copyright: Turbo EA — Enterprise Architecture Management Platform

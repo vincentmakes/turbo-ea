@@ -5,7 +5,7 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.23.0] - 2026-02-27
+## [0.23.0] - 2026-02-28
 
 ### Added
 - MCP server for AI tool integration — allows Claude, Copilot, Cursor, and other AI tools to query Turbo EA data with per-user RBAC
@@ -13,6 +13,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Automatic token refresh for MCP sessions — users stay connected without re-authentication
 - Admin MCP integration settings with enable/disable toggle and setup instructions
 - `admin.mcp` permission key for managing MCP settings
+
+## [0.22.6] - 2026-02-28
+
+### Fixed
+- Restored missing diacritical marks (accents) in all French and Italian documentation files
+- Fixed English language selector link from `/en/` to `/` (root) since English is the default locale
+
+### Added
+- Localized navigation menu labels in mkdocs.yml for all 6 non-English languages (Spanish, German, French, Italian, Portuguese, Chinese)
+
+## [0.22.5] - 2026-02-28
+
+### Added
+- User manual translations for 5 new languages: French, German, Italian, Portuguese, and Chinese (125 translated documentation files)
+- Enabled French, German, Italian, Portuguese, and Chinese in mkdocs i18n plugin, search, and language selector
+- Placeholder screenshot directories for all 5 new locales (using English images as baseline)
+
+## [0.22.4] - 2026-02-28
+
+### Added
+- Comprehensive user manual rewrite: expanded 4 stub pages (Diagrams, EA Delivery, Tasks, Metamodel) from placeholders to full documentation
+- 8 new admin guide pages: General Settings, Calculations, Tags, End-of-Life, Surveys, Web Portals, ServiceNow Integration, Saved Reports
+- 2 new user guide pages: Notifications, Saved Reports
+- Integrated the ServiceNow admin guide (previously a standalone root-level file) into the documentation site
+- TOGAF reference and description added to the SoAW (Statement of Architecture Work) section
+- 17 new terms added to the glossary (Approval Status, BPMN, Calculation, Data Quality, Diagram, DrawIO, EOL, Notification, Relation, Saved Report, Section, Survey, Tag, TOGAF, Web Portal, and more)
+- Spanish translations for all new and updated documentation pages
+
+### Changed
+- Expanded Inventory guide with saved views/bookmarks, advanced filtering (subtypes, relations, attributes), Excel import/export details, AG Grid features, and the System card type
+- Expanded Card Details guide with lifecycle phases, custom attribute sections, hierarchy, relations, tags, documents, EOL section, approval workflow, archiving behavior, and process flow tab
+- Expanded Reports guide with detailed descriptions of all 9 report types including configurable axes, heatmap coloring, treemap visualization, and cross-reference grids
+- Expanded BPM guide with BPMN editor, starter templates, element extraction, element linking, approval workflow, process assessments, and BPM reports
+- Expanded Dashboard guide with recent activity feed and quick navigation
+- Updated login page with correct language names (added accents, added Italiano)
+- Updated introduction page with new key benefits (diagrams, BPM, ServiceNow integration)
+- Updated mkdocs.yml navigation to include all new pages
+- Updated glossary from 15 to 32 terms, removed hardcoded version from footer
+- Fixed docker compose command in AI admin guide (removed incorrect -f flag)
+
+## [0.22.3] - 2026-02-28
+
+### Security
+- Updated rollup from 4.57.1 to 4.59.0 to fix arbitrary file write via path traversal (CVE-2026-27606)
+- Updated minimatch to 3.1.5 and 9.0.9 to fix ReDoS via matchOne() combinatorial backtracking (CVE-2026-27903)
+
+## [0.22.2] - 2026-02-28
+
+### Added
+- AI Description Suggestions documentation page in the user manual (English and Spanish) covering setup, usage, providers, permissions, and troubleshooting
+- AI-related terms (AI Suggestion, LLM, Ollama, Confidence Score) added to the glossary
+
+### Changed
+- User manual introduction rewritten for all users (architects, analysts, admins) instead of only executives and decision makers
+- Expanded AI-powered descriptions benefit to cover commercial LLM providers and confidence scoring
+- README AI section updated to list all supported LLM providers and admin controls
+- README SSO section updated to list all supported identity providers (Microsoft Entra ID, Google Workspace, Okta, Generic OIDC) and removed outdated untested warning
 
 ## [0.22.1] - 2026-02-27
 

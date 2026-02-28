@@ -1,0 +1,111 @@
+# Metamodelo
+
+El **Metamodelo** define la estructura de datos completa de su plataforma — qué tipos de fichas existen, qué campos tienen, cómo se relacionan entre sí y cómo se organizan las páginas de detalle de fichas. Todo es **basado en datos**: usted configura el metamodelo a través de la interfaz de administración, no modificando código.
+
+![Configuración del Metamodelo](../assets/img/es/20_admin_metamodelo.png)
+
+Navegue a **Administración > Metamodelo** para acceder al editor. Tiene cinco pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas** y **Grafo del Metamodelo**.
+
+## Tipos de Fichas
+
+La pestaña Tipos de Fichas lista todos los tipos en el sistema. Turbo EA incluye 14 tipos predefinidos en cuatro capas de arquitectura:
+
+| Capa | Tipos |
+|------|-------|
+| **Estrategia y Transformación** | Objetivo, Plataforma, Iniciativa |
+| **Arquitectura de Negocio** | Organización, Capacidad de Negocio, Contexto de Negocio, Proceso de Negocio |
+| **Aplicación y Datos** | Aplicación, Interfaz, Objeto de Datos |
+| **Arquitectura Técnica** | Componente TI, Categoría Tecnológica, Proveedor, Sistema |
+
+### Crear un Tipo Personalizado
+
+Haga clic en **+ Nuevo Tipo** para crear un tipo de ficha personalizado. Configure:
+
+| Campo | Descripción |
+|-------|-------------|
+| **Clave** | Identificador único (minúsculas, sin espacios) — no se puede cambiar después de la creación |
+| **Etiqueta** | Nombre para mostrar en la interfaz |
+| **Icono** | Nombre del icono de Google Material Symbols |
+| **Color** | Color de marca para el tipo (usado en inventario, informes y diagramas) |
+| **Categoría** | Agrupación por capa de arquitectura |
+| **Tiene Jerarquía** | Si las fichas de este tipo pueden tener relaciones padre/hijo |
+
+### Editar un Tipo
+
+Haga clic en cualquier tipo para abrir el **Panel de Detalle del Tipo**. Aquí puede configurar:
+
+#### Campos
+
+Los campos definen los atributos personalizados disponibles en fichas de este tipo. Cada campo tiene:
+
+| Configuración | Descripción |
+|---------------|-------------|
+| **Clave** | Identificador único del campo |
+| **Etiqueta** | Nombre para mostrar |
+| **Tipo** | texto, número, costo, booleano, fecha, url, selección_única o selección_múltiple |
+| **Opciones** | Para campos de selección: las opciones disponibles con etiquetas y colores opcionales |
+| **Requerido** | Si el campo debe completarse para la puntuación de calidad de datos |
+| **Peso** | Cuánto contribuye este campo a la puntuación de calidad de datos (0–10) |
+| **Solo lectura** | Impide la edición manual (útil para campos calculados) |
+
+Haga clic en **+ Agregar Campo** para crear un nuevo campo, o haga clic en un campo existente para editarlo en el **Diálogo Editor de Campos**.
+
+#### Secciones
+
+Los campos se organizan en **secciones** en la página de detalle de la ficha. Puede:
+
+- Crear secciones con nombre para agrupar campos relacionados
+- Configurar secciones con diseño de **1 columna** o **2 columnas**
+- Organizar campos en **grupos** dentro de una sección (renderizados como sub-encabezados colapsables)
+- Arrastrar campos entre secciones y reordenarlos
+
+El nombre de sección especial `__description` agrega campos a la sección Descripción de la página de detalle.
+
+#### Subtipos
+
+Los subtipos proporcionan una clasificación secundaria dentro de un tipo. Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microservicio, Agente IA y Despliegue. Cada subtipo puede tener etiquetas traducidas.
+
+#### Roles de Partes Interesadas
+
+Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
+
+### Eliminar un Tipo
+
+- Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse
+- Los **tipos personalizados** se eliminan permanentemente
+
+## Tipos de Relación
+
+Los tipos de relación definen las conexiones permitidas entre tipos de fichas. Cada tipo de relación especifica:
+
+| Campo | Descripción |
+|-------|-------------|
+| **Clave** | Identificador único |
+| **Etiqueta** | Etiqueta de dirección directa (ej., «utiliza») |
+| **Etiqueta Inversa** | Etiqueta de dirección inversa (ej., «es utilizado por») |
+| **Tipo Origen** | El tipo de ficha en el lado «de» |
+| **Tipo Destino** | El tipo de ficha en el lado «a» |
+| **Cardinalidad** | n:m (muchos a muchos) o 1:n (uno a muchos) |
+
+Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
+
+## Cálculos
+
+Los campos calculados usan fórmulas definidas por el administrador para calcular automáticamente valores cuando se guardan fichas. Ver [Cálculos](calculations.es.md) para la guía completa.
+
+## Etiquetas
+
+Los grupos de etiquetas y etiquetas se pueden gestionar desde esta pestaña. Ver [Etiquetas](tags.es.md) para la guía completa.
+
+## Grafo del Metamodelo
+
+La pestaña **Grafo del Metamodelo** muestra un diagrama SVG visual de todos los tipos de fichas y sus tipos de relación. Esta es una visualización de solo lectura que ayuda a comprender las conexiones en su metamodelo de un vistazo.
+
+## Editor de Disposición de Fichas
+
+Para cada tipo de ficha, la sección **Diseño** en el panel del tipo controla cómo se estructura la página de detalle:
+
+- **Orden de secciones** — Arrastre secciones (Descripción, EOL, Ciclo de Vida, Jerarquía, Relaciones y secciones personalizadas) para reordenarlas
+- **Visibilidad** — Oculte secciones que no sean relevantes para un tipo
+- **Expansión predeterminada** — Elija si cada sección comienza expandida o colapsada
+- **Diseño de columnas** — Configure 1 o 2 columnas por sección personalizada
