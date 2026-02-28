@@ -6,7 +6,7 @@
 
 ### Who is this guide for?
 
-This guide is designed for **executives and decision makers** who need to evaluate and understand the capabilities of Turbo EA before adopting the platform in their organization. No advanced technical knowledge is required to use the tool.
+This guide is for **everyone who uses Turbo EA** — enterprise architects, IT managers, business analysts, developers, and administrators. Whether you are evaluating the platform, managing your organization's IT landscape day-to-day, or configuring the system as an admin, you will find the information you need here. No advanced technical knowledge is required to get started.
 
 ### Key Benefits
 
@@ -14,7 +14,7 @@ This guide is designed for **executives and decision makers** who need to evalua
 - **Informed decision-making**: Visual reports that facilitate evaluation of the current state of technology infrastructure.
 - **Lifecycle management**: Track the status of every technology component, from implementation through retirement.
 - **Collaboration**: Multiple users can work simultaneously, with configurable roles and permissions.
-- **AI-powered descriptions**: Generate card descriptions with a single click using web search and a local LLM — type-aware, privacy-first, and fully admin-controlled.
+- **AI-powered descriptions**: Generate card descriptions with a single click. Turbo EA combines web search with a local or commercial LLM to produce type-aware summaries — complete with confidence scores and source links. Runs entirely on your infrastructure for privacy, or connect to commercial providers (OpenAI, Google Gemini, Anthropic Claude, and more). Fully admin-controlled: choose which card types get AI suggestions, pick your search provider, and select the model.
 - **Multi-language**: Available in English, Spanish, French, German, Italian, Portuguese, and Chinese.
 
 ### Key Concepts

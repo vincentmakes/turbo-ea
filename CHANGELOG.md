@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.2] - 2026-02-28
+
+### Added
+- AI Description Suggestions documentation page in the user manual (English and Spanish) covering setup, usage, providers, permissions, and troubleshooting
+- AI-related terms (AI Suggestion, LLM, Ollama, Confidence Score) added to the glossary
+
+### Changed
+- User manual introduction rewritten for all users (architects, analysts, admins) instead of only executives and decision makers
+- Expanded AI-powered descriptions benefit to cover commercial LLM providers and confidence scoring
+
 ## [0.22.1] - 2026-02-27
 
 ### Fixed

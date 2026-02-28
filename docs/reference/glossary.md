@@ -13,9 +13,11 @@
 | **SoAW** | Statement of Architecture Work |
 | **Stakeholder** | A person with interest in or responsibility for a component |
 | **SSO** | Single Sign-On - Login using corporate credentials |
+| **AI Suggestion** | An auto-generated card description produced by combining web search results with a Large Language Model (LLM) |
+| **LLM** | Large Language Model - An AI model that generates text (e.g., Ollama, OpenAI, Anthropic Claude) |
+| **Ollama** | An open-source tool for running LLMs locally on your own hardware |
+| **Confidence Score** | A 0–100% rating indicating how reliable an AI-generated description is |
 
 ---
 
 **Turbo EA v0.22.1** | Enterprise Architecture Management Platform
-
-*This manual was generated for platform evaluation by executives.*

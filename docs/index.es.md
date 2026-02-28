@@ -6,7 +6,7 @@
 
 ### ¿Para quién es esta guía?
 
-Esta guía está diseñada para **directivos y tomadores de decisiones** que necesitan evaluar y comprender las capacidades de Turbo EA antes de adoptar la plataforma en su organización. No se requiere conocimiento técnico avanzado para utilizar la herramienta.
+Esta guía es para **todos los usuarios de Turbo EA** — arquitectos empresariales, gestores de TI, analistas de negocio, desarrolladores y administradores. Ya sea que esté evaluando la plataforma, gestionando el paisaje de TI de su organización en el día a día, o configurando el sistema como administrador, aquí encontrará la información que necesita. No se requiere conocimiento técnico avanzado para empezar.
 
 ### Beneficios Principales
 
@@ -14,7 +14,7 @@ Esta guía está diseñada para **directivos y tomadores de decisiones** que nec
 - **Toma de decisiones informada**: Informes visuales que facilitan la evaluación del estado actual de la infraestructura tecnológica.
 - **Gestión del ciclo de vida**: Seguimiento del estado de cada componente tecnológico, desde su implementación hasta su retiro.
 - **Colaboración**: Múltiples usuarios pueden trabajar simultáneamente, con roles y permisos configurables.
-- **Descripciones con IA**: Genere descripciones de fichas con un solo clic usando búsqueda web y un LLM local — consciente del tipo, privacidad primero, y completamente controlado por administradores.
+- **Descripciones con IA**: Genere descripciones de fichas con un solo clic. Turbo EA combina búsqueda web con un LLM local o comercial para producir resúmenes adaptados al tipo de ficha — con puntuación de confianza y enlaces a las fuentes. Funciona completamente en su infraestructura para máxima privacidad, o conéctese a proveedores comerciales (OpenAI, Google Gemini, Anthropic Claude y más). Totalmente configurable por el administrador: elija qué tipos de fichas reciben sugerencias de IA, seleccione su proveedor de búsqueda y escoja el modelo.
 - **Multi-idioma**: Disponible en español, inglés, francés, alemán, italiano, portugués y chino.
 
 ### Conceptos Clave

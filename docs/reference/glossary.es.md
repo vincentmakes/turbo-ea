@@ -13,9 +13,11 @@
 | **SoAW** | Documento de Trabajo de Arquitectura (Statement of Architecture Work) |
 | **Parte Interesada (Stakeholder)** | Persona con interés o responsabilidad sobre un componente |
 | **SSO** | Inicio de Sesión Único - Acceso con credenciales corporativas |
+| **Sugerencia IA** | Una descripción de ficha generada automáticamente combinando resultados de búsqueda web con un Modelo de Lenguaje Grande (LLM) |
+| **LLM** | Modelo de Lenguaje Grande - Un modelo de IA que genera texto (ej., Ollama, OpenAI, Anthropic Claude) |
+| **Ollama** | Una herramienta de código abierto para ejecutar LLMs localmente en su propio hardware |
+| **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
 
 ---
 
 **Turbo EA v0.22.1** | Plataforma de Gestión de Arquitectura Empresarial
-
-*Este manual fue generado para la evaluación de la plataforma por directivos.*

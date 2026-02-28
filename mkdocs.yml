@@ -118,6 +118,7 @@ nav:
       - Metamodel: admin/metamodel.md
       - Users & Roles: admin/users.md
       - Authentication & SSO: admin/sso.md
+      - AI Suggestions: admin/ai.md
   - Reference:
       - Glossary: reference/glossary.md
 
