@@ -264,16 +264,23 @@ def explore_dependencies(card_name: str) -> str:
     """)
 
 
-# ── Token context (set per-request by the ASGI middleware) ──────────────────
+# ── Token context ──────────────────────────────────────────────────────────
 
+import asyncio
 import contextvars
+import os
 
 _current_token: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "_current_token", default=None
 )
 
+# In stdio mode a single user is logged in — store their token here.
+_stdio_token: str | None = None
+
 
 def _get_current_token() -> str | None:
+    if _stdio_token is not None:
+        return _stdio_token
     return _current_token.get()
 
 
@@ -341,6 +348,70 @@ def create_app() -> Starlette:
     return app
 
 
+# ── Stdio mode (for Claude Desktop / local testing) ───────────────────────
+
+
+async def _refresh_loop(interval: int = 600) -> None:
+    """Periodically refresh the JWT so long-running stdio sessions stay alive."""
+    global _stdio_token
+    while True:
+        await asyncio.sleep(interval)
+        if _stdio_token is None:
+            continue
+        try:
+            client = TurboEAClient(_stdio_token)
+            new_token = await client.refresh_token()
+            if new_token:
+                _stdio_token = new_token
+                logger.info("JWT refreshed successfully")
+            else:
+                logger.warning("JWT refresh returned no token")
+        except Exception:
+            logger.exception("JWT refresh failed")
+
+
+def run_stdio() -> None:
+    """Log in with env credentials and run MCP over stdin/stdout."""
+    global _stdio_token
+
+    from turbo_ea_mcp.config import TURBO_EA_URL
+
+    email = os.environ.get("TURBO_EA_USERNAME", "")
+    password = os.environ.get("TURBO_EA_PASSWORD", "")
+    if not email or not password:
+        logger.error(
+            "TURBO_EA_USERNAME and TURBO_EA_PASSWORD must be set for stdio mode"
+        )
+        raise SystemExit(1)
+
+    from turbo_ea_mcp.api_client import login
+
+    logger.info("Logging in to %s as %s …", TURBO_EA_URL, email)
+    try:
+        _stdio_token = asyncio.run(login(email, password))
+    except Exception as exc:
+        logger.error("Login failed: %s", exc)
+        raise SystemExit(1) from exc
+
+    logger.info("Logged in — starting MCP stdio transport")
+
+    # Patch the MCP server to kick off the refresh loop once the event loop runs
+    _original_run = mcp.run
+
+    def _patched_run(**kwargs):
+        import threading
+
+        def _start_refresh():
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(_refresh_loop())
+
+        t = threading.Thread(target=_start_refresh, daemon=True)
+        t.start()
+        _original_run(**kwargs)
+
+    _patched_run(transport="stdio")
+
+
 # ── CLI entry point ─────────────────────────────────────────────────────────
 
 
@@ -348,12 +419,24 @@ def main():
     parser = argparse.ArgumentParser(description="Turbo EA MCP Server")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=MCP_PORT, help="Bind port")
+    parser.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Run in stdio mode (for Claude Desktop). "
+        "Requires TURBO_EA_USERNAME and TURBO_EA_PASSWORD env vars.",
+    )
     args = parser.parse_args()
 
-    import uvicorn
+    if args.stdio:
+        run_stdio()
+    else:
+        import uvicorn
 
-    logger.info("Starting Turbo EA MCP Server v%s on %s:%d", APP_VERSION, args.host, args.port)
-    uvicorn.run(create_app(), host=args.host, port=args.port, log_level="info")
+        logger.info(
+            "Starting Turbo EA MCP Server v%s on %s:%d",
+            APP_VERSION, args.host, args.port,
+        )
+        uvicorn.run(create_app(), host=args.host, port=args.port, log_level="info")
 
 
 if __name__ == "__main__":

@@ -46,6 +46,21 @@ class TurboEAClient:
         return None
 
 
+async def login(email: str, password: str) -> str:
+    """Authenticate with email/password. Returns the JWT access token."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{TURBO_EA_URL}/api/v1/auth/login",
+            json={"email": email, "password": password},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        token = data.get("access_token")
+        if not token:
+            raise ValueError("No access_token in login response")
+        return token
+
+
 async def get_sso_config() -> dict:
     """Fetch SSO configuration (public, no auth needed)."""
     async with httpx.AsyncClient(timeout=10.0) as client:
