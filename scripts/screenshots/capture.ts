@@ -46,8 +46,8 @@ interface Config {
 
 const DEFAULT_CONFIG: Config = {
   baseUrl: process.env.BASE_URL || "http://localhost:8920",
-  email: process.env.SCREENSHOT_EMAIL || "admin@turboea.local",
-  password: process.env.SCREENSHOT_PASSWORD || "admin123",
+  email: process.env.SCREENSHOT_EMAIL || "admin@turboea.demo",
+  password: process.env.SCREENSHOT_PASSWORD || "TurboEA!2025",
   locales: ["en", "de", "fr", "es", "it", "pt", "zh"],
   captureDocs: true,
   captureMarketing: false,
@@ -115,8 +115,8 @@ Usage: npx tsx capture.ts [options]
 
 Options:
   --base-url <url>     App base URL (default: http://localhost:8920)
-  --email <email>      Login email (default: admin@turboea.local)
-  --password <pw>      Login password (default: admin123)
+  --email <email>      Login email (default: admin@turboea.demo)
+  --password <pw>      Login password (default: TurboEA!2025)
   --locale <code>      Capture only this locale (default: all 7 supported)
   --marketing          Capture marketing screenshots
   --docs               Capture documentation screenshots (default)
