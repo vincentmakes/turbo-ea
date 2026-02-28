@@ -16,7 +16,7 @@ SSO consente agli utenti di accedere utilizzando il proprio identity provider az
 |----------|-------------|
 | **Microsoft Entra ID** | Per organizzazioni che utilizzano Microsoft 365 / Azure AD |
 | **Google Workspace** | Per organizzazioni che utilizzano Google Workspace |
-| **Okta** | Per organizzazioni che utilizzano Okta come piattaforma di identita |
+| **Okta** | Per organizzazioni che utilizzano Okta come piattaforma di identità |
 | **OIDC generico** | Per qualsiasi provider compatibile con OpenID Connect (es. Authentik, Keycloak, Auth0) |
 
 **Passaggi per configurare SSO:**
@@ -49,6 +49,6 @@ Questi campi sono opzionali. Se lasciati vuoti, il sistema utilizza l'auto-disco
 Dopo il salvataggio, aprite una nuova scheda del browser (o finestra in incognito) e verificate che il pulsante di login SSO appaia nella pagina di login e che l'autenticazione funzioni dall'inizio alla fine.
 
 **Note importanti:**
-- Il **Client Secret** e memorizzato crittografato nel database e non viene mai esposto nelle risposte API
-- Quando SSO e abilitato, il login con password locale rimane disponibile come fallback
+- Il **Client Secret** è memorizzato crittografato nel database e non viene mai esposto nelle risposte API
+- Quando SSO è abilitato, il login con password locale rimane disponibile come fallback
 - Potete configurare l'URI di redirect nel vostro identity provider come: `https://your-turbo-ea-domain/auth/callback`

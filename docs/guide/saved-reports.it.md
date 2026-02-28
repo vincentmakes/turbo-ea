@@ -4,14 +4,14 @@ Turbo EA consente di **salvare le configurazioni dei report** per poter tornare 
 
 ## Salvare un report
 
-Da qualsiasi pagina di report (Portfolio, Mappa delle Capability, Ciclo di vita, Dipendenze, Costi, Matrice, Qualita dei Dati o EOL):
+Da qualsiasi pagina di report (Portfolio, Mappa delle Capability, Ciclo di vita, Dipendenze, Costi, Matrice, Qualità dei Dati o EOL):
 
 1. Configurate il report con i filtri, i raggruppamenti e le selezioni degli assi desiderati
 2. Cliccate sul pulsante **Salva** nella barra degli strumenti del report
 3. Inserite un **nome** per il report salvato
-4. Scegliete la **visibilita**:
+4. Scegliete la **visibilità**:
 
-| Visibilita | Chi puo vederlo |
+| Visibilità | Chi può vederlo |
 |------------|-----------------|
 | **Privato** | Solo voi |
 | **Condiviso** | Voi e gli utenti specifici che selezionate |
@@ -32,6 +32,6 @@ Navigate su **Report > Report salvati** per sfogliare tutti i report salvati a c
 ### Azioni
 
 - **Apri** — Cliccate su un report per caricarlo con la configurazione salvata
-- **Modifica** — Aggiornate il nome, la visibilita o le impostazioni di condivisione
+- **Modifica** — Aggiornate il nome, la visibilità o le impostazioni di condivisione
 - **Duplica** — Create una copia con un nuovo nome
 - **Elimina** — Rimuovete il report salvato (solo il creatore o gli utenti con permessi di modifica possono eliminare)

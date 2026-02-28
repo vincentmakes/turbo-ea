@@ -1,13 +1,13 @@
 # Calcoli
 
-La funzionalita **Calcoli** (**Admin > Metamodello > scheda Calcoli**) consente di definire **formule che calcolano automaticamente i valori dei campi** quando le card vengono salvate. Questo e potente per derivare metriche, punteggi e aggregazioni dai dati architetturali.
+La funzionalità **Calcoli** (**Admin > Metamodello > scheda Calcoli**) consente di definire **formule che calcolano automaticamente i valori dei campi** quando le card vengono salvate. Questo è potente per derivare metriche, punteggi e aggregazioni dai dati architetturali.
 
 ## Come funziona
 
 1. Un amministratore definisce una formula che mira a un tipo di card e un campo specifico
 2. Quando qualsiasi card di quel tipo viene creata o aggiornata, la formula viene eseguita automaticamente
 3. Il risultato viene scritto nel campo target
-4. Il campo target e contrassegnato come **sola lettura** nella pagina di dettaglio della card (gli utenti vedono un badge "calcolato")
+4. Il campo target è contrassegnato come **sola lettura** nella pagina di dettaglio della card (gli utenti vedono un badge "calcolato")
 
 ## Creazione di un calcolo
 
@@ -19,7 +19,7 @@ Cliccate su **+ Nuovo calcolo** e configurate:
 | **Tipo target** | Il tipo di card a cui si applica questo calcolo |
 | **Campo target** | Il campo dove il risultato viene memorizzato |
 | **Formula** | L'espressione da valutare (vedi la sintassi di seguito) |
-| **Ordine di esecuzione** | Ordine di esecuzione quando esistono piu calcoli per lo stesso tipo (il numero piu basso viene eseguito per primo) |
+| **Ordine di esecuzione** | Ordine di esecuzione quando esistono più calcoli per lo stesso tipo (il numero più basso viene eseguito per primo) |
 | **Attivo** | Abilitare o disabilitare il calcolo |
 
 ## Sintassi delle formule
@@ -62,7 +62,7 @@ Le formule utilizzano un linguaggio di espressioni sicuro e sandboxed. Potete fa
 SUM(PLUCK(related_applications, "costTotalAnnual"))
 ```
 
-**Punteggio di rischio basato sulla criticita:**
+**Punteggio di rischio basato sulla criticità:**
 ```
 IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "medium", 50, 25)))
 ```
@@ -88,4 +88,4 @@ I calcoli vengono eseguiti automaticamente quando una card viene salvata. Potete
 
 ## Ordine di esecuzione
 
-Quando piu calcoli mirano allo stesso tipo di card, vengono eseguiti nell'ordine specificato dal loro valore di **ordine di esecuzione**. Questo e importante quando un calcolo dipende dal risultato di un altro — impostate la dipendenza per essere eseguita per prima (numero inferiore).
+Quando più calcoli mirano allo stesso tipo di card, vengono eseguiti nell'ordine specificato dal loro valore di **ordine di esecuzione**. Questo è importante quando un calcolo dipende dal risultato di un altro — impostate la dipendenza per essere eseguita per prima (numero inferiore).

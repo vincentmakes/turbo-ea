@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.22.6] - 2026-02-28
+
+### Fixed
+- Restored missing diacritical marks (accents) in all French and Italian documentation files
+- Fixed English language selector link from `/en/` to `/` (root) since English is the default locale
+
+### Added
+- Localized navigation menu labels in mkdocs.yml for all 6 non-English languages (Spanish, German, French, Italian, Portuguese, Chinese)
+
 ## [0.22.5] - 2026-02-28
 
 ### Added

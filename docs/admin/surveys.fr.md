@@ -1,66 +1,66 @@
-# Enquetes
+# Enquêtes
 
-Le module **Enquetes** (**Admin > Enquetes**) permet aux administrateurs de creer des **enquetes de maintenance de donnees** qui collectent des informations structurees aupres des parties prenantes sur des fiches specifiques.
+Le module **Enquêtes** (**Admin > Enquêtes**) permet aux administrateurs de créer des **enquêtes de maintenance de données** qui collectent des informations structurees aupres des parties prenantes sur des fiches spécifiques.
 
 ## Cas d'utilisation
 
-Les enquetes aident a maintenir vos donnees d'architecture a jour en contactant les personnes les plus proches de chaque composant. Par exemple :
+Les enquêtes aident à maintenir vos données d'architecture à jour en contactant les personnes les plus proches de chaque composant. Par exemple :
 
-- Demander aux responsables applicatifs de confirmer la criticite metier et les dates de cycle de vie annuellement
-- Collecter des evaluations d'adequation technique aupres des equipes IT
-- Recueillir des mises a jour de couts aupres des responsables de budget
+- Demander aux responsables applicatifs de confirmer la criticite métier et les dates de cycle de vie annuellement
+- Collecter des évaluations d'adéquation technique aupres des équipes IT
+- Recueillir des mises à jour de coûts aupres des responsables de budget
 
-## Cycle de vie des enquetes
+## Cycle de vie des enquêtes
 
-Chaque enquete progresse a travers trois etats :
+Chaque enquête progresse à travers trois états :
 
 | Statut | Signification |
 |--------|---------------|
-| **Brouillon** | En cours de conception, pas encore visible par les repondants |
-| **Active** | Ouverte aux reponses, les parties prenantes assignees la voient dans leurs Taches |
-| **Fermee** | N'accepte plus de reponses |
+| **Brouillon** | En cours de conception, pas encore visible par les répondants |
+| **Active** | Ouverte aux réponses, les parties prenantes assignees la voient dans leurs Tâches |
+| **Fermee** | N'accepté plus de réponses |
 
-## Creation d'une enquete
+## Création d'une enquête
 
-1. Naviguez vers **Admin > Enquetes**
-2. Cliquez sur **+ Nouvelle enquete**
-3. Le **Constructeur d'enquete** s'ouvre avec la configuration suivante :
+1. Naviguez vers **Admin > Enquêtes**
+2. Cliquez sur **+ Nouvelle enquête**
+3. Le **Constructeur d'enquête** s'ouvre avec la configuration suivante :
 
 ### Type cible
 
-Selectionnez le type de fiche auquel l'enquete s'applique (par ex. Application, Composant IT). L'enquete sera envoyee pour chaque fiche de ce type correspondant a vos filtres.
+Sélectionnez le type de fiche auquel l'enquête s'applique (par ex. Application, Composant IT). L'enquête sera envoyée pour chaque fiche de ce type correspondant à vos filtres.
 
 ### Filtres
 
-Optionnellement, reduisez le perimetre en filtrant les fiches (par ex. uniquement les applications Actives, uniquement les fiches detenues par une organisation specifique).
+Optionnellement, reduisez le perimetre en filtrant les fiches (par ex. uniquement les applications Actives, uniquement les fiches detenues par une organisation spécifique).
 
 ### Questions
 
-Concevez vos questions. Chaque question peut etre :
+Concevez vos questions. Chaque question peut être :
 
-- **Texte libre** -- Reponse ouverte
-- **Selection unique** -- Choisir une option dans une liste
-- **Selection multiple** -- Choisir plusieurs options
-- **Nombre** -- Saisie numerique
-- **Date** -- Selecteur de date
+- **Texte libre** -- Réponse ouverte
+- **Sélection unique** -- Choisir une option dans une liste
+- **Sélection multiple** -- Choisir plusieurs options
+- **Nombre** -- Saisie numérique
+- **Date** -- Sélecteur de date
 - **Booleen** -- Bascule Oui/Non
 
 ### Actions automatiques
 
-Configurez des regles qui mettent automatiquement a jour les attributs des fiches en fonction des reponses a l'enquete. Par exemple, si un repondant selectionne « Mission critique » pour la criticite metier, le champ `businessCriticality` de la fiche peut etre mis a jour automatiquement.
+Configurez des regles qui mettent automatiquement à jour les attributs des fiches en fonction des réponses à l'enquête. Par exemple, si un repondant sélectionné « Mission critique » pour la criticite métier, le champ `businessCriticality` de la fiche peut être mis à jour automatiquement.
 
-## Envoi d'une enquete
+## Envoi d'une enquête
 
-Une fois votre enquete en statut **Active** :
+Une fois votre enquête en statut **Active** :
 
-1. Cliquez sur **Envoyer** pour distribuer l'enquete
-2. Chaque fiche ciblee genere une tache pour les parties prenantes assignees
-3. Les parties prenantes voient l'enquete dans leur onglet **Mes enquetes** sur la [page Taches](../guide/tasks.md)
+1. Cliquez sur **Envoyer** pour distribuer l'enquête
+2. Chaque fiche ciblee généré une tâche pour les parties prenantes assignees
+3. Les parties prenantes voient l'enquête dans leur onglet **Mes enquêtes** sur la [page Tâches](../guide/tasks.md)
 
-## Consultation des resultats
+## Consultation des résultats
 
-Naviguez vers **Admin > Enquetes > [Nom de l'enquete] > Resultats** pour voir :
+Naviguez vers **Admin > Enquêtes > [Nom de l'enquête] > Résultats** pour voir :
 
-- Statut des reponses par fiche (repondu, en attente)
-- Reponses individuelles avec les reponses par question
+- Statut des réponses par fiche (répondu, en attente)
+- Réponses individuelles avec les réponses par question
 - Une action **Appliquer** pour valider les regles d'action automatique sur les attributs des fiches

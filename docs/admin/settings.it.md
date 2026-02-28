@@ -20,7 +20,7 @@ Selezionate la valuta utilizzata per i campi costo in tutta la piattaforma. Ques
 
 Attivate/disattivate quali lingue sono disponibili per gli utenti nel selettore della lingua. Tutte e sette le localizzazioni supportate possono essere abilitate o disabilitate individualmente:
 
-- English, Deutsch, Francais, Espanol, Italiano, Portugues, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文
 
 Almeno una lingua deve rimanere abilitata in ogni momento.
 
@@ -41,13 +41,13 @@ Configurate la consegna delle email per email di invito, notifiche dei sondaggi 
 Dopo la configurazione, cliccate su **Invia email di test** per verificare che le impostazioni funzionino correttamente.
 
 !!! note
-    L'email e opzionale. Se SMTP non e configurato, le funzionalita che inviano email (inviti, notifiche dei sondaggi) salteranno la consegna via email in modo trasparente.
+    L'email è opzionale. Se SMTP non è configurato, le funzionalità che inviano email (inviti, notifiche dei sondaggi) salteranno la consegna via email in modo trasparente.
 
 ## Modulo BPM
 
 Attivate/disattivate il modulo **Business Process Management**. Quando disabilitato:
 
-- L'elemento di navigazione **BPM** e nascosto a tutti gli utenti
-- Le card Business Process rimangono nel database ma le funzionalita specifiche del BPM (editor del flusso di processo, dashboard BPM, report BPM) non sono accessibili
+- L'elemento di navigazione **BPM** è nascosto a tutti gli utenti
+- Le card Business Process rimangono nel database ma le funzionalità specifiche del BPM (editor del flusso di processo, dashboard BPM, report BPM) non sono accessibili
 
-Questo e utile per le organizzazioni che non utilizzano il BPM e desiderano un'esperienza di navigazione piu pulita.
+Questo è utile per le organizzazioni che non utilizzano il BPM e desiderano un'esperienza di navigazione più pulita.

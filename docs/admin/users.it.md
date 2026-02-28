@@ -23,34 +23,34 @@ L'elenco utenti mostra tutti gli account registrati con le seguenti colonne:
 2. Compilate il modulo:
    - **Nome visualizzato** (obbligatorio): Il nome completo dell'utente
    - **Email** (obbligatorio): L'indirizzo email che utilizzeranno per il login
-   - **Password** (opzionale): Se lasciata vuota e SSO e disabilitato, l'utente riceve un'email con un link per impostare la password. Se SSO e abilitato, l'utente puo accedere tramite il proprio provider SSO senza password
+   - **Password** (opzionale): Se lasciata vuota e SSO è disabilitato, l'utente riceve un'email con un link per impostare la password. Se SSO è abilitato, l'utente può accedere tramite il proprio provider SSO senza password
    - **Ruolo**: Selezionate il ruolo da assegnare (Admin, Member, Viewer o qualsiasi ruolo personalizzato)
    - **Invia email di invito**: Spuntate per inviare una notifica email all'utente con le istruzioni per il login
 3. Cliccate su **Invita utente** per creare l'account
 
 **Cosa succede dietro le quinte:**
 - Viene creato un account utente nel sistema
-- Viene creato anche un record di invito SSO, cosi se l'utente accede tramite SSO, riceve automaticamente il ruolo pre-assegnato
-- Se non viene impostata una password e SSO e disabilitato, viene generato un token per l'impostazione della password. L'utente puo impostare la propria password seguendo il link nell'email di invito
+- Viene creato anche un record di invito SSO, così se l'utente accede tramite SSO, riceve automaticamente il ruolo pre-assegnato
+- Se non viene impostata una password e SSO è disabilitato, viene generato un token per l'impostazione della password. L'utente può impostare la propria password seguendo il link nell'email di invito
 
 #### Modifica di un utente
 
 Cliccate sull'**icona di modifica** su qualsiasi riga utente per aprire la finestra Modifica utente. Potete modificare:
 
 - **Nome visualizzato** e **Email**
-- **Metodo di autenticazione** (visibile solo quando SSO e abilitato): Alternate tra "Locale" e "SSO". Questo consente agli amministratori di convertire un account locale esistente in SSO, o viceversa. Quando si passa a SSO, l'account verra automaticamente collegato quando l'utente accede la prossima volta tramite il proprio provider SSO
+- **Metodo di autenticazione** (visibile solo quando SSO è abilitato): Alternate tra "Locale" e "SSO". Questo consente agli amministratori di convertire un account locale esistente in SSO, o viceversa. Quando si passa a SSO, l'account verrà automaticamente collegato quando l'utente accede la prossima volta tramite il proprio provider SSO
 - **Password** (solo per utenti locali): Impostate una nuova password. Lasciate vuoto per mantenere la password corrente
 - **Ruolo**: Cambiate il ruolo a livello di applicazione dell'utente
 
 #### Collegamento di un account locale esistente a SSO
 
-Se un utente ha gia un account locale e la vostra organizzazione abilita SSO, l'utente vedra l'errore "Un account locale con questa email esiste gia" quando tenta di accedere tramite SSO. Per risolvere:
+Se un utente ha già un account locale e la vostra organizzazione abilita SSO, l'utente vedra l'errore "Un account locale con questa email esiste già" quando tenta di accedere tramite SSO. Per risolvere:
 
 1. Andate su **Admin > Utenti**
 2. Cliccate sull'**icona di modifica** accanto all'utente
 3. Cambiate il **Metodo di autenticazione** da "Locale" a "SSO"
 4. Cliccate su **Salva modifiche**
-5. L'utente puo ora accedere tramite SSO. Il suo account verra automaticamente collegato al primo login SSO
+5. L'utente può ora accedere tramite SSO. Il suo account verrà automaticamente collegato al primo login SSO
 
 #### Inviti in attesa
 
@@ -62,8 +62,8 @@ La scheda **Ruoli** consente di gestire i ruoli a livello di applicazione. Ogni 
 
 | Ruolo | Descrizione |
 |-------|-------------|
-| **Admin** | Accesso completo a tutte le funzionalita e all'amministrazione |
-| **BPM Admin** | Permessi BPM completi piu accesso all'inventario, nessuna impostazione admin |
+| **Admin** | Accesso completo a tutte le funzionalità e all'amministrazione |
+| **BPM Admin** | Permessi BPM completi più accesso all'inventario, nessuna impostazione admin |
 | **Member** | Crea, modifica e gestisce card, relazioni e commenti. Nessun accesso admin |
 | **Viewer** | Accesso di sola lettura in tutte le aree |
 

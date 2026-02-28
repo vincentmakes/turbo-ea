@@ -1,53 +1,53 @@
-# Acces a la plateforme
+# Acces à la plateforme
 
 ## Connexion
 
 ![Ecran de connexion](../assets/img/en/24_login.png)
 
-Lors de l'acces a la plateforme, l'ecran de connexion s'affiche et vous devez saisir votre adresse e-mail et votre mot de passe.
+Lors de l'acces à la plateforme, l'écran de connexion s'affiche et vous devez saisir votre adresse e-mail et votre mot de passe.
 
-**Etapes pour se connecter :**
+**Étapes pour se connecter :**
 
 1. Ouvrez votre navigateur web et saisissez l'URL de la plateforme
-2. Dans le champ **E-mail**, entrez votre adresse e-mail enregistree
+2. Dans le champ **E-mail**, entrez votre adresse e-mail enregistrée
 3. Dans le champ **Mot de passe**, entrez votre mot de passe
 4. Cliquez sur le bouton **Se connecter**
 
-**Note importante :** Le premier utilisateur a s'inscrire sur la plateforme recoit automatiquement le role **Administrateur**, ce qui lui permet de configurer l'ensemble du systeme.
+**Note importante :** Le premier utilisateur a s'inscrire sur la plateforme reçoit automatiquement le rôle **Administrateur**, ce qui lui permet de configurer l'ensemble du système.
 
 ## Connexion avec SSO (Single Sign-On)
 
-Si votre organisation a configure le SSO, un bouton **Se connecter avec [Fournisseur]** apparait sur la page de connexion sous le formulaire de mot de passe. Le libelle du bouton affiche le nom du fournisseur configure (par ex. « Se connecter avec Microsoft », « Se connecter avec Okta », « Se connecter avec SSO »).
+Si votre organisation a configuré le SSO, un bouton **Se connecter avec [Fournisseur]** apparaît sur la page de connexion sous le formulaire de mot de passe. Le libellé du bouton affiche le nom du fournisseur configuré (par ex. « Se connecter avec Microsoft », « Se connecter avec Okta », « Se connecter avec SSO »).
 
-**Etapes pour se connecter avec SSO :**
+**Étapes pour se connecter avec SSO :**
 
 1. Ouvrez votre navigateur web et saisissez l'URL de la plateforme
 2. Cliquez sur le bouton **Se connecter avec [Fournisseur]**
-3. Vous serez redirige vers la page de connexion de votre fournisseur d'identite (par ex. Microsoft Entra ID, Google Workspace, Okta, ou le fournisseur OIDC de votre organisation)
+3. Vous serez redirigé vers la page de connexion de votre fournisseur d'identité (par ex. Microsoft Entra ID, Google Workspace, Okta, ou le fournisseur OIDC de votre organisation)
 4. Authentifiez-vous avec vos identifiants d'entreprise
-5. Apres une authentification reussie, vous etes redirige vers Turbo EA et connecte automatiquement
+5. Après une authentification réussie, vous etes redirigé vers Turbo EA et connecté automatiquement
 
 **Notes :**
 
-- Si votre compte n'existe pas encore dans Turbo EA, il sera cree automatiquement lors de la premiere connexion SSO (si l'auto-inscription est activee) ou associe a une invitation precreee
-- Si un administrateur vous a deja invite par e-mail, votre connexion SSO sera liee a ce compte et vous heriterez du role pre-attribue
-- Les utilisateurs SSO peuvent toujours avoir un mot de passe local defini comme solution de secours, si configure par l'administrateur
+- Si votre compte n'existe pas encore dans Turbo EA, il sera créé automatiquement lors de la première connexion SSO (si l'auto-inscription est activée) ou associé à une invitation précréée
+- Si un administrateur vous a déjà invite par e-mail, votre connexion SSO sera liée à ce compte et vous hériterez du rôle pré-attribué
+- Les utilisateurs SSO peuvent toujours avoir un mot de passe local défini comme solution de secours, si configuré par l'administrateur
 
 ## Inscription de nouveaux utilisateurs
 
-Si c'est votre premiere visite sur la plateforme, vous pouvez vous inscrire en cliquant sur « S'inscrire ». Les administrateurs peuvent egalement inviter des utilisateurs depuis le panneau d'administration (voir [Utilisateurs et roles](../admin/users.md)).
+Si c'est votre première visite sur la plateforme, vous pouvez vous inscrire en cliquant sur « S'inscrire ». Les administrateurs peuvent également inviter des utilisateurs depuis le panneau d'administration (voir [Utilisateurs et rôles](../admin/users.md)).
 
 ## Changement de langue
 
 La plateforme prend en charge sept langues. Pour changer la langue :
 
-1. Cliquez sur votre icone de profil (coin superieur droit)
-2. Selectionnez **Langue**
-3. Choisissez la langue souhaitee :
+1. Cliquez sur votre icône de profil (coin supérieur droit)
+2. Sélectionnez **Langue**
+3. Choisissez la langue souhaitée :
    - English
-   - Espanol
-   - Francais
+   - Español
+   - Français
    - Deutsch
    - Italiano
-   - Portugues
+   - Português
    - 中文 (Chinois)

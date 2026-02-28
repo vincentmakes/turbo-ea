@@ -10,12 +10,12 @@ Turbo EA include un potente modulo di **reportistica visiva** che consente di an
 
 Il **Report Portfolio** mostra un **grafico a bolle** (o scatter plot) configurabile delle vostre card. Scegliete cosa rappresenta ogni asse:
 
-- **Asse X** — Selezionate qualsiasi campo numerico o di selezione (es. Idoneita Tecnica)
-- **Asse Y** — Selezionate qualsiasi campo numerico o di selezione (es. Criticita Aziendale)
+- **Asse X** — Selezionate qualsiasi campo numerico o di selezione (es. Idoneità Tecnica)
+- **Asse Y** — Selezionate qualsiasi campo numerico o di selezione (es. Criticità Aziendale)
 - **Dimensione bolla** — Mappate su un campo numerico (es. Costo Annuale)
 - **Colore bolla** — Mappate su un campo di selezione o stato del ciclo di vita
 
-Questo e ideale per l'analisi del portfolio — ad esempio, posizionare le applicazioni per valore aziendale vs. idoneita tecnica per identificare candidati per investimento, sostituzione o ritiro.
+Questo è ideale per l'analisi del portfolio — ad esempio, posizionare le applicazioni per valore aziendale vs. idoneità tecnica per identificare candidati per investimento, sostituzione o ritiro.
 
 ## Mappa delle Capability
 
@@ -24,14 +24,14 @@ Questo e ideale per l'analisi del portfolio — ad esempio, posizionare le appli
 La **Mappa delle Capability** mostra una **mappa di calore** gerarchica delle business capability dell'organizzazione. Ogni blocco rappresenta una capability, con:
 
 - **Gerarchia** — Le capability principali contengono le loro sotto-capability
-- **Colorazione a mappa di calore** — I blocchi sono colorati in base a una metrica selezionata (es. numero di applicazioni di supporto, qualita media dei dati o livello di rischio)
+- **Colorazione a mappa di calore** — I blocchi sono colorati in base a una metrica selezionata (es. numero di applicazioni di supporto, qualità media dei dati o livello di rischio)
 - **Cliccate per esplorare** — Cliccate su qualsiasi capability per approfondire i dettagli e le applicazioni di supporto
 
 ## Report Ciclo di vita
 
 ![Report Ciclo di vita](../assets/img/en/12_lifecycle.png)
 
-Il **Report Ciclo di vita** mostra una **visualizzazione temporale** di quando i componenti tecnologici sono stati introdotti e quando e previsto il loro ritiro. Fondamentale per:
+Il **Report Ciclo di vita** mostra una **visualizzazione temporale** di quando i componenti tecnologici sono stati introdotti e quando è previsto il loro ritiro. Fondamentale per:
 
 - **Pianificazione del ritiro** — Vedete quali componenti si avvicinano alla fine del ciclo di vita
 - **Pianificazione degli investimenti** — Identificate le lacune dove serve nuova tecnologia
@@ -43,7 +43,7 @@ I componenti sono visualizzati come barre orizzontali che attraversano le fasi d
 
 ![Report Dipendenze](../assets/img/en/13_dependencies.png)
 
-Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un grafo a rete. I nodi rappresentano le card e gli archi rappresentano le relazioni. Funzionalita:
+Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un grafo a rete. I nodi rappresentano le card e gli archi rappresentano le relazioni. Funzionalità:
 
 - **Controllo della profondita** — Limitate quanti salti dal nodo centrale visualizzare (limitazione della profondita BFS)
 - **Filtro per tipo** — Mostrate solo specifici tipi di card e tipi di relazione
@@ -70,23 +70,23 @@ Il **Report Matrice** crea una **griglia di riferimento incrociato** tra due tip
 - **Colonne** — Business Capability
 - **Celle** — Indicano se esiste una relazione (e quante)
 
-Questo e utile per identificare lacune di copertura (capability senza applicazioni di supporto) o ridondanze (capability supportate da troppe applicazioni).
+Questo è utile per identificare lacune di copertura (capability senza applicazioni di supporto) o ridondanze (capability supportate da troppe applicazioni).
 
-## Report Qualita dei Dati
+## Report Qualità dei Dati
 
 ![Report Qualita dei Dati](../assets/img/en/33_report_data_quality.png)
 
-Il **Report Qualita dei Dati** e una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui pesi dei campi configurati nel metamodello:
+Il **Report Qualità dei Dati** e una **dashboard di completezza** che mostra quanto bene i vostri dati architetturali sono compilati. Basato sui pesi dei campi configurati nel metamodello:
 
-- **Punteggio complessivo** — Qualita media dei dati su tutte le card
+- **Punteggio complessivo** — Qualità media dei dati su tutte le card
 - **Per tipo** — Dettaglio che mostra quali tipi di card hanno la migliore/peggiore completezza
-- **Card individuali** — Elenco delle card con la qualita dei dati piu bassa, prioritizzate per il miglioramento
+- **Card individuali** — Elenco delle card con la qualità dei dati più bassa, prioritizzate per il miglioramento
 
 ## Report End of Life (EOL)
 
 ![Report End of Life](../assets/img/en/32_report_eol.png)
 
-Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati tramite la funzionalita [Amministrazione EOL](../admin/eol.md):
+Il **Report EOL** mostra lo stato di supporto dei prodotti tecnologici collegati tramite la funzionalità [Amministrazione EOL](../admin/eol.md):
 
 - **Distribuzione degli stati** — Quanti prodotti sono Supportati, In avvicinamento a EOL o End of Life
 - **Timeline** — Quando i prodotti perderanno il supporto

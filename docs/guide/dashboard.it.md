@@ -15,7 +15,7 @@ Nella parte superiore dello schermo si trova la **barra di navigazione principal
 - **BPM**: Business Process Management (se abilitato)
 - **Diagrammi**: Editor visivo di diagrammi architetturali
 - **Delivery**: Gestione delle iniziative architetturali
-- **Todo**: Attivita in sospeso e sondaggi assegnati
+- **Todo**: Attività in sospeso e sondaggi assegnati
 - **Cerca card**: Barra di ricerca rapida con autocompletamento
 - **+ Crea**: Pulsante per creare rapidamente nuove card
 - **Campanella delle notifiche**: Avvisi di sistema e [notifiche](notifications.md)
@@ -39,5 +39,5 @@ Nella sezione inferiore della Dashboard troverete:
 
 - **Grafico di distribuzione per tipo**: Mostra la proporzione di ciascun tipo di card nel vostro panorama
 - **Stato di approvazione**: Indica quante card sono approvate, in attesa, interrotte o rifiutate
-- **Qualita dei dati**: Percentuale complessiva di completezza delle informazioni su tutte le card
-- **Attivita recente**: Un feed delle ultime modifiche — chi ha modificato cosa e quando
+- **Qualità dei dati**: Percentuale complessiva di completezza delle informazioni su tutte le card
+- **Attività recente**: Un feed delle ultime modifiche — chi ha modificato cosa è quando
