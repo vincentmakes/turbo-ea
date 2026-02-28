@@ -48,17 +48,34 @@ class TurboEAClient:
 
 async def login(email: str, password: str) -> str:
     """Authenticate with email/password. Returns the JWT access token."""
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(
-            f"{TURBO_EA_URL}/api/v1/auth/login",
-            json={"email": email, "password": password},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        token = data.get("access_token")
-        if not token:
-            raise ValueError("No access_token in login response")
-        return token
+    url = f"{TURBO_EA_URL}/api/v1/auth/login"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json={"email": email, "password": password})
+            resp.raise_for_status()
+            data = resp.json()
+            token = data.get("access_token")
+            if not token:
+                raise ValueError("No access_token in login response")
+            return token
+    except httpx.ConnectError as exc:
+        raise ConnectionError(
+            f"Cannot connect to {TURBO_EA_URL} — is the server running and reachable "
+            f"from this machine? (Detail: {exc})"
+        ) from exc
+    except httpx.TimeoutException as exc:
+        raise ConnectionError(
+            f"Connection to {TURBO_EA_URL} timed out after 10s. "
+            f"Check the URL and network connectivity."
+        ) from exc
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 401:
+            raise ValueError(
+                "Login failed: invalid email or password."
+            ) from exc
+        raise ValueError(
+            f"Login failed: HTTP {exc.response.status_code} from {url}"
+        ) from exc
 
 
 async def get_sso_config() -> dict:

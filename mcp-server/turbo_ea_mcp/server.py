@@ -376,11 +376,11 @@ def run_stdio() -> None:
 
     from turbo_ea_mcp.config import TURBO_EA_URL
 
-    email = os.environ.get("TURBO_EA_USERNAME", "")
+    email = os.environ.get("TURBO_EA_EMAIL") or os.environ.get("TURBO_EA_USERNAME", "")
     password = os.environ.get("TURBO_EA_PASSWORD", "")
     if not email or not password:
         logger.error(
-            "TURBO_EA_USERNAME and TURBO_EA_PASSWORD must be set for stdio mode"
+            "TURBO_EA_EMAIL and TURBO_EA_PASSWORD must be set for stdio mode"
         )
         raise SystemExit(1)
 
@@ -423,7 +423,7 @@ def main():
         "--stdio",
         action="store_true",
         help="Run in stdio mode (for Claude Desktop). "
-        "Requires TURBO_EA_USERNAME and TURBO_EA_PASSWORD env vars.",
+        "Requires TURBO_EA_EMAIL and TURBO_EA_PASSWORD env vars.",
     )
     args = parser.parse_args()
 
