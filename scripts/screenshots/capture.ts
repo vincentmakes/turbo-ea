@@ -153,7 +153,7 @@ function getProjectRoot(): string {
 async function login(
   page: Page,
   config: Config
-): Promise<string> {
+): Promise<{ token: string; userId: string }> {
   console.log(`  Logging in as ${config.email}...`);
 
   const resp = await page.request.post(`${config.baseUrl}/api/v1/auth/login`, {
@@ -173,6 +173,14 @@ async function login(
   const token = body.access_token;
   if (!token) throw new Error("No access_token in login response");
 
+  // Fetch user ID via /auth/me (needed for locale switching)
+  const meResp = await page.request.get(`${config.baseUrl}/api/v1/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!meResp.ok()) throw new Error("Failed to fetch user profile");
+  const me = await meResp.json();
+  const userId = me.id;
+
   // Inject token into sessionStorage so the SPA picks it up
   await page.goto(config.baseUrl, { waitUntil: "domcontentloaded" });
   await page.evaluate((t: string) => {
@@ -180,7 +188,7 @@ async function login(
   }, token);
 
   console.log("  Login successful.");
-  return token;
+  return { token, userId };
 }
 
 // ---------------------------------------------------------------------------
@@ -191,25 +199,25 @@ async function switchLocale(
   page: Page,
   config: Config,
   token: string,
+  userId: string,
   locale: string
 ): Promise<void> {
   console.log(`  Switching locale to "${locale}"...`);
 
-  // Update user locale via API
+  // Update user locale via PATCH /users/{id}
   const resp = await page.request.patch(
-    `${config.baseUrl}/api/v1/users/me`,
+    `${config.baseUrl}/api/v1/users/${userId}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       data: { locale },
     }
   );
 
-  // Some backends may not have a PATCH /users/me for locale.
-  // If so, fall back to setting it in localStorage which i18next reads.
   if (!resp.ok()) {
-    console.log(`  API locale switch returned ${resp.status()}, setting via localStorage fallback.`);
+    console.log(`  API locale switch returned ${resp.status()}, using localStorage fallback.`);
   }
 
+  // Also set i18next localStorage so the SPA picks up the locale immediately
   await page.evaluate((loc: string) => {
     localStorage.setItem("i18nextLng", loc);
   }, locale);
@@ -356,7 +364,9 @@ async function capturePage(
   await page.setViewportSize(vp);
 
   // Navigate
-  await page.goto(fullUrl, { waitUntil: "networkidle", timeout: 30000 });
+  // Use "domcontentloaded" instead of "networkidle" because the app opens an
+  // SSE connection (/events/stream) that keeps the network permanently active.
+  await page.goto(fullUrl, { waitUntil: "domcontentloaded", timeout: 30000 });
 
   // Wait for target element
   if (pageDef.waitFor) {
@@ -460,7 +470,7 @@ async function main(): Promise<void> {
 
   try {
     // Login
-    const token = await login(page, config);
+    const { token, userId } = await login(page, config);
 
     // Resolve card IDs from demo data
     const cardIds = await resolveCardIds(page, config, token);
@@ -473,7 +483,7 @@ async function main(): Promise<void> {
       if (!docPages.length) continue;
 
       console.log(`\n--- Documentation screenshots (${locale}) ---\n`);
-      await switchLocale(page, config, token, locale);
+      await switchLocale(page, config, token, userId, locale);
 
       // Reload to pick up locale change
       await page.goto(config.baseUrl, { waitUntil: "domcontentloaded" });
@@ -506,7 +516,7 @@ async function main(): Promise<void> {
       console.log("\n--- Marketing screenshots ---\n");
 
       // Marketing screenshots are always in English
-      await switchLocale(page, config, token, "en");
+      await switchLocale(page, config, token, userId, "en");
       await page.goto(config.baseUrl, { waitUntil: "domcontentloaded" });
       await page.evaluate((t: string) => {
         sessionStorage.setItem("token", t);

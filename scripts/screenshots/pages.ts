@@ -56,7 +56,7 @@ export interface PageDef {
 
 /** Cards that will be looked up by name at runtime.  Key → search name. */
 export const CARD_LOOKUPS = {
-  sampleApp: { name: "NexaCore ERP", type: "Application" },
+  sampleApp: { name: "SAP S/4HANA", type: "Application" },
 } as const;
 
 // ---------------------------------------------------------------------------
