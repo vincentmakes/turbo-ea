@@ -12,6 +12,7 @@ import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
@@ -46,19 +47,30 @@ export default function AiAdmin() {
   const [testingAi, setTestingAi] = useState(false);
   const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
 
+  // MCP integration state
+  const [mcpEnabled, setMcpEnabled] = useState(false);
+  const [mcpSsoConfigured, setMcpSsoConfigured] = useState(false);
+  const [savingMcp, setSavingMcp] = useState(false);
+
   const { types } = useMetamodel();
   const availableTypes = types.filter((ct) => !ct.is_hidden);
 
   useEffect(() => {
-    api
-      .get<AiSettings>("/settings/ai")
-      .then((data) => {
+    Promise.all([
+      api.get<AiSettings>("/settings/ai"),
+      api
+        .get<{ enabled: boolean; sso_configured: boolean }>("/settings/mcp")
+        .catch(() => ({ enabled: false, sso_configured: false })),
+    ])
+      .then(([data, mcpData]) => {
         setAiEnabled(data.enabled);
         setAiProviderType(data.provider_type || "ollama");
         setAiProviderUrl(data.provider_url);
         setAiApiKey(data.api_key || "");
         setAiModel(data.model);
         setAiEnabledTypes(data.enabled_types);
+        setMcpEnabled(mcpData.enabled);
+        setMcpSsoConfigured(mcpData.sso_configured);
       })
       .catch((e) => setError(e instanceof Error ? e.message : t("common:errors.generic")))
       .finally(() => setLoading(false));
@@ -128,6 +140,19 @@ export default function AiAdmin() {
     // Reset fields when switching providers
     if (newType === "anthropic") {
       setAiProviderUrl("");
+    }
+  };
+
+  const handleMcpSave = async () => {
+    setSavingMcp(true);
+    setError("");
+    try {
+      await api.patch("/settings/mcp", { enabled: mcpEnabled });
+      setSnack(t("settings.mcp.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingMcp(false);
     }
   };
 
@@ -376,6 +401,94 @@ export default function AiAdmin() {
             disabled={savingAi}
           >
             {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* ── MCP Integration ──────────────────────────────────────── */}
+      <Typography
+        variant="overline"
+        sx={{
+          display: "block",
+          mb: 1.5,
+          mt: 1,
+          fontWeight: 700,
+          color: "text.secondary",
+          letterSpacing: 1,
+          fontSize: "0.75rem",
+        }}
+      >
+        {t("settings.mcp.sectionTitle")}
+      </Typography>
+
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="smart_toy" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.mcp.title")}
+          </Typography>
+          <Chip
+            label={mcpEnabled ? t("settings.mcp.enabled") : t("settings.mcp.disabled")}
+            size="small"
+            color={mcpEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.mcp.description")}
+        </Typography>
+
+        {!mcpSsoConfigured && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {t("settings.mcp.requiresSso")}
+          </Alert>
+        )}
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={mcpEnabled}
+              onChange={(e) => setMcpEnabled(e.target.checked)}
+              disabled={!mcpSsoConfigured}
+            />
+          }
+          label={mcpEnabled ? t("settings.mcp.enabled") : t("settings.mcp.disabled")}
+          sx={{ mb: 2 }}
+        />
+
+        {mcpEnabled && mcpSsoConfigured && (
+          <>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                <strong>{t("settings.mcp.setupTitle")}</strong>
+              </Typography>
+              <Typography variant="body2" component="div">
+                1. {t("settings.mcp.setupStep1")}{" "}
+                <code>{window.location.origin}/mcp/oauth/callback</code>
+              </Typography>
+              <Typography variant="body2" component="div">
+                2. {t("settings.mcp.setupStep2")}
+              </Typography>
+            </Alert>
+            <Alert severity="success" icon={false} sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>{t("settings.mcp.serverUrl")}</strong>
+              </Typography>
+              <code>{window.location.origin}/mcp</code>
+            </Alert>
+          </>
+        )}
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleMcpSave}
+            disabled={savingMcp}
+          >
+            {savingMcp ? t("common:labels.loading") : t("common:actions.save")}
           </Button>
         </Box>
       </Paper>

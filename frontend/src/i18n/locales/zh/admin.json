@@ -365,6 +365,7 @@
   "settings.mcp.setupTitle": "配置说明",
   "settings.mcp.setupStep1": "将此重定向 URI 添加到您的 SSO 应用注册中：",
   "settings.mcp.setupStep2": "将 MCP 服务器 URL（如下）分享给您的团队。用户将其添加到他们的 AI 工具中即可连接。",
+  "settings.mcp.sectionTitle": "MCP 集成（AI 工具访问）",
   "settings.smtp.title": "SMTP 配置",
   "settings.smtp.configured": "已配置",
   "settings.smtp.notConfigured": "未配置",

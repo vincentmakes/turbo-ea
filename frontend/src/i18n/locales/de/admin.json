@@ -365,6 +365,7 @@
   "settings.mcp.setupTitle": "Einrichtungsanleitung",
   "settings.mcp.setupStep1": "Fügen Sie diese Redirect-URI zu Ihrer SSO-App-Registrierung hinzu:",
   "settings.mcp.setupStep2": "Teilen Sie die MCP-Server-URL (unten) mit Ihrem Team. Benutzer fügen sie in ihrem KI-Tool hinzu, um sich zu verbinden.",
+  "settings.mcp.sectionTitle": "MCP-Integration (KI-Tool-Zugang)",
   "settings.smtp.title": "SMTP-Konfiguration",
   "settings.smtp.configured": "Konfiguriert",
   "settings.smtp.notConfigured": "Nicht konfiguriert",

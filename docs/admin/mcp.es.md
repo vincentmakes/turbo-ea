@@ -81,8 +81,8 @@ Esto es necesario para el flujo OAuth que autentica a los usuarios cuando se con
 
 ### Paso 4: Habilitar MCP en la configuracion de administrador
 
-1. Vaya a **Configuracion** en el area de administracion.
-2. Desplacese hasta la seccion **Integracion MCP**.
+1. Vaya a **Configuracion** en el area de administracion y seleccione la pestana **AI**.
+2. Desplacese hasta la seccion **Integracion MCP (Acceso a herramientas IA)**.
 3. Active el interruptor para **habilitar** MCP.
 4. La interfaz mostrara la URL del servidor MCP e instrucciones de configuracion para compartir con su equipo.
 
@@ -216,7 +216,7 @@ El acceso a datos a traves de MCP sigue el mismo modelo RBAC que la interfaz web
 
 | Problema | Solucion |
 |----------|----------|
-| El interruptor MCP esta deshabilitado en la configuracion | SSO debe estar configurado primero. Vaya a Configuracion > Autenticacion y SSO y configure un proveedor SSO. |
+| El interruptor MCP esta deshabilitado en la configuracion | SSO debe estar configurado primero. Vaya a Configuracion > pestana Autenticacion y configure un proveedor SSO. |
 | «host not found» en los registros de Nginx | El servicio MCP no esta en ejecucion. Inicielo con `docker compose --profile mcp up -d`. La configuracion de Nginx maneja esto de forma elegante (respuesta 502, sin caida). |
 | La devolucion de llamada OAuth falla | Verifique que agrego `https://su-dominio.ejemplo.com/mcp/oauth/callback` como URI de redireccion en el registro de su aplicacion SSO. |
 | La herramienta de IA no puede conectarse | Verifique que `MCP_PUBLIC_URL` coincide con la URL accesible desde la maquina del usuario. Asegurese de que HTTPS funciona. |

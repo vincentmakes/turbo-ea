@@ -81,8 +81,8 @@ This is required for the OAuth flow that authenticates users when they connect f
 
 ### Step 4: Enable MCP in admin settings
 
-1. Go to **Settings** in the admin area.
-2. Scroll to the **MCP Integration** section.
+1. Go to **Settings** in the admin area and select the **AI** tab.
+2. Scroll to the **MCP Integration (AI Tool Access)** section.
 3. Toggle the switch to **enable** MCP.
 4. The UI will show the MCP Server URL and setup instructions to share with your team.
 
@@ -216,7 +216,7 @@ Data access through MCP follows the same RBAC model as the web UI — there are 
 
 | Issue | Solution |
 |-------|----------|
-| MCP toggle is disabled in settings | SSO must be configured first. Go to Settings > Authentication & SSO and set up an SSO provider. |
+| MCP toggle is disabled in settings | SSO must be configured first. Go to Settings > Authentication tab and set up an SSO provider. |
 | "host not found" in Nginx logs | The MCP service is not running. Start it with `docker compose --profile mcp up -d`. The Nginx config handles this gracefully (502 response, no crash). |
 | OAuth callback fails | Verify you added `https://your-domain.example.com/mcp/oauth/callback` as a redirect URI in your SSO app registration. |
 | AI tool cannot connect | Check that `MCP_PUBLIC_URL` matches the URL accessible from the user's machine. Ensure HTTPS is working. |

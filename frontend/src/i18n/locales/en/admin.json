@@ -365,6 +365,7 @@
   "settings.mcp.setupTitle": "Setup Instructions",
   "settings.mcp.setupStep1": "Add this redirect URI to your SSO app registration:",
   "settings.mcp.setupStep2": "Share the MCP Server URL (below) with your team. Users add it to their AI tool to connect.",
+  "settings.mcp.sectionTitle": "MCP Integration (AI Tool Access)",
   "settings.smtp.title": "SMTP Configuration",
   "settings.smtp.configured": "Configured",
   "settings.smtp.notConfigured": "Not configured",

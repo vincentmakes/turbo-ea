@@ -81,8 +81,8 @@ Dies ist erforderlich fur den OAuth-Ablauf, der Benutzer authentifiziert, wenn s
 
 ### Schritt 4: MCP in den Admin-Einstellungen aktivieren
 
-1. Gehen Sie zu **Einstellungen** im Administrationsbereich.
-2. Scrollen Sie zum Abschnitt **MCP-Integration**.
+1. Gehen Sie zu **Einstellungen** im Administrationsbereich und wahlen Sie den Reiter **AI**.
+2. Scrollen Sie zum Abschnitt **MCP-Integration (AI-Werkzeugzugriff)**.
 3. Schalten Sie den Schalter auf **aktiviert**.
 4. Die Oberflache zeigt die MCP-Server-URL und Einrichtungsanweisungen zum Teilen mit Ihrem Team.
 
@@ -216,7 +216,7 @@ Der Datenzugriff uber MCP folgt demselben RBAC-Modell wie die Weboberflache — 
 
 | Problem | Losung |
 |---------|--------|
-| MCP-Schalter ist in den Einstellungen deaktiviert | SSO muss zuerst konfiguriert werden. Gehen Sie zu Einstellungen > Authentifizierung und SSO und richten Sie einen SSO-Anbieter ein. |
+| MCP-Schalter ist in den Einstellungen deaktiviert | SSO muss zuerst konfiguriert werden. Gehen Sie zu Einstellungen > Reiter Authentifizierung und richten Sie einen SSO-Anbieter ein. |
 | «host not found» in den Nginx-Logs | Der MCP-Dienst lauft nicht. Starten Sie ihn mit `docker compose --profile mcp up -d`. Die Nginx-Konfiguration behandelt dies elegant (502-Antwort, kein Absturz). |
 | OAuth-Callback schlagt fehl | Uberprufen Sie, dass Sie `https://ihre-domain.beispiel.de/mcp/oauth/callback` als Weiterleitungs-URI in Ihrer SSO-App-Registrierung hinzugefugt haben. |
 | KI-Werkzeug kann sich nicht verbinden | Uberprufen Sie, dass `MCP_PUBLIC_URL` mit der URL ubereinstimmt, die vom Rechner des Benutzers aus erreichbar ist. Stellen Sie sicher, dass HTTPS funktioniert. |

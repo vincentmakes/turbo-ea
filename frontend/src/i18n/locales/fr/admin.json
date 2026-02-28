@@ -365,6 +365,7 @@
   "settings.mcp.setupTitle": "Instructions de configuration",
   "settings.mcp.setupStep1": "Ajoutez cet URI de redirection \u00e0 l\u2019enregistrement de votre application SSO :",
   "settings.mcp.setupStep2": "Partagez l\u2019URL du serveur MCP (ci-dessous) avec votre \u00e9quipe. Les utilisateurs l\u2019ajoutent \u00e0 leur outil d\u2019IA pour se connecter.",
+  "settings.mcp.sectionTitle": "Int\u00e9gration MCP (acc\u00e8s outils IA)",
   "settings.smtp.title": "Configuration SMTP",
   "settings.smtp.configured": "Configur\u00e9",
   "settings.smtp.notConfigured": "Non configur\u00e9",
