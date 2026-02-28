@@ -63,7 +63,7 @@ services:
 
   # Optional: MCP server for AI tool integration (Claude, Copilot, Cursor, etc.)
   # Activate with:  docker compose --profile mcp up -d
-  # Works with SSO (production) or email/password login (testing).
+  # Requires SSO to be enabled + MCP toggled on in admin settings.
   mcp-server:
     build:
       context: .
@@ -83,13 +83,13 @@ services:
     environment:
       TURBO_EA_URL: http://backend:8000
       TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
-      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:${MCP_HOST_PORT:-8001}}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
       MCP_PORT: "8001"
     depends_on:
       backend:
         condition: service_healthy
-    ports:
-      - "${MCP_HOST_PORT:-8001}:8001"
+    expose:
+      - "8001"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 30s

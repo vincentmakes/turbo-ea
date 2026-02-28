@@ -198,6 +198,14 @@ async def authorize(request: Request) -> Response:
             status_code=400,
         )
 
+    # Get SSO config from Turbo EA
+    sso_config = await _get_sso_config()
+    if not sso_config.get("enabled"):
+        return JSONResponse(
+            {"error": "server_error", "error_description": "SSO not configured"},
+            status_code=503,
+        )
+
     # Store pending auth
     internal_state = secrets.token_urlsafe(32)
     store.pending[internal_state] = PendingAuth(
@@ -209,32 +217,21 @@ async def authorize(request: Request) -> Response:
         code_challenge_method=code_challenge_method,
     )
 
-    # Try SSO first; fall back to password login form if SSO is not configured
-    try:
-        sso_config = await _get_sso_config()
-    except Exception:
-        sso_config = {}
+    # Build SSO authorization URL (provider-agnostic — the backend provides
+    # the correct authorization_endpoint regardless of provider)
+    callback_url = f"{MCP_PUBLIC_URL.rstrip('/')}/oauth/callback"
+    sso_params = {
+        "client_id": sso_config["client_id"],
+        "response_type": "code",
+        "redirect_uri": callback_url,
+        "scope": "openid email profile",
+        "response_mode": "query",
+        "state": internal_state,
+    }
 
-    if sso_config.get("enabled"):
-        # SSO mode — redirect to identity provider
-        callback_url = f"{MCP_PUBLIC_URL.rstrip('/')}/oauth/callback"
-        sso_params = {
-            "client_id": sso_config["client_id"],
-            "response_type": "code",
-            "redirect_uri": callback_url,
-            "scope": "openid email profile",
-            "response_mode": "query",
-            "state": internal_state,
-        }
-        authorization_endpoint = sso_config["authorization_endpoint"]
-        return RedirectResponse(
-            f"{authorization_endpoint}?{urlencode(sso_params)}",
-            status_code=302,
-        )
-
-    # Password mode — show login form
+    authorization_endpoint = sso_config["authorization_endpoint"]
     return RedirectResponse(
-        f"{MCP_PUBLIC_URL.rstrip('/')}/oauth/login?state={internal_state}",
+        f"{authorization_endpoint}?{urlencode(sso_params)}",
         status_code=302,
     )
 
@@ -470,130 +467,6 @@ async def _handle_refresh(body: dict) -> Response:
         "refresh_token": new_refresh,
         "scope": old_entry.scope,
     })
-
-
-# ── Token resolution (used by the MCP server on each request) ──────────────
-
-
-# ── Password login (fallback when SSO is not configured) ─────────────────
-
-_LOGIN_PAGE_HTML = """\
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Turbo EA — Sign in</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-           sans-serif; background: #f5f5f5; display: flex; align-items: center;
-           justify-content: center; min-height: 100vh; }
-    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.1);
-            padding: 2.5rem; width: 100%; max-width: 380px; }
-    h1 { font-size: 1.25rem; margin-bottom: .25rem; }
-    .sub { color: #666; font-size: .85rem; margin-bottom: 1.5rem; }
-    label { display: block; font-size: .85rem; font-weight: 500; margin-bottom: .25rem; }
-    input { width: 100%; padding: .6rem .75rem; border: 1px solid #ccc; border-radius: 6px;
-            font-size: .95rem; margin-bottom: 1rem; }
-    input:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25,118,210,.2); }
-    button { width: 100%; padding: .7rem; border: none; border-radius: 6px;
-             background: #1976d2; color: #fff; font-size: .95rem; font-weight: 600;
-             cursor: pointer; }
-    button:hover { background: #1565c0; }
-    .error { color: #d32f2f; font-size: .85rem; margin-bottom: 1rem; display: none; }
-    .error.show { display: block; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Turbo EA</h1>
-    <p class="sub">Sign in to authorize MCP access</p>
-    <div class="error" id="err"></div>
-    <form method="POST" action="/oauth/login">
-      <input type="hidden" name="state" value="{state}">
-      <label for="email">Email</label>
-      <input id="email" name="email" type="email" required autofocus>
-      <label for="password">Password</label>
-      <input id="password" name="password" type="password" required>
-      <button type="submit">Sign in</button>
-    </form>
-  </div>
-  <script>
-    const u = new URLSearchParams(location.search);
-    if (u.get("error")) {
-      const el = document.getElementById("err");
-      el.textContent = u.get("error");
-      el.classList.add("show");
-    }
-  </script>
-</body>
-</html>
-"""
-
-
-async def login_page(request: Request) -> Response:
-    """Render a simple login form for password-based auth."""
-    from starlette.responses import HTMLResponse
-
-    state = request.query_params.get("state", "")
-    if not state or state not in store.pending:
-        return JSONResponse(
-            {"error": "invalid_request", "error_description": "Missing or invalid state"},
-            status_code=400,
-        )
-    html = _LOGIN_PAGE_HTML.replace("{state}", state)
-    return HTMLResponse(html)
-
-
-async def login_submit(request: Request) -> Response:
-    """Handle password form submission — authenticate via Turbo EA backend."""
-    try:
-        form = await request.form()
-        email = form.get("email", "")
-        password = form.get("password", "")
-        internal_state = form.get("state", "")
-    except Exception:
-        return JSONResponse({"error": "invalid_request"}, status_code=400)
-
-    if not email or not password or not internal_state:
-        return JSONResponse({"error": "invalid_request"}, status_code=400)
-
-    pending = store.pending.get(internal_state)
-    if not pending:
-        return JSONResponse(
-            {"error": "invalid_request", "error_description": "Unknown or expired state"},
-            status_code=400,
-        )
-
-    # Authenticate against Turbo EA backend
-    try:
-        turbo_jwt = await api_client.login(email, password)
-    except Exception:
-        logger.warning("Password login failed for %s", email)
-        # Redirect back to login form with error
-        return RedirectResponse(
-            f"{MCP_PUBLIC_URL.rstrip('/')}/oauth/login"
-            f"?state={internal_state}&error=Invalid+email+or+password",
-            status_code=302,
-        )
-
-    # Remove from pending
-    store.pending.pop(internal_state, None)
-
-    # Issue authorization code (same as SSO callback path)
-    our_code = secrets.token_urlsafe(48)
-    store.codes[our_code] = AuthCode(
-        code=our_code,
-        client_id=pending.client_id,
-        redirect_uri=pending.redirect_uri,
-        scope=pending.scope,
-        code_challenge=pending.code_challenge,
-        turbo_jwt=turbo_jwt,
-    )
-
-    redirect_params = urlencode({"code": our_code, "state": pending.state})
-    return RedirectResponse(f"{pending.redirect_uri}?{redirect_params}", status_code=302)
 
 
 # ── Token resolution (used by the MCP server on each request) ──────────────
