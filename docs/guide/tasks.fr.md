@@ -1,51 +1,51 @@
-# Taches et enquetes
+# Tâches et enquêtes
 
-La page **Taches** centralise tous les elements de travail en attente en un seul endroit. Elle comporte deux onglets : **Mes taches** et **Mes enquetes**.
+La page **Tâches** centralise tous les éléments de travail en attente en un seul endroit. Elle comporte deux onglets : **Mes tâches** et **Mes enquêtes**.
 
 ![Section Mes taches](../assets/img/en/18_tasks.png)
 
-## Mes taches
+## Mes tâches
 
-Les taches sont des elements qui vous sont assignes ou que vous avez crees. Elles peuvent etre liees a des fiches specifiques ou etre autonomes.
+Les tâches sont des éléments qui vous sont assignes ou que vous avez créés. Elles peuvent être liées à des fiches spécifiques ou être autonomes.
 
 ### Filtrage
 
 Utilisez les onglets de statut pour filtrer :
 
-- **Ouvert** -- Taches encore en attente ou en cours
-- **Termine** -- Taches terminees
+- **Ouvert** -- Tâches encore en attente ou en cours
+- **Terminé** -- Tâches terminees
 - **Tout** -- Tout afficher
 
-### Gestion des taches
+### Gestion des tâches
 
-- **Bascule rapide** -- Cliquez sur la case a cocher pour marquer une tache comme terminee (ou la reouvrir)
-- **Lien vers la fiche** -- Si une tache est liee a une fiche, cliquez sur le nom de la fiche pour naviguer vers sa page de detail
-- **Taches systeme** -- Certaines taches sont generees automatiquement par le systeme (par ex. « Repondre a l'enquete pour la fiche X »). Celles-ci incluent un lien direct vers l'action correspondante
+- **Bascule rapide** -- Cliquez sur la case a cocher pour marquer une tâche comme terminée (ou la réouvrir)
+- **Lien vers la fiche** -- Si une tâche est liée à une fiche, cliquez sur le nom de la fiche pour naviguer vers sa page de détail
+- **Tâches système** -- Certaines tâches sont générées automatiquement par le système (par ex. « Répondre à l'enquête pour la fiche X »). Celles-ci incluent un lien direct vers l'action correspondante
 
-### Creation de taches
+### Création de tâches
 
-Vous pouvez creer des taches depuis deux endroits :
+Vous pouvez créer des tâches depuis deux endroits :
 
-1. **Depuis cette page** -- Cliquez sur **+ Nouvelle tache**, entrez un titre, definissez optionnellement un responsable, une date d'echeance et un lien vers une fiche
-2. **Depuis l'onglet Taches d'une fiche** -- Creez une tache automatiquement liee a cette fiche
+1. **Depuis cette page** -- Cliquez sur **+ Nouvelle tâche**, entrez un titre, définissez optionnellement un responsable, une date d'echeance et un lien vers une fiche
+2. **Depuis l'onglet Tâches d'une fiche** -- Créez une tâche automatiquement liée à cette fiche
 
-Chaque tache suit :
+Chaque tâche suit :
 
 | Champ | Description |
 |-------|-------------|
-| **Titre** | Ce qui doit etre fait |
-| **Statut** | Ouvert ou Termine |
+| **Titre** | Ce qui doit être fait |
+| **Statut** | Ouvert ou Terminé |
 | **Responsable** | L'utilisateur responsable |
-| **Date d'echeance** | Delai optionnel |
-| **Fiche** | La fiche liee (optionnel) |
+| **Date d'echeance** | Délai optionnel |
+| **Fiche** | La fiche liée (optionnel) |
 
-## Mes enquetes
+## Mes enquêtes
 
-L'onglet **Enquetes** affiche toutes les enquetes de maintenance de donnees necessitant votre reponse. Les enquetes sont creees par les administrateurs pour collecter des informations aupres des parties prenantes sur des fiches specifiques (voir [Administration des enquetes](../admin/surveys.md)).
+L'onglet **Enquêtes** affiche toutes les enquêtes de maintenance de données necessitant votre réponse. Les enquêtes sont créées par les administrateurs pour collecter des informations aupres des parties prenantes sur des fiches spécifiques (voir [Administration des enquêtes](../admin/surveys.md)).
 
-Chaque enquete en attente affiche :
+Chaque enquête en attente affiche :
 
-- Le nom de l'enquete et la fiche cible
-- Un bouton **Repondre** qui redirige vers le formulaire de reponse
+- Le nom de l'enquête et la fiche cible
+- Un bouton **Répondre** qui redirigé vers le formulaire de réponse
 
-Le formulaire de reponse a l'enquete presente les questions configurees par l'administrateur. Vos reponses peuvent automatiquement mettre a jour les attributs de la fiche, selon la configuration de l'enquete.
+Le formulaire de réponse à l'enquête présenté les questions configurées par l'administrateur. Vos réponses peuvent automatiquement mettre à jour les attributs de la fiche, selon la configuration de l'enquête.

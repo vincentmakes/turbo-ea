@@ -2,9 +2,9 @@
 
 ![Impostazioni suggerimenti AI](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA puo generare automaticamente le descrizioni delle card utilizzando una combinazione di **ricerca web** e un **Large Language Model (LLM)**. Quando un utente clicca il pulsante di suggerimento AI su una card, il sistema cerca sul web informazioni rilevanti sul componente, poi utilizza un LLM per produrre una descrizione concisa e contestualizzata per tipo — completa di punteggio di affidabilita e link alle fonti cliccabili.
+Turbo EA può generare automaticamente le descrizioni delle card utilizzando una combinazione di **ricerca web** e un **Large Language Model (LLM)**. Quando un utente clicca il pulsante di suggerimento AI su una card, il sistema cerca sul web informazioni rilevanti sul componente, poi utilizza un LLM per produrre una descrizione concisa e contestualizzata per tipo — completa di punteggio di affidabilità e link alle fonti cliccabili.
 
-Questa funzionalita e **opzionale** e **completamente controllata dall'amministratore**. Puo funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
+Questa funzionalità e **opzionale** e **completamente controllata dall'amministratore**. Può funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
 
 ---
 
@@ -14,12 +14,12 @@ La pipeline di suggerimento AI ha due passaggi:
 
 1. **Ricerca web** — Turbo EA interroga un provider di ricerca (DuckDuckGo, Google Custom Search o SearXNG) utilizzando il nome e il tipo della card come contesto. Ad esempio, una card Application denominata "SAP S/4HANA" genera una ricerca per "SAP S/4HANA software application".
 
-2. **Estrazione LLM** — I risultati della ricerca vengono inviati al LLM configurato insieme a un prompt di sistema contestualizzato per tipo. Il modello produce una descrizione, un punteggio di affidabilita (0-100%) e elenca le fonti utilizzate.
+2. **Estrazione LLM** — I risultati della ricerca vengono inviati al LLM configurato insieme a un prompt di sistema contestualizzato per tipo. Il modello produce una descrizione, un punteggio di affidabilità (0-100%) e elenca le fonti utilizzate.
 
 Il risultato viene mostrato all'utente con:
 
 - Una **descrizione modificabile** che possono rivedere e modificare prima di applicare
-- Un **badge di affidabilita** che mostra quanto e affidabile il suggerimento
+- Un **badge di affidabilità** che mostra quanto è affidabile il suggerimento
 - **Link alle fonti** per consentire all'utente di verificare le informazioni
 
 ---
@@ -44,7 +44,7 @@ I provider commerciali richiedono una chiave API, che viene memorizzata crittogr
 | Provider | Configurazione | Note |
 |----------|----------------|------|
 | **DuckDuckGo** | Nessuna configurazione necessaria | Predefinito. Scraping HTML senza dipendenze. Nessuna chiave API richiesta. |
-| **Google Custom Search** | Richiede chiave API e ID motore di ricerca personalizzato | Inserite come `API_KEY:CX` nel campo URL di ricerca. Risultati di qualita superiore. |
+| **Google Custom Search** | Richiede chiave API e ID motore di ricerca personalizzato | Inserite come `API_KEY:CX` nel campo URL di ricerca. Risultati di qualità superiore. |
 | **SearXNG** | Richiede un URL di un'istanza SearXNG self-hosted | Motore di meta-ricerca orientato alla privacy. API JSON. |
 
 ---
@@ -53,7 +53,7 @@ I provider commerciali richiedono una chiave API, che viene memorizzata crittogr
 
 ### Opzione A: Ollama integrato (Docker Compose)
 
-Il modo piu semplice per iniziare. Turbo EA include un container Ollama opzionale nella sua configurazione Docker Compose.
+Il modo più semplice per iniziare. Turbo EA include un container Ollama opzionale nella sua configurazione Docker Compose.
 
 **1. Avviate con il profilo AI:**
 
@@ -72,18 +72,18 @@ All'avvio, il backend:
 
 - Rileva il container Ollama
 - Salva le impostazioni di connessione nel database
-- Scarica il modello configurato se non e gia presente (eseguito in background, potrebbe richiedere alcuni minuti)
+- Scarica il modello configurato se non è già presente (eseguito in background, potrebbe richiedere alcuni minuti)
 
 **3. Verificate** nell'interfaccia admin: andate su **Impostazioni > Suggerimenti AI** e confermate che lo stato mostra come connesso.
 
 ### Opzione B: Istanza Ollama esterna
 
-Se gestite gia Ollama su un server separato:
+Se gestite già Ollama su un server separato:
 
 1. Andate su **Impostazioni > Suggerimenti AI** nell'interfaccia admin.
 2. Selezionate **Ollama** come tipo di provider.
 3. Inserite l'**URL del provider** (es. `http://your-server:11434`).
-4. Cliccate su **Test connessione** — il sistema mostrera i modelli disponibili.
+4. Cliccate su **Test connessione** — il sistema mostrerà i modelli disponibili.
 5. Selezionate un **modello** dal menu a tendina.
 6. Cliccate su **Salva**.
 
@@ -91,7 +91,7 @@ Se gestite gia Ollama su un server separato:
 
 1. Andate su **Impostazioni > Suggerimenti AI** nell'interfaccia admin.
 2. Selezionate il vostro provider (OpenAI, Google Gemini, Azure OpenAI, OpenRouter o Anthropic Claude).
-3. Inserite la vostra **chiave API** — verra crittografata prima della memorizzazione.
+3. Inserite la vostra **chiave API** — verrà crittografata prima della memorizzazione.
 4. Inserite il **nome del modello** (es. `gpt-4o`, `gemini-pro`, `claude-sonnet-4-20250514`).
 5. Cliccate su **Test connessione** per verificare.
 6. Cliccate su **Salva**.
@@ -100,7 +100,7 @@ Se gestite gia Ollama su un server separato:
 
 ## Opzioni di configurazione
 
-Una volta connessi, potete perfezionare la funzionalita in **Impostazioni > Suggerimenti AI**:
+Una volta connessi, potete perfezionare la funzionalità in **Impostazioni > Suggerimenti AI**:
 
 ### Abilita/Disabilita per tipo di card
 
@@ -125,10 +125,10 @@ Una volta configurato da un amministratore, gli utenti con il permesso `ai.sugge
 ### Su una card esistente
 
 1. Aprite la vista dettaglio di qualsiasi card.
-2. Cliccate sul **pulsante scintilla** (visibile accanto alla sezione descrizione quando l'AI e abilitata per quel tipo di card).
+2. Cliccate sul **pulsante scintilla** (visibile accanto alla sezione descrizione quando l'AI è abilitata per quel tipo di card).
 3. Attendete qualche secondo per la ricerca web e l'elaborazione LLM.
-4. Revisionate il suggerimento: leggete la descrizione generata, controllate il punteggio di affidabilita e verificate i link alle fonti.
-5. **Modificate** il testo se necessario — il suggerimento e completamente modificabile prima dell'applicazione.
+4. Revisionate il suggerimento: leggete la descrizione generata, controllate il punteggio di affidabilità e verificate i link alle fonti.
+5. **Modificate** il testo se necessario — il suggerimento è completamente modificabile prima dell'applicazione.
 6. Cliccate su **Applica** per impostare la descrizione, o **Ignora** per scartarla.
 
 ### Quando create una nuova card
@@ -171,8 +171,8 @@ La chiave del permesso e `ai.suggest`. I ruoli personalizzati possono ricevere q
 | Pulsante suggerimento AI non visibile | Verificate che l'AI sia abilitata per il tipo di card in Impostazioni > Suggerimenti AI, e che l'utente abbia il permesso `ai.suggest`. |
 | Stato "AI non configurata" | Andate su Impostazioni > Suggerimenti AI e completate la configurazione del provider. Cliccate su Test connessione per verificare. |
 | Modello non presente nel menu a tendina | Per Ollama: assicuratevi che il modello sia scaricato (`ollama pull nome-modello`). Per i provider commerciali: inserite il nome del modello manualmente. |
-| Suggerimenti lenti | La velocita di inferenza del LLM dipende dall'hardware (per Ollama) o dalla latenza di rete (per i provider commerciali). I modelli piu piccoli come `gemma3:4b` sono piu veloci di quelli piu grandi. |
-| Punteggi di affidabilita bassi | Il LLM potrebbe non trovare abbastanza informazioni rilevanti tramite la ricerca web. Provate un nome di card piu specifico, o considerate l'utilizzo di Google Custom Search per risultati migliori. |
+| Suggerimenti lenti | La velocità di inferenza del LLM dipende dall'hardware (per Ollama) o dalla latenza di rete (per i provider commerciali). I modelli più piccoli come `gemma3:4b` sono più veloci di quelli più grandi. |
+| Punteggi di affidabilità bassi | Il LLM potrebbe non trovare abbastanza informazioni rilevanti tramite la ricerca web. Provate un nome di card più specifico, o considerate l'utilizzo di Google Custom Search per risultati migliori. |
 | Test connessione fallito | Verificate che l'URL del provider sia raggiungibile dal container backend. Per le configurazioni Docker, assicuratevi che entrambi i container siano sulla stessa rete. |
 
 ---
@@ -187,4 +187,4 @@ Queste variabili d'ambiente forniscono la configurazione AI iniziale. Una volta 
 | `AI_MODEL` | *(vuoto)* | Nome del modello LLM (es. `gemma3:4b`, `mistral`) |
 | `AI_SEARCH_PROVIDER` | `duckduckgo` | Provider di ricerca web: `duckduckgo`, `google` o `searxng` |
 | `AI_SEARCH_URL` | *(vuoto)* | URL del provider di ricerca o credenziali API |
-| `AI_AUTO_CONFIGURE` | `false` | Auto-abilita AI all'avvio se il provider e raggiungibile |
+| `AI_AUTO_CONFIGURE` | `false` | Auto-abilita AI all'avvio se il provider è raggiungibile |

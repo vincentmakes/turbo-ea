@@ -2,25 +2,25 @@
 
 L'integrazione ServiceNow (**Admin > Impostazioni > ServiceNow**) abilita la sincronizzazione bidirezionale tra Turbo EA e il vostro ServiceNow CMDB. Questa guida copre tutto, dalla configurazione iniziale alle ricette avanzate e alle best practice operative.
 
-## Perche integrare ServiceNow con Turbo EA?
+## Perché integrare ServiceNow con Turbo EA?
 
 ServiceNow CMDB e gli strumenti di Enterprise Architecture servono scopi diversi ma complementari:
 
 | | ServiceNow CMDB | Turbo EA |
 |--|-----------------|----------|
-| **Focus** | Operazioni IT — cosa e in esecuzione, chi ne e responsabile, quali incidenti si sono verificati | Pianificazione strategica — come dovrebbe apparire il panorama tra 3 anni? |
+| **Focus** | Operazioni IT — cosa è in esecuzione, chi ne e responsabile, quali incidenti si sono verificati | Pianificazione strategica — come dovrebbe apparire il panorama tra 3 anni? |
 | **Gestito da** | Operazioni IT, Asset Management | Team EA, Business Architect |
 | **Punto di forza** | Discovery automatizzata, workflow ITSM, accuratezza operativa | Contesto aziendale, mappatura delle capability, pianificazione del ciclo di vita, valutazioni |
-| **Dati tipici** | Hostname, IP, stato di installazione, gruppi di assegnazione, contratti | Criticita aziendale, idoneita funzionale, debito tecnico, roadmap strategica |
+| **Dati tipici** | Hostname, IP, stato di installazione, gruppi di assegnazione, contratti | Criticità aziendale, idoneità funzionale, debito tecnico, roadmap strategica |
 
 **Turbo EA e il sistema di riferimento** per il vostro panorama architetturale — nomi, descrizioni, piani del ciclo di vita, valutazioni e contesto aziendale risiedono tutti qui. ServiceNow integra Turbo EA con metadati operativi e tecnici (hostname, IP, dati SLA, stato di installazione) che provengono dalla discovery automatizzata e dai workflow ITSM. L'integrazione mantiene questi due sistemi connessi rispettando il fatto che Turbo EA e il sistema principale.
 
 ### Cosa potete fare
 
-- **Pull sync** — Alimentate Turbo EA con CI da ServiceNow, poi assumetene la proprieta. I pull successivi aggiornano solo i campi operativi (IP, stato, SLA) che SNOW scopre automaticamente
-- **Push sync** — Esportate i dati curati dall'EA verso ServiceNow (nomi, descrizioni, valutazioni, piani del ciclo di vita) cosi i team ITSM vedono il contesto EA
+- **Pull sync** — Alimentate Turbo EA con CI da ServiceNow, poi assumetene la proprietà. I pull successivi aggiornano solo i campi operativi (IP, stato, SLA) che SNOW scopre automaticamente
+- **Push sync** — Esportate i dati curati dall'EA verso ServiceNow (nomi, descrizioni, valutazioni, piani del ciclo di vita) così i team ITSM vedono il contesto EA
 - **Sincronizzazione bidirezionale** — Turbo EA guida la maggior parte dei campi; SNOW guida un piccolo insieme di campi operativi/tecnici. Entrambi i sistemi restano sincronizzati
-- **Mappatura delle identita** — Tracciamento persistente dei riferimenti incrociati (sys_id <-> card UUID) che assicura che i record rimangano collegati tra le sincronizzazioni
+- **Mappatura delle identità** — Tracciamento persistente dei riferimenti incrociati (sys_id <-> card UUID) che assicura che i record rimangano collegati tra le sincronizzazioni
 
 ---
 
@@ -47,44 +47,44 @@ Prima di configurare qualsiasi cosa, rispondete a queste domande:
 
 ### 1. Quali tipi di card necessitano dati da ServiceNow?
 
-Iniziate in piccolo. I punti di integrazione piu comuni sono:
+Iniziate in piccolo. I punti di integrazione più comuni sono:
 
-| Priorita | Tipo Turbo EA | Sorgente ServiceNow | Perche |
+| Priorità | Tipo Turbo EA | Sorgente ServiceNow | Perché |
 |----------|---------------|----------------------|--------|
-| **Alta** | Application | `cmdb_ci_business_app` | Le applicazioni sono il nucleo dell'EA — il CMDB ha nomi, proprietari e stati autorevoli |
+| **Alta** | Application | `cmdb_ci_business_app` | Le applicazioni sono il nucleo dell'EA — il CMDB ha nomi, proprietari è stati autorevoli |
 | **Alta** | ITComponent (Software) | `cmdb_ci_spkg` | I prodotti software alimentano il tracciamento EOL e il tech radar |
 | **Media** | ITComponent (Hardware) | `cmdb_ci_server` | Panorama dei server per la mappatura dell'infrastruttura |
 | **Media** | Provider | `core_company` | Registro dei fornitori per la gestione dei costi e delle relazioni |
 | **Bassa** | Interface | `cmdb_ci_endpoint` | Endpoint di integrazione (spesso gestiti manualmente nell'EA) |
 | **Bassa** | DataObject | `cmdb_ci_database` | Istanze di database |
 
-### 2. Quale sistema e la fonte di verita per ogni campo?
+### 2. Quale sistema e la fonte di verità per ogni campo?
 
-Questa e la decisione piu importante. L'impostazione predefinita dovrebbe essere **Turbo EA guida** — lo strumento EA e il sistema di riferimento per il vostro panorama architetturale. ServiceNow dovrebbe guidare solo per un insieme ristretto di campi operativi e tecnici che provengono dalla discovery automatizzata o dai workflow ITSM. Tutto il resto — nomi, descrizioni, valutazioni, pianificazione del ciclo di vita, costi — e gestito e curato dal team EA in Turbo EA.
+Questa è la decisione più importante. L'impostazione predefinita dovrebbe essere **Turbo EA guida** — lo strumento EA e il sistema di riferimento per il vostro panorama architetturale. ServiceNow dovrebbe guidare solo per un insieme ristretto di campi operativi e tecnici che provengono dalla discovery automatizzata o dai workflow ITSM. Tutto il resto — nomi, descrizioni, valutazioni, pianificazione del ciclo di vita, costi — e gestito e curato dal team EA in Turbo EA.
 
 **Modello consigliato — "Turbo EA guida, SNOW integra":**
 
-| Tipo di campo | Fonte di verita | Perche |
+| Tipo di campo | Fonte di verità | Perché |
 |---------------|-----------------|--------|
 | **Nomi e descrizioni** | **Turbo guida** | Il team EA cura nomi autorevoli e scrive descrizioni strategiche; i nomi CMDB possono essere disordinati o auto-generati |
-| **Criticita aziendale** | **Turbo guida** | Valutazione strategica del team EA — non sono dati operativi |
-| **Idoneita funzionale/tecnica** | **Turbo guida** | I punteggi del modello TIME sono una competenza EA |
+| **Criticità aziendale** | **Turbo guida** | Valutazione strategica del team EA — non sono dati operativi |
+| **Idoneità funzionale/tecnica** | **Turbo guida** | I punteggi del modello TIME sono una competenza EA |
 | **Ciclo di vita (tutte le fasi)** | **Turbo guida** | Plan, phaseIn, active, phaseOut, endOfLife — tutti dati di pianificazione EA |
-| **Dati sui costi** | **Turbo guida** | L'EA traccia il costo totale di proprieta; il CMDB puo avere voci di contratto ma l'EA possiede la vista consolidata |
+| **Dati sui costi** | **Turbo guida** | L'EA traccia il costo totale di proprietà; il CMDB può avere voci di contratto ma l'EA possiede la vista consolidata |
 | **Tipo di hosting, categoria** | **Turbo guida** | L'EA classifica le applicazioni per modello di hosting per l'analisi strategica |
 | **Metadati tecnici** | SNOW guida | IP, versioni OS, hostname, numeri di serie — dati di discovery automatizzata che l'EA non mantiene |
-| **SLA / stato operativo** | SNOW guida | Stato di installazione, obiettivi SLA, metriche di disponibilita — dati operativi ITSM |
-| **Gruppo di assegnazione / supporto** | SNOW guida | Proprieta operativa tracciata nei workflow ServiceNow |
+| **SLA / stato operativo** | SNOW guida | Stato di installazione, obiettivi SLA, metriche di disponibilità — dati operativi ITSM |
+| **Gruppo di assegnazione / supporto** | SNOW guida | Proprietà operativa tracciata nei workflow ServiceNow |
 | **Date di discovery** | SNOW guida | Prima/ultima scoperta, ultimo scan — metadati di automazione CMDB |
 
 ### 3. Con quale frequenza dovreste sincronizzare?
 
 | Scenario | Frequenza | Note |
 |----------|-----------|------|
-| Importazione iniziale | Una volta | Modalita additiva, revisionate attentamente |
+| Importazione iniziale | Una volta | Modalità additiva, revisionate attentamente |
 | Gestione attiva del panorama | Giornaliera | Automatizzata tramite cron durante le ore non di punta |
-| Reporting di conformita | Settimanale | Prima di generare i report |
-| Ad hoc | Secondo necessita | Prima di revisioni EA importanti o presentazioni |
+| Reporting di conformità | Settimanale | Prima di generare i report |
+| Ad hoc | Secondo necessità | Prima di revisioni EA importanti o presentazioni |
 
 ---
 
@@ -114,7 +114,7 @@ In ServiceNow, create un account di servizio dedicato (non usate mai account per
 | Metodo | Pro | Contro | Raccomandazione |
 |--------|-----|--------|-----------------|
 | **Basic Auth** | Configurazione semplice | Credenziali inviate ad ogni richiesta | Solo per sviluppo/test |
-| **OAuth 2.0** | Basato su token, con ambito, audit-friendly | Piu passaggi di configurazione | **Consigliato per la produzione** |
+| **OAuth 2.0** | Basato su token, con ambito, audit-friendly | Più passaggi di configurazione | **Consigliato per la produzione** |
 
 Per OAuth 2.0:
 1. In ServiceNow: **System OAuth > Application Registry**
@@ -140,7 +140,7 @@ Navigate su **Admin > ServiceNow > scheda Connessioni**.
 | Tipo di autenticazione | Basic Auth o OAuth 2.0 | OAuth consigliato per la produzione |
 | Credenziali | (per tipo di autenticazione) | Crittografate a riposo tramite Fernet |
 
-3. Cliccate su **Crea**, poi cliccate sull'**icona test** (simbolo wifi) per verificare la connettivita
+3. Cliccate su **Crea**, poi cliccate sull'**icona test** (simbolo wifi) per verificare la connettività
 
 - **Chip verde "Connesso"** — Pronto per l'uso
 - **Chip rosso "Fallito"** — Verificate credenziali, rete e URL
@@ -170,7 +170,7 @@ Cliccate su **Aggiungi mappatura** e configurate:
 | **Tipo di card** | Il tipo di card Turbo EA da sincronizzare | Application |
 | **Tabella SNOW** | Il nome API della tabella ServiceNow | `cmdb_ci_business_app` |
 | **Direzione sincronizzazione** | Quali operazioni sono disponibili (vedi sotto) | ServiceNow -> Turbo EA |
-| **Modalita sincronizzazione** | Come gestire le eliminazioni | Conservative |
+| **Modalità sincronizzazione** | Come gestire le eliminazioni | Conservative |
 | **Rapporto massimo di eliminazione** | Soglia di sicurezza per eliminazioni in blocco | 50% |
 | **Query filtro** | Query codificata ServiceNow per limitare l'ambito | `active=true^install_status=1` |
 | **Salta staging** | Applica le modifiche direttamente senza revisione | Disattivato (consigliato per la sincronizzazione iniziale) |
@@ -179,7 +179,7 @@ Cliccate su **Aggiungi mappatura** e configurate:
 
 | Tipo Turbo EA | Tabella ServiceNow | Descrizione |
 |---------------|-------------------|-------------|
-| Application | `cmdb_ci_business_app` | Applicazioni aziendali (piu comune) |
+| Application | `cmdb_ci_business_app` | Applicazioni aziendali (più comune) |
 | Application | `cmdb_ci_appl` | CI di applicazioni generiche |
 | ITComponent (Software) | `cmdb_ci_spkg` | Pacchetti software |
 | ITComponent (Hardware) | `cmdb_ci_server` | Server fisici/virtuali |
@@ -230,9 +230,9 @@ Per ogni mappatura di campo, configurate:
 |--------------|-------------|
 | **Campo Turbo EA** | Percorso del campo in Turbo EA (l'autocompletamento suggerisce opzioni basate sul tipo di card) |
 | **Campo SNOW** | Nome API della colonna ServiceNow (es. `name`, `short_description`) |
-| **Direzione** | Fonte di verita per campo: SNOW guida o Turbo guida |
+| **Direzione** | Fonte di verità per campo: SNOW guida o Turbo guida |
 | **Trasformazione** | Come convertire i valori: Diretta, Mappa valori, Data, Booleano |
-| **Identita** (casella ID) | Utilizzato per la corrispondenza dei record durante la sincronizzazione iniziale |
+| **Identità** (casella ID) | Utilizzato per la corrispondenza dei record durante la sincronizzazione iniziale |
 
 ### Percorsi dei campi Turbo EA
 
@@ -251,17 +251,17 @@ L'autocompletamento raggruppa i campi per sezione. Ecco il riferimento completo 
 
 Ad esempio, se il vostro tipo Application ha un campo con chiave `businessCriticality`, selezionate `attributes.businessCriticality` dal menu a tendina.
 
-### Campi identita — Come funziona la corrispondenza
+### Campi identità — Come funziona la corrispondenza
 
-Contrassegnate uno o piu campi come **Identita** (icona chiave). Questi vengono utilizzati durante la prima sincronizzazione per abbinare i record ServiceNow alle card Turbo EA esistenti:
+Contrassegnate uno o più campi come **Identità** (icona chiave). Questi vengono utilizzati durante la prima sincronizzazione per abbinare i record ServiceNow alle card Turbo EA esistenti:
 
-1. **Ricerca nella mappa delle identita** — Se esiste gia un collegamento sys_id <-> card UUID, viene utilizzato
-2. **Corrispondenza esatta del nome** — Corrispondenza sul valore del campo identita (es. corrispondenza per nome applicazione)
-3. **Corrispondenza fuzzy** — Se non c'e corrispondenza esatta, utilizza SequenceMatcher con soglia di similarita dell'85%
+1. **Ricerca nella mappa delle identità** — Se esiste già un collegamento sys_id <-> card UUID, viene utilizzato
+2. **Corrispondenza esatta del nome** — Corrispondenza sul valore del campo identità (es. corrispondenza per nome applicazione)
+3. **Corrispondenza fuzzy** — Se non c'è corrispondenza esatta, utilizza SequenceMatcher con soglia di similarita dell'85%
 
-**Best practice**: Contrassegnate sempre il campo `name` come campo identita. Se i nomi differiscono tra i sistemi (es. SNOW include i numeri di versione come "SAP S/4HANA v2.1" ma Turbo EA ha "SAP S/4HANA"), puliteli prima della prima sincronizzazione per una migliore qualita di corrispondenza.
+**Best practice**: Contrassegnate sempre il campo `name` come campo identità. Se i nomi differiscono tra i sistemi (es. SNOW include i numeri di versione come "SAP S/4HANA v2.1" ma Turbo EA ha "SAP S/4HANA"), puliteli prima della prima sincronizzazione per una migliore qualità di corrispondenza.
 
-Dopo che la prima sincronizzazione stabilisce i collegamenti nella mappa delle identita, le sincronizzazioni successive utilizzano la mappa delle identita persistente e non si basano sulla corrispondenza dei nomi.
+Dopo che la prima sincronizzazione stabilisce i collegamenti nella mappa delle identità, le sincronizzazioni successive utilizzano la mappa delle identità persistente e non si basano sulla corrispondenza dei nomi.
 
 ---
 
@@ -294,7 +294,7 @@ Per ogni mappatura attiva, vedete pulsanti Pull e/o Push a seconda della direzio
 6. APPLY     Esegue le azioni staged (crea/aggiorna/archivia card)
 ```
 
-Quando **Salta staging** e abilitato, i passi 5 e 6 si fondono — le azioni vengono applicate direttamente senza scrivere record staged.
+Quando **Salta staging** è abilitato, i passi 5 e 6 si fondono — le azioni vengono applicate direttamente senza scrivere record staged.
 
 ### Revisione dei risultati della sincronizzazione
 
@@ -331,7 +331,7 @@ Cliccate sull'**icona elenco** su qualsiasi esecuzione per ispezionare i singoli
 
 ## Comprendere la direzione di sincronizzazione vs la direzione del campo
 
-Questo e il concetto piu comunemente frainteso. Ci sono **due livelli di direzione** che lavorano insieme:
+Questo è il concetto più comunemente frainteso. Ci sono **due livelli di direzione** che lavorano insieme:
 
 ### Livello tabella: Direzione di sincronizzazione
 
@@ -365,7 +365,7 @@ Mappatura: Application <-> `cmdb_ci_business_app`, **Bidirezionale**
 | `attributes.ipAddress` | SNOW guida | Importa IP dalla discovery | Salta (dati operativi) |
 | `attributes.installStatus` | SNOW guida | Importa stato operativo | Salta (dati ITSM) |
 
-**Concetto chiave**: La direzione a livello di tabella determina *quali pulsanti appaiono*. La direzione a livello di campo determina *quali campi vengono effettivamente trasferiti* durante ogni operazione. Una mappatura bidirezionale dove Turbo EA guida la maggior parte dei campi e SNOW guida solo i campi operativi/tecnici e la configurazione piu potente.
+**Concetto chiave**: La direzione a livello di tabella determina *quali pulsanti appaiono*. La direzione a livello di campo determina *quali campi vengono effettivamente trasferiti* durante ogni operazione. Una mappatura bidirezionale dove Turbo EA guida la maggior parte dei campi e SNOW guida solo i campi operativi/tecnici e la configurazione più potente.
 
 ### Best practice: Direzione del campo per tipo di dato
 
@@ -375,16 +375,16 @@ L'impostazione predefinita dovrebbe essere **Turbo guida** per la stragrande mag
 |-------------------|----------------------|-------------|
 | **Nomi, etichette visualizzate** | **Turbo guida** | Il team EA cura nomi autorevoli e puliti — i nomi CMDB sono spesso auto-generati o incoerenti |
 | **Descrizione** | **Turbo guida** | Le descrizioni EA catturano contesto strategico, valore aziendale e significato architetturale |
-| **Criticita aziendale (modello TIME)** | **Turbo guida** | Valutazione core dell'EA — non dati operativi |
-| **Idoneita funzionale/tecnica** | **Turbo guida** | Punteggi e classificazione della roadmap specifici dell'EA |
+| **Criticità aziendale (modello TIME)** | **Turbo guida** | Valutazione core dell'EA — non dati operativi |
+| **Idoneità funzionale/tecnica** | **Turbo guida** | Punteggi e classificazione della roadmap specifici dell'EA |
 | **Ciclo di vita (tutte le fasi)** | **Turbo guida** | Plan, phaseIn, active, phaseOut, endOfLife sono tutte decisioni di pianificazione EA |
-| **Dati sui costi** | **Turbo guida** | L'EA traccia il costo totale di proprieta e l'allocazione del budget |
+| **Dati sui costi** | **Turbo guida** | L'EA traccia il costo totale di proprietà e l'allocazione del budget |
 | **Tipo di hosting, classificazione** | **Turbo guida** | Categorizzazione strategica mantenuta dagli architetti |
-| **Informazioni fornitore/provider** | **Turbo guida** | L'EA gestisce strategia, contratti e rischio dei fornitori — SNOW puo avere un nome fornitore ma l'EA possiede la relazione |
+| **Informazioni fornitore/provider** | **Turbo guida** | L'EA gestisce strategia, contratti e rischio dei fornitori — SNOW può avere un nome fornitore ma l'EA possiede la relazione |
 | Metadati tecnici (OS, IP, hostname) | SNOW guida | Dati di discovery automatizzata — l'EA non li mantiene |
-| Obiettivi SLA, metriche di disponibilita | SNOW guida | Dati operativi dai workflow ITSM |
+| Obiettivi SLA, metriche di disponibilità | SNOW guida | Dati operativi dai workflow ITSM |
 | Stato di installazione, stato operativo | SNOW guida | Il CMDB traccia se un CI e installato, ritirato, ecc. |
-| Gruppo di assegnazione, team di supporto | SNOW guida | Proprieta operativa gestita in ServiceNow |
+| Gruppo di assegnazione, team di supporto | SNOW guida | Proprietà operativa gestita in ServiceNow |
 | Metadati di discovery (primo/ultimo rilevamento) | SNOW guida | Timestamp di automazione CMDB |
 
 ---
@@ -397,9 +397,9 @@ Per impostazione predefinita, i pull sync seguono un workflow **stage-poi-applic
 Fetch -> Match -> Transform -> Diff -> STAGE -> Revisione -> APPLY
 ```
 
-I record vengono scritti in una tabella di staging, consentendovi di revisionare cosa cambiera prima di applicare. Questo e visibile nel Dashboard di sincronizzazione sotto "Visualizza record staged".
+I record vengono scritti in una tabella di staging, consentendovi di revisionare cosa cambiera prima di applicare. Questo è visibile nel Dashboard di sincronizzazione sotto "Visualizza record staged".
 
-### Modalita Salta staging
+### Modalità Salta staging
 
 Quando abilitate **Salta staging** su una mappatura, i record vengono applicati direttamente:
 
@@ -414,7 +414,7 @@ Non vengono creati record staged — le modifiche avvengono immediatamente.
 | **Passo di revisione** | Si — ispezionate i diff prima di applicare | No — le modifiche vengono applicate immediatamente |
 | **Tabella record staged** | Popolata con voci create/aggiorna/elimina | Non popolata |
 | **Registro di audit** | Record staged + cronologia eventi | Solo cronologia eventi |
-| **Prestazioni** | Leggermente piu lento (scrive righe di staging) | Leggermente piu veloce |
+| **Prestazioni** | Leggermente più lento (scrive righe di staging) | Leggermente più veloce |
 | **Annullamento** | Potete interrompere prima di applicare | Dovete ripristinare manualmente |
 
 ### Quando usare ciascuno
@@ -426,27 +426,27 @@ Non vengono creati record staged — le modifiche avvengono immediatamente.
 | Mappatura stabile e ben testata | **Saltate staging** — Non serve revisionare ogni esecuzione |
 | Sincronizzazioni giornaliere automatizzate (cron) | **Saltate staging** — Le esecuzioni automatiche non possono attendere la revisione |
 | CMDB grande (10.000+ CI) | **Saltate staging** — Evita di creare migliaia di righe di staging |
-| Ambiente sensibile alla conformita | **Usate staging** — Mantenete un registro di audit completo nella tabella di staging |
+| Ambiente sensibile alla conformità | **Usate staging** — Mantenete un registro di audit completo nella tabella di staging |
 
 **Best practice**: Iniziate con lo staging abilitato per le prime sincronizzazioni. Una volta sicuri che la mappatura produce risultati corretti, abilitate salta staging per le esecuzioni automatizzate.
 
 ---
 
-## Modalita di sincronizzazione e sicurezza delle eliminazioni
+## Modalità di sincronizzazione e sicurezza delle eliminazioni
 
-### Modalita di sincronizzazione
+### Modalità di sincronizzazione
 
-| Modalita | Crea | Aggiorna | Elimina | Ideale per |
+| Modalità | Crea | Aggiorna | Elimina | Ideale per |
 |----------|------|----------|---------|------------|
 | **Additive** | Si | Si | **Mai** | Importazioni iniziali, ambienti a basso rischio |
 | **Conservative** | Si | Si | Solo card **create dalla sincronizzazione** | Predefinita per sincronizzazioni continuative |
 | **Strict** | Si | Si | Tutte le card collegate | Specchio completo del CMDB |
 
-**Additive** non rimuove mai card da Turbo EA, rendendola l'opzione piu sicura per le importazioni iniziali e gli ambienti dove Turbo EA contiene card non presenti in ServiceNow (card create manualmente, card da altre fonti).
+**Additive** non rimuove mai card da Turbo EA, rendendola l'opzione più sicura per le importazioni iniziali e gli ambienti dove Turbo EA contiene card non presenti in ServiceNow (card create manualmente, card da altre fonti).
 
-**Conservative** (predefinita) traccia se ogni card e stata originariamente creata dal motore di sincronizzazione. Solo quelle card possono essere auto-archiviate se scompaiono da ServiceNow. Le card create manualmente in Turbo EA o importate da altre fonti non vengono mai toccate.
+**Conservative** (predefinita) traccia se ogni card è stata originariamente creata dal motore di sincronizzazione. Solo quelle card possono essere auto-archiviate se scompaiono da ServiceNow. Le card create manualmente in Turbo EA o importate da altre fonti non vengono mai toccate.
 
-**Strict** archivia qualsiasi card collegata il cui CI ServiceNow corrispondente non appare piu nei risultati della query, indipendentemente da chi l'ha creata. Usate questo solo quando ServiceNow e la fonte di verita assoluta e volete che Turbo EA lo specchi esattamente.
+**Strict** archivia qualsiasi card collegata il cui CI ServiceNow corrispondente non appare più nei risultati della query, indipendentemente da chi l'ha creata. Usate questo solo quando ServiceNow e la fonte di verità assoluta e volete che Turbo EA lo specchi esattamente.
 
 ### Rapporto massimo di eliminazione — Rete di sicurezza
 
@@ -480,9 +480,9 @@ Mese 2+:        Modalita CONSERVATIVE, staging DISATTIVATO (salta), cron giornal
 
 ## Ricette consigliate per tipo
 
-### Ricetta 1: Applicazioni dal CMDB (Piu comune)
+### Ricetta 1: Applicazioni dal CMDB (Più comune)
 
-**Obiettivo**: Importate il panorama applicativo da ServiceNow, poi assumete la proprieta di nomi, descrizioni, valutazioni e ciclo di vita in Turbo EA. SNOW guida solo i campi operativi.
+**Obiettivo**: Importate il panorama applicativo da ServiceNow, poi assumete la proprietà di nomi, descrizioni, valutazioni e ciclo di vita in Turbo EA. SNOW guida solo i campi operativi.
 
 **Mappatura:**
 
@@ -491,7 +491,7 @@ Mese 2+:        Modalita CONSERVATIVE, staging DISATTIVATO (salta), cron giornal
 | Tipo di card | Application |
 | Tabella SNOW | `cmdb_ci_business_app` |
 | Direzione | Bidirezionale |
-| Modalita | Conservative |
+| Modalità | Conservative |
 | Filtro | `active=true^install_status=1` |
 
 **Mappature dei campi:**
@@ -520,15 +520,15 @@ Configurazione mappa valori per `businessCriticality`:
 }
 ```
 
-**Suggerimento per la prima sincronizzazione**: Al primo pull, i valori SNOW popolano tutti i campi (poiche le card non esistono ancora). Dopo, i campi guidati da Turbo sono di proprieta del team EA — i pull successivi aggiornano solo i campi operativi guidati da SNOW (stato di installazione, IP), mentre il team EA gestisce tutto il resto direttamente in Turbo EA.
+**Suggerimento per la prima sincronizzazione**: Al primo pull, i valori SNOW popolano tutti i campi (poiché le card non esistono ancora). Dopo, i campi guidati da Turbo sono di proprietà del team EA — i pull successivi aggiornano solo i campi operativi guidati da SNOW (stato di installazione, IP), mentre il team EA gestisce tutto il resto direttamente in Turbo EA.
 
-**Dopo l'importazione**: Perfezionate i nomi delle applicazioni, scrivete descrizioni strategiche, mappate le Business Capability, aggiungete valutazioni di idoneita funzionale/tecnica e impostate le fasi del ciclo di vita — tutto questo e ora di proprieta di Turbo EA e verra inviato a ServiceNow nei push sync.
+**Dopo l'importazione**: Perfezionate i nomi delle applicazioni, scrivete descrizioni strategiche, mappate le Business Capability, aggiungete valutazioni di idoneità funzionale/tecnica e impostate le fasi del ciclo di vita — tutto questo è ora di proprietà di Turbo EA e verrà inviato a ServiceNow nei push sync.
 
 ---
 
 ### Ricetta 2: IT Component (Server)
 
-**Obiettivo**: Importate l'infrastruttura server per la mappatura dell'infrastruttura e l'analisi delle dipendenze. I server sono piu operativi delle applicazioni, quindi piu campi provengono da SNOW — ma Turbo EA guida ancora nomi e descrizioni.
+**Obiettivo**: Importate l'infrastruttura server per la mappatura dell'infrastruttura e l'analisi delle dipendenze. I server sono più operativi delle applicazioni, quindi più campi provengono da SNOW — ma Turbo EA guida ancora nomi e descrizioni.
 
 **Mappatura:**
 
@@ -537,7 +537,7 @@ Configurazione mappa valori per `businessCriticality`:
 | Tipo di card | ITComponent |
 | Tabella SNOW | `cmdb_ci_server` |
 | Direzione | Bidirezionale |
-| Modalita | Conservative |
+| Modalità | Conservative |
 | Filtro | `active=true^hardware_statusNOT IN6,7` |
 
 **Mappature dei campi:**
@@ -552,7 +552,7 @@ Configurazione mappa valori per `businessCriticality`:
 | `attributes.serialNumber` | `serial_number` | SNOW guida | Diretta | |
 | `attributes.hostname` | `host_name` | SNOW guida | Diretta | |
 
-**Nota**: Per i server, i campi operativi/di discovery come OS, IP, numero di serie e hostname provengono naturalmente dalla discovery automatizzata di SNOW. Ma il team EA possiede comunque il nome visualizzato (che puo differire dall'hostname) e la descrizione per il contesto strategico.
+**Nota**: Per i server, i campi operativi/di discovery come OS, IP, numero di serie e hostname provengono naturalmente dalla discovery automatizzata di SNOW. Ma il team EA possiede comunque il nome visualizzato (che può differire dall'hostname) e la descrizione per il contesto strategico.
 
 **Dopo l'importazione**: Collegate gli IT Component alle Application usando le relazioni, alimentando il grafo delle dipendenze e i report sull'infrastruttura.
 
@@ -560,7 +560,7 @@ Configurazione mappa valori per `businessCriticality`:
 
 ### Ricetta 3: Prodotti software con tracciamento EOL
 
-**Obiettivo**: Importate i prodotti software e combinateli con l'integrazione endoflife.date di Turbo EA. Turbo EA guida su nomi, descrizioni e fornitore — la versione e un campo fattuale su cui SNOW puo guidare.
+**Obiettivo**: Importate i prodotti software e combinateli con l'integrazione endoflife.date di Turbo EA. Turbo EA guida su nomi, descrizioni e fornitore — la versione e un campo fattuale su cui SNOW può guidare.
 
 **Mappatura:**
 
@@ -569,7 +569,7 @@ Configurazione mappa valori per `businessCriticality`:
 | Tipo di card | ITComponent |
 | Tabella SNOW | `cmdb_ci_spkg` |
 | Direzione | Bidirezionale |
-| Modalita | Conservative |
+| Modalità | Conservative |
 | Filtro | `active=true` |
 
 **Mappature dei campi:**
@@ -596,7 +596,7 @@ Configurazione mappa valori per `businessCriticality`:
 | Tipo di card | Provider |
 | Tabella SNOW | `core_company` |
 | Direzione | Bidirezionale |
-| Modalita | Additive |
+| Modalità | Additive |
 | Filtro | `vendor=true` |
 
 **Mappature dei campi:**
@@ -608,13 +608,13 @@ Configurazione mappa valori per `businessCriticality`:
 | `attributes.website` | `website` | **Turbo guida** | Diretta | |
 | `attributes.contactEmail` | `email` | SNOW guida | Diretta | |
 
-**Perche Turbo guida per la maggior parte dei campi**: Il team EA cura la strategia dei fornitori, gestisce le relazioni e traccia il rischio — questo include il nome visualizzato, la descrizione e la presenza web del fornitore. SNOW guida solo sui dati di contatto operativi che possono essere aggiornati dai team di approvvigionamento o gestione degli asset.
+**Perché Turbo guida per la maggior parte dei campi**: Il team EA cura la strategia dei fornitori, gestisce le relazioni e traccia il rischio — questo include il nome visualizzato, la descrizione e la presenza web del fornitore. SNOW guida solo sui dati di contatto operativi che possono essere aggiornati dai team di approvvigionamento o gestione degli asset.
 
 ---
 
 ### Ricetta 5: Push delle valutazioni EA verso ServiceNow
 
-**Obiettivo**: Esportate le valutazioni specifiche dell'EA verso campi personalizzati ServiceNow cosi i team ITSM possono vedere il contesto EA.
+**Obiettivo**: Esportate le valutazioni specifiche dell'EA verso campi personalizzati ServiceNow così i team ITSM possono vedere il contesto EA.
 
 **Mappatura:**
 
@@ -623,7 +623,7 @@ Configurazione mappa valori per `businessCriticality`:
 | Tipo di card | Application |
 | Tabella SNOW | `cmdb_ci_business_app` |
 | Direzione | Turbo EA -> ServiceNow |
-| Modalita | Additive |
+| Modalità | Additive |
 
 **Mappature dei campi:**
 
@@ -634,9 +634,9 @@ Configurazione mappa valori per `businessCriticality`:
 | `attributes.functionalSuitability` | `u_ea_functional_fit` | Turbo guida | Mappa valori | |
 | `attributes.technicalSuitability` | `u_ea_technical_fit` | Turbo guida | Mappa valori | |
 
-> **Importante**: Il push sync verso campi personalizzati (con prefisso `u_`) richiede che quelle colonne esistano gia in ServiceNow. Collaborate con il vostro amministratore ServiceNow per crearle prima di configurare la mappatura push. L'account di servizio necessita del ruolo `import_admin` per l'accesso in scrittura.
+> **Importante**: Il push sync verso campi personalizzati (con prefisso `u_`) richiede che quelle colonne esistano già in ServiceNow. Collaborate con il vostro amministratore ServiceNow per crearle prima di configurare la mappatura push. L'account di servizio necessità del ruolo `import_admin` per l'accesso in scrittura.
 
-**Perche e importante**: I team ITSM vedono le valutazioni EA direttamente nei workflow di incidenti/cambiamenti ServiceNow. Quando un'applicazione "Mission Critical" ha un incidente, le regole di escalation della priorita possono utilizzare il punteggio di criticita fornito dall'EA.
+**Perché e importante**: I team ITSM vedono le valutazioni EA direttamente nei workflow di incidenti/cambiamenti ServiceNow. Quando un'applicazione "Mission Critical" ha un incidente, le regole di escalation della priorità possono utilizzare il punteggio di criticità fornito dall'EA.
 
 ---
 
@@ -665,7 +665,7 @@ La mappatura si inverte automaticamente quando si esegue il push da Turbo EA a S
 
 ### Formato data
 
-Tronca i valori datetime di ServiceNow (`2024-06-15 14:30:00`) a solo data (`2024-06-15`). Utilizzare per le date delle fasi del ciclo di vita dove l'orario e irrilevante.
+Tronca i valori datetime di ServiceNow (`2024-06-15 14:30:00`) a solo data (`2024-06-15`). Utilizzare per le date delle fasi del ciclo di vita dove l'orario è irrilevante.
 
 ### Booleano
 
@@ -735,14 +735,14 @@ Converte tra stringhe booleane di ServiceNow (`"true"`, `"1"`, `"yes"`) e boolea
 
 ### Operazioni continuative
 
-| Attivita | Frequenza | Come |
+| Attività | Frequenza | Come |
 |----------|-----------|------|
 | Eseguire pull sync | Giornalmente o settimanalmente | Dashboard di sincronizzazione > pulsante Pull (o cron) |
 | Revisionare le statistiche di sincronizzazione | Dopo ogni esecuzione | Controllate conteggi errori/eliminazioni |
 | Testare le connessioni | Mensilmente | Cliccate il pulsante test su ogni connessione |
 | Ruotare le credenziali | Trimestralmente | Aggiornate sia in SNOW che in Turbo EA |
-| Revisionare la mappa delle identita | Trimestralmente | Controllate le voci orfane tramite statistiche di sincronizzazione |
-| Audit della cronologia delle card | Secondo necessita | Filtrate gli eventi per sorgente `servicenow_sync` |
+| Revisionare la mappa delle identità | Trimestralmente | Controllate le voci orfane tramite statistiche di sincronizzazione |
+| Audit della cronologia delle card | Secondo necessità | Filtrate gli eventi per sorgente `servicenow_sync` |
 
 ### Configurazione delle sincronizzazioni automatizzate
 
@@ -758,7 +758,7 @@ Le sincronizzazioni possono essere attivate tramite API per l'automazione:
 
 **Best practice**: Eseguite le sincronizzazioni durante le ore non di punta. Per tabelle CMDB grandi (10.000+ CI), prevedete 2-5 minuti a seconda della latenza di rete e del numero di record.
 
-### Pianificazione della capacita
+### Pianificazione della capacità
 
 | Dimensione CMDB | Durata prevista | Raccomandazione |
 |-----------------|-----------------|-----------------|
@@ -786,9 +786,9 @@ Le sincronizzazioni possono essere attivate tramite API per l'automazione:
 | Sintomo | Causa | Soluzione |
 |---------|-------|----------|
 | 0 record recuperati | Tabella o filtro errato | Verificate il nome della tabella; semplificate la query filtro |
-| Tutti i record sono "create" | Mancata corrispondenza identita | Contrassegnate `name` come identita; verificate che i nomi corrispondano tra i sistemi |
+| Tutti i record sono "create" | Mancata corrispondenza identità | Contrassegnate `name` come identità; verificate che i nomi corrispondano tra i sistemi |
 | Alto conteggio errori | Fallimenti di trasformazione | Controllate i record staged per i messaggi di errore |
-| Eliminazioni saltate | Rapporto superato | Aumentate la soglia o investigate perche i CI sono scomparsi |
+| Eliminazioni saltate | Rapporto superato | Aumentate la soglia o investigate perché i CI sono scomparsi |
 | Modifiche non visibili | Cache del browser | Aggiornamento forzato; controllate la cronologia della card per gli eventi |
 | Card duplicate | Mappature multiple per lo stesso tipo | Utilizzate una mappatura per tipo di card per connessione |
 | Modifiche push rifiutate | Permessi SNOW mancanti | Concedete il ruolo `import_admin` all'account di servizio |
@@ -826,7 +826,7 @@ Tutti gli endpoint richiedono `Authorization: Bearer <token>` e il permesso `ser
 | GET | `/servicenow/connections/{id}` | Ottieni connessione |
 | PATCH | `/servicenow/connections/{id}` | Aggiorna connessione |
 | DELETE | `/servicenow/connections/{id}` | Elimina connessione + tutte le mappature |
-| POST | `/servicenow/connections/{id}/test` | Testa la connettivita |
+| POST | `/servicenow/connections/{id}/test` | Testa la connettività |
 | GET | `/servicenow/connections/{id}/tables` | Sfoglia le tabelle SNOW |
 | GET | `/servicenow/connections/{id}/tables/{table}/fields` | Elenca le colonne della tabella |
 

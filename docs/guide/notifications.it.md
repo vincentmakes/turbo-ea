@@ -1,15 +1,15 @@
 # Notifiche
 
-Turbo EA vi tiene informati sulle modifiche a card, attivita e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se SMTP e configurato.
+Turbo EA vi tiene informati sulle modifiche a card, attività e documenti che vi interessano. Le notifiche vengono consegnate **in-app** (tramite la campanella delle notifiche) e opzionalmente **via email** se SMTP e configurato.
 
 ## Campanella delle notifiche
 
-L'**icona della campanella** nella barra di navigazione superiore mostra un badge con il conteggio delle notifiche non lette. Cliccatela per aprire un menu a tendina con le 20 notifiche piu recenti.
+L'**icona della campanella** nella barra di navigazione superiore mostra un badge con il conteggio delle notifiche non lette. Cliccatela per aprire un menu a tendina con le 20 notifiche più recenti.
 
 Ogni notifica mostra:
 
 - **Icona** che indica il tipo di notifica
-- **Riepilogo** di cosa e successo (es. "Un todo ti e stato assegnato su SAP S/4HANA")
+- **Riepilogo** di cosa è successo (es. "Un todo ti è stato assegnato su SAP S/4HANA")
 - **Tempo** trascorso dalla creazione della notifica (es. "5 minuti fa")
 
 Cliccate su qualsiasi notifica per navigare direttamente alla card o al documento pertinente. Le notifiche vengono automaticamente contrassegnate come lette quando le visualizzate.
@@ -28,7 +28,7 @@ Cliccate su qualsiasi notifica per navigare direttamente alla card o al document
 
 ## Consegna in tempo reale
 
-Le notifiche vengono consegnate in tempo reale utilizzando Server-Sent Events (SSE). Non e necessario aggiornare la pagina — le nuove notifiche appaiono automaticamente e il conteggio del badge si aggiorna istantaneamente.
+Le notifiche vengono consegnate in tempo reale utilizzando Server-Sent Events (SSE). Non è necessario aggiornare la pagina — le nuove notifiche appaiono automaticamente e il conteggio del badge si aggiorna istantaneamente.
 
 ## Preferenze di notifica
 

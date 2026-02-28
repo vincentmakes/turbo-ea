@@ -4,7 +4,7 @@
 
 ![Schermata di login](../assets/img/en/24_login.png)
 
-Quando si accede alla piattaforma, viene visualizzata la schermata di login dove e necessario inserire il proprio indirizzo email e la password.
+Quando si accede alla piattaforma, viene visualizzata la schermata di login dove è necessario inserire il proprio indirizzo email e la password.
 
 **Passaggi per effettuare il login:**
 
@@ -29,8 +29,8 @@ Se la vostra organizzazione ha configurato SSO, un pulsante **Accedi con [Provid
 
 **Note:**
 
-- Se il vostro account non esiste ancora in Turbo EA, verra creato automaticamente al primo login SSO (se l'auto-registrazione e abilitata) o associato a un invito pre-creato
-- Se un amministratore vi ha gia invitato tramite email, il vostro login SSO verra collegato a quell'account e erediterete il ruolo pre-assegnato
+- Se il vostro account non esiste ancora in Turbo EA, verrà creato automaticamente al primo login SSO (se l'auto-registrazione è abilitata) o associato a un invito pre-creato
+- Se un amministratore vi ha già invitato tramite email, il vostro login SSO verrà collegato a quell'account e erediterete il ruolo pre-assegnato
 - Gli utenti SSO possono comunque avere una password locale impostata come fallback, se configurato dall'amministratore
 
 ## Registrazione di nuovi utenti
@@ -45,9 +45,9 @@ La piattaforma supporta sette lingue. Per cambiare la lingua:
 2. Selezionate **Lingua**
 3. Scegliete la lingua desiderata:
    - English
-   - Espanol
-   - Francais
+   - Español
+   - Français
    - Deutsch
    - Italiano
-   - Portugues
+   - Português
    - 中文 (Chinese)

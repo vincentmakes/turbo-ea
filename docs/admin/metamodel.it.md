@@ -1,6 +1,6 @@
 # Metamodello
 
-Il **Metamodello** definisce l'intera struttura dati della piattaforma — quali tipi di card esistono, quali campi hanno, come si relazionano tra loro e come sono strutturate le pagine di dettaglio delle card. Tutto e **guidato dai dati**: configurate il metamodello attraverso l'interfaccia di amministrazione, non modificando il codice.
+Il **Metamodello** definisce l'intera struttura dati della piattaforma — quali tipi di card esistono, quali campi hanno, come si relazionano tra loro e come sono strutturate le pagine di dettaglio delle card. Tutto è **guidato dai dati**: configurate il metamodello attraverso l'interfaccia di amministrazione, non modificando il codice.
 
 ![Configurazione del metamodello](../assets/img/en/20_admin_metamodel.png)
 
@@ -23,7 +23,7 @@ Cliccate su **+ Nuovo tipo** per creare un tipo di card personalizzato. Configur
 
 | Campo | Descrizione |
 |-------|-------------|
-| **Key** | Identificatore univoco (minuscolo, senza spazi) — non puo essere modificato dopo la creazione |
+| **Key** | Identificatore univoco (minuscolo, senza spazi) — non può essere modificato dopo la creazione |
 | **Etichetta** | Nome visualizzato nell'interfaccia |
 | **Icona** | Nome dell'icona Google Material Symbol |
 | **Colore** | Colore del brand per il tipo (utilizzato nell'inventario, nei report e nei diagrammi) |
@@ -44,8 +44,8 @@ I campi definiscono gli attributi personalizzati disponibili sulle card di quest
 | **Etichetta** | Nome visualizzato |
 | **Tipo** | text, number, cost, boolean, date, url, single_select o multiple_select |
 | **Opzioni** | Per i campi di selezione: le scelte disponibili con etichette e colori opzionali |
-| **Obbligatorio** | Se il campo deve essere compilato per il punteggio di qualita dei dati |
-| **Peso** | Quanto questo campo contribuisce al punteggio di qualita dei dati (0-10) |
+| **Obbligatorio** | Se il campo deve essere compilato per il punteggio di qualità dei dati |
+| **Peso** | Quanto questo campo contribuisce al punteggio di qualità dei dati (0-10) |
 | **Sola lettura** | Impedisce la modifica manuale (utile per i campi calcolati) |
 
 Cliccate su **+ Aggiungi campo** per creare un nuovo campo, o cliccate su un campo esistente per modificarlo nella **Finestra editor campo**.
@@ -63,7 +63,7 @@ Il nome speciale di sezione `__description` aggiunge campi alla sezione Descrizi
 
 #### Sottotipi
 
-I sottotipi forniscono una classificazione secondaria all'interno di un tipo. Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservice, AI Agent e Deployment. Ogni sottotipo puo avere etichette tradotte.
+I sottotipi forniscono una classificazione secondaria all'interno di un tipo. Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservice, AI Agent e Deployment. Ogni sottotipo può avere etichette tradotte.
 
 #### Ruoli stakeholder
 
@@ -99,13 +99,13 @@ I gruppi di tag e i tag possono essere gestiti da questa scheda. Vedi [Tag](tags
 
 ## Grafo del metamodello
 
-La scheda **Grafo del metamodello** mostra un diagramma SVG visivo di tutti i tipi di card e i loro tipi di relazione. Questa e una visualizzazione di sola lettura che aiuta a comprendere le connessioni nel vostro metamodello a colpo d'occhio.
+La scheda **Grafo del metamodello** mostra un diagramma SVG visivo di tutti i tipi di card e i loro tipi di relazione. Questa è una visualizzazione di sola lettura che aiuta a comprendere le connessioni nel vostro metamodello a colpo d'occhio.
 
 ## Editor layout card
 
-Per ogni tipo di card, la sezione **Layout** nel cassetto del tipo controlla come e strutturata la pagina di dettaglio della card:
+Per ogni tipo di card, la sezione **Layout** nel cassetto del tipo controlla come è strutturata la pagina di dettaglio della card:
 
 - **Ordine delle sezioni** — Trascinate le sezioni (Descrizione, EOL, Ciclo di vita, Gerarchia, Relazioni e sezioni personalizzate) per riordinarle
-- **Visibilita** — Nascondete le sezioni che non sono rilevanti per un tipo
+- **Visibilità** — Nascondete le sezioni che non sono rilevanti per un tipo
 - **Espansione predefinita** — Scegliete se ogni sezione inizia espansa o compressa
 - **Layout colonne** — Impostate 1 o 2 colonne per sezione personalizzata

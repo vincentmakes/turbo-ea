@@ -11,11 +11,11 @@ L'**Inventario** e il cuore di Turbo EA. Qui sono elencate tutte le **card** (co
 Il pannello laterale sinistro consente di **filtrare** le card secondo diversi criteri:
 
 - **Ricerca** — Ricerca libera per testo nel nome delle card
-- **Tipi** — Filtra per uno o piu tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
-- **Sottotipi** — Quando un tipo e selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
+- **Tipi** — Filtra per uno o più tipi di card: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
+- **Sottotipi** — Quando un tipo è selezionato, filtra ulteriormente per sottotipo (es. Application -> Business Application, Microservice, AI Agent, Deployment)
 - **Stato di approvazione** — Draft, Approved, Broken o Rejected
 - **Ciclo di vita** — Filtra per fase del ciclo di vita: Plan, Phase In, Active, Phase Out, End of Life
-- **Qualita dei dati** — Filtro basato su soglia: Buona (80%+), Media (50-79%), Scarsa (sotto il 50%)
+- **Qualità dei dati** — Filtro basato su soglia: Buona (80%+), Media (50-79%), Scarsa (sotto il 50%)
 - **Tag** — Filtra per tag di qualsiasi gruppo di tag
 - **Relazioni** — Filtra per card correlate attraverso i tipi di relazione
 - **Attributi personalizzati** — Filtra per valori nei campi personalizzati (ricerca testuale, opzioni di selezione)
@@ -26,7 +26,7 @@ Un **badge con il conteggio dei filtri attivi** mostra quanti filtri sono attual
 
 ### Tabella principale
 
-L'inventario utilizza una tabella dati **AG Grid** con funzionalita avanzate:
+L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 
 | Colonna | Descrizione |
 |---------|-------------|
@@ -35,20 +35,20 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalita avanzate:
 | **Descrizione** | Breve descrizione |
 | **Ciclo di vita** | Stato attuale del ciclo di vita |
 | **Stato di approvazione** | Badge dello stato di revisione |
-| **Qualita dei dati** | Percentuale di completezza con anello visivo |
+| **Qualità dei dati** | Percentuale di completezza con anello visivo |
 | **Relazioni** | Conteggio delle relazioni con popover cliccabile che mostra le card correlate |
 
-**Funzionalita della tabella:**
+**Funzionalità della tabella:**
 
 - **Ordinamento** — Cliccate sull'intestazione di qualsiasi colonna per ordinare in modo crescente/decrescente
-- **Modifica in linea** — In modalita modifica griglia, modificate i valori dei campi direttamente nella tabella
-- **Selezione multipla** — Selezionate piu righe per operazioni in blocco
+- **Modifica in linea** — In modalità modifica griglia, modificate i valori dei campi direttamente nella tabella
+- **Selezione multipla** — Selezionate più righe per operazioni in blocco
 - **Visualizzazione gerarchica** — Le relazioni genitore/figlio sono mostrate come percorsi breadcrumb
 - **Configurazione colonne** — Mostrate, nascondete e riordinate le colonne
 
 ### Barra degli strumenti
 
-- **Modifica griglia** — Attiva/disattiva la modalita di modifica in linea per modificare piu card nella tabella
+- **Modifica griglia** — Attiva/disattiva la modalità di modifica in linea per modificare più card nella tabella
 - **Esporta** — Scaricate i dati come file Excel (.xlsx)
 - **Importa** — Caricamento massivo di dati da file Excel
 - **+ Crea** — Crea una nuova card
@@ -67,7 +67,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalita avanzate:
 
 ## Suggerimenti di descrizione AI
 
-Turbo EA puo utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.
+Turbo EA può utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.
 
 **Come funziona:**
 
@@ -76,8 +76,8 @@ Turbo EA puo utilizzare l'**AI per generare una descrizione** per qualsiasi card
 3. Il sistema effettua una **ricerca web** per il nome dell'elemento (utilizzando un contesto specifico per tipo — es. "SAP S/4HANA software application"), poi invia i risultati a un **LLM** per generare una descrizione concisa e fattuale
 4. Appare un pannello di suggerimento con:
    - **Descrizione modificabile** — rivedete e modificate il testo prima di applicarlo
-   - **Punteggio di affidabilita** — indica quanto l'AI e sicura (Alto / Medio / Basso)
-   - **Link alle fonti cliccabili** — le pagine web da cui la descrizione e stata derivata
+   - **Punteggio di affidabilità** — indica quanto l'AI è sicura (Alto / Medio / Basso)
+   - **Link alle fonti cliccabili** — le pagine web da cui la descrizione è stata derivata
    - **Nome del modello** — quale LLM ha generato il suggerimento
 5. Cliccate su **Applica descrizione** per salvare, o **Ignora** per scartare
 
@@ -86,7 +86,7 @@ Turbo EA puo utilizzare l'**AI per generare una descrizione** per qualsiasi card
 - **Contestualizzato per tipo**: L'AI comprende il contesto del tipo di card. Una ricerca per "Application" aggiunge "software application", una ricerca per "Provider" aggiunge "technology vendor", ecc.
 - **Privacy al primo posto**: Quando si utilizza Ollama, il LLM funziona localmente — i vostri dati non lasciano mai la vostra infrastruttura. Sono supportati anche provider commerciali (OpenAI, Google Gemini, Anthropic Claude, ecc.)
 - **Controllato dall'amministratore**: I suggerimenti AI devono essere abilitati da un amministratore in [Impostazioni > Suggerimenti AI](../admin/ai.md). Gli amministratori scelgono quali tipi di card mostrano il pulsante di suggerimento, configurano il provider LLM e selezionano il provider di ricerca web
-- **Basato sui permessi**: Solo gli utenti con il permesso `ai.suggest` possono utilizzare questa funzionalita (abilitata per impostazione predefinita per i ruoli Admin, BPM Admin e Member)
+- **Basato sui permessi**: Solo gli utenti con il permesso `ai.suggest` possono utilizzare questa funzionalità (abilitata per impostazione predefinita per i ruoli Admin, BPM Admin e Member)
 
 ## Viste salvate (Segnalibri)
 
@@ -97,7 +97,7 @@ Potete salvare la configurazione attuale di filtri, colonne e ordinamento come u
 1. Configurate l'inventario con i filtri, le colonne e l'ordinamento desiderati
 2. Cliccate sull'icona **segnalibro** nel pannello filtri
 3. Inserite un **nome** per la vista
-4. Scegliete la **visibilita**:
+4. Scegliete la **visibilità**:
    - **Privata** — Solo voi potete vederla
    - **Condivisa** — Visibile a utenti specifici (con permessi di modifica opzionali)
    - **Pubblica** — Visibile a tutti gli utenti
@@ -130,4 +130,4 @@ Cliccate su **Esporta** per scaricare la vista attuale dell'inventario come file
 - **Esportazione multi-tipo** — Esporta tutte le card visibili con le colonne principali (nome, tipo, descrizione, sottotipo, ciclo di vita, stato di approvazione)
 - **Esportazione singolo tipo** — Quando filtrate per un tipo, l'esportazione include colonne espanse per gli attributi personalizzati (una colonna per campo)
 - **Espansione ciclo di vita** — Colonne separate per ogni data di fase del ciclo di vita (Plan, Phase In, Active, Phase Out, End of Life)
-- **Nome file con data** — Il file e nominato con la data di esportazione per una facile organizzazione
+- **Nome file con data** — Il file è nominato con la data di esportazione per una facile organizzazione
