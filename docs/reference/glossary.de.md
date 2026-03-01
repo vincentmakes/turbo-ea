@@ -19,7 +19,7 @@
 | **Initiative** | Ein Projekt oder Programm, das Änderungen an der Architektur beinhaltet |
 | **Lebenszyklus** | Die fünf Phasen, die eine Komponente durchläuft: Planung, Einführung, Aktiv, Auslauf, Lebensende |
 | **LLM** | Large Language Model — ein KI-Modell, das Text generiert (z.B. Ollama, OpenAI, Anthropic Claude, Google Gemini) |
-| **MCP** | Model Context Protocol — ein offener Standard, der KI-Werkzeugen (Claude, Copilot, Cursor) die Verbindung zu externen Datenquellen ermoglicht. Der integrierte MCP-Server von Turbo EA bietet schreibgeschutzten Zugriff auf EA-Daten mit RBAC pro Benutzer |
+| **MCP** | Model Context Protocol — ein offener Standard, der KI-Werkzeugen (Claude, Copilot, Cursor) die Verbindung zu externen Datenquellen ermöglicht. Der integrierte MCP-Server von Turbo EA bietet schreibgeschützten Zugriff auf EA-Daten mit RBAC pro Benutzer |
 | **Metamodell** | Das datengesteuerte Modell, das die Struktur der Plattform definiert: Kartentypen, Felder, Beziehungen und Rollen |
 | **Benachrichtigung** | Ein In-App- oder E-Mail-Hinweis, ausgelöst durch Systemereignisse (Aufgabe zugewiesen, Karte aktualisiert, Kommentar hinzugefügt usw.) |
 | **Ollama** | Ein Open-Source-Werkzeug zum lokalen Ausführen von LLMs auf eigener Hardware |

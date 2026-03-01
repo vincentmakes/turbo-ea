@@ -2,7 +2,7 @@
 
 Turbo EA include un **server MCP** (Model Context Protocol) integrato che consente agli strumenti di IA — come Claude Desktop, GitHub Copilot, Cursor e VS Code — di interrogare i dati EA direttamente. Gli utenti si autenticano tramite il loro provider SSO esistente, e ogni query rispetta i loro permessi individuali.
 
-Questa funzionalita e **opzionale** e **non si avvia automaticamente**. Richiede che l'SSO sia configurato, che il profilo MCP sia attivato in Docker Compose e che un amministratore lo abiliti nell'interfaccia delle impostazioni.
+Questa funzionalità è **opzionale** e **non si avvia automaticamente**. Richiede che l'SSO sia configurato, che il profilo MCP sia attivato in Docker Compose e che un amministratore lo abiliti nell'interfaccia delle impostazioni.
 
 ---
 
@@ -35,7 +35,7 @@ PostgreSQL
 
 ## Prerequisiti
 
-Prima di abilitare MCP, e necessario avere:
+Prima di abilitare MCP, è necessario avere:
 
 - **SSO configurato e funzionante** — MCP delega l'autenticazione al provider SSO (Microsoft Entra ID, Google Workspace, Okta o OIDC generico). Consultare la guida [Autenticazione e SSO](sso.md).
 - **HTTPS con un dominio pubblico** — Il flusso OAuth richiede un URI di reindirizzamento stabile. Distribuire dietro un reverse proxy con terminazione TLS (Caddy, Traefik, Cloudflare Tunnel, ecc.).
@@ -46,7 +46,7 @@ Prima di abilitare MCP, e necessario avere:
 
 ### Passaggio 1: Avviare il servizio MCP
 
-Il server MCP e un profilo opzionale di Docker Compose. Aggiungere `--profile mcp` al comando di avvio:
+Il server MCP è un profilo opzionale di Docker Compose. Aggiungere `--profile mcp` al comando di avvio:
 
 ```bash
 docker compose --profile mcp up --build -d
@@ -65,8 +65,8 @@ MCP_PUBLIC_URL=https://il-tuo-dominio.esempio.com/mcp
 
 | Variabile | Predefinito | Descrizione |
 |-----------|------------|-------------|
-| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | L'URL pubblica dell'istanza Turbo EA |
-| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | L'URL pubblica del server MCP (usata negli URI di reindirizzamento OAuth) |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | L'URL pubblico dell'istanza Turbo EA |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | L'URL pubblico del server MCP (usato negli URI di reindirizzamento OAuth) |
 | `MCP_PORT` | `8001` | Porta interna del container MCP (raramente necessita di modifica) |
 
 ### Passaggio 3: Aggiungere l'URI di reindirizzamento OAuth all'app SSO
@@ -77,17 +77,17 @@ Nella registrazione dell'applicazione del provider SSO (la stessa configurata pe
 https://il-tuo-dominio.esempio.com/mcp/oauth/callback
 ```
 
-Questo e necessario per il flusso OAuth che autentica gli utenti quando si connettono dal loro strumento IA.
+Questo è necessario per il flusso OAuth che autentica gli utenti quando si connettono dal loro strumento IA.
 
 ### Passaggio 4: Abilitare MCP nelle impostazioni di amministrazione
 
 1. Andare su **Impostazioni** nell'area di amministrazione e selezionare la scheda **AI**.
 2. Scorrere fino alla sezione **Integrazione MCP (Accesso strumenti IA)**.
 3. Attivare l'interruttore per **abilitare** MCP.
-4. L'interfaccia mostrera l'URL del server MCP e le istruzioni di configurazione da condividere con il team.
+4. L'interfaccia mostrerà l'URL del server MCP e le istruzioni di configurazione da condividere con il team.
 
 !!! warning
-    L'interruttore e disabilitato se l'SSO non e configurato. Configurare prima l'SSO.
+    L'interruttore è disabilitato se l'SSO non è configurato. Configurare prima l'SSO.
 
 ---
 
@@ -100,7 +100,7 @@ Una volta abilitato MCP, condividere l'**URL del server MCP** con il team. Ogni 
 1. Aprire **Impostazioni > Connettori > Aggiungi connettore personalizzato**.
 2. Inserire l'URL del server MCP: `https://il-tuo-dominio.esempio.com/mcp`
 3. Fare clic su **Connetti** — si apre una finestra del browser per il login SSO.
-4. Dopo l'autenticazione, Claude puo interrogare i dati EA.
+4. Dopo l'autenticazione, Claude può interrogare i dati EA.
 
 ### VS Code (GitHub Copilot / Cursor)
 
@@ -117,13 +117,13 @@ Aggiungere al file `.vscode/mcp.json` del workspace:
 }
 ```
 
-Il doppio `/mcp/mcp` e intenzionale — il primo `/mcp/` e il percorso del proxy Nginx, il secondo e l'endpoint del protocollo MCP.
+Il doppio `/mcp/mcp` è intenzionale — il primo `/mcp/` è il percorso del proxy Nginx, il secondo è l'endpoint del protocollo MCP.
 
 ---
 
-## Test locale (modalita stdio)
+## Test locale (modalità stdio)
 
-Per lo sviluppo locale o i test senza SSO/HTTPS, e possibile eseguire il server MCP in **modalita stdio** — Claude Desktop lo avvia direttamente come processo locale.
+Per lo sviluppo locale o i test senza SSO/HTTPS, è possibile eseguire il server MCP in **modalità stdio** — Claude Desktop lo avvia direttamente come processo locale.
 
 **1. Installare il pacchetto del server MCP:**
 
@@ -149,13 +149,13 @@ pip install ./mcp-server
 }
 ```
 
-In questa modalita, il server si autentica con email/password e rinnova il token automaticamente in background.
+In questa modalità, il server si autentica con email/password e rinnova il token automaticamente in background.
 
 ---
 
-## Funzionalita disponibili
+## Funzionalità disponibili
 
-Il server MCP fornisce accesso **in sola lettura** ai dati EA. Non puo creare, modificare o eliminare nulla.
+Il server MCP fornisce accesso **in sola lettura** ai dati EA. Non può creare, modificare o eliminare nulla.
 
 ### Strumenti
 
@@ -167,7 +167,7 @@ Il server MCP fornisce accesso **in sola lettura** ai dati EA. Non puo creare, m
 | `get_card_hierarchy` | Ottenere antenati e figli di una card |
 | `list_card_types` | Elencare tutti i tipi di card nel metamodello |
 | `get_relation_types` | Elencare i tipi di relazione, con filtro opzionale per tipo di card |
-| `get_dashboard` | Ottenere i dati del dashboard KPI (conteggi, qualita dei dati, approvazioni) |
+| `get_dashboard` | Ottenere i dati del dashboard KPI (conteggi, qualità dei dati, approvazioni) |
 | `get_landscape` | Ottenere le card raggruppate per un tipo correlato |
 
 ### Risorse
@@ -182,7 +182,7 @@ Il server MCP fornisce accesso **in sola lettura** ai dati EA. Non puo creare, m
 
 | Prompt | Descrizione |
 |--------|-------------|
-| `analyze_landscape` | Analisi a piu passaggi: panoramica del dashboard, tipi, relazioni |
+| `analyze_landscape` | Analisi a più passaggi: panoramica del dashboard, tipi, relazioni |
 | `find_card` | Cercare una card per nome, ottenere dettagli e relazioni |
 | `explore_dependencies` | Mappare le dipendenze di una card |
 
@@ -195,7 +195,7 @@ Il server MCP fornisce accesso **in sola lettura** ai dati EA. Non puo creare, m
 | **Amministratore** | Configurare le impostazioni MCP (permesso `admin.mcp`) |
 | **Tutti gli utenti autenticati** | Interrogare i dati EA tramite il server MCP (rispetta i permessi esistenti a livello di card e applicazione) |
 
-Il permesso `admin.mcp` controlla chi puo gestire le impostazioni MCP. E disponibile solo per il ruolo Amministratore per impostazione predefinita. Ai ruoli personalizzati puo essere concesso questo permesso tramite la pagina di amministrazione dei Ruoli.
+Il permesso `admin.mcp` controlla chi può gestire le impostazioni MCP. È disponibile solo per il ruolo Amministratore per impostazione predefinita. Ai ruoli personalizzati può essere concesso questo permesso tramite la pagina di amministrazione dei Ruoli.
 
 L'accesso ai dati tramite MCP segue lo stesso modello RBAC dell'interfaccia web — non ci sono permessi dati specifici per MCP.
 
@@ -203,10 +203,10 @@ L'accesso ai dati tramite MCP segue lo stesso modello RBAC dell'interfaccia web 
 
 ## Sicurezza
 
-- **Autenticazione delegata tramite SSO**: Gli utenti si autenticano tramite il provider SSO aziendale. Il server MCP non vede ne memorizza mai le password.
+- **Autenticazione delegata tramite SSO**: Gli utenti si autenticano tramite il provider SSO aziendale. Il server MCP non vede né memorizza mai le password.
 - **OAuth 2.1 con PKCE**: Il flusso di autenticazione utilizza Proof Key for Code Exchange (S256) per prevenire l'intercettazione dei codici di autorizzazione.
 - **RBAC per utente**: Ogni query MCP viene eseguita con i permessi dell'utente autenticato. Nessun account di servizio condiviso.
-- **Accesso in sola lettura**: Il server MCP puo solo leggere i dati. Non puo creare, aggiornare o eliminare card, relazioni o altre risorse.
+- **Accesso in sola lettura**: Il server MCP può solo leggere i dati. Non può creare, aggiornare o eliminare card, relazioni o altre risorse.
 - **Rotazione dei token**: I token di accesso scadono dopo 1 ora. I token di rinnovo durano 30 giorni. I codici di autorizzazione sono monouso e scadono dopo 10 minuti.
 - **Porta solo interna**: Il container MCP espone la porta 8001 solo sulla rete Docker interna. Tutto l'accesso esterno passa attraverso il reverse proxy Nginx.
 
@@ -216,9 +216,9 @@ L'accesso ai dati tramite MCP segue lo stesso modello RBAC dell'interfaccia web 
 
 | Problema | Soluzione |
 |----------|----------|
-| L'interruttore MCP e disabilitato nelle impostazioni | L'SSO deve essere configurato prima. Andare su Impostazioni > scheda Autenticazione e configurare un provider SSO. |
-| «host not found» nei log di Nginx | Il servizio MCP non e in esecuzione. Avviarlo con `docker compose --profile mcp up -d`. La configurazione di Nginx gestisce questo in modo elegante (risposta 502, nessun crash). |
+| L'interruttore MCP è disabilitato nelle impostazioni | L'SSO deve essere configurato prima. Andare su Impostazioni > scheda Autenticazione e configurare un provider SSO. |
+| «host not found» nei log di Nginx | Il servizio MCP non è in esecuzione. Avviarlo con `docker compose --profile mcp up -d`. La configurazione di Nginx gestisce questo in modo elegante (risposta 502, nessun crash). |
 | Il callback OAuth fallisce | Verificare di aver aggiunto `https://il-tuo-dominio.esempio.com/mcp/oauth/callback` come URI di reindirizzamento nella registrazione dell'app SSO. |
 | Lo strumento IA non riesce a connettersi | Verificare che `MCP_PUBLIC_URL` corrisponda all'URL accessibile dalla macchina dell'utente. Assicurarsi che HTTPS funzioni. |
-| L'utente ottiene risultati vuoti | MCP rispetta i permessi RBAC. Se un utente ha accesso limitato, vedra solo le card consentite dal suo ruolo. |
+| L'utente ottiene risultati vuoti | MCP rispetta i permessi RBAC. Se un utente ha accesso limitato, vedrà solo le card consentite dal suo ruolo. |
 | La connessione si interrompe dopo 1 ora | Lo strumento IA dovrebbe gestire il rinnovo dei token automaticamente. In caso contrario, riconnettersi. |

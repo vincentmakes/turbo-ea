@@ -171,6 +171,7 @@ Before marking a feature task as complete, verify:
 - [ ] **Screenshot script updated**: New pages/screens are added to `scripts/screenshots/pages.ts` (see section below).
 - [ ] **Navigation updated**: New pages are added to `nav:` in `mkdocs.yml` with translated labels for all locales.
 - [ ] **Glossary updated**: New terms are added to `docs/reference/glossary.md` and all locale variants.
+- [ ] **Grammar checked**: All documentation text has correct grammar, spelling, and diacritical marks (accents, umlauts, cedillas, tildes) in every supported language. Do not strip or omit diacritics — use proper characters (e.g., `ä ö ü ß` for German, `é è ê ç à` for French, `á é í ó ú ñ` for Spanish, `è é à ù ò` for Italian, `á â ã ç é ê í ó ô õ ú` for Portuguese).
 - [ ] **Docs build passes**: Run `mkdocs build --strict` to verify no broken links or missing files.
 
 #### Previewing Docs Locally

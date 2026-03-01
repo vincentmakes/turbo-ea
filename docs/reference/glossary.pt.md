@@ -19,7 +19,7 @@
 | **Iniciativa** | Um projeto ou programa envolvendo mudanças na arquitetura |
 | **Ciclo de Vida** | As cinco fases pelas quais um componente passa: Planejamento, Implantação, Ativo, Desativação, Fim de Vida |
 | **LLM** | Large Language Model (Modelo de Linguagem de Grande Escala) — um modelo de IA que gera texto (ex.: Ollama, OpenAI, Anthropic Claude, Google Gemini) |
-| **MCP** | Model Context Protocol — um padrao aberto que permite que ferramentas de IA (Claude, Copilot, Cursor) se conectem a fontes de dados externas. O servidor MCP integrado do Turbo EA fornece acesso somente leitura aos dados de EA com RBAC por usuario |
+| **MCP** | Model Context Protocol — um padrão aberto que permite que ferramentas de IA (Claude, Copilot, Cursor) se conectem a fontes de dados externas. O servidor MCP integrado do Turbo EA fornece acesso somente leitura aos dados de EA com RBAC por usuário |
 | **Metamodelo** | O modelo orientado a dados que define a estrutura da plataforma: tipos de card, campos, relações e papéis |
 | **Notificação** | Um alerta no aplicativo ou por e-mail disparado por eventos do sistema (tarefa atribuída, card atualizado, comentário adicionado, etc.) |
 | **Ollama** | Uma ferramenta de código aberto para executar LLMs localmente em seu próprio hardware |
