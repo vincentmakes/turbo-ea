@@ -207,11 +207,10 @@ _TYPE_SEARCH_CONTEXT: dict[str, dict[str, Any]] = {
                 "key": "commercialApplication",
                 "type": "boolean",
                 "prompt": (
-                    '"commercialApplication": set to true if the application is a commercial '
-                    "product (has pricing, licenses, or sales contact). "
-                    "Only suggest if you find clear evidence (pricing pages, "
-                    "license information, or vendor sales contact). "
-                    "Omit if uncertain."
+                    '"commercialApplication": set to true if the application is a '
+                    "commercial/paid product (e.g. pricing page, license model, vendor "
+                    "sales contact found). Set to false if it is open-source or free. "
+                    "Set value to null only if you truly cannot determine this."
                 ),
             },
             {
@@ -226,9 +225,9 @@ _TYPE_SEARCH_CONTEXT: dict[str, dict[str, Any]] = {
                     "hybrid": "Hybrid",
                 },
                 "prompt": (
-                    '"hostingType": suggest the hosting model if clearly indicated. '
+                    '"hostingType": set to the primary hosting/deployment model. '
                     "Use one of: onPremise, cloudSaaS, cloudPaaS, cloudIaaS, hybrid. "
-                    "Omit if uncertain."
+                    "Set value to null only if you truly cannot determine this."
                 ),
             },
         ],
@@ -380,7 +379,7 @@ def build_llm_prompt(
                     f'{{ "value": "{first_opt}", "confidence": 0.8, "source": "example.com" }}'
                 )
         extra_field_instructions = (
-            "\n\nAdditional fields (optional — only include if evidence is found):\n"
+            "\n\nYou MUST also include these fields in your JSON response:\n"
             + "\n".join(lines)
         )
         extra_field_json = ",\n" + ",\n".join(json_lines)
