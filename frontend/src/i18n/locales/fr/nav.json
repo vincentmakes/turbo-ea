@@ -27,6 +27,7 @@
   "userMenu.darkMode": "Mode sombre",
   "userMenu.lightMode": "Mode clair",
   "userMenu.language": "Langue",
+  "userMenu.userManual": "Manuel utilisateur",
 
   "search.placeholder": "Rechercher des fiches\u2026",
   "search.viewAll": "Voir tous les r\u00e9sultats pour \u00ab {{query}} \u00bb",

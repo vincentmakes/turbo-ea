@@ -27,6 +27,7 @@
   "userMenu.darkMode": "Modo oscuro",
   "userMenu.lightMode": "Modo claro",
   "userMenu.language": "Idioma",
+  "userMenu.userManual": "Manual de usuario",
 
   "search.placeholder": "Buscar fichas...",
   "search.viewAll": "Ver todos los resultados para \"{{query}}\"",

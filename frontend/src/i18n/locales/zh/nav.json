@@ -25,6 +25,7 @@
   "userMenu.darkMode": "深色模式",
   "userMenu.lightMode": "浅色模式",
   "userMenu.language": "语言",
+  "userMenu.userManual": "用户手册",
   "search.placeholder": "搜索卡片...",
   "search.viewAll": "查看 \"{{query}}\" 的所有结果",
   "createCard": "创建卡片",

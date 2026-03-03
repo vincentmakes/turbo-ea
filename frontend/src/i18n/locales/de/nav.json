@@ -25,6 +25,7 @@
   "userMenu.darkMode": "Dunkelmodus",
   "userMenu.lightMode": "Hellmodus",
   "userMenu.language": "Sprache",
+  "userMenu.userManual": "Benutzerhandbuch",
   "search.placeholder": "Karten suchen...",
   "search.viewAll": "Alle Ergebnisse für \"{{query}}\" anzeigen",
   "createCard": "Karte erstellen",

@@ -27,6 +27,7 @@
   "userMenu.darkMode": "Dark Mode",
   "userMenu.lightMode": "Light Mode",
   "userMenu.language": "Language",
+  "userMenu.userManual": "User Manual",
 
   "search.placeholder": "Search cards...",
   "search.viewAll": "View all results for \"{{query}}\"",

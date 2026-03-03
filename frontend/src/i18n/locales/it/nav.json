@@ -25,6 +25,7 @@
   "userMenu.darkMode": "Modalit\u00e0 scura",
   "userMenu.lightMode": "Modalit\u00e0 chiara",
   "userMenu.language": "Lingua",
+  "userMenu.userManual": "Manuale utente",
   "search.placeholder": "Cerca schede...",
   "search.viewAll": "Visualizza tutti i risultati per \"{{query}}\"",
   "createCard": "Crea scheda",

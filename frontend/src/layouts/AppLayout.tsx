@@ -926,6 +926,18 @@ export default function AppLayout({ children, user, onLogout }: Props) {
                 {LOCALE_LABELS[(i18n.language as SupportedLocale)] || "English"}
               </Typography>
             </MenuItem>
+            <MenuItem
+              component="a"
+              href="https://docs.turbo-ea.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setUserMenu(null)}
+            >
+              <ListItemIcon>
+                <MaterialSymbol icon="menu_book" size={18} />
+              </ListItemIcon>
+              <ListItemText>{t("userMenu.userManual")}</ListItemText>
+            </MenuItem>
             {showAdmin && <Divider />}
             {showAdmin && (
               <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>
