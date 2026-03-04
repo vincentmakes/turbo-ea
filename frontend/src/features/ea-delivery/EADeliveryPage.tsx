@@ -107,6 +107,7 @@ export default function EADeliveryPage() {
   // Principles tab state
   const [principles, setPrinciples] = useState<EAPrinciple[]>([]);
   const [principlesLoading, setPrinciplesLoading] = useState(false);
+  const [principlesTabEnabled, setPrinciplesTabEnabled] = useState<boolean | null>(null);
 
   // filters
   const [search, setSearch] = useState("");
@@ -171,6 +172,18 @@ export default function EADeliveryPage() {
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  // Check if principles tab is enabled
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.get<{ enabled: boolean }>("/settings/principles-display");
+        setPrinciplesTabEnabled(res.enabled);
+      } catch {
+        setPrinciplesTabEnabled(false);
+      }
+    })();
+  }, []);
 
   // Fetch principles when the tab is selected
   useEffect(() => {
@@ -938,13 +951,15 @@ export default function EADeliveryPage() {
           label={t("tabs.initiatives")}
           sx={{ textTransform: "none", minHeight: 48 }}
         />
-        <Tab
-          value="principles"
-          icon={<MaterialSymbol icon="gavel" size={18} />}
-          iconPosition="start"
-          label={t("tabs.principles")}
-          sx={{ textTransform: "none", minHeight: 48 }}
-        />
+        {principlesTabEnabled && (
+          <Tab
+            value="principles"
+            icon={<MaterialSymbol icon="gavel" size={18} />}
+            iconPosition="start"
+            label={t("tabs.principles")}
+            sx={{ textTransform: "none", minHeight: 48 }}
+          />
+        )}
       </Tabs>
 
       {error && (

@@ -826,6 +826,38 @@ async def update_mcp_settings(
     return {"ok": True}
 
 
+# ---------------------------------------------------------------------------
+# Principles display toggle
+# ---------------------------------------------------------------------------
+
+
+@router.get("/principles-display")
+async def get_principles_display(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — whether the EA Principles tab is shown on EA Delivery."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("showPrinciplesTab", True)}
+
+
+@router.patch("/principles-display")
+async def update_principles_display(
+    body: dict,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — toggle EA Principles tab visibility on EA Delivery."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["showPrinciplesTab"] = bool(body.get("enabled", True))
+    row.general_settings = general
+    await db.commit()
+
+    return {"ok": True}
+
+
 @router.get("/mcp/status")
 async def get_mcp_status(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns MCP + SSO availability (no secrets exposed).

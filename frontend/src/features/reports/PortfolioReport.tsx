@@ -1306,9 +1306,6 @@ export default function PortfolioReport() {
                 const severityIcon =
                   si.severity === "critical" ? "priority_high" :
                   si.severity === "warning" ? "trending_flat" : "check_circle";
-                const severityTextColor =
-                  si.severity === "critical" ? "text.primary" :
-                  si.severity === "warning" ? "text.primary" : "text.secondary";
                 return (
                   <Paper
                     key={i}
@@ -1320,7 +1317,7 @@ export default function PortfolioReport() {
                         si.severity === "critical" ? theme.palette.text.primary :
                         si.severity === "warning" ? theme.palette.text.secondary : theme.palette.text.disabled
                       } />
-                      <Typography variant="subtitle2" fontWeight={600} color={severityTextColor} sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ flex: 1 }}>
                         {si.title}
                       </Typography>
                       <Chip
@@ -1339,14 +1336,14 @@ export default function PortfolioReport() {
                       {si.observation}
                     </Typography>
                     {si.risk && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                      <Typography variant="body2" color="primary.main" sx={{ mb: 0.5 }}>
                         {si.risk}
                       </Typography>
                     )}
                     {si.action && (
                       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.5 }}>
-                        <MaterialSymbol icon="subdirectory_arrow_right" size={16} color={theme.palette.text.secondary} style={{ marginTop: 2 }} />
-                        <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                        <MaterialSymbol icon="subdirectory_arrow_right" size={16} color={theme.palette.primary.main} style={{ marginTop: 2 }} />
+                        <Typography variant="body2" color="primary.dark" fontWeight={500}>
                           {si.action}
                         </Typography>
                       </Box>

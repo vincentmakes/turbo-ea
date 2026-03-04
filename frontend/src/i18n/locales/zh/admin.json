@@ -779,6 +779,7 @@
   "metamodel.principles.add": "新建原则",
   "metamodel.principles.empty": "尚未定义EA原则。添加原则以指导您的架构决策。",
   "metamodel.principles.inactive": "未启用",
+  "metamodel.principles.showInDelivery": "在EA交付页面显示EA原则标签页",
   "metamodel.principles.rationale": "理由",
   "metamodel.principles.implications": "影响",
   "metamodel.principles.activate": "启用",

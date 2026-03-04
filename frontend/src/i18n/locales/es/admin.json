@@ -779,6 +779,7 @@
   "metamodel.principles.add": "Nuevo principio",
   "metamodel.principles.empty": "No hay principios EA definidos. Añada principios para guiar sus decisiones de arquitectura.",
   "metamodel.principles.inactive": "Inactivo",
+  "metamodel.principles.showInDelivery": "Mostrar pestaña de principios EA en la página de EA Delivery",
   "metamodel.principles.rationale": "Justificación",
   "metamodel.principles.implications": "Implicaciones",
   "metamodel.principles.activate": "Activar",
