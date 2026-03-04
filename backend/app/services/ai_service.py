@@ -853,15 +853,15 @@ async def generate_portfolio_insights(
         "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
         f"Given the portfolio summary data below, generate exactly {insight_count} "
         "insights. Each insight MUST be a JSON object with these fields:\n"
-        '  - "title": A concise headline (max 10 words) summarising the finding.\n'
-        '  - "observation": 1-2 sentences describing what the data shows. '
-        "Cite specific numbers, group names, and percentages.\n"
-        '  - "risk": 1 sentence explaining the strategic implication or risk '
-        "if no action is taken.\n"
-        '  - "action": 1-2 sentences with a concrete, actionable recommendation. '
-        "Start with a verb (e.g. Consolidate, Migrate, Establish, Decommission). "
-        "Be specific about which groups, types, or applications to target.\n"
-        '  - "severity": one of "critical", "warning", or "info" based on urgency.\n\n'
+        '  - "title": A concise headline, max 8 words.\n'
+        '  - "observation": ONE sentence (max 30 words) stating what the data shows. '
+        "Cite one or two key numbers.\n"
+        '  - "risk": ONE sentence (max 20 words) on the implication if no action is taken.\n'
+        '  - "action": ONE sentence (max 25 words) with a specific recommendation. '
+        "Start with a verb (Consolidate, Migrate, Decommission, etc.).\n"
+        '  - "severity": "critical", "warning", or "info".\n\n'
+        "IMPORTANT: Keep each field SHORT. Avoid long explanations. "
+        "Brevity is more valuable than exhaustiveness.\n\n"
         f"{lenses}\n"
         "Rules:\n"
         "- Reference actual numbers and group names from the data.\n"
