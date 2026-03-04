@@ -15,6 +15,7 @@ from app.core.encryption import decrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
+from app.models.ea_principle import EAPrinciple
 from app.models.user import User
 from app.schemas.ai_suggest import (
     AiSuggestRequest,
@@ -163,6 +164,22 @@ async def portfolio_insights(
             detail="API key is required for commercial LLM providers.",
         )
 
+    # Load active EA principles
+    principles_result = await db.execute(
+        select(EAPrinciple)
+        .where(EAPrinciple.is_active == True)  # noqa: E712
+        .order_by(EAPrinciple.sort_order)
+    )
+    principles = [
+        {
+            "title": p.title,
+            "description": p.description or "",
+            "rationale": p.rationale or "",
+            "implications": p.implications or "",
+        }
+        for p in principles_result.scalars().all()
+    ]
+
     try:
         result_data = await generate_portfolio_insights(
             summary=body.model_dump(),
@@ -170,6 +187,7 @@ async def portfolio_insights(
             model=ai_cfg["model"],
             provider_type=ai_cfg["provider_type"],
             api_key=ai_cfg["api_key"],
+            principles=principles,
         )
     except httpx.HTTPError as exc:
         logger.warning("AI portfolio insights failed: %s", exc)

@@ -4,7 +4,7 @@ Das **Metamodell** definiert die gesamte Datenstruktur Ihrer Plattform — welch
 
 ![Metamodell-Konfiguration](../assets/img/en/20_admin_metamodel.png)
 
-Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat fünf Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags** und **Metamodell-Graph**.
+Navigieren Sie zu **Admin > Metamodell**, um auf den Metamodell-Editor zuzugreifen. Er hat sechs Tabs: **Kartentypen**, **Beziehungstypen**, **Berechnungen**, **Tags**, **EA-Prinzipien** und **Metamodell-Graph**.
 
 ## Kartentypen
 
@@ -96,6 +96,31 @@ Berechnete Felder verwenden vom Administrator definierte Formeln, um Werte autom
 ## Tags
 
 Tag-Gruppen und Tags können über diesen Tab verwaltet werden. Siehe [Tags](tags.md) für die vollständige Anleitung.
+
+## EA-Prinzipien
+
+Der Tab **EA-Prinzipien** ermöglicht die Definition von Architekturprinzipien, die die IT-Landschaft Ihrer Organisation steuern. Diese Prinzipien dienen als strategische Leitplanken — zum Beispiel „Wiederverwenden vor Kaufen vor Bauen" oder „Wenn wir kaufen, kaufen wir SaaS".
+
+Jedes Prinzip hat vier Felder:
+
+| Feld | Beschreibung |
+|------|-------------|
+| **Titel** | Ein prägnanter Name für das Prinzip |
+| **Aussage** | Was das Prinzip besagt |
+| **Begründung** | Warum dieses Prinzip wichtig ist |
+| **Auswirkungen** | Praktische Konsequenzen der Befolgung des Prinzips |
+
+Prinzipien können über den Umschalter auf jeder Karte einzeln **aktiviert** oder **deaktiviert** werden.
+
+### Wie Prinzipien die KI-Insights beeinflussen
+
+Wenn Sie **KI-Portfolio-Insights** im [Portfolio-Bericht](../guide/reports.md#ai-portfolio-insights) generieren, werden alle aktiven Prinzipien in die Analyse einbezogen. Die KI bewertet Ihre Portfoliodaten anhand jedes Prinzips und berichtet:
+
+- Ob das Portfolio mit dem Prinzip **übereinstimmt** oder es **verletzt**
+- Konkrete Datenpunkte als Belege
+- Empfohlene Korrekturmaßnahmen
+
+Beispielsweise würde ein „SaaS kaufen"-Prinzip dazu führen, dass die KI On-Premise- oder IaaS-gehostete Anwendungen markiert und Cloud-Migrationsprioritäten vorschlägt.
 
 ## Metamodell-Graph
 

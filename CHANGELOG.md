@@ -11,9 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - AI-driven portfolio insights: generate on-demand strategic analysis of the application portfolio using the configured AI provider
 - AI provider settings separated from AI description settings — provider configuration is now shared across all AI features
 - New `ai.portfolio_insights` permission controlling access to portfolio AI insights
+- EA Principles tab in Metamodel Configuration for defining architecture principles (title, statement, rationale, implications)
+- Active EA principles are automatically included in AI portfolio insights analysis for principle-compliance evaluation
 
 ### Changed
 - AI admin settings page reorganised into three sections: Provider Configuration, Description Suggestions, and Portfolio Insights
+- AI portfolio insights prompt refined with structured 5-lens EA framework and principle-compliance analysis
 
 ## [0.24.0] - 2026-03-03
 

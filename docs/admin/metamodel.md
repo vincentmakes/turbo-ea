@@ -4,7 +4,7 @@ The **Metamodel** defines your platform's entire data structure — what types o
 
 ![Metamodel Configuration](../assets/img/en/20_admin_metamodel.png)
 
-Navigate to **Admin > Metamodel** to access the metamodel editor. It has five tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, and **Metamodel Graph**.
+Navigate to **Admin > Metamodel** to access the metamodel editor. It has six tabs: **Card Types**, **Relation Types**, **Calculations**, **Tags**, **EA Principles**, and **Metamodel Graph**.
 
 ## Card Types
 
@@ -96,6 +96,31 @@ Calculated fields use admin-defined formulas to automatically compute values whe
 ## Tags
 
 Tag groups and tags can be managed from this tab. See [Tags](tags.md) for the full guide.
+
+## EA Principles
+
+The **EA Principles** tab lets you define the architecture principles that govern your organisation's IT landscape. These principles serve as strategic guardrails — for example, "Reuse before Buy before Build" or "If we Buy, we Buy SaaS".
+
+Each principle has four fields:
+
+| Field | Description |
+|-------|-------------|
+| **Title** | A concise name for the principle |
+| **Statement** | What the principle states |
+| **Rationale** | Why this principle is important |
+| **Implications** | Practical consequences of following the principle |
+
+Principles can be **activated** or **deactivated** individually using the toggle switch on each card.
+
+### How Principles Influence AI Insights
+
+When you generate **AI Portfolio Insights** on the [Portfolio Report](../guide/reports.md#ai-portfolio-insights), all active principles are included in the analysis. The AI evaluates your portfolio data against each principle and reports:
+
+- Whether the portfolio **aligns with** or **violates** the principle
+- Specific data points as evidence
+- Recommended corrective actions
+
+For example, a "Buy SaaS" principle would cause the AI to flag on-premise or IaaS-hosted applications and suggest cloud migration priorities.
 
 ## Metamodel Graph
 

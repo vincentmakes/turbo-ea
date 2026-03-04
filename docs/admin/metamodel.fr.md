@@ -4,7 +4,7 @@ Le **Métamodèle** définit l'ensemble de la structure de données de votre pla
 
 ![Configuration du métamodèle](../assets/img/en/20_admin_metamodel.png)
 
-Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte cinq onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags** et **Graphe du métamodèle**.
+Naviguez vers **Admin > Métamodèle** pour accéder à l'éditeur de métamodèle. Il comporte six onglets : **Types de fiches**, **Types de relations**, **Calculs**, **Tags**, **Principes EA** et **Graphe du métamodèle**.
 
 ## Types de fiches
 
@@ -96,6 +96,31 @@ Les champs calculés utilisent des formules définies par l'administrateur pour 
 ## Tags
 
 Les groupes de tags et les tags peuvent être gérés depuis cet onglet. Voir [Tags](tags.md) pour le guide complet.
+
+## Principes EA
+
+L'onglet **Principes EA** vous permet de définir les principes d'architecture qui régissent le paysage IT de votre organisation. Ces principes servent de garde-fous stratégiques — par exemple, « Réutiliser avant d'acheter avant de construire » ou « Si nous achetons, nous achetons du SaaS ».
+
+Chaque principe comporte quatre champs :
+
+| Champ | Description |
+|-------|-------------|
+| **Titre** | Un nom concis pour le principe |
+| **Énoncé** | Ce que le principe stipule |
+| **Justification** | Pourquoi ce principe est important |
+| **Implications** | Les conséquences pratiques du respect du principe |
+
+Les principes peuvent être **activés** ou **désactivés** individuellement via l'interrupteur sur chaque carte.
+
+### Comment les principes influencent les insights IA
+
+Lorsque vous générez des **Insights IA du portefeuille** dans le [Rapport de portefeuille](../guide/reports.md#ai-portfolio-insights), tous les principes actifs sont inclus dans l'analyse. L'IA évalue vos données de portefeuille par rapport à chaque principe et rapporte :
+
+- Si le portefeuille **est conforme** ou **enfreint** le principe
+- Des points de données spécifiques comme preuves
+- Des actions correctives recommandées
+
+Par exemple, un principe « Acheter du SaaS » amènerait l'IA à signaler les applications hébergées on-premise ou en IaaS et à suggérer des priorités de migration cloud.
 
 ## Graphe du métamodèle
 

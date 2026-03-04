@@ -28,6 +28,7 @@ import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
+import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
@@ -299,6 +300,7 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.relationTypes")} />
         <Tab label={t("metamodel.tabs.calculations")} />
         <Tab label={t("metamodel.tabs.tags")} />
+        <Tab label={t("metamodel.tabs.principles")} />
         <Tab label={t("metamodel.tabs.graph")} />
       </Tabs>
 
@@ -709,9 +711,14 @@ export default function MetamodelAdmin() {
       {tab === 3 && <TagsAdmin />}
 
       {/* ============================================================ */}
-      {/*  TAB 4 -- Metamodel Graph                                    */}
+      {/*  TAB 4 -- EA Principles                                      */}
       {/* ============================================================ */}
-      {tab === 4 && (
+      {tab === 4 && <PrinciplesAdmin />}
+
+      {/* ============================================================ */}
+      {/*  TAB 5 -- Metamodel Graph                                    */}
+      {/* ============================================================ */}
+      {tab === 5 && (
         <MetamodelGraph
           types={types}
           relationTypes={relationTypes}

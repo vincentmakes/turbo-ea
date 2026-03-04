@@ -729,6 +729,7 @@ async def generate_portfolio_insights(
     *,
     provider_type: str = "ollama",
     api_key: str = "",
+    principles: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Analyse application portfolio summary data and return strategic insights."""
     total = summary.get("total_apps", 0)
@@ -788,16 +789,34 @@ async def generate_portfolio_insights(
             lc_parts.append(f"{label}: {count} ({pct}%)")
         data_block += f"\nLifecycle distribution: {', '.join(lc_parts)}\n"
 
-    system_msg = (
-        "You are a senior enterprise architect performing an Application Portfolio "
-        "Management (APM) review using industry-standard EA and IT Strategy frameworks "
-        "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
-        "Given the portfolio summary data below, generate exactly 5 insights. "
-        "Each insight MUST follow this structure:\n"
-        "  1. A concrete observation grounded in the data (cite numbers).\n"
-        "  2. The strategic implication or risk.\n"
-        "  3. A recommended action.\n\n"
-        "Cover these five lenses — one insight per lens, in order:\n"
+    # Build the principles block for the prompt
+    principles_block = ""
+    if principles:
+        principles_block = "\n\nEA PRINCIPLES (defined by the organisation):\n"
+        principles_block += (
+            "These are the governing architecture principles. Every insight MUST "
+            "evaluate whether the portfolio data aligns with or violates these "
+            "principles. When a principle is violated, call it out explicitly, "
+            "cite the relevant data, and recommend corrective action.\n\n"
+        )
+        for i, p in enumerate(principles, 1):
+            principles_block += f"  {i}. {p['title']}"
+            if p.get("description"):
+                principles_block += f" — {p['description']}"
+            if p.get("rationale"):
+                principles_block += f" (Rationale: {p['rationale']})"
+            if p.get("implications"):
+                principles_block += f" [Implications: {p['implications']}]"
+            principles_block += "\n"
+
+    has_principles = bool(principles)
+    insight_count = max(5, len(principles or [])) if has_principles else 5
+    # Cap at 8 to keep output manageable
+    insight_count = min(insight_count, 8)
+
+    # Build the lenses section
+    lenses = (
+        "Cover these five analytical lenses — one insight per lens, in order:\n"
         "1. **Rationalisation** — Identify redundancy, overlap, or fragmentation. "
         "Look for multiple applications serving similar functions, groups with "
         "disproportionately high app counts, or excessive diversity that raises "
@@ -816,7 +835,30 @@ async def generate_portfolio_insights(
         "5. **Modernisation roadmap** — Suggest a prioritised modernisation "
         "sequence based on the data: which groups or categories should be "
         "addressed first and why (e.g. high app count + high phase-out ratio, "
-        "or strategic capability with aging technology).\n\n"
+        "or strategic capability with aging technology).\n"
+    )
+
+    if has_principles:
+        lenses += (
+            "\nAfter the five standard lenses, add one principle-compliance "
+            "insight for EACH EA principle listed above. For each principle:\n"
+            "- State whether the portfolio currently aligns with or violates it.\n"
+            "- Cite specific data points as evidence.\n"
+            "- Recommend concrete actions to improve compliance.\n"
+        )
+
+    insight_list = ", ".join(f'"insight {i}"' for i in range(1, insight_count + 1))
+
+    system_msg = (
+        "You are a senior enterprise architect performing an Application Portfolio "
+        "Management (APM) review using industry-standard EA and IT Strategy frameworks "
+        "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
+        f"Given the portfolio summary data below, generate exactly {insight_count} "
+        "insights. Each insight MUST follow this structure:\n"
+        "  1. A concrete observation grounded in the data (cite numbers).\n"
+        "  2. The strategic implication or risk.\n"
+        "  3. A recommended action.\n\n"
+        f"{lenses}\n"
         "Rules:\n"
         "- Each insight must be 2-3 sentences.\n"
         "- Reference actual numbers and group names from the data.\n"
@@ -825,12 +867,16 @@ async def generate_portfolio_insights(
         "say so briefly and suggest what data to capture.\n"
         "- Use professional EA terminology.\n\n"
         "Return ONLY valid JSON in this format:\n"
-        '{ "insights": ["insight 1", "insight 2", "insight 3", "insight 4", "insight 5"] }'
+        "{ " + f'"insights": [{insight_list}]' + " }"
     )
+
+    user_content = f"Portfolio summary:\n{data_block}"
+    if principles_block:
+        user_content += principles_block
 
     messages = [
         {"role": "system", "content": system_msg},
-        {"role": "user", "content": f"Portfolio summary:\n{data_block}"},
+        {"role": "user", "content": user_content},
     ]
 
     raw = await call_llm(
@@ -840,7 +886,7 @@ async def generate_portfolio_insights(
     insights = raw.get("insights", [])
     if not isinstance(insights, list):
         insights = []
-    insights = [str(i).strip() for i in insights if i][:5]
+    insights = [str(i).strip() for i in insights if i][:insight_count]
 
     return {"insights": insights, "model": model}
 
