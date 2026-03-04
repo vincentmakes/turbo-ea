@@ -857,17 +857,18 @@ async def generate_portfolio_insights(
         f"Given the portfolio summary data below, produce exactly {insight_count} "
         "advisory findings. Each finding MUST be a JSON object with these fields:\n"
         '  - "title": A concise headline, max 8 words.\n'
-        '  - "observation": ONE sentence (max 30 words) stating what the data shows. '
-        "Cite one or two key numbers.\n"
-        '  - "recommendation": ONE sentence (max 30 words) with a specific, actionable '
-        "recommendation. Start with a verb (Consolidate, Evaluate, Establish, etc.). "
+        '  - "observation": 2-3 sentences (max 60 words) explaining what the data '
+        "shows and why it matters. Cite specific numbers and group names.\n"
+        '  - "recommendation": 2-3 sentences (max 60 words) with a specific, '
+        "actionable recommendation. Start with a verb (Consolidate, Evaluate, "
+        "Establish, etc.). Explain the expected benefit. "
         "Do NOT include timelines, deadlines, or target dates.\n\n"
         "IMPORTANT:\n"
-        "- Keep each field SHORT. Brevity is more valuable than exhaustiveness.\n"
+        "- Be substantive but not verbose. Each field should add real insight.\n"
         "- Adopt an advisory tone — present findings as expert guidance, not alerts. "
         "Do NOT classify findings by severity or urgency.\n"
         "- Do NOT suggest timelines, deadlines, quarters, or durations. "
-        "Focus on WHAT to do, not WHEN.\n\n"
+        "Focus on WHAT to do and WHY, not WHEN.\n\n"
         f"{lenses}\n"
         "Rules:\n"
         "- Reference actual numbers and group names from the data.\n"
