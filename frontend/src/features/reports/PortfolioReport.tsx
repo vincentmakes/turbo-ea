@@ -20,6 +20,10 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TableSortLabel from "@mui/material/TableSortLabel";
+import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
+import Collapse from "@mui/material/Collapse";
+import LinearProgress from "@mui/material/LinearProgress";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
@@ -32,6 +36,7 @@ import { useSavedReport } from "@/hooks/useSavedReport";
 import { useThumbnailCapture } from "@/hooks/useThumbnailCapture";
 import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import type { AiStatus, PortfolioInsightsResponse } from "@/types";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -484,6 +489,13 @@ export default function PortfolioReport() {
   const [sidePanelCardId, setSidePanelCardId] = useState<string | null>(null);
   const [view, setView] = useState<"chart" | "table">("chart");
 
+  // AI insights
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
+  const [aiInsights, setAiInsights] = useState<PortfolioInsightsResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+
   // Controls — defaults are set dynamically after data loads
   const [groupByRaw, setGroupByRaw] = useState("");
   const [colorBy, setColorBy] = useState("");
@@ -546,9 +558,11 @@ export default function PortfolioReport() {
 
   // Fetch data
   useEffect(() => {
+    api.get<ApiResponse>("/reports/app-portfolio").then((r) => setData(r));
     api
-      .get<ApiResponse>("/reports/app-portfolio")
-      .then((r) => setData(r));
+      .get<AiStatus>("/ai/status")
+      .then(setAiStatus)
+      .catch(() => setAiStatus(null));
   }, []);
 
   // Derived data — resolve field & option labels for the current locale
@@ -748,6 +762,72 @@ export default function PortfolioReport() {
     setSidePanelCardId(id);
   }, []);
 
+  // AI insights handler
+  const handleGenerateInsights = useCallback(async () => {
+    if (!data) return;
+    setAiLoading(true);
+    setAiError("");
+    setAiOpen(true);
+    try {
+      // Build attribute distributions
+      const attrDist: Record<string, Record<string, number>> = {};
+      for (const f of selectFields) {
+        const counts: Record<string, number> = {};
+        for (const app of filteredApps) {
+          const v = (app.attributes || {})[f.key] as string | undefined;
+          const k = v || "Not set";
+          counts[k] = (counts[k] || 0) + 1;
+        }
+        attrDist[f.label] = counts;
+      }
+
+      // Build lifecycle phase counts
+      const lcCounts: Record<string, number> = {};
+      for (const app of filteredApps) {
+        const lc = app.lifecycle;
+        if (!lc) {
+          lcCounts["No lifecycle"] = (lcCounts["No lifecycle"] || 0) + 1;
+          continue;
+        }
+        const now = Date.now();
+        const phases = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
+        let current = "Unknown";
+        for (const p of phases) {
+          const d = lc[p] ? new Date(lc[p]).getTime() : null;
+          if (d && d <= now) current = p;
+        }
+        lcCounts[current] = (lcCounts[current] || 0) + 1;
+      }
+
+      // Build group summaries
+      const groupSummaries = groups.map((g) => {
+        const breakdown: Record<string, number> = {};
+        if (colorBy) {
+          for (const app of g.apps) {
+            const v = (app.attributes || {})[colorBy] as string | undefined;
+            const k = v || "Not set";
+            breakdown[k] = (breakdown[k] || 0) + 1;
+          }
+        }
+        return { name: g.label, count: g.apps.length, breakdown };
+      });
+
+      const res = await api.post<PortfolioInsightsResponse>("/ai/portfolio-insights", {
+        total_apps: filteredApps.length,
+        group_by: groupByRaw || null,
+        color_by: colorBy || null,
+        groups: groupSummaries,
+        attribute_summary: attrDist,
+        lifecycle_summary: lcCounts,
+      });
+      setAiInsights(res);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setAiLoading(false);
+    }
+  }, [data, filteredApps, groups, selectFields, colorBy, groupByRaw, t]);
+
   const handleGroupClick = useCallback((g: GroupData) => {
     setDrawer({ label: g.label, apps: g.apps });
   }, []);
@@ -825,6 +905,34 @@ export default function PortfolioReport() {
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
       printParams={printParams}
+      actions={
+        aiStatus?.portfolio_insights_enabled ? (
+          <Tooltip title={t("portfolio.aiInsights")}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  if (aiOpen) {
+                    setAiOpen(false);
+                  } else if (aiInsights) {
+                    setAiOpen(true);
+                  } else {
+                    handleGenerateInsights();
+                  }
+                }}
+                disabled={aiLoading || filteredApps.length === 0}
+                sx={{ color: aiOpen ? "primary.main" : "#1976d2" }}
+              >
+                {aiLoading ? (
+                  <CircularProgress size={18} />
+                ) : (
+                  <MaterialSymbol icon="auto_awesome" size={20} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : undefined
+      }
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -1151,6 +1259,70 @@ export default function PortfolioReport() {
         </Box>
       }
     >
+      {/* AI Insights panel */}
+      <Collapse in={aiOpen}>
+        <Paper
+          sx={{
+            p: 2,
+            mb: 2,
+            border: 1,
+            borderColor: "primary.main",
+            bgcolor: alpha(theme.palette.primary.main, 0.03),
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+            <MaterialSymbol icon="insights" size={20} color={theme.palette.primary.main} />
+            <Typography variant="subtitle2" fontWeight={700}>
+              {t("portfolio.aiInsightsTitle")}
+            </Typography>
+            {aiInsights?.model && (
+              <Chip label={aiInsights.model} size="small" variant="outlined" sx={{ ml: "auto" }} />
+            )}
+            <IconButton size="small" onClick={() => setAiOpen(false)} sx={{ ml: aiInsights?.model ? 0 : "auto" }}>
+              <MaterialSymbol icon="close" size={18} />
+            </IconButton>
+          </Box>
+
+          {aiLoading && <LinearProgress sx={{ mb: 1 }} />}
+
+          {aiError && (
+            <Alert severity="error" sx={{ mb: 1 }} onClose={() => setAiError("")}>
+              {aiError}
+            </Alert>
+          )}
+
+          {aiInsights && aiInsights.insights.length > 0 && (
+            <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+              {aiInsights.insights.map((insight, i) => (
+                <Typography key={i} component="li" variant="body2" sx={{ mb: 0.5 }}>
+                  {insight}
+                </Typography>
+              ))}
+            </Box>
+          )}
+
+          {aiInsights && aiInsights.insights.length === 0 && !aiLoading && (
+            <Typography variant="body2" color="text.secondary">
+              {t("portfolio.aiNoInsights")}
+            </Typography>
+          )}
+
+          {aiInsights && !aiLoading && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<MaterialSymbol icon="refresh" size={16} />}
+                sx={{ textTransform: "none" }}
+                onClick={handleGenerateInsights}
+              >
+                {t("portfolio.aiRegenerate")}
+              </Button>
+            </Box>
+          )}
+        </Paper>
+      </Collapse>
+
       {view === "chart" ? (
         <>
           {groups.length === 0 && ungrouped.length === 0 ? (

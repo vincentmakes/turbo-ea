@@ -134,6 +134,7 @@ async def _auto_configure_ai() -> None:
             "searchProvider": "duckduckgo",
             "searchUrl": "",
             "enabledTypes": ai.get("enabledTypes", []),
+            "portfolioInsightsEnabled": ai.get("portfolioInsightsEnabled", False),
         }
         row.general_settings = general
         await db.commit()

@@ -17,6 +17,10 @@ O **Relatório de Portfólio** exibe um **gráfico de bolhas** (ou gráfico de d
 
 Isso é ideal para análise de portfólio — plotando aplicações por valor de negócio versus adequação técnica, por exemplo, para identificar candidatos a investimento, substituição ou aposentadoria.
 
+### Análises IA do portfólio
+
+Quando a IA está configurada e as análises de portfólio estão habilitadas por um administrador, o relatório de portfólio exibe um botão **Análises IA**. Ao clicar, um resumo da visualização atual é enviado ao provedor de IA, que retorna análises estratégicas sobre riscos de concentração, oportunidades de modernização, preocupações com ciclo de vida e equilíbrio do portfólio. O painel de análises é recolhível e pode ser regenerado após alterar filtros ou agrupamentos.
+
 ## Mapa de Capacidades
 
 ![Mapa de Capacidades de Negócio](../assets/img/en/11_capability_map.png)

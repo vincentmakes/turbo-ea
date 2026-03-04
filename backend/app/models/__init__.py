@@ -7,6 +7,7 @@ from app.models.card_type import CardType
 from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.document import Document
+from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.notification import Notification
 from app.models.process_assessment import ProcessAssessment
@@ -53,6 +54,7 @@ __all__ = [
     "Todo",
     "Event",
     "Document",
+    "EAPrinciple",
     "Bookmark",
     "Calculation",
     "Diagram",

@@ -72,6 +72,10 @@
   "portfolio.more": "{{count}} more",
   "portfolio.less": "Less",
   "portfolio.showMore": "Show {{count}} more relation filters",
+  "portfolio.aiInsights": "AI Insights",
+  "portfolio.aiInsightsTitle": "AI Portfolio Insights",
+  "portfolio.aiNoInsights": "No insights could be generated for the current portfolio view.",
+  "portfolio.aiRegenerate": "Regenerate",
 
   "capabilityMap.title": "Business Capability Map",
   "capabilityMap.heatmapMetric": "Heatmap Metric",

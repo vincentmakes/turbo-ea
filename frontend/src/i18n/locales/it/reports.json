@@ -67,6 +67,11 @@
   "portfolio.more": "{{count}} in pi\u00f9",
   "portfolio.less": "Meno",
   "portfolio.showMore": "Mostra {{count}} filtri relazione in pi\u00f9",
+  "portfolio.aiInsights": "Analisi IA",
+  "portfolio.aiInsightsTitle": "Analisi IA del portafoglio",
+  "portfolio.aiNoInsights": "Non è stato possibile generare analisi per la vista corrente del portafoglio.",
+  "portfolio.aiRegenerate": "Rigenera",
+
   "capabilityMap.title": "Mappa delle capacit\u00e0 aziendali",
   "capabilityMap.heatmapMetric": "Metrica heatmap",
   "capabilityMap.displayDepth": "Profondit\u00e0 di visualizzazione",

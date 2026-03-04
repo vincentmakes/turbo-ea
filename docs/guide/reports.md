@@ -17,6 +17,10 @@ The **Portfolio Report** displays a configurable **bubble chart** (or scatter pl
 
 This is ideal for portfolio analysis — plotting applications by business value vs. technical fitness, for example, to identify candidates for investment, replacement, or retirement.
 
+### AI Portfolio Insights
+
+When AI is configured and portfolio insights are enabled by an admin, the portfolio report shows an **AI Insights** button. Clicking it sends a summary of your current view to the AI provider, which returns strategic insights about concentration risks, modernisation opportunities, lifecycle concerns, and portfolio balance. The insights panel is collapsible and can be regenerated after changing filters or grouping.
+
 ## Capability Map
 
 ![Business Capability Map](../assets/img/en/11_capability_map.png)

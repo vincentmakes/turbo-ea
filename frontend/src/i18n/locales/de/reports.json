@@ -72,6 +72,10 @@
   "portfolio.more": "{{count}} weitere",
   "portfolio.less": "Weniger",
   "portfolio.showMore": "{{count}} weitere Beziehungsfilter anzeigen",
+  "portfolio.aiInsights": "KI-Erkenntnisse",
+  "portfolio.aiInsightsTitle": "KI-Portfolio-Erkenntnisse",
+  "portfolio.aiNoInsights": "Für die aktuelle Portfolioansicht konnten keine Erkenntnisse generiert werden.",
+  "portfolio.aiRegenerate": "Neu generieren",
 
   "capabilityMap.title": "Geschäftsfähigkeiten-Karte",
   "capabilityMap.heatmapMetric": "Heatmap-Metrik",

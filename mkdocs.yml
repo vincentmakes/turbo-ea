@@ -82,7 +82,7 @@ plugins:
             Tags: Etiquetas
             Users & Roles: Usuarios y roles
             Authentication & SSO: Autenticación y SSO
-            AI Suggestions: Sugerencias de IA
+            AI Capabilities: Capacidades de IA
             MCP Integration: Integracion MCP
             End-of-Life (EOL): Fin de vida (EOL)
             Surveys: Encuestas
@@ -115,7 +115,7 @@ plugins:
             Tags: Tags
             Users & Roles: Benutzer und Rollen
             Authentication & SSO: Authentifizierung und SSO
-            AI Suggestions: KI-Vorschläge
+            AI Capabilities: KI-Funktionen
             MCP Integration: MCP-Integration
             End-of-Life (EOL): End-of-Life (EOL)
             Surveys: Umfragen
@@ -148,7 +148,7 @@ plugins:
             Tags: Tags
             Users & Roles: Utilisateurs et rôles
             Authentication & SSO: Authentification et SSO
-            AI Suggestions: Suggestions IA
+            AI Capabilities: Fonctionnalités IA
             MCP Integration: Integration MCP
             End-of-Life (EOL): Fin de vie (EOL)
             Surveys: Enquêtes
@@ -181,7 +181,7 @@ plugins:
             Tags: Tag
             Users & Roles: Utenti e ruoli
             Authentication & SSO: Autenticazione e SSO
-            AI Suggestions: Suggerimenti IA
+            AI Capabilities: Funzionalità IA
             MCP Integration: Integrazione MCP
             End-of-Life (EOL): Fine vita (EOL)
             Surveys: Sondaggi
@@ -214,7 +214,7 @@ plugins:
             Tags: Tags
             Users & Roles: Usuários e papéis
             Authentication & SSO: Autenticação e SSO
-            AI Suggestions: Sugestões de IA
+            AI Capabilities: Funcionalidades de IA
             MCP Integration: Integracao MCP
             End-of-Life (EOL): Fim de vida (EOL)
             Surveys: Pesquisas
@@ -247,7 +247,7 @@ plugins:
             Tags: 标签
             Users & Roles: 用户与角色
             Authentication & SSO: 认证与 SSO
-            AI Suggestions: AI 建议
+            AI Capabilities: AI 功能
             MCP Integration: MCP 集成
             End-of-Life (EOL): 生命周期结束 (EOL)
             Surveys: 调查
@@ -306,7 +306,7 @@ nav:
       - Tags: admin/tags.md
       - Users & Roles: admin/users.md
       - Authentication & SSO: admin/sso.md
-      - AI Suggestions: admin/ai.md
+      - AI Capabilities: admin/ai.md
       - MCP Integration: admin/mcp.md
       - End-of-Life (EOL): admin/eol.md
       - Surveys: admin/surveys.md

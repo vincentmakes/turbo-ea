@@ -28,3 +28,31 @@ class AiSuggestResponse(BaseModel):
     sources: list[AiSourceRef] = []
     model: str | None = None
     search_provider: str | None = None
+
+
+class PortfolioInsightsRequest(BaseModel):
+    """Summary data for AI portfolio analysis."""
+
+    total_apps: int = Field(0, ge=0)
+    group_by: str | None = None
+    color_by: str | None = None
+    groups: list[dict] = Field(
+        default_factory=list,
+        description="List of {name, count, breakdown} dicts summarising each group",
+    )
+    attribute_summary: dict = Field(
+        default_factory=dict,
+        description="Aggregated attribute distributions (e.g. hostingType counts)",
+    )
+    lifecycle_summary: dict = Field(
+        default_factory=dict,
+        description="Counts by lifecycle phase",
+    )
+
+
+class PortfolioInsightsResponse(BaseModel):
+    insights: list[str] = Field(
+        default_factory=list,
+        description="List of actionable insight strings",
+    )
+    model: str | None = None

@@ -249,6 +249,18 @@ export interface Calculation {
   updated_at?: string;
 }
 
+export interface EAPrinciple {
+  id: string;
+  title: string;
+  description?: string;
+  rationale?: string;
+  implications?: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CalculatedFieldsMap {
   [typeKey: string]: string[];
 }
@@ -928,5 +940,11 @@ export interface AiStatus {
   provider_type?: string;
   enabled_types: string[];
   running_models: string[];
+  model?: string;
+  portfolio_insights_enabled?: boolean;
+}
+
+export interface PortfolioInsightsResponse {
+  insights: string[];
   model?: string;
 }

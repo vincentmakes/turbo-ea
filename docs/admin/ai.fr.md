@@ -1,10 +1,15 @@
-# Suggestions de description par IA
+# Fonctionnalités IA
 
 ![Paramètres de suggestion IA](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA peut générer automatiquement des descriptions de fiches en combinant la **recherche web** et un **grand modèle de langage (LLM)**. Lorsqu'un utilisateur clique sur le bouton de suggestion IA sur une fiche, le système recherche sur le web des informations pertinentes sur le composant, puis utilise un LLM pour produire une description concise et adaptée au type -- complète avec un score de confiance et des liens vers les sources cliquables.
+Turbo EA inclut des fonctionnalités alimentées par l'IA qui utilisent un **grand modèle de langage (LLM)** pour aider les utilisateurs. Toutes les fonctionnalités IA partagent une seule **configuration de fournisseur IA** — configurez une fois, utilisez partout.
 
-Cette fonctionnalité est **optionnelle** et **entièrement contrôlée par l'administrateur**. Elle peut s'exécuter entièrement sur votre propre infrastructure en utilisant une instance Ollama locale, ou se connecter à des fournisseurs LLM commerciaux.
+Fonctionnalités IA actuellement disponibles :
+
+- **Suggestions de description** — Génération automatique de descriptions de fiches à l'aide de la recherche web + LLM
+- **Analyses du portefeuille** — Analyse stratégique à la demande du portefeuille applicatif
+
+Ces fonctionnalités sont **optionnelles** et **entièrement contrôlées par l'administrateur**. Elles peuvent s'exécuter entièrement sur votre propre infrastructure en utilisant une instance Ollama locale, ou se connecter à des fournisseurs LLM commerciaux.
 
 ---
 
@@ -151,16 +156,36 @@ Ces champs ne sont suggérés que lorsque l'IA trouve des preuves claires — il
 
 ---
 
+## Analyses du portefeuille
+
+Lorsque cette fonctionnalité est activée, le rapport de portefeuille applicatif affiche un bouton **Analyses IA**. Un clic envoie un résumé de la vue actuelle du portefeuille — regroupement, distributions d'attributs et données de cycle de vie — au LLM configuré, qui renvoie 3 à 5 analyses exploitables.
+
+Les analyses se concentrent sur :
+
+- **Risques de concentration** — trop d'applications dans un groupe ou un état
+- **Opportunités de modernisation** — basées sur les données de cycle de vie et d'hébergement
+- **Équilibre du portefeuille** — diversité des sous-types, groupes et attributs
+- **Préoccupations de cycle de vie** — applications approchant de la fin de vie
+- **Facteurs de coût ou de complexité** — basés sur les distributions d'attributs
+
+### Activer les analyses du portefeuille
+
+1. Allez dans **Paramètres > IA > Analyses du portefeuille**.
+2. Activez **Analyses du portefeuille**.
+3. Cliquez sur **Enregistrer**.
+
+---
+
 ## Permissions
 
 | Rôle | Accès |
 |------|-------|
-| **Admin** | Accès complet : configurer les paramètres IA et utiliser les suggestions |
-| **Admin BPM** | Utiliser les suggestions |
-| **Membre** | Utiliser les suggestions |
-| **Lecteur** | Pas d'accès aux suggestions IA |
+| **Admin** | Accès complet : configurer les paramètres IA, utiliser les suggestions et les analyses du portefeuille |
+| **Admin BPM** | Utiliser les suggestions et les analyses du portefeuille |
+| **Membre** | Utiliser les suggestions et les analyses du portefeuille |
+| **Lecteur** | Pas d'accès aux fonctionnalités IA |
 
-La clé de permission est `ai.suggest`. Les rôles personnalisés peuvent recevoir cette permission via la page d'administration des Rôles.
+Les clés de permission sont `ai.suggest` et `ai.portfolio_insights`. Les rôles personnalisés peuvent recevoir ces permissions via la page d'administration des Rôles.
 
 ---
 

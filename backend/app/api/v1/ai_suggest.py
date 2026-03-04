@@ -15,9 +15,19 @@ from app.core.encryption import decrypt_value
 from app.database import get_db
 from app.models.app_settings import AppSettings
 from app.models.card_type import CardType
+from app.models.ea_principle import EAPrinciple
 from app.models.user import User
-from app.schemas.ai_suggest import AiSuggestRequest, AiSuggestResponse
-from app.services.ai_service import fetch_running_models, suggest_metadata
+from app.schemas.ai_suggest import (
+    AiSuggestRequest,
+    AiSuggestResponse,
+    PortfolioInsightsRequest,
+    PortfolioInsightsResponse,
+)
+from app.services.ai_service import (
+    fetch_running_models,
+    generate_portfolio_insights,
+    suggest_metadata,
+)
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger("turboea.ai")
@@ -38,6 +48,7 @@ def _get_ai_config(general: dict) -> dict:
         "search_provider": "duckduckgo",
         "search_url": "",
         "enabled_types": ai.get("enabledTypes", []),
+        "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
     }
 
 
@@ -120,6 +131,80 @@ async def suggest(
     return AiSuggestResponse(**result_data)
 
 
+@router.post("/portfolio-insights", response_model=PortfolioInsightsResponse)
+async def portfolio_insights(
+    body: PortfolioInsightsRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Generate AI-driven insights for the application portfolio report."""
+    await PermissionService.require_permission(db, user, "ai.portfolio_insights")
+
+    # Load AI configuration
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    ai_cfg = _get_ai_config(general)
+
+    if not ai_cfg["portfolio_insights_enabled"]:
+        raise HTTPException(
+            status_code=400,
+            detail="AI portfolio insights are not enabled. An admin must enable this in Settings.",
+        )
+
+    if not ai_cfg["provider_url"] or not ai_cfg["model"]:
+        raise HTTPException(
+            status_code=400,
+            detail="AI provider URL and model must be configured in Settings.",
+        )
+
+    if ai_cfg["provider_type"] in ("openai", "anthropic") and not ai_cfg["api_key"]:
+        raise HTTPException(
+            status_code=400,
+            detail="API key is required for commercial LLM providers.",
+        )
+
+    # Load active EA principles
+    principles_result = await db.execute(
+        select(EAPrinciple)
+        .where(EAPrinciple.is_active == True)  # noqa: E712
+        .order_by(EAPrinciple.sort_order)
+    )
+    principles = [
+        {
+            "title": p.title,
+            "description": p.description or "",
+            "rationale": p.rationale or "",
+            "implications": p.implications or "",
+        }
+        for p in principles_result.scalars().all()
+    ]
+
+    try:
+        result_data = await generate_portfolio_insights(
+            summary=body.model_dump(),
+            provider_url=ai_cfg["provider_url"],
+            model=ai_cfg["model"],
+            provider_type=ai_cfg["provider_type"],
+            api_key=ai_cfg["api_key"],
+            principles=principles,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("AI portfolio insights failed: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="Could not reach the AI provider. Check that it is running and accessible.",
+        ) from exc
+    except Exception as exc:
+        logger.exception("AI portfolio insights failed")
+        raise HTTPException(
+            status_code=502,
+            detail="AI portfolio insights failed. Check server logs for details.",
+        ) from exc
+
+    return PortfolioInsightsResponse(**result_data)
+
+
 @router.get("/status")
 async def ai_status(
     db: AsyncSession = Depends(get_db),
@@ -135,23 +220,29 @@ async def ai_status(
     ai_cfg = _get_ai_config(general)
 
     # Check if user has the permission
-    has_perm = await PermissionService.check_permission(db, user, "ai.suggest")
+    has_suggest_perm = await PermissionService.check_permission(db, user, "ai.suggest")
+    has_portfolio_perm = await PermissionService.check_permission(db, user, "ai.portfolio_insights")
 
-    enabled = ai_cfg["enabled"] and has_perm
     configured = bool(ai_cfg["provider_url"] and ai_cfg["model"])
     provider_type = ai_cfg["provider_type"]
 
+    suggest_enabled = ai_cfg["enabled"] and has_suggest_perm
+    portfolio_insights_enabled = (
+        ai_cfg["portfolio_insights_enabled"] and has_portfolio_perm and configured
+    )
+
     # Only fetch running models for Ollama (commercial providers have no such endpoint)
     running_models: list[str] = []
-    if enabled and configured and provider_type == "ollama" and ai_cfg["provider_url"]:
+    if suggest_enabled and configured and provider_type == "ollama" and ai_cfg["provider_url"]:
         models = await fetch_running_models(ai_cfg["provider_url"])
         running_models = [m["name"] for m in models]
 
     return {
-        "enabled": enabled,
+        "enabled": suggest_enabled,
         "configured": configured,
         "provider_type": provider_type,
         "enabled_types": ai_cfg["enabled_types"] if ai_cfg["enabled"] else [],
         "running_models": running_models,
-        "model": ai_cfg["model"] if enabled else None,
+        "model": ai_cfg["model"] if suggest_enabled else None,
+        "portfolio_insights_enabled": portfolio_insights_enabled,
     }

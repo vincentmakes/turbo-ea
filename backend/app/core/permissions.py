@@ -137,9 +137,10 @@ APP_PERMISSIONS: dict[str, dict] = {
         },
     },
     "ai": {
-        "label": "AI Suggestions",
+        "label": "AI",
         "permissions": {
             "ai.suggest": "Use AI-powered metadata suggestions when creating or editing cards",
+            "ai.portfolio_insights": "Generate AI-driven insights on the portfolio report",
         },
     },
     "admin": {
@@ -256,6 +257,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": True,
+    "ai.portfolio_insights": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -310,6 +312,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": True,
+    "ai.portfolio_insights": True,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,
@@ -364,6 +367,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "servicenow.view": False,
     "servicenow.manage": False,
     "ai.suggest": False,
+    "ai.portfolio_insights": False,
     "notifications.manage": True,
     "admin.users": False,
     "admin.roles": False,

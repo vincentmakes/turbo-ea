@@ -72,6 +72,10 @@
   "portfolio.more": "{{count}} m\u00e1s",
   "portfolio.less": "Menos",
   "portfolio.showMore": "Mostrar {{count}} filtros de relaci\u00f3n m\u00e1s",
+  "portfolio.aiInsights": "Análisis IA",
+  "portfolio.aiInsightsTitle": "Análisis IA del portafolio",
+  "portfolio.aiNoInsights": "No se pudieron generar análisis para la vista actual del portafolio.",
+  "portfolio.aiRegenerate": "Regenerar",
 
   "capabilityMap.title": "Mapa de capacidades de negocio",
   "capabilityMap.heatmapMetric": "M\u00e9trica del mapa de calor",

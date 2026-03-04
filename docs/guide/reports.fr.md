@@ -17,6 +17,10 @@ Le **Rapport Portefeuille** affiche un **graphique à bulles** (ou nuage de poin
 
 C'est idéal pour l'analyse de portefeuille -- par exemple, positionner les applications par valeur métier vs adéquation technique pour identifier les candidats à l'investissement, au remplacement ou au retrait.
 
+### Analyses IA du portefeuille
+
+Lorsque l'IA est configurée et que les analyses de portefeuille sont activées par un administrateur, le rapport de portefeuille affiche un bouton **Analyses IA**. Un clic envoie un résumé de la vue actuelle au fournisseur IA, qui renvoie des analyses stratégiques sur les risques de concentration, les opportunités de modernisation, les préoccupations de cycle de vie et l'équilibre du portefeuille. Le panneau d'analyses est repliable et peut être régénéré après modification des filtres ou du regroupement.
+
 ## Carte de capacités
 
 ![Carte de capacités métier](../assets/img/en/11_capability_map.png)

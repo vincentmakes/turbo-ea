@@ -4,7 +4,7 @@ O **Metamodelo** define toda a estrutura de dados da sua plataforma — quais ti
 
 ![Configuração do Metamodelo](../assets/img/en/20_admin_metamodel.png)
 
-Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui cinco abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Tags** e **Grafo do Metamodelo**.
+Navegue até **Admin > Metamodelo** para acessar o editor do metamodelo. Ele possui seis abas: **Tipos de Card**, **Tipos de Relacionamento**, **Cálculos**, **Princípios EA**, **Tags** e **Grafo do Metamodelo**.
 
 ## Tipos de Card
 
@@ -96,6 +96,31 @@ Campos calculados usam fórmulas definidas pelo administrador para computar auto
 ## Tags
 
 Grupos de tags e tags podem ser gerenciados a partir desta aba. Veja [Tags](tags.md) para o guia completo.
+
+## Princípios EA
+
+O separador **Princípios EA** permite definir os princípios de arquitetura que governam o panorama de TI da sua organização. Estes princípios servem como guardrails estratégicos — por exemplo, «Reutilizar antes de comprar antes de construir» ou «Se compramos, compramos SaaS».
+
+Cada princípio tem quatro campos:
+
+| Campo | Descrição |
+|-------|-----------|
+| **Título** | Um nome conciso para o princípio |
+| **Enunciado** | O que o princípio estabelece |
+| **Justificação** | Porque é que este princípio é importante |
+| **Implicações** | Consequências práticas de seguir o princípio |
+
+Os princípios podem ser **ativados** ou **desativados** individualmente através do interruptor em cada cartão.
+
+### Como os princípios influenciam os insights de IA
+
+Quando gera **Insights IA do portfólio** no [Relatório de portfólio](../guide/reports.md#ai-portfolio-insights), todos os princípios ativos são incluídos na análise. A IA avalia os dados do seu portfólio em relação a cada princípio e reporta:
+
+- Se o portfólio **está alinhado** ou **viola** o princípio
+- Pontos de dados específicos como evidência
+- Ações corretivas recomendadas
+
+Por exemplo, um princípio «Comprar SaaS» faria com que a IA sinalize aplicações alojadas on-premise ou em IaaS e sugira prioridades de migração para a cloud.
 
 ## Grafo do Metamodelo
 

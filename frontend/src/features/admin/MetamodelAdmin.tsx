@@ -28,6 +28,7 @@ import ColorPicker from "@/components/ColorPicker";
 import IconPicker from "@/components/IconPicker";
 import KeyInput, { isValidKey } from "@/components/KeyInput";
 import CalculationsAdmin from "@/features/admin/CalculationsAdmin";
+import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
@@ -300,6 +301,7 @@ export default function MetamodelAdmin() {
         <Tab label={t("metamodel.tabs.calculations")} />
         <Tab label={t("metamodel.tabs.tags")} />
         <Tab label={t("metamodel.tabs.graph")} />
+        <Tab label={t("metamodel.tabs.principles")} />
       </Tabs>
 
       {/* ============================================================ */}
@@ -718,6 +720,11 @@ export default function MetamodelAdmin() {
           onNodeClick={handleNodeClick}
         />
       )}
+
+      {/* ============================================================ */}
+      {/*  TAB 5 -- EA Principles                                      */}
+      {/* ============================================================ */}
+      {tab === 5 && <PrinciplesAdmin />}
 
       {/* ============================================================ */}
       {/*  Type Detail Dialog                                          */}

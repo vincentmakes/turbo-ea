@@ -26,6 +26,7 @@ interface AiSettings {
   search_provider: string;
   search_url: string;
   enabled_types: string[];
+  portfolio_insights_enabled: boolean;
 }
 
 const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
@@ -43,6 +44,7 @@ export default function AiAdmin() {
   const [aiApiKey, setAiApiKey] = useState("");
   const [aiModel, setAiModel] = useState("");
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
+  const [portfolioInsightsEnabled, setPortfolioInsightsEnabled] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
@@ -69,6 +71,7 @@ export default function AiAdmin() {
         setAiApiKey(data.api_key || "");
         setAiModel(data.model);
         setAiEnabledTypes(data.enabled_types);
+        setPortfolioInsightsEnabled(data.portfolio_insights_enabled ?? false);
         setMcpEnabled(mcpData.enabled);
         setMcpSsoConfigured(mcpData.sso_configured);
       })
@@ -89,6 +92,7 @@ export default function AiAdmin() {
         search_provider: "duckduckgo",
         search_url: "",
         enabled_types: aiEnabledTypes,
+        portfolio_insights_enabled: portfolioInsightsEnabled,
       });
       setSnack(t("settings.ai.savedSuccess"));
     } catch (e) {
@@ -193,7 +197,7 @@ export default function AiAdmin() {
         </Alert>
       )}
 
-      {/* ── AI Cards ──────────────────────────────────────────────── */}
+      {/* ── AI Provider ──────────────────────────────────────────── */}
       <Typography
         variant="overline"
         sx={{
@@ -206,10 +210,160 @@ export default function AiAdmin() {
           fontSize: "0.75rem",
         }}
       >
-        {t("settings.ai.sectionCards")}
+        {t("settings.ai.sectionProvider")}
       </Typography>
 
-      {/* AI Suggestions */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="dns" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.ai.providerTitle")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.ai.providerDescription")}
+        </Typography>
+
+        {/* Provider Type */}
+        <TextField
+          select
+          label={t("settings.ai.providerType")}
+          fullWidth
+          value={aiProviderType}
+          onChange={(e) => handleProviderTypeChange(e.target.value)}
+          sx={{ mb: 1 }}
+        >
+          <MenuItem value="ollama">{t("settings.ai.providerOllama")}</MenuItem>
+          <MenuItem value="openai">{t("settings.ai.providerOpenai")}</MenuItem>
+          <MenuItem value="anthropic">{t("settings.ai.providerAnthropic")}</MenuItem>
+        </TextField>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+          {aiProviderType === "ollama"
+            ? t("settings.ai.providerOllamaDesc")
+            : aiProviderType === "openai"
+              ? t("settings.ai.providerOpenaiDesc")
+              : t("settings.ai.providerAnthropicDesc")}
+        </Typography>
+
+        {/* Provider URL (hidden for Anthropic) */}
+        {showProviderUrl && (
+          <TextField
+            label={t("settings.ai.providerUrl")}
+            fullWidth
+            value={aiProviderUrl}
+            onChange={(e) => setAiProviderUrl(e.target.value)}
+            placeholder={providerUrlPlaceholder}
+            helperText={
+              aiProviderType === "openai"
+                ? t("settings.ai.providerUrlHelperOpenai")
+                : t("settings.ai.providerUrlHelper")
+            }
+            sx={{ mb: 2 }}
+          />
+        )}
+
+        {/* API Key (hidden for Ollama) */}
+        {showApiKey && (
+          <TextField
+            label={t("settings.ai.apiKey")}
+            fullWidth
+            type="password"
+            value={aiApiKey}
+            onChange={(e) => setAiApiKey(e.target.value)}
+            placeholder={hasApiKeySet ? "" : "sk-..."}
+            helperText={
+              hasApiKeySet ? t("settings.ai.apiKeySet") : t("settings.ai.apiKeyHelper")
+            }
+            sx={{ mb: 2 }}
+          />
+        )}
+
+        {/* Model */}
+        {(aiProviderType === "ollama" || aiProviderType === "openai") &&
+        aiAvailableModels.length > 0 ? (
+          <TextField
+            select
+            label={t("settings.ai.model")}
+            fullWidth
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            helperText={
+              aiProviderType === "ollama" ? t("settings.ai.modelPickerHelper") : modelHelper
+            }
+            sx={{ mb: 2 }}
+          >
+            {!aiModel && (
+              <MenuItem value="" disabled>
+                {t("settings.ai.selectModel")}
+              </MenuItem>
+            )}
+            {aiAvailableModels.map((m) => (
+              <MenuItem key={m} value={m}>
+                {m}
+              </MenuItem>
+            ))}
+          </TextField>
+        ) : (
+          <TextField
+            label={t("settings.ai.model")}
+            fullWidth
+            value={aiModel}
+            onChange={(e) => setAiModel(e.target.value)}
+            placeholder={modelPlaceholder}
+            helperText={modelHelper}
+            sx={{ mb: 2 }}
+          />
+        )}
+
+        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+          {(aiProviderUrl || aiProviderType === "anthropic") && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={
+                testingAi ? (
+                  <CircularProgress size={16} />
+                ) : (
+                  <MaterialSymbol icon="cable" size={18} />
+                )
+              }
+              sx={{ textTransform: "none" }}
+              onClick={handleAiTest}
+              disabled={testingAi || savingAi}
+            >
+              {testingAi ? t("common:labels.loading") : t("settings.ai.testConnection")}
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleAiSave}
+            disabled={savingAi}
+          >
+            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* ── AI Features ──────────────────────────────────────────── */}
+      <Typography
+        variant="overline"
+        sx={{
+          display: "block",
+          mb: 1.5,
+          mt: 1,
+          fontWeight: 700,
+          color: "text.secondary",
+          letterSpacing: 1,
+          fontSize: "0.75rem",
+        }}
+      >
+        {t("settings.ai.sectionFeatures")}
+      </Typography>
+
+      {/* AI Description Suggestions */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
           <MaterialSymbol icon="auto_awesome" size={22} color="#555" />
@@ -231,117 +385,6 @@ export default function AiAdmin() {
 
         {aiEnabled && (
           <>
-            {/* Provider Type */}
-            <TextField
-              select
-              label={t("settings.ai.providerType")}
-              fullWidth
-              value={aiProviderType}
-              onChange={(e) => handleProviderTypeChange(e.target.value)}
-              sx={{ mb: 1 }}
-            >
-              <MenuItem value="ollama">{t("settings.ai.providerOllama")}</MenuItem>
-              <MenuItem value="openai">{t("settings.ai.providerOpenai")}</MenuItem>
-              <MenuItem value="anthropic">{t("settings.ai.providerAnthropic")}</MenuItem>
-            </TextField>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-              {aiProviderType === "ollama"
-                ? t("settings.ai.providerOllamaDesc")
-                : aiProviderType === "openai"
-                  ? t("settings.ai.providerOpenaiDesc")
-                  : t("settings.ai.providerAnthropicDesc")}
-            </Typography>
-
-            {/* Provider URL (hidden for Anthropic) */}
-            {showProviderUrl && (
-              <TextField
-                label={t("settings.ai.providerUrl")}
-                fullWidth
-                value={aiProviderUrl}
-                onChange={(e) => setAiProviderUrl(e.target.value)}
-                placeholder={providerUrlPlaceholder}
-                helperText={
-                  aiProviderType === "openai"
-                    ? t("settings.ai.providerUrlHelperOpenai")
-                    : t("settings.ai.providerUrlHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {/* API Key (hidden for Ollama) */}
-            {showApiKey && (
-              <TextField
-                label={t("settings.ai.apiKey")}
-                fullWidth
-                type="password"
-                value={aiApiKey}
-                onChange={(e) => setAiApiKey(e.target.value)}
-                placeholder={hasApiKeySet ? "" : "sk-..."}
-                helperText={
-                  hasApiKeySet
-                    ? t("settings.ai.apiKeySet")
-                    : t("settings.ai.apiKeyHelper")
-                }
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {/* Model */}
-            {aiProviderType === "ollama" && aiAvailableModels.length > 0 ? (
-              <TextField
-                select
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                helperText={t("settings.ai.modelPickerHelper")}
-                sx={{ mb: 2 }}
-              >
-                {!aiModel && (
-                  <MenuItem value="" disabled>
-                    {t("settings.ai.selectModel")}
-                  </MenuItem>
-                )}
-                {aiAvailableModels.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : aiProviderType === "openai" && aiAvailableModels.length > 0 ? (
-              <TextField
-                select
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                helperText={modelHelper}
-                sx={{ mb: 2 }}
-              >
-                {!aiModel && (
-                  <MenuItem value="" disabled>
-                    {t("settings.ai.selectModel")}
-                  </MenuItem>
-                )}
-                {aiAvailableModels.map((m) => (
-                  <MenuItem key={m} value={m}>
-                    {m}
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                label={t("settings.ai.model")}
-                fullWidth
-                value={aiModel}
-                onChange={(e) => setAiModel(e.target.value)}
-                placeholder={modelPlaceholder}
-                helperText={modelHelper}
-                sx={{ mb: 2 }}
-              />
-            )}
-
             {/* Search Info */}
             <Alert severity="info" icon={false} sx={{ mb: 2, py: 0.5 }}>
               <Typography variant="caption">{t("settings.ai.searchInfo")}</Typography>
@@ -373,25 +416,48 @@ export default function AiAdmin() {
           </>
         )}
 
-        <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-          {aiEnabled && (aiProviderUrl || aiProviderType === "anthropic") && (
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={
-                testingAi ? (
-                  <CircularProgress size={16} />
-                ) : (
-                  <MaterialSymbol icon="cable" size={18} />
-                )
-              }
-              sx={{ textTransform: "none" }}
-              onClick={handleAiTest}
-              disabled={testingAi || savingAi}
-            >
-              {testingAi ? t("common:labels.loading") : t("settings.ai.testConnection")}
-            </Button>
-          )}
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleAiSave}
+            disabled={savingAi}
+          >
+            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* AI Portfolio Insights */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="insights" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.ai.portfolioInsightsTitle")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.ai.portfolioInsightsDescription")}
+        </Typography>
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={portfolioInsightsEnabled}
+              onChange={(e) => setPortfolioInsightsEnabled(e.target.checked)}
+            />
+          }
+          label={
+            portfolioInsightsEnabled
+              ? t("settings.ai.portfolioInsightsEnabled")
+              : t("settings.ai.portfolioInsightsDisabled")
+          }
+          sx={{ mb: 2, display: "block" }}
+        />
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           <Button
             variant="contained"
             size="small"

@@ -1,10 +1,15 @@
-# Sugerencias de Descripción con IA
+# Funciones de IA
 
 ![Configuración de Sugerencias IA](../assets/img/es/26_admin_config_ia.png)
 
-Turbo EA puede generar descripciones de fichas automáticamente usando una combinación de **búsqueda web** y un **Modelo de Lenguaje Grande (LLM)**. Cuando un usuario hace clic en el botón de sugerencia IA en una ficha, el sistema busca en la web información relevante sobre el componente, y luego utiliza un LLM para producir una descripción concisa y adaptada al tipo — con una puntuación de confianza y enlaces a las fuentes.
+Turbo EA incluye funciones impulsadas por IA que utilizan un **Modelo de Lenguaje Grande (LLM)** para asistir a los usuarios. Todas las funciones de IA comparten una única **configuración de proveedor de IA** — configure una vez, úselo en todas partes.
 
-Esta funcionalidad es **opcional** y está **completamente controlada por el administrador**. Puede ejecutarse completamente en su propia infraestructura usando una instancia local de Ollama, o conectarse a proveedores comerciales de LLM.
+Funciones de IA disponibles actualmente:
+
+- **Sugerencias de descripción** — Generación automática de descripciones de fichas usando búsqueda web + LLM
+- **Análisis del portafolio** — Análisis estratégico bajo demanda del portafolio de aplicaciones
+
+Estas funcionalidades son **opcionales** y están **completamente controladas por el administrador**. Pueden ejecutarse completamente en su propia infraestructura usando una instancia local de Ollama, o conectarse a proveedores comerciales de LLM.
 
 ---
 
@@ -151,16 +156,36 @@ Estos campos solo se sugieren cuando la IA encuentra evidencia clara — no se e
 
 ---
 
+## Análisis del portafolio
+
+Cuando está habilitado, el informe de portafolio de aplicaciones muestra un botón **Análisis IA**. Al hacer clic, se envía un resumen de la vista actual del portafolio — agrupación, distribuciones de atributos y datos de ciclo de vida — al LLM configurado, que devuelve de 3 a 5 análisis accionables.
+
+Los análisis se centran en:
+
+- **Riesgos de concentración** — demasiadas aplicaciones en un grupo o estado
+- **Oportunidades de modernización** — basadas en datos de ciclo de vida y alojamiento
+- **Equilibrio del portafolio** — diversidad en subtipos, grupos y atributos
+- **Preocupaciones del ciclo de vida** — aplicaciones que se acercan al fin de vida
+- **Factores de costo o complejidad** — basados en distribuciones de atributos
+
+### Habilitar análisis del portafolio
+
+1. Vaya a **Configuración > IA > Análisis del portafolio**.
+2. Active **Análisis del portafolio**.
+3. Haga clic en **Guardar**.
+
+---
+
 ## Permisos
 
 | Rol | Acceso |
 |-----|--------|
-| **Admin** | Acceso completo: configurar ajustes de IA y usar sugerencias |
-| **BPM Admin** | Usar sugerencias |
-| **Miembro** | Usar sugerencias |
-| **Visor** | Sin acceso a sugerencias de IA |
+| **Admin** | Acceso completo: configurar ajustes de IA, usar sugerencias y análisis del portafolio |
+| **BPM Admin** | Usar sugerencias y análisis del portafolio |
+| **Miembro** | Usar sugerencias y análisis del portafolio |
+| **Visor** | Sin acceso a funciones de IA |
 
-La clave de permiso es `ai.suggest`. Los roles personalizados pueden recibir este permiso a través de la página de administración de Roles.
+Las claves de permiso son `ai.suggest` y `ai.portfolio_insights`. Los roles personalizados pueden recibir estos permisos a través de la página de administración de Roles.
 
 ---
 

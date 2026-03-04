@@ -4,7 +4,7 @@ El **Metamodelo** define la estructura de datos completa de su plataforma — qu
 
 ![Configuración del Metamodelo](../assets/img/es/20_admin_metamodelo.png)
 
-Navegue a **Administración > Metamodelo** para acceder al editor. Tiene cinco pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas** y **Grafo del Metamodelo**.
+Navegue a **Administración > Metamodelo** para acceder al editor. Tiene seis pestañas: **Tipos de Fichas**, **Tipos de Relación**, **Cálculos**, **Etiquetas**, **Principios EA** y **Grafo del Metamodelo**.
 
 ## Tipos de Fichas
 
@@ -96,6 +96,31 @@ Los campos calculados usan fórmulas definidas por el administrador para calcula
 ## Etiquetas
 
 Los grupos de etiquetas y etiquetas se pueden gestionar desde esta pestaña. Ver [Etiquetas](tags.es.md) para la guía completa.
+
+## Principios EA
+
+La pestaña **Principios EA** permite definir los principios de arquitectura que gobiernan el paisaje de TI de su organización. Estos principios sirven como barandillas estratégicas — por ejemplo, «Reutilizar antes de comprar antes de construir» o «Si compramos, compramos SaaS».
+
+Cada principio tiene cuatro campos:
+
+| Campo | Descripción |
+|-------|-------------|
+| **Título** | Un nombre conciso para el principio |
+| **Enunciado** | Qué establece el principio |
+| **Justificación** | Por qué este principio es importante |
+| **Implicaciones** | Consecuencias prácticas de seguir el principio |
+
+Los principios se pueden **activar** o **desactivar** individualmente mediante el interruptor en cada tarjeta.
+
+### Cómo los principios influyen en los insights de IA
+
+Cuando genera **Insights IA del portafolio** en el [Informe de portafolio](../guide/reports.md#ai-portfolio-insights), todos los principios activos se incluyen en el análisis. La IA evalúa los datos de su portafolio frente a cada principio e informa:
+
+- Si el portafolio **se alinea** o **viola** el principio
+- Puntos de datos específicos como evidencia
+- Acciones correctivas recomendadas
+
+Por ejemplo, un principio «Comprar SaaS» haría que la IA señale aplicaciones alojadas on-premise o en IaaS y sugiera prioridades de migración a la nube.
 
 ## Grafo del Metamodelo
 

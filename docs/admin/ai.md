@@ -1,10 +1,15 @@
-# AI Description Suggestions
+# AI Features
 
-![AI Suggestion Settings](../assets/img/en/26_admin_settings_ai.png)
+![AI Settings](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA can generate card descriptions automatically using a combination of **web search** and a **Large Language Model (LLM)**. When a user clicks the AI suggest button on a card, the system searches the web for relevant information about the component, then uses an LLM to produce a concise, type-aware description — complete with a confidence score and clickable source links.
+Turbo EA includes AI-powered features that use a **Large Language Model (LLM)** to assist users. All AI features share a single **AI provider configuration** — set up once, use everywhere.
 
-This feature is **optional** and **fully admin-controlled**. It can run entirely on your own infrastructure using a local Ollama instance, or connect to commercial LLM providers.
+Currently available AI features:
+
+- **Description Suggestions** — Automatically generate card descriptions using web search + LLM
+- **Portfolio Insights** — Generate on-demand strategic analysis of the application portfolio
+
+All features are **optional** and **fully admin-controlled**. They can run entirely on your own infrastructure using a local Ollama instance, or connect to commercial LLM providers.
 
 ---
 
@@ -100,7 +105,11 @@ If you already run Ollama on a separate server:
 
 ## Configuration Options
 
-Once connected, you can fine-tune the feature in **Settings > AI Suggestions**:
+Once connected, you can fine-tune the AI features in **Settings > AI**. The settings page is split into three sections:
+
+1. **AI Provider** — Shared provider configuration (type, URL, API key, model)
+2. **AI Description Suggestions** — Enable/disable description suggestions and choose which card types support them
+3. **Portfolio Insights** — Enable/disable AI-driven insights in the portfolio report
 
 ### Enable/Disable per Card Type
 
@@ -151,16 +160,46 @@ These fields are only suggested when the AI finds clear evidence — they are no
 
 ---
 
+## Portfolio Insights
+
+When enabled, the Application Portfolio report displays an **AI Insights** button. Clicking it sends a summary of the current portfolio view — grouping, attribute distributions, and lifecycle data — to the configured LLM, which returns 3–5 actionable insights.
+
+Insights focus on:
+
+- **Concentration risks** — too many applications in one group or state
+- **Modernisation opportunities** — based on lifecycle and hosting data
+- **Portfolio balance** — diversity across subtypes, groups, and attributes
+- **Lifecycle concerns** — applications nearing end-of-life
+- **Cost or complexity drivers** — based on attribute distributions
+
+The insights panel is collapsible and can be regenerated at any time to reflect changes in filters or grouping.
+
+### Enabling Portfolio Insights
+
+1. Go to **Settings > AI > Portfolio Insights**.
+2. Toggle **Portfolio insights** on.
+3. Click **Save**.
+
+!!! note
+    Portfolio insights require the AI provider to be configured first. The feature uses the same provider and model as description suggestions.
+
+---
+
 ## Permissions
 
 | Role | Access |
 |------|--------|
-| **Admin** | Full access: configure AI settings and use suggestions |
-| **BPM Admin** | Use suggestions |
-| **Member** | Use suggestions |
-| **Viewer** | No access to AI suggestions |
+| **Admin** | Full access: configure AI settings, use suggestions, and generate portfolio insights |
+| **BPM Admin** | Use suggestions and generate portfolio insights |
+| **Member** | Use suggestions and generate portfolio insights |
+| **Viewer** | No access to AI features |
 
-The permission key is `ai.suggest`. Custom roles can be granted this permission through the Roles administration page.
+Two permission keys control AI access:
+
+- `ai.suggest` — Controls access to AI description suggestions
+- `ai.portfolio_insights` — Controls access to AI portfolio insights
+
+Custom roles can be granted these permissions through the Roles administration page.
 
 ---
 

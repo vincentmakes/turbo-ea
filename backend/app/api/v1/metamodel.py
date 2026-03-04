@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import logging
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, or_, select, text
+from pydantic import BaseModel, Field
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.ea_principle import EAPrinciple
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
@@ -716,3 +719,106 @@ async def restore_relation_type(
     await db.commit()
     await db.refresh(r)
     return _serialize_relation_type(r)
+
+
+# ── EA Principles ─────────────────────────────────────────────────────
+
+
+class PrincipleCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
+    description: str | None = None
+    rationale: str | None = None
+    implications: str | None = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class PrincipleUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    rationale: str | None = None
+    implications: str | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+def _serialize_principle(p: EAPrinciple) -> dict:
+    return {
+        "id": str(p.id),
+        "title": p.title,
+        "description": p.description,
+        "rationale": p.rationale,
+        "implications": p.implications,
+        "is_active": p.is_active,
+        "sort_order": p.sort_order,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+        "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+    }
+
+
+@router.get("/principles")
+async def list_principles(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all EA principles ordered by sort_order."""
+    result = await db.execute(
+        select(EAPrinciple).order_by(EAPrinciple.sort_order, EAPrinciple.created_at)
+    )
+    return [_serialize_principle(p) for p in result.scalars().all()]
+
+
+@router.post("/principles", status_code=201)
+async def create_principle(
+    body: PrincipleCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Create a new EA principle (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    p = EAPrinciple(
+        id=uuid.uuid4(),
+        title=body.title,
+        description=body.description,
+        rationale=body.rationale,
+        implications=body.implications,
+        is_active=body.is_active,
+        sort_order=body.sort_order,
+    )
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return _serialize_principle(p)
+
+
+@router.patch("/principles/{principle_id}")
+async def update_principle(
+    principle_id: str,
+    body: PrincipleUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Update an EA principle (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    result = await db.execute(select(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
+    p = result.scalar_one_or_none()
+    if not p:
+        raise HTTPException(404, "Principle not found")
+    updates = body.model_dump(exclude_unset=True)
+    for k, v in updates.items():
+        setattr(p, k, v)
+    await db.commit()
+    await db.refresh(p)
+    return _serialize_principle(p)
+
+
+@router.delete("/principles/{principle_id}", status_code=204)
+async def delete_principle(
+    principle_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Delete an EA principle (admin only)."""
+    await PermissionService.require_permission(db, user, "admin.metamodel")
+    await db.execute(delete(EAPrinciple).where(EAPrinciple.id == uuid.UUID(principle_id)))
+    await db.commit()

@@ -17,6 +17,10 @@ Il **Report Portfolio** mostra un **grafico a bolle** (o scatter plot) configura
 
 Questo è ideale per l'analisi del portfolio — ad esempio, posizionare le applicazioni per valore aziendale vs. idoneità tecnica per identificare candidati per investimento, sostituzione o ritiro.
 
+### Analisi IA del portafoglio
+
+Quando l'IA è configurata e le analisi del portafoglio sono abilitate da un amministratore, il report del portafoglio mostra un pulsante **Analisi IA**. Cliccandolo viene inviato un riepilogo della vista corrente al provider IA, che restituisce analisi strategiche su rischi di concentrazione, opportunità di modernizzazione, problematiche del ciclo di vita e bilanciamento del portafoglio. Il pannello delle analisi è comprimibile e può essere rigenerato dopo aver modificato filtri o raggruppamenti.
+
 ## Mappa delle Capability
 
 ![Mappa delle Business Capability](../assets/img/en/11_capability_map.png)

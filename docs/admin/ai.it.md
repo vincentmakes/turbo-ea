@@ -1,10 +1,15 @@
-# Suggerimenti di descrizione AI
+# Funzionalità IA
 
 ![Impostazioni suggerimenti AI](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA può generare automaticamente le descrizioni delle card utilizzando una combinazione di **ricerca web** e un **Large Language Model (LLM)**. Quando un utente clicca il pulsante di suggerimento AI su una card, il sistema cerca sul web informazioni rilevanti sul componente, poi utilizza un LLM per produrre una descrizione concisa e contestualizzata per tipo — completa di punteggio di affidabilità e link alle fonti cliccabili.
+Turbo EA include funzionalità basate sull'IA che utilizzano un **Large Language Model (LLM)** per assistere gli utenti. Tutte le funzionalità IA condividono un'unica **configurazione del provider IA** — configurate una volta, utilizzate ovunque.
 
-Questa funzionalità è **opzionale** e **completamente controllata dall'amministratore**. Può funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
+Funzionalità IA attualmente disponibili:
+
+- **Suggerimenti di descrizione** — Generazione automatica di descrizioni delle card tramite ricerca web + LLM
+- **Analisi del portafoglio** — Analisi strategica on-demand del portafoglio applicativo
+
+Queste funzionalità sono **opzionali** e **completamente controllate dall'amministratore**. Possono funzionare interamente sulla vostra infrastruttura utilizzando un'istanza Ollama locale, oppure collegarsi a provider LLM commerciali.
 
 ---
 
@@ -151,16 +156,36 @@ Questi campi vengono suggeriti solo quando l'AI trova prove chiare — non vengo
 
 ---
 
+## Analisi del portafoglio
+
+Quando abilitata, il report del portafoglio applicativo mostra un pulsante **Analisi IA**. Cliccandolo viene inviato un riepilogo della vista corrente del portafoglio — raggruppamento, distribuzioni di attributi e dati del ciclo di vita — al LLM configurato, che restituisce da 3 a 5 analisi attuabili.
+
+Le analisi si concentrano su:
+
+- **Rischi di concentrazione** — troppe applicazioni in un gruppo o stato
+- **Opportunità di modernizzazione** — basate su dati del ciclo di vita e hosting
+- **Bilanciamento del portafoglio** — diversità tra sottotipi, gruppi e attributi
+- **Problematiche del ciclo di vita** — applicazioni che si avvicinano alla fine della vita
+- **Fattori di costo o complessità** — basati sulle distribuzioni degli attributi
+
+### Abilitare le analisi del portafoglio
+
+1. Vai a **Impostazioni > IA > Analisi del portafoglio**.
+2. Attiva **Analisi del portafoglio**.
+3. Clicca su **Salva**.
+
+---
+
 ## Permessi
 
 | Ruolo | Accesso |
 |-------|---------|
-| **Admin** | Accesso completo: configura le impostazioni AI e utilizza i suggerimenti |
-| **BPM Admin** | Utilizza i suggerimenti |
-| **Member** | Utilizza i suggerimenti |
-| **Viewer** | Nessun accesso ai suggerimenti AI |
+| **Admin** | Accesso completo: configura le impostazioni AI, utilizza i suggerimenti e le analisi del portafoglio |
+| **BPM Admin** | Utilizza i suggerimenti e le analisi del portafoglio |
+| **Member** | Utilizza i suggerimenti e le analisi del portafoglio |
+| **Viewer** | Nessun accesso alle funzionalità IA |
 
-La chiave del permesso è`ai.suggest`. I ruoli personalizzati possono ricevere questo permesso attraverso la pagina di amministrazione dei Ruoli.
+Le chiavi dei permessi sono `ai.suggest` e `ai.portfolio_insights`. I ruoli personalizzati possono ricevere questi permessi attraverso la pagina di amministrazione dei Ruoli.
 
 ---
 

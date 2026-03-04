@@ -1,10 +1,15 @@
-# KI-Beschreibungsvorschläge
+# KI-Funktionen
 
 ![KI-Vorschlagseinstellungen](../assets/img/en/26_admin_settings_ai.png)
 
-Turbo EA kann Kartenbeschreibungen automatisch generieren, indem eine Kombination aus **Websuche** und einem **Large Language Model (LLM)** verwendet wird. Wenn ein Benutzer auf die KI-Vorschlags-Schaltfläche einer Karte klickt, durchsucht das System das Web nach relevanten Informationen über die Komponente und verwendet dann ein LLM, um eine prägnante, typbezogene Beschreibung zu erstellen — komplett mit einem Konfidenzwert und klickbaren Quellenlinks.
+Turbo EA enthält KI-gestützte Funktionen, die ein **Large Language Model (LLM)** nutzen, um Benutzer zu unterstützen. Alle KI-Funktionen teilen sich eine einzige **KI-Anbieterkonfiguration** — einmal einrichten, überall nutzen.
 
-Diese Funktion ist **optional** und **vollständig vom Administrator steuerbar**. Sie kann vollständig auf Ihrer eigenen Infrastruktur mit einer lokalen Ollama-Instanz laufen oder mit kommerziellen LLM-Anbietern verbunden werden.
+Derzeit verfügbare KI-Funktionen:
+
+- **Beschreibungsvorschläge** — Automatische Generierung von Kartenbeschreibungen mittels Websuche + LLM
+- **Portfolio-Erkenntnisse** — Bedarfsgesteuerte strategische Analyse des Anwendungsportfolios
+
+Diese Funktionen sind **optional** und **vollständig vom Administrator steuerbar**. Sie können vollständig auf Ihrer eigenen Infrastruktur mit einer lokalen Ollama-Instanz laufen oder mit kommerziellen LLM-Anbietern verbunden werden.
 
 ---
 
@@ -151,16 +156,36 @@ Diese Felder werden nur vorgeschlagen, wenn die KI eindeutige Belege findet — 
 
 ---
 
+## Portfolio-Erkenntnisse
+
+Wenn aktiviert, zeigt der Anwendungsportfolio-Bericht eine Schaltfläche **KI-Erkenntnisse**. Ein Klick sendet eine Zusammenfassung der aktuellen Portfolioansicht — Gruppierung, Attributverteilungen und Lebenszyklusdaten — an das konfigurierte LLM, das 3–5 umsetzbare Erkenntnisse zurückgibt.
+
+Die Erkenntnisse konzentrieren sich auf:
+
+- **Konzentrationsrisiken** — zu viele Anwendungen in einer Gruppe oder einem Zustand
+- **Modernisierungsmöglichkeiten** — basierend auf Lebenszyklus- und Hosting-Daten
+- **Portfolio-Ausgewogenheit** — Diversität über Subtypen, Gruppen und Attribute
+- **Lebenszyklus-Bedenken** — Anwendungen, die das Ende der Lebensdauer erreichen
+- **Kosten- oder Komplexitätstreiber** — basierend auf Attributverteilungen
+
+### Portfolio-Erkenntnisse aktivieren
+
+1. Gehen Sie zu **Einstellungen > KI > Portfolio-Erkenntnisse**.
+2. Schalten Sie **Portfolio-Erkenntnisse** ein.
+3. Klicken Sie auf **Speichern**.
+
+---
+
 ## Berechtigungen
 
 | Rolle | Zugriff |
 |-------|---------|
-| **Admin** | Vollständiger Zugriff: KI-Einstellungen konfigurieren und Vorschläge nutzen |
-| **BPM-Admin** | Vorschläge nutzen |
-| **Mitglied** | Vorschläge nutzen |
-| **Betrachter** | Kein Zugriff auf KI-Vorschläge |
+| **Admin** | Vollständiger Zugriff: KI-Einstellungen konfigurieren, Vorschläge und Portfolio-Erkenntnisse nutzen |
+| **BPM-Admin** | Vorschläge und Portfolio-Erkenntnisse nutzen |
+| **Mitglied** | Vorschläge und Portfolio-Erkenntnisse nutzen |
+| **Betrachter** | Kein Zugriff auf KI-Funktionen |
 
-Der Berechtigungsschlüssel ist `ai.suggest`. Benutzerdefinierten Rollen kann diese Berechtigung über die Rollenverwaltungsseite gewährt werden.
+Die Berechtigungsschlüssel sind `ai.suggest` und `ai.portfolio_insights`. Benutzerdefinierten Rollen können diese Berechtigungen über die Rollenverwaltungsseite gewährt werden.
 
 ---
 

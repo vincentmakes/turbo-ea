@@ -602,6 +602,17 @@ class AiSettingsPayload(BaseModel):
     search_provider: str = "duckduckgo"
     search_url: str = ""
     enabled_types: list[str] = []
+    portfolio_insights_enabled: bool = False
+
+
+def _migrate_ai_cfg(ai: dict) -> dict:
+    """Ensure legacy AI config has the new split fields."""
+    # Old structure stored a single "enabled" that controlled descriptions.
+    # New structure keeps "enabled" for descriptions and adds
+    # "portfolioInsightsEnabled" for portfolio insights.
+    if "portfolioInsightsEnabled" not in ai:
+        ai["portfolioInsightsEnabled"] = False
+    return ai
 
 
 @router.get("/ai")
@@ -609,12 +620,12 @@ async def get_ai_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Admin endpoint — get AI suggestion configuration."""
+    """Admin endpoint — get AI configuration."""
     await PermissionService.require_permission(db, user, "admin.settings")
     row = await _get_or_create_row(db)
     await db.commit()
     general = row.general_settings or {}
-    ai = general.get("ai", {})
+    ai = _migrate_ai_cfg(general.get("ai", {}))
     api_key_stored = ai.get("apiKey", "")
     return {
         "enabled": ai.get("enabled", False),
@@ -625,6 +636,7 @@ async def get_ai_settings(
         "search_provider": ai.get("searchProvider", "duckduckgo"),
         "search_url": ai.get("searchUrl", ""),
         "enabled_types": ai.get("enabledTypes", []),
+        "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
     }
 
 
@@ -634,7 +646,7 @@ async def update_ai_settings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Admin endpoint — update AI suggestion configuration."""
+    """Admin endpoint — update AI configuration."""
     await PermissionService.require_permission(db, user, "admin.settings")
 
     provider_type = body.provider_type
@@ -672,6 +684,7 @@ async def update_ai_settings(
         "searchProvider": "duckduckgo",
         "searchUrl": "",
         "enabledTypes": body.enabled_types,
+        "portfolioInsightsEnabled": body.portfolio_insights_enabled,
     }
     row.general_settings = general
     await db.commit()

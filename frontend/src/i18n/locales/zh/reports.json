@@ -67,6 +67,11 @@
   "portfolio.more": "还有 {{count}} 个",
   "portfolio.less": "收起",
   "portfolio.showMore": "显示 {{count}} 个更多关系筛选",
+  "portfolio.aiInsights": "AI 洞察",
+  "portfolio.aiInsightsTitle": "AI 投资组合洞察",
+  "portfolio.aiNoInsights": "无法为当前投资组合视图生成洞察。",
+  "portfolio.aiRegenerate": "重新生成",
+
   "capabilityMap.title": "业务能力地图",
   "capabilityMap.heatmapMetric": "热力图指标",
   "capabilityMap.displayDepth": "显示深度",

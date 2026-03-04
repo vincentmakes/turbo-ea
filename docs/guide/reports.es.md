@@ -17,6 +17,10 @@ El **Informe de Portafolio** muestra un **gráfico de burbujas** (o diagrama de 
 
 Esto es ideal para el análisis de portafolio — por ejemplo, representar aplicaciones por valor de negocio vs. aptitud técnica para identificar candidatos para inversión, reemplazo o retiro.
 
+### Análisis IA del portafolio
+
+Cuando la IA está configurada y los análisis de portafolio están habilitados por un administrador, el informe de portafolio muestra un botón **Análisis IA**. Al hacer clic, se envía un resumen de la vista actual al proveedor de IA, que devuelve análisis estratégicos sobre riesgos de concentración, oportunidades de modernización, preocupaciones del ciclo de vida y equilibrio del portafolio. El panel de análisis es plegable y puede regenerarse después de cambiar filtros o agrupaciones.
+
 ## Mapa de Capacidades
 
 ![Mapa de Capacidades de Negocio](../assets/img/es/11_mapa_capacidades.png)
