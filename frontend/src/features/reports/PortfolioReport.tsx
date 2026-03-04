@@ -1293,59 +1293,60 @@ export default function PortfolioReport() {
 
           {aiInsights && aiInsights.insights.length > 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {aiInsights.insights.map((insight, i) => {
-                if (typeof insight === "string") {
-                  return (
-                    <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                      {insight}
-                    </Typography>
-                  );
-                }
+              {[...aiInsights.insights]
+                .filter((ins) => typeof ins !== "string")
+                .sort((a, b) => {
+                  const order = { critical: 0, warning: 1, info: 2 };
+                  const sa = (a as StructuredInsight).severity || "info";
+                  const sb = (b as StructuredInsight).severity || "info";
+                  return (order[sa] ?? 2) - (order[sb] ?? 2);
+                })
+                .map((insight, i) => {
                 const si = insight as StructuredInsight;
-                const severityColor =
-                  si.severity === "critical" ? "error" :
-                  si.severity === "warning" ? "warning" : "info";
                 const severityIcon =
-                  si.severity === "critical" ? "error" :
-                  si.severity === "warning" ? "warning" : "info";
+                  si.severity === "critical" ? "priority_high" :
+                  si.severity === "warning" ? "trending_flat" : "check_circle";
+                const severityTextColor =
+                  si.severity === "critical" ? "text.primary" :
+                  si.severity === "warning" ? "text.primary" : "text.secondary";
                 return (
                   <Paper
                     key={i}
                     variant="outlined"
-                    sx={{
-                      p: 1.5,
-                      borderLeft: 3,
-                      borderLeftColor: `${severityColor}.main`,
-                    }}
+                    sx={{ p: 1.5 }}
                   >
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
                       <MaterialSymbol icon={severityIcon} size={18} color={
-                        si.severity === "critical" ? "#d32f2f" :
-                        si.severity === "warning" ? "#ed6c02" : "#0288d1"
+                        si.severity === "critical" ? theme.palette.text.primary :
+                        si.severity === "warning" ? theme.palette.text.secondary : theme.palette.text.disabled
                       } />
-                      <Typography variant="subtitle2" fontWeight={700} sx={{ flex: 1 }}>
+                      <Typography variant="subtitle2" fontWeight={600} color={severityTextColor} sx={{ flex: 1 }}>
                         {si.title}
                       </Typography>
                       <Chip
                         label={t(`portfolio.severity.${si.severity}`)}
                         size="small"
-                        color={severityColor}
                         variant="outlined"
-                        sx={{ height: 20, fontSize: "0.7rem" }}
+                        sx={{
+                          height: 20,
+                          fontSize: "0.7rem",
+                          borderColor: "divider",
+                          color: "text.secondary",
+                        }}
                       />
                     </Box>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       {si.observation}
                     </Typography>
                     {si.risk && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, fontStyle: "italic" }}>
-                        <strong>{t("portfolio.insightRisk")}:</strong> {si.risk}
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        {si.risk}
                       </Typography>
                     )}
                     {si.action && (
                       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.5 }}>
-                        <MaterialSymbol icon="arrow_forward" size={16} color={theme.palette.primary.main} style={{ marginTop: 2 }} />
-                        <Typography variant="body2" fontWeight={600} color="primary.main">
+                        <MaterialSymbol icon="subdirectory_arrow_right" size={16} color={theme.palette.text.secondary} style={{ marginTop: 2 }} />
+                        <Typography variant="body2" color="text.secondary" fontWeight={500}>
                           {si.action}
                         </Typography>
                       </Box>
