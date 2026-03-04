@@ -812,6 +812,17 @@ export default function PortfolioReport() {
         return { name: g.label, count: g.apps.length, breakdown };
       });
 
+      // Build human-readable filter descriptions for AI context
+      const activeFilterDescs: string[] = [];
+      if (search) activeFilterDescs.push(`Search: "${search}"`);
+      for (const [key, vals] of Object.entries(attrFilters)) {
+        if (vals.length > 0) {
+          const field = selectFields.find((f) => f.key === key);
+          activeFilterDescs.push(`${field?.label || key}: ${vals.join(", ")}`);
+        }
+      }
+      if (tl.timelineDate) activeFilterDescs.push(`Timeline date: ${tl.timelineDate}`);
+
       const res = await api.post<PortfolioInsightsResponse>("/ai/portfolio-insights", {
         total_apps: filteredApps.length,
         group_by: groupByRaw || null,
@@ -819,6 +830,7 @@ export default function PortfolioReport() {
         groups: groupSummaries,
         attribute_summary: attrDist,
         lifecycle_summary: lcCounts,
+        active_filters: activeFilterDescs,
       });
       setAiInsights(res);
     } catch (e) {
@@ -826,7 +838,7 @@ export default function PortfolioReport() {
     } finally {
       setAiLoading(false);
     }
-  }, [data, filteredApps, groups, selectFields, colorBy, groupByRaw, t]);
+  }, [data, filteredApps, groups, selectFields, colorBy, groupByRaw, attrFilters, search, tl.timelineDate, t]);
 
   const handleGroupClick = useCallback((g: GroupData) => {
     setDrawer({ label: g.label, apps: g.apps });
@@ -1293,19 +1305,10 @@ export default function PortfolioReport() {
 
           {aiInsights && aiInsights.insights.length > 0 && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {[...aiInsights.insights]
+              {aiInsights.insights
                 .filter((ins) => typeof ins !== "string")
-                .sort((a, b) => {
-                  const order = { critical: 0, warning: 1, info: 2 };
-                  const sa = (a as StructuredInsight).severity || "info";
-                  const sb = (b as StructuredInsight).severity || "info";
-                  return (order[sa] ?? 2) - (order[sb] ?? 2);
-                })
                 .map((insight, i) => {
                 const si = insight as StructuredInsight;
-                const severityIcon =
-                  si.severity === "critical" ? "priority_high" :
-                  si.severity === "warning" ? "trending_flat" : "check_circle";
                 return (
                   <Paper
                     key={i}
@@ -1313,38 +1316,19 @@ export default function PortfolioReport() {
                     sx={{ p: 1.5 }}
                   >
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
-                      <MaterialSymbol icon={severityIcon} size={18} color={
-                        si.severity === "critical" ? theme.palette.text.primary :
-                        si.severity === "warning" ? theme.palette.text.secondary : theme.palette.text.disabled
-                      } />
+                      <MaterialSymbol icon="lightbulb" size={18} color={theme.palette.primary.main} />
                       <Typography variant="subtitle2" fontWeight={600} sx={{ flex: 1 }}>
                         {si.title}
                       </Typography>
-                      <Chip
-                        label={t(`portfolio.severity.${si.severity}`)}
-                        size="small"
-                        variant="outlined"
-                        sx={{
-                          height: 20,
-                          fontSize: "0.7rem",
-                          borderColor: "divider",
-                          color: "text.secondary",
-                        }}
-                      />
                     </Box>
                     <Typography variant="body2" sx={{ mb: 0.5 }}>
                       {si.observation}
                     </Typography>
-                    {si.risk && (
-                      <Typography variant="body2" color="primary.main" sx={{ mb: 0.5 }}>
-                        {si.risk}
-                      </Typography>
-                    )}
-                    {si.action && (
+                    {si.recommendation && (
                       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, mt: 0.5 }}>
                         <MaterialSymbol icon="subdirectory_arrow_right" size={16} color={theme.palette.primary.main} style={{ marginTop: 2 }} />
                         <Typography variant="body2" color="primary.dark" fontWeight={500}>
-                          {si.action}
+                          {si.recommendation}
                         </Typography>
                       </Box>
                     )}

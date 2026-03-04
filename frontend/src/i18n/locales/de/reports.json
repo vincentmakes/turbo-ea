@@ -76,10 +76,6 @@
   "portfolio.aiInsightsTitle": "KI-Portfolio-Erkenntnisse",
   "portfolio.aiNoInsights": "Für die aktuelle Portfolioansicht konnten keine Erkenntnisse generiert werden.",
   "portfolio.aiRegenerate": "Neu generieren",
-  "portfolio.insightRisk": "Risiko",
-  "portfolio.severity.critical": "Kritisch",
-  "portfolio.severity.warning": "Warnung",
-  "portfolio.severity.info": "Info",
 
   "capabilityMap.title": "Geschäftsfähigkeiten-Karte",
   "capabilityMap.heatmapMetric": "Heatmap-Metrik",

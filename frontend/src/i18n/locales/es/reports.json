@@ -76,10 +76,6 @@
   "portfolio.aiInsightsTitle": "Análisis IA del portafolio",
   "portfolio.aiNoInsights": "No se pudieron generar análisis para la vista actual del portafolio.",
   "portfolio.aiRegenerate": "Regenerar",
-  "portfolio.insightRisk": "Riesgo",
-  "portfolio.severity.critical": "Crítico",
-  "portfolio.severity.warning": "Advertencia",
-  "portfolio.severity.info": "Info",
 
   "capabilityMap.title": "Mapa de capacidades de negocio",
   "capabilityMap.heatmapMetric": "M\u00e9trica del mapa de calor",

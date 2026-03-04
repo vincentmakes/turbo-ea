@@ -50,14 +50,16 @@ class PortfolioInsightsRequest(BaseModel):
         default_factory=dict,
         description="Counts by lifecycle phase",
     )
+    active_filters: list[str] = Field(
+        default_factory=list,
+        description="Human-readable descriptions of active filters",
+    )
 
 
 class StructuredInsight(BaseModel):
     title: str = ""
     observation: str = ""
-    risk: str = ""
-    action: str = ""
-    severity: str = "info"
+    recommendation: str = ""
 
 
 class PortfolioInsightsResponse(BaseModel):

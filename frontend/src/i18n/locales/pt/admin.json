@@ -309,7 +309,7 @@
   "settings.ai.providerDescription": "Configure o provedor de IA utilizado por todas as funcionalidades de IA. Este provedor é compartilhado entre sugestões de descrição, análises de portfólio e outras capacidades de IA.",
   "settings.ai.sectionFeatures": "Funcionalidades de IA",
   "settings.ai.portfolioInsightsTitle": "Análises do portfólio",
-  "settings.ai.portfolioInsightsDescription": "Gere análises baseadas em IA sob demanda no relatório de portfólio de aplicações. Analisa agrupamentos, distribuições de atributos e dados de ciclo de vida para fornecer recomendações acionáveis.",
+  "settings.ai.portfolioInsightsDescription": "Gere análises baseadas em IA sob demanda no relatório de portfólio. Analisa a vista atual — incluindo agrupamento e filtros ativos — para fornecer recomendações estratégicas.",
   "settings.ai.portfolioInsightsEnabled": "As análises de portfólio estão habilitadas",
   "settings.ai.portfolioInsightsDisabled": "As análises de portfólio estão desabilitadas",
   "settings.ai.sectionCards": "Fichas IA",

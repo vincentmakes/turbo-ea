@@ -739,7 +739,13 @@ async def generate_portfolio_insights(
     attr_summary = summary.get("attribute_summary", {})
     lifecycle_summary = summary.get("lifecycle_summary", {})
 
+    active_filters = summary.get("active_filters", [])
+
     data_block = f"Total applications in scope: {total}\n"
+    if active_filters:
+        data_block += "Active filters (this is a filtered subset of the full portfolio):\n"
+        for af in active_filters:
+            data_block += f"  - {af}\n"
     if group_by:
         data_block += f"Grouped by: {group_by}\n"
     if color_by:
@@ -843,38 +849,41 @@ async def generate_portfolio_insights(
         )
 
     system_msg = (
-        "You are a senior enterprise architect performing an Application Portfolio "
-        "Management (APM) review using industry-standard EA and IT Strategy frameworks "
-        "(TOGAF, Gartner TIME model, Wardley Mapping principles).\n\n"
-        f"Given the portfolio summary data below, generate exactly {insight_count} "
-        "insights. Each insight MUST be a JSON object with these fields:\n"
+        "You are a trusted senior enterprise architect acting as a strategic advisor. "
+        "Your tone is calm, expert, and constructive — like a seasoned EA consultant "
+        "presenting findings to a CIO. You use industry-standard frameworks "
+        "(TOGAF, Gartner TIME model, Wardley Mapping) but communicate in plain, "
+        "decisive language.\n\n"
+        f"Given the portfolio summary data below, produce exactly {insight_count} "
+        "advisory findings. Each finding MUST be a JSON object with these fields:\n"
         '  - "title": A concise headline, max 8 words.\n'
         '  - "observation": ONE sentence (max 30 words) stating what the data shows. '
         "Cite one or two key numbers.\n"
-        '  - "risk": ONE sentence (max 20 words) on the implication if no action is taken.\n'
-        '  - "action": ONE sentence (max 25 words) with a specific recommendation. '
-        "Start with a verb (Consolidate, Migrate, Decommission, etc.).\n"
-        '  - "severity": "critical", "warning", or "info".\n\n'
-        "IMPORTANT: Keep each field SHORT. Avoid long explanations. "
-        "Brevity is more valuable than exhaustiveness.\n\n"
+        '  - "recommendation": ONE sentence (max 30 words) with a specific, actionable '
+        "recommendation. Start with a verb (Consolidate, Evaluate, Establish, etc.). "
+        "Do NOT include timelines, deadlines, or target dates.\n\n"
+        "IMPORTANT:\n"
+        "- Keep each field SHORT. Brevity is more valuable than exhaustiveness.\n"
+        "- Adopt an advisory tone — present findings as expert guidance, not alerts. "
+        "Do NOT classify findings by severity or urgency.\n"
+        "- Do NOT suggest timelines, deadlines, quarters, or durations. "
+        "Focus on WHAT to do, not WHEN.\n\n"
         f"{lenses}\n"
         "Rules:\n"
         "- Reference actual numbers and group names from the data.\n"
         "- Do NOT invent data that was not provided.\n"
-        "- NO CONTRADICTIONS: Review all 5 insights together before responding. "
-        "If two insights make opposing claims about the same data, remove one.\n"
+        "- NO CONTRADICTIONS: Review all 5 findings together before responding. "
+        "If two findings make opposing claims about the same data, remove one.\n"
         "- If a lens cannot be meaningfully assessed from the available data, "
         "say so briefly and suggest what data to capture.\n"
         "- Use professional EA terminology.\n"
-        "- Actions must be specific and measurable — avoid vague advice like "
+        "- Recommendations must be specific and measurable — avoid vague advice like "
         '"consider reviewing" or "think about". Instead say "Consolidate the 5 '
-        'CRM applications in the Sales group into 2 platforms within 12 months" '
-        'or "Migrate the 3 end-of-life applications to cloud SaaS alternatives '
-        'by Q3".\n\n'
+        'CRM applications in the Sales group into 2 platforms" '
+        'or "Migrate the 3 end-of-life applications to cloud SaaS alternatives".\n\n'
         "Return ONLY valid JSON in this format:\n"
         '{ "insights": [\n'
-        '  { "title": "...", "observation": "...", "risk": "...", '
-        '"action": "...", "severity": "warning" }\n'
+        '  { "title": "...", "observation": "...", "recommendation": "..." }\n'
         "] }"
     )
 
@@ -901,16 +910,11 @@ async def generate_portfolio_insights(
             continue
         if isinstance(item, dict) and "observation" in item:
             # Structured insight — validate and normalise
-            severity = item.get("severity", "info")
-            if severity not in ("critical", "warning", "info"):
-                severity = "info"
             insights.append(
                 {
                     "title": str(item.get("title", "")).strip(),
                     "observation": str(item.get("observation", "")).strip(),
-                    "risk": str(item.get("risk", "")).strip(),
-                    "action": str(item.get("action", "")).strip(),
-                    "severity": severity,
+                    "recommendation": str(item.get("recommendation", "")).strip(),
                 }
             )
         else:

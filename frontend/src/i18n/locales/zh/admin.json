@@ -309,7 +309,7 @@
   "settings.ai.providerDescription": "配置所有 AI 功能使用的 AI 提供商。此提供商在描述建议、投资组合洞察和其他 AI 功能之间共享。",
   "settings.ai.sectionFeatures": "AI 功能",
   "settings.ai.portfolioInsightsTitle": "投资组合洞察",
-  "settings.ai.portfolioInsightsDescription": "在应用投资组合报告中按需生成 AI 驱动的洞察。分析分组、属性分布和生命周期数据，提供可操作的建议。",
+  "settings.ai.portfolioInsightsDescription": "在投资组合报告中按需生成 AI 驱动的洞察。分析当前视图（包括分组和筛选条件），提供战略建议。",
   "settings.ai.portfolioInsightsEnabled": "投资组合洞察已启用",
   "settings.ai.portfolioInsightsDisabled": "投资组合洞察已禁用",
   "settings.ai.sectionCards": "AI 卡片",

@@ -947,9 +947,7 @@ export interface AiStatus {
 export interface StructuredInsight {
   title: string;
   observation: string;
-  risk: string;
-  action: string;
-  severity: "critical" | "warning" | "info";
+  recommendation: string;
 }
 
 export interface PortfolioInsightsResponse {

@@ -310,7 +310,7 @@
   "settings.ai.providerDescription": "Configura il provider IA utilizzato da tutte le funzionalit\u00e0 IA. Questo provider \u00e8 condiviso tra i suggerimenti di descrizione, le analisi del portafoglio e altre capacit\u00e0 IA.",
   "settings.ai.sectionFeatures": "Funzionalit\u00e0 IA",
   "settings.ai.portfolioInsightsTitle": "Analisi del portafoglio",
-  "settings.ai.portfolioInsightsDescription": "Genera analisi basate sull\u2019IA su richiesta nel report del portafoglio applicativo. Analizza raggruppamenti, distribuzioni di attributi e dati del ciclo di vita per fornire raccomandazioni attuabili.",
+  "settings.ai.portfolioInsightsDescription": "Genera analisi basate sull'IA su richiesta nel report del portafoglio. Analizza la vista corrente — inclusi raggruppamento e filtri attivi — per fornire raccomandazioni strategiche.",
   "settings.ai.portfolioInsightsEnabled": "Le analisi del portafoglio sono abilitate",
   "settings.ai.portfolioInsightsDisabled": "Le analisi del portafoglio sono disabilitate",
   "settings.ai.sectionCards": "Schede IA",

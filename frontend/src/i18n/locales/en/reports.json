@@ -76,10 +76,6 @@
   "portfolio.aiInsightsTitle": "AI Portfolio Insights",
   "portfolio.aiNoInsights": "No insights could be generated for the current portfolio view.",
   "portfolio.aiRegenerate": "Regenerate",
-  "portfolio.insightRisk": "Risk",
-  "portfolio.severity.critical": "Critical",
-  "portfolio.severity.warning": "Warning",
-  "portfolio.severity.info": "Info",
 
   "capabilityMap.title": "Business Capability Map",
   "capabilityMap.heatmapMetric": "Heatmap Metric",

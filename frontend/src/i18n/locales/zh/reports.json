@@ -71,10 +71,6 @@
   "portfolio.aiInsightsTitle": "AI 投资组合洞察",
   "portfolio.aiNoInsights": "无法为当前投资组合视图生成洞察。",
   "portfolio.aiRegenerate": "重新生成",
-  "portfolio.insightRisk": "风险",
-  "portfolio.severity.critical": "严重",
-  "portfolio.severity.warning": "警告",
-  "portfolio.severity.info": "信息",
 
   "capabilityMap.title": "业务能力地图",
   "capabilityMap.heatmapMetric": "热力图指标",

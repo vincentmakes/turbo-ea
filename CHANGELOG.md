@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.25.2] - 2026-03-04
+
+### Changed
+- AI portfolio insights now use an advisory tone — findings are presented as expert EA guidance without severity pills or timeline suggestions
+- AI portfolio insights now consider the active grouping and filters displayed in the report
+- Insight structure simplified to title, observation, and recommendation
+
 ## [0.25.1] - 2026-03-04
 
 ### Changed

@@ -310,7 +310,7 @@
   "settings.ai.providerDescription": "Konfigurieren Sie den KI-Anbieter, der von allen KI-Funktionen verwendet wird. Dieser Anbieter wird für Beschreibungsvorschläge, Portfolio-Erkenntnisse und andere KI-Funktionen gemeinsam genutzt.",
   "settings.ai.sectionFeatures": "KI-Funktionen",
   "settings.ai.portfolioInsightsTitle": "Portfolio-Erkenntnisse",
-  "settings.ai.portfolioInsightsDescription": "Generieren Sie auf Abruf KI-gestützte Erkenntnisse im Anwendungsportfolio-Bericht. Analysiert Gruppierung, Attributverteilungen und Lebenszyklusdaten, um umsetzbare Empfehlungen zu liefern.",
+  "settings.ai.portfolioInsightsDescription": "Generieren Sie auf Abruf KI-gestützte Erkenntnisse im Portfoliobericht. Analysiert die aktuelle Ansicht — einschließlich Gruppierung und Filter — um strategische Empfehlungen zu liefern.",
   "settings.ai.portfolioInsightsEnabled": "Portfolio-Erkenntnisse sind aktiviert",
   "settings.ai.portfolioInsightsDisabled": "Portfolio-Erkenntnisse sind deaktiviert",
   "settings.ai.sectionCards": "KI-Karten",

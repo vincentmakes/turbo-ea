@@ -310,7 +310,7 @@
   "settings.ai.providerDescription": "Configure the AI provider used by all AI features. This provider is shared across description suggestions, portfolio insights, and other AI capabilities.",
   "settings.ai.sectionFeatures": "AI Features",
   "settings.ai.portfolioInsightsTitle": "Portfolio Insights",
-  "settings.ai.portfolioInsightsDescription": "Generate AI-driven insights on demand in the application portfolio report. Analyses grouping, attribute distributions, and lifecycle data to surface actionable recommendations.",
+  "settings.ai.portfolioInsightsDescription": "Generate AI-driven insights on demand in the portfolio report. Analyses the current view — including active grouping and filters — to surface strategic recommendations.",
   "settings.ai.portfolioInsightsEnabled": "Portfolio insights are enabled",
   "settings.ai.portfolioInsightsDisabled": "Portfolio insights are disabled",
   "settings.ai.sectionCards": "AI Cards",

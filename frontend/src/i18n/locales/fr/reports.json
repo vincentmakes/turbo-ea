@@ -76,10 +76,6 @@
   "portfolio.aiInsightsTitle": "Analyses IA du portefeuille",
   "portfolio.aiNoInsights": "Aucune analyse n'a pu être générée pour la vue actuelle du portefeuille.",
   "portfolio.aiRegenerate": "Régénérer",
-  "portfolio.insightRisk": "Risque",
-  "portfolio.severity.critical": "Critique",
-  "portfolio.severity.warning": "Avertissement",
-  "portfolio.severity.info": "Info",
 
   "capabilityMap.title": "Carte des capacit\u00e9s m\u00e9tier",
   "capabilityMap.heatmapMetric": "M\u00e9trique de la carte de chaleur",
