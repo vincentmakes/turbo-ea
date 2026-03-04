@@ -43,6 +43,8 @@ interface Props {
   chartRef?: React.RefObject<HTMLDivElement | null>;
   /** Override the max width of the report container (default 1200) */
   maxWidth?: number | string;
+  /** Extra action buttons rendered in the title bar before the standard actions */
+  actions?: ReactNode;
   /** Parameters to display in the print header (only non-empty ones) */
   printParams?: PrintParam[];
   children: ReactNode;
@@ -62,6 +64,7 @@ export default function ReportShell({
   onResetSavedReport,
   onReset,
   chartRef,
+  actions,
   maxWidth = 1200,
   printParams,
   children,
@@ -108,6 +111,7 @@ export default function ReportShell({
         </Typography>
 
         <Box className="report-actions" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          {actions}
           {hasTableToggle && onViewChange && (
             <ToggleButtonGroup
               value={view}

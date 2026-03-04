@@ -905,6 +905,34 @@ export default function PortfolioReport() {
       onResetSavedReport={saved.resetSavedReport}
       onReset={handleReset}
       printParams={printParams}
+      actions={
+        aiStatus?.portfolio_insights_enabled ? (
+          <Tooltip title={t("portfolio.aiInsights")}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  if (aiOpen) {
+                    setAiOpen(false);
+                  } else if (aiInsights) {
+                    setAiOpen(true);
+                  } else {
+                    handleGenerateInsights();
+                  }
+                }}
+                disabled={aiLoading || filteredApps.length === 0}
+                sx={{ color: aiOpen ? "primary.main" : "#1976d2" }}
+              >
+                {aiLoading ? (
+                  <CircularProgress size={18} />
+                ) : (
+                  <MaterialSymbol icon="auto_awesome" size={20} />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        ) : undefined
+      }
       toolbar={
         <>
           {/* Row 1: Main controls */}
@@ -1175,34 +1203,6 @@ export default function PortfolioReport() {
               />
             )}
           </Box>
-
-          {/* AI Insights button */}
-          {aiStatus?.portfolio_insights_enabled && (
-            <Button
-              size="small"
-              variant={aiOpen ? "contained" : "outlined"}
-              startIcon={
-                aiLoading ? (
-                  <CircularProgress size={14} />
-                ) : (
-                  <MaterialSymbol icon="insights" size={16} />
-                )
-              }
-              sx={{ textTransform: "none", ml: "auto" }}
-              onClick={() => {
-                if (aiOpen) {
-                  setAiOpen(false);
-                } else if (aiInsights) {
-                  setAiOpen(true);
-                } else {
-                  handleGenerateInsights();
-                }
-              }}
-              disabled={aiLoading || filteredApps.length === 0}
-            >
-              {t("portfolio.aiInsights")}
-            </Button>
-          )}
 
           {/* Color legend */}
           {colorBy && colorLegend && colorLegend.length > 0 && (
