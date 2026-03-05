@@ -28,6 +28,7 @@ from typing import Any
 import httpx
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.models.card import Card
 from app.models.card_type import CardType
@@ -542,7 +543,7 @@ async def _fetch_related_cards(
     if not uuids:
         return {}
 
-    out_conditions = [Relation.source_id.in_(uuids)]
+    out_conditions: list[ColumnElement[bool]] = [Relation.source_id.in_(uuids)]
     if target_type:
         out_conditions.append(Card.type == target_type)
 
@@ -566,7 +567,7 @@ async def _fetch_related_cards(
         .limit(limit)
     )
 
-    in_conditions = [Relation.target_id.in_(uuids)]
+    in_conditions: list[ColumnElement[bool]] = [Relation.target_id.in_(uuids)]
     if target_type:
         in_conditions.append(Card.type == target_type)
 
@@ -738,7 +739,7 @@ async def build_chat_context(
     seen_ids: set[str] = set()
 
     if intent.is_lifecycle_query and intent.lifecycle_phases:
-        for type_key in intent.referenced_types or [None]:
+        for type_key in intent.referenced_types or [None]:  # type: ignore[list-item]
             lc_cards = await _fetch_cards_by_lifecycle(
                 db,
                 type_key=type_key,
