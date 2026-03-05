@@ -745,6 +745,16 @@ async def build_chat_context(
     intent = _detect_intent(message)
     sections: list[str] = []
 
+    logger.info(
+        "Chat intent: types=%s lifecycle=%s phases=%s cross=%s analytical=%s window=%s",
+        intent.referenced_types,
+        intent.is_lifecycle_query,
+        intent.lifecycle_phases,
+        intent.is_cross_relation,
+        intent.is_analytical,
+        intent.time_window,
+    )
+
     sections.append(await _build_landscape_summary(db))
     sections.append(await _build_card_type_summary(db))
 
@@ -834,6 +844,44 @@ async def build_chat_context(
                             seen_ids.add(rel["id"])
                     sections.append("\n".join(lines))
 
+        elif intent.is_cross_relation and len(intent.referenced_types) == 1:
+            # Single type + lifecycle + cross-relation: the user mentioned one
+            # type and wants to know how it's affected by EOL.  Fetch ALL cards
+            # reaching EOL (any type) and traverse relations to the named type.
+            subject_type = intent.referenced_types[0]
+            all_lc_cards = await _fetch_cards_by_lifecycle(
+                db,
+                type_key=None,  # all types
+                phases=intent.lifecycle_phases,
+                time_window=intent.time_window,
+            )
+            # Exclude cards that are already the subject type (we want the
+            # *other* things reaching EOL that affect the subject type).
+            other_lc_cards = [c for c in all_lc_cards if c["type"] != subject_type]
+            if other_lc_cards:
+                other_ids = [c["id"] for c in other_lc_cards]
+                relations_map = await _fetch_related_cards(db, other_ids, target_type=subject_type)
+                if relations_map:
+                    lines = [
+                        f"Cross-relation: {subject_type}s connected to cards with lifecycle dates:"
+                    ]
+                    for rel_card_id, related in relations_map.items():
+                        source = next(
+                            (c for c in other_lc_cards if c["id"] == rel_card_id),
+                            None,
+                        )
+                        source_name = source["name"] if source else "Unknown"
+                        source_type = source["type"] if source else "Unknown"
+                        source_lc = source.get("lifecycle", "") if source else ""
+                        lines.append(f"  {source_type} «{source_name}» (lifecycle: {source_lc}):")
+                        for rel in related:
+                            lines.append(
+                                f"    -> {subject_type} «{rel['name']}» "
+                                f"via {rel.get('relation', 'unknown')}"
+                            )
+                            seen_ids.add(rel["id"])
+                    sections.append("\n".join(lines))
+
     elif intent.referenced_types and not intent.is_lifecycle_query:
         for type_key in intent.referenced_types:
             limit = _MAX_ANALYTICAL_CARDS if intent.is_analytical else _MAX_CONTEXT_CARDS
@@ -854,7 +902,14 @@ async def build_chat_context(
         sections.append("\n".join(lines))
 
     context = "\n\n".join(sections)
-    return _SYSTEM_PROMPT_TEMPLATE.format(context=context)
+    prompt = _SYSTEM_PROMPT_TEMPLATE.format(context=context)
+    logger.info(
+        "Chat context built: %d sections, %d chars, %d seen card IDs",
+        len(sections),
+        len(prompt),
+        len(seen_ids),
+    )
+    return prompt
 
 
 # ---------------------------------------------------------------------------
