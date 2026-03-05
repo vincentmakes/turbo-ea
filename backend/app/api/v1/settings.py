@@ -603,6 +603,7 @@ class AiSettingsPayload(BaseModel):
     search_url: str = ""
     enabled_types: list[str] = []
     portfolio_insights_enabled: bool = False
+    chat_enabled: bool = False
 
 
 def _migrate_ai_cfg(ai: dict) -> dict:
@@ -637,6 +638,7 @@ async def get_ai_settings(
         "search_url": ai.get("searchUrl", ""),
         "enabled_types": ai.get("enabledTypes", []),
         "portfolio_insights_enabled": ai.get("portfolioInsightsEnabled", False),
+        "chat_enabled": ai.get("chatEnabled", False),
     }
 
 
@@ -685,6 +687,7 @@ async def update_ai_settings(
         "searchUrl": "",
         "enabledTypes": body.enabled_types,
         "portfolioInsightsEnabled": body.portfolio_insights_enabled,
+        "chatEnabled": body.chat_enabled,
     }
     row.general_settings = general
     await db.commit()
