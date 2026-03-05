@@ -142,4 +142,5 @@ async def chat_status(
     return {
         "available": enabled and configured,
         "model": ai_cfg["model"] if enabled else None,
+        "provider_type": ai_cfg["provider_type"] if enabled else None,
     }

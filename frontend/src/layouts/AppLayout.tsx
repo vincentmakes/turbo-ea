@@ -208,9 +208,14 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   }, [fetchBadgeCounts]);
 
   // Check if AI chat is available
+  const [chatProviderType, setChatProviderType] = useState<string>("ollama");
   useEffect(() => {
-    api.get<{ available: boolean }>("/ai/chat/status")
-      .then((res) => setChatAvailable(res.available))
+    api
+      .get<{ available: boolean; provider_type?: string }>("/ai/chat/status")
+      .then((res) => {
+        setChatAvailable(res.available);
+        if (res.provider_type) setChatProviderType(res.provider_type);
+      })
       .catch(() => setChatAvailable(false));
   }, []);
 
@@ -1029,7 +1034,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
       {/* AI Chat drawer */}
       {chatAvailable && (
-        <AiChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+        <AiChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} providerType={chatProviderType} />
       )}
 
       {/* Main content */}

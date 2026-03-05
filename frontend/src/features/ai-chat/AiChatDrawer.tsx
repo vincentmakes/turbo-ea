@@ -21,6 +21,7 @@ const MAX_HISTORY = 20;
 interface Props {
   open: boolean;
   onClose: () => void;
+  providerType?: string;
 }
 
 /** Render markdown-lite: bold, inline code, bullet lists. */
@@ -94,7 +95,7 @@ function inlineFormat(text: string): string {
     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
 }
 
-export default function AiChatDrawer({ open, onClose }: Props) {
+export default function AiChatDrawer({ open, onClose, providerType = "ollama" }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery("(max-width:767px)");
   const { t } = useTranslation("common");
@@ -272,13 +273,13 @@ export default function AiChatDrawer({ open, onClose }: Props) {
           {t("aiChat.title")}
         </Typography>
         <Chip
-          icon={<MaterialSymbol icon="lock" size={14} />}
-          label={t("aiChat.localAi")}
+          icon={<MaterialSymbol icon={providerType === "ollama" ? "lock" : "cloud"} size={14} />}
+          label={providerType === "ollama" ? t("aiChat.localAi") : t("aiChat.cloudAi")}
           size="small"
           sx={{
             height: 22,
             fontSize: "0.65rem",
-            bgcolor: "success.main",
+            bgcolor: providerType === "ollama" ? "success.main" : "info.main",
             color: "#fff",
             fontWeight: 600,
             "& .MuiChip-icon": { color: "#fff" },
@@ -326,7 +327,9 @@ export default function AiChatDrawer({ open, onClose }: Props) {
             {t("aiChat.welcome")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
-            {t("aiChat.welcomeDescription")}
+            {providerType === "ollama"
+              ? t("aiChat.welcomeDescription")
+              : t("aiChat.welcomeDescriptionCloud")}
           </Typography>
 
           {/* Privacy badge */}
@@ -344,7 +347,9 @@ export default function AiChatDrawer({ open, onClose }: Props) {
           >
             <MaterialSymbol icon="shield" size={18} color={theme.palette.success.main} />
             <Typography variant="caption" color="text.secondary">
-              {t("aiChat.privacyNotice")}
+              {providerType === "ollama"
+                ? t("aiChat.privacyNotice")
+                : t("aiChat.privacyNoticeCloud")}
             </Typography>
           </Box>
 
