@@ -135,9 +135,14 @@ _TEMPORAL_PATTERNS = [
 # Phrases that signal cross-relation / "which X have Y" intent
 _CROSS_RELATION_PATTERNS = [
     r"which\s+\w+\s+(?:have|use|depend|run|contain|support|own|consume)",
-    r"what\s+\w+\s+(?:have|use|depend|run|contain|support|own|consume)",
+    r"what\s+\w+\s+(?:have|use|depend|run|contain|support|own|consume|are)",
     r"(?:have|use|depend|run|contain|support|own)\s+\w+\s+(?:that|with|reaching|where)",
     r"\w+\s+(?:related|connected|linked)\s+to",
+    r"\w+\s+(?:impacted|affected|influenced)\s+by",
+    r"impact(?:s|ed)?\s+(?:of|on)\s+\w+",
+    r"depend(?:s|ing|ent)?\s+on",
+    r"\w+\s+(?:rely|relies|relying)\s+on",
+    r"\w+\s+(?:running|run)\s+on",
 ]
 
 # Analytical phrases that warrant higher card limits
@@ -256,6 +261,12 @@ def _detect_intent(message: str) -> QueryIntent:
     # Also analytical if asking about types without naming specific cards
     if len(intent.referenced_types) >= 1 and intent.is_lifecycle_query:
         intent.is_analytical = True
+
+    # Auto-enable cross-relation when 2+ types are referenced in a lifecycle query
+    # e.g. "apps impacted by IT components reaching EOL" — even if the phrasing
+    # didn't match a cross-relation regex, the user clearly wants relation traversal.
+    if len(intent.referenced_types) >= 2 and intent.is_lifecycle_query:
+        intent.is_cross_relation = True
 
     return intent
 
@@ -713,8 +724,14 @@ that date. "phaseOut" means it will start being decommissioned.
 
 RELATIONS DATA:
 - Cards are connected via typed relations (e.g., Application "uses" ITComponent).
-- When the context includes cross-relation data, use it to trace connections \
-between different card types (e.g., which applications use which IT components).
+- When the context includes "Cross-relation" data, it shows explicit connections \
+between card types. Use this data to answer multi-step questions directly — for \
+example, if asked "which apps are impacted by IT components reaching EOL", list \
+the applications found in the cross-relation data along with the IT components \
+they are connected to and the relevant dates.
+- Always trace the full chain: identify the source cards (e.g., IT components \
+with EOL dates), then list the impacted cards (e.g., applications) via their \
+relations. Never ask the user to look up data that is already in the context.
 
 {context}"""
 
@@ -766,15 +783,29 @@ async def build_chat_context(
                 sections.append("\n".join(lines))
 
         if intent.is_cross_relation and len(intent.referenced_types) >= 2:
-            subject_type = intent.referenced_types[0]
-            related_type = intent.referenced_types[1]
+            # Determine which type is the "lifecycle" type (the one reaching
+            # EOL / phasing out) and which is the "subject" type (the one being
+            # impacted).  We already fetched lifecycle cards above — pick the
+            # type that actually returned lifecycle results as `lifecycle_type`,
+            # falling back to the second referenced type.
+            lc_cards_by_type: dict[str, list[dict[str, Any]]] = {}
+            for type_key in intent.referenced_types:
+                lc_cards_by_type[type_key] = await _fetch_cards_by_lifecycle(
+                    db,
+                    type_key=type_key,
+                    phases=intent.lifecycle_phases,
+                    time_window=intent.time_window,
+                )
 
-            related_cards = await _fetch_cards_by_lifecycle(
-                db,
-                type_key=related_type,
-                phases=intent.lifecycle_phases,
-                time_window=intent.time_window,
-            )
+            # The type with more lifecycle hits is the lifecycle type; the other
+            # is the subject we want to find via relations.
+            t0, t1 = intent.referenced_types[0], intent.referenced_types[1]
+            if len(lc_cards_by_type.get(t1, [])) >= len(lc_cards_by_type.get(t0, [])):
+                lifecycle_type, subject_type = t1, t0
+            else:
+                lifecycle_type, subject_type = t0, t1
+
+            related_cards = lc_cards_by_type.get(lifecycle_type, [])
             if related_cards:
                 related_ids = [c["id"] for c in related_cards]
                 relations_map = await _fetch_related_cards(
@@ -783,7 +814,7 @@ async def build_chat_context(
                 if relations_map:
                     lines = [
                         f"Cross-relation: {subject_type}s connected to "
-                        f"{related_type}s with lifecycle dates:"
+                        f"{lifecycle_type}s with lifecycle dates:"
                     ]
                     for rel_card_id, related in relations_map.items():
                         source = next(
@@ -793,11 +824,11 @@ async def build_chat_context(
                         source_name = source["name"] if source else "Unknown"
                         source_lc = source.get("lifecycle", "") if source else ""
                         lines.append(
-                            f"  {related_type} \u00ab{source_name}\u00bb (lifecycle: {source_lc}):"
+                            f"  {lifecycle_type} «{source_name}» (lifecycle: {source_lc}):"
                         )
                         for rel in related:
                             lines.append(
-                                f"    -> {subject_type} \u00ab{rel['name']}\u00bb "
+                                f"    -> {subject_type} «{rel['name']}» "
                                 f"via {rel.get('relation', 'unknown')}"
                             )
                             seen_ids.add(rel["id"])
