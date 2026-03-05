@@ -798,5 +798,14 @@
   "metamodel.principles.implicationsPlaceholder": "What are the practical consequences of following this principle?",
   "metamodel.principles.loadError": "Failed to load principles",
   "metamodel.principles.saveError": "Failed to save principle",
-  "metamodel.principles.deleteError": "Failed to delete principle"
+  "metamodel.principles.deleteError": "Failed to delete principle",
+  "settings.ai.sectionChat": "AI Chat",
+  "settings.ai.chatTitle": "Chat Assistant",
+  "settings.ai.chatDescription": "Allow users to ask natural language questions about the EA landscape. The assistant answers based on cards, relations, and metamodel data using the configured AI provider.",
+  "settings.ai.chatEnabledLabel": "Chat assistant is enabled",
+  "settings.ai.chatDisabledLabel": "Chat assistant is disabled",
+  "settings.ai.chatActive": "Active",
+  "settings.ai.chatInactive": "Off",
+  "settings.ai.chatModelHint": "For best conversational quality with local models, a 7B+ parameter model (e.g. qwen2.5:7b) is recommended.",
+  "settings.ai.chatPrivacyNote": "Conversations are never stored. All processing uses the configured AI provider above."
 }

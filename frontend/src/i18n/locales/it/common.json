@@ -186,5 +186,18 @@
   "iconPicker.categories.navigationMaps": "Navigazione e mappe",
   "iconPicker.categories.processesWorkflow": "Processi e workflow",
   "iconPicker.categories.statusIndicators": "Stato e indicatori",
-  "iconPicker.categories.miscellaneous": "Varie"
+  "iconPicker.categories.miscellaneous": "Varie",
+  "aiChat.title": "Assistente IA",
+  "aiChat.localAi": "IA locale",
+  "aiChat.welcome": "Chiedi informazioni sul tuo panorama EA",
+  "aiChat.welcomeDescription": "Fai domande sulle tue schede, relazioni, stato del ciclo di vita, qualità dei dati e altro. Tutta l'elaborazione avviene localmente sulla tua infrastruttura.",
+  "aiChat.privacyNotice": "Le tue conversazioni non vengono archiviate e tutta l'elaborazione IA avviene localmente.",
+  "aiChat.inputPlaceholder": "Fai una domanda...",
+  "aiChat.thinking": "Sto pensando...",
+  "aiChat.stop": "Interrompi generazione",
+  "aiChat.clearChat": "Cancella chat",
+  "aiChat.disclaimer": "Le risposte IA si basano sui tuoi dati e potrebbero non essere completamente accurate.",
+  "aiChat.suggestion1": "Dammi una panoramica del nostro panorama applicativo",
+  "aiChat.suggestion2": "Quali tipi di schede hanno la qualità dei dati più bassa?",
+  "aiChat.suggestion3": "Quali sono i principali tipi di relazione nel nostro metamodello?"
 }

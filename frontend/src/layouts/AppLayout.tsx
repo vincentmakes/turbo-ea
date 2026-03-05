@@ -38,6 +38,7 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
+import AiChatDrawer from "@/features/ai-chat/AiChatDrawer";
 import type { BadgeCounts } from "@/types";
 
 interface NavItemDef {
@@ -176,6 +177,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const [notifPrefsOpen, setNotifPrefsOpen] = useState(false);
   const [langMenu, setLangMenu] = useState<HTMLElement | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({ open_todos: 0, pending_surveys: 0 });
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatAvailable, setChatAvailable] = useState(false);
 
   const handleLanguageChange = useCallback(
     async (locale: SupportedLocale) => {
@@ -203,6 +206,13 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   useEffect(() => {
     fetchBadgeCounts();
   }, [fetchBadgeCounts]);
+
+  // Check if AI chat is available
+  useEffect(() => {
+    api.get<{ available: boolean }>("/ai/chat/status")
+      .then((res) => setChatAvailable(res.available))
+      .catch(() => setChatAvailable(false));
+  }, []);
 
   // Debounced badge refresh — coalesces rapid SSE events into one API call
   const badgeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -871,6 +881,18 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             )
           )}
 
+          {/* AI Chat button */}
+          {chatAvailable && (
+            <Tooltip title={t("common:aiChat.title")}>
+              <IconButton
+                sx={{ color: "rgba(255,255,255,0.7)", "&:hover": { color: "#fff" } }}
+                onClick={() => setChatOpen(true)}
+              >
+                <MaterialSymbol icon="smart_toy" size={22} />
+              </IconButton>
+            </Tooltip>
+          )}
+
           {/* Notification bell */}
           <NotificationBell userId={user.id} />
 
@@ -1004,6 +1026,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
 
       {/* Mobile drawer */}
       {isMobile && renderDrawer()}
+
+      {/* AI Chat drawer */}
+      {chatAvailable && (
+        <AiChatDrawer open={chatOpen} onClose={() => setChatOpen(false)} />
+      )}
 
       {/* Main content */}
       <Box

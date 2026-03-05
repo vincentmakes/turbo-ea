@@ -798,5 +798,14 @@
   "metamodel.principles.implicationsPlaceholder": "Welche praktischen Konsequenzen hat die Befolgung dieses Prinzips?",
   "metamodel.principles.loadError": "Prinzipien konnten nicht geladen werden",
   "metamodel.principles.saveError": "Prinzip konnte nicht gespeichert werden",
-  "metamodel.principles.deleteError": "Prinzip konnte nicht gelöscht werden"
+  "metamodel.principles.deleteError": "Prinzip konnte nicht gelöscht werden",
+  "settings.ai.sectionChat": "KI-Chat",
+  "settings.ai.chatTitle": "Chat-Assistent",
+  "settings.ai.chatDescription": "Ermöglicht Benutzern, natürlichsprachliche Fragen zur EA-Landschaft zu stellen. Der Assistent antwortet auf Basis von Karten, Beziehungen und Metamodell-Daten über den konfigurierten KI-Anbieter.",
+  "settings.ai.chatEnabledLabel": "Chat-Assistent ist aktiviert",
+  "settings.ai.chatDisabledLabel": "Chat-Assistent ist deaktiviert",
+  "settings.ai.chatActive": "Aktiv",
+  "settings.ai.chatInactive": "Aus",
+  "settings.ai.chatModelHint": "Für die beste Konversationsqualität mit lokalen Modellen wird ein 7B+-Modell (z.B. qwen2.5:7b) empfohlen.",
+  "settings.ai.chatPrivacyNote": "Gespräche werden niemals gespeichert. Die gesamte Verarbeitung nutzt den oben konfigurierten KI-Anbieter."
 }

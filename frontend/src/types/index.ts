@@ -954,3 +954,8 @@ export interface PortfolioInsightsResponse {
   insights: (string | StructuredInsight)[];
   model?: string;
 }
+
+export interface AiChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}

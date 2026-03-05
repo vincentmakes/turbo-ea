@@ -27,6 +27,7 @@ interface AiSettings {
   search_url: string;
   enabled_types: string[];
   portfolio_insights_enabled: boolean;
+  chat_enabled: boolean;
 }
 
 const AI_KEY_MASK = "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
@@ -45,6 +46,7 @@ export default function AiAdmin() {
   const [aiModel, setAiModel] = useState("");
   const [aiEnabledTypes, setAiEnabledTypes] = useState<string[]>([]);
   const [portfolioInsightsEnabled, setPortfolioInsightsEnabled] = useState(false);
+  const [chatEnabled, setChatEnabled] = useState(false);
   const [savingAi, setSavingAi] = useState(false);
   const [testingAi, setTestingAi] = useState(false);
   const [aiAvailableModels, setAiAvailableModels] = useState<string[]>([]);
@@ -72,6 +74,7 @@ export default function AiAdmin() {
         setAiModel(data.model);
         setAiEnabledTypes(data.enabled_types);
         setPortfolioInsightsEnabled(data.portfolio_insights_enabled ?? false);
+        setChatEnabled(data.chat_enabled ?? false);
         setMcpEnabled(mcpData.enabled);
         setMcpSsoConfigured(mcpData.sso_configured);
       })
@@ -93,6 +96,7 @@ export default function AiAdmin() {
         search_url: "",
         enabled_types: aiEnabledTypes,
         portfolio_insights_enabled: portfolioInsightsEnabled,
+        chat_enabled: chatEnabled,
       });
       setSnack(t("settings.ai.savedSuccess"));
     } catch (e) {
@@ -456,6 +460,66 @@ export default function AiAdmin() {
           }
           sx={{ mb: 2, display: "block" }}
         />
+
+        <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={handleAiSave}
+            disabled={savingAi}
+          >
+            {savingAi ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* AI Chat Assistant */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="chat" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.ai.chatTitle")}
+          </Typography>
+          <Chip
+            label={chatEnabled ? t("settings.ai.chatActive") : t("settings.ai.chatInactive")}
+            size="small"
+            sx={{
+              height: 22,
+              fontSize: "0.65rem",
+              fontWeight: 600,
+              bgcolor: chatEnabled ? "success.main" : "action.disabledBackground",
+              color: chatEnabled ? "#fff" : "text.secondary",
+            }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          {t("settings.ai.chatDescription")}
+        </Typography>
+
+        <FormControlLabel
+          control={
+            <Switch checked={chatEnabled} onChange={(e) => setChatEnabled(e.target.checked)} />
+          }
+          label={
+            chatEnabled
+              ? t("settings.ai.chatEnabledLabel")
+              : t("settings.ai.chatDisabledLabel")
+          }
+          sx={{ mb: 2, display: "block" }}
+        />
+
+        {chatEnabled && (
+          <>
+            <Alert severity="info" icon={false} sx={{ mb: 2, py: 0.5 }}>
+              <Typography variant="caption">{t("settings.ai.chatPrivacyNote")}</Typography>
+            </Alert>
+            <Alert severity="warning" icon={false} sx={{ mb: 2, py: 0.5 }}>
+              <Typography variant="caption">{t("settings.ai.chatModelHint")}</Typography>
+            </Alert>
+          </>
+        )}
 
         <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
           <Button

@@ -186,5 +186,18 @@
   "iconPicker.categories.navigationMaps": "Navigation & Karten",
   "iconPicker.categories.processesWorkflow": "Prozesse & Workflows",
   "iconPicker.categories.statusIndicators": "Status & Indikatoren",
-  "iconPicker.categories.miscellaneous": "Sonstiges"
+  "iconPicker.categories.miscellaneous": "Sonstiges",
+  "aiChat.title": "KI-Assistent",
+  "aiChat.localAi": "Lokale KI",
+  "aiChat.welcome": "Fragen Sie zu Ihrer EA-Landschaft",
+  "aiChat.welcomeDescription": "Stellen Sie Fragen zu Ihren Karten, Beziehungen, Lebenszyklusstatus, Datenqualität und mehr. Die gesamte Verarbeitung läuft lokal auf Ihrer Infrastruktur.",
+  "aiChat.privacyNotice": "Ihre Gespräche werden nicht gespeichert und die gesamte KI-Verarbeitung läuft lokal.",
+  "aiChat.inputPlaceholder": "Stellen Sie eine Frage...",
+  "aiChat.thinking": "Denkt nach...",
+  "aiChat.stop": "Generierung stoppen",
+  "aiChat.clearChat": "Chat löschen",
+  "aiChat.disclaimer": "KI-Antworten basieren auf Ihren Landschaftsdaten und sind möglicherweise nicht vollständig korrekt.",
+  "aiChat.suggestion1": "Gib mir einen Überblick über unsere Anwendungslandschaft",
+  "aiChat.suggestion2": "Welche Kartentypen haben die niedrigste Datenqualität?",
+  "aiChat.suggestion3": "Was sind die wichtigsten Beziehungstypen in unserem Metamodell?"
 }

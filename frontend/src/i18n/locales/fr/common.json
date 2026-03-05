@@ -201,5 +201,18 @@
   "iconPicker.categories.navigationMaps": "Navigation & Cartes",
   "iconPicker.categories.processesWorkflow": "Processus & Workflow",
   "iconPicker.categories.statusIndicators": "Statuts & Indicateurs",
-  "iconPicker.categories.miscellaneous": "Divers"
+  "iconPicker.categories.miscellaneous": "Divers",
+  "aiChat.title": "Assistant IA",
+  "aiChat.localAi": "IA locale",
+  "aiChat.welcome": "Interrogez votre paysage EA",
+  "aiChat.welcomeDescription": "Posez des questions sur vos cartes, relations, statut du cycle de vie, qualité des données et plus encore. Tout le traitement s'effectue localement sur votre infrastructure.",
+  "aiChat.privacyNotice": "Vos conversations ne sont pas stockées et tout le traitement IA s'effectue localement.",
+  "aiChat.inputPlaceholder": "Posez une question...",
+  "aiChat.thinking": "Réflexion...",
+  "aiChat.stop": "Arrêter la génération",
+  "aiChat.clearChat": "Effacer le chat",
+  "aiChat.disclaimer": "Les réponses IA sont basées sur vos données et peuvent ne pas être entièrement exactes.",
+  "aiChat.suggestion1": "Donne-moi un aperçu de notre paysage applicatif",
+  "aiChat.suggestion2": "Quels types de cartes ont la plus faible qualité de données ?",
+  "aiChat.suggestion3": "Quels sont les principaux types de relations dans notre métamodèle ?"
 }

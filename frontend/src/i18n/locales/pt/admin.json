@@ -798,5 +798,14 @@
   "metamodel.principles.implicationsPlaceholder": "Quais são as consequências práticas de seguir este princípio?",
   "metamodel.principles.loadError": "Não foi possível carregar os princípios",
   "metamodel.principles.saveError": "Não foi possível guardar o princípio",
-  "metamodel.principles.deleteError": "Não foi possível eliminar o princípio"
+  "metamodel.principles.deleteError": "Não foi possível eliminar o princípio",
+  "settings.ai.sectionChat": "Chat IA",
+  "settings.ai.chatTitle": "Assistente de chat",
+  "settings.ai.chatDescription": "Permite que os usuários façam perguntas em linguagem natural sobre a paisagem EA. O assistente responde com base em cartões, relações e dados do metamodelo através do provedor de IA configurado.",
+  "settings.ai.chatEnabledLabel": "O assistente de chat está ativado",
+  "settings.ai.chatDisabledLabel": "O assistente de chat está desativado",
+  "settings.ai.chatActive": "Ativo",
+  "settings.ai.chatInactive": "Desligado",
+  "settings.ai.chatModelHint": "Para melhor qualidade conversacional com modelos locais, recomenda-se um modelo 7B+ (ex. qwen2.5:7b).",
+  "settings.ai.chatPrivacyNote": "As conversas nunca são armazenadas. Todo o processamento utiliza o provedor de IA configurado acima."
 }

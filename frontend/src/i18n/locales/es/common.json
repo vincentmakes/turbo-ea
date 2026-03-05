@@ -201,5 +201,18 @@
   "iconPicker.categories.navigationMaps": "Navegaci\u00f3n y mapas",
   "iconPicker.categories.processesWorkflow": "Procesos y flujos de trabajo",
   "iconPicker.categories.statusIndicators": "Estado e indicadores",
-  "iconPicker.categories.miscellaneous": "Varios"
+  "iconPicker.categories.miscellaneous": "Varios",
+  "aiChat.title": "Asistente IA",
+  "aiChat.localAi": "IA local",
+  "aiChat.welcome": "Pregunte sobre su paisaje EA",
+  "aiChat.welcomeDescription": "Haga preguntas sobre sus tarjetas, relaciones, estado del ciclo de vida, calidad de datos y más. Todo el procesamiento se ejecuta localmente en su infraestructura.",
+  "aiChat.privacyNotice": "Sus conversaciones no se almacenan y todo el procesamiento de IA se ejecuta localmente.",
+  "aiChat.inputPlaceholder": "Haga una pregunta...",
+  "aiChat.thinking": "Pensando...",
+  "aiChat.stop": "Detener generación",
+  "aiChat.clearChat": "Limpiar chat",
+  "aiChat.disclaimer": "Las respuestas de IA se basan en sus datos y pueden no ser completamente precisas.",
+  "aiChat.suggestion1": "Dame una visión general de nuestro paisaje de aplicaciones",
+  "aiChat.suggestion2": "¿Qué tipos de tarjetas tienen la calidad de datos más baja?",
+  "aiChat.suggestion3": "¿Cuáles son los principales tipos de relaciones en nuestro metamodelo?"
 }

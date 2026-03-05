@@ -798,5 +798,14 @@
   "metamodel.principles.implicationsPlaceholder": "遵循该原则有哪些实际后果？",
   "metamodel.principles.loadError": "无法加载原则",
   "metamodel.principles.saveError": "无法保存原则",
-  "metamodel.principles.deleteError": "无法删除原则"
+  "metamodel.principles.deleteError": "无法删除原则",
+  "settings.ai.sectionChat": "AI 聊天",
+  "settings.ai.chatTitle": "聊天助手",
+  "settings.ai.chatDescription": "允许用户以自然语言询问有关 EA 全景的问题。助手通过配置的 AI 提供商根据卡片、关系和元模型数据进行回答。",
+  "settings.ai.chatEnabledLabel": "聊天助手已启用",
+  "settings.ai.chatDisabledLabel": "聊天助手已禁用",
+  "settings.ai.chatActive": "已启用",
+  "settings.ai.chatInactive": "已关闭",
+  "settings.ai.chatModelHint": "使用本地模型时，建议使用 7B+ 参数模型（如 qwen2.5:7b）以获得最佳对话质量。",
+  "settings.ai.chatPrivacyNote": "对话永远不会被存储。所有处理使用上面配置的 AI 提供商。"
 }
