@@ -117,7 +117,6 @@ export default function EADeliveryPage() {
   const [adrStatusFilter, setAdrStatusFilter] = useState("");
   const [adrInitiativeFilter, setAdrInitiativeFilter] = useState("");
   const [adrCreateOpen, setAdrCreateOpen] = useState(false);
-  const [adrCreateInitiativeId, setAdrCreateInitiativeId] = useState("");
   const [adrCreatePreLinkedCards, setAdrCreatePreLinkedCards] = useState<
     { id: string; name: string; type: string }[]
   >([]);
@@ -281,7 +280,9 @@ export default function EADeliveryPage() {
       initiative: init,
       diagrams: diagrams.filter((d) => d.initiative_ids.includes(init.id)),
       soaws: soaws.filter((s) => s.initiative_id === init.id),
-      adrs: adrs.filter((a) => a.initiative_id === init.id),
+      adrs: adrs.filter((a) =>
+        (a.linked_cards ?? []).some((c) => c.id === init.id),
+      ),
     }));
   }, [filteredInitiatives, diagrams, soaws, adrs]);
 
@@ -296,7 +297,10 @@ export default function EADeliveryPage() {
   );
 
   const unlinkedAdrs = useMemo(
-    () => adrs.filter((a) => !a.initiative_id),
+    () =>
+      adrs.filter(
+        (a) => !(a.linked_cards ?? []).some((c) => c.type === "Initiative"),
+      ),
     [adrs],
   );
 
@@ -582,7 +586,7 @@ export default function EADeliveryPage() {
     const getInitSoaws = (id: string) =>
       soaws.filter((s) => s.initiative_id === id);
     const getInitAdrs = (id: string) =>
-      adrs.filter((a) => a.initiative_id === id);
+      adrs.filter((a) => (a.linked_cards ?? []).some((c) => c.id === id));
 
     const totalCols = 9;
 
@@ -871,7 +875,9 @@ export default function EADeliveryPage() {
       list = list.filter((a) => a.status === adrStatusFilter);
     }
     if (adrInitiativeFilter) {
-      list = list.filter((a) => a.initiative_id === adrInitiativeFilter);
+      list = list.filter((a) =>
+        (a.linked_cards ?? []).some((c) => c.id === adrInitiativeFilter),
+      );
     }
     return list;
   }, [adrs, adrSearch, adrStatusFilter, adrInitiativeFilter]);
@@ -886,8 +892,7 @@ export default function EADeliveryPage() {
     );
   }
 
-  const openAdrCreateDialog = (initId = "", preLinked: { id: string; name: string; type: string }[] = []) => {
-    setAdrCreateInitiativeId(initId);
+  const openAdrCreateDialog = (preLinked: { id: string; name: string; type: string }[] = []) => {
     setAdrCreatePreLinkedCards(preLinked);
     setAdrCreateOpen(true);
   };
@@ -1027,23 +1032,24 @@ export default function EADeliveryPage() {
                     </Typography>
                   )}
                 </Typography>
-                {adr.initiative_id && (
-                  <Chip
-                    label={initiatives.find((i) => i.id === adr.initiative_id)?.name ?? ""}
-                    size="small"
-                    variant="outlined"
-                    sx={{ mr: 0.5, fontSize: "0.75rem" }}
-                  />
-                )}
                 <Chip
                   label={SOAW_STATUS_LABELS[adr.status] ?? adr.status}
                   size="small"
                   color={SOAW_STATUS_COLORS[adr.status] ?? "default"}
                   sx={{ mr: 0.5 }}
                 />
-                {(adr.linked_cards ?? []).length > 0 && (
+                {(adr.linked_cards ?? []).slice(0, 3).map((lc) => (
                   <Chip
-                    label={t("adr.linkedCardCount", { count: adr.linked_cards!.length })}
+                    key={lc.id}
+                    label={lc.name}
+                    size="small"
+                    variant="outlined"
+                    sx={{ mr: 0.5, fontSize: "0.75rem", maxWidth: 150 }}
+                  />
+                ))}
+                {(adr.linked_cards ?? []).length > 3 && (
+                  <Chip
+                    label={`+${(adr.linked_cards ?? []).length - 3}`}
                     size="small"
                     variant="outlined"
                     sx={{ mr: 0.5, fontSize: "0.75rem" }}
@@ -1515,7 +1521,6 @@ export default function EADeliveryPage() {
                           onClick={() => {
                             const init = initiatives.find((i) => i.id === initiative.id);
                             openAdrCreateDialog(
-                              initiative.id,
                               init ? [{ id: init.id, name: init.name, type: init.type }] : [],
                             );
                           }}
@@ -1728,8 +1733,6 @@ export default function EADeliveryPage() {
           fetchAll();
           navigate(`/ea-delivery/adr/${adr.id}`);
         }}
-        initiatives={initiatives}
-        initiativeId={adrCreateInitiativeId}
         preLinkedCards={adrCreatePreLinkedCards}
       />
 
@@ -1757,7 +1760,6 @@ export default function EADeliveryPage() {
             const init = initiatives.find((i) => i.id === initId);
             closeCreateMenu();
             openAdrCreateDialog(
-              initId,
               init ? [{ id: init.id, name: init.name, type: init.type }] : [],
             );
           }}

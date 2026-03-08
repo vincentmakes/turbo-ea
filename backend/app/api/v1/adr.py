@@ -64,12 +64,6 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
         if creator:
             creator_name = creator.display_name
 
-    # Get initiative name
-    initiative_name = None
-    if adr.initiative_id:
-        result = await db.execute(select(Card.name).where(Card.id == adr.initiative_id))
-        initiative_name = result.scalar_one_or_none()
-
     # Get linked cards
     result = await db.execute(
         select(Card.id, Card.name, Card.type)
@@ -86,8 +80,6 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
         "reference_number": adr.reference_number,
         "title": adr.title,
         "status": adr.status,
-        "initiative_id": str(adr.initiative_id) if adr.initiative_id else None,
-        "initiative_name": initiative_name,
         "context": adr.context,
         "decision": adr.decision,
         "consequences": adr.consequences,
@@ -105,20 +97,22 @@ async def _adr_to_dict(db: AsyncSession, adr: ArchitectureDecision) -> dict:
     }
 
 
-def _adr_to_summary(adr: ArchitectureDecision) -> dict:
-    """Lightweight dict without linked cards (for list endpoints)."""
+def _adr_to_summary(
+    adr: ArchitectureDecision,
+    linked_cards: list[dict] | None = None,
+) -> dict:
+    """Lightweight dict for list endpoints."""
     return {
         "id": str(adr.id),
         "reference_number": adr.reference_number,
         "title": adr.title,
         "status": adr.status,
-        "initiative_id": str(adr.initiative_id) if adr.initiative_id else None,
         "created_by": str(adr.created_by) if adr.created_by else None,
         "signatories": adr.signatories or [],
         "signed_at": adr.signed_at.isoformat() if adr.signed_at else None,
         "revision_number": adr.revision_number,
         "parent_id": str(adr.parent_id) if adr.parent_id else None,
-        "linked_cards": [],
+        "linked_cards": linked_cards or [],
         "created_at": adr.created_at.isoformat() if adr.created_at else None,
         "updated_at": adr.updated_at.isoformat() if adr.updated_at else None,
     }
@@ -141,7 +135,11 @@ async def list_adrs(
     await PermissionService.require_permission(db, user, "adr.view")
     stmt = select(ArchitectureDecision).order_by(ArchitectureDecision.updated_at.desc())
     if initiative_id:
-        stmt = stmt.where(ArchitectureDecision.initiative_id == uuid.UUID(initiative_id))
+        # Filter by linked initiative card via junction table
+        stmt = stmt.join(
+            ArchitectureDecisionCard,
+            ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
+        ).where(ArchitectureDecisionCard.card_id == uuid.UUID(initiative_id))
     if status:
         stmt = stmt.where(ArchitectureDecision.status == status)
     if search:
@@ -150,7 +148,7 @@ async def list_adrs(
             ArchitectureDecision.title.ilike(pattern)
             | ArchitectureDecision.reference_number.ilike(pattern)
         )
-    if card_id:
+    if card_id and not initiative_id:
         stmt = stmt.join(
             ArchitectureDecisionCard,
             ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
@@ -158,7 +156,25 @@ async def list_adrs(
 
     result = await db.execute(stmt)
     rows = result.scalars().all()
-    return [_adr_to_summary(adr) for adr in rows]
+
+    # Bulk-fetch linked cards for all ADRs
+    adr_ids = [adr.id for adr in rows]
+    cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
+    if adr_ids:
+        cards_result = await db.execute(
+            select(
+                ArchitectureDecisionCard.architecture_decision_id,
+                Card.id,
+                Card.name,
+                Card.type,
+            )
+            .join(Card, ArchitectureDecisionCard.card_id == Card.id)
+            .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
+        )
+        for row in cards_result.all():
+            cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
+
+    return [_adr_to_summary(adr, cards_map.get(adr.id)) for adr in rows]
 
 
 @router.post("", status_code=201)
@@ -172,7 +188,6 @@ async def create_adr(
     adr = ArchitectureDecision(
         reference_number=ref_num,
         title=body.title,
-        initiative_id=uuid.UUID(body.initiative_id) if body.initiative_id else None,
         context=body.context,
         decision=body.decision,
         consequences=body.consequences,
@@ -212,8 +227,6 @@ async def update_adr(
 
     if body.title is not None:
         adr.title = body.title
-    if body.initiative_id is not None:
-        adr.initiative_id = uuid.UUID(body.initiative_id) if body.initiative_id else None
     if body.context is not None:
         adr.context = body.context
     if body.decision is not None:
@@ -265,7 +278,6 @@ async def duplicate_adr(
     dup = ArchitectureDecision(
         reference_number=ref_num,
         title=f"{original.title} (copy)",
-        initiative_id=original.initiative_id,
         context=original.context,
         decision=original.decision,
         consequences=original.consequences,
@@ -337,7 +349,6 @@ async def request_signatures(
 
     for sig in signatories:
         todo = Todo(
-            card_id=adr.initiative_id,
             description=f'Sign ADR: "{adr.reference_number} — {adr.title}"',
             assigned_to=uuid.UUID(sig["user_id"]),
             created_by=user.id,
@@ -495,7 +506,6 @@ async def revise_adr(
     new_revision = ArchitectureDecision(
         reference_number=ref_num,
         title=adr.title,
-        initiative_id=adr.initiative_id,
         context=adr.context,
         decision=adr.decision,
         consequences=adr.consequences,
@@ -651,4 +661,22 @@ async def list_adrs_for_card(
     )
     result = await db.execute(stmt)
     rows = result.scalars().all()
-    return [_adr_to_summary(adr) for adr in rows]
+
+    # Bulk-fetch linked cards
+    adr_ids = [adr.id for adr in rows]
+    cards_map: dict[uuid.UUID, list[dict]] = {aid: [] for aid in adr_ids}
+    if adr_ids:
+        cards_result = await db.execute(
+            select(
+                ArchitectureDecisionCard.architecture_decision_id,
+                Card.id,
+                Card.name,
+                Card.type,
+            )
+            .join(Card, ArchitectureDecisionCard.card_id == Card.id)
+            .where(ArchitectureDecisionCard.architecture_decision_id.in_(adr_ids))
+        )
+        for row in cards_result.all():
+            cards_map[row[0]].append({"id": str(row[1]), "name": row[2], "type": row[3]})
+
+    return [_adr_to_summary(adr, cards_map.get(adr.id)) for adr in rows]

@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.26.1] - 2026-03-08
+
+### Changed
+- ADR initiative linking now uses standard card links instead of a dedicated field — initiatives are linked like any other card
+- ADR list view now shows all linked cards as chips instead of a single initiative name
+- Initiative filter on Decisions tab works via linked cards, supporting ADRs linked to multiple initiatives
+- Create ADR and Signature Request dialogs no longer resize when search results appear or disappear
+
+### Removed
+- Dedicated initiative dropdown from ADR editor and create dialog (use card linking instead)
+- `initiative_id` column from architecture decisions (migrated to card link junction table)
+
 ## [0.26.0] - 2026-03-08
 
 ### Added

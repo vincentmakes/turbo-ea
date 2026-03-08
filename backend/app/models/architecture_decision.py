@@ -19,10 +19,6 @@ class ArchitectureDecision(Base, UUIDMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default="draft")
     # Statuses: draft, in_review, signed
 
-    initiative_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("cards.id", ondelete="SET NULL")
-    )
-
     context: Mapped[str | None] = mapped_column(Text)
     decision: Mapped[str | None] = mapped_column(Text)
     consequences: Mapped[str | None] = mapped_column(Text)

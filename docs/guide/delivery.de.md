@@ -67,7 +67,7 @@ Die EA Delivery-Seite verfügt über einen eigenen **Entscheidungen**-Tab, der a
 - Referenznummer (automatisch generiert: ADR-001, ADR-002 usw.)
 - Titel
 - Status (Entwurf, In Überprüfung, Unterschrieben)
-- Verknüpfte Initiative
+- Verknüpfte Initiativen (über Kartenverknüpfung)
 - Unterzeichner und deren Status
 
 Sie können nach Status filtern und nach Titel oder Referenznummer suchen.
@@ -76,19 +76,18 @@ Sie können nach Status filtern und nach Titel oder Referenznummer suchen.
 
 ADRs können von drei Stellen aus erstellt werden:
 
-1. **EA Delivery → Entscheidungen-Tab**: Klicken Sie auf **+ Neues ADR**, geben Sie den Titel ein und verknüpfen Sie optional eine Initiative.
-2. **Initiative-„+"-Knopf** (Initiativen-Tab): Wählen Sie **Neue Architekturentscheidung** aus dem Menü — die Initiative wird automatisch verknüpft.
+1. **EA Delivery → Entscheidungen-Tab**: Klicken Sie auf **+ Neues ADR**, geben Sie den Titel ein und verknüpfen Sie optional Karten (einschließlich Initiativen).
+2. **Initiative-„+"-Knopf** (Initiativen-Tab): Wählen Sie **Neue Architekturentscheidung** aus dem Menü — die Initiative wird automatisch als Kartenverknüpfung hinzugefügt.
 3. **Karten-Ressourcen-Tab**: Klicken Sie auf **ADR erstellen** — die aktuelle Karte wird automatisch verknüpft.
 
-In allen Fällen können Sie während der Erstellung weitere Karten suchen und verknüpfen. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen.
+In allen Fällen können Sie während der Erstellung weitere Karten suchen und verknüpfen. Initiativen werden über denselben Kartenverknüpfungsmechanismus wie jede andere Karte verknüpft, sodass ein ADR mit mehreren Initiativen verknüpft werden kann. Der Editor öffnet sich mit Abschnitten für Kontext, Entscheidung, Konsequenzen und Erwogene Alternativen.
 
 ### Der ADR-Editor
 
 Der Editor bietet:
 
 - Rich-Text-Bearbeitung für jeden Abschnitt (Kontext, Entscheidung, Konsequenzen, Erwogene Alternativen)
-- Initiativenverknüpfung
-- Kartenverknüpfung — verbinden Sie das ADR mit relevanten Karten (Anwendungen, IT-Komponenten usw.)
+- Kartenverknüpfung — verbinden Sie das ADR mit relevanten Karten (Anwendungen, IT-Komponenten, Initiativen usw.). Initiativen werden über die Standard-Kartenverknüpfung verknüpft, nicht über ein eigenes Feld, sodass ein ADR mehrere Initiativen referenzieren kann
 - Verwandte Entscheidungen — referenzieren Sie andere ADRs
 
 ### Abzeichnungsworkflow

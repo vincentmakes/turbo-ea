@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 class ADRCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=500)
-    initiative_id: str | None = None
     context: str | None = None
     decision: str | None = None
     consequences: str | None = None
@@ -17,7 +16,6 @@ class ADRCreate(BaseModel):
 
 class ADRUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=500)
-    initiative_id: str | None = None
     context: str | None = None
     decision: str | None = None
     consequences: str | None = None
@@ -48,8 +46,6 @@ class ADRResponse(BaseModel):
     reference_number: str
     title: str
     status: str
-    initiative_id: str | None = None
-    initiative_name: str | None = None
     context: str | None = None
     decision: str | None = None
     consequences: str | None = None

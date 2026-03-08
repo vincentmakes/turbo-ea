@@ -6,16 +6,12 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import Snackbar from "@mui/material/Snackbar";
 import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Paper from "@mui/material/Paper";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -46,7 +42,6 @@ export default function ADREditor() {
 
   // ADR state
   const [title, setTitle] = useState("");
-  const [initiativeId, setInitiativeId] = useState("");
   const [status, setStatus] = useState("draft");
   const [context, setContext] = useState("");
   const [decision, setDecision] = useState("");
@@ -61,7 +56,6 @@ export default function ADREditor() {
   >([]);
 
   // UI state
-  const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -78,14 +72,6 @@ export default function ADREditor() {
 
   const isSigned = status === "signed";
 
-  // Load initiatives
-  useEffect(() => {
-    api
-      .get<{ items: Card[] }>("/cards?type=Initiative&page_size=500")
-      .then((r) => setInitiatives(r.items))
-      .catch(() => {});
-  }, []);
-
   // Load existing ADR
   useEffect(() => {
     if (!id) return;
@@ -94,7 +80,6 @@ export default function ADREditor() {
       .get<ArchitectureDecision>(`/adr/${id}`)
       .then((adr) => {
         setTitle(adr.title);
-        setInitiativeId(adr.initiative_id || "");
         setStatus(adr.status);
         setContext(adr.context || "");
         setDecision(adr.decision || "");
@@ -120,7 +105,6 @@ export default function ADREditor() {
     try {
       const payload = {
         title,
-        initiative_id: initiativeId || null,
         context: context || null,
         decision: decision || null,
         consequences: consequences || null,
@@ -141,7 +125,6 @@ export default function ADREditor() {
     }
   }, [
     title,
-    initiativeId,
     context,
     decision,
     consequences,
@@ -432,24 +415,6 @@ export default function ADREditor() {
           disabled={isSigned}
           sx={{ mb: 2 }}
         />
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>{t("adr.editor.initiative")}</InputLabel>
-          <Select
-            value={initiativeId}
-            label={t("adr.editor.initiative")}
-            onChange={(e) => setInitiativeId(e.target.value)}
-            disabled={isSigned}
-          >
-            <MenuItem value="">
-              <em>{t("common:labels.none")}</em>
-            </MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Paper>
 
       {/* ── Context ── */}

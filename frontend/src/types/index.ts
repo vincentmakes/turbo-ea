@@ -508,8 +508,6 @@ export interface ArchitectureDecision {
   reference_number: string;
   title: string;
   status: "draft" | "in_review" | "signed";
-  initiative_id: string | null;
-  initiative_name?: string | null;
   context: string | null;
   decision: string | null;
   consequences: string | null;

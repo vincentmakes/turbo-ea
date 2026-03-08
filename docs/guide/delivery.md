@@ -67,7 +67,7 @@ The EA Delivery page has a dedicated **Decisions** tab that lists all ADRs. Each
 - Reference number (auto-generated: ADR-001, ADR-002, etc.)
 - Title
 - Status (Draft, In Review, Signed)
-- Linked initiative
+- Linked initiatives (via card linking)
 - Signatories and their status
 
 You can filter by status and search by title or reference number.
@@ -76,19 +76,18 @@ You can filter by status and search by title or reference number.
 
 ADRs can be created from three places:
 
-1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link to an initiative.
-2. **Initiative "+" button** (Initiatives tab): Choose **New Architecture Decision** from the menu — the initiative is pre-linked.
+1. **EA Delivery → Decisions tab**: Click **+ New ADR**, fill in the title and optionally link cards (including initiatives).
+2. **Initiative "+" button** (Initiatives tab): Choose **New Architecture Decision** from the menu — the initiative is pre-linked as a card link.
 3. **Card Resources tab**: Click **Create ADR** — the current card is pre-linked.
 
-In all cases, you can search and link additional cards during creation. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.
+In all cases, you can search and link additional cards during creation. Initiatives are linked through the same card linking mechanism as any other card, which means an ADR can be linked to multiple initiatives. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered.
 
 ### The ADR Editor
 
 The editor provides:
 
 - Rich text editing for each section (Context, Decision, Consequences, Alternatives Considered)
-- Initiative linking
-- Card linking — connect the ADR to relevant cards (applications, IT components, etc.)
+- Card linking — connect the ADR to relevant cards (applications, IT components, initiatives, etc.). Initiatives are linked through the standard card linking feature, not a dedicated field, so an ADR can reference multiple initiatives
 - Related decisions — reference other ADRs
 
 ### Sign-off Workflow

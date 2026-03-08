@@ -67,7 +67,7 @@ A página de Entregas de EA possui uma aba dedicada de **Decisões** que lista t
 - Número de referência (gerado automaticamente: ADR-001, ADR-002, etc.)
 - Título
 - Status (Rascunho, Em Revisão, Assinado)
-- Iniciativa vinculada
+- Iniciativas vinculadas (via vinculação de cards)
 - Signatários e seu status
 
 Você pode filtrar por status e pesquisar por título ou número de referência.
@@ -76,19 +76,18 @@ Você pode filtrar por status e pesquisar por título ou número de referência.
 
 Os ADR podem ser criados a partir de três locais:
 
-1. **Entregas de EA → aba Decisões**: Clique em **+ Novo ADR**, preencha o título e opcionalmente vincule a uma iniciativa.
-2. **Botão «+» da iniciativa** (aba Iniciativas): Escolha **Nova Decisão de Arquitetura** no menu — a iniciativa é pré-vinculada.
+1. **Entregas de EA → aba Decisões**: Clique em **+ Novo ADR**, preencha o título e opcionalmente vincule cards (incluindo iniciativas).
+2. **Botão «+» da iniciativa** (aba Iniciativas): Escolha **Nova Decisão de Arquitetura** no menu — a iniciativa é pré-vinculada como um vínculo de card.
 3. **Aba Recursos do cartão**: Clique em **Criar ADR** — o cartão atual é pré-vinculado.
 
-Em todos os casos, você pode pesquisar e vincular cartões adicionais durante a criação. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas.
+Em todos os casos, você pode pesquisar e vincular cartões adicionais durante a criação. As iniciativas são vinculadas através do mesmo mecanismo de vinculação de cards utilizado para qualquer outro card, o que significa que um ADR pode ser vinculado a múltiplas iniciativas. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas.
 
 ### O Editor de ADR
 
 O editor oferece:
 
 - Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas)
-- Vinculação de iniciativas
-- Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, etc.)
+- Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, iniciativas, etc.). As iniciativas são vinculadas através da funcionalidade padrão de vinculação de cards, não por meio de um campo dedicado, permitindo que um ADR referencie múltiplas iniciativas
 - Decisões relacionadas — referencie outros ADR
 
 ### Fluxo de Assinatura

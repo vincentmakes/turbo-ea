@@ -7,7 +7,6 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
-import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -29,8 +28,6 @@ interface CreateAdrDialogProps {
   onClose: () => void;
   onCreated: (adr: ArchitectureDecision) => void;
   preLinkedCards?: LinkedCard[];
-  initiativeId?: string;
-  initiatives?: Card[];
 }
 
 export default function CreateAdrDialog({
@@ -38,13 +35,10 @@ export default function CreateAdrDialog({
   onClose,
   onCreated,
   preLinkedCards = [],
-  initiativeId = "",
-  initiatives,
 }: CreateAdrDialogProps) {
   const { t } = useTranslation(["delivery", "common"]);
 
   const [title, setTitle] = useState("");
-  const [selectedInitiativeId, setSelectedInitiativeId] = useState(initiativeId);
   const [linkedCards, setLinkedCards] = useState<LinkedCard[]>(preLinkedCards);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -58,7 +52,6 @@ export default function CreateAdrDialog({
   useEffect(() => {
     if (open) {
       setTitle("");
-      setSelectedInitiativeId(initiativeId);
       setLinkedCards(preLinkedCards);
       setCreating(false);
       setError("");
@@ -66,7 +59,7 @@ export default function CreateAdrDialog({
       setCardSearch("");
       setSearchResults([]);
     }
-  }, [open, initiativeId, preLinkedCards]);
+  }, [open, preLinkedCards]);
 
   const searchCardsHandler = async (q: string) => {
     setCardSearch(q);
@@ -103,7 +96,6 @@ export default function CreateAdrDialog({
     try {
       const adr = await api.post<ArchitectureDecision>("/adr", {
         title: title.trim(),
-        initiative_id: selectedInitiativeId || null,
       });
       // Link cards sequentially
       for (const card of linkedCards) {
@@ -142,27 +134,6 @@ export default function CreateAdrDialog({
           }}
         />
 
-        {initiatives && (
-          <TextField
-            select
-            label={t("adr.createDialog.initiative")}
-            fullWidth
-            value={selectedInitiativeId}
-            onChange={(e) => setSelectedInitiativeId(e.target.value)}
-            helperText={t("adr.createDialog.initiativeHelper")}
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="">
-              <em>{t("common:labels.none")}</em>
-            </MenuItem>
-            {initiatives.map((init) => (
-              <MenuItem key={init.id} value={init.id}>
-                {init.name}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-
         {/* ── Linked Cards ── */}
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t("adr.createDialog.linkedCards")}
@@ -181,16 +152,20 @@ export default function CreateAdrDialog({
           </Box>
         )}
 
-        {!showSearch ? (
-          <Button
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => setShowSearch(true)}
-            sx={{ textTransform: "none", mb: 1 }}
-          >
-            {t("adr.createDialog.addCard")}
-          </Button>
-        ) : (
+        <Button
+          size="small"
+          startIcon={<MaterialSymbol icon="add" size={18} />}
+          onClick={() => {
+            setShowSearch(true);
+            setCardSearch("");
+            setSearchResults([]);
+          }}
+          sx={{ textTransform: "none", mb: 1 }}
+        >
+          {t("adr.createDialog.addCard")}
+        </Button>
+
+        {showSearch && (
           <Box sx={{ mb: 1 }}>
             <TextField
               autoFocus
@@ -208,44 +183,57 @@ export default function CreateAdrDialog({
                 }
               }}
             />
-            {searchResults.length > 0 && (
-              <List
-                dense
-                sx={{
-                  maxHeight: 200,
-                  overflow: "auto",
-                  border: 1,
-                  borderColor: "divider",
-                  borderRadius: 1,
-                }}
-              >
-                {searchResults.map((card) => {
-                  const alreadyAdded = linkedIds.has(card.id);
-                  return (
-                    <ListItemButton
-                      key={card.id}
-                      onClick={() => !alreadyAdded && addCard(card)}
-                      disabled={alreadyAdded}
-                    >
-                      <ListItemText primary={card.name} secondary={card.type} />
-                      {alreadyAdded && (
-                        <Chip
-                          label={t("adr.createDialog.alreadyAdded")}
-                          size="small"
-                          variant="outlined"
-                          sx={{ height: 20, fontSize: "0.7rem" }}
-                        />
-                      )}
-                    </ListItemButton>
-                  );
-                })}
-              </List>
-            )}
-            {cardSearch.length >= 2 && searchResults.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 1 }}>
-                {t("adr.createDialog.noResults")}
-              </Typography>
-            )}
+            <Box
+              sx={{
+                minHeight: 120,
+                maxHeight: 200,
+                overflow: "auto",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+              }}
+            >
+              {searchResults.length > 0 ? (
+                <List dense disablePadding>
+                  {searchResults.map((card) => {
+                    const alreadyAdded = linkedIds.has(card.id);
+                    return (
+                      <ListItemButton
+                        key={card.id}
+                        onClick={() => !alreadyAdded && addCard(card)}
+                        disabled={alreadyAdded}
+                      >
+                        <ListItemText primary={card.name} secondary={card.type} />
+                        {alreadyAdded && (
+                          <Chip
+                            label={t("adr.createDialog.alreadyAdded")}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: "0.7rem" }}
+                          />
+                        )}
+                      </ListItemButton>
+                    );
+                  })}
+                </List>
+              ) : cardSearch.length >= 2 ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: "center", py: 3 }}
+                >
+                  {t("adr.createDialog.noResults")}
+                </Typography>
+              ) : (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: "center", py: 3 }}
+                >
+                  {t("adr.createDialog.searchCards")}
+                </Typography>
+              )}
+            </Box>
           </Box>
         )}
       </DialogContent>

@@ -122,25 +122,42 @@ export default function SignatureRequestDialog({
         />
 
         {/* Search results */}
-        {search.trim().length > 0 && (
-          <List dense sx={{ maxHeight: 300, overflow: "auto" }}>
-            {filtered.length === 0 ? (
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ px: 2, py: 1 }}
-              >
-                {t("signatureDialog.noResults")}
-              </Typography>
-            ) : (
-              filtered.map((u) => (
+        <Box
+          sx={{
+            minHeight: 150,
+            maxHeight: 300,
+            overflow: "auto",
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 1,
+          }}
+        >
+          {search.trim().length === 0 ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 4 }}
+            >
+              {t("signatureDialog.searchPlaceholder")}
+            </Typography>
+          ) : filtered.length === 0 ? (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ textAlign: "center", py: 4 }}
+            >
+              {t("signatureDialog.noResults")}
+            </Typography>
+          ) : (
+            <List dense disablePadding>
+              {filtered.map((u) => (
                 <ListItemButton key={u.id} onClick={() => addUser(u)} dense>
                   <ListItemText primary={u.display_name} secondary={u.email} />
                 </ListItemButton>
-              ))
-            )}
-          </List>
-        )}
+              ))}
+            </List>
+          )}
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t("common:actions.cancel")}</Button>
