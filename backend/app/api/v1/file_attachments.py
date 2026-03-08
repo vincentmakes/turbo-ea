@@ -47,8 +47,8 @@ async def list_file_attachments(
     creator_ids = {f.created_by for f in files if f.created_by}
     creator_names: dict[uuid.UUID, str] = {}
     if creator_ids:
-        result = await db.execute(select(User).where(User.id.in_(creator_ids)))
-        for u in result.scalars().all():
+        user_result = await db.execute(select(User).where(User.id.in_(creator_ids)))
+        for u in user_result.scalars().all():
             creator_names[u.id] = u.display_name
 
     return [
@@ -59,7 +59,7 @@ async def list_file_attachments(
             "mime_type": f.mime_type,
             "size": f.size,
             "created_by": str(f.created_by) if f.created_by else None,
-            "creator_name": creator_names.get(f.created_by),
+            "creator_name": creator_names.get(f.created_by) if f.created_by else None,
             "created_at": f.created_at.isoformat() if f.created_at else None,
         }
         for f in files
