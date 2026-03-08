@@ -2,6 +2,7 @@
 
 | Term | Definition |
 |------|------------|
+| **ADR (Architecture Decision Record)** | A formal document that captures an important architecture decision, including the context, decision rationale, consequences, and alternatives considered. ADRs support a sign-off workflow and revision chain |
 | **Approval Status** | The review state of a card: Draft, Approved, Broken, or Rejected. Approved cards change to Broken when edited |
 | **Bookmark / Saved View** | A saved filter, column, and sort configuration in the Inventory that can be reloaded with one click |
 | **BPM** | Business Process Management — the discipline of modeling, analyzing, and improving business processes |
@@ -13,6 +14,7 @@
 | **Confidence Score** | A 0–100% rating indicating how reliable an AI-generated description is |
 | **Data Quality** | A 0–100% completeness score based on filled fields and their configured weights |
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |
+| **File Attachment** | A binary file (PDF, DOCX, XLSX, images, up to 10 MB) uploaded directly to a card via the Resources tab |
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
 | **EOL (End of Life)** | The date when a technology product loses vendor support. Tracked via integration with endoflife.date |
@@ -24,9 +26,13 @@
 | **Notification** | An in-app or email alert triggered by system events (todo assigned, card updated, comment added, etc.) |
 | **Ollama** | An open-source tool for running LLMs locally on your own hardware |
 | **Portfolio** | A collection of applications or technologies managed as a group |
+| **Reference Number** | An auto-generated sequential identifier for ADRs (e.g., ADR-001, ADR-002) that provides a unique, human-readable label |
 | **Relation** | A connection between two cards that describes how they relate (e.g., "uses", "depends on", "runs on") |
+| **Resources Tab** | A card detail tab that consolidates Architecture Decision Records, file attachments, and document links in one place |
 | **Saved Report** | A persisted report configuration with filters, axes, and visualization settings that can be reloaded |
+| **Revision (ADR)** | A new version of a signed ADR that inherits the content and card links from the previous version, with an incremented revision number |
 | **Section** | A groupable area of the card detail page containing related fields, configurable per card type |
+| **Signatory** | A user designated to review and sign off on an ADR or SoAW document. The signing workflow tracks pending and completed signatures |
 | **SoAW** | Statement of Architecture Work — a formal TOGAF document defining scope and deliverables for an initiative |
 | **SSO** | Single Sign-On — login using corporate credentials via an identity provider (Microsoft, Google, Okta, OIDC) |
 | **Stakeholder** | A person with a specific role on a card (e.g., Application Owner, Technical Owner) |

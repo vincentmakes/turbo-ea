@@ -55,3 +55,68 @@ Once a SoAW is approved, you can request sign-offs from stakeholders. The system
 
 - **Preview mode** — Read-only view of the complete SoAW document
 - **DOCX export** — Download the SoAW as a formatted Word document for offline sharing or printing
+
+## Architecture Decision Records (ADR)
+
+An **Architecture Decision Record (ADR)** documents important architecture decisions along with their context, consequences, and alternatives considered. ADRs provide a traceable history of why key design choices were made.
+
+### ADR Overview
+
+The EA Delivery page has a dedicated **Decisions** tab that lists all ADRs. Each ADR shows:
+
+- Reference number (auto-generated: ADR-001, ADR-002, etc.)
+- Title
+- Status (Draft, In Review, Signed)
+- Linked initiative
+- Signatories and their status
+
+You can filter by status and search by title or reference number.
+
+### Creating an ADR
+
+1. Navigate to **EA Delivery** → **Decisions** tab
+2. Click **+ New ADR**
+3. Fill in the title and optionally link to an initiative
+4. The editor opens with sections for Context, Decision, Consequences, and Alternatives Considered
+
+### The ADR Editor
+
+The editor provides:
+
+- Rich text editing for each section (Context, Decision, Consequences, Alternatives Considered)
+- Initiative linking
+- Card linking — connect the ADR to relevant cards (applications, IT components, etc.)
+- Related decisions — reference other ADRs
+
+### Sign-off Workflow
+
+ADRs support a formal sign-off process:
+
+1. Create the ADR in **Draft** status
+2. Click **Request Signatures** and select the signatories
+3. The ADR moves to **In Review** — each signatory receives a notification and a task
+4. Signatories review and click **Sign**
+5. When all signatories have signed, the ADR automatically moves to **Signed** status
+
+Signed ADRs are locked and cannot be edited. To make changes, create a **new revision**.
+
+### Revisions
+
+Signed ADRs can be revised:
+
+1. Open a signed ADR
+2. Click **Revise** to create a new draft based on the signed version
+3. The new revision inherits the content and card links
+4. Each revision has an incrementing revision number
+
+### ADR Preview
+
+Click the preview icon to view a read-only, formatted version of the ADR — useful for reviewing before signing.
+
+## Resources Tab
+
+Cards now include a **Resources** tab that consolidates:
+
+- **Architecture Decisions** — ADRs linked to this card
+- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB)
+- **Document Links** — URL-based document references

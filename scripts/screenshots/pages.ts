@@ -95,6 +95,15 @@ const TAB_METAMODEL_GRAPH = tabSelector(
 const TAB_ROLES = tabSelector(
   "Roles", "Rollen", "Rôles", "Ruoli", "Papéis", "角色",
 );
+const TAB_DECISIONS = tabSelector(
+  "Architecture Decisions", "Architekturentscheidungen", "Décisions d'architecture",
+  "Decisiones de arquitectura", "Decisioni architetturali", "Decisões de arquitetura",
+  "架构决策",
+);
+const TAB_RESOURCES = tabSelector(
+  "Resources", "Ressourcen", "Ressources", "Recursos",
+  "Risorse", "资源",
+);
 const BTN_CREATE = [
   "button:has-text('Create')", "button:has-text('Erstellen')",
   "button:has-text('Créer')", "button:has-text('Crear')",
@@ -396,6 +405,48 @@ export const DOC_PAGES: PageDef[] = [
       it: "17_consegna_ea",
       pt: "17_entrega_ea",
       zh: "17_ea_delivery",
+    },
+  },
+
+  // ── EA Delivery — ADR Decisions Tab ──────────────────────────────────
+  {
+    id: "17b_ea_delivery_decisions",
+    route: "/ea-delivery",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_DECISIONS },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "17b_ea_delivery_decisions",
+      de: "17b_ea_lieferung_entscheidungen",
+      fr: "17b_livraison_ea_decisions",
+      es: "17b_entrega_ea_decisiones",
+      it: "17b_consegna_ea_decisioni",
+      pt: "17b_entrega_ea_decisoes",
+      zh: "17b_ea_delivery_decisions",
+    },
+  },
+
+  // ── Card Detail — Resources Tab ────────────────────────────────────
+  {
+    id: "17c_card_resources",
+    route: "/cards/{{cardId:sampleApp}}",
+    waitFor: "[data-testid='card-detail'], [class*='CardDetail'], h5, h4",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_RESOURCES },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "17c_card_resources",
+      de: "17c_karten_ressourcen",
+      fr: "17c_fiche_ressources",
+      es: "17c_ficha_recursos",
+      it: "17c_scheda_risorse",
+      pt: "17c_ficha_recursos",
+      zh: "17c_card_resources",
     },
   },
 

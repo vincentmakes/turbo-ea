@@ -2,6 +2,7 @@
 
 | Termine | Definizione |
 |---------|------------|
+| **ADR (Architecture Decision Record)** | Un documento formale che registra una decisione architetturale importante, includendo contesto, motivazioni, conseguenze e alternative considerate. Gli ADR supportano un flusso di firma e una catena di revisioni |
 | **Stato di approvazione** | Lo stato di revisione di una card: Draft, Approved, Broken o Rejected. Le card approvate cambiano in Broken quando vengono modificate |
 | **Segnalibro / Vista salvata** | Una configurazione salvata di filtri, colonne e ordinamento nell'Inventario che può essere ricaricata con un clic |
 | **BPM** | Business Process Management — la disciplina della modellazione, analisi e miglioramento dei processi aziendali |
@@ -13,6 +14,7 @@
 | **Punteggio di affidabilità** | Una valutazione 0-100% che indica quanto è affidabile una descrizione generata dall'AI |
 | **Qualità dei dati** | Un punteggio di completezza 0-100% basato sui campi compilati e sui loro pesi configurati |
 | **Diagramma** | Un diagramma architetturale visivo creato con l'editor DrawIO integrato |
+| **File allegato** | Un file binario (PDF, DOCX, XLSX, immagini, fino a 10 MB) caricato direttamente su una card tramite la scheda Risorse |
 | **DrawIO** | Lo strumento di disegno open-source integrato utilizzato per i diagrammi architetturali visivi |
 | **Enterprise Architecture (EA)** | La disciplina che organizza e documenta la struttura aziendale e tecnologica di un'organizzazione |
 | **EOL (End of Life)** | La data in cui un prodotto tecnologico perde il supporto del fornitore. Tracciato tramite l'integrazione con endoflife.date |
@@ -24,9 +26,13 @@
 | **Notifica** | Un avviso in-app o via email attivato da eventi di sistema (todo assegnato, card aggiornata, commento aggiunto, ecc.) |
 | **Ollama** | Uno strumento open-source per eseguire LLM localmente sul proprio hardware |
 | **Portfolio** | Una collezione di applicazioni o tecnologie gestite come gruppo |
+| **Numero di riferimento** | Un identificatore sequenziale generato automaticamente per gli ADR (es. ADR-001, ADR-002) che fornisce un'etichetta univoca e leggibile |
 | **Relazione** | Una connessione tra due card che descrive come sono correlate (es. "utilizza", "dipende da", "funziona su") |
+| **Scheda Risorse** | Una scheda nella pagina di dettaglio della card che consolida Decisioni architetturali, file allegati e link ai documenti in un unico luogo |
+| **Revisione (ADR)** | Una nuova versione di un ADR firmato che eredita il contenuto e i collegamenti alle card dalla versione precedente, con un numero di revisione incrementato |
 | **Report salvato** | Una configurazione di report persistente con filtri, assi e impostazioni di visualizzazione che può essere ricaricata |
 | **Sezione** | Un'area raggruppabile della pagina di dettaglio della card contenente campi correlati, configurabile per tipo di card |
+| **Firmatario** | Un utente designato per esaminare e firmare un documento ADR o SoAW. Il flusso di firma traccia le firme in sospeso e completate |
 | **SoAW** | Statement of Architecture Work — un documento formale TOGAF che definisce ambito e deliverable per un'iniziativa |
 | **SSO** | Single Sign-On — login tramite credenziali aziendali attraverso un identity provider (Microsoft, Google, Okta, OIDC) |
 | **Stakeholder** | Una persona con un ruolo specifico su una card (es. Application Owner, Technical Owner) |

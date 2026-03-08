@@ -55,3 +55,68 @@ Una vez que un SoAW es aprobado, puede solicitar firmas de las partes interesada
 
 - **Modo de vista previa** — Vista de solo lectura del documento SoAW completo
 - **Exportación DOCX** — Descargue el SoAW como un documento Word formateado para compartir o imprimir sin conexión
+
+## Registros de Decisiones de Arquitectura (ADR)
+
+Un **Registro de Decisión de Arquitectura (ADR)** documenta decisiones de arquitectura importantes junto con su contexto, consecuencias y alternativas consideradas. Los ADR proporcionan un historial trazable de por qué se tomaron decisiones de diseño clave.
+
+### Resumen de ADR
+
+La página de Entrega EA tiene una pestaña dedicada de **Decisiones** que lista todos los ADR. Cada ADR muestra:
+
+- Número de referencia (generado automáticamente: ADR-001, ADR-002, etc.)
+- Título
+- Estado (Borrador, En Revisión, Firmado)
+- Iniciativa vinculada
+- Firmantes y su estado
+
+Puede filtrar por estado y buscar por título o número de referencia.
+
+### Crear un ADR
+
+1. Navegue a **Entrega EA** → pestaña **Decisiones**
+2. Haga clic en **+ Nuevo ADR**
+3. Complete el título y opcionalmente vincule a una iniciativa
+4. El editor se abre con secciones para Contexto, Decisión, Consecuencias y Alternativas Consideradas
+
+### El Editor de ADR
+
+El editor proporciona:
+
+- Edición de texto enriquecido para cada sección (Contexto, Decisión, Consecuencias, Alternativas Consideradas)
+- Vinculación de iniciativas
+- Vinculación de tarjetas — conecte el ADR a tarjetas relevantes (aplicaciones, componentes TI, etc.)
+- Decisiones relacionadas — referencie otros ADR
+
+### Flujo de Firma
+
+Los ADR soportan un proceso formal de firma:
+
+1. Cree el ADR en estado **Borrador**
+2. Haga clic en **Solicitar Firmas** y seleccione los firmantes
+3. El ADR pasa a **En Revisión** — cada firmante recibe una notificación y una tarea
+4. Los firmantes revisan y hacen clic en **Firmar**
+5. Cuando todos los firmantes han firmado, el ADR pasa automáticamente al estado **Firmado**
+
+Los ADR firmados están bloqueados y no pueden editarse. Para hacer cambios, cree una **nueva revisión**.
+
+### Revisiones
+
+Los ADR firmados pueden revisarse:
+
+1. Abra un ADR firmado
+2. Haga clic en **Revisar** para crear un nuevo borrador basado en la versión firmada
+3. La nueva revisión hereda el contenido y los vínculos de tarjetas
+4. Cada revisión tiene un número de revisión incremental
+
+### Vista Previa de ADR
+
+Haga clic en el icono de vista previa para ver una versión de solo lectura y formateada del ADR — útil para revisar antes de firmar.
+
+## Pestaña de Recursos
+
+Las tarjetas ahora incluyen una pestaña de **Recursos** que consolida:
+
+- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta
+- **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB)
+- **Enlaces de Documentos** — Referencias de documentos basadas en URL

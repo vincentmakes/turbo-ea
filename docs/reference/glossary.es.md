@@ -2,6 +2,7 @@
 
 | Término | Definición |
 |---------|------------|
+| **ADR (Architecture Decision Record)** | Un documento formal que registra una decisión de arquitectura importante, incluyendo el contexto, la justificación, las consecuencias y las alternativas consideradas. Los ADR admiten un flujo de firma y una cadena de revisiones |
 | **Estado de Aprobación** | El estado de revisión de una ficha: Borrador, Aprobado, Roto o Rechazado. Las fichas aprobadas cambian a Roto cuando se editan |
 | **Marcador / Vista Guardada** | Una configuración guardada de filtros, columnas y ordenamiento en el Inventario que se puede recargar con un clic |
 | **BPM** | Gestión de Procesos de Negocio — la disciplina de modelar, analizar y mejorar procesos de negocio |
@@ -12,6 +13,7 @@
 | **Tipo de Ficha** | La categoría a la que pertenece una ficha (ej., Aplicación, Proceso de Negocio, Organización) |
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
 | **Calidad de Datos** | Una puntuación de completitud de 0–100% basada en campos completados y sus pesos configurados |
+| **Archivo adjunto** | Un archivo binario (PDF, DOCX, XLSX, imágenes, hasta 10 MB) cargado directamente a una ficha mediante la pestaña Recursos |
 | **Diagrama** | Un diagrama visual de arquitectura creado con el editor DrawIO integrado |
 | **DrawIO** | La herramienta de diagramación de código abierto integrada utilizada para diagramas visuales de arquitectura |
 | **Arquitectura Empresarial (EA)** | La disciplina que organiza y documenta la estructura de negocio y tecnología de una organización |
@@ -24,9 +26,13 @@
 | **Notificación** | Una alerta en la aplicación o por correo electrónico activada por eventos del sistema (tarea asignada, ficha actualizada, comentario agregado, etc.) |
 | **Ollama** | Una herramienta de código abierto para ejecutar LLMs localmente en su propio hardware |
 | **Portafolio** | Un conjunto de aplicaciones o tecnologías gestionadas como un grupo |
+| **Número de referencia** | Un identificador secuencial generado automáticamente para los ADR (ej., ADR-001, ADR-002) que proporciona una etiqueta única y legible |
 | **Relación** | Una conexión entre dos fichas que describe cómo se relacionan (ej., «utiliza», «depende de», «se ejecuta en») |
+| **Pestaña Recursos** | Una pestaña en el detalle de ficha que consolida Decisiones de Arquitectura, archivos adjuntos y enlaces a documentos en un solo lugar |
+| **Revisión (ADR)** | Una nueva versión de un ADR firmado que hereda el contenido y los vínculos de fichas de la versión anterior, con un número de revisión incrementado |
 | **Informe Guardado** | Una configuración de informe persistida con filtros, ejes y ajustes de visualización que se puede recargar |
 | **Sección** | Un área agrupable de la página de detalle de ficha que contiene campos relacionados, configurable por tipo de ficha |
+| **Signatario** | Un usuario designado para revisar y firmar un documento ADR o SoAW. El flujo de firma rastrea las firmas pendientes y completadas |
 | **SoAW** | Declaración de Trabajo de Arquitectura — un documento formal TOGAF que define el alcance y entregables de una iniciativa |
 | **SSO** | Inicio de Sesión Único — acceso con credenciales corporativas a través de un proveedor de identidad (Microsoft, Google, Okta, OIDC) |
 | **Parte Interesada (Stakeholder)** | Una persona con un rol específico en una ficha (ej., Propietario de Aplicación, Propietario Técnico) |

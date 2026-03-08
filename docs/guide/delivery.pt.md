@@ -55,3 +55,68 @@ Uma vez que um SoAW é aprovado, você pode solicitar assinaturas das partes int
 
 - **Modo de pré-visualização** — Visualização somente leitura do documento SoAW completo
 - **Exportação DOCX** — Baixe o SoAW como um documento Word formatado para compartilhamento offline ou impressão
+
+## Registros de Decisões de Arquitetura (ADR)
+
+Um **Registro de Decisão de Arquitetura (ADR)** documenta decisões de arquitetura importantes junto com seu contexto, consequências e alternativas consideradas. Os ADR fornecem um histórico rastreável de por que escolhas de design fundamentais foram feitas.
+
+### Visão Geral dos ADR
+
+A página de Entregas de EA possui uma aba dedicada de **Decisões** que lista todos os ADR. Cada ADR mostra:
+
+- Número de referência (gerado automaticamente: ADR-001, ADR-002, etc.)
+- Título
+- Status (Rascunho, Em Revisão, Assinado)
+- Iniciativa vinculada
+- Signatários e seu status
+
+Você pode filtrar por status e pesquisar por título ou número de referência.
+
+### Criando um ADR
+
+1. Navegue até **Entregas de EA** → aba **Decisões**
+2. Clique em **+ Novo ADR**
+3. Preencha o título e opcionalmente vincule a uma iniciativa
+4. O editor abre com seções para Contexto, Decisão, Consequências e Alternativas Consideradas
+
+### O Editor de ADR
+
+O editor oferece:
+
+- Edição de texto rico para cada seção (Contexto, Decisão, Consequências, Alternativas Consideradas)
+- Vinculação de iniciativas
+- Vinculação de cards — conecte o ADR a cards relevantes (aplicações, componentes de TI, etc.)
+- Decisões relacionadas — referencie outros ADR
+
+### Fluxo de Assinatura
+
+Os ADR suportam um processo formal de assinatura:
+
+1. Crie o ADR com status **Rascunho**
+2. Clique em **Solicitar Assinaturas** e selecione os signatários
+3. O ADR passa para **Em Revisão** — cada signatário recebe uma notificação e uma tarefa
+4. Os signatários revisam e clicam em **Assinar**
+5. Quando todos os signatários tiverem assinado, o ADR passa automaticamente para o status **Assinado**
+
+ADR assinados ficam bloqueados e não podem ser editados. Para fazer alterações, crie uma **nova revisão**.
+
+### Revisões
+
+ADR assinados podem ser revisados:
+
+1. Abra um ADR assinado
+2. Clique em **Revisar** para criar um novo rascunho baseado na versão assinada
+3. A nova revisão herda o conteúdo e os vínculos de cards
+4. Cada revisão tem um número de revisão incremental
+
+### Pré-visualização do ADR
+
+Clique no ícone de pré-visualização para ver uma versão somente leitura e formatada do ADR — útil para revisão antes da assinatura.
+
+## Aba de Recursos
+
+Os cards agora incluem uma aba de **Recursos** que consolida:
+
+- **Decisões de Arquitetura** — ADR vinculados a este card
+- **Anexos de Arquivos** — Carregue e gerencie arquivos (PDF, DOCX, XLSX, imagens, até 10 MB)
+- **Links de Documentos** — Referências de documentos baseadas em URL

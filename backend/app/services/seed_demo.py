@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.architecture_decision import ArchitectureDecision
+from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.tag import CardTag, Tag, TagGroup
@@ -4545,6 +4548,132 @@ _ENRICHMENTS: dict[str, dict] = {
 
 
 # ===================================================================
+# ARCHITECTURE DECISION RECORDS (demo ADRs)
+# ===================================================================
+
+DEMO_ADRS = [
+    {
+        "id": _id("adr_cloud_first"),
+        "reference_number": "ADR-001",
+        "title": "Adopt Cloud-First Strategy for All New Applications",
+        "status": "signed",
+        "initiative_id": _id("init_digital_program"),
+        "context": (
+            "<p>NexaTech currently runs 80% of its applications on-premises. "
+            "Rising data centre costs, limited scalability, and the need for "
+            "global availability require a strategic shift.</p>"
+        ),
+        "decision": (
+            "<p>All new applications will be deployed to cloud platforms (Azure preferred, "
+            "AWS as secondary). Existing applications will be migrated based on a "
+            "prioritized roadmap during the Digital Transformation Program.</p>"
+        ),
+        "consequences": (
+            "<p>Reduced capital expenditure on hardware. Teams must upskill on cloud "
+            "technologies. Vendor lock-in risk must be mitigated through portable "
+            "container-based deployments where feasible.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Hybrid approach with selective cloud adoption — rejected due to "
+            "operational complexity.<br>"
+            "2. Continue on-premises with hardware refresh — rejected due to cost "
+            "trajectory.</p>"
+        ),
+        "related_decisions": [],
+        "signatories": [
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "CTO Office",
+                "email": "cto@nexatech.demo",
+                "status": "signed",
+                "signed_at": "2025-09-15T10:00:00Z",
+            }
+        ],
+        "signed_at": datetime(2025, 9, 15, 10, 0, 0, tzinfo=timezone.utc),
+        "revision_number": 1,
+    },
+    {
+        "id": _id("adr_api_gateway"),
+        "reference_number": "ADR-002",
+        "title": "Introduce Centralized API Gateway for All External Integrations",
+        "status": "signed",
+        "initiative_id": _id("init_digital_program"),
+        "context": (
+            "<p>Multiple applications expose APIs directly, leading to inconsistent "
+            "authentication, rate limiting, and monitoring. A centralized gateway "
+            "would standardize cross-cutting concerns.</p>"
+        ),
+        "decision": (
+            "<p>Deploy an API gateway (Kong or AWS API Gateway) as the single entry "
+            "point for all external-facing APIs. Internal service-to-service calls "
+            "remain direct via service mesh.</p>"
+        ),
+        "consequences": (
+            "<p>Unified authentication and rate limiting. Additional infrastructure "
+            "component to maintain. All teams must register new APIs in the gateway.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. Sidecar proxy per service — rejected as too complex for current "
+            "team maturity.<br>"
+            "2. No gateway, enforce standards via code reviews — rejected as "
+            "unenforceable at scale.</p>"
+        ),
+        "related_decisions": ["ADR-001"],
+        "signatories": [
+            {
+                "user_id": "demo-placeholder",
+                "display_name": "Enterprise Architect",
+                "email": "ea@nexatech.demo",
+                "status": "signed",
+                "signed_at": "2025-10-01T14:30:00Z",
+            }
+        ],
+        "signed_at": datetime(2025, 10, 1, 14, 30, 0, tzinfo=timezone.utc),
+        "revision_number": 1,
+    },
+    {
+        "id": _id("adr_sap_integration"),
+        "reference_number": "ADR-003",
+        "title": "Use SAP Integration Suite for S/4HANA Connectivity",
+        "status": "draft",
+        "initiative_id": _id("init_sap_migration"),
+        "context": (
+            "<p>The SAP S/4HANA migration requires reliable integration with "
+            "surrounding systems (MES, PLM, CRM). Multiple integration patterns "
+            "are available.</p>"
+        ),
+        "decision": (
+            "<p>Adopt SAP Integration Suite (formerly CPI) as the primary middleware "
+            "for all S/4HANA-connected integrations. Custom point-to-point "
+            "integrations are discouraged.</p>"
+        ),
+        "consequences": (
+            "<p>Consistent monitoring and error handling for SAP integrations. "
+            "Additional licensing cost for SAP Integration Suite. Non-SAP systems "
+            "use the centralized API gateway instead.</p>"
+        ),
+        "alternatives_considered": (
+            "<p>1. MuleSoft — rejected due to budget constraints.<br>"
+            "2. Custom middleware — rejected due to maintenance overhead.</p>"
+        ),
+        "related_decisions": ["ADR-001", "ADR-002"],
+        "revision_number": 1,
+    },
+]
+
+# Links between ADRs and cards
+DEMO_ADR_CARD_LINKS = [
+    # ADR-001 linked to cloud-related apps
+    {"adr_ref": "adr_cloud_first", "card_ref": "app_azure_iot"},
+    {"adr_ref": "adr_cloud_first", "card_ref": "app_nexacloud"},
+    # ADR-002 linked to integration components
+    {"adr_ref": "adr_api_gateway", "card_ref": "app_kafka"},
+    # ADR-003 linked to SAP application
+    {"adr_ref": "adr_sap_integration", "card_ref": "app_sap_s4"},
+]
+
+
+# ===================================================================
 # SEED FUNCTION  (called from main.py or CLI)
 # ===================================================================
 def _compute_data_quality(d: dict, type_schemas: dict[str, list]) -> float:
@@ -4648,11 +4777,27 @@ async def seed_demo_data(db: AsyncSession) -> dict:
                 db.add(CardTag(card_id=_id(ref), tag_id=t["id"]))
     await db.flush()
 
+    # Insert demo Architecture Decision Records
+    for adr_def in DEMO_ADRS:
+        adr_data = {k: v for k, v in adr_def.items()}
+        db.add(ArchitectureDecision(**adr_data))
+    await db.flush()
+
+    for link_def in DEMO_ADR_CARD_LINKS:
+        db.add(
+            ArchitectureDecisionCard(
+                architecture_decision_id=_id(link_def["adr_ref"]),
+                card_id=_id(link_def["card_ref"]),
+            )
+        )
+    await db.flush()
+
     await db.commit()
     return {
         "cards": len(all_fs),
         "relations": len(RELATIONS),
         "tag_groups": len(TAG_GROUPS),
+        "adrs": len(DEMO_ADRS),
     }
 
 

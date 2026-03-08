@@ -2,6 +2,7 @@
 
 | Terme | Définition |
 |-------|------------|
+| **ADR (Architecture Decision Record)** | Un document formel qui enregistre une décision d'architecture importante, incluant le contexte, la justification, les conséquences et les alternatives envisagées. Les ADR supportent un processus de signature et une chaîne de révisions |
 | **Statut d'approbation** | L'état de révision d'une fiche : Brouillon, Approuvé, Cassé ou Rejeté. Les fiches approuvées passent à Cassé lorsqu'elles sont modifiées |
 | **Signet / Vue sauvegardée** | Une configuration sauvegardée de filtres, colonnes et tri dans l'Inventaire qui peut être rechargée en un clic |
 | **BPM** | Gestion des processus métier -- la discipline de modélisation, d'analyse et d'amélioration des processus métier |
@@ -13,6 +14,7 @@
 | **Score de confiance** | Une note de 0 à 100% indiquant la fiabilité d'une description générée par IA |
 | **Qualité des données** | Un score de complétude de 0 à 100% basé sur les champs remplis et leurs poids configurés |
 | **Diagramme** | Un diagramme d'architecture visuel créé avec l'éditeur DrawIO intégré |
+| **Fichier joint** | Un fichier binaire (PDF, DOCX, XLSX, images, jusqu'à 10 Mo) téléversé directement sur une fiche via l'onglet Ressources |
 | **DrawIO** | L'outil de création de diagrammes open source intégré utilisé pour les diagrammes d'architecture visuels |
 | **Architecture d'entreprise (EA)** | La discipline qui organise et documente la structure métier et technologique d'une organisation |
 | **EOL (Fin de vie)** | La date à laquelle un produit technologique perd le support du fournisseur. Suivi via l'intégration avec endoflife.date |
@@ -24,9 +26,13 @@
 | **Notification** | Une alerte dans l'application ou par e-mail déclenchée par des événements système (tâche assignée, fiche mise à jour, commentaire ajouté, etc.) |
 | **Ollama** | Un outil open source pour exécuter des LLM localement sur votre propre matériel |
 | **Portefeuille** | Un ensemble d'applications ou de technologies gérées en tant que groupe |
+| **Numéro de référence** | Un identifiant séquentiel généré automatiquement pour les ADR (par ex. ADR-001, ADR-002) fournissant une étiquette unique et lisible |
 | **Relation** | Une connexion entre deux fiches qui décrit comment elles sont liées (par ex. « utilise », « dépend de », « s'exécute sur ») |
+| **Onglet Ressources** | Un onglet de la page de détail de la fiche qui regroupe les Décisions d'architecture, les fichiers joints et les liens documentaires |
+| **Révision (ADR)** | Une nouvelle version d'un ADR signé qui hérite du contenu et des liaisons avec les fiches de la version précédente, avec un numéro de révision incrémenté |
 | **Rapport sauvegardé** | Une configuration de rapport persistée avec des filtres, des axes et des paramètres de visualisation qui peut être rechargée |
 | **Section** | Une zone regroupable de la page de détail de la fiche contenant des champs liés, configurable par type de fiche |
+| **Signataire** | Un utilisateur désigné pour examiner et signer un document ADR ou SoAW. Le processus de signature suit les signatures en attente et terminées |
 | **SoAW** | Statement of Architecture Work -- un document formel TOGAF définissant la portée et les livrables d'une initiative |
 | **SSO** | Single Sign-On -- connexion utilisant les identifiants d'entreprise via un fournisseur d'identité (Microsoft, Google, Okta, OIDC) |
 | **Partie prenante** | Une personne ayant un rôle spécifique sur une fiche (par ex. Responsable Applicatif, Responsable Technique) |

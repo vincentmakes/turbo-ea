@@ -92,12 +92,38 @@ function renderPage() {
   );
 }
 
+const mockAdrs = [
+  {
+    id: "adr-1",
+    reference_number: "ADR-001",
+    title: "Cloud-First Strategy",
+    status: "signed",
+    initiative_id: "init-1",
+    signatories: [],
+    linked_cards: [],
+    revision_number: 1,
+    created_at: "2025-09-01T10:00:00Z",
+  },
+  {
+    id: "adr-2",
+    reference_number: "ADR-002",
+    title: "API Gateway Standard",
+    status: "draft",
+    initiative_id: null,
+    signatories: [],
+    linked_cards: [],
+    revision_number: 1,
+    created_at: "2025-10-01T10:00:00Z",
+  },
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
     if (url.startsWith("/cards?type=Initiative")) return Promise.resolve(mockInitiatives);
     if (url === "/diagrams") return Promise.resolve(mockDiagrams);
     if (url === "/soaw") return Promise.resolve(mockSoaws);
+    if (url.startsWith("/adr")) return Promise.resolve(mockAdrs);
     if (url.startsWith("/relations")) return Promise.resolve([]);
     return Promise.reject(new Error(`no mock for ${url}`));
   });
