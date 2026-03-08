@@ -80,6 +80,11 @@ function ResourcesTab({
   const [adrSearch, setAdrSearch] = useState("");
   const [allAdrs, setAllAdrs] = useState<ArchitectureDecision[]>([]);
 
+  // ADR create dialog
+  const [createAdrOpen, setCreateAdrOpen] = useState(false);
+  const [createAdrTitle, setCreateAdrTitle] = useState("");
+  const [creatingAdr, setCreatingAdr] = useState(false);
+
   // Document link dialog
   const [addLinkOpen, setAddLinkOpen] = useState(false);
   const [linkName, setLinkName] = useState("");
@@ -144,6 +149,25 @@ function ResourcesTab({
       loadAdrs();
     } catch {
       setError(t("resources.error.unlinkFailed"));
+    }
+  };
+
+  // ── ADR Create + Link ──
+  const handleCreateAdr = async () => {
+    if (!createAdrTitle.trim()) return;
+    setCreatingAdr(true);
+    try {
+      const created = await api.post<ArchitectureDecision>("/adr", {
+        title: createAdrTitle.trim(),
+      });
+      await api.post(`/adr/${created.id}/cards`, { card_id: fsId });
+      setCreateAdrOpen(false);
+      setCreateAdrTitle("");
+      loadAdrs();
+    } catch {
+      setError(t("resources.error.createFailed"));
+    } finally {
+      setCreatingAdr(false);
     }
   };
 
@@ -242,10 +266,18 @@ function ResourcesTab({
         </AccordionSummary>
         <AccordionDetails>
           {canManageAdrLinks && (
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mb: 1 }}>
               <Button
                 size="small"
                 startIcon={<MaterialSymbol icon="add" size={18} />}
+                onClick={() => setCreateAdrOpen(true)}
+                sx={{ textTransform: "none" }}
+              >
+                {t("resources.createAdr")}
+              </Button>
+              <Button
+                size="small"
+                startIcon={<MaterialSymbol icon="link" size={18} />}
                 onClick={openLinkAdr}
                 sx={{ textTransform: "none" }}
               >
@@ -545,6 +577,41 @@ function ResourcesTab({
         <DialogActions>
           <Button onClick={() => setLinkAdrOpen(false)}>
             {t("common:actions.cancel")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Create ADR Dialog ── */}
+      <Dialog
+        open={createAdrOpen}
+        onClose={() => setCreateAdrOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("resources.createAdrDialog.title")}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label={t("resources.createAdrDialog.titleLabel")}
+            fullWidth
+            value={createAdrTitle}
+            onChange={(e) => setCreateAdrTitle(e.target.value)}
+            sx={{ mt: 1 }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && createAdrTitle.trim()) handleCreateAdr();
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateAdrOpen(false)}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!createAdrTitle.trim() || creatingAdr}
+            onClick={handleCreateAdr}
+          >
+            {t("common:actions.create")}
           </Button>
         </DialogActions>
       </Dialog>

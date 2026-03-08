@@ -117,6 +117,6 @@ Haga clic en el icono de vista previa para ver una versión de solo lectura y fo
 
 Las tarjetas ahora incluyen una pestaña de **Recursos** que consolida:
 
-- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta
+- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta. Puede vincular ADR existentes o crear uno nuevo directamente desde la pestaña de Recursos — el nuevo ADR se vincula automáticamente a la tarjeta.
 - **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB)
 - **Enlaces de Documentos** — Referencias de documentos basadas en URL

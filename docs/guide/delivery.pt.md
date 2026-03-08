@@ -117,6 +117,6 @@ Clique no ícone de pré-visualização para ver uma versão somente leitura e f
 
 Os cards agora incluem uma aba de **Recursos** que consolida:
 
-- **Decisões de Arquitetura** — ADR vinculados a este card
+- **Decisões de Arquitetura** — ADR vinculados a este card. Você pode vincular ADRs existentes ou criar um novo diretamente a partir da aba Recursos — o novo ADR é vinculado automaticamente ao card.
 - **Anexos de Arquivos** — Carregue e gerencie arquivos (PDF, DOCX, XLSX, imagens, até 10 MB)
 - **Links de Documentos** — Referências de documentos baseadas em URL

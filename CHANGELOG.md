@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Architecture Decisions tab in EA Delivery panel with search, status, and initiative filters
 - ADRs linkable to Initiatives in EA Delivery and visible under initiative artefacts
 - Resources tab on card detail with three sections: Architecture Decisions, File Attachments, Document Links
+- Create ADR directly from a card's Resources tab with automatic linking
 - File attachment uploads (up to 10 MB) stored in database with download support
 - Document link management on card detail
 - ADR signing workflow reusing SoAW pattern (request signatures, sign, revise)

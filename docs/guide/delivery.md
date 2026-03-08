@@ -117,6 +117,6 @@ Click the preview icon to view a read-only, formatted version of the ADR — use
 
 Cards now include a **Resources** tab that consolidates:
 
-- **Architecture Decisions** — ADRs linked to this card
+- **Architecture Decisions** — ADRs linked to this card. You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
 - **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB)
 - **Document Links** — URL-based document references

@@ -117,6 +117,6 @@ Klicken Sie auf das Vorschau-Symbol, um eine schreibgeschützte, formatierte Ver
 
 Karten enthalten jetzt eine **Ressourcen**-Registerkarte, die Folgendes zusammenfasst:
 
-- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs
+- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs. Sie können bestehende ADRs verknüpfen oder ein neues ADR direkt über die Ressourcen-Registerkarte erstellen — das neue ADR wird automatisch mit der Karte verknüpft.
 - **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB)
 - **Dokumentenlinks** — URL-basierte Dokumentenverweise
