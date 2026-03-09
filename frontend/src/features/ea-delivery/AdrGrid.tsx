@@ -43,6 +43,12 @@ const STATUS_CHIP_PROPS: Record<string, { label_key: string; color: "default" | 
   signed: { label_key: "status.signed", color: "success" },
 };
 
+const STATUS_DOT_COLOR: Record<string, string> = {
+  draft: "#9e9e9e",
+  in_review: "#ff9800",
+  signed: "#4caf50",
+};
+
 export default function AdrGrid({
   adrs,
   metamodelTypes,
@@ -81,8 +87,36 @@ export default function AdrGrid({
       {
         headerName: t("adr.grid.reference"),
         field: "reference_number",
-        width: 120,
-        minWidth: 100,
+        width: 140,
+        minWidth: 120,
+        cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
+          if (!params.data) return null;
+          const status = params.data.status;
+          const dotColor = STATUS_DOT_COLOR[status] || "#9e9e9e";
+          const cfg = STATUS_CHIP_PROPS[status];
+          const label = cfg ? t(cfg.label_key) : status;
+          return (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Tooltip title={label} arrow>
+                <Box
+                  sx={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    bgcolor: dotColor,
+                    flexShrink: 0,
+                  }}
+                />
+              </Tooltip>
+              <span>{params.data.reference_number}</span>
+            </Box>
+          );
+        },
+      },
+      {
+        // Hidden column so status text remains searchable via quick filter
+        field: "status",
+        hide: true,
       },
       {
         headerName: t("adr.grid.title"),
@@ -103,27 +137,11 @@ export default function AdrGrid({
         },
       },
       {
-        headerName: t("adr.grid.status"),
-        field: "status",
-        width: 140,
-        cellRenderer: (params: { value: string }) => {
-          const cfg = STATUS_CHIP_PROPS[params.value];
-          if (!cfg) return params.value;
-          return (
-            <Chip
-              label={t(cfg.label_key)}
-              color={cfg.color}
-              size="small"
-              sx={{ fontWeight: 500 }}
-            />
-          );
-        },
-      },
-      {
         headerName: t("adr.grid.linkedCards"),
         sortable: false,
-        minWidth: 160,
-        flex: 1,
+        minWidth: 240,
+        flex: 2,
+        autoHeight: true,
         valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
           (params.data?.linked_cards ?? []).map((c) => c.name).join(", "),
         cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
@@ -140,9 +158,9 @@ export default function AdrGrid({
                   display: "flex",
                   gap: 0.5,
                   alignItems: "center",
-                  flexWrap: "nowrap",
+                  flexWrap: "wrap",
                   overflow: "hidden",
-                  py: 0.25,
+                  py: 0.5,
                 }}
               >
                 {cards.map((c) => (
@@ -154,11 +172,13 @@ export default function AdrGrid({
                       bgcolor: typeColorMap[c.type] || "#9e9e9e",
                       color: "#fff",
                       fontWeight: 500,
-                      maxWidth: 140,
-                      flexShrink: 0,
+                      fontSize: 11,
+                      height: 20,
+                      maxWidth: 120,
                       "& .MuiChip-label": {
                         overflow: "hidden",
                         textOverflow: "ellipsis",
+                        px: 0.75,
                       },
                     }}
                   />
