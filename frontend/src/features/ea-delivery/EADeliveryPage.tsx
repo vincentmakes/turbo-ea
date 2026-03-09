@@ -169,6 +169,13 @@ export default function EADeliveryPage() {
     }
   };
 
+  const handleDataReady = useCallback(
+    (d: ReturnType<typeof useInitiativeData>) => {
+      dataRef.current = d;
+    },
+    [],
+  );
+
   const handleCreateSoawForInitiative = useCallback((initiativeId: string) => {
     setNewInitiativeId(initiativeId);
     setCreateOpen(true);
@@ -665,12 +672,7 @@ export default function EADeliveryPage() {
           onCreateArtefact={openCreateMenu}
           onUnlinkDiagram={handleUnlinkDiagram}
           onSoawContextMenu={handleSoawContextMenu}
-          onDataReady={useCallback(
-            (d: ReturnType<typeof useInitiativeData>) => {
-              dataRef.current = d;
-            },
-            [],
-          )}
+          onDataReady={handleDataReady}
         />
       )}
 
