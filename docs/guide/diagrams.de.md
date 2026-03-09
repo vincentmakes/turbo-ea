@@ -10,9 +10,9 @@ Die Galerie zeigt alle Diagramme als **Miniaturkarten** oder in einer **Listenan
 
 **Aktionen aus der Galerie:**
 
-- **Erstellen** — Klicken Sie auf **+ Neues Diagramm**, um ein Diagramm mit Name, optionaler Beschreibung und optionaler Verknüpfung zu einer Initiative-Karte zu erstellen
+- **Erstellen** — Klicken Sie auf **+ Neues Diagramm**, um ein Diagramm mit Name und optionaler Beschreibung zu erstellen
 - **Öffnen** — Klicken Sie auf ein beliebiges Diagramm, um den Editor zu starten
-- **Details bearbeiten** — Umbenennen, Beschreibung aktualisieren oder die verknüpfte Initiative ändern
+- **Details bearbeiten** — Umbenennen oder Beschreibung aktualisieren
 - **Löschen** — Ein Diagramm entfernen (mit Bestätigung)
 
 ## Der Diagramm-Editor
@@ -54,6 +54,8 @@ Das **Synchronisierungspanel** hält Ihr Diagramm und Inventar synchron:
 - **Nicht synchronisierte Formen** — Noch nicht mit Karten verknüpfte Formen werden zur Bearbeitung markiert
 - **Gruppen erweitern/reduzieren** — Hierarchische Kartengruppen direkt auf der Zeichenfläche navigieren
 
-### Verknüpfung mit Initiativen
+### Diagramme mit Karten verknüpfen
 
-Diagramme können mit **Initiative**-Karten verknüpft werden, wodurch sie im [EA-Delivery](delivery.md)-Modul neben SoAW-Dokumenten erscheinen. Dies bietet eine vollständige Ansicht aller Architekturartefakte für eine bestimmte Initiative.
+Diagramme können über die **Ressourcen**-Registerkarte der Karte mit **jeder beliebigen Karte** verknüpft werden (siehe [Kartendetails](card-details.de.md#registerkarte-ressourcen)). So können Sie Architekturdiagramme den Komponenten zuordnen, die sie beschreiben — zum Beispiel ein Netzwerktopologie-Diagramm mit einer Anwendung oder eine Fähigkeitskarte mit einer Geschäftsfähigkeit.
+
+Wenn ein Diagramm mit einer **Initiative**-Karte verknüpft ist, erscheint es auch im [EA-Delivery](delivery.de.md)-Modul neben SoAW-Dokumenten und bietet eine vollständige Ansicht aller Architekturartefakte für diese Initiative.

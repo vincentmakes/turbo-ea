@@ -26,7 +26,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
-import type { ArchitectureDecision, FileAttachment } from "@/types";
+import type { ArchitectureDecision, DiagramSummary, FileAttachment } from "@/types";
 
 interface DocumentLink {
   id: string;
@@ -94,12 +94,14 @@ function ResourcesTab({
   cardType,
   canManageDocuments,
   canManageAdrLinks,
+  canManageDiagramLinks,
 }: {
   fsId: string;
   cardName: string;
   cardType: string;
   canManageDocuments: boolean;
   canManageAdrLinks: boolean;
+  canManageDiagramLinks: boolean;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
@@ -114,6 +116,7 @@ function ResourcesTab({
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [docs, setDocs] = useState<DocumentLink[]>([]);
+  const [linkedDiagrams, setLinkedDiagrams] = useState<DiagramSummary[]>([]);
   const [error, setError] = useState("");
 
   // ADR link dialog
@@ -136,6 +139,11 @@ function ResourcesTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFileRef = useRef<File | null>(null);
 
+  // Diagram link dialog
+  const [linkDiagramOpen, setLinkDiagramOpen] = useState(false);
+  const [diagramSearch, setDiagramSearch] = useState("");
+  const [allDiagrams, setAllDiagrams] = useState<DiagramSummary[]>([]);
+
   const loadAdrs = useCallback(() => {
     api
       .get<ArchitectureDecision[]>(`/adr/by-card/${fsId}`)
@@ -157,11 +165,19 @@ function ResourcesTab({
       .catch(() => {});
   }, [fsId]);
 
+  const loadDiagrams = useCallback(() => {
+    api
+      .get<DiagramSummary[]>(`/diagrams?card_id=${fsId}`)
+      .then(setLinkedDiagrams)
+      .catch(() => {});
+  }, [fsId]);
+
   useEffect(() => {
     loadAdrs();
     loadFiles();
     loadDocs();
-  }, [loadAdrs, loadFiles, loadDocs]);
+    loadDiagrams();
+  }, [loadAdrs, loadFiles, loadDocs, loadDiagrams]);
 
   // ── ADR Linking ──
   const openLinkAdr = async () => {
@@ -272,6 +288,45 @@ function ResourcesTab({
     await api.delete(`/documents/${docId}`);
     loadDocs();
   };
+
+  // ── Diagram Linking ──
+  const openLinkDiagram = async () => {
+    setLinkDiagramOpen(true);
+    setDiagramSearch("");
+    try {
+      const all = await api.get<DiagramSummary[]>("/diagrams");
+      setAllDiagrams(all);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleLinkDiagram = async (diagramId: string) => {
+    try {
+      await api.post(`/diagrams/${diagramId}/cards`, { card_id: fsId });
+      loadDiagrams();
+      setLinkDiagramOpen(false);
+    } catch {
+      setError(t("resources.error.diagramLinkFailed"));
+    }
+  };
+
+  const handleUnlinkDiagram = async (diagramId: string) => {
+    if (!confirm(t("resources.confirmUnlinkDiagram"))) return;
+    try {
+      await api.delete(`/diagrams/${diagramId}/cards/${fsId}`);
+      loadDiagrams();
+    } catch {
+      setError(t("resources.error.diagramLinkFailed"));
+    }
+  };
+
+  const linkedDiagramIds = new Set(linkedDiagrams.map((d) => d.id));
+  const filteredAllDiagrams = allDiagrams.filter(
+    (d) =>
+      !linkedDiagramIds.has(d.id) &&
+      d.name.toLowerCase().includes(diagramSearch.toLowerCase()),
+  );
 
   const linkedAdrIds = new Set(adrs.map((a) => a.id));
   const filteredAllAdrs = allAdrs.filter(
@@ -591,6 +646,194 @@ function ResourcesTab({
           </List>
         </AccordionDetails>
       </Accordion>
+
+      {/* ── Diagrams ── */}
+      <Accordion defaultExpanded>
+        <AccordionSummary
+          expandIcon={<MaterialSymbol icon="expand_more" size={20} />}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <MaterialSymbol icon="draw" size={20} />
+            <Typography variant="subtitle1" fontWeight={600}>
+              {t("resources.diagrams")}
+            </Typography>
+            <Chip label={linkedDiagrams.length} size="small" />
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          {canManageDiagramLinks && (
+            <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+              <Button
+                size="small"
+                startIcon={<MaterialSymbol icon="link" size={18} />}
+                onClick={openLinkDiagram}
+                sx={{ textTransform: "none" }}
+              >
+                {t("resources.linkDiagram")}
+              </Button>
+            </Box>
+          )}
+          <List dense>
+            {linkedDiagrams.map((d) => (
+              <ListItem
+                key={d.id}
+                secondaryAction={
+                  canManageDiagramLinks ? (
+                    <Tooltip title={t("resources.unlinkDiagram")}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleUnlinkDiagram(d.id)}
+                      >
+                        <MaterialSymbol icon="link_off" size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : undefined
+                }
+                sx={{ cursor: "pointer" }}
+                onClick={() => navigate(`/diagrams/${d.id}`)}
+              >
+                {d.thumbnail && (
+                  <ListItemIcon sx={{ minWidth: 56 }}>
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1,
+                        overflow: "hidden",
+                        bgcolor: "action.hover",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <img
+                        src={
+                          d.thumbnail.startsWith("data:")
+                            ? d.thumbnail
+                            : `data:image/svg+xml;base64,${btoa(d.thumbnail)}`
+                        }
+                        alt={d.name}
+                        style={{
+                          maxWidth: "100%",
+                          maxHeight: "100%",
+                          objectFit: "contain",
+                        }}
+                      />
+                    </Box>
+                  </ListItemIcon>
+                )}
+                {!d.thumbnail && (
+                  <ListItemIcon sx={{ minWidth: 56 }}>
+                    <Box
+                      sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1,
+                        bgcolor: "action.hover",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <MaterialSymbol icon="draw" size={20} color="#999" />
+                    </Box>
+                  </ListItemIcon>
+                )}
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography variant="body2">{d.name}</Typography>
+                      <Chip
+                        size="small"
+                        label={
+                          d.type === "data_flow"
+                            ? t("diagrams:gallery.types.dataFlow")
+                            : t("diagrams:gallery.types.freeDraw")
+                        }
+                        variant="outlined"
+                        sx={{ height: 20, fontSize: "0.7rem" }}
+                      />
+                    </Box>
+                  }
+                />
+              </ListItem>
+            ))}
+            {linkedDiagrams.length === 0 && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 2, textAlign: "center" }}
+              >
+                {t("resources.emptyDiagrams")}
+              </Typography>
+            )}
+          </List>
+        </AccordionDetails>
+      </Accordion>
+
+      {/* ── Link Diagram Dialog ── */}
+      <Dialog
+        open={linkDiagramOpen}
+        onClose={() => setLinkDiagramOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("resources.linkDiagramDialog.title")}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            placeholder={t("resources.linkDiagramDialog.search")}
+            fullWidth
+            size="small"
+            value={diagramSearch}
+            onChange={(e) => setDiagramSearch(e.target.value)}
+            sx={{ mt: 1, mb: 2 }}
+          />
+          <List dense>
+            {filteredAllDiagrams.map((d) => (
+              <ListItem
+                key={d.id}
+                secondaryAction={
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleLinkDiagram(d.id)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    {t("resources.linkDiagram")}
+                  </Button>
+                }
+              >
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                      <MaterialSymbol
+                        icon={d.type === "data_flow" ? "device_hub" : "draw"}
+                        size={18}
+                      />
+                      <Typography variant="body2">{d.name}</Typography>
+                    </Box>
+                  }
+                />
+              </ListItem>
+            ))}
+            {filteredAllDiagrams.length === 0 && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ py: 2, textAlign: "center" }}
+              >
+                {t("resources.linkDiagramDialog.empty")}
+              </Typography>
+            )}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkDiagramOpen(false)}>
+            {t("common:actions.cancel")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Link ADR Dialog ── */}
       <Dialog

@@ -10,9 +10,9 @@ The gallery shows all diagrams as **thumbnail cards** or in a **list view** (tog
 
 **Actions from the gallery:**
 
-- **Create** — Click **+ New Diagram** to create a diagram with a name, optional description, and an optional link to an Initiative card
+- **Create** — Click **+ New Diagram** to create a diagram with a name and optional description
 - **Open** — Click any diagram to launch the editor
-- **Edit details** — Rename, update the description, or reassign the linked initiative
+- **Edit details** — Rename or update the description
 - **Delete** — Remove a diagram (with confirmation)
 
 ## The Diagram Editor
@@ -54,6 +54,8 @@ The **Sync Panel** keeps your diagram and inventory in sync:
 - **Unsynced shapes** — Shapes not yet linked to cards are flagged for action
 - **Expand/collapse groups** — Navigate hierarchical card groups directly on the canvas
 
-### Linking to Initiatives
+### Linking Diagrams to Cards
 
-Diagrams can be linked to **Initiative** cards, making them appear in the [EA Delivery](delivery.md) module alongside SoAW documents. This provides a complete view of all architecture artifacts for a given initiative.
+Diagrams can be linked to **any card** from the card's **Resources** tab (see [Card Details](card-details.md#resources-tab)). This allows you to associate architecture diagrams with the components they describe — for example, linking a network topology diagram to an Application or a capability map to a Business Capability.
+
+When a diagram is linked to an **Initiative** card, it also appears in the [EA Delivery](delivery.md) module alongside SoAW documents, providing a complete view of all architecture artifacts for that initiative.

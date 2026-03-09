@@ -214,6 +214,9 @@ class PermissionService:
             "can_manage_adr_links": is_admin
             or app_perms.get("adr.manage", False)
             or card_level.get("card.manage_adr_links", False),
+            "can_manage_diagram_links": is_admin
+            or app_perms.get("diagrams.manage", False)
+            or card_level.get("card.manage_diagram_links", False),
         }
 
         return {

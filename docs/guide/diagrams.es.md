@@ -10,9 +10,9 @@ La galería muestra todos los diagramas como **tarjetas con miniatura** o en una
 
 **Acciones desde la galería:**
 
-- **Crear** — Haga clic en **+ Nuevo Diagrama** para crear un diagrama con nombre, descripción opcional y un enlace opcional a una ficha de Iniciativa
+- **Crear** — Haga clic en **+ Nuevo Diagrama** para crear un diagrama con nombre y descripción opcional
 - **Abrir** — Haga clic en cualquier diagrama para abrir el editor
-- **Editar detalles** — Renombrar, actualizar la descripción o reasignar la iniciativa vinculada
+- **Editar detalles** — Renombrar o actualizar la descripción
 - **Eliminar** — Eliminar un diagrama (con confirmación)
 
 ## El Editor de Diagramas
@@ -54,6 +54,8 @@ El **Panel de Sincronización** mantiene su diagrama e inventario sincronizados:
 - **Formas no sincronizadas** — Las formas aún no vinculadas a fichas se marcan para acción
 - **Expandir/contraer grupos** — Navegue por grupos jerárquicos de fichas directamente en el lienzo
 
-### Vinculación a Iniciativas
+### Vincular diagramas a fichas
 
-Los diagramas pueden vincularse a fichas de **Iniciativa**, haciéndolos aparecer en el módulo de [Entrega EA](delivery.es.md) junto con los documentos SoAW. Esto proporciona una vista completa de todos los artefactos de arquitectura para una iniciativa determinada.
+Los diagramas pueden vincularse a **cualquier ficha** desde la pestaña de **Recursos** de la ficha (consulte [Detalle de Fichas](card-details.es.md#pestaña-de-recursos)). Esto permite asociar diagramas de arquitectura con los componentes que describen — por ejemplo, vincular un diagrama de topología de red a una Aplicación o un mapa de capacidades a una Capacidad de Negocio.
+
+Cuando un diagrama está vinculado a una ficha de **Iniciativa**, también aparece en el módulo de [Entrega EA](delivery.es.md) junto con los documentos SoAW, proporcionando una vista completa de todos los artefactos de arquitectura para esa iniciativa.

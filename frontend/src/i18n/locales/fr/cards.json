@@ -219,6 +219,15 @@
   "resources.error.createFailed": "\u00c9chec de la cr\u00e9ation de la d\u00e9cision d'architecture",
   "resources.error.linkFailed": "\u00c9chec de la liaison",
   "resources.error.unlinkFailed": "\u00c9chec de la d\u00e9liaison",
+  "resources.error.diagramLinkFailed": "Échec de l'association/dissociation du diagramme",
+  "resources.diagrams": "Diagrammes",
+  "resources.linkDiagram": "Associer un diagramme",
+  "resources.unlinkDiagram": "Dissocier",
+  "resources.emptyDiagrams": "Aucun diagramme associé à cette fiche.",
+  "resources.confirmUnlinkDiagram": "Dissocier ce diagramme de la fiche ?",
+  "resources.linkDiagramDialog.title": "Associer un diagramme",
+  "resources.linkDiagramDialog.search": "Rechercher des diagrammes...",
+  "resources.linkDiagramDialog.empty": "Aucun diagramme disponible à associer.",
   "tabs.history": "Historique",
 
   "sidePanel.openFullPage": "Ouvrir en pleine page"

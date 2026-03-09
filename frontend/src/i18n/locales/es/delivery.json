@@ -51,7 +51,8 @@
   "list.adrCount_other": "{{count}} ADR",
 
   "diagram.label": "Diagrama",
-  "diagram.linkedToInitiatives": "Vinculado a {{count}} iniciativas",
+  "diagram.linkedToCards_one": "Vinculado a {{count}} ficha",
+  "diagram.linkedToCards_other": "Vinculado a {{count}} fichas",
   "diagram.unlinkTooltip": "Desvincular de esta iniciativa",
 
   "soaw.label": "SoAW",
@@ -83,8 +84,8 @@
   "linkDialog.title": "Vincular Diagramas a Iniciativa",
   "linkDialog.description": "Seleccione diagramas para vincular a <strong>{{name}}</strong>. Un diagrama puede vincularse a m\u00faltiples iniciativas.",
   "linkDialog.noDiagrams": "No hay diagramas disponibles. Cree uno primero desde la p\u00e1gina de Diagramas.",
-  "linkDialog.linkedToCount_one": "Vinculado a {{count}} iniciativa",
-  "linkDialog.linkedToCount_other": "Vinculado a {{count}} iniciativas",
+  "linkDialog.linkedToCardCount_one": "Vinculado a {{count}} ficha",
+  "linkDialog.linkedToCardCount_other": "Vinculado a {{count}} fichas",
   "linkDialog.notLinked": "No vinculado",
   "linkDialog.saving": "Guardando...",
   "linkDialog.saveLinks": "Guardar V\u00ednculos",

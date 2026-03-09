@@ -221,6 +221,16 @@
   "resources.error.createFailed": "Failed to create architecture decision",
   "resources.error.linkFailed": "Failed to link",
   "resources.error.unlinkFailed": "Failed to unlink",
+  "resources.error.diagramLinkFailed": "Failed to link/unlink diagram",
+
+  "resources.diagrams": "Diagrams",
+  "resources.linkDiagram": "Link Diagram",
+  "resources.unlinkDiagram": "Unlink",
+  "resources.emptyDiagrams": "No diagrams linked to this card.",
+  "resources.confirmUnlinkDiagram": "Unlink this diagram from the card?",
+  "resources.linkDiagramDialog.title": "Link Diagram",
+  "resources.linkDiagramDialog.search": "Search diagrams...",
+  "resources.linkDiagramDialog.empty": "No diagrams available to link.",
 
   "sidePanel.openFullPage": "Open full page"
 }

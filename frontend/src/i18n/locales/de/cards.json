@@ -206,6 +206,15 @@
   "resources.error.createFailed": "Architekturentscheidung konnte nicht erstellt werden",
   "resources.error.linkFailed": "Verknüpfung fehlgeschlagen",
   "resources.error.unlinkFailed": "Aufheben der Verknüpfung fehlgeschlagen",
+  "resources.error.diagramLinkFailed": "Diagramm konnte nicht verknüpft/gelöst werden",
+  "resources.diagrams": "Diagramme",
+  "resources.linkDiagram": "Diagramm verknüpfen",
+  "resources.unlinkDiagram": "Verknüpfung lösen",
+  "resources.emptyDiagrams": "Keine Diagramme mit dieser Karte verknüpft.",
+  "resources.confirmUnlinkDiagram": "Diagramm von dieser Karte lösen?",
+  "resources.linkDiagramDialog.title": "Diagramm verknüpfen",
+  "resources.linkDiagramDialog.search": "Diagramme suchen...",
+  "resources.linkDiagramDialog.empty": "Keine Diagramme zum Verknüpfen verfügbar.",
   "tabs.history": "Historie",
   "sidePanel.openFullPage": "Ganze Seite öffnen"
 }

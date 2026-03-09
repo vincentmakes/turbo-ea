@@ -63,7 +63,7 @@ const mockDiagrams = [
     id: "diag-1",
     name: "Cloud Architecture",
     type: "free_draw",
-    initiative_ids: ["init-1"],
+    card_ids: ["init-1"],
   },
 ];
 

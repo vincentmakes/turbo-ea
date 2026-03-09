@@ -51,7 +51,8 @@
   "list.adrCount_other": "{{count}} ADRs",
 
   "diagram.label": "Diagram",
-  "diagram.linkedToInitiatives": "Linked to {{count}} initiatives",
+  "diagram.linkedToCards_one": "Linked to {{count}} card",
+  "diagram.linkedToCards_other": "Linked to {{count}} cards",
   "diagram.unlinkTooltip": "Unlink from this initiative",
 
   "soaw.label": "SoAW",
@@ -83,8 +84,8 @@
   "linkDialog.title": "Link Diagrams to Initiative",
   "linkDialog.description": "Select diagrams to link to <strong>{{name}}</strong>. A diagram can be linked to multiple initiatives.",
   "linkDialog.noDiagrams": "No diagrams available. Create one from the Diagrams page first.",
-  "linkDialog.linkedToCount_one": "Linked to {{count}} initiative",
-  "linkDialog.linkedToCount_other": "Linked to {{count}} initiatives",
+  "linkDialog.linkedToCardCount_one": "Linked to {{count}} card",
+  "linkDialog.linkedToCardCount_other": "Linked to {{count}} cards",
   "linkDialog.notLinked": "Not linked",
   "linkDialog.saving": "Saving...",
   "linkDialog.saveLinks": "Save Links",

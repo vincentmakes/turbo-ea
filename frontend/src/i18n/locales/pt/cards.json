@@ -219,6 +219,15 @@
   "resources.error.createFailed": "Falha ao criar decisão de arquitetura",
   "resources.error.linkFailed": "Falha ao vincular",
   "resources.error.unlinkFailed": "Falha ao desvincular",
+  "resources.error.diagramLinkFailed": "Falha ao vincular/desvincular diagrama",
+  "resources.diagrams": "Diagramas",
+  "resources.linkDiagram": "Vincular diagrama",
+  "resources.unlinkDiagram": "Desvincular",
+  "resources.emptyDiagrams": "Nenhum diagrama vinculado a este cartão.",
+  "resources.confirmUnlinkDiagram": "Desvincular este diagrama do cartão?",
+  "resources.linkDiagramDialog.title": "Vincular diagrama",
+  "resources.linkDiagramDialog.search": "Pesquisar diagramas...",
+  "resources.linkDiagramDialog.empty": "Nenhum diagrama disponível para vincular.",
   "tabs.history": "Histórico",
 
   "sidePanel.openFullPage": "Abrir página completa"

@@ -51,7 +51,8 @@
   "list.adrCount_other": "{{count}} 个 ADR",
 
   "diagram.label": "图表",
-  "diagram.linkedToInitiatives": "已关联到 {{count}} 个举措",
+  "diagram.linkedToCards_one": "已关联到 {{count}} 张卡片",
+  "diagram.linkedToCards_other": "已关联到 {{count}} 张卡片",
   "diagram.unlinkTooltip": "取消与此举措的关联",
 
   "soaw.label": "SoAW",
@@ -83,8 +84,8 @@
   "linkDialog.title": "将图表关联到举措",
   "linkDialog.description": "选择要关联到 <strong>{{name}}</strong> 的图表。一个图表可以关联到多个举措。",
   "linkDialog.noDiagrams": "没有可用的图表。请先在图表页面中创建一个。",
-  "linkDialog.linkedToCount_one": "已关联到 {{count}} 个举措",
-  "linkDialog.linkedToCount_other": "已关联到 {{count}} 个举措",
+  "linkDialog.linkedToCardCount_one": "已关联到 {{count}} 张卡片",
+  "linkDialog.linkedToCardCount_other": "已关联到 {{count}} 张卡片",
   "linkDialog.notLinked": "未关联",
   "linkDialog.saving": "正在保存...",
   "linkDialog.saveLinks": "保存关联",
