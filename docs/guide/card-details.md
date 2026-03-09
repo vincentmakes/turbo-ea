@@ -88,13 +88,13 @@ Shows all connections to other cards, grouped by relation type. For each relatio
 
 Apply tags from the configured [tag groups](../admin/tags.md). Depending on the group mode, you can select one tag (single select) or multiple tags (multi select).
 
-### Documents Section
+### Resources Tab
 
-Attach links to external resources:
+The **Resources** tab consolidates all supporting materials for a card:
 
-- **Add document** — Enter a URL and an optional label
-- **Click to open** — Links open in a new tab
-- **Remove** — Delete a document link
+- **Architecture Decisions** — ADRs linked to this card, displayed as colored pills matching their card type colors (e.g., blue for Application, purple for Data Object). You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
+- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB). When uploading, select a **document category** from: Architecture, Security, Compliance, Operations, Meeting Notes, Design, or Other. The category appears as a chip next to each file.
+- **Document Links** — URL-based document references. When adding a link, select a **link type** from: Documentation, Security, Compliance, Architecture, Operations, Support, or Other. The link type appears as a chip next to each link, and the icon changes based on the selected type.
 
 ### EOL Section
 

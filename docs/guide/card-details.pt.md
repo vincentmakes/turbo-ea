@@ -88,13 +88,13 @@ Mostra todas as conexões com outros cards, agrupadas por tipo de relacionamento
 
 Aplique tags dos [grupos de tags](../admin/tags.md) configurados. Dependendo do modo do grupo, você pode selecionar uma tag (seleção única) ou múltiplas tags (seleção múltipla).
 
-### Seção de Documentos
+### Aba de Recursos
 
-Anexe links para recursos externos:
+A aba de **Recursos** consolida todos os materiais de apoio de um card:
 
-- **Adicionar documento** — Insira uma URL e um rótulo opcional
-- **Clique para abrir** — Links abrem em uma nova aba
-- **Remover** — Exclua um link de documento
+- **Decisões de Arquitetura** — ADR vinculados a este card, exibidos como pílulas coloridas correspondentes às cores do tipo de card (ex.: azul para Aplicação, roxo para Objeto de Dados). Você pode vincular ADRs existentes ou criar um novo diretamente a partir da aba Recursos — o novo ADR é vinculado automaticamente ao card.
+- **Anexos de Arquivos** — Carregue e gerencie arquivos (PDF, DOCX, XLSX, imagens, até 10 MB). Ao carregar, selecione uma **categoria de documento** entre: Arquitetura, Segurança, Conformidade, Operações, Notas de Reunião, Design ou Outro. A categoria aparece como um chip ao lado de cada arquivo.
+- **Links de Documentos** — Referências de documentos baseadas em URL. Ao adicionar um link, selecione um **tipo de link** entre: Documentação, Segurança, Conformidade, Arquitetura, Operações, Suporte ou Outro. O tipo de link aparece como um chip ao lado de cada link, e o ícone muda de acordo com o tipo selecionado.
 
 ### Seção EOL
 

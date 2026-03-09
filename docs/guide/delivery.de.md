@@ -62,15 +62,36 @@ Ein **Architecture Decision Record (ADR)** dokumentiert wichtige Architekturents
 
 ### ADR-Übersicht
 
-Die EA Delivery-Seite verfügt über einen eigenen **Entscheidungen**-Tab, der alle ADRs auflistet. Jedes ADR zeigt:
+Die EA Delivery-Seite verfügt über einen eigenen **Entscheidungen**-Tab, der alle ADRs in einer **AG Grid-Tabelle** mit einer dauerhaften Filterseitenleiste anzeigt, ähnlich wie die Inventarseite.
 
-- Referenznummer (automatisch generiert: ADR-001, ADR-002 usw.)
-- Titel
-- Status (Entwurf, In Überprüfung, Unterschrieben)
-- Verknüpfte Initiativen (über Kartenverknüpfung)
-- Unterzeichner und deren Status
+#### Tabellenspalten
 
-Sie können nach Status filtern und nach Titel oder Referenznummer suchen.
+Das ADR-Raster zeigt die folgenden Spalten:
+
+| Spalte | Beschreibung |
+|--------|-------------|
+| **Referenznr.** | Automatisch generierte Referenznummer (ADR-001, ADR-002 usw.) |
+| **Titel** | ADR-Titel |
+| **Status** | Farbiger Chip mit Entwurf, In Überprüfung oder Unterschrieben |
+| **Verknüpfte Karten** | Farbige Pillen, die der Farbe des jeweiligen Kartentyps entsprechen (z.B. Blau für Anwendung, Lila für Datenobjekt) |
+| **Erstellt** | Erstellungsdatum |
+| **Geändert** | Datum der letzten Änderung |
+| **Unterschrieben** | Datum der Unterschrift |
+| **Revision** | Revisionsnummer |
+
+#### Filterseitenleiste
+
+Eine dauerhafte Filterseitenleiste auf der linken Seite bietet folgende Filter:
+
+- **Kartentypen** — Kontrollkästchen mit farbigen Punkten, die den Kartentypfarben entsprechen, zum Filtern nach verknüpften Kartentypen
+- **Status** — Filtern nach Entwurf, In Überprüfung oder Unterschrieben
+- **Erstellungsdatum** — Von/Bis-Datumsbereich
+- **Änderungsdatum** — Von/Bis-Datumsbereich
+- **Unterschriftsdatum** — Von/Bis-Datumsbereich
+
+#### Schnellfilter und Kontextmenü
+
+Verwenden Sie die **Schnellfilter**-Suchleiste für die Volltextsuche über alle ADRs. Klicken Sie mit der rechten Maustaste auf eine Zeile, um ein Kontextmenü mit den Aktionen **Bearbeiten**, **Vorschau**, **Duplizieren** und **Löschen** aufzurufen.
 
 ### Ein ADR erstellen
 
@@ -119,6 +140,6 @@ Klicken Sie auf das Vorschau-Symbol, um eine schreibgeschützte, formatierte Ver
 
 Karten enthalten jetzt eine **Ressourcen**-Registerkarte, die Folgendes zusammenfasst:
 
-- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs. Sie können bestehende ADRs verknüpfen oder ein neues ADR direkt über die Ressourcen-Registerkarte erstellen — das neue ADR wird automatisch mit der Karte verknüpft.
-- **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB)
-- **Dokumentenlinks** — URL-basierte Dokumentenverweise
+- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs, dargestellt als farbige Pillen, die den Kartentypfarben entsprechen. Sie können bestehende ADRs verknüpfen oder ein neues ADR direkt über die Ressourcen-Registerkarte erstellen — das neue ADR wird automatisch mit der Karte verknüpft.
+- **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB). Beim Hochladen wählen Sie eine **Dokumentenkategorie** aus: Architektur, Sicherheit, Compliance, Betrieb, Besprechungsnotizen, Design oder Sonstiges. Die Kategorie wird als Chip neben jeder Datei angezeigt.
+- **Dokumentenlinks** — URL-basierte Dokumentenverweise. Beim Hinzufügen eines Links wählen Sie einen **Linktyp** aus: Dokumentation, Sicherheit, Compliance, Architektur, Betrieb, Support oder Sonstiges. Der Linktyp wird als Chip neben jedem Link angezeigt, und das Symbol ändert sich je nach ausgewähltem Typ.

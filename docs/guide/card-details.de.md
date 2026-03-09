@@ -88,13 +88,13 @@ Zeigt alle Verbindungen zu anderen Karten, gruppiert nach Beziehungstyp. Für je
 
 Wenden Sie Tags aus den konfigurierten [Tag-Gruppen](../admin/tags.md) an. Je nach Gruppenmodus können Sie ein Tag (Einfachauswahl) oder mehrere Tags (Mehrfachauswahl) auswählen.
 
-### Dokumentenabschnitt
+### Registerkarte Ressourcen
 
-Verknüpfungen zu externen Ressourcen anhängen:
+Die **Ressourcen**-Registerkarte bündelt alle unterstützenden Materialien einer Karte:
 
-- **Dokument hinzufügen** — Eine URL und eine optionale Bezeichnung eingeben
-- **Zum Öffnen klicken** — Links öffnen sich in einem neuen Tab
-- **Entfernen** — Eine Dokumentenverknüpfung löschen
+- **Architekturentscheidungen** — mit dieser Karte verknüpfte ADRs, dargestellt als farbige Pillen, die den Kartentypfarben entsprechen (z.B. Blau für Anwendung, Lila für Datenobjekt). Sie können bestehende ADRs verknüpfen oder ein neues ADR direkt über die Ressourcen-Registerkarte erstellen — das neue ADR wird automatisch mit der Karte verknüpft.
+- **Dateianhänge** — Dateien hochladen und verwalten (PDF, DOCX, XLSX, Bilder, bis zu 10 MB). Beim Hochladen wählen Sie eine **Dokumentenkategorie** aus: Architektur, Sicherheit, Compliance, Betrieb, Besprechungsnotizen, Design oder Sonstiges. Die Kategorie wird als Chip neben jeder Datei angezeigt.
+- **Dokumentenlinks** — URL-basierte Dokumentenverweise. Beim Hinzufügen eines Links wählen Sie einen **Linktyp** aus: Dokumentation, Sicherheit, Compliance, Architektur, Betrieb, Support oder Sonstiges. Der Linktyp wird als Chip neben jedem Link angezeigt, und das Symbol ändert sich je nach ausgewähltem Typ.
 
 ### EOL-Abschnitt
 

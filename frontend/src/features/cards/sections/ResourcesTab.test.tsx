@@ -17,6 +17,9 @@ vi.mock("@/api/client", () => ({
     upload: vi.fn(),
   },
 }));
+vi.mock("@/hooks/useMetamodel", () => ({
+  useMetamodel: () => ({ types: [], relationTypes: [], invalidateCache: vi.fn() }),
+}));
 
 import { api } from "@/api/client";
 import ResourcesTab from "./ResourcesTab";

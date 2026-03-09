@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,6 +58,7 @@ async def list_file_attachments(
             "name": f.name,
             "mime_type": f.mime_type,
             "size": f.size,
+            "category": f.category,
             "created_by": str(f.created_by) if f.created_by else None,
             "creator_name": creator_names.get(f.created_by) if f.created_by else None,
             "created_at": f.created_at.isoformat() if f.created_at else None,
@@ -70,6 +71,7 @@ async def list_file_attachments(
 async def upload_file_attachment(
     card_id: str,
     file: UploadFile,
+    category: str | None = Form(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -101,6 +103,7 @@ async def upload_file_attachment(
         mime_type=content_type,
         size=len(data),
         data=data,
+        category=category,
         created_by=user.id,
     )
     db.add(attachment)
@@ -113,6 +116,7 @@ async def upload_file_attachment(
         "name": attachment.name,
         "mime_type": attachment.mime_type,
         "size": attachment.size,
+        "category": attachment.category,
         "created_by": str(attachment.created_by),
         "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
     }

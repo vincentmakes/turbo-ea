@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.27.0] - 2026-03-09
+
+### Added
+- Architecture Decisions tab now uses AG Grid with a persistent filter sidebar for card types, status, and date ranges
+- Link type dropdown (Documentation, Security, Compliance, Architecture, Operations, Support, Other) when adding document links in the Resources tab
+- Document category dropdown (Architecture, Security, Compliance, Operations, Meeting Notes, Design, Other) when uploading files in the Resources tab
+- Colored pills in ADR listings matching linked card type colors throughout Resources tab and EA Delivery page
+- Full-text search and right-click context menu on the ADR grid
+
+### Changed
+- Architecture Decisions tab in EA Delivery replaced card-based list with AG Grid table view
+- Document link icons now reflect the link type category
+
 ## [0.26.2] - 2026-03-08
 
 ### Fixed

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -13,6 +13,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 import Alert from "@mui/material/Alert";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -22,12 +23,10 @@ import Link from "@mui/material/Link";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useMetamodel } from "@/hooks/useMetamodel";
 import { api } from "@/api/client";
 import CreateAdrDialog from "@/features/ea-delivery/CreateAdrDialog";
-import type {
-  ArchitectureDecision,
-  FileAttachment,
-} from "@/types";
+import type { ArchitectureDecision, FileAttachment } from "@/types";
 
 interface DocumentLink {
   id: string;
@@ -44,12 +43,42 @@ const STATUS_COLORS: Record<string, "default" | "warning" | "success"> = {
   signed: "success",
 };
 
+const LINK_TYPES = [
+  "documentation",
+  "security",
+  "compliance",
+  "architecture",
+  "operations",
+  "support",
+  "other",
+] as const;
+
+const FILE_CATEGORIES = [
+  "architecture",
+  "security",
+  "compliance",
+  "operations",
+  "meeting_notes",
+  "design",
+  "other",
+] as const;
+
 const MIME_ICONS: Record<string, string> = {
   "application/pdf": "picture_as_pdf",
   "image/png": "image",
   "image/jpeg": "image",
   "image/svg+xml": "image",
   "text/plain": "description",
+};
+
+const LINK_TYPE_ICONS: Record<string, string> = {
+  documentation: "menu_book",
+  security: "shield",
+  compliance: "verified",
+  architecture: "architecture",
+  operations: "settings",
+  support: "support_agent",
+  other: "link",
 };
 
 function formatFileSize(bytes: number): string {
@@ -74,6 +103,13 @@ function ResourcesTab({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const navigate = useNavigate();
+  const { types: metamodelTypes } = useMetamodel();
+
+  const typeColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const mt of metamodelTypes) map[mt.key] = mt.color;
+    return map;
+  }, [metamodelTypes]);
 
   const [adrs, setAdrs] = useState<ArchitectureDecision[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -92,9 +128,13 @@ function ResourcesTab({
   const [addLinkOpen, setAddLinkOpen] = useState(false);
   const [linkName, setLinkName] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [linkType, setLinkType] = useState("documentation");
 
-  // File upload
+  // File upload dialog
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
   const loadAdrs = useCallback(() => {
     api
@@ -156,7 +196,7 @@ function ResourcesTab({
   };
 
   // ── File Upload ──
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -165,14 +205,26 @@ function ResourcesTab({
       return;
     }
 
+    pendingFileRef.current = file;
+    setUploadCategory("");
+    setUploadDialogOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleConfirmUpload = async () => {
+    const file = pendingFileRef.current;
+    if (!file) return;
+
     try {
-      await api.upload(`/cards/${fsId}/file-attachments`, file);
+      const extraFields: Record<string, string> = {};
+      if (uploadCategory) extraFields.category = uploadCategory;
+      await api.upload(`/cards/${fsId}/file-attachments`, file, "file", extraFields);
       loadFiles();
     } catch {
       setError(t("resources.error.uploadFailed"));
     }
-    // Reset file input
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    pendingFileRef.current = null;
+    setUploadDialogOpen(false);
   };
 
   const handleDeleteFile = async (fileId: string) => {
@@ -203,9 +255,11 @@ function ResourcesTab({
       await api.post(`/cards/${fsId}/documents`, {
         name: linkName,
         url: linkUrl || null,
+        type: linkType,
       });
       setLinkName("");
       setLinkUrl("");
+      setLinkType("documentation");
       setAddLinkOpen(false);
       loadDocs();
     } catch {
@@ -290,7 +344,7 @@ function ResourcesTab({
               >
                 <ListItemText
                   primary={
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                       <Typography
                         variant="body2"
                         fontWeight={600}
@@ -305,6 +359,21 @@ function ResourcesTab({
                         color={STATUS_COLORS[adr.status] || "default"}
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
+                      {(adr.linked_cards ?? []).map((lc) => (
+                        <Chip
+                          key={lc.id}
+                          label={lc.name}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: "0.7rem",
+                            maxWidth: 140,
+                            bgcolor: typeColorMap[lc.type] || "#9e9e9e",
+                            color: "#fff",
+                            "& .MuiChip-label": { px: 0.75 },
+                          }}
+                        />
+                      ))}
                     </Box>
                   }
                 />
@@ -344,7 +413,7 @@ function ResourcesTab({
                 type="file"
                 hidden
                 accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.svg,.txt"
-                onChange={handleFileUpload}
+                onChange={handleFileSelect}
               />
               <Button
                 size="small"
@@ -402,6 +471,14 @@ function ResourcesTab({
                         variant="outlined"
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
+                      {f.category && (
+                        <Chip
+                          size="small"
+                          label={t(`resources.fileCategory.${f.category}`)}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: "0.7rem" }}
+                        />
+                      )}
                       {f.creator_name && (
                         <Chip
                           size="small"
@@ -470,21 +547,34 @@ function ResourcesTab({
                 }
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <MaterialSymbol icon="link" size={20} />
+                  <MaterialSymbol
+                    icon={LINK_TYPE_ICONS[doc.type] || "link"}
+                    size={20}
+                  />
                 </ListItemIcon>
                 <ListItemText
                   primary={
-                    doc.url ? (
-                      <Link
-                        href={doc.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {doc.name}
-                      </Link>
-                    ) : (
-                      doc.name
-                    )
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {doc.url ? (
+                        <Link
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {doc.name}
+                        </Link>
+                      ) : (
+                        doc.name
+                      )}
+                      {doc.type && doc.type !== "link" && (
+                        <Chip
+                          size="small"
+                          label={t(`resources.linkType.${doc.type}`)}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: "0.7rem" }}
+                        />
+                      )}
+                    </Box>
                   }
                 />
               </ListItem>
@@ -573,6 +663,52 @@ function ResourcesTab({
         preLinkedCards={[{ id: fsId, name: cardName, type: cardType }]}
       />
 
+      {/* ── Upload File Dialog ── */}
+      <Dialog
+        open={uploadDialogOpen}
+        onClose={() => {
+          setUploadDialogOpen(false);
+          pendingFileRef.current = null;
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>{t("resources.uploadFileDialog.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {pendingFileRef.current?.name}
+          </Typography>
+          <TextField
+            select
+            label={t("resources.uploadFileDialog.category")}
+            fullWidth
+            size="small"
+            value={uploadCategory}
+            onChange={(e) => setUploadCategory(e.target.value)}
+          >
+            <MenuItem value="">{t("resources.uploadFileDialog.noCategory")}</MenuItem>
+            {FILE_CATEGORIES.map((cat) => (
+              <MenuItem key={cat} value={cat}>
+                {t(`resources.fileCategory.${cat}`)}
+              </MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setUploadDialogOpen(false);
+              pendingFileRef.current = null;
+            }}
+          >
+            {t("common:actions.cancel")}
+          </Button>
+          <Button variant="contained" onClick={handleConfirmUpload}>
+            {t("resources.uploadFile")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* ── Add Link Dialog ── */}
       <Dialog
         open={addLinkOpen}
@@ -590,6 +726,21 @@ function ResourcesTab({
             onChange={(e) => setLinkName(e.target.value)}
             sx={{ mt: 1, mb: 2 }}
           />
+          <TextField
+            select
+            label={t("resources.addLinkDialog.type")}
+            fullWidth
+            size="small"
+            value={linkType}
+            onChange={(e) => setLinkType(e.target.value)}
+            sx={{ mb: 2 }}
+          >
+            {LINK_TYPES.map((lt) => (
+              <MenuItem key={lt} value={lt}>
+                {t(`resources.linkType.${lt}`)}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             label={t("resources.addLinkDialog.url")}
             fullWidth

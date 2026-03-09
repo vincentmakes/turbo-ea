@@ -530,6 +530,7 @@ export interface FileAttachment {
   name: string;
   mime_type: string;
   size: number;
+  category: string | null;
   created_by: string | null;
   creator_name?: string | null;
   created_at: string | null;

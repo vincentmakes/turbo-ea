@@ -88,13 +88,13 @@ Muestra todas las conexiones con otras fichas, agrupadas por tipo de relación. 
 
 Aplique etiquetas de los [grupos de etiquetas](../admin/tags.es.md) configurados. Dependiendo del modo del grupo, puede seleccionar una etiqueta (selección única) o múltiples etiquetas (selección múltiple).
 
-### Sección de Documentos
+### Pestaña de Recursos
 
-Adjunte enlaces a recursos externos:
+La pestaña de **Recursos** consolida todos los materiales de apoyo de una ficha:
 
-- **Agregar documento** — Ingrese una URL y una etiqueta opcional
-- **Clic para abrir** — Los enlaces se abren en una nueva pestaña
-- **Eliminar** — Eliminar un enlace de documento
+- **Decisiones de Arquitectura** — ADR vinculados a esta ficha, mostrados como píldoras de color que coinciden con los colores del tipo de tarjeta (ej., azul para Aplicación, morado para Objeto de Datos). Puede vincular ADR existentes o crear uno nuevo directamente desde la pestaña de Recursos — el nuevo ADR se vincula automáticamente a la ficha.
+- **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB). Al cargar, seleccione una **categoría de documento** entre: Arquitectura, Seguridad, Compliance, Operaciones, Notas de Reunión, Diseño u Otro. La categoría aparece como un chip junto a cada archivo.
+- **Enlaces de Documentos** — Referencias de documentos basadas en URL. Al agregar un enlace, seleccione un **tipo de enlace** entre: Documentación, Seguridad, Compliance, Arquitectura, Operaciones, Soporte u Otro. El tipo de enlace aparece como un chip junto a cada enlace, y el icono cambia según el tipo seleccionado.
 
 ### Sección EOL
 

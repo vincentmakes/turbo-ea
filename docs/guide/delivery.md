@@ -62,15 +62,36 @@ An **Architecture Decision Record (ADR)** documents important architecture decis
 
 ### ADR Overview
 
-The EA Delivery page has a dedicated **Decisions** tab that lists all ADRs. Each ADR shows:
+The EA Delivery page has a dedicated **Decisions** tab that displays all ADRs in an **AG Grid table** with a persistent filter sidebar, similar to the Inventory page.
 
-- Reference number (auto-generated: ADR-001, ADR-002, etc.)
-- Title
-- Status (Draft, In Review, Signed)
-- Linked initiatives (via card linking)
-- Signatories and their status
+#### Grid Columns
 
-You can filter by status and search by title or reference number.
+The ADR grid shows the following columns:
+
+| Column | Description |
+|--------|-------------|
+| **Reference #** | Auto-generated reference number (ADR-001, ADR-002, etc.) |
+| **Title** | ADR title |
+| **Status** | Colored chip showing Draft, In Review, or Signed |
+| **Linked Cards** | Colored pills matching each linked card's type color (e.g., blue for Application, purple for Data Object) |
+| **Created** | Creation date |
+| **Modified** | Last modification date |
+| **Signed** | Date when the ADR was signed |
+| **Revision** | Revision number |
+
+#### Filter Sidebar
+
+A persistent filter sidebar on the left provides the following filters:
+
+- **Card Types** — Checkboxes with colored dots matching the card type colors, to filter by linked card types
+- **Status** — Filter by Draft, In Review, or Signed
+- **Date Created** — From/to date range
+- **Date Modified** — From/to date range
+- **Date Signed** — From/to date range
+
+#### Quick Filter and Context Menu
+
+Use the **quick filter** search bar for full-text search across all ADRs. Right-click any row to access a context menu with **Edit**, **Preview**, **Duplicate**, and **Delete** actions.
 
 ### Creating an ADR
 
@@ -119,6 +140,6 @@ Click the preview icon to view a read-only, formatted version of the ADR — use
 
 Cards now include a **Resources** tab that consolidates:
 
-- **Architecture Decisions** — ADRs linked to this card. You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
-- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB)
-- **Document Links** — URL-based document references
+- **Architecture Decisions** — ADRs linked to this card, displayed as colored pills matching their card type colors. You can link existing ADRs or create a new ADR directly from the Resources tab — the new ADR is automatically linked to the card.
+- **File Attachments** — Upload and manage files (PDF, DOCX, XLSX, images, up to 10 MB). When uploading, select a **document category** from: Architecture, Security, Compliance, Operations, Meeting Notes, Design, or Other. The category appears as a chip next to each file.
+- **Document Links** — URL-based document references. When adding a link, select a **link type** from: Documentation, Security, Compliance, Architecture, Operations, Support, or Other. The link type appears as a chip next to each link, and the icon changes based on the selected type.

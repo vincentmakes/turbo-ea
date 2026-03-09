@@ -95,9 +95,17 @@ export const api = {
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
-  upload: <T>(path: string, file: File, fieldName = "file") => {
+  upload: <T>(
+    path: string,
+    file: File,
+    fieldName = "file",
+    extraFields?: Record<string, string>,
+  ) => {
     const form = new FormData();
     form.append(fieldName, file);
+    if (extraFields) {
+      for (const [k, v] of Object.entries(extraFields)) form.append(k, v);
+    }
     return fetch(`${BASE}${path}`, {
       method: "POST",
       body: form,

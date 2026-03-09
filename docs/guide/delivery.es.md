@@ -62,15 +62,36 @@ Un **Registro de Decisión de Arquitectura (ADR)** documenta decisiones de arqui
 
 ### Resumen de ADR
 
-La página de Entrega EA tiene una pestaña dedicada de **Decisiones** que lista todos los ADR. Cada ADR muestra:
+La página de Entrega EA tiene una pestaña dedicada de **Decisiones** que muestra todos los ADR en una **tabla AG Grid** con una barra lateral de filtros persistente, similar a la página de Inventario.
 
-- Número de referencia (generado automáticamente: ADR-001, ADR-002, etc.)
-- Título
-- Estado (Borrador, En Revisión, Firmado)
-- Iniciativas vinculadas (a través de la vinculación de tarjetas)
-- Firmantes y su estado
+#### Columnas de la tabla
 
-Puede filtrar por estado y buscar por título o número de referencia.
+La tabla de ADR muestra las siguientes columnas:
+
+| Columna | Descripción |
+|---------|-------------|
+| **N.º de referencia** | Número de referencia generado automáticamente (ADR-001, ADR-002, etc.) |
+| **Título** | Título del ADR |
+| **Estado** | Chip de color que muestra Borrador, En Revisión o Firmado |
+| **Tarjetas vinculadas** | Píldoras de color que coinciden con el color del tipo de tarjeta (ej., azul para Aplicación, morado para Objeto de Datos) |
+| **Creado** | Fecha de creación |
+| **Modificado** | Fecha de última modificación |
+| **Firmado** | Fecha de firma |
+| **Revisión** | Número de revisión |
+
+#### Barra lateral de filtros
+
+Una barra lateral de filtros persistente a la izquierda ofrece los siguientes filtros:
+
+- **Tipos de tarjeta** — Casillas de verificación con puntos de color que coinciden con los colores del tipo de tarjeta, para filtrar por tipos de tarjetas vinculadas
+- **Estado** — Filtrar por Borrador, En Revisión o Firmado
+- **Fecha de creación** — Rango de fechas desde/hasta
+- **Fecha de modificación** — Rango de fechas desde/hasta
+- **Fecha de firma** — Rango de fechas desde/hasta
+
+#### Filtro rápido y menú contextual
+
+Use la barra de **filtro rápido** para búsqueda de texto completo en todos los ADR. Haga clic derecho en cualquier fila para acceder a un menú contextual con las acciones **Editar**, **Vista previa**, **Duplicar** y **Eliminar**.
 
 ### Crear un ADR
 
@@ -119,6 +140,6 @@ Haga clic en el icono de vista previa para ver una versión de solo lectura y fo
 
 Las tarjetas ahora incluyen una pestaña de **Recursos** que consolida:
 
-- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta. Puede vincular ADR existentes o crear uno nuevo directamente desde la pestaña de Recursos — el nuevo ADR se vincula automáticamente a la tarjeta.
-- **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB)
-- **Enlaces de Documentos** — Referencias de documentos basadas en URL
+- **Decisiones de Arquitectura** — ADR vinculados a esta tarjeta, mostrados como píldoras de color que coinciden con los colores del tipo de tarjeta. Puede vincular ADR existentes o crear uno nuevo directamente desde la pestaña de Recursos — el nuevo ADR se vincula automáticamente a la tarjeta.
+- **Archivos Adjuntos** — Cargue y gestione archivos (PDF, DOCX, XLSX, imágenes, hasta 10 MB). Al cargar, seleccione una **categoría de documento** entre: Arquitectura, Seguridad, Compliance, Operaciones, Notas de Reunión, Diseño u Otro. La categoría aparece como un chip junto a cada archivo.
+- **Enlaces de Documentos** — Referencias de documentos basadas en URL. Al agregar un enlace, seleccione un **tipo de enlace** entre: Documentación, Seguridad, Compliance, Arquitectura, Operaciones, Soporte u Otro. El tipo de enlace aparece como un chip junto a cada enlace, y el icono cambia según el tipo seleccionado.

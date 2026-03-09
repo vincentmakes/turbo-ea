@@ -286,7 +286,7 @@ export default function ADREditor() {
         }}
       >
         <Tooltip title={t("adr.editor.backTooltip")}>
-          <IconButton onClick={() => navigate("/ea-delivery")}>
+          <IconButton onClick={() => navigate(-1)}>
             <MaterialSymbol icon="arrow_back" size={24} />
           </IconButton>
         </Tooltip>

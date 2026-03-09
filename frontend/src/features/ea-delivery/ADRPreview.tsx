@@ -103,7 +103,7 @@ export default function ADRPreview() {
         }}
       >
         <Tooltip title={t("adr.editor.backTooltip")}>
-          <IconButton onClick={() => navigate("/ea-delivery")}>
+          <IconButton onClick={() => navigate(-1)}>
             <MaterialSymbol icon="arrow_back" size={22} />
           </IconButton>
         </Tooltip>

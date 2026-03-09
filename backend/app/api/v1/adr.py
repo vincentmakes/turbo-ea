@@ -129,17 +129,29 @@ async def list_adrs(
     status: str | None = Query(None),
     search: str | None = Query(None),
     card_id: str | None = Query(None),
+    card_type: str | None = Query(None),
+    date_from: str | None = Query(None),
+    date_to: str | None = Query(None),
+    modified_from: str | None = Query(None),
+    modified_to: str | None = Query(None),
+    signed_from: str | None = Query(None),
+    signed_to: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "adr.view")
     stmt = select(ArchitectureDecision).order_by(ArchitectureDecision.updated_at.desc())
+
+    # Track whether we already joined the junction table
+    joined_junction = False
+
     if initiative_id:
         # Filter by linked initiative card via junction table
         stmt = stmt.join(
             ArchitectureDecisionCard,
             ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
         ).where(ArchitectureDecisionCard.card_id == uuid.UUID(initiative_id))
+        joined_junction = True
     if status:
         stmt = stmt.where(ArchitectureDecision.status == status)
     if search:
@@ -149,10 +161,64 @@ async def list_adrs(
             | ArchitectureDecision.reference_number.ilike(pattern)
         )
     if card_id and not initiative_id:
-        stmt = stmt.join(
-            ArchitectureDecisionCard,
-            ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
-        ).where(ArchitectureDecisionCard.card_id == uuid.UUID(card_id))
+        if not joined_junction:
+            stmt = stmt.join(
+                ArchitectureDecisionCard,
+                ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
+            )
+            joined_junction = True
+        stmt = stmt.where(ArchitectureDecisionCard.card_id == uuid.UUID(card_id))
+    if card_type:
+        if not joined_junction:
+            stmt = stmt.join(
+                ArchitectureDecisionCard,
+                ArchitectureDecisionCard.architecture_decision_id == ArchitectureDecision.id,
+            )
+            joined_junction = True
+        stmt = stmt.join(Card, ArchitectureDecisionCard.card_id == Card.id).where(
+            Card.type == card_type
+        )
+
+    # Date range filters
+    if date_from:
+        stmt = stmt.where(
+            ArchitectureDecision.created_at
+            >= datetime.fromisoformat(date_from).replace(tzinfo=timezone.utc)
+        )
+    if date_to:
+        stmt = stmt.where(
+            ArchitectureDecision.created_at
+            <= datetime.fromisoformat(date_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        )
+    if modified_from:
+        stmt = stmt.where(
+            ArchitectureDecision.updated_at
+            >= datetime.fromisoformat(modified_from).replace(tzinfo=timezone.utc)
+        )
+    if modified_to:
+        stmt = stmt.where(
+            ArchitectureDecision.updated_at
+            <= datetime.fromisoformat(modified_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        )
+    if signed_from:
+        stmt = stmt.where(
+            ArchitectureDecision.signed_at
+            >= datetime.fromisoformat(signed_from).replace(tzinfo=timezone.utc)
+        )
+    if signed_to:
+        stmt = stmt.where(
+            ArchitectureDecision.signed_at
+            <= datetime.fromisoformat(signed_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        )
+
+    if joined_junction:
+        stmt = stmt.distinct()
 
     result = await db.execute(stmt)
     rows = result.scalars().all()
