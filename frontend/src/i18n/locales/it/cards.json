@@ -206,6 +206,15 @@
   "resources.error.createFailed": "Impossibile creare la decisione architetturale",
   "resources.error.linkFailed": "Impossibile collegare",
   "resources.error.unlinkFailed": "Impossibile scollegare",
+  "resources.error.diagramLinkFailed": "Errore nel collegamento/scollegamento del diagramma",
+  "resources.diagrams": "Diagrammi",
+  "resources.linkDiagram": "Collega diagramma",
+  "resources.unlinkDiagram": "Scollega",
+  "resources.emptyDiagrams": "Nessun diagramma collegato a questa scheda.",
+  "resources.confirmUnlinkDiagram": "Scollegare questo diagramma dalla scheda?",
+  "resources.linkDiagramDialog.title": "Collega diagramma",
+  "resources.linkDiagramDialog.search": "Cerca diagrammi...",
+  "resources.linkDiagramDialog.empty": "Nessun diagramma disponibile da collegare.",
   "tabs.history": "Cronologia",
   "sidePanel.openFullPage": "Apri a pagina intera"
 }

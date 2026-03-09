@@ -69,6 +69,7 @@ export interface CardEffectivePermissions {
     can_bpm_manage_drafts: boolean;
     can_bpm_approve: boolean;
     can_manage_adr_links: boolean;
+    can_manage_diagram_links: boolean;
   };
 }
 
@@ -680,7 +681,7 @@ export interface DiagramSummary {
   name: string;
   description?: string;
   type: string;
-  initiative_ids: string[];
+  card_ids: string[];
   thumbnail?: string;
   card_count: number;
   created_at?: string;

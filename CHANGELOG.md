@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.28.0] - 2026-03-09
+
+### Added
+- Diagrams section in the Resources tab of card details — link and unlink diagrams from any card type, not just initiatives
+- Card-level permission `card.manage_diagram_links` for controlling diagram link management per stakeholder role
+
+### Changed
+- Generalized diagram-card linking from initiative-only to all card types (renamed `diagram_initiatives` table to `diagram_cards`)
+- API fields renamed from `initiative_ids` to `card_ids` in diagram endpoints
+
 ## [0.27.0] - 2026-03-09
 
 ### Added

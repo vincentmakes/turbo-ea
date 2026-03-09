@@ -337,6 +337,7 @@ export default function CardDetailContent({
                 cardType={card.type}
                 canManageDocuments={perms.can_manage_documents}
                 canManageAdrLinks={perms.can_manage_adr_links}
+                canManageDiagramLinks={perms.can_manage_diagram_links}
               />
             </CardContent>
           </MuiCard>

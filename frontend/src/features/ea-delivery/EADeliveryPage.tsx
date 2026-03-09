@@ -284,7 +284,7 @@ export default function EADeliveryPage() {
   const groups: InitiativeGroup[] = useMemo(() => {
     return filteredInitiatives.map((init) => ({
       initiative: init,
-      diagrams: diagrams.filter((d) => d.initiative_ids.includes(init.id)),
+      diagrams: diagrams.filter((d) => d.card_ids.includes(init.id)),
       soaws: soaws.filter((s) => s.initiative_id === init.id),
       adrs: adrs.filter((a) =>
         (a.linked_cards ?? []).some((c) => c.id === init.id),
@@ -298,7 +298,7 @@ export default function EADeliveryPage() {
   );
 
   const unlinkedDiagrams = useMemo(
-    () => diagrams.filter((d) => d.initiative_ids.length === 0),
+    () => diagrams.filter((d) => d.card_ids.length === 0),
     [diagrams],
   );
 
@@ -395,7 +395,7 @@ export default function EADeliveryPage() {
   const openLinkDialog = (initiativeId: string) => {
     setLinkInitiativeId(initiativeId);
     const alreadyLinked = diagrams
-      .filter((d) => d.initiative_ids.includes(initiativeId))
+      .filter((d) => d.card_ids.includes(initiativeId))
       .map((d) => d.id);
     setLinkSelected(alreadyLinked);
     setLinkOpen(true);
@@ -414,13 +414,13 @@ export default function EADeliveryPage() {
     setLinking(true);
     try {
       const promises = diagrams.map((d) => {
-        const wasLinked = d.initiative_ids.includes(linkInitiativeId);
+        const wasLinked = d.card_ids.includes(linkInitiativeId);
         const isNowLinked = linkSelected.includes(d.id);
         if (wasLinked === isNowLinked) return null;
         const newIds = isNowLinked
-          ? [...d.initiative_ids, linkInitiativeId]
-          : d.initiative_ids.filter((id) => id !== linkInitiativeId);
-        return api.patch(`/diagrams/${d.id}`, { initiative_ids: newIds });
+          ? [...d.card_ids, linkInitiativeId]
+          : d.card_ids.filter((id) => id !== linkInitiativeId);
+        return api.patch(`/diagrams/${d.id}`, { card_ids: newIds });
       });
       await Promise.all(promises.filter(Boolean));
       setLinkOpen(false);
@@ -449,8 +449,8 @@ export default function EADeliveryPage() {
 
   const handleUnlinkDiagram = async (diagram: DiagramSummary, initiativeId: string) => {
     try {
-      const newIds = diagram.initiative_ids.filter((id) => id !== initiativeId);
-      await api.patch(`/diagrams/${diagram.id}`, { initiative_ids: newIds });
+      const newIds = diagram.card_ids.filter((id) => id !== initiativeId);
+      await api.patch(`/diagrams/${diagram.id}`, { card_ids: newIds });
       await fetchAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : t("error.unlinkDiagram"));
@@ -474,10 +474,10 @@ export default function EADeliveryPage() {
         <Typography sx={{ ml: 1, fontSize: "0.9rem", flex: 1 }}>
           {d.name}
         </Typography>
-        {d.initiative_ids.length > 1 && (
-          <Tooltip title={t("diagram.linkedToInitiatives", { count: d.initiative_ids.length })}>
+        {d.card_ids.length > 1 && (
+          <Tooltip title={t("diagram.linkedToInitiatives", { count: d.card_ids.length })}>
             <Chip
-              label={t("diagram.linkedToInitiatives", { count: d.initiative_ids.length })}
+              label={t("diagram.linkedToInitiatives", { count: d.card_ids.length })}
               size="small"
               variant="outlined"
               sx={{ mr: 0.5 }}
@@ -588,7 +588,7 @@ export default function EADeliveryPage() {
 
   const renderListView = () => {
     const getInitDiagrams = (id: string) =>
-      diagrams.filter((d) => d.initiative_ids.includes(id));
+      diagrams.filter((d) => d.card_ids.includes(id));
     const getInitSoaws = (id: string) =>
       soaws.filter((s) => s.initiative_id === id);
     const getInitAdrs = (id: string) =>
@@ -1730,8 +1730,8 @@ export default function EADeliveryPage() {
                       <ListItemText
                         primary={d.name}
                         secondary={
-                          d.initiative_ids.length > 0
-                            ? t("linkDialog.linkedToCount", { count: d.initiative_ids.length })
+                          d.card_ids.length > 0
+                            ? t("linkDialog.linkedToCount", { count: d.card_ids.length })
                             : t("linkDialog.notLinked")
                         }
                       />

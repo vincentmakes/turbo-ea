@@ -206,6 +206,15 @@
   "resources.error.createFailed": "创建架构决策失败",
   "resources.error.linkFailed": "关联失败",
   "resources.error.unlinkFailed": "取消关联失败",
+  "resources.error.diagramLinkFailed": "关联/取消关联图表失败",
+  "resources.diagrams": "图表",
+  "resources.linkDiagram": "关联图表",
+  "resources.unlinkDiagram": "取消关联",
+  "resources.emptyDiagrams": "此卡片没有关联的图表。",
+  "resources.confirmUnlinkDiagram": "确定要取消关联此图表吗？",
+  "resources.linkDiagramDialog.title": "关联图表",
+  "resources.linkDiagramDialog.search": "搜索图表...",
+  "resources.linkDiagramDialog.empty": "没有可关联的图表。",
   "tabs.history": "历史",
   "sidePanel.openFullPage": "打开完整页面"
 }

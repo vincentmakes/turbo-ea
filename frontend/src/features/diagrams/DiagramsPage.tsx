@@ -35,19 +35,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { Card } from "@/types";
-
-interface DiagramSummary {
-  id: string;
-  name: string;
-  description?: string;
-  type: string;
-  initiative_ids: string[];
-  thumbnail?: string;
-  card_count?: number;
-  created_at?: string;
-  updated_at?: string;
-}
+import type { Card, DiagramSummary } from "@/types";
 
 type ViewMode = "card" | "list";
 
@@ -67,14 +55,14 @@ export default function DiagramsPage() {
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createType, setCreateType] = useState("free_draw");
-  const [createInitiativeIds, setCreateInitiativeIds] = useState<string[]>([]);
+  const [createCardIds, setCreateInitiativeIds] = useState<string[]>([]);
 
   // Edit dialog (rename + description + initiatives)
   const [editOpen, setEditOpen] = useState(false);
   const [editDiagram, setEditDiagram] = useState<DiagramSummary | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
-  const [editInitiativeIds, setEditInitiativeIds] = useState<string[]>([]);
+  const [editCardIds, setEditInitiativeIds] = useState<string[]>([]);
 
   // Delete confirmation
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -109,7 +97,7 @@ export default function DiagramsPage() {
       name: createName,
       description: createDesc.trim() || undefined,
       type: createType,
-      initiative_ids: createInitiativeIds.length > 0 ? createInitiativeIds : undefined,
+      card_ids: createCardIds.length > 0 ? createCardIds : undefined,
     });
     setCreateOpen(false);
     setCreateName("");
@@ -123,7 +111,7 @@ export default function DiagramsPage() {
     setEditDiagram(d);
     setEditName(d.name);
     setEditDesc(d.description || "");
-    setEditInitiativeIds(d.initiative_ids || []);
+    setEditInitiativeIds(d.card_ids || []);
     setEditOpen(true);
     setMenuAnchor(null);
   };
@@ -133,7 +121,7 @@ export default function DiagramsPage() {
     await api.patch(`/diagrams/${editDiagram.id}`, {
       name: editName.trim(),
       description: editDesc.trim() || null,
-      initiative_ids: editInitiativeIds,
+      card_ids: editCardIds,
     });
     setEditOpen(false);
     setEditDiagram(null);
@@ -310,11 +298,11 @@ export default function DiagramsPage() {
                           variant="outlined"
                         />
                       )}
-                      {d.initiative_ids.length > 0 && (
+                      {d.card_ids.length > 0 && (
                         <Chip
                           size="small"
                           icon={<MaterialSymbol icon="link" size={14} />}
-                          label={t("gallery.initiativeCount", { count: d.initiative_ids.length })}
+                          label={t("gallery.initiativeCount", { count: d.card_ids.length })}
                           variant="outlined"
                           color="success"
                         />
@@ -416,9 +404,9 @@ export default function DiagramsPage() {
                     <Chip size="small" label={typeLabel(d.type)} />
                   </TableCell>
                   <TableCell>
-                    {d.initiative_ids.length > 0 ? (
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={initiativeNames(d.initiative_ids)}>
-                        {initiativeNames(d.initiative_ids) || t("gallery.linked", { count: d.initiative_ids.length })}
+                    {d.card_ids.length > 0 ? (
+                      <Typography variant="body2" noWrap sx={{ maxWidth: 160 }} title={initiativeNames(d.card_ids)}>
+                        {initiativeNames(d.card_ids) || t("gallery.linked", { count: d.card_ids.length })}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">{"\u2014"}</Typography>
@@ -540,7 +528,7 @@ export default function DiagramsPage() {
             multiple
             options={initiatives}
             getOptionLabel={(opt) => opt.name}
-            value={initiatives.filter((i) => createInitiativeIds.includes(i.id))}
+            value={initiatives.filter((i) => createCardIds.includes(i.id))}
             onChange={(_, newVal) => setCreateInitiativeIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (
@@ -603,7 +591,7 @@ export default function DiagramsPage() {
             multiple
             options={initiatives}
             getOptionLabel={(opt) => opt.name}
-            value={initiatives.filter((i) => editInitiativeIds.includes(i.id))}
+            value={initiatives.filter((i) => editCardIds.includes(i.id))}
             onChange={(_, newVal) => setEditInitiativeIds(newVal.map((v) => v.id))}
             disableCloseOnSelect
             renderOption={(props, option, { selected }) => (

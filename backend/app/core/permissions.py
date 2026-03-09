@@ -189,6 +189,7 @@ CARD_PERMISSIONS: dict[str, str] = {
     "card.bpm_manage_drafts": "Create, edit, and submit BPMN flow drafts",
     "card.bpm_approve": "Approve or reject submitted BPMN flow versions",
     "card.manage_adr_links": "Link or unlink architecture decisions on this card",
+    "card.manage_diagram_links": "Link or unlink diagrams on this card",
 }
 
 ALL_CARD_PERMISSION_KEYS: set[str] = set(CARD_PERMISSIONS.keys())
@@ -212,6 +213,7 @@ APP_TO_CARD_PERMISSION_MAP: dict[str, str] = {
     "bpm.manage_drafts": "card.bpm_manage_drafts",
     "bpm.approve_flows": "card.bpm_approve",
     "adr.manage": "card.manage_adr_links",
+    "diagrams.manage": "card.manage_diagram_links",
 }
 
 # Reverse: card-level → app-level (for check_permission convenience)
@@ -419,6 +421,7 @@ RESPONSIBLE_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": False,
     "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
 }
 
 OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -436,6 +439,7 @@ OBSERVER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
     "card.manage_adr_links": False,
+    "card.manage_diagram_links": False,
 }
 
 PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -453,6 +457,7 @@ PROCESS_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_manage_drafts": True,
     "card.bpm_approve": True,
     "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
 }
 
 TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -470,6 +475,7 @@ TECH_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
     "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
 }
 
 BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
@@ -487,6 +493,7 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.bpm_manage_drafts": False,
     "card.bpm_approve": False,
     "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
 }
 
 # Map stakeholder role key → default permissions

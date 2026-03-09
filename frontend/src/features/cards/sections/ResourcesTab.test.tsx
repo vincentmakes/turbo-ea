@@ -63,17 +63,35 @@ const mockDocs = [
   },
 ];
 
-function renderTab(props?: { canManageDocuments?: boolean; canManageAdrLinks?: boolean }) {
+function renderTab(props?: {
+  canManageDocuments?: boolean;
+  canManageAdrLinks?: boolean;
+  canManageDiagramLinks?: boolean;
+}) {
   return render(
     <MemoryRouter>
       <ResourcesTab
         fsId={CARD_ID}
+        cardName="Test Card"
+        cardType="Application"
         canManageDocuments={props?.canManageDocuments ?? true}
         canManageAdrLinks={props?.canManageAdrLinks ?? true}
+        canManageDiagramLinks={props?.canManageDiagramLinks ?? true}
       />
     </MemoryRouter>,
   );
 }
+
+const mockDiagrams = [
+  {
+    id: "diag-1",
+    name: "System Overview",
+    type: "free_draw",
+    card_ids: [CARD_ID],
+    card_count: 3,
+    updated_at: "2025-11-01T10:00:00Z",
+  },
+];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -81,18 +99,20 @@ beforeEach(() => {
     if (url === `/adr/by-card/${CARD_ID}`) return Promise.resolve(mockAdrs);
     if (url === `/cards/${CARD_ID}/file-attachments`) return Promise.resolve(mockFiles);
     if (url === `/cards/${CARD_ID}/documents`) return Promise.resolve(mockDocs);
+    if (url === `/diagrams?card_id=${CARD_ID}`) return Promise.resolve(mockDiagrams);
     if (url.startsWith("/adr")) return Promise.resolve([]);
     return Promise.reject(new Error(`no mock for ${url}`));
   });
 });
 
 describe("ResourcesTab", () => {
-  it("renders three accordion sections", async () => {
+  it("renders four accordion sections", async () => {
     renderTab();
     await waitFor(() => {
       expect(screen.getByText(/Architecture Decisions/)).toBeInTheDocument();
       expect(screen.getByText(/File Attachments/)).toBeInTheDocument();
       expect(screen.getByText(/Document Links/)).toBeInTheDocument();
+      expect(screen.getByText(/Diagrams/)).toBeInTheDocument();
     });
   });
 
@@ -126,12 +146,20 @@ describe("ResourcesTab", () => {
     });
   });
 
-  it("fetches data on mount", async () => {
+  it("displays linked diagrams", async () => {
+    renderTab();
+    await waitFor(() => {
+      expect(screen.getByText("System Overview")).toBeInTheDocument();
+    });
+  });
+
+  it("fetches data on mount including diagrams", async () => {
     renderTab();
     await waitFor(() => {
       expect(api.get).toHaveBeenCalledWith(`/adr/by-card/${CARD_ID}`);
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/file-attachments`);
       expect(api.get).toHaveBeenCalledWith(`/cards/${CARD_ID}/documents`);
+      expect(api.get).toHaveBeenCalledWith(`/diagrams?card_id=${CARD_ID}`);
     });
   });
 
