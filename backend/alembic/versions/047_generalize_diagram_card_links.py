@@ -2,8 +2,8 @@
 
 from alembic import op
 
-revision = "047_generalize_diagram_card_links"
-down_revision = "046_add_file_attachment_category"
+revision = "047"
+down_revision = "046"
 branch_labels = None
 depends_on = None
 

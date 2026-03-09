@@ -289,6 +289,6 @@ async def unlink_card_from_diagram(
             diagram_cards.c.card_id == c_id,
         )
     )
-    if result.rowcount == 0:
+    if result.rowcount == 0:  # type: ignore[attr-defined]
         raise HTTPException(404, "Link not found")
     await db.commit()
