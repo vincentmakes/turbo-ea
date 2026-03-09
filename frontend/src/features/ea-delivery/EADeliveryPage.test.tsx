@@ -137,13 +137,6 @@ describe("EADeliveryPage", () => {
     });
   });
 
-  it("shows New Statement of Architecture Work button", async () => {
-    renderPage();
-    await waitFor(() => {
-      expect(screen.getByText("New Statement of Architecture Work")).toBeInTheDocument();
-    });
-  });
-
   it("shows initiative count", async () => {
     renderPage();
     await waitFor(() => {
@@ -208,12 +201,17 @@ describe("EADeliveryPage", () => {
     expect(screen.getByText("1 initiative")).toBeInTheDocument();
   });
 
-  it("opens create SoAW dialog", async () => {
+  it("opens create SoAW dialog via initiative + button", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("EA Delivery")).toBeInTheDocument();
+      expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     });
 
+    // Click the "+" (create artefact) button on the first initiative card
+    const addButtons = screen.getAllByLabelText("Create artefact for this initiative");
+    await userEvent.click(addButtons[0]);
+
+    // Pick "New Statement of Architecture Work" from the menu
     await userEvent.click(screen.getByText("New Statement of Architecture Work"));
 
     expect(
@@ -222,13 +220,15 @@ describe("EADeliveryPage", () => {
     expect(screen.getByLabelText("Document name")).toBeInTheDocument();
   });
 
-  it("creates a new SoAW", async () => {
+  it("creates a new SoAW via initiative + button", async () => {
     vi.mocked(api.post).mockResolvedValue({ id: "new-soaw" });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("EA Delivery")).toBeInTheDocument();
+      expect(screen.getByText("Cloud Migration")).toBeInTheDocument();
     });
 
+    const addButtons = screen.getAllByLabelText("Create artefact for this initiative");
+    await userEvent.click(addButtons[0]);
     await userEvent.click(screen.getByText("New Statement of Architecture Work"));
     await userEvent.type(screen.getByLabelText("Document name"), "Test SoAW");
 
@@ -238,7 +238,7 @@ describe("EADeliveryPage", () => {
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
         "/soaw",
-        expect.objectContaining({ name: "Test SoAW" }),
+        expect.objectContaining({ name: "Test SoAW", initiative_id: "init-1" }),
       );
       expect(mockNavigate).toHaveBeenCalledWith("/ea-delivery/soaw/new-soaw");
     });

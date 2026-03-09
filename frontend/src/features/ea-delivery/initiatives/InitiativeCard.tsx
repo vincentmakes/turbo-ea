@@ -115,6 +115,7 @@ export default function InitiativeCard({
           <Tooltip title={t("card.createArtefactTooltip")}>
             <IconButton
               size="small"
+              aria-label={t("card.createArtefactTooltip")}
               onClick={(e) => {
                 e.stopPropagation();
                 onCreateArtefact(e, initiative.id);
