@@ -378,5 +378,14 @@
   "signatureDialog.noResults": "No users found",
   "signatureDialog.sending": "Sending...",
   "signatureDialog.requestCount_one": "Request {{count}} Signature",
-  "signatureDialog.requestCount_other": "Request {{count}} Signatures"
+  "signatureDialog.requestCount_other": "Request {{count}} Signatures",
+
+  "artefactGroup.soaws": "Statements of Architecture Work",
+  "artefactGroup.diagrams": "Diagrams",
+  "artefactGroup.adrs": "Architecture Decisions",
+  "artefactGroup.noSoaws": "No statements of architecture work",
+  "artefactGroup.noDiagrams": "No diagrams",
+  "artefactGroup.noAdrs": "No architecture decisions",
+  "hierarchy.children_one": "{{count}} child",
+  "hierarchy.children_other": "{{count}} children"
 }

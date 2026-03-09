@@ -84,14 +84,6 @@ const mockSoaws = [
   },
 ];
 
-function renderPage() {
-  return render(
-    <MemoryRouter>
-      <EADeliveryPage />
-    </MemoryRouter>,
-  );
-}
-
 const mockAdrs = [
   {
     id: "adr-1",
@@ -115,6 +107,14 @@ const mockAdrs = [
   },
 ];
 
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <EADeliveryPage />
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api.get).mockImplementation((url: string) => {
@@ -123,6 +123,8 @@ beforeEach(() => {
     if (url === "/soaw") return Promise.resolve(mockSoaws);
     if (url.startsWith("/adr")) return Promise.resolve(mockAdrs);
     if (url.startsWith("/relations")) return Promise.resolve([]);
+    if (url.startsWith("/settings/principles-display"))
+      return Promise.resolve({ enabled: false });
     return Promise.reject(new Error(`no mock for ${url}`));
   });
 });
@@ -157,11 +159,11 @@ describe("EADeliveryPage", () => {
     });
   });
 
-  it("shows artefact counts on initiative cards", async () => {
+  it("shows typed artefact chips on initiative cards", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("3 artefacts")).toBeInTheDocument(); // Cloud Migration has 1 diagram + 1 soaw + 1 adr
-      expect(screen.getByText("0 artefacts")).toBeInTheDocument(); // API Gateway has none
+      // Cloud Migration has 1 diagram + 1 soaw + 1 adr, shown as typed chips
+      expect(screen.getByText("1 SoAW")).toBeInTheDocument();
     });
   });
 
@@ -183,7 +185,6 @@ describe("EADeliveryPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Not linked to an Initiative")).toBeInTheDocument();
-      expect(screen.getByText("2 artefacts")).toBeInTheDocument();
     });
   });
 
@@ -215,7 +216,9 @@ describe("EADeliveryPage", () => {
 
     await userEvent.click(screen.getByText("New Statement of Architecture Work"));
 
-    expect(screen.getByRole("heading", { name: /New Statement of Architecture Work/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /New Statement of Architecture Work/i }),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText("Document name")).toBeInTheDocument();
   });
 
@@ -233,7 +236,10 @@ describe("EADeliveryPage", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Create" }));
 
     await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith("/soaw", expect.objectContaining({ name: "Test SoAW" }));
+      expect(api.post).toHaveBeenCalledWith(
+        "/soaw",
+        expect.objectContaining({ name: "Test SoAW" }),
+      );
       expect(mockNavigate).toHaveBeenCalledWith("/ea-delivery/soaw/new-soaw");
     });
   });
@@ -249,6 +255,9 @@ describe("EADeliveryPage", () => {
       if (url.startsWith("/cards?type=Initiative")) return Promise.resolve({ items: [] });
       if (url === "/diagrams") return Promise.resolve([]);
       if (url === "/soaw") return Promise.resolve([]);
+      if (url.startsWith("/adr")) return Promise.resolve([]);
+      if (url.startsWith("/settings/principles-display"))
+        return Promise.resolve({ enabled: false });
       return Promise.reject(new Error("no mock"));
     });
     renderPage();

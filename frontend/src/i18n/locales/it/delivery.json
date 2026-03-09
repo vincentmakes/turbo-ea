@@ -356,5 +356,13 @@
   "signatureDialog.noResults": "Nessun utente trovato",
   "signatureDialog.sending": "Invio in corso...",
   "signatureDialog.requestCount_one": "Richiedi {{count}} firma",
-  "signatureDialog.requestCount_other": "Richiedi {{count}} firme"
+  "signatureDialog.requestCount_other": "Richiedi {{count}} firme",
+  "artefactGroup.soaws": "Dichiarazioni di lavoro di architettura",
+  "artefactGroup.diagrams": "Diagrammi",
+  "artefactGroup.adrs": "Decisioni di architettura",
+  "artefactGroup.noSoaws": "Nessuna dichiarazione di lavoro di architettura",
+  "artefactGroup.noDiagrams": "Nessun diagramma",
+  "artefactGroup.noAdrs": "Nessuna decisione di architettura",
+  "hierarchy.children_one": "{{count}} elemento figlio",
+  "hierarchy.children_other": "{{count}} elementi figli"
 }

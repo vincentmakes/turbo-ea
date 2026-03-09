@@ -378,5 +378,13 @@
   "signatureDialog.noResults": "未找到用户",
   "signatureDialog.sending": "发送中...",
   "signatureDialog.requestCount_one": "请求 {{count}} 个签名",
-  "signatureDialog.requestCount_other": "请求 {{count}} 个签名"
+  "signatureDialog.requestCount_other": "请求 {{count}} 个签名",
+  "artefactGroup.soaws": "架构工作说明书",
+  "artefactGroup.diagrams": "图表",
+  "artefactGroup.adrs": "架构决策",
+  "artefactGroup.noSoaws": "暂无架构工作说明书",
+  "artefactGroup.noDiagrams": "暂无图表",
+  "artefactGroup.noAdrs": "暂无架构决策",
+  "hierarchy.children_one": "{{count}} 个子元素",
+  "hierarchy.children_other": "{{count}} 个子元素"
 }

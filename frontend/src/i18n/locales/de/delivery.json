@@ -378,5 +378,13 @@
   "signatureDialog.noResults": "Keine Benutzer gefunden",
   "signatureDialog.sending": "Wird gesendet...",
   "signatureDialog.requestCount_one": "{{count}} Unterschrift anfordern",
-  "signatureDialog.requestCount_other": "{{count}} Unterschriften anfordern"
+  "signatureDialog.requestCount_other": "{{count}} Unterschriften anfordern",
+  "artefactGroup.soaws": "Architekturarbeitserklärungen",
+  "artefactGroup.diagrams": "Diagramme",
+  "artefactGroup.adrs": "Architekturentscheidungen",
+  "artefactGroup.noSoaws": "Keine Architekturarbeitserklärungen",
+  "artefactGroup.noDiagrams": "Keine Diagramme",
+  "artefactGroup.noAdrs": "Keine Architekturentscheidungen",
+  "hierarchy.children_one": "{{count}} Unterelement",
+  "hierarchy.children_other": "{{count}} Unterelemente"
 }

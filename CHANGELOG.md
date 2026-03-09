@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.29.0] - 2026-03-09
+
+### Changed
+- Redesigned Initiatives tab in EA Delivery with cleaner two-row card headers, parent-child hierarchy visualization, and 3-column artefact layout (SoAW / Diagrams / ADRs)
+- Streamlined Initiatives list view from 9 columns to 7 with hierarchy indentation and artefact-focused layout
+- Decomposed 1750-line EADeliveryPage monolith into 6 focused sub-components for better maintainability
+- Responsive artefact grid collapses to single column on narrow screens
+
 ## [0.28.0] - 2026-03-09
 
 ### Added
