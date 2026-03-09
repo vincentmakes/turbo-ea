@@ -182,6 +182,58 @@ export default function AdrGrid({
         valueFormatter: (params: { value: string | null }) =>
           params.value ? new Date(params.value).toLocaleDateString() : "",
       },
+      {
+        headerName: t("adr.grid.signedBy"),
+        sortable: false,
+        minWidth: 140,
+        flex: 1,
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          (params.data?.signatories ?? [])
+            .filter((s) => s.status === "signed")
+            .map((s) => s.display_name)
+            .join(", "),
+        cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
+          const signed = (params.data?.signatories ?? []).filter(
+            (s) => s.status === "signed",
+          );
+          if (signed.length === 0) return null;
+          return (
+            <Tooltip
+              title={signed.map((s) => s.display_name).join(", ")}
+              enterDelay={400}
+              disableHoverListener={signed.length <= 2}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 0.5,
+                  alignItems: "center",
+                  flexWrap: "nowrap",
+                  overflow: "hidden",
+                  py: 0.25,
+                }}
+              >
+                {signed.map((s) => (
+                  <Chip
+                    key={s.user_id}
+                    label={s.display_name}
+                    size="small"
+                    sx={{
+                      fontWeight: 500,
+                      maxWidth: 120,
+                      flexShrink: 0,
+                      "& .MuiChip-label": {
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }}
+                  />
+                ))}
+              </Box>
+            </Tooltip>
+          );
+        },
+      },
     ],
     [t, typeColorMap],
   );

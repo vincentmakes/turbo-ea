@@ -910,6 +910,13 @@ export default function EADeliveryPage() {
     if (adrFilters.dateSignedTo) {
       list = list.filter((a) => a.signed_at && a.signed_at <= adrFilters.dateSignedTo + "T23:59:59");
     }
+    if (adrFilters.signedBy.length > 0) {
+      list = list.filter((a) =>
+        a.signatories.some(
+          (s) => s.status === "signed" && adrFilters.signedBy.includes(s.user_id),
+        ),
+      );
+    }
     return list;
   }, [adrs, adrFilters]);
 
@@ -930,10 +937,12 @@ export default function EADeliveryPage() {
   }, [adrs, metamodelTypes, rml]);
 
   // Compute unique linked cards across all ADRs for the filter sidebar
+  // When card type filters are active, only show linked cards of those types
   const availableLinkedCards = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; type: string; color: string }>();
     for (const adr of adrs) {
       for (const c of adr.linked_cards ?? []) {
+        if (adrFilters.cardTypes.length > 0 && !adrFilters.cardTypes.includes(c.type)) continue;
         if (!seen.has(c.id)) {
           const mt = metamodelTypes.find((t) => t.key === c.type);
           seen.set(c.id, { id: c.id, name: c.name, type: c.type, color: mt?.color ?? "#666" });
@@ -941,7 +950,20 @@ export default function EADeliveryPage() {
       }
     }
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [adrs, metamodelTypes]);
+  }, [adrs, metamodelTypes, adrFilters.cardTypes]);
+
+  // Compute unique signatories across all ADRs for the filter sidebar
+  const availableSignatories = useMemo(() => {
+    const seen = new Map<string, { userId: string; displayName: string }>();
+    for (const adr of adrs) {
+      for (const s of adr.signatories) {
+        if (s.status === "signed" && !seen.has(s.user_id)) {
+          seen.set(s.user_id, { userId: s.user_id, displayName: s.display_name });
+        }
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }, [adrs]);
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -993,6 +1015,7 @@ export default function EADeliveryPage() {
             onWidthChange={setAdrSidebarWidth}
             availableCardTypes={availableCardTypes}
             availableLinkedCards={availableLinkedCards}
+            availableSignatories={availableSignatories}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <AdrGrid

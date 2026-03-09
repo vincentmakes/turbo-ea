@@ -24,6 +24,7 @@ export interface AdrFilters {
   cardTypes: string[];
   linkedCards: string[];
   statuses: string[];
+  signedBy: string[];
   dateCreatedFrom: string;
   dateCreatedTo: string;
   dateModifiedFrom: string;
@@ -36,6 +37,7 @@ export const EMPTY_ADR_FILTERS: AdrFilters = {
   cardTypes: [],
   linkedCards: [],
   statuses: [],
+  signedBy: [],
   dateCreatedFrom: "",
   dateCreatedTo: "",
   dateModifiedFrom: "",
@@ -53,6 +55,7 @@ interface Props {
   onWidthChange: (w: number) => void;
   availableCardTypes: { key: string; label: string; color: string }[];
   availableLinkedCards: { id: string; name: string; type: string; color: string }[];
+  availableSignatories: { userId: string; displayName: string }[];
 }
 
 const STATUS_OPTIONS = [
@@ -114,6 +117,7 @@ export default function AdrFilterSidebar({
   onWidthChange,
   availableCardTypes,
   availableLinkedCards,
+  availableSignatories,
 }: Props) {
   // delivery namespace — keys: adr.filter.*
   const { t } = useTranslation(["delivery", "common"]);
@@ -122,6 +126,7 @@ export default function AdrFilterSidebar({
     cardTypes: true,
     linkedCards: false,
     status: true,
+    signedBy: false,
     dateCreated: false,
     dateModified: false,
     dateSigned: false,
@@ -164,6 +169,16 @@ export default function AdrFilterSidebar({
     [filters, onFiltersChange],
   );
 
+  const toggleSignatory = useCallback(
+    (userId: string) => {
+      const next = filters.signedBy.includes(userId)
+        ? filters.signedBy.filter((k) => k !== userId)
+        : [...filters.signedBy, userId];
+      onFiltersChange({ ...filters, signedBy: next });
+    },
+    [filters, onFiltersChange],
+  );
+
   const setDateField = useCallback(
     (field: keyof AdrFilters, value: string) => {
       onFiltersChange({ ...filters, [field]: value });
@@ -180,6 +195,7 @@ export default function AdrFilterSidebar({
       filters.cardTypes.length +
       filters.linkedCards.length +
       filters.statuses.length +
+      filters.signedBy.length +
       (filters.dateCreatedFrom ? 1 : 0) +
       (filters.dateCreatedTo ? 1 : 0) +
       (filters.dateModifiedFrom ? 1 : 0) +
@@ -468,6 +484,50 @@ export default function AdrFilterSidebar({
                   />
                 </ListItemButton>
               ))}
+            </List>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Signed By ---- */}
+          <SectionHeader
+            label={t("adr.filter.signedBy")}
+            expanded={expandedSections.signedBy}
+            onToggle={() => toggleSection("signedBy")}
+          />
+          <Collapse in={expandedSections.signedBy}>
+            <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflow: "auto" }}>
+              {availableSignatories.map((s) => (
+                <ListItemButton
+                  key={s.userId}
+                  dense
+                  onClick={() => toggleSignatory(s.userId)}
+                  sx={{ py: 0, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.signedBy.includes(s.userId)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={s.displayName}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                  />
+                </ListItemButton>
+              ))}
+              {availableSignatories.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("adr.filter.noSignatories")}
+                </Typography>
+              )}
             </List>
           </Collapse>
 
