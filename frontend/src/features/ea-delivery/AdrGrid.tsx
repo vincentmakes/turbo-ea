@@ -5,6 +5,9 @@ import { AgGridReact } from "ag-grid-react";
 import type { ColDef, RowClickedEvent } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import TextField from "@mui/material/TextField";
+import InputAdornment from "@mui/material/InputAdornment";
+import Tooltip from "@mui/material/Tooltip";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -15,6 +18,12 @@ import type { ArchitectureDecision, CardType } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
+/** Strip HTML tags for plain-text display */
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return "";
+  return html.replace(/<[^>]*>/g, "").trim();
+}
+
 interface Props {
   adrs: ArchitectureDecision[];
   metamodelTypes: CardType[];
@@ -24,6 +33,7 @@ interface Props {
   onDuplicate: (adr: ArchitectureDecision) => void;
   onDelete: (adr: ArchitectureDecision) => void;
   quickFilterText: string;
+  onQuickFilterChange: (text: string) => void;
 }
 
 const STATUS_CHIP_PROPS: Record<string, { label_key: string; color: "default" | "warning" | "success" }> = {
@@ -41,6 +51,7 @@ export default function AdrGrid({
   onDuplicate,
   onDelete,
   quickFilterText,
+  onQuickFilterChange,
 }: Props) {
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
@@ -76,7 +87,19 @@ export default function AdrGrid({
         headerName: t("adr.grid.title"),
         field: "title",
         flex: 1,
-        minWidth: 200,
+        minWidth: 180,
+      },
+      {
+        headerName: t("adr.grid.decision"),
+        field: "decision",
+        flex: 1,
+        minWidth: 180,
+        valueFormatter: (params: { value: string | null }) => stripHtml(params.value),
+        cellStyle: {
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        },
       },
       {
         headerName: t("adr.grid.status"),
@@ -98,33 +121,49 @@ export default function AdrGrid({
       {
         headerName: t("adr.grid.linkedCards"),
         sortable: false,
-        minWidth: 200,
+        minWidth: 160,
         flex: 1,
+        valueGetter: (params: { data: ArchitectureDecision | undefined }) =>
+          (params.data?.linked_cards ?? []).map((c) => c.name).join(", "),
         cellRenderer: (params: { data: ArchitectureDecision | undefined }) => {
           const cards = params.data?.linked_cards;
           if (!cards || cards.length === 0) return null;
-          const visible = cards.slice(0, 3);
-          const overflow = cards.length - 3;
           return (
-            <Box sx={{ display: "flex", gap: 0.5, alignItems: "center", flexWrap: "wrap", py: 0.25 }}>
-              {visible.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  size="small"
-                  sx={{
-                    bgcolor: typeColorMap[c.type] || "#9e9e9e",
-                    color: "#fff",
-                    fontWeight: 500,
-                    maxWidth: 160,
-                    "& .MuiChip-label": { overflow: "hidden", textOverflow: "ellipsis" },
-                  }}
-                />
-              ))}
-              {overflow > 0 && (
-                <Chip label={`+${overflow}`} size="small" variant="outlined" />
-              )}
-            </Box>
+            <Tooltip
+              title={cards.map((c) => c.name).join(", ")}
+              enterDelay={400}
+              disableHoverListener={cards.length <= 2}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 0.5,
+                  alignItems: "center",
+                  flexWrap: "nowrap",
+                  overflow: "hidden",
+                  py: 0.25,
+                }}
+              >
+                {cards.map((c) => (
+                  <Chip
+                    key={c.id}
+                    label={c.name}
+                    size="small"
+                    sx={{
+                      bgcolor: typeColorMap[c.type] || "#9e9e9e",
+                      color: "#fff",
+                      fontWeight: 500,
+                      maxWidth: 140,
+                      flexShrink: 0,
+                      "& .MuiChip-label": {
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
+                    }}
+                  />
+                ))}
+              </Box>
+            </Tooltip>
           );
         },
       },
@@ -136,23 +175,11 @@ export default function AdrGrid({
           params.value ? new Date(params.value).toLocaleDateString() : "",
       },
       {
-        headerName: t("adr.grid.modified"),
-        field: "updated_at",
-        width: 130,
-        valueFormatter: (params: { value: string | null }) =>
-          params.value ? new Date(params.value).toLocaleDateString() : "",
-      },
-      {
         headerName: t("adr.grid.signed"),
         field: "signed_at",
         width: 130,
         valueFormatter: (params: { value: string | null }) =>
           params.value ? new Date(params.value).toLocaleDateString() : "",
-      },
-      {
-        headerName: t("adr.grid.revision"),
-        field: "revision_number",
-        width: 100,
       },
     ],
     [t, typeColorMap],
@@ -201,25 +228,47 @@ export default function AdrGrid({
 
   return (
     <>
-      <Box
-        className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-        sx={{ height: "100%", width: "100%" }}
-        onContextMenu={handleContextMenu}
-      >
-        <AgGridReact<ArchitectureDecision>
-          ref={gridRef}
-          rowData={adrs}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          quickFilterText={quickFilterText}
-          loading={loading}
-          onRowClicked={onRowClicked}
-          rowHeight={44}
-          headerHeight={44}
-          suppressCellFocus
-          animateRows={false}
-          getRowId={(params) => params.data.id}
-        />
+      <Box sx={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
+        {/* Search bar inside the grid panel */}
+        <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder={t("adr.searchPlaceholder")}
+            value={quickFilterText}
+            onChange={(e) => onQuickFilterChange(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MaterialSymbol icon="search" size={20} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Box>
+
+        <Box
+          className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
+          sx={{ flex: 1, minHeight: 0 }}
+          onContextMenu={handleContextMenu}
+        >
+          <AgGridReact<ArchitectureDecision>
+            ref={gridRef}
+            rowData={adrs}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            quickFilterText={quickFilterText}
+            loading={loading}
+            onRowClicked={onRowClicked}
+            rowHeight={44}
+            headerHeight={44}
+            suppressCellFocus
+            animateRows={false}
+            getRowId={(params) => params.data.id}
+          />
+        </Box>
       </Box>
 
       <Menu

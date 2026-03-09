@@ -22,6 +22,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 
 export interface AdrFilters {
   cardTypes: string[];
+  linkedCards: string[];
   statuses: string[];
   dateCreatedFrom: string;
   dateCreatedTo: string;
@@ -33,6 +34,7 @@ export interface AdrFilters {
 
 export const EMPTY_ADR_FILTERS: AdrFilters = {
   cardTypes: [],
+  linkedCards: [],
   statuses: [],
   dateCreatedFrom: "",
   dateCreatedTo: "",
@@ -50,6 +52,7 @@ interface Props {
   width: number;
   onWidthChange: (w: number) => void;
   availableCardTypes: { key: string; label: string; color: string }[];
+  availableLinkedCards: { id: string; name: string; type: string; color: string }[];
 }
 
 const STATUS_OPTIONS = [
@@ -110,12 +113,14 @@ export default function AdrFilterSidebar({
   width,
   onWidthChange,
   availableCardTypes,
+  availableLinkedCards,
 }: Props) {
   // delivery namespace — keys: adr.filter.*
   const { t } = useTranslation(["delivery", "common"]);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     cardTypes: true,
+    linkedCards: false,
     status: true,
     dateCreated: false,
     dateModified: false,
@@ -147,6 +152,16 @@ export default function AdrFilterSidebar({
     [filters, onFiltersChange],
   );
 
+  const toggleLinkedCard = useCallback(
+    (id: string) => {
+      const next = filters.linkedCards.includes(id)
+        ? filters.linkedCards.filter((k) => k !== id)
+        : [...filters.linkedCards, id];
+      onFiltersChange({ ...filters, linkedCards: next });
+    },
+    [filters, onFiltersChange],
+  );
+
   const setDateField = useCallback(
     (field: keyof AdrFilters, value: string) => {
       onFiltersChange({ ...filters, [field]: value });
@@ -161,6 +176,7 @@ export default function AdrFilterSidebar({
   const activeCount = useMemo(
     () =>
       filters.cardTypes.length +
+      filters.linkedCards.length +
       filters.statuses.length +
       (filters.dateCreatedFrom ? 1 : 0) +
       (filters.dateCreatedTo ? 1 : 0) +
@@ -332,6 +348,60 @@ export default function AdrFilterSidebar({
                   sx={{ px: 1, py: 0.5, fontSize: 12 }}
                 >
                   {t("adr.filter.all")}
+                </Typography>
+              )}
+            </List>
+          </Collapse>
+
+          <Divider sx={{ my: 1 }} />
+
+          {/* ---- Linked Cards ---- */}
+          <SectionHeader
+            label={t("adr.filter.linkedCards")}
+            expanded={expandedSections.linkedCards}
+            onToggle={() => toggleSection("linkedCards")}
+          />
+          <Collapse in={expandedSections.linkedCards}>
+            <List dense disablePadding sx={{ mb: 1 }}>
+              {availableLinkedCards.map((card) => (
+                <ListItemButton
+                  key={card.id}
+                  dense
+                  onClick={() => toggleLinkedCard(card.id)}
+                  sx={{ py: 0, borderRadius: 1 }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32 }}>
+                    <Checkbox
+                      edge="start"
+                      size="small"
+                      checked={filters.linkedCards.includes(card.id)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                  </ListItemIcon>
+                  <Box
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      bgcolor: card.color,
+                      mr: 1,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <ListItemText
+                    primary={card.name}
+                    primaryTypographyProps={{ fontSize: 13 }}
+                  />
+                </ListItemButton>
+              ))}
+              {availableLinkedCards.length === 0 && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ px: 1, py: 0.5, fontSize: 12 }}
+                >
+                  {t("adr.filter.noLinkedCards")}
                 </Typography>
               )}
             </List>

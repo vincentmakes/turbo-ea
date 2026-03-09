@@ -880,6 +880,11 @@ export default function EADeliveryPage() {
         (a.linked_cards ?? []).some((c) => adrFilters.cardTypes.includes(c.type)),
       );
     }
+    if (adrFilters.linkedCards.length > 0) {
+      list = list.filter((a) =>
+        (a.linked_cards ?? []).some((c) => adrFilters.linkedCards.includes(c.id)),
+      );
+    }
     if (adrFilters.dateCreatedFrom) {
       list = list.filter((a) => a.created_at && a.created_at >= adrFilters.dateCreatedFrom);
     }
@@ -916,6 +921,20 @@ export default function EADeliveryPage() {
       };
     });
   }, [adrs, metamodelTypes, rml]);
+
+  // Compute unique linked cards across all ADRs for the filter sidebar
+  const availableLinkedCards = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; type: string; color: string }>();
+    for (const adr of adrs) {
+      for (const c of adr.linked_cards ?? []) {
+        if (!seen.has(c.id)) {
+          const mt = metamodelTypes.find((t) => t.key === c.type);
+          seen.set(c.id, { id: c.id, name: c.name, type: c.type, color: mt?.color ?? "#666" });
+        }
+      }
+    }
+    return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [adrs, metamodelTypes]);
 
   // ── render ─────────────────────────────────────────────────────────────
 
@@ -958,22 +977,6 @@ export default function EADeliveryPage() {
       <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)" }}>
         {/* Toolbar */}
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
-          <TextField
-            size="small"
-            placeholder={t("adr.searchPlaceholder")}
-            value={adrSearch}
-            onChange={(e) => setAdrSearch(e.target.value)}
-            sx={{ minWidth: 220 }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <MaterialSymbol icon="search" size={20} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
           <Box sx={{ flex: 1 }} />
           <Button
             variant="contained"
@@ -996,6 +999,7 @@ export default function EADeliveryPage() {
             width={adrSidebarWidth}
             onWidthChange={setAdrSidebarWidth}
             availableCardTypes={availableCardTypes}
+            availableLinkedCards={availableLinkedCards}
           />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <AdrGrid
@@ -1003,6 +1007,7 @@ export default function EADeliveryPage() {
               metamodelTypes={metamodelTypes}
               loading={loading}
               quickFilterText={adrSearch}
+              onQuickFilterChange={setAdrSearch}
               onEdit={(adr) => navigate(`/ea-delivery/adr/${adr.id}`)}
               onPreview={(adr) => navigate(`/ea-delivery/adr/${adr.id}/preview`)}
               onDuplicate={(adr) => handleDuplicateAdr(adr.id)}
