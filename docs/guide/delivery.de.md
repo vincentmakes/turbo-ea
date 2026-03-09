@@ -27,7 +27,7 @@ Turbo EA bietet einen integrierten SoAW-Editor mit TOGAF-konformen Abschnittsvor
 
 ### Ein SoAW erstellen
 
-1. Klicken Sie auf **+ Neues SoAW** innerhalb einer Initiative
+1. Klicken Sie auf die **+**-Schaltfläche einer Initiativkarte und wählen Sie **Neues SoAW**
 2. Geben Sie den Dokumenttitel ein
 3. Der Editor öffnet sich mit **vorgefertigten Abschnittsvorlagen** basierend auf dem TOGAF-Standard
 

@@ -600,21 +600,7 @@ export default function EADeliveryPage() {
           {t("page.title")}
         </Typography>
         <Box sx={{ flex: 1 }} />
-        {pageTab === "initiatives" && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={() => {
-              setNewInitiativeId("");
-              setCreateOpen(true);
-            }}
-          >
-            {t("header.newSoaw")}
-          </Button>
-        )}
-        {pageTab === "decisions" && (
+{pageTab === "decisions" && (
           <Button
             variant="contained"
             size="small"

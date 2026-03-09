@@ -27,7 +27,7 @@ Turbo EA provides a built-in SoAW editor with TOGAF-aligned section templates, r
 
 ### Creating a SoAW
 
-1. Click **+ New SoAW** from within an initiative
+1. Click the **+** button on an initiative card and select **New SoAW**
 2. Enter the document title
 3. The editor opens with **pre-built section templates** based on the TOGAF standard
 

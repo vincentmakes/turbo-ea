@@ -27,7 +27,7 @@ Turbo EA proporciona un editor SoAW integrado con plantillas de secciones alinea
 
 ### Crear un SoAW
 
-1. Haga clic en **+ Nuevo SoAW** desde dentro de una iniciativa
+1. Haga clic en el botón **+** de una tarjeta de iniciativa y seleccione **Nuevo SoAW**
 2. Ingrese el título del documento
 3. El editor se abre con **plantillas de secciones predefinidas** basadas en el estándar TOGAF
 
