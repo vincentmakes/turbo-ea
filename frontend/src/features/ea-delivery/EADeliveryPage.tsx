@@ -475,9 +475,9 @@ export default function EADeliveryPage() {
           {d.name}
         </Typography>
         {d.card_ids.length > 1 && (
-          <Tooltip title={t("diagram.linkedToInitiatives", { count: d.card_ids.length })}>
+          <Tooltip title={t("diagram.linkedToCards", { count: d.card_ids.length })}>
             <Chip
-              label={t("diagram.linkedToInitiatives", { count: d.card_ids.length })}
+              label={t("diagram.linkedToCards", { count: d.card_ids.length })}
               size="small"
               variant="outlined"
               sx={{ mr: 0.5 }}
@@ -1731,7 +1731,7 @@ export default function EADeliveryPage() {
                         primary={d.name}
                         secondary={
                           d.card_ids.length > 0
-                            ? t("linkDialog.linkedToCount", { count: d.card_ids.length })
+                            ? t("linkDialog.linkedToCardCount", { count: d.card_ids.length })
                             : t("linkDialog.notLinked")
                         }
                       />

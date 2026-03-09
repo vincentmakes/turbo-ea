@@ -51,7 +51,8 @@
   "list.adrCount_other": "{{count}} ADRs",
 
   "diagram.label": "Diagramm",
-  "diagram.linkedToInitiatives": "Mit {{count}} Initiativen verknüpft",
+  "diagram.linkedToCards_one": "Mit {{count}} Karte verknüpft",
+  "diagram.linkedToCards_other": "Mit {{count}} Karten verknüpft",
   "diagram.unlinkTooltip": "Von dieser Initiative trennen",
 
   "soaw.label": "SoAW",
@@ -83,8 +84,8 @@
   "linkDialog.title": "Diagramme mit Initiative verknüpfen",
   "linkDialog.description": "Wählen Sie Diagramme, die mit <strong>{{name}}</strong> verknüpft werden sollen. Ein Diagramm kann mit mehreren Initiativen verknüpft werden.",
   "linkDialog.noDiagrams": "Keine Diagramme verfügbar. Erstellen Sie zuerst eines auf der Diagramme-Seite.",
-  "linkDialog.linkedToCount_one": "Mit {{count}} Initiative verknüpft",
-  "linkDialog.linkedToCount_other": "Mit {{count}} Initiativen verknüpft",
+  "linkDialog.linkedToCardCount_one": "Mit {{count}} Karte verknüpft",
+  "linkDialog.linkedToCardCount_other": "Mit {{count}} Karten verknüpft",
   "linkDialog.notLinked": "Nicht verknüpft",
   "linkDialog.saving": "Wird gespeichert...",
   "linkDialog.saveLinks": "Verknüpfungen speichern",

@@ -51,7 +51,8 @@
   "list.adrCount_other": "{{count}} ADR",
 
   "diagram.label": "Diagramme",
-  "diagram.linkedToInitiatives": "Li\u00e9 \u00e0 {{count}} initiatives",
+  "diagram.linkedToCards_one": "Li\u00e9 \u00e0 {{count}} fiche",
+  "diagram.linkedToCards_other": "Li\u00e9 \u00e0 {{count}} fiches",
   "diagram.unlinkTooltip": "D\u00e9lier de cette initiative",
 
   "soaw.label": "SoAW",
@@ -83,8 +84,8 @@
   "linkDialog.title": "Lier des diagrammes \u00e0 l\u2019initiative",
   "linkDialog.description": "S\u00e9lectionnez des diagrammes \u00e0 lier \u00e0 <strong>{{name}}</strong>. Un diagramme peut \u00eatre li\u00e9 \u00e0 plusieurs initiatives.",
   "linkDialog.noDiagrams": "Aucun diagramme disponible. Cr\u00e9ez-en un depuis la page Diagrammes d\u2019abord.",
-  "linkDialog.linkedToCount_one": "Li\u00e9 \u00e0 {{count}} initiative",
-  "linkDialog.linkedToCount_other": "Li\u00e9 \u00e0 {{count}} initiatives",
+  "linkDialog.linkedToCardCount_one": "Li\u00e9 \u00e0 {{count}} fiche",
+  "linkDialog.linkedToCardCount_other": "Li\u00e9 \u00e0 {{count}} fiches",
   "linkDialog.notLinked": "Non li\u00e9",
   "linkDialog.saving": "Enregistrement\u2026",
   "linkDialog.saveLinks": "Enregistrer les liens",
