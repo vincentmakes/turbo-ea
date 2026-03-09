@@ -303,6 +303,7 @@
   "adr.filter.cardTypes": "卡片类型",
   "adr.filter.linkedCards": "关联卡片",
   "adr.filter.noLinkedCards": "无可用的关联卡片",
+  "adr.filter.searchLinkedCards": "搜索...",
   "adr.filter.dateCreated": "创建日期",
   "adr.filter.dateModified": "修改日期",
   "adr.filter.dateSigned": "签署日期",

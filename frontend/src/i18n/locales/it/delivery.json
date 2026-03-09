@@ -281,6 +281,7 @@
   "adr.filter.cardTypes": "Tipi di schede",
   "adr.filter.linkedCards": "Schede collegate",
   "adr.filter.noLinkedCards": "Nessuna scheda collegata disponibile",
+  "adr.filter.searchLinkedCards": "Cerca...",
   "adr.filter.dateCreated": "Data di creazione",
   "adr.filter.dateModified": "Data di modifica",
   "adr.filter.dateSigned": "Data di firma",

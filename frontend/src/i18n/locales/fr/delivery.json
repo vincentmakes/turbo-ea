@@ -303,6 +303,7 @@
   "adr.filter.cardTypes": "Types de cartes",
   "adr.filter.linkedCards": "Cartes liées",
   "adr.filter.noLinkedCards": "Aucune carte liée disponible",
+  "adr.filter.searchLinkedCards": "Rechercher...",
   "adr.filter.dateCreated": "Date de création",
   "adr.filter.dateModified": "Date de modification",
   "adr.filter.dateSigned": "Date de signature",

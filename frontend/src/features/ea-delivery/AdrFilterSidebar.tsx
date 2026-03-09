@@ -127,6 +127,8 @@ export default function AdrFilterSidebar({
     dateSigned: false,
   });
 
+  const [linkedCardSearch, setLinkedCardSearch] = useState("");
+
   const toggleSection = (key: string) =>
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -362,8 +364,24 @@ export default function AdrFilterSidebar({
             onToggle={() => toggleSection("linkedCards")}
           />
           <Collapse in={expandedSections.linkedCards}>
-            <List dense disablePadding sx={{ mb: 1 }}>
-              {availableLinkedCards.map((card) => (
+            {availableLinkedCards.length > 5 && (
+              <TextField
+                size="small"
+                fullWidth
+                placeholder={t("adr.filter.searchLinkedCards")}
+                value={linkedCardSearch}
+                onChange={(e) => setLinkedCardSearch(e.target.value)}
+                sx={{ mb: 0.5, "& .MuiInputBase-root": { fontSize: 12, height: 30 } }}
+              />
+            )}
+            <List dense disablePadding sx={{ mb: 1, maxHeight: 240, overflow: "auto" }}>
+              {availableLinkedCards
+                .filter(
+                  (card) =>
+                    !linkedCardSearch ||
+                    card.name.toLowerCase().includes(linkedCardSearch.toLowerCase()),
+                )
+                .map((card) => (
                 <ListItemButton
                   key={card.id}
                   dense

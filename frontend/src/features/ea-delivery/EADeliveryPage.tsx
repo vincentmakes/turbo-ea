@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
@@ -99,7 +99,14 @@ export default function EADeliveryPage() {
     completed: t("initiativeStatus.completed"),
   };
 
-  const [pageTab, setPageTab] = useState<PageTab>("initiatives");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab");
+  const pageTab: PageTab =
+    rawTab === "principles" || rawTab === "decisions" ? rawTab : "initiatives";
+  const setPageTab = useCallback(
+    (tab: PageTab) => setSearchParams({ tab }, { replace: true }),
+    [setSearchParams],
+  );
   const [initiatives, setInitiatives] = useState<Card[]>([]);
   const [diagrams, setDiagrams] = useState<DiagramSummary[]>([]);
   const [soaws, setSoaws] = useState<SoAW[]>([]);
@@ -975,20 +982,6 @@ export default function EADeliveryPage() {
   const renderDecisionsTab = () => {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 180px)" }}>
-        {/* Toolbar */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1, flexWrap: "wrap" }}>
-          <Box sx={{ flex: 1 }} />
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            sx={{ textTransform: "none" }}
-            onClick={() => openAdrCreateDialog()}
-          >
-            {t("adr.new")}
-          </Button>
-        </Box>
-
         {/* Sidebar + Grid */}
         <Box sx={{ display: "flex", flex: 1, minHeight: 0, border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden" }}>
           <AdrFilterSidebar
@@ -1160,6 +1153,17 @@ export default function EADeliveryPage() {
             }}
           >
             {t("header.newSoaw")}
+          </Button>
+        )}
+        {pageTab === "decisions" && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            sx={{ textTransform: "none" }}
+            onClick={() => openAdrCreateDialog()}
+          >
+            {t("adr.new")}
           </Button>
         )}
       </Box>
