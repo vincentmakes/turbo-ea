@@ -1,0 +1,20 @@
+{
+  "title": "Уведомления",
+  "markAllRead": "Отметить все как прочитанные",
+  "noNotifications": "Нет уведомлений",
+  "preferences.title": "Настройки уведомлений",
+  "preferences.description": "Выберите, какие уведомления вы хотите получать и каким способом.",
+  "preferences.notification": "Уведомление",
+  "preferences.inApp": "В приложении",
+  "preferences.email": "По электронной почте",
+  "preferences.saving": "Сохранение...",
+  "preferences.loadFailed": "Не удалось загрузить настройки",
+  "preferences.saveFailed": "Не удалось сохранить настройки",
+  "preferences.todoAssigned": "Назначена задача",
+  "preferences.cardUpdated": "Карточка обновлена",
+  "preferences.commentAdded": "Добавлен комментарий",
+  "preferences.approvalStatusChanged": "Изменён статус утверждения",
+  "preferences.soawSignRequested": "Запрошена подпись SoAW",
+  "preferences.soawSigned": "SoAW подписан",
+  "preferences.surveyRequest": "Запрос на опрос"
+}

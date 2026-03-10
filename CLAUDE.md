@@ -51,7 +51,7 @@ When working on this codebase, follow these conventions:
 ### Internationalization (i18n)
 - **All user-facing strings must use translation keys**, never hardcoded English text. Use `useTranslation()` from `react-i18next` with the appropriate namespace.
 - **12 namespaces**: `common`, `auth`, `nav`, `inventory`, `cards`, `reports`, `admin`, `bpm`, `diagrams`, `delivery`, `notifications`, `validation`. Use the namespace that matches the feature area.
-- **7 supported locales**: `en` (English, baseline), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese), `zh` (Chinese Simplified).
+- **8 supported locales**: `en` (English, baseline), `de` (German), `fr` (French), `es` (Spanish), `it` (Italian), `pt` (Portuguese), `zh` (Chinese Simplified), `ru` (Russian).
 - **English is the source of truth**. All keys must exist in `frontend/src/i18n/locales/en/{namespace}.json` first. The i18n config uses `fallbackLng: "en"` and `returnEmptyString: false`, so missing or empty translations gracefully fall back to English.
 - **Interpolation**: Use `{{variable}}` syntax for dynamic values (e.g., `"Selected {{count}} cards"`). Preserve these placeholders exactly when translating.
 - **Plurals**: i18next uses `_one` / `_other` suffixes (e.g., `"count_one": "{{count}} item"`, `"count_other": "{{count}} items"`). All locales need both forms.
@@ -74,8 +74,8 @@ When working on this codebase, follow these conventions:
 
 Every change that introduces user-visible content must include translations. Before marking a task as complete, verify:
 
-- [ ] **New UI strings**: Added translation keys to `frontend/src/i18n/locales/en/{namespace}.json` and all 6 non-English locale files (`de`, `fr`, `es`, `it`, `pt`, `zh`). Never hardcode English text in components.
-- [ ] **New metamodel content** (card types, subtypes, fields, options, sections, relation types): Added `"translations"` dicts with all 6 non-English locales in `backend/app/services/seed.py`.
+- [ ] **New UI strings**: Added translation keys to `frontend/src/i18n/locales/en/{namespace}.json` and all 7 non-English locale files (`de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`). Never hardcode English text in components.
+- [ ] **New metamodel content** (card types, subtypes, fields, options, sections, relation types): Added `"translations"` dicts with all 7 non-English locales in `backend/app/services/seed.py`.
 - [ ] **New select options** (in seed data or reusable option arrays): Each option object includes a `"translations"` dict.
 - [ ] **New field labels**: Each field in `fields_schema` includes a `"translations"` dict.
 - [ ] **New section names**: Each section in `fields_schema` includes a `"translations"` dict.
@@ -156,7 +156,7 @@ Files use **suffix-based** i18n: `page.md` is English (default), `page.es.md` is
 
 | Change Type | Required Doc Update |
 |-------------|-------------------|
-| **New feature** | Add or update the relevant guide/admin page in **all supported languages** (currently `en` + locale suffixes for `es`, `de`, `fr`, `it`, `pt`, `zh`). |
+| **New feature** | Add or update the relevant guide/admin page in **all supported languages** (currently `en` + locale suffixes for `es`, `de`, `fr`, `it`, `pt`, `zh`, `ru`). |
 | **UI change** | Replace affected screenshots in **all locale folders** under `docs/assets/img/`. |
 | **New admin setting** | Update the appropriate admin page (e.g., `docs/admin/settings.md`). |
 | **New API endpoint** | Document in the relevant guide page if user-facing. |

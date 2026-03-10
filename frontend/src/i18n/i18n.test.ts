@@ -21,7 +21,7 @@ const NAMESPACES = [
   "validation",
 ] as const;
 
-const LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"] as const;
+const LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru"] as const;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -310,7 +310,7 @@ describe("SUPPORTED_LOCALES matches locale data", () => {
     }
   });
 
-  it("SUPPORTED_LOCALES contains exactly the expected 7 locales", () => {
+  it("SUPPORTED_LOCALES contains exactly the expected 8 locales", () => {
     expect([...SUPPORTED_LOCALES].sort()).toEqual([...LOCALES].sort());
   });
 });

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.30.0] - 2026-03-10
+
+### Added
+- Russian language support for the application and documentation (8th supported locale)
+
 ## [0.29.0] - 2026-03-09
 
 ### Added

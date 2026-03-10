@@ -72,42 +72,44 @@ function tabSelector(...labels: string[]): string {
 
 const TAB_COMMENTS = tabSelector(
   "Comments", "Kommentare", "Commentaires", "Comentarios",
-  "Commenti", "Comentários", "评论",
+  "Commenti", "Comentários", "评论", "Комментарии",
 );
 const TAB_TODOS = tabSelector(
-  "Todos", "Aufgaben", "Tâches", "Tareas", "Attività", "Tarefas", "待办事项",
+  "Todos", "Aufgaben", "Tâches", "Tareas", "Attività", "Tarefas", "待办事项", "Задачи",
 );
 const TAB_STAKEHOLDERS = tabSelector(
   "Stakeholders", "Stakeholder", "Parties prenantes", "Partes interesadas",
-  "Partes interessadas", "利益相关者",
+  "Partes interessadas", "利益相关者", "Заинтересованные стороны",
 );
 const TAB_HISTORY = tabSelector(
   "History", "Historie", "Historique", "Historial",
-  "Cronologia", "Histórico", "历史",
+  "Cronologia", "Histórico", "历史", "История",
 );
 const TAB_BPM_DASHBOARD = tabSelector(
-  "Dashboard", "Tableau de bord", "Panel de Control", "Painel", "仪表盘",
+  "Dashboard", "Tableau de bord", "Panel de Control", "Painel", "仪表盘", "Панель управления",
 );
 const TAB_METAMODEL_GRAPH = tabSelector(
   "Metamodel Graph", "Metamodell-Graph", "Graphe du métamodèle",
   "Grafo del metamodelo", "Grafo metamodello", "Grafo do metamodelo", "元模型图",
+  "Граф метамодели",
 );
 const TAB_ROLES = tabSelector(
-  "Roles", "Rollen", "Rôles", "Ruoli", "Papéis", "角色",
+  "Roles", "Rollen", "Rôles", "Ruoli", "Papéis", "角色", "Роли",
 );
 const TAB_DECISIONS = tabSelector(
   "Architecture Decisions", "Architekturentscheidungen", "Décisions d'architecture",
   "Decisiones de arquitectura", "Decisioni architetturali", "Decisões de arquitetura",
-  "架构决策",
+  "架构决策", "Архитектурные решения",
 );
 const TAB_RESOURCES = tabSelector(
   "Resources", "Ressourcen", "Ressources", "Recursos",
-  "Risorse", "资源",
+  "Risorse", "资源", "Ресурсы",
 );
 const BTN_CREATE = [
   "button:has-text('Create')", "button:has-text('Erstellen')",
   "button:has-text('Créer')", "button:has-text('Crear')",
   "button:has-text('Crea')", "button:has-text('Criar')", "button:has-text('创建')",
+  "button:has-text('Создать')",
 ].join(", ");
 
 // ---------------------------------------------------------------------------
@@ -129,6 +131,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "01_dashboard",
       pt: "01_painel",
       zh: "01_dashboard",
+      ru: "01_panel_upravleniya",
     },
   },
   {
@@ -148,6 +151,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "02_dashboard_inferiore",
       pt: "02_painel_inferior",
       zh: "02_dashboard_bottom",
+      ru: "02_panel_upravleniya_nizhniy",
     },
   },
 
@@ -165,6 +169,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "03_inventario",
       pt: "03_inventario",
       zh: "03_inventory",
+      ru: "03_inventarizatsiya",
     },
   },
 
@@ -182,6 +187,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "04_dettaglio_scheda",
       pt: "04_detalhe_ficha",
       zh: "04_card_detail",
+      ru: "04_detali_kartochki",
     },
   },
   {
@@ -201,6 +207,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "05_scheda_commenti",
       pt: "05_ficha_comentarios",
       zh: "05_card_comments",
+      ru: "05_kartochka_kommentarii",
     },
   },
   {
@@ -220,6 +227,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "06_scheda_attivita",
       pt: "06_ficha_tarefas",
       zh: "06_card_todos",
+      ru: "06_kartochka_zadachi",
     },
   },
   {
@@ -239,6 +247,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "07_scheda_stakeholder",
       pt: "07_ficha_partes_interessadas",
       zh: "07_card_stakeholders",
+      ru: "07_kartochka_zainteresovannye",
     },
   },
   {
@@ -258,6 +267,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "08_scheda_cronologia",
       pt: "08_ficha_historico",
       zh: "08_card_history",
+      ru: "08_kartochka_istoriya",
     },
   },
 
@@ -275,6 +285,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "09_menu_report",
       pt: "09_menu_relatorios",
       zh: "09_reports_menu",
+      ru: "09_menu_otchety",
     },
   },
   {
@@ -290,6 +301,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "10_report_portfolio",
       pt: "10_relatorio_portfolio",
       zh: "10_report_portfolio",
+      ru: "10_otchet_portfel",
     },
   },
   {
@@ -305,6 +317,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "11_mappa_capacita",
       pt: "11_mapa_capacidades",
       zh: "11_capability_map",
+      ru: "11_karta_vozmozhnostey",
     },
   },
   {
@@ -320,6 +333,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "12_ciclo_vita",
       pt: "12_ciclo_vida",
       zh: "12_lifecycle",
+      ru: "12_zhiznennyy_tsikl",
     },
   },
   {
@@ -335,6 +349,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "13_dipendenze",
       pt: "13_dependencias",
       zh: "13_dependencies",
+      ru: "13_zavisimosti",
     },
   },
 
@@ -352,6 +367,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "14_bpm_navigatore",
       pt: "14_bpm_navegador",
       zh: "14_bpm_navigator",
+      ru: "14_bpm_navigator",
     },
   },
   {
@@ -371,6 +387,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "15_bpm_dashboard",
       pt: "15_bpm_painel",
       zh: "15_bpm_dashboard",
+      ru: "15_bpm_panel_upravleniya",
     },
   },
 
@@ -388,6 +405,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "16_diagrammi",
       pt: "16_diagramas",
       zh: "16_diagrams",
+      ru: "16_diagrammy",
     },
   },
 
@@ -405,6 +423,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "17_consegna_ea",
       pt: "17_entrega_ea",
       zh: "17_ea_delivery",
+      ru: "17_postavka_ea",
     },
   },
 
@@ -426,6 +445,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "17b_consegna_ea_decisioni",
       pt: "17b_entrega_ea_decisoes",
       zh: "17b_ea_delivery_decisions",
+      ru: "17b_postavka_ea_resheniya",
     },
   },
 
@@ -447,6 +467,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "17c_scheda_risorse",
       pt: "17c_ficha_recursos",
       zh: "17c_card_resources",
+      ru: "17c_kartochka_resursy",
     },
   },
 
@@ -464,6 +485,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "18_attivita",
       pt: "18_tarefas",
       zh: "18_tasks",
+      ru: "18_zadachi",
     },
   },
 
@@ -486,6 +508,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "19_menu_utente",
       pt: "19_menu_usuario",
       zh: "19_user_menu",
+      ru: "19_menu_polzovatelya",
     },
   },
 
@@ -503,6 +526,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "20_admin_metamodello",
       pt: "20_admin_metamodelo",
       zh: "20_admin_metamodel",
+      ru: "20_admin_metamodel",
     },
   },
   {
@@ -518,6 +542,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "21_admin_utenti",
       pt: "21_admin_usuarios",
       zh: "21_admin_users",
+      ru: "21_admin_polzovateli",
     },
   },
 
@@ -539,6 +564,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "22_crea_scheda",
       pt: "22_criar_ficha",
       zh: "22_create_card",
+      ru: "22_sozdanie_kartochki",
     },
   },
 
@@ -556,6 +582,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "23_inventario_filtri",
       pt: "23_inventario_filtros",
       zh: "23_inventory_filters",
+      ru: "23_inventarizatsiya_filtry",
     },
   },
 
@@ -573,6 +600,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "24_accesso",
       pt: "24_login",
       zh: "24_login",
+      ru: "24_vkhod",
     },
   },
 
@@ -590,6 +618,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "25_admin_impostazioni_auth",
       pt: "25_admin_config_autenticacao",
       zh: "25_admin_settings_auth",
+      ru: "25_admin_nastroyki_auth",
     },
   },
 
@@ -607,6 +636,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "26_admin_impostazioni_ia",
       pt: "26_admin_config_ia",
       zh: "26_admin_settings_ai",
+      ru: "26_admin_nastroyki_ii",
     },
   },
 
@@ -629,6 +659,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "27_pannello_suggerimento_ia",
       pt: "27_painel_sugestao_ia",
       zh: "27_ai_suggest_panel",
+      ru: "27_panel_predlozheniy_ii",
     },
   },
 
@@ -646,6 +677,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "28_admin_impostazioni_generali",
       pt: "28_admin_config_geral",
       zh: "28_admin_settings_general",
+      ru: "28_admin_nastroyki_obshchie",
     },
   },
 
@@ -663,6 +695,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "29_admin_impostazioni_eol",
       pt: "29_admin_config_eol",
       zh: "29_admin_settings_eol",
+      ru: "29_admin_nastroyki_eol",
     },
   },
 
@@ -680,6 +713,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "30_admin_impostazioni_portali_web",
       pt: "30_admin_config_portais_web",
       zh: "30_admin_settings_web_portals",
+      ru: "30_admin_nastroyki_veb_portaly",
     },
   },
 
@@ -697,6 +731,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "31_admin_impostazioni_servicenow",
       pt: "31_admin_config_servicenow",
       zh: "31_admin_settings_servicenow",
+      ru: "31_admin_nastroyki_servicenow",
     },
   },
 
@@ -714,6 +749,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "32_report_eol",
       pt: "32_relatorio_eol",
       zh: "32_report_eol",
+      ru: "32_otchet_eol",
     },
   },
 
@@ -731,6 +767,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "33_report_qualita_dati",
       pt: "33_relatorio_qualidade_dados",
       zh: "33_report_data_quality",
+      ru: "33_otchet_kachestvo_dannykh",
     },
   },
 
@@ -748,6 +785,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "34_report_costi",
       pt: "34_relatorio_custos",
       zh: "34_report_cost",
+      ru: "34_otchet_stoimost",
     },
   },
 
@@ -765,6 +803,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "35_report_matrice",
       pt: "35_relatorio_matriz",
       zh: "35_report_matrix",
+      ru: "35_otchet_matritsa",
     },
   },
 
@@ -782,6 +821,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "36_report_salvati",
       pt: "36_relatorios_salvos",
       zh: "36_saved_reports",
+      ru: "36_sokhranennye_otchety",
     },
   },
 
@@ -799,6 +839,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "37_admin_sondaggi",
       pt: "37_admin_pesquisas",
       zh: "37_admin_surveys",
+      ru: "37_admin_oprosy",
     },
   },
 
@@ -820,6 +861,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "38_grafo_metamodello",
       pt: "38_grafo_metamodelo",
       zh: "38_metamodel_graph",
+      ru: "38_graf_metamodeli",
     },
   },
 
@@ -841,6 +883,7 @@ export const DOC_PAGES: PageDef[] = [
       it: "39_admin_ruoli",
       pt: "39_admin_papeis",
       zh: "39_admin_roles",
+      ru: "39_admin_roli",
     },
   },
 ];
