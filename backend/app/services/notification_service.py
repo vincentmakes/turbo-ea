@@ -50,6 +50,7 @@ async def create_notification(
     allow_self_types = {
         "survey_request",
         "todo_assigned",
+        "task_assigned",
         "process_flow_approval_requested",
         "process_flow_approved",
         "process_flow_rejected",

@@ -2,7 +2,6 @@
   "title": "Notificações",
   "markAllRead": "Marcar todas como lidas",
   "noNotifications": "Sem notificações",
-
   "preferences.title": "Preferências de notificação",
   "preferences.description": "Escolha quais notificações você deseja receber e como.",
   "preferences.notification": "Notificação",
@@ -12,6 +11,7 @@
   "preferences.loadFailed": "Falha ao carregar preferências",
   "preferences.saveFailed": "Falha ao salvar preferências",
   "preferences.todoAssigned": "Tarefa atribuída",
+  "preferences.taskAssigned": "Tarefa PPM atribuída",
   "preferences.cardUpdated": "Ficha atualizada",
   "preferences.commentAdded": "Comentário adicionado",
   "preferences.approvalStatusChanged": "Status de aprovação alterado",

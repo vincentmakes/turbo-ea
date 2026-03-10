@@ -1092,6 +1092,17 @@ export interface PpmTask {
   due_date: string | null;
   sort_order: number;
   tags: string[];
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmTaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  user_display_name: string;
+  content: string;
   created_at: string;
   updated_at: string;
 }

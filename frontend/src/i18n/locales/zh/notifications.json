@@ -2,7 +2,6 @@
   "title": "通知",
   "markAllRead": "全部标为已读",
   "noNotifications": "暂无通知",
-
   "preferences.title": "通知偏好设置",
   "preferences.description": "选择您希望接收的通知类型和接收方式。",
   "preferences.notification": "通知",
@@ -12,6 +11,7 @@
   "preferences.loadFailed": "加载偏好设置失败",
   "preferences.saveFailed": "保存偏好设置失败",
   "preferences.todoAssigned": "待办事项已指派",
+  "preferences.taskAssigned": "PPM任务已分配",
   "preferences.cardUpdated": "卡片已更新",
   "preferences.commentAdded": "新增评论",
   "preferences.approvalStatusChanged": "审批状态已变更",

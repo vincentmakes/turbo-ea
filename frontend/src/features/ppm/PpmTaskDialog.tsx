@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -11,10 +11,20 @@ import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Avatar from "@mui/material/Avatar";
+import IconButton from "@mui/material/IconButton";
+import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-import type { PpmTask, PpmTaskStatus, PpmTaskPriority } from "@/types";
+import type {
+  PpmTask,
+  PpmTaskStatus,
+  PpmTaskPriority,
+  PpmTaskComment,
+} from "@/types";
 
 interface UserOption {
   id: string;
@@ -28,29 +38,65 @@ interface Props {
   onSaved: () => void;
 }
 
-export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: Props) {
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
+export default function PpmTaskDialog({
+  initiativeId,
+  task,
+  onClose,
+  onSaved,
+}: Props) {
   const { t } = useTranslation("ppm");
   const isEdit = !!task;
 
   const [title, setTitle] = useState(task?.title || "");
   const [description, setDescription] = useState(task?.description || "");
-  const [status, setStatus] = useState<PpmTaskStatus>(task?.status || "todo");
-  const [priority, setPriority] = useState<PpmTaskPriority>(task?.priority || "medium");
+  const [status, setStatus] = useState<PpmTaskStatus>(
+    task?.status || "todo",
+  );
+  const [priority, setPriority] = useState<PpmTaskPriority>(
+    task?.priority || "medium",
+  );
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
   const [dueDate, setDueDate] = useState(task?.due_date || "");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
 
+  // Comments
+  const [comments, setComments] = useState<PpmTaskComment[]>([]);
+  const [newComment, setNewComment] = useState("");
+  const [addingComment, setAddingComment] = useState(false);
+
   useEffect(() => {
     api
       .get<UserOption[]>("/users")
       .then((res) => {
-        // Handle both array response and {items: []} shape
-        const list = Array.isArray(res) ? res : (res as unknown as { items: UserOption[] }).items || [];
+        const list = Array.isArray(res)
+          ? res
+          : ((res as unknown as { items: UserOption[] }).items || []);
         setUsers(list.filter((u) => u.id && u.display_name));
       })
       .catch(() => {});
   }, []);
+
+  const loadComments = useCallback(() => {
+    if (!task) return;
+    api
+      .get<PpmTaskComment[]>(`/ppm/tasks/${task.id}/comments`)
+      .then(setComments)
+      .catch(() => {});
+  }, [task]);
+
+  useEffect(() => {
+    loadComments();
+  }, [loadComments]);
 
   const selectedUser = users.find((u) => u.id === assigneeId) || null;
 
@@ -79,9 +125,38 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
     }
   };
 
+  const handleAddComment = async () => {
+    if (!newComment.trim() || !task) return;
+    setAddingComment(true);
+    try {
+      await api.post(`/ppm/tasks/${task.id}/comments`, {
+        content: newComment.trim(),
+      });
+      setNewComment("");
+      loadComments();
+    } catch {
+      // ignore
+    } finally {
+      setAddingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    await api.delete(`/ppm/task-comments/${commentId}`);
+    loadComments();
+  };
+
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth disableRestoreFocus>
-      <DialogTitle>{isEdit ? t("editTask") : t("createTask")}</DialogTitle>
+    <Dialog
+      open
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      disableRestoreFocus
+    >
+      <DialogTitle>
+        {isEdit ? t("editTask") : t("createTask")}
+      </DialogTitle>
       <DialogContent>
         <Box display="flex" flexDirection="column" gap={2} mt={1}>
           <TextField
@@ -107,12 +182,18 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
               <Select
                 value={status}
                 label={t("taskStatus")}
-                onChange={(e) => setStatus(e.target.value as PpmTaskStatus)}
+                onChange={(e) =>
+                  setStatus(e.target.value as PpmTaskStatus)
+                }
               >
                 <MenuItem value="todo">{t("statusTodo")}</MenuItem>
-                <MenuItem value="in_progress">{t("statusInProgress")}</MenuItem>
+                <MenuItem value="in_progress">
+                  {t("statusInProgress")}
+                </MenuItem>
                 <MenuItem value="done">{t("statusDone")}</MenuItem>
-                <MenuItem value="blocked">{t("statusBlocked")}</MenuItem>
+                <MenuItem value="blocked">
+                  {t("statusBlocked")}
+                </MenuItem>
               </Select>
             </FormControl>
             <FormControl fullWidth size="small">
@@ -120,11 +201,17 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
               <Select
                 value={priority}
                 label={t("taskPriority")}
-                onChange={(e) => setPriority(e.target.value as PpmTaskPriority)}
+                onChange={(e) =>
+                  setPriority(e.target.value as PpmTaskPriority)
+                }
               >
-                <MenuItem value="critical">{t("priorityCritical")}</MenuItem>
+                <MenuItem value="critical">
+                  {t("priorityCritical")}
+                </MenuItem>
                 <MenuItem value="high">{t("priorityHigh")}</MenuItem>
-                <MenuItem value="medium">{t("priorityMedium")}</MenuItem>
+                <MenuItem value="medium">
+                  {t("priorityMedium")}
+                </MenuItem>
                 <MenuItem value="low">{t("priorityLow")}</MenuItem>
               </Select>
             </FormControl>
@@ -137,7 +224,11 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
             onChange={(_e, val) => setAssigneeId(val?.id || "")}
             isOptionEqualToValue={(opt, val) => opt.id === val.id}
             renderInput={(params) => (
-              <TextField {...params} label={t("taskAssignee")} size="small" />
+              <TextField
+                {...params}
+                label={t("taskAssignee")}
+                size="small"
+              />
             )}
             size="small"
           />
@@ -151,15 +242,110 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
             size="small"
             slotProps={{ inputLabel: { shrink: true } }}
           />
+
+          {/* Comments section (only in edit mode) */}
+          {isEdit && (
+            <>
+              <Divider sx={{ mt: 1 }} />
+              <Typography variant="subtitle2" fontWeight={600}>
+                {t("comments")} ({comments.length})
+              </Typography>
+
+              {/* Comment list */}
+              {comments.map((c) => (
+                <Box
+                  key={c.id}
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      fontSize: "0.65rem",
+                      bgcolor: "primary.main",
+                      mt: 0.25,
+                    }}
+                  >
+                    {initials(c.user_display_name)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      gap={0.5}
+                    >
+                      <Typography variant="caption" fontWeight={600}>
+                        {c.user_display_name}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                      >
+                        {new Date(c.created_at).toLocaleString()}
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{ whiteSpace: "pre-wrap" }}
+                    >
+                      {c.content}
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteComment(c.id)}
+                  >
+                    <MaterialSymbol icon="close" size={14} />
+                  </IconButton>
+                </Box>
+              ))}
+
+              {/* Add comment */}
+              <Box display="flex" gap={1} alignItems="flex-end">
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder={t("addComment")}
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  multiline
+                  maxRows={4}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleAddComment}
+                  disabled={addingComment || !newComment.trim()}
+                  sx={{ minWidth: 0, px: 1.5 }}
+                >
+                  <MaterialSymbol icon="send" size={18} />
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{t("common:actions.cancel", "Cancel")}</Button>
+        <Button onClick={onClose}>
+          {t("common:actions.cancel", "Cancel")}
+        </Button>
         <Button
           variant="contained"
           onClick={handleSave}
           disabled={saving || !title.trim()}
-          startIcon={saving ? <CircularProgress size={16} /> : undefined}
+          startIcon={
+            saving ? <CircularProgress size={16} /> : undefined
+          }
         >
           {isEdit ? t("common:actions.save", "Save") : t("createTask")}
         </Button>

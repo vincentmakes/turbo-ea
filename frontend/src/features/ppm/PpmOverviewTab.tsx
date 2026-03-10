@@ -5,6 +5,8 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import { useTranslation } from "react-i18next";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import type { Card, PpmStatusReport, PpmCostLine } from "@/types";
 
 const RAG_COLORS: Record<string, string> = {
@@ -22,10 +24,39 @@ interface Props {
 export default function PpmOverviewTab({ card, latestReport, costLines }: Props) {
   const { t } = useTranslation("ppm");
   const { fmt } = useCurrency();
+  const { getType } = useMetamodel();
+  const rl = useResolveLabel();
   const attrs = card.attributes || {};
 
   const totalPlanned = costLines.reduce((s, cl) => s + cl.planned, 0);
   const totalActual = costLines.reduce((s, cl) => s + cl.actual, 0);
+
+  const typeConfig = getType(card.type);
+
+  // Resolve a select field value to its translated label
+  const resolveOption = (fieldKey: string, value: unknown): string => {
+    if (!value || typeof value !== "string") return "\u2014";
+    for (const section of typeConfig?.fields_schema || []) {
+      for (const field of section.fields || []) {
+        if (field.key === fieldKey && field.options) {
+          const opt = field.options.find(
+            (o: { key: string }) => o.key === value,
+          );
+          if (opt) return rl(opt.label, opt.translations);
+        }
+      }
+    }
+    return value;
+  };
+
+  // Resolve subtype to translated label
+  const resolveSubtype = (subtype: string | null | undefined): string | null => {
+    if (!subtype || !typeConfig?.subtypes) return subtype || null;
+    const st = typeConfig.subtypes.find(
+      (s: { key: string }) => s.key === subtype,
+    );
+    return st ? rl(st.label, st.translations) : subtype;
+  };
 
   const HealthDot = ({ value, label }: { value: string; label: string }) => (
     <Box display="flex" alignItems="center" gap={1}>
@@ -140,7 +171,7 @@ export default function PpmOverviewTab({ card, latestReport, costLines }: Props)
                   {t("subtype")}
                 </Typography>
                 <Box mt={0.5}>
-                  <Chip label={card.subtype} size="small" variant="outlined" />
+                  <Chip label={resolveSubtype(card.subtype)} size="small" variant="outlined" />
                 </Box>
               </Box>
             )}
@@ -160,7 +191,7 @@ export default function PpmOverviewTab({ card, latestReport, costLines }: Props)
                 {t("initiativeStatus")}
               </Typography>
               <Typography variant="body2">
-                {(attrs.initiativeStatus as string) || "\u2014"}
+                {resolveOption("initiativeStatus", attrs.initiativeStatus)}
               </Typography>
             </Box>
           </Box>

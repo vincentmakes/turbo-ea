@@ -10,14 +10,17 @@ import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import PpmOverviewTab from "./PpmOverviewTab";
 import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
+import PpmCardDetailsTab from "./PpmCardDetailsTab";
 import type { Card, PpmStatusReport, PpmCostLine, PpmRisk } from "@/types";
 
-const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks"];
+const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "details"];
 
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +28,8 @@ export default function PpmProjectDetail() {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("ppm");
 
+  const { getType } = useMetamodel();
+  const rl = useResolveLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
   const [tab, setTab] = useState(initialTab >= 0 ? initialTab : 0);
   const [card, setCard] = useState<Card | null>(null);
@@ -77,14 +82,21 @@ export default function PpmProjectDetail() {
         <Typography variant="h5" fontWeight={700}>
           {card.name}
         </Typography>
-        {card.subtype && (
-          <Chip
-            label={card.subtype}
-            size="small"
-            variant="outlined"
-            sx={{ ml: 1 }}
-          />
-        )}
+        {card.subtype && (() => {
+          const typeConfig = getType(card.type);
+          const st = typeConfig?.subtypes?.find(
+            (s: { key: string }) => s.key === card.subtype,
+          );
+          const label = st ? rl(st.label, st.translations) : card.subtype;
+          return (
+            <Chip
+              label={label}
+              size="small"
+              variant="outlined"
+              sx={{ ml: 1 }}
+            />
+          );
+        })()}
       </Box>
 
       {/* Tabs */}
@@ -94,6 +106,7 @@ export default function PpmProjectDetail() {
         <Tab label={t("costManagement")} />
         <Tab label={t("riskManagement")} />
         <Tab label={t("tasks")} />
+        <Tab label={t("cardDetails")} />
       </Tabs>
 
       {/* Tab Content */}
@@ -126,6 +139,13 @@ export default function PpmProjectDetail() {
         />
       )}
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}
+      {tab === 5 && (
+        <PpmCardDetailsTab
+          card={card}
+          canEdit
+          onCardUpdate={(updated) => setCard(updated)}
+        />
+      )}
     </Box>
   );
 }

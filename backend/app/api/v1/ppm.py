@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
@@ -14,6 +14,7 @@ from app.models.ppm_cost_line import PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
+from app.models.ppm_task_comment import PpmTaskComment
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
@@ -26,11 +27,15 @@ from app.schemas.ppm import (
     PpmStatusReportCreate,
     PpmStatusReportOut,
     PpmStatusReportUpdate,
+    PpmTaskCommentCreate,
+    PpmTaskCommentOut,
+    PpmTaskCommentUpdate,
     PpmTaskCreate,
     PpmTaskOut,
     PpmTaskUpdate,
     ReporterOut,
 )
+from app.services import notification_service
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/ppm", tags=["ppm"])
@@ -420,6 +425,10 @@ async def _task_to_out(db: AsyncSession, task: PpmTask) -> PpmTaskOut:
         u = u_result.scalar_one_or_none()
         if u:
             assignee_name = u.display_name or u.email
+    cnt_result = await db.execute(
+        select(func.count(PpmTaskComment.id)).where(PpmTaskComment.task_id == task.id)
+    )
+    comment_count = cnt_result.scalar() or 0
     return PpmTaskOut(
         id=str(task.id),
         initiative_id=str(task.initiative_id),
@@ -432,6 +441,7 @@ async def _task_to_out(db: AsyncSession, task: PpmTask) -> PpmTaskOut:
         due_date=task.due_date,
         sort_order=task.sort_order,
         tags=task.tags or [],
+        comment_count=comment_count,
         created_at=task.created_at,
         updated_at=task.updated_at,
     )
@@ -477,6 +487,19 @@ async def create_task(
     db.add(task)
     await db.flush()
     await _sync_task_todo(db, task, card, user.id)
+    if task.assignee_id:
+        await notification_service.create_notification(
+            db,
+            user_id=task.assignee_id,
+            notif_type="task_assigned",
+            title="Task Assigned",
+            message=(
+                f'{user.display_name} assigned you a task: "{task.title[:80]}" on {card.name}'
+            ),
+            link=f"/ppm/{task.initiative_id}?tab=tasks",
+            card_id=task.initiative_id,
+            actor_id=user.id,
+        )
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -494,10 +517,27 @@ async def update_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    for key, val in body.model_dump(exclude_unset=True).items():
+    old_assignee_id = task.assignee_id
+    data = body.model_dump(exclude_unset=True)
+    for key, val in data.items():
         setattr(task, key, val)
     card = await _get_initiative_or_404(db, str(task.initiative_id))
     await _sync_task_todo(db, task, card, user.id)
+    # Notify new assignee when assignee changes
+    new_assignee = task.assignee_id
+    if "assignee_id" in data and new_assignee and new_assignee != old_assignee_id:
+        await notification_service.create_notification(
+            db,
+            user_id=new_assignee,
+            notif_type="task_assigned",
+            title="Task Assigned",
+            message=(
+                f'{user.display_name} assigned you a task: "{task.title[:80]}" on {card.name}'
+            ),
+            link=f"/ppm/{task.initiative_id}?tab=tasks",
+            card_id=task.initiative_id,
+            actor_id=user.id,
+        )
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -521,4 +561,97 @@ async def delete_task(
     if todo:
         await db.delete(todo)
     await db.delete(task)
+    await db.commit()
+
+
+# ── Task Comments ──────────────────────────────────────────────────
+
+
+def _comment_to_out(c: PpmTaskComment) -> PpmTaskCommentOut:
+    return PpmTaskCommentOut(
+        id=str(c.id),
+        task_id=str(c.task_id),
+        user_id=str(c.user_id),
+        user_display_name=c.user.display_name if c.user else "",
+        content=c.content,
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+    )
+
+
+@router.get("/tasks/{task_id}/comments", response_model=list[PpmTaskCommentOut])
+async def list_task_comments(
+    task_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    result = await db.execute(
+        select(PpmTaskComment)
+        .where(PpmTaskComment.task_id == task_id)
+        .order_by(PpmTaskComment.created_at)
+    )
+    return [_comment_to_out(c) for c in result.scalars().all()]
+
+
+@router.post("/tasks/{task_id}/comments", response_model=PpmTaskCommentOut)
+async def create_task_comment(
+    task_id: str,
+    body: PpmTaskCommentCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    # Verify task exists
+    t_result = await db.execute(select(PpmTask).where(PpmTask.id == task_id))
+    task = t_result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    comment = PpmTaskComment(
+        id=uuid.uuid4(),
+        task_id=task_id,
+        user_id=user.id,
+        content=body.content,
+    )
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return _comment_to_out(comment)
+
+
+@router.patch("/task-comments/{comment_id}", response_model=PpmTaskCommentOut)
+async def update_task_comment(
+    comment_id: str,
+    body: PpmTaskCommentUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(PpmTaskComment).where(PpmTaskComment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    # Only author or ppm.manage can edit
+    has_manage = await PermissionService.check_permission(db, user, "ppm.manage")
+    if comment.user_id != user.id and not has_manage:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    comment.content = body.content
+    await db.commit()
+    await db.refresh(comment)
+    return _comment_to_out(comment)
+
+
+@router.delete("/task-comments/{comment_id}", status_code=204)
+async def delete_task_comment(
+    comment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(PpmTaskComment).where(PpmTaskComment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    has_manage = await PermissionService.check_permission(db, user, "ppm.manage")
+    if comment.user_id != user.id and not has_manage:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    await db.delete(comment)
     await db.commit()

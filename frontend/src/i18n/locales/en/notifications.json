@@ -12,6 +12,7 @@
   "preferences.loadFailed": "Failed to load preferences",
   "preferences.saveFailed": "Failed to save preferences",
   "preferences.todoAssigned": "Todo Assigned",
+  "preferences.taskAssigned": "PPM Task Assigned",
   "preferences.cardUpdated": "Card Updated",
   "preferences.commentAdded": "Comment Added",
   "preferences.approvalStatusChanged": "Approval Status Changed",

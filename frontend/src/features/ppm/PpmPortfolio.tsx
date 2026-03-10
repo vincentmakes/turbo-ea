@@ -16,6 +16,8 @@ import { useNavigate } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import type { PpmGanttItem, PpmGroupOption, PpmDashboardData } from "@/types";
 
 const RAG: Record<string, string> = {
@@ -102,6 +104,8 @@ export default function PpmPortfolio() {
   const theme = useTheme();
   const navigate = useNavigate();
   const { fmtShort } = useCurrency();
+  const { getType } = useMetamodel();
+  const rl = useResolveLabel();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PpmGanttItem[]>([]);
   const [dashboard, setDashboard] = useState<PpmDashboardData | null>(null);
@@ -134,6 +138,14 @@ export default function PpmPortfolio() {
       })
       .finally(() => setLoading(false));
   }, [groupBy]);
+
+  const typeConfig = getType("Initiative");
+
+  const resolveSubtype = (key: string | null | undefined): string => {
+    if (!key || !typeConfig?.subtypes) return key || "\u2014";
+    const st = typeConfig.subtypes.find((s: { key: string }) => s.key === key);
+    return st ? rl(st.label, st.translations) : key;
+  };
 
   const subtypes = useMemo(
     () => [...new Set(items.map((i) => i.subtype).filter(Boolean))],
@@ -325,10 +337,29 @@ export default function PpmPortfolio() {
           />
         </Box>
 
-        {/* Last Report date */}
-        <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }} noWrap>
-          {rep ? fmtMonthYear(rep.report_date as unknown as string) : "\u2014"}
-        </Typography>
+        {/* Last Report date — clickable */}
+        {rep ? (
+          <Typography
+            variant="caption"
+            color="primary"
+            sx={{
+              textAlign: "center",
+              cursor: "pointer",
+              "&:hover": { textDecoration: "underline" },
+            }}
+            noWrap
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/ppm/${item.id}?tab=reports`);
+            }}
+          >
+            {fmtMonthYear(rep.report_date as unknown as string)}
+          </Typography>
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }} noWrap>
+            {"\u2014"}
+          </Typography>
+        )}
       </Box>
     );
   };
@@ -456,7 +487,7 @@ export default function PpmPortfolio() {
           <Select value={subtypeFilter} label={t("subtype")} onChange={(e) => setSubtypeFilter(e.target.value)}>
             <MenuItem value="">{t("common:all", "All")}</MenuItem>
             {subtypes.map((s) => (
-              <MenuItem key={s} value={s!}>{s}</MenuItem>
+              <MenuItem key={s} value={s!}>{resolveSubtype(s)}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -484,26 +515,33 @@ export default function PpmPortfolio() {
           {t("planColumn", "Plan")}
         </Typography>
         {/* Quarter labels spanning timeline column */}
-        <Box sx={{ display: "flex", position: "relative", height: "100%" }}>
-          {quarters.map((q) => {
-            const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-            return (
-              <Typography
-                key={q.label}
-                variant="caption"
-                fontWeight={600}
-                sx={{
-                  position: "absolute",
-                  left: `${left}%`,
-                  bottom: 2,
-                  whiteSpace: "nowrap",
-                  fontSize: "0.65rem",
-                }}
-              >
-                {q.label}
-              </Typography>
-            );
-          })}
+        <Box sx={{ display: "flex", position: "relative", height: "100%", overflow: "hidden" }}>
+          {quarters.reduce<{ elements: React.ReactNode[]; lastPct: number }>(
+            (acc, q) => {
+              const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+              // Skip labels too close to previous (< 6% apart) to prevent overlap
+              if (acc.elements.length > 0 && left - acc.lastPct < 6) return acc;
+              acc.elements.push(
+                <Typography
+                  key={q.label}
+                  variant="caption"
+                  fontWeight={600}
+                  sx={{
+                    position: "absolute",
+                    left: `${left}%`,
+                    bottom: 2,
+                    whiteSpace: "nowrap",
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  {q.label}
+                </Typography>,
+              );
+              acc.lastPct = left;
+              return acc;
+            },
+            { elements: [], lastPct: -10 },
+          ).elements}
         </Box>
         <Tooltip title={t("health_schedule")}>
           <Typography variant="caption" fontWeight={600} textAlign="center">S</Typography>

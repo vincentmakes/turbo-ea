@@ -11,6 +11,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 DEFAULT_NOTIFICATION_PREFERENCES = {
     "in_app": {
         "todo_assigned": True,
+        "task_assigned": True,
         "card_updated": True,
         "comment_added": True,
         "approval_status_changed": True,
@@ -20,6 +21,7 @@ DEFAULT_NOTIFICATION_PREFERENCES = {
     },
     "email": {
         "todo_assigned": True,
+        "task_assigned": True,
         "card_updated": False,
         "comment_added": False,
         "approval_status_changed": False,

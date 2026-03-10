@@ -153,6 +153,28 @@ class PpmTaskOut(BaseModel):
     due_date: date | None
     sort_order: int
     tags: list[str]
+    comment_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- Task Comments ---
+
+
+class PpmTaskCommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
+
+
+class PpmTaskCommentUpdate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=10000)
+
+
+class PpmTaskCommentOut(BaseModel):
+    id: str
+    task_id: str
+    user_id: str
+    user_display_name: str
+    content: str
     created_at: datetime
     updated_at: datetime
 

@@ -4,6 +4,7 @@ import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import type { PpmTask } from "@/types";
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -68,15 +69,25 @@ export default function PpmTaskCard({ task, onClick, isDragOverlay }: Props) {
         {task.title}
       </Typography>
       <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
-        {task.assignee_name ? (
-          <Avatar
-            sx={{ width: 24, height: 24, fontSize: "0.65rem", bgcolor: "primary.main" }}
-          >
-            {initials(task.assignee_name)}
-          </Avatar>
-        ) : (
-          <Box />
-        )}
+        <Box display="flex" alignItems="center" gap={0.5}>
+          {task.assignee_name ? (
+            <Avatar
+              sx={{ width: 24, height: 24, fontSize: "0.65rem", bgcolor: "primary.main" }}
+            >
+              {initials(task.assignee_name)}
+            </Avatar>
+          ) : (
+            <Box />
+          )}
+          {task.comment_count > 0 && (
+            <Box display="flex" alignItems="center" gap={0.25} ml={0.5}>
+              <MaterialSymbol icon="comment" size={14} style={{ color: "#9e9e9e" }} />
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.65rem" }}>
+                {task.comment_count}
+              </Typography>
+            </Box>
+          )}
+        </Box>
         {task.due_date && (
           <Typography
             variant="caption"

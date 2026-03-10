@@ -20,6 +20,7 @@ import type { NotificationPreferences } from "@/types";
 
 const NOTIFICATION_TYPES = [
   { key: "todo_assigned", labelKey: "preferences.todoAssigned" },
+  { key: "task_assigned", labelKey: "preferences.taskAssigned" },
   { key: "card_updated", labelKey: "preferences.cardUpdated" },
   { key: "comment_added", labelKey: "preferences.commentAdded" },
   { key: "approval_status_changed", labelKey: "preferences.approvalStatusChanged" },
