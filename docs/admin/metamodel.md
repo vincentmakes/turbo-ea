@@ -61,9 +61,20 @@ Fields are organized into **sections** on the card detail page. You can:
 
 The special section name `__description` adds fields to the Description section of the card detail page.
 
-#### Subtypes
+#### Subtypes (Sub-Templates)
 
-Subtypes provide a secondary classification within a type. For example, the Application type has subtypes: Business Application, Microservice, AI Agent, and Deployment. Each subtype can have translated labels.
+Subtypes act as **sub-templates** within a card type. Each subtype can control which fields are visible for cards of that subtype, while all fields remain defined at the card type level.
+
+For example, the Application type has subtypes: Business Application, Microservice, AI Agent, and Deployment. An admin might hide server-related fields for the SaaS subtype since they are not relevant.
+
+**Configuring field visibility per subtype:**
+
+1. Open a card type in the metamodel admin.
+2. Click on any subtype chip to open the **Subtype Template** dialog.
+3. Toggle field visibility using the switches — fields turned off will be hidden for cards of that subtype.
+4. Hidden fields are excluded from the data quality score, so users are not penalized for fields they cannot see.
+
+When no subtype is selected on a card (or the type has no subtypes), all fields are visible. Hidden fields preserve their data — if a card's subtype changes, previously hidden values are retained.
 
 #### Stakeholder Roles
 

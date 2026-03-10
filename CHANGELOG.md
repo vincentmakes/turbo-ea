@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.31.0] - 2026-03-10
+
+### Added
+- Subtype sub-templates: each subtype can now control field visibility, hiding irrelevant fields from card detail and creation forms
+- Hidden fields are excluded from data quality scoring so users are only scored on visible fields
+- Subtype template editor in the metamodel admin with per-field visibility toggles
+
 ## [0.30.0] - 2026-03-10
 
 ### Added

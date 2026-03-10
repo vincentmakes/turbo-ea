@@ -135,6 +135,7 @@ export interface SubtypeDef {
   key: string;
   label: string;
   translations?: TranslationMap;
+  hidden_fields?: string[];
 }
 
 export interface SectionDef {

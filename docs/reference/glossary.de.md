@@ -35,6 +35,8 @@
 | **Unterzeichner** | Ein Benutzer, der zur Überprüfung und Unterzeichnung eines ADR- oder SoAW-Dokuments bestimmt wurde. Der Unterschrifts-Workflow verfolgt ausstehende und abgeschlossene Unterschriften |
 | **SoAW** | Statement of Architecture Work — ein formales TOGAF-Dokument, das Umfang und Ergebnisse für eine Initiative definiert |
 | **SSO** | Single Sign-On — Anmeldung mit Unternehmensanmeldedaten über einen Identitätsanbieter (Microsoft, Google, Okta, OIDC) |
+| **Subtyp** | Eine sekundäre Klassifikation innerhalb eines Kartentyps (z.B. Anwendung hat Subtypen: Geschäftsanwendung, Microservice, KI-Agent, Deployment). Jeder Subtyp fungiert als Untervorlage, die die Feldsichtbarkeit steuern kann |
+| **Subtyp-Vorlage** | Die Konfiguration, welche Felder für einen bestimmten Subtyp sichtbar oder ausgeblendet sind. Administratoren konfigurieren dies in der Metamodell-Verwaltung durch Klicken auf einen Subtyp-Chip |
 | **Stakeholder** | Eine Person mit einer bestimmten Rolle auf einer Karte (z.B. Anwendungseigner, Technischer Eigner) |
 | **Umfrage** | Ein Datenpflege-Fragebogen, der auf bestimmte Kartentypen abzielt, um Informationen von Stakeholdern zu sammeln |
 | **Tag / Tag-Gruppe** | Ein Klassifizierungslabel, organisiert in Gruppen mit Einfach- oder Mehrfachauswahlmodus |

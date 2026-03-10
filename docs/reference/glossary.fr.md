@@ -35,6 +35,8 @@
 | **Signataire** | Un utilisateur désigné pour examiner et signer un document ADR ou SoAW. Le processus de signature suit les signatures en attente et terminées |
 | **SoAW** | Statement of Architecture Work -- un document formel TOGAF définissant la portée et les livrables d'une initiative |
 | **SSO** | Single Sign-On -- connexion utilisant les identifiants d'entreprise via un fournisseur d'identité (Microsoft, Google, Okta, OIDC) |
+| **Sous-type** | Une classification secondaire au sein d'un type de fiche (par ex. Application a les sous-types : Application métier, Microservice, Agent IA, Déploiement). Chaque sous-type agit comme un sous-modèle pouvant contrôler la visibilité des champs |
+| **Modèle de sous-type** | La configuration des champs visibles ou masqués pour un sous-type spécifique. Les administrateurs configurent cela dans l'administration du métamodèle en cliquant sur un chip de sous-type |
 | **Partie prenante** | Une personne ayant un rôle spécifique sur une fiche (par ex. Responsable Applicatif, Responsable Technique) |
 | **Enquête** | Un questionnaire de maintenance de données ciblant des types de fiches spécifiques pour collecter des informations auprès des parties prenantes |
 | **Tag / Groupe de tags** | Une étiquette de classification organisée en groupes avec des modes de sélection unique ou multiple |

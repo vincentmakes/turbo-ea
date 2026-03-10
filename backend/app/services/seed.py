@@ -1176,6 +1176,7 @@ TYPES = [
                     "zh": "数字",
                     "ru": "Цифровой",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "technical",
@@ -1189,6 +1190,7 @@ TYPES = [
                     "zh": "技术",
                     "ru": "Технический",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 1,
@@ -1296,6 +1298,7 @@ TYPES = [
                     "zh": "创意",
                     "ru": "Идея",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "program",
@@ -1309,6 +1312,7 @@ TYPES = [
                     "zh": "计划",
                     "ru": "Программа",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "project",
@@ -1322,6 +1326,7 @@ TYPES = [
                     "zh": "项目",
                     "ru": "Проект",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "epic",
@@ -1335,6 +1340,7 @@ TYPES = [
                     "zh": "史诗",
                     "ru": "Эпик",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 2,
@@ -1605,6 +1611,7 @@ TYPES = [
                     "zh": "业务单元",
                     "ru": "Бизнес-подразделение",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "region",
@@ -1618,6 +1625,7 @@ TYPES = [
                     "zh": "区域",
                     "ru": "Регион",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "legalEntity",
@@ -1631,6 +1639,7 @@ TYPES = [
                     "zh": "法律实体",
                     "ru": "Юридическое лицо",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "team",
@@ -1644,6 +1653,7 @@ TYPES = [
                     "zh": "团队",
                     "ru": "Команда",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "customer",
@@ -1657,6 +1667,7 @@ TYPES = [
                     "zh": "客户",
                     "ru": "Клиент",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 3,
@@ -2001,6 +2012,7 @@ TYPES = [
                     "zh": "流程",
                     "ru": "Процесс",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "valueStream",
@@ -2014,6 +2026,7 @@ TYPES = [
                     "zh": "价值流",
                     "ru": "Поток создания ценности",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "customerJourney",
@@ -2027,6 +2040,7 @@ TYPES = [
                     "zh": "客户旅程",
                     "ru": "Путь клиента",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "businessProduct",
@@ -2040,6 +2054,7 @@ TYPES = [
                     "zh": "业务产品",
                     "ru": "Бизнес-продукт",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "esgCapability",
@@ -2053,6 +2068,7 @@ TYPES = [
                     "zh": "ESG能力",
                     "ru": "ESG-возможность",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 5,
@@ -2189,6 +2205,7 @@ TYPES = [
                     "zh": "流程类别",
                     "ru": "Категория процесса",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "group",
@@ -2202,6 +2219,7 @@ TYPES = [
                     "zh": "流程组",
                     "ru": "Группа процессов",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "process",
@@ -2215,6 +2233,7 @@ TYPES = [
                     "zh": "流程",
                     "ru": "Процесс",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "variant",
@@ -2228,6 +2247,7 @@ TYPES = [
                     "zh": "流程变体",
                     "ru": "Вариант процесса",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 6,
@@ -2421,6 +2441,7 @@ TYPES = [
                     "zh": "业务应用",
                     "ru": "Бизнес-приложение",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "microservice",
@@ -2434,6 +2455,7 @@ TYPES = [
                     "zh": "微服务",
                     "ru": "Микросервис",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "aiAgent",
@@ -2447,6 +2469,7 @@ TYPES = [
                     "zh": "AI代理",
                     "ru": "ИИ-агент",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "deployment",
@@ -2460,6 +2483,7 @@ TYPES = [
                     "zh": "部署",
                     "ru": "Развёртывание",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 7,
@@ -2693,6 +2717,7 @@ TYPES = [
                     "zh": "逻辑接口",
                     "ru": "Логический интерфейс",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "api",
@@ -2706,6 +2731,7 @@ TYPES = [
                     "zh": "API",
                     "ru": "API",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "mcpServer",
@@ -2719,6 +2745,7 @@ TYPES = [
                     "zh": "MCP服务器",
                     "ru": "MCP-сервер",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 8,
@@ -2922,6 +2949,7 @@ TYPES = [
                     "zh": "软件",
                     "ru": "Программное обеспечение",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "hardware",
@@ -2935,6 +2963,7 @@ TYPES = [
                     "zh": "硬件",
                     "ru": "Аппаратное обеспечение",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "saas",
@@ -2948,6 +2977,7 @@ TYPES = [
                     "zh": "SaaS",
                     "ru": "SaaS",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "paas",
@@ -2961,6 +2991,7 @@ TYPES = [
                     "zh": "PaaS",
                     "ru": "PaaS",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "iaas",
@@ -2974,6 +3005,7 @@ TYPES = [
                     "zh": "IaaS",
                     "ru": "IaaS",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "service",
@@ -2987,6 +3019,7 @@ TYPES = [
                     "zh": "服务",
                     "ru": "Сервис",
                 },
+                "hidden_fields": [],
             },
             {
                 "key": "aiModel",
@@ -3000,6 +3033,7 @@ TYPES = [
                     "zh": "AI模型",
                     "ru": "Модель ИИ",
                 },
+                "hidden_fields": [],
             },
         ],
         "sort_order": 10,
@@ -4810,22 +4844,22 @@ async def seed_metamodel(db: AsyncSession) -> None:
                         **seed_translations,
                     }
 
-                # Merge subtype translations
+                # Merge subtype translations + backfill hidden_fields
                 seed_subtypes = t.get("subtypes", [])
                 if seed_subtypes and existing.subtypes:
                     seed_sub_map = {s["key"]: s for s in seed_subtypes}
                     updated_subtypes = []
                     for sub in existing.subtypes:
+                        merged = dict(sub)
                         seed_sub = seed_sub_map.get(sub["key"])
                         if seed_sub and "translations" in seed_sub:
-                            merged = dict(sub)
                             merged["translations"] = {
                                 **merged.get("translations", {}),
                                 **seed_sub["translations"],
                             }
-                            updated_subtypes.append(merged)
-                        else:
-                            updated_subtypes.append(sub)
+                        # Backfill hidden_fields for existing subtypes
+                        merged.setdefault("hidden_fields", [])
+                        updated_subtypes.append(merged)
                     existing.subtypes = updated_subtypes
 
                 # Merge fields_schema: add new sections & merge translations

@@ -79,6 +79,9 @@ export default function TypeDetailDrawer({
   const [newSubKey, setNewSubKey] = useState("");
   const [newSubLabel, setNewSubLabel] = useState("");
 
+  /* --- Subtype template editor --- */
+  const [editingSubtypeKey, setEditingSubtypeKey] = useState<string | null>(null);
+
   /* --- Translation dialog --- */
   const [translationDialogOpen, setTranslationDialogOpen] = useState(false);
 
@@ -129,6 +132,7 @@ export default function TypeDetailDrawer({
       setHasSuccessors(cardTypeKey.has_successors);
       setError(null);
       setAddSubOpen(false);
+      setEditingSubtypeKey(null);
       setDeleteFieldConfirm(null);
       setDeleteSectionConfirm(null);
     }
@@ -177,7 +181,7 @@ export default function TypeDetailDrawer({
     try {
       const updated = [
         ...(cardTypeKey.subtypes || []),
-        { key: newSubKey, label: newSubLabel },
+        { key: newSubKey, label: newSubLabel, hidden_fields: [] },
       ];
       await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes: updated });
       onRefresh();
@@ -196,6 +200,39 @@ export default function TypeDetailDrawer({
       onRefresh();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToRemoveSubtype"));
+    }
+  };
+
+  /* --- Subtype field visibility --- */
+  const editingSubtype = editingSubtypeKey
+    ? (cardTypeKey.subtypes || []).find((s) => s.key === editingSubtypeKey) ?? null
+    : null;
+  const editingHiddenFields = new Set(editingSubtype?.hidden_fields ?? []);
+  const allFields: { key: string; label: string; section: string }[] = [];
+  for (const sec of cardTypeKey.fields_schema || []) {
+    for (const f of sec.fields) {
+      allFields.push({ key: f.key, label: f.label, section: sec.section === "__description" ? t("metamodel.typeDrawer.descriptionSection") : sec.section });
+    }
+  }
+  const fieldSections = allFields.reduce<Record<string, { key: string; label: string }[]>>((acc, f) => {
+    (acc[f.section] ??= []).push({ key: f.key, label: f.label });
+    return acc;
+  }, {});
+
+  const handleToggleFieldVisibility = async (fieldKey: string) => {
+    if (!editingSubtypeKey) return;
+    const subtypes = (cardTypeKey.subtypes || []).map((s) => {
+      if (s.key !== editingSubtypeKey) return s;
+      const hidden = new Set(s.hidden_fields ?? []);
+      if (hidden.has(fieldKey)) hidden.delete(fieldKey);
+      else hidden.add(fieldKey);
+      return { ...s, hidden_fields: [...hidden] };
+    });
+    try {
+      await api.patch(`/metamodel/types/${cardTypeKey.key}`, { subtypes });
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t("metamodel.typeDrawer.failedToSave"));
     }
   };
 
@@ -481,15 +518,33 @@ export default function TypeDetailDrawer({
             </Typography>
             {(cardTypeKey.subtypes || []).length > 0 ? (
               <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mb: 1.5 }}>
-                {(cardTypeKey.subtypes || []).map((s) => (
-                  <Chip
-                    key={s.key}
-                    label={`${s.label} (${s.key})`}
-                    onDelete={() => handleRemoveSubtype(s.key)}
-                    variant="outlined"
-                    size="small"
-                  />
-                ))}
+                {(cardTypeKey.subtypes || []).map((s) => {
+                  const hiddenCount = (s.hidden_fields ?? []).length;
+                  return (
+                    <Chip
+                      key={s.key}
+                      label={
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                          <span>{`${s.label} (${s.key})`}</span>
+                          {hiddenCount > 0 && (
+                            <Chip
+                              size="small"
+                              label={t("metamodel.typeDrawer.hiddenFieldCount", { count: hiddenCount })}
+                              color="warning"
+                              sx={{ height: 18, fontSize: "0.65rem", ml: 0.5 }}
+                            />
+                          )}
+                        </Box>
+                      }
+                      onClick={() => setEditingSubtypeKey(s.key)}
+                      onDelete={() => handleRemoveSubtype(s.key)}
+                      variant={editingSubtypeKey === s.key ? "filled" : "outlined"}
+                      color={editingSubtypeKey === s.key ? "primary" : "default"}
+                      size="small"
+                      icon={<MaterialSymbol icon="tune" size={16} />}
+                    />
+                  );
+                })}
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -727,6 +782,62 @@ export default function TypeDetailDrawer({
           setSnack(t("metamodel.translationDialog.saved"));
         }}
       />
+
+      {/* --- Subtype template editor dialog --- */}
+      <Dialog
+        open={!!editingSubtypeKey}
+        onClose={() => setEditingSubtypeKey(null)}
+        maxWidth="sm"
+        fullWidth
+        disableRestoreFocus
+      >
+        <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <MaterialSymbol icon="tune" size={22} />
+          {t("metamodel.typeDrawer.subtypeTemplate", { name: editingSubtype?.label ?? "" })}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("metamodel.typeDrawer.subtypeTemplateHelp")}
+          </Typography>
+          {allFields.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">
+              {t("metamodel.typeDrawer.noFieldsDefined")}
+            </Typography>
+          ) : (
+            Object.entries(fieldSections).map(([sectionName, fields]) => (
+              <Box key={sectionName} sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5, color: "text.secondary" }}>
+                  {sectionName}
+                </Typography>
+                {fields.map((f) => (
+                  <FormControlLabel
+                    key={f.key}
+                    sx={{ display: "flex", ml: 0 }}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={!editingHiddenFields.has(f.key)}
+                        onChange={() => handleToggleFieldVisibility(f.key)}
+                      />
+                    }
+                    label={
+                      <Typography variant="body2">
+                        {f.label}
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                          ({f.key})
+                        </Typography>
+                      </Typography>
+                    }
+                  />
+                ))}
+              </Box>
+            ))
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingSubtypeKey(null)}>{t("common:actions.close")}</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snack}

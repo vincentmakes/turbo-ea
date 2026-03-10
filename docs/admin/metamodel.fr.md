@@ -61,9 +61,20 @@ Les champs sont organisés en **sections** sur la page de détail des fiches. Vo
 
 Le nom de section special `__description` ajoute les champs à la section Description de la page de détail des fiches.
 
-#### Sous-types
+#### Sous-types (Sous-modèles)
 
-Les sous-types fournissent une classification secondaire au sein d'un type. Par exemple, le type Application a pour sous-types : Application Métier, Microservice, Agent IA et Déploiement. Chaque sous-type peut avoir des libellés traduits.
+Les sous-types agissent comme des **sous-modèles** au sein d'un type de fiche. Chaque sous-type peut contrôler quels champs sont visibles pour les fiches de ce sous-type, tandis que tous les champs restent définis au niveau du type de fiche.
+
+Par exemple, le type Application a pour sous-types : Application Métier, Microservice, Agent IA et Déploiement. Un administrateur pourrait masquer les champs liés aux serveurs pour le sous-type SaaS, car ils ne sont pas pertinents.
+
+**Configuration de la visibilité des champs par sous-type :**
+
+1. Ouvrez un type de fiche dans l'administration du métamodèle.
+2. Cliquez sur n'importe quelle puce de sous-type pour ouvrir le dialogue **Modèle de sous-type**.
+3. Activez ou désactivez la visibilité des champs à l'aide des interrupteurs — les champs désactivés seront masqués pour les fiches de ce sous-type.
+4. Les champs masqués sont exclus du score de qualité des données, de sorte que les utilisateurs ne sont pas pénalisés pour des champs qu'ils ne peuvent pas voir.
+
+Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas de sous-types), tous les champs sont visibles. Les champs masqués conservent leurs données — si le sous-type d'une fiche change, les valeurs précédemment masquées sont préservées.
 
 #### Rôles de parties prenantes
 

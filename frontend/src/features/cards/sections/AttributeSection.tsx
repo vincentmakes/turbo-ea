@@ -28,6 +28,7 @@ function AttributeSection({
   canEdit = true,
   calculatedFieldKeys = [],
   initialExpanded,
+  hiddenFieldKeys,
 }: {
   section: SectionDef & { defaultExpanded?: boolean; columns?: 1 | 2 };
   card: Card;
@@ -36,6 +37,7 @@ function AttributeSection({
   canEdit?: boolean;
   calculatedFieldKeys?: string[];
   initialExpanded?: boolean;
+  hiddenFieldKeys?: Set<string>;
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const { fmt, symbol } = useCurrency();
@@ -49,9 +51,14 @@ function AttributeSection({
     setAttrs(card.attributes || {});
   }, [card.attributes]);
 
+  // Filter out hidden fields for the active subtype
+  const visibleFields = hiddenFieldKeys?.size
+    ? section.fields.filter((f) => !hiddenFieldKeys.has(f.key))
+    : section.fields;
+
   // Compute URL validation errors for all url-type fields in this section
   const urlErrors: Record<string, string> = {};
-  for (const f of section.fields) {
+  for (const f of visibleFields) {
     if (f.type === "url") {
       const val = attrs[f.key];
       if (typeof val === "string" && val && !isValidUrl(val)) {
@@ -81,7 +88,7 @@ function AttributeSection({
     field.key === "vendor" && VENDOR_ELIGIBLE_TYPES.includes(card.type);
 
   // Count filled fields in this section
-  const filled = section.fields.filter((f) => {
+  const filled = visibleFields.filter((f) => {
     const v = (card.attributes || {})[f.key];
     return v != null && v !== "" && v !== false;
   }).length;
@@ -94,14 +101,14 @@ function AttributeSection({
   const buildColumnItems = (colNum: 0 | 1): ColumnItem[] => {
     const items: ColumnItem[] = [];
     const seenGroups = new Set<string>();
-    for (const field of section.fields) {
+    for (const field of visibleFields) {
       const fieldCol = is2Col ? (field.column ?? 0) : 0;
       if (fieldCol !== colNum) continue;
       if (field.group) {
         if (seenGroups.has(field.group)) continue;
         seenGroups.add(field.group);
         // Collect all fields in this group that belong to this column
-        const gFields = section.fields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
+        const gFields = visibleFields.filter((f) => f.group === field.group && (is2Col ? (f.column ?? 0) : 0) === colNum);
         items.push({ kind: "group", name: field.group, fields: gFields });
       } else {
         items.push({ kind: "field", field });

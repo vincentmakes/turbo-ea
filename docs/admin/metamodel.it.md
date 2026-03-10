@@ -61,9 +61,20 @@ I campi sono organizzati in **sezioni** nella pagina di dettaglio della card. Po
 
 Il nome speciale di sezione `__description` aggiunge campi alla sezione Descrizione della pagina di dettaglio della card.
 
-#### Sottotipi
+#### Sottotipi (Sotto-modelli)
 
-I sottotipi forniscono una classificazione secondaria all'interno di un tipo. Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservice, AI Agent e Deployment. Ogni sottotipo può avere etichette tradotte.
+I sottotipi agiscono come **sotto-modelli** all'interno di un tipo di card. Ogni sottotipo può controllare quali campi sono visibili per le card di quel sottotipo, mentre tutti i campi restano definiti a livello del tipo di card.
+
+Ad esempio, il tipo Application ha i sottotipi: Business Application, Microservice, AI Agent e Deployment. Un amministratore potrebbe nascondere i campi relativi ai server per il sottotipo SaaS, poiché non sono pertinenti.
+
+**Configurare la visibilità dei campi per sottotipo:**
+
+1. Aprite un tipo di card nell'amministrazione del metamodello.
+2. Cliccate su qualsiasi chip di sottotipo per aprire il dialogo **Modello di sottotipo**.
+3. Attivate o disattivate la visibilità dei campi utilizzando gli interruttori — i campi disattivati saranno nascosti per le card di quel sottotipo.
+4. I campi nascosti sono esclusi dal punteggio di qualità dei dati, in modo che gli utenti non vengano penalizzati per campi che non possono vedere.
+
+Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi), tutti i campi sono visibili. I campi nascosti conservano i propri dati — se il sottotipo di una card cambia, i valori precedentemente nascosti vengono mantenuti.
 
 #### Ruoli stakeholder
 

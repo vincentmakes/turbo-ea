@@ -101,19 +101,26 @@ export default function CreateCardDialog({
   const hasHierarchy = !!typeConfig?.has_hierarchy;
   const isEolEligible = EOL_ELIGIBLE_TYPES.includes(selectedType);
 
+  // Determine hidden fields for the selected subtype
+  const hiddenFieldKeys = useMemo(() => {
+    if (!subtype || !typeConfig?.subtypes) return new Set<string>();
+    const st = typeConfig.subtypes.find((s) => s.key === subtype);
+    return new Set(st?.hidden_fields ?? []);
+  }, [subtype, typeConfig]);
+
   // Collect all required fields across all sections for the selected type
   const requiredFields = useMemo(() => {
     if (!typeConfig) return [];
     const fields: (FieldDef & { sectionName: string })[] = [];
     for (const section of typeConfig.fields_schema) {
       for (const field of section.fields) {
-        if (field.required) {
+        if (field.required && !hiddenFieldKeys.has(field.key)) {
           fields.push({ ...field, sectionName: section.section });
         }
       }
     }
     return fields;
-  }, [typeConfig]);
+  }, [typeConfig, hiddenFieldKeys]);
 
   // Fetch AI status on mount
   useEffect(() => {

@@ -35,6 +35,8 @@
 | **Signatário** | Um usuário designado para revisar e assinar um documento ADR ou SoAW. O fluxo de assinatura rastreia as assinaturas pendentes e concluídas |
 | **SoAW** | Statement of Architecture Work — um documento formal TOGAF que define o escopo e as entregas de uma iniciativa |
 | **SSO** | Single Sign-On — login usando credenciais corporativas por meio de um provedor de identidade (Microsoft, Google, Okta, OIDC) |
+| **Subtipo** | Uma classificação secundária dentro de um tipo de card (ex.: Aplicação tem subtipos: Aplicação de Negócio, Microsserviço, Agente IA, Implantação). Cada subtipo funciona como um submodelo que pode controlar a visibilidade dos campos |
+| **Modelo de Subtipo** | A configuração de quais campos são visíveis ou ocultos para um subtipo específico. Os administradores configuram isso na administração do metamodelo clicando em um chip de subtipo |
 | **Stakeholder** | Uma pessoa com um papel específico em um card (ex.: Proprietário da Aplicação, Proprietário Técnico) |
 | **Pesquisa** | Um questionário de manutenção de dados direcionado a tipos de card específicos para coletar informações dos stakeholders |
 | **Tag / Grupo de Tags** | Um rótulo de classificação organizado em grupos com modos de seleção única ou múltipla |

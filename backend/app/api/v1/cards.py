@@ -66,10 +66,21 @@ async def _validate_url_attributes(db: AsyncSession, card_type: str, attributes:
 
 async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
     """Calculate data quality score from fields_schema weights."""
-    result = await db.execute(select(CardType.fields_schema).where(CardType.key == card.type))
-    schema = result.scalar_one_or_none()
-    if not schema:
+    result = await db.execute(
+        select(CardType.fields_schema, CardType.subtypes).where(CardType.key == card.type)
+    )
+    row = result.one_or_none()
+    if not row:
         return 0.0
+    schema, subtypes = row
+
+    # Determine hidden fields for the card's subtype
+    hidden_keys: set[str] = set()
+    if card.subtype and subtypes:
+        for st in subtypes:
+            if st.get("key") == card.subtype:
+                hidden_keys = set(st.get("hidden_fields", []))
+                break
 
     total_weight = 0.0
     filled_weight = 0.0
@@ -77,6 +88,8 @@ async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
 
     for section in schema:
         for field in section.get("fields", []):
+            if field["key"] in hidden_keys:
+                continue
             weight = field.get("weight", 1)
             if weight <= 0:
                 continue

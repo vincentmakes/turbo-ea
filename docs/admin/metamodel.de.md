@@ -61,9 +61,20 @@ Felder werden in **Abschnitte** auf der Kartendetailseite organisiert. Sie könn
 
 Der spezielle Abschnittsname `__description` fügt Felder zum Beschreibungsabschnitt der Kartendetailseite hinzu.
 
-#### Subtypen
+#### Subtypen (Unter-Vorlagen)
 
-Subtypen bieten eine sekundäre Klassifizierung innerhalb eines Typs. Zum Beispiel hat der Typ Anwendung die Subtypen: Geschäftsanwendung, Microservice, AI Agent und Deployment. Jeder Subtyp kann übersetzte Bezeichnungen haben.
+Subtypen fungieren als **Unter-Vorlagen** innerhalb eines Kartentyps. Jeder Subtyp kann steuern, welche Felder für Karten dieses Subtyps sichtbar sind, während alle Felder auf der Ebene des Kartentyps definiert bleiben.
+
+Zum Beispiel hat der Typ Anwendung die Subtypen: Geschäftsanwendung, Microservice, AI Agent und Deployment. Ein Administrator könnte serverbezogene Felder für den SaaS-Subtyp ausblenden, da sie dort nicht relevant sind.
+
+**Feldsichtbarkeit pro Subtyp konfigurieren:**
+
+1. Öffnen Sie einen Kartentyp im Metamodell-Admin.
+2. Klicken Sie auf einen beliebigen Subtyp-Chip, um den **Subtyp-Vorlagen**-Dialog zu öffnen.
+3. Schalten Sie die Feldsichtbarkeit mit den Schaltern um — deaktivierte Felder werden für Karten dieses Subtyps ausgeblendet.
+4. Ausgeblendete Felder werden von der Datenqualitätsbewertung ausgeschlossen, sodass Benutzer nicht für Felder bestraft werden, die sie nicht sehen können.
+
+Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen hat), sind alle Felder sichtbar. Ausgeblendete Felder behalten ihre Daten — wenn sich der Subtyp einer Karte ändert, bleiben zuvor ausgeblendete Werte erhalten.
 
 #### Stakeholder-Rollen
 

@@ -35,6 +35,8 @@
 | **Signatory** | A user designated to review and sign off on an ADR or SoAW document. The signing workflow tracks pending and completed signatures |
 | **SoAW** | Statement of Architecture Work — a formal TOGAF document defining scope and deliverables for an initiative |
 | **SSO** | Single Sign-On — login using corporate credentials via an identity provider (Microsoft, Google, Okta, OIDC) |
+| **Subtype** | A secondary classification within a card type (e.g., Application has subtypes: Business Application, Microservice, AI Agent, Deployment). Each subtype acts as a sub-template that can control field visibility |
+| **Subtype Template** | The configuration of which fields are visible or hidden for a specific subtype. Admins configure this in the metamodel admin by clicking on a subtype chip |
 | **Stakeholder** | A person with a specific role on a card (e.g., Application Owner, Technical Owner) |
 | **Survey** | A data-maintenance questionnaire targeting specific card types to collect information from stakeholders |
 | **Tag / Tag Group** | A classification label organized into groups with single-select or multi-select modes |

@@ -85,13 +85,22 @@ export default function CardDetailContent({
     sc[key]?.defaultExpanded !== false ? fallback : false;
   const secHidden = (key: string) => !!sc[key]?.hidden;
 
+  // Determine hidden fields based on card subtype
+  const hiddenFieldKeys: Set<string> = (() => {
+    if (!card.subtype || !typeConfig?.subtypes) return new Set<string>();
+    const st = typeConfig.subtypes.find((s) => s.key === card.subtype);
+    return new Set(st?.hidden_fields ?? []);
+  })();
+
   const customSections = (typeConfig?.fields_schema || []).filter(
     (s) => s.section !== "__description",
   );
   const descExtraSection = (typeConfig?.fields_schema || []).find(
     (s) => s.section === "__description",
   );
-  const descExtraFields = descExtraSection?.fields || [];
+  const descExtraFields = (descExtraSection?.fields || []).filter(
+    (f) => !hiddenFieldKeys.has(f.key),
+  );
 
   // Build section order from config or default
   const sectionOrder = (() => {
@@ -216,6 +225,14 @@ export default function CardDetailContent({
       const idx = parseInt(key.split(":")[1], 10);
       const section = customSections[idx];
       if (!section) return null;
+      // Skip section if all its fields are hidden for the active subtype
+      if (
+        hiddenFieldKeys.size > 0 &&
+        section.fields.length > 0 &&
+        section.fields.every((f) => hiddenFieldKeys.has(f.key))
+      ) {
+        return null;
+      }
       return (
         <ErrorBoundary key={key} label={section.section}>
           <AttributeSection
@@ -226,6 +243,7 @@ export default function CardDetailContent({
             canEdit={perms.can_edit}
             calculatedFieldKeys={calcFieldKeys}
             initialExpanded={exp}
+            hiddenFieldKeys={hiddenFieldKeys}
           />
         </ErrorBoundary>
       );

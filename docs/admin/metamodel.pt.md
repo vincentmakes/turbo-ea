@@ -61,9 +61,20 @@ Campos são organizados em **seções** na página de detalhe do card. Você pod
 
 O nome de seção especial `__description` adiciona campos à seção de Descrição da página de detalhe do card.
 
-#### Subtipos
+#### Subtipos (Sub-modelos)
 
-Subtipos fornecem uma classificação secundária dentro de um tipo. Por exemplo, o tipo Aplicação possui subtipos: Aplicação de Negócio, Microsserviço, Agente de IA e Implantação. Cada subtipo pode ter rótulos traduzidos.
+Os subtipos atuam como **sub-modelos** dentro de um tipo de card. Cada subtipo pode controlar quais campos são visíveis para cards desse subtipo, enquanto todos os campos permanecem definidos ao nível do tipo de card.
+
+Por exemplo, o tipo Aplicação possui subtipos: Aplicação de Negócio, Microsserviço, Agente de IA e Implantação. Um administrador poderia ocultar campos relacionados a servidores para o subtipo SaaS, pois não são relevantes.
+
+**Configurar a visibilidade de campos por subtipo:**
+
+1. Abra um tipo de card na administração do metamodelo.
+2. Clique em qualquer chip de subtipo para abrir o diálogo **Modelo de subtipo**.
+3. Ative ou desative a visibilidade dos campos usando os interruptores — campos desativados serão ocultados para cards desse subtipo.
+4. Campos ocultos são excluídos da pontuação de qualidade dos dados, para que os utilizadores não sejam penalizados por campos que não podem ver.
+
+Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), todos os campos são visíveis. Campos ocultos preservam os seus dados — se o subtipo de um card mudar, os valores anteriormente ocultos são mantidos.
 
 #### Papéis de Partes Interessadas
 

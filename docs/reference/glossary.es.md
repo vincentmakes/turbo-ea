@@ -35,6 +35,8 @@
 | **Signatario** | Un usuario designado para revisar y firmar un documento ADR o SoAW. El flujo de firma rastrea las firmas pendientes y completadas |
 | **SoAW** | Declaración de Trabajo de Arquitectura — un documento formal TOGAF que define el alcance y entregables de una iniciativa |
 | **SSO** | Inicio de Sesión Único — acceso con credenciales corporativas a través de un proveedor de identidad (Microsoft, Google, Okta, OIDC) |
+| **Subtipo** | Una clasificación secundaria dentro de un tipo de ficha (ej., Aplicación tiene subtipos: Aplicación de Negocio, Microservicio, Agente IA, Despliegue). Cada subtipo actúa como una subplantilla que puede controlar la visibilidad de campos |
+| **Plantilla de Subtipo** | La configuración de qué campos son visibles u ocultos para un subtipo específico. Los administradores configuran esto en la administración del metamodelo haciendo clic en un chip de subtipo |
 | **Parte Interesada (Stakeholder)** | Una persona con un rol específico en una ficha (ej., Propietario de Aplicación, Propietario Técnico) |
 | **Encuesta** | Un cuestionario de mantenimiento de datos dirigido a tipos específicos de fichas para recopilar información de las partes interesadas |
 | **Etiqueta / Grupo de Etiquetas** | Una etiqueta de clasificación organizada en grupos con modos de selección única o múltiple |

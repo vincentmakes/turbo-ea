@@ -61,9 +61,20 @@ Los campos se organizan en **secciones** en la página de detalle de la ficha. P
 
 El nombre de sección especial `__description` agrega campos a la sección Descripción de la página de detalle.
 
-#### Subtipos
+#### Subtipos (Sub-plantillas)
 
-Los subtipos proporcionan una clasificación secundaria dentro de un tipo. Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microservicio, Agente IA y Despliegue. Cada subtipo puede tener etiquetas traducidas.
+Los subtipos actúan como **sub-plantillas** dentro de un tipo de ficha. Cada subtipo puede controlar qué campos son visibles para fichas de ese subtipo, mientras que todos los campos permanecen definidos a nivel del tipo de ficha.
+
+Por ejemplo, el tipo Aplicación tiene subtipos: Aplicación de Negocio, Microservicio, Agente IA y Despliegue. Un administrador podría ocultar los campos relacionados con servidores para el subtipo SaaS, ya que no son relevantes.
+
+**Configurar la visibilidad de campos por subtipo:**
+
+1. Abra un tipo de ficha en la administración del metamodelo.
+2. Haga clic en cualquier chip de subtipo para abrir el diálogo **Plantilla de subtipo**.
+3. Active o desactive la visibilidad de los campos usando los interruptores — los campos desactivados se ocultarán para fichas de ese subtipo.
+4. Los campos ocultos se excluyen de la puntuación de calidad de datos, de modo que los usuarios no son penalizados por campos que no pueden ver.
+
+Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipos), todos los campos son visibles. Los campos ocultos conservan sus datos — si el subtipo de una ficha cambia, los valores previamente ocultos se mantienen.
 
 #### Roles de Partes Interesadas
 
