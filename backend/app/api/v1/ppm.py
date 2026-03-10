@@ -14,6 +14,7 @@ from app.models.ppm_cost_line import PpmCostLine
 from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
+from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
     PpmCostLineCreate,
@@ -375,6 +376,43 @@ async def delete_risk(
 # ── Tasks ───────────────────────────────────────────────────────────
 
 
+async def _sync_task_todo(
+    db: AsyncSession, task: PpmTask, card: Card, created_by: uuid.UUID
+) -> None:
+    """Create or update a Todo for the assigned user when a PPM task is assigned."""
+    # Find existing system todo for this PPM task (link contains task id)
+    link = f"/ppm/{task.initiative_id}?tab=tasks#task-{task.id}"
+    result = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
+    existing = result.scalar_one_or_none()
+
+    if not task.assignee_id:
+        # Remove todo if assignee cleared
+        if existing:
+            await db.delete(existing)
+        return
+
+    desc = f"[PPM] {card.name}: {task.title}"
+    if existing:
+        existing.assigned_to = task.assignee_id
+        existing.description = desc
+        existing.due_date = task.due_date
+        existing.status = "done" if task.status == "done" else "open"
+    else:
+        db.add(
+            Todo(
+                id=uuid.uuid4(),
+                card_id=task.initiative_id,
+                description=desc,
+                status="open",
+                link=link,
+                is_system=True,
+                assigned_to=task.assignee_id,
+                created_by=created_by,
+                due_date=task.due_date,
+            )
+        )
+
+
 async def _task_to_out(db: AsyncSession, task: PpmTask) -> PpmTaskOut:
     assignee_name = None
     if task.assignee_id:
@@ -423,7 +461,7 @@ async def create_task(
     user: User = Depends(get_current_user),
 ):
     await PermissionService.require_permission(db, user, "ppm.manage")
-    await _get_initiative_or_404(db, initiative_id)
+    card = await _get_initiative_or_404(db, initiative_id)
     task = PpmTask(
         id=uuid.uuid4(),
         initiative_id=initiative_id,
@@ -437,6 +475,8 @@ async def create_task(
         tags=body.tags,
     )
     db.add(task)
+    await db.flush()
+    await _sync_task_todo(db, task, card, user.id)
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -456,6 +496,8 @@ async def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(task, key, val)
+    card = await _get_initiative_or_404(db, str(task.initiative_id))
+    await _sync_task_todo(db, task, card, user.id)
     await db.commit()
     await db.refresh(task)
     return await _task_to_out(db, task)
@@ -472,5 +514,11 @@ async def delete_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    # Clean up linked todo
+    link = f"/ppm/{task.initiative_id}?tab=tasks#task-{task.id}"
+    todo_result = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
+    todo = todo_result.scalar_one_or_none()
+    if todo:
+        await db.delete(todo)
     await db.delete(task)
     await db.commit()

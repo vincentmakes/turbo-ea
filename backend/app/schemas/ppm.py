@@ -176,6 +176,10 @@ class PpmGanttItem(BaseModel):
     end_date: str | None
     cost_budget: float | None
     cost_actual: float | None
+    capex_planned: float = 0
+    capex_actual: float = 0
+    opex_planned: float = 0
+    opex_actual: float = 0
     group_id: str | None = None
     group_name: str | None = None
     latest_report: PpmStatusReportOut | None = None

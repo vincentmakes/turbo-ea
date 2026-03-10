@@ -93,5 +93,7 @@
   "noRisks": "Aún no hay riesgos",
   "status": "Estado",
   "initiativeStatus": "Estado de la iniciativa",
-  "noReportAvailable": "Informe no disponible"
+  "noReportAvailable": "Informe no disponible",
+  "planColumn": "Plan",
+  "lastReport": "Informe"
 }

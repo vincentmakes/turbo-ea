@@ -24,6 +24,23 @@ const RAG: Record<string, string> = {
   offTrack: "#f44336",
 };
 
+/** Format a date string as "Q3'25" */
+function fmtQuarter(dateStr: string | null): string {
+  if (!dateStr) return "\u2014";
+  const d = new Date(dateStr);
+  const q = Math.floor(d.getMonth() / 3) + 1;
+  const y = String(d.getFullYear()).slice(2);
+  return `Q${q}'${y}`;
+}
+
+/** Format a date as "Feb-26" style */
+function fmtMonthYear(dateStr: string): string {
+  const d = new Date(dateStr);
+  const m = d.toLocaleString("en", { month: "short" });
+  const y = String(d.getFullYear()).slice(2);
+  return `${m}-${y}`;
+}
+
 function getQuarters(startMonth: Date, months: number) {
   const qs: { label: string; start: Date; end: Date }[] = [];
   const cur = new Date(startMonth);
@@ -32,7 +49,7 @@ function getQuarters(startMonth: Date, months: number) {
     const q = Math.floor(cur.getMonth() / 3) + 1;
     const qStart = new Date(cur.getFullYear(), (q - 1) * 3, 1);
     const qEnd = new Date(cur.getFullYear(), q * 3, 0);
-    const label = `Q${q} ${cur.getFullYear()}`;
+    const label = `Q${q}'${String(cur.getFullYear()).slice(2)}`;
     if (!qs.length || qs[qs.length - 1].label !== label) {
       qs.push({ label, start: qStart, end: qEnd });
     }
@@ -40,6 +57,45 @@ function getQuarters(startMonth: Date, months: number) {
   }
   return qs;
 }
+
+/** Mini cost bar: actual vs planned with color coding */
+function CostBar({
+  actual,
+  planned,
+  label,
+  color,
+}: {
+  actual: number;
+  planned: number;
+  label: string;
+  color: string;
+}) {
+  if (!planned && !actual) return <Typography variant="caption" color="text.disabled">&mdash;</Typography>;
+  const pct = planned > 0 ? Math.min((actual / planned) * 100, 100) : 0;
+  const overBudget = actual > planned && planned > 0;
+  const barColor = overBudget ? "#f44336" : color;
+
+  return (
+    <Tooltip title={label}>
+      <Box sx={{ width: "100%", minWidth: 80 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 0.25 }}>
+          <Typography
+            variant="caption"
+            sx={{ fontSize: "0.65rem", lineHeight: 1.2, color: overBudget ? "#f44336" : "text.secondary" }}
+          >
+            {Math.round(actual).toLocaleString()}/{Math.round(planned).toLocaleString()}
+          </Typography>
+        </Box>
+        <Box sx={{ height: 6, bgcolor: "action.hover", borderRadius: 3, overflow: "hidden" }}>
+          <Box sx={{ height: "100%", width: `${pct}%`, bgcolor: barColor, borderRadius: 3 }} />
+        </Box>
+      </Box>
+    </Tooltip>
+  );
+}
+
+const gridCols =
+  "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 100px 100px 64px";
 
 export default function PpmPortfolio() {
   const { t } = useTranslation("ppm");
@@ -96,7 +152,6 @@ export default function PpmPortfolio() {
     return list;
   }, [items, search, subtypeFilter]);
 
-  // Group items
   const groups = useMemo(() => {
     const map = new Map<string, { name: string; items: PpmGanttItem[] }>();
     const ungrouped: PpmGanttItem[] = [];
@@ -122,15 +177,10 @@ export default function PpmPortfolio() {
   const pctOf = (dateStr: string | null) => {
     if (!dateStr) return null;
     const d = new Date(dateStr);
-    return Math.max(
-      0,
-      Math.min(100, ((d.getTime() - windowStart.getTime()) / windowMs) * 100),
-    );
+    return Math.max(0, Math.min(100, ((d.getTime() - windowStart.getTime()) / windowMs) * 100));
   };
 
   const nowPct = ((now.getTime() - windowStart.getTime()) / windowMs) * 100;
-
-  const gridCols = "minmax(200px,1.5fr) 100px 1fr 30px 30px 30px 36px";
 
   if (loading) {
     return (
@@ -152,13 +202,13 @@ export default function PpmPortfolio() {
           ? "#ff9800"
           : theme.palette.primary.main;
     return (
-      <Tooltip title={`${item.start_date} → ${item.end_date}`}>
+      <Tooltip title={`${item.start_date} \u2192 ${item.end_date}`}>
         <Box
           sx={{
             position: "absolute",
             left: `${startPct}%`,
             width: `${width}%`,
-            height: 18,
+            height: 16,
             borderRadius: 1,
             bgcolor: barColor,
             opacity: 0.85,
@@ -176,8 +226,12 @@ export default function PpmPortfolio() {
   const renderRow = (item: PpmGanttItem) => {
     const rep = item.latest_report;
     const pm = item.stakeholders.find(
-      (s) => s.role_key === "responsible" || s.role_key === "project_manager",
+      (s) => s.role_key === "it_project_manager",
+    ) || item.stakeholders.find(
+      (s) => s.role_key === "responsible",
     );
+
+    const plan = `${fmtQuarter(item.start_date)} / ${fmtQuarter(item.end_date)}`;
 
     return (
       <Box
@@ -187,7 +241,7 @@ export default function PpmPortfolio() {
           gridTemplateColumns: gridCols,
           alignItems: "center",
           borderBottom: `1px solid ${theme.palette.divider}`,
-          minHeight: 40,
+          minHeight: 44,
           "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
         }}
       >
@@ -209,18 +263,17 @@ export default function PpmPortfolio() {
         </Box>
 
         {/* PM */}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          sx={{ px: 1 }}
-          noWrap
-        >
+        <Typography variant="caption" color="text.secondary" sx={{ px: 1 }} noWrap>
           {pm?.display_name || "\u2014"}
+        </Typography>
+
+        {/* Plan column: Q start / Q end */}
+        <Typography variant="caption" color="text.secondary" sx={{ px: 0.5, textAlign: "center" }} noWrap>
+          {plan}
         </Typography>
 
         {/* Timeline bar */}
         <Box sx={{ position: "relative", height: "100%", mx: 0.5 }}>
-          {/* Today marker */}
           <Box
             sx={{
               position: "absolute",
@@ -238,59 +291,91 @@ export default function PpmPortfolio() {
         </Box>
 
         {/* RAG dots */}
-        {(["schedule_health", "cost_health", "scope_health"] as const).map(
-          (field) => (
-            <Tooltip
-              key={field}
-              title={t(
-                `health_${field.replace("_health", "")}`,
-              )}
-            >
-              <Box display="flex" justifyContent="center">
-                <Box
-                  sx={{
-                    width: 14,
-                    height: 14,
-                    borderRadius: "50%",
-                    bgcolor: rep
-                      ? RAG[rep[field]] || "#bdbdbd"
-                      : "#bdbdbd",
-                    border: `1px solid ${rep ? "transparent" : theme.palette.divider}`,
-                  }}
-                />
-              </Box>
-            </Tooltip>
-          ),
-        )}
+        {(["schedule_health", "cost_health", "scope_health"] as const).map((field) => (
+          <Box key={field} display="flex" justifyContent="center">
+            <Box
+              sx={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                bgcolor: rep ? RAG[rep[field]] || "#bdbdbd" : "#bdbdbd",
+                border: `1px solid ${rep ? "transparent" : theme.palette.divider}`,
+              }}
+            />
+          </Box>
+        ))}
 
-        {/* Report link */}
-        <Box display="flex" justifyContent="center">
-          {rep ? (
-            <Tooltip title={t("viewReport")}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/ppm/${item.id}?tab=reports`);
-                }}
-              >
-                <MaterialSymbol icon="description" size={16} />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Tooltip title={t("noReportAvailable")}>
-              <Box sx={{ opacity: 0.3, display: "flex", alignItems: "center" }}>
-                <MaterialSymbol icon="description" size={16} />
-              </Box>
-            </Tooltip>
-          )}
+        {/* CapEx bar */}
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar
+            actual={item.capex_actual}
+            planned={item.capex_planned}
+            label={`${t("capex")}: ${Math.round(item.capex_actual).toLocaleString()} / ${Math.round(item.capex_planned).toLocaleString()}`}
+            color={theme.palette.primary.main}
+          />
         </Box>
+
+        {/* OpEx bar */}
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar
+            actual={item.opex_actual}
+            planned={item.opex_planned}
+            label={`${t("opex")}: ${Math.round(item.opex_actual).toLocaleString()} / ${Math.round(item.opex_planned).toLocaleString()}`}
+            color="#ff9800"
+          />
+        </Box>
+
+        {/* Last Report date */}
+        <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }} noWrap>
+          {rep ? fmtMonthYear(rep.report_date as unknown as string) : "\u2014"}
+        </Typography>
+      </Box>
+    );
+  };
+
+  /** Group totals row */
+  const renderGroupTotals = (groupItems: PpmGanttItem[]) => {
+    const totCapexP = groupItems.reduce((s, i) => s + i.capex_planned, 0);
+    const totCapexA = groupItems.reduce((s, i) => s + i.capex_actual, 0);
+    const totOpexP = groupItems.reduce((s, i) => s + i.opex_planned, 0);
+    const totOpexA = groupItems.reduce((s, i) => s + i.opex_actual, 0);
+    if (!totCapexP && !totCapexA && !totOpexP && !totOpexA) return null;
+
+    return (
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: gridCols,
+          alignItems: "center",
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          minHeight: 36,
+          bgcolor: alpha(theme.palette.primary.main, 0.02),
+        }}
+      >
+        <Box />
+        <Box />
+        <Box />
+        <Box sx={{ display: "flex", justifyContent: "flex-end", pr: 1 }}>
+          <Typography variant="caption" fontWeight={600} color="text.secondary">
+            &Sigma; {t("common:total", "Totals")}
+          </Typography>
+        </Box>
+        <Box />
+        <Box />
+        <Box />
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar actual={totCapexA} planned={totCapexP} label={`${t("capex")} total`} color={theme.palette.primary.main} />
+        </Box>
+        <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
+          <CostBar actual={totOpexA} planned={totOpexP} label={`${t("opex")} total`} color="#ff9800" />
+        </Box>
+        <Box />
       </Box>
     );
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1600, mx: "auto" }}>
+    <Box sx={{ p: 3, maxWidth: 1800, mx: "auto" }}>
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1.5} mb={2}>
         <MaterialSymbol icon="assignment" size={28} />
@@ -338,17 +423,8 @@ export default function PpmPortfolio() {
               ] as const
             ).map(([key, count]) => (
               <Box key={key} display="flex" alignItems="center" gap={0.5}>
-                <Box
-                  sx={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    bgcolor: RAG[key],
-                  }}
-                />
-                <Typography variant="body2" fontWeight={600}>
-                  {count}
-                </Typography>
+                <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: RAG[key] }} />
+                <Typography variant="body2" fontWeight={600}>{count}</Typography>
                 <Typography variant="caption" color="text.secondary">
                   {t(`health_${key}`)}
                 </Typography>
@@ -369,30 +445,18 @@ export default function PpmPortfolio() {
         />
         <FormControl size="small" sx={{ minWidth: 180 }}>
           <InputLabel>{t("groupBy")}</InputLabel>
-          <Select
-            value={groupBy}
-            label={t("groupBy")}
-            onChange={(e) => setGroupBy(e.target.value)}
-          >
+          <Select value={groupBy} label={t("groupBy")} onChange={(e) => setGroupBy(e.target.value)}>
             {groupOptions.map((opt) => (
-              <MenuItem key={opt.type_key} value={opt.type_key}>
-                {opt.type_label}
-              </MenuItem>
+              <MenuItem key={opt.type_key} value={opt.type_key}>{opt.type_label}</MenuItem>
             ))}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>{t("subtype")}</InputLabel>
-          <Select
-            value={subtypeFilter}
-            label={t("subtype")}
-            onChange={(e) => setSubtypeFilter(e.target.value)}
-          >
+          <Select value={subtypeFilter} label={t("subtype")} onChange={(e) => setSubtypeFilter(e.target.value)}>
             <MenuItem value="">{t("common:all", "All")}</MenuItem>
             {subtypes.map((s) => (
-              <MenuItem key={s} value={s!}>
-                {s}
-              </MenuItem>
+              <MenuItem key={s} value={s!}>{s}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -403,10 +467,11 @@ export default function PpmPortfolio() {
         sx={{
           display: "grid",
           gridTemplateColumns: gridCols,
-          alignItems: "center",
+          alignItems: "end",
           bgcolor: alpha(theme.palette.primary.main, 0.08),
           borderRadius: "8px 8px 0 0",
-          minHeight: 36,
+          minHeight: 40,
+          pb: 0.5,
         }}
       >
         <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
@@ -415,7 +480,10 @@ export default function PpmPortfolio() {
         <Typography variant="caption" fontWeight={600} sx={{ px: 1 }}>
           {t("projectManager")}
         </Typography>
-        {/* Quarter labels */}
+        <Typography variant="caption" fontWeight={600} sx={{ px: 0.5, textAlign: "center" }}>
+          {t("planColumn", "Plan")}
+        </Typography>
+        {/* Quarter labels spanning timeline column */}
         <Box sx={{ display: "flex", position: "relative", height: "100%" }}>
           {quarters.map((q) => {
             const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
@@ -427,6 +495,7 @@ export default function PpmPortfolio() {
                 sx={{
                   position: "absolute",
                   left: `${left}%`,
+                  bottom: 2,
                   whiteSpace: "nowrap",
                   fontSize: "0.65rem",
                 }}
@@ -437,33 +506,23 @@ export default function PpmPortfolio() {
           })}
         </Box>
         <Tooltip title={t("health_schedule")}>
-          <Typography
-            variant="caption"
-            fontWeight={600}
-            textAlign="center"
-          >
-            S
-          </Typography>
+          <Typography variant="caption" fontWeight={600} textAlign="center">S</Typography>
         </Tooltip>
         <Tooltip title={t("health_cost")}>
-          <Typography
-            variant="caption"
-            fontWeight={600}
-            textAlign="center"
-          >
-            C
-          </Typography>
+          <Typography variant="caption" fontWeight={600} textAlign="center">C</Typography>
         </Tooltip>
         <Tooltip title={t("health_scope")}>
-          <Typography
-            variant="caption"
-            fontWeight={600}
-            textAlign="center"
-          >
-            Sc
-          </Typography>
+          <Typography variant="caption" fontWeight={600} textAlign="center">Sc</Typography>
         </Tooltip>
-        <Box />
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+          {t("capex")}
+        </Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+          {t("opex")}
+        </Typography>
+        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+          {t("lastReport", "Report")}
+        </Typography>
       </Box>
 
       {/* Rows grouped */}
@@ -472,18 +531,18 @@ export default function PpmPortfolio() {
           const isCollapsed = collapsed.has(groupId);
           return (
             <Box key={groupId}>
+              {/* Group header */}
               <Box
                 sx={{
                   display: "flex",
                   alignItems: "center",
                   px: 1,
-                  py: 0.5,
-                  bgcolor: alpha(theme.palette.primary.main, 0.04),
+                  py: 0.75,
+                  bgcolor: theme.palette.mode === "dark"
+                    ? alpha(theme.palette.primary.main, 0.15)
+                    : alpha(theme.palette.primary.main, 0.85),
                   borderBottom: `1px solid ${theme.palette.divider}`,
                   cursor: "pointer",
-                  "&:hover": {
-                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                  },
                 }}
                 onClick={() => {
                   setCollapsed((prev) => {
@@ -494,33 +553,33 @@ export default function PpmPortfolio() {
                   });
                 }}
               >
-                <IconButton size="small" sx={{ mr: 0.5 }}>
-                  <MaterialSymbol
-                    icon={isCollapsed ? "chevron_right" : "expand_more"}
-                    size={18}
-                  />
+                <IconButton size="small" sx={{ mr: 0.5, color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}>
+                  <MaterialSymbol icon={isCollapsed ? "chevron_right" : "expand_more"} size={18} />
                 </IconButton>
-                <Typography variant="body2" fontWeight={600}>
+                <MaterialSymbol icon="folder" size={18} style={{ marginRight: 6, color: theme.palette.mode === "dark" ? undefined : "#fff" }} />
+                <Typography
+                  variant="body2"
+                  fontWeight={700}
+                  sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
+                >
                   {group.name}
                 </Typography>
                 <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ ml: 1 }}
+                  variant="body2"
+                  sx={{ ml: 1, color: theme.palette.mode === "dark" ? "text.secondary" : alpha("#fff", 0.8) }}
                 >
-                  ({group.items.length})
+                  &mdash; {group.items.length} {group.items.length === 1 ? "project" : "projects"}
                 </Typography>
               </Box>
               {!isCollapsed && group.items.map(renderRow)}
+              {!isCollapsed && renderGroupTotals(group.items)}
             </Box>
           );
         })}
 
         {filtered.length === 0 && (
           <Box textAlign="center" py={4}>
-            <Typography color="text.secondary">
-              {t("noInitiatives")}
-            </Typography>
+            <Typography color="text.secondary">{t("noInitiatives")}</Typography>
           </Box>
         )}
       </Paper>

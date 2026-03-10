@@ -1568,6 +1568,11 @@ TYPES = [
                 ],
             },
         ],
+        "stakeholder_roles": [
+            {"key": "responsible", "label": "Responsible"},
+            {"key": "it_project_manager", "label": "IT Project Manager"},
+            {"key": "observer", "label": "Observer"},
+        ],
         "translations": {
             "label": {
                 "de": "Initiative",

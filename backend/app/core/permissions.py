@@ -513,6 +513,24 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.manage_diagram_links": True,
 }
 
+IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.archive": False,
+    "card.delete": False,
+    "card.approval_status": True,
+    "card.manage_stakeholders": True,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": False,
+    "card.bpm_manage_drafts": False,
+    "card.bpm_approve": False,
+    "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
+}
+
 # Map stakeholder role key → default permissions
 DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "responsible": RESPONSIBLE_CARD_PERMISSIONS,
@@ -520,4 +538,5 @@ DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "process_owner": PROCESS_OWNER_CARD_PERMISSIONS,
     "technical_application_owner": TECH_APP_OWNER_CARD_PERMISSIONS,
     "business_application_owner": BIZ_APP_OWNER_CARD_PERMISSIONS,
+    "it_project_manager": IT_PROJECT_MANAGER_CARD_PERMISSIONS,
 }

@@ -1057,6 +1057,10 @@ export interface PpmGanttItem {
   end_date: string | null;
   cost_budget: number | null;
   cost_actual: number | null;
+  capex_planned: number;
+  capex_actual: number;
+  opex_planned: number;
+  opex_actual: number;
   group_id: string | null;
   group_name: string | null;
   latest_report: PpmStatusReport | null;

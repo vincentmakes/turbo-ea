@@ -9,6 +9,7 @@ import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
@@ -42,10 +43,16 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
 
   useEffect(() => {
     api
-      .get<{ items: UserOption[] }>("/users?page_size=200")
-      .then((res) => setUsers(res.items || []))
+      .get<UserOption[]>("/users")
+      .then((res) => {
+        // Handle both array response and {items: []} shape
+        const list = Array.isArray(res) ? res : (res as unknown as { items: UserOption[] }).items || [];
+        setUsers(list.filter((u) => u.id && u.display_name));
+      })
       .catch(() => {});
   }, []);
+
+  const selectedUser = users.find((u) => u.id === assigneeId) || null;
 
   const handleSave = async () => {
     if (!title.trim()) return;
@@ -123,21 +130,17 @@ export default function PpmTaskDialog({ initiativeId, task, onClose, onSaved }: 
             </FormControl>
           </Box>
 
-          <FormControl fullWidth size="small">
-            <InputLabel>{t("taskAssignee")}</InputLabel>
-            <Select
-              value={assigneeId}
-              label={t("taskAssignee")}
-              onChange={(e) => setAssigneeId(e.target.value)}
-            >
-              <MenuItem value="">&mdash;</MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.display_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={users}
+            getOptionLabel={(opt) => opt.display_name}
+            value={selectedUser}
+            onChange={(_e, val) => setAssigneeId(val?.id || "")}
+            isOptionEqualToValue={(opt, val) => opt.id === val.id}
+            renderInput={(params) => (
+              <TextField {...params} label={t("taskAssignee")} size="small" />
+            )}
+            size="small"
+          />
 
           <TextField
             label={t("taskDueDate")}

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db
 from app.models.card import Card
+from app.models.ppm_cost_line import PpmCostLine
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
@@ -212,6 +213,33 @@ async def ppm_gantt(
         init_ids = [c.id for c in initiatives]
         group_map = await _build_group_map(db, init_ids, group_by)
 
+    # Batch-load cost line aggregations per initiative
+    init_ids = [c.id for c in initiatives]
+    cost_agg: dict = {}
+    if init_ids:
+        cost_result = await db.execute(
+            select(
+                PpmCostLine.initiative_id,
+                PpmCostLine.category,
+                func.coalesce(func.sum(PpmCostLine.planned), 0).label("planned"),
+                func.coalesce(func.sum(PpmCostLine.actual), 0).label("actual"),
+            )
+            .where(PpmCostLine.initiative_id.in_(init_ids))
+            .group_by(PpmCostLine.initiative_id, PpmCostLine.category)
+        )
+        for row in cost_result.all():
+            key = row[0]  # initiative_id
+            if key not in cost_agg:
+                cost_agg[key] = {
+                    "capex_planned": 0,
+                    "capex_actual": 0,
+                    "opex_planned": 0,
+                    "opex_actual": 0,
+                }
+            cat = row[1]  # category
+            cost_agg[key][f"{cat}_planned"] = float(row[2])
+            cost_agg[key][f"{cat}_actual"] = float(row[3])
+
     items: list[PpmGanttItem] = []
     for card in initiatives:
         attrs = card.attributes or {}
@@ -259,6 +287,9 @@ async def ppm_gantt(
         group_id = str(group_info[0]) if group_info else None
         group_name = group_info[1] if group_info else None
 
+        # Cost line aggregations
+        costs = cost_agg.get(card.id, {})
+
         items.append(
             PpmGanttItem(
                 id=str(card.id),
@@ -270,6 +301,10 @@ async def ppm_gantt(
                 end_date=attrs.get("endDate"),
                 cost_budget=float(attrs.get("costBudget") or 0) or None,
                 cost_actual=float(attrs.get("costActual") or 0) or None,
+                capex_planned=costs.get("capex_planned", 0),
+                capex_actual=costs.get("capex_actual", 0),
+                opex_planned=costs.get("opex_planned", 0),
+                opex_actual=costs.get("opex_actual", 0),
                 group_id=group_id,
                 group_name=group_name,
                 latest_report=report_out,
