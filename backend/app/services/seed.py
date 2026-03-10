@@ -31,6 +31,7 @@ BUSINESS_CRITICALITY_OPTIONS = [
             "it": "Critico per la missione",
             "pt": "Crítico para a missão",
             "zh": "关键任务",
+            "ru": "Критически важный",
         },
     },
     {
@@ -44,6 +45,7 @@ BUSINESS_CRITICALITY_OPTIONS = [
             "it": "Critico per il business",
             "pt": "Crítico para o negócio",
             "zh": "业务关键",
+            "ru": "Критичный для бизнеса",
         },
     },
     {
@@ -57,6 +59,7 @@ BUSINESS_CRITICALITY_OPTIONS = [
             "it": "Operativo",
             "pt": "Operacional",
             "zh": "业务运营",
+            "ru": "Операционный",
         },
     },
     {
@@ -70,6 +73,7 @@ BUSINESS_CRITICALITY_OPTIONS = [
             "it": "Amministrativo",
             "pt": "Administrativo",
             "zh": "行政管理",
+            "ru": "Административный",
         },
     },
 ]
@@ -86,6 +90,7 @@ FUNCTIONAL_SUITABILITY_OPTIONS = [
             "it": "Perfetto",
             "pt": "Perfeito",
             "zh": "完美",
+            "ru": "Отлично",
         },
     },
     {
@@ -99,6 +104,7 @@ FUNCTIONAL_SUITABILITY_OPTIONS = [
             "it": "Appropriato",
             "pt": "Apropriado",
             "zh": "适当",
+            "ru": "Подходящий",
         },
     },
     {
@@ -112,6 +118,7 @@ FUNCTIONAL_SUITABILITY_OPTIONS = [
             "it": "Insufficiente",
             "pt": "Insuficiente",
             "zh": "不足",
+            "ru": "Недостаточный",
         },
     },
     {
@@ -125,6 +132,7 @@ FUNCTIONAL_SUITABILITY_OPTIONS = [
             "it": "Inadeguato",
             "pt": "Inadequado",
             "zh": "不合理",
+            "ru": "Неприемлемый",
         },
     },
 ]
@@ -141,6 +149,7 @@ TECHNICAL_SUITABILITY_OPTIONS = [
             "it": "Pienamente appropriato",
             "pt": "Totalmente apropriado",
             "zh": "完全适合",
+            "ru": "Полностью подходящий",
         },
     },
     {
@@ -154,6 +163,7 @@ TECHNICAL_SUITABILITY_OPTIONS = [
             "it": "Adeguato",
             "pt": "Adequado",
             "zh": "足够",
+            "ru": "Адекватный",
         },
     },
     {
@@ -167,6 +177,7 @@ TECHNICAL_SUITABILITY_OPTIONS = [
             "it": "Inadeguato",
             "pt": "Inadequado",
             "zh": "不合理",
+            "ru": "Неприемлемый",
         },
     },
     {
@@ -180,6 +191,7 @@ TECHNICAL_SUITABILITY_OPTIONS = [
             "it": "Inappropriato",
             "pt": "Inapropriado",
             "zh": "不适当",
+            "ru": "Неподходящий",
         },
     },
 ]
@@ -195,6 +207,7 @@ HOSTING_TYPE_OPTIONS = [
             "it": "On-Premise",
             "pt": "Local",
             "zh": "本地部署",
+            "ru": "Локальное размещение",
         },
     },
     {
@@ -207,6 +220,7 @@ HOSTING_TYPE_OPTIONS = [
             "it": "Cloud (SaaS)",
             "pt": "Cloud (SaaS)",
             "zh": "云端 (SaaS)",
+            "ru": "Облако (SaaS)",
         },
     },
     {
@@ -219,6 +233,7 @@ HOSTING_TYPE_OPTIONS = [
             "it": "Cloud (PaaS)",
             "pt": "Cloud (PaaS)",
             "zh": "云端 (PaaS)",
+            "ru": "Облако (PaaS)",
         },
     },
     {
@@ -231,6 +246,7 @@ HOSTING_TYPE_OPTIONS = [
             "it": "Cloud (IaaS)",
             "pt": "Cloud (IaaS)",
             "zh": "云端 (IaaS)",
+            "ru": "Облако (IaaS)",
         },
     },
     {
@@ -243,6 +259,7 @@ HOSTING_TYPE_OPTIONS = [
             "it": "Ibrido",
             "pt": "Híbrido",
             "zh": "混合",
+            "ru": "Гибридный",
         },
     },
 ]
@@ -259,6 +276,7 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
             "it": "Standard",
             "pt": "Padrão",
             "zh": "标准",
+            "ru": "Стандартный",
         },
     },
     {
@@ -272,6 +290,7 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
             "it": "In introduzione",
             "pt": "Em introdução",
             "zh": "引入中",
+            "ru": "Внедрение",
         },
     },
     {
@@ -285,6 +304,7 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
             "it": "Tollerato",
             "pt": "Tolerado",
             "zh": "容忍",
+            "ru": "Допускаемый",
         },
     },
     {
@@ -298,6 +318,7 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
             "it": "In dismissione",
             "pt": "Em retirada",
             "zh": "淘汰中",
+            "ru": "Вывод из эксплуатации",
         },
     },
     {
@@ -311,6 +332,7 @@ RESOURCE_CLASSIFICATION_OPTIONS = [
             "it": "Rifiutato",
             "pt": "Recusado",
             "zh": "已拒绝",
+            "ru": "Отклонённый",
         },
     },
 ]
@@ -327,6 +349,7 @@ DATA_SENSITIVITY_OPTIONS = [
             "it": "Pubblico",
             "pt": "Público",
             "zh": "公开",
+            "ru": "Публичный",
         },
     },
     {
@@ -340,6 +363,7 @@ DATA_SENSITIVITY_OPTIONS = [
             "it": "Interno",
             "pt": "Interno",
             "zh": "内部",
+            "ru": "Внутренний",
         },
     },
     {
@@ -353,6 +377,7 @@ DATA_SENSITIVITY_OPTIONS = [
             "it": "Confidenziale",
             "pt": "Confidencial",
             "zh": "机密",
+            "ru": "Конфиденциальный",
         },
     },
     {
@@ -366,6 +391,7 @@ DATA_SENSITIVITY_OPTIONS = [
             "it": "Riservato",
             "pt": "Restrito",
             "zh": "受限",
+            "ru": "Ограниченный",
         },
     },
 ]
@@ -382,6 +408,7 @@ INITIATIVE_STATUS_OPTIONS = [
             "it": "In linea",
             "pt": "No prazo",
             "zh": "按计划",
+            "ru": "По плану",
         },
     },
     {
@@ -395,6 +422,7 @@ INITIATIVE_STATUS_OPTIONS = [
             "it": "A rischio",
             "pt": "Em risco",
             "zh": "有风险",
+            "ru": "Под угрозой",
         },
     },
     {
@@ -408,6 +436,7 @@ INITIATIVE_STATUS_OPTIONS = [
             "it": "Fuori rotta",
             "pt": "Fora do prazo",
             "zh": "偏离计划",
+            "ru": "Отклонение от плана",
         },
     },
     {
@@ -421,6 +450,7 @@ INITIATIVE_STATUS_OPTIONS = [
             "it": "In sospeso",
             "pt": "Em espera",
             "zh": "暂停",
+            "ru": "Приостановлено",
         },
     },
     {
@@ -434,6 +464,7 @@ INITIATIVE_STATUS_OPTIONS = [
             "it": "Completato",
             "pt": "Concluído",
             "zh": "已完成",
+            "ru": "Завершено",
         },
     },
 ]
@@ -449,6 +480,7 @@ FREQUENCY_OPTIONS = [
             "it": "Tempo reale",
             "pt": "Tempo real",
             "zh": "实时",
+            "ru": "В реальном времени",
         },
     },
     {
@@ -461,6 +493,7 @@ FREQUENCY_OPTIONS = [
             "it": "Giornaliero",
             "pt": "Diário",
             "zh": "每日",
+            "ru": "Ежедневно",
         },
     },
     {
@@ -473,6 +506,7 @@ FREQUENCY_OPTIONS = [
             "it": "Settimanale",
             "pt": "Semanal",
             "zh": "每周",
+            "ru": "Еженедельно",
         },
     },
     {
@@ -485,6 +519,7 @@ FREQUENCY_OPTIONS = [
             "it": "Mensile",
             "pt": "Mensal",
             "zh": "每月",
+            "ru": "Ежемесячно",
         },
     },
     {
@@ -497,6 +532,7 @@ FREQUENCY_OPTIONS = [
             "it": "Su richiesta",
             "pt": "Sob demanda",
             "zh": "按需",
+            "ru": "По запросу",
         },
     },
     {
@@ -509,6 +545,7 @@ FREQUENCY_OPTIONS = [
             "it": "Batch",
             "pt": "Em lote",
             "zh": "批处理",
+            "ru": "Пакетная обработка",
         },
     },
 ]
@@ -525,6 +562,7 @@ SUPPORT_TYPE_OPTIONS = [
             "it": "Principale",
             "pt": "Principal",
             "zh": "主导",
+            "ru": "Ведущий",
         },
     },
     {
@@ -538,6 +576,7 @@ SUPPORT_TYPE_OPTIONS = [
             "it": "Di supporto",
             "pt": "De suporte",
             "zh": "支持",
+            "ru": "Поддерживающий",
         },
     },
     {
@@ -551,6 +590,7 @@ SUPPORT_TYPE_OPTIONS = [
             "it": "Nessun supporto",
             "pt": "Sem suporte",
             "zh": "无支持",
+            "ru": "Без поддержки",
         },
     },
 ]
@@ -567,6 +607,7 @@ USAGE_TYPE_OPTIONS = [
             "it": "Proprietario",
             "pt": "Proprietário",
             "zh": "所有者",
+            "ru": "Владелец",
         },
     },
     {
@@ -580,6 +621,7 @@ USAGE_TYPE_OPTIONS = [
             "it": "Utente",
             "pt": "Utilizador",
             "zh": "用户",
+            "ru": "Пользователь",
         },
     },
     {
@@ -593,6 +635,7 @@ USAGE_TYPE_OPTIONS = [
             "it": "Stakeholder",
             "pt": "Parte interessada",
             "zh": "利益相关者",
+            "ru": "Заинтересованная сторона",
         },
     },
 ]
@@ -609,6 +652,7 @@ TIME_MODEL_OPTIONS = [
             "it": "Tollerare",
             "pt": "Tolerar",
             "zh": "容忍",
+            "ru": "Терпеть",
         },
     },
     {
@@ -622,6 +666,7 @@ TIME_MODEL_OPTIONS = [
             "it": "Investire",
             "pt": "Investir",
             "zh": "投资",
+            "ru": "Инвестировать",
         },
     },
     {
@@ -635,6 +680,7 @@ TIME_MODEL_OPTIONS = [
             "it": "Migrare",
             "pt": "Migrar",
             "zh": "迁移",
+            "ru": "Мигрировать",
         },
     },
     {
@@ -648,6 +694,7 @@ TIME_MODEL_OPTIONS = [
             "it": "Eliminare",
             "pt": "Eliminar",
             "zh": "淘汰",
+            "ru": "Ликвидировать",
         },
     },
 ]
@@ -666,6 +713,7 @@ PROCESS_TYPE_OPTIONS = [
             "it": "Principale",
             "pt": "Principal",
             "zh": "核心",
+            "ru": "Основной",
         },
     },
     {
@@ -679,6 +727,7 @@ PROCESS_TYPE_OPTIONS = [
             "it": "Supporto",
             "pt": "Suporte",
             "zh": "支持",
+            "ru": "Поддержка",
         },
     },
     {
@@ -692,6 +741,7 @@ PROCESS_TYPE_OPTIONS = [
             "it": "Gestione",
             "pt": "Gestão",
             "zh": "管理",
+            "ru": "Управление",
         },
     },
 ]
@@ -708,6 +758,7 @@ PROCESS_MATURITY_OPTIONS = [
             "it": "1 - Iniziale",
             "pt": "1 - Inicial",
             "zh": "1 - 初始",
+            "ru": "1 - Начальный",
         },
     },
     {
@@ -721,6 +772,7 @@ PROCESS_MATURITY_OPTIONS = [
             "it": "2 - Gestito",
             "pt": "2 - Gerenciado",
             "zh": "2 - 已管理",
+            "ru": "2 - Управляемый",
         },
     },
     {
@@ -734,6 +786,7 @@ PROCESS_MATURITY_OPTIONS = [
             "it": "3 - Definito",
             "pt": "3 - Definido",
             "zh": "3 - 已定义",
+            "ru": "3 - Определённый",
         },
     },
     {
@@ -747,6 +800,7 @@ PROCESS_MATURITY_OPTIONS = [
             "it": "4 - Misurato",
             "pt": "4 - Medido",
             "zh": "4 - 已量化",
+            "ru": "4 - Измеряемый",
         },
     },
     {
@@ -760,6 +814,7 @@ PROCESS_MATURITY_OPTIONS = [
             "it": "5 - Ottimizzato",
             "pt": "5 - Otimizado",
             "zh": "5 - 已优化",
+            "ru": "5 - Оптимизированный",
         },
     },
 ]
@@ -776,6 +831,7 @@ AUTOMATION_LEVEL_OPTIONS = [
             "it": "Manuale",
             "pt": "Manual",
             "zh": "手动",
+            "ru": "Ручной",
         },
     },
     {
@@ -789,6 +845,7 @@ AUTOMATION_LEVEL_OPTIONS = [
             "it": "Parzialmente automatizzato",
             "pt": "Parcialmente automatizado",
             "zh": "部分自动化",
+            "ru": "Частично автоматизированный",
         },
     },
     {
@@ -802,6 +859,7 @@ AUTOMATION_LEVEL_OPTIONS = [
             "it": "Completamente automatizzato",
             "pt": "Totalmente automatizado",
             "zh": "完全自动化",
+            "ru": "Полностью автоматизированный",
         },
     },
 ]
@@ -818,6 +876,7 @@ PROCESS_RISK_OPTIONS = [
             "it": "Basso",
             "pt": "Baixo",
             "zh": "低",
+            "ru": "Низкий",
         },
     },
     {
@@ -831,6 +890,7 @@ PROCESS_RISK_OPTIONS = [
             "it": "Medio",
             "pt": "Médio",
             "zh": "中",
+            "ru": "Средний",
         },
     },
     {
@@ -844,6 +904,7 @@ PROCESS_RISK_OPTIONS = [
             "it": "Alto",
             "pt": "Alto",
             "zh": "高",
+            "ru": "Высокий",
         },
     },
     {
@@ -857,6 +918,7 @@ PROCESS_RISK_OPTIONS = [
             "it": "Critico",
             "pt": "Crítico",
             "zh": "严重",
+            "ru": "Критический",
         },
     },
 ]
@@ -872,6 +934,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Ad hoc",
             "pt": "Ad hoc",
             "zh": "临时",
+            "ru": "По ситуации",
         },
     },
     {
@@ -884,6 +947,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Giornaliero",
             "pt": "Diário",
             "zh": "每日",
+            "ru": "Ежедневно",
         },
     },
     {
@@ -896,6 +960,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Settimanale",
             "pt": "Semanal",
             "zh": "每周",
+            "ru": "Еженедельно",
         },
     },
     {
@@ -908,6 +973,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Mensile",
             "pt": "Mensal",
             "zh": "每月",
+            "ru": "Ежемесячно",
         },
     },
     {
@@ -920,6 +986,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Trimestrale",
             "pt": "Trimestral",
             "zh": "每季度",
+            "ru": "Ежеквартально",
         },
     },
     {
@@ -932,6 +999,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Annuale",
             "pt": "Anual",
             "zh": "每年",
+            "ru": "Ежегодно",
         },
     },
     {
@@ -944,6 +1012,7 @@ PROCESS_FREQUENCY_OPTIONS = [
             "it": "Continuo",
             "pt": "Contínuo",
             "zh": "持续",
+            "ru": "Непрерывно",
         },
     },
 ]
@@ -972,6 +1041,7 @@ TYPES = [
                     "it": "Informazioni sull'obiettivo",
                     "pt": "Informações do objetivo",
                     "zh": "目标信息",
+                    "ru": "Информация о цели",
                 },
                 "fields": [
                     {
@@ -989,6 +1059,7 @@ TYPES = [
                                     "it": "Strategico",
                                     "pt": "Estratégico",
                                     "zh": "战略性",
+                                    "ru": "Стратегический",
                                 },
                             },
                             {
@@ -1001,6 +1072,7 @@ TYPES = [
                                     "it": "Tattico",
                                     "pt": "Tático",
                                     "zh": "战术性",
+                                    "ru": "Тактический",
                                 },
                             },
                             {
@@ -1013,6 +1085,7 @@ TYPES = [
                                     "it": "Operativo",
                                     "pt": "Operacional",
                                     "zh": "运营性",
+                                    "ru": "Операционный",
                                 },
                             },
                         ],
@@ -1024,6 +1097,7 @@ TYPES = [
                             "it": "Tipo di obiettivo",
                             "pt": "Tipo de objetivo",
                             "zh": "目标类型",
+                            "ru": "Тип цели",
                         },
                     },
                     {
@@ -1038,6 +1112,7 @@ TYPES = [
                             "it": "Data obiettivo",
                             "pt": "Data alvo",
                             "zh": "目标日期",
+                            "ru": "Целевая дата",
                         },
                     },
                     {
@@ -1052,6 +1127,7 @@ TYPES = [
                             "it": "Progresso (%)",
                             "pt": "Progresso (%)",
                             "zh": "进度 (%)",
+                            "ru": "Прогресс (%)",
                         },
                     },
                 ],
@@ -1065,6 +1141,7 @@ TYPES = [
                 "it": "Obiettivo",
                 "pt": "Objetivo",
                 "zh": "目标",
+                "ru": "Цель",
             },
             "description": {
                 "de": "Strategische Ziele und Vorgaben, die die Unternehmensarchitektur vorantreiben.",
@@ -1073,6 +1150,7 @@ TYPES = [
                 "it": "Obiettivi strategici che guidano l'architettura aziendale.",
                 "pt": "Objetivos estratégicos que direcionam a arquitetura empresarial.",
                 "zh": "驱动企业架构的战略目标。",
+                "ru": "Стратегические цели, определяющие направление корпоративной архитектуры.",
             },
         },
     },
@@ -1096,6 +1174,7 @@ TYPES = [
                     "it": "Digitale",
                     "pt": "Digital",
                     "zh": "数字",
+                    "ru": "Цифровой",
                 },
             },
             {
@@ -1108,6 +1187,7 @@ TYPES = [
                     "it": "Tecnica",
                     "pt": "Técnica",
                     "zh": "技术",
+                    "ru": "Технический",
                 },
             },
         ],
@@ -1122,6 +1202,7 @@ TYPES = [
                     "it": "Informazioni sulla piattaforma",
                     "pt": "Informações da plataforma",
                     "zh": "平台信息",
+                    "ru": "Информация о платформе",
                 },
                 "fields": [
                     {
@@ -1140,6 +1221,7 @@ TYPES = [
                                     "it": "Digitale",
                                     "pt": "Digital",
                                     "zh": "数字化",
+                                    "ru": "Цифровой",
                                 },
                             },
                             {
@@ -1153,6 +1235,7 @@ TYPES = [
                                     "it": "Tecnico",
                                     "pt": "Técnico",
                                     "zh": "技术",
+                                    "ru": "Технический",
                                 },
                             },
                         ],
@@ -1164,6 +1247,7 @@ TYPES = [
                             "it": "Tipo di piattaforma",
                             "pt": "Tipo de plataforma",
                             "zh": "平台类型",
+                            "ru": "Тип платформы",
                         },
                     },
                 ],
@@ -1177,6 +1261,7 @@ TYPES = [
                 "it": "Piattaforma",
                 "pt": "Plataforma",
                 "zh": "平台",
+                "ru": "Платформа",
             },
             "description": {
                 "de": "Technologie- oder Geschäftsplattformen, die Anwendungen und Komponenten bündeln.",
@@ -1185,6 +1270,7 @@ TYPES = [
                 "it": "Piattaforme tecnologiche o di business che raggruppano applicazioni e componenti.",
                 "pt": "Plataformas de tecnologia ou negócio que agrupam aplicações e componentes.",
                 "zh": "将应用和组件进行分组的技术或业务平台。",
+                "ru": "Технологические или бизнес-платформы, объединяющие приложения и компоненты.",
             },
         },
     },
@@ -1208,6 +1294,7 @@ TYPES = [
                     "it": "Idea",
                     "pt": "Ideia",
                     "zh": "创意",
+                    "ru": "Идея",
                 },
             },
             {
@@ -1220,6 +1307,7 @@ TYPES = [
                     "it": "Programma",
                     "pt": "Programa",
                     "zh": "计划",
+                    "ru": "Программа",
                 },
             },
             {
@@ -1232,6 +1320,7 @@ TYPES = [
                     "it": "Progetto",
                     "pt": "Projeto",
                     "zh": "项目",
+                    "ru": "Проект",
                 },
             },
             {
@@ -1244,6 +1333,7 @@ TYPES = [
                     "it": "Epic",
                     "pt": "Épico",
                     "zh": "史诗",
+                    "ru": "Эпик",
                 },
             },
         ],
@@ -1258,6 +1348,7 @@ TYPES = [
                     "it": "Informazioni sull'iniziativa",
                     "pt": "Informações da iniciativa",
                     "zh": "举措信息",
+                    "ru": "Информация об инициативе",
                 },
                 "fields": [
                     {
@@ -1273,6 +1364,7 @@ TYPES = [
                             "it": "Stato",
                             "pt": "Status",
                             "zh": "状态",
+                            "ru": "Статус",
                         },
                     },
                     {
@@ -1291,6 +1383,7 @@ TYPES = [
                                     "it": "Alto",
                                     "pt": "Alto",
                                     "zh": "高",
+                                    "ru": "Высокий",
                                 },
                             },
                             {
@@ -1304,6 +1397,7 @@ TYPES = [
                                     "it": "Medio",
                                     "pt": "Médio",
                                     "zh": "中",
+                                    "ru": "Средний",
                                 },
                             },
                             {
@@ -1317,6 +1411,7 @@ TYPES = [
                                     "it": "Basso",
                                     "pt": "Baixo",
                                     "zh": "低",
+                                    "ru": "Низкий",
                                 },
                             },
                         ],
@@ -1328,6 +1423,7 @@ TYPES = [
                             "it": "Valore aziendale",
                             "pt": "Valor de negócio",
                             "zh": "业务价值",
+                            "ru": "Бизнес-ценность",
                         },
                     },
                     {
@@ -1346,6 +1442,7 @@ TYPES = [
                                     "it": "Alto",
                                     "pt": "Alto",
                                     "zh": "高",
+                                    "ru": "Высокий",
                                 },
                             },
                             {
@@ -1359,6 +1456,7 @@ TYPES = [
                                     "it": "Medio",
                                     "pt": "Médio",
                                     "zh": "中",
+                                    "ru": "Средний",
                                 },
                             },
                             {
@@ -1372,6 +1470,7 @@ TYPES = [
                                     "it": "Basso",
                                     "pt": "Baixo",
                                     "zh": "低",
+                                    "ru": "Низкий",
                                 },
                             },
                         ],
@@ -1383,6 +1482,7 @@ TYPES = [
                             "it": "Impegno",
                             "pt": "Esforço",
                             "zh": "工作量",
+                            "ru": "Трудозатраты",
                         },
                     },
                 ],
@@ -1396,6 +1496,7 @@ TYPES = [
                     "it": "Costi e tempistica",
                     "pt": "Custos e cronograma",
                     "zh": "成本与时间表",
+                    "ru": "Стоимость и сроки",
                 },
                 "fields": [
                     {
@@ -1410,6 +1511,7 @@ TYPES = [
                             "it": "Budget",
                             "pt": "Orçamento",
                             "zh": "预算",
+                            "ru": "Бюджет",
                         },
                     },
                     {
@@ -1424,6 +1526,7 @@ TYPES = [
                             "it": "Costo effettivo",
                             "pt": "Custo real",
                             "zh": "实际成本",
+                            "ru": "Фактическая стоимость",
                         },
                     },
                     {
@@ -1438,6 +1541,7 @@ TYPES = [
                             "it": "Data di inizio",
                             "pt": "Data de início",
                             "zh": "开始日期",
+                            "ru": "Дата начала",
                         },
                     },
                     {
@@ -1452,6 +1556,7 @@ TYPES = [
                             "it": "Data di fine",
                             "pt": "Data de término",
                             "zh": "结束日期",
+                            "ru": "Дата окончания",
                         },
                     },
                 ],
@@ -1465,6 +1570,7 @@ TYPES = [
                 "it": "Iniziativa",
                 "pt": "Iniciativa",
                 "zh": "举措",
+                "ru": "Инициатива",
             },
             "description": {
                 "de": "Projekte, Programme und Epics, die die Unternehmensarchitektur transformieren.",
@@ -1473,6 +1579,7 @@ TYPES = [
                 "it": "Progetti, programmi ed epic che trasformano l'architettura aziendale.",
                 "pt": "Projetos, programas e épicos que transformam a arquitetura empresarial.",
                 "zh": "转变企业架构的项目、计划和史诗。",
+                "ru": "Проекты, программы и эпики, трансформирующие корпоративную архитектуру.",
             },
         },
     },
@@ -1496,6 +1603,7 @@ TYPES = [
                     "it": "Unità aziendale",
                     "pt": "Unidade de negócio",
                     "zh": "业务单元",
+                    "ru": "Бизнес-подразделение",
                 },
             },
             {
@@ -1508,6 +1616,7 @@ TYPES = [
                     "it": "Regione",
                     "pt": "Região",
                     "zh": "区域",
+                    "ru": "Регион",
                 },
             },
             {
@@ -1520,6 +1629,7 @@ TYPES = [
                     "it": "Entità giuridica",
                     "pt": "Entidade legal",
                     "zh": "法律实体",
+                    "ru": "Юридическое лицо",
                 },
             },
             {
@@ -1532,6 +1642,7 @@ TYPES = [
                     "it": "Team",
                     "pt": "Equipe",
                     "zh": "团队",
+                    "ru": "Команда",
                 },
             },
             {
@@ -1544,6 +1655,7 @@ TYPES = [
                     "it": "Cliente",
                     "pt": "Cliente",
                     "zh": "客户",
+                    "ru": "Клиент",
                 },
             },
         ],
@@ -1558,6 +1670,7 @@ TYPES = [
                     "it": "Informazioni sull'organizzazione",
                     "pt": "Informações da organização",
                     "zh": "组织信息",
+                    "ru": "Информация об организации",
                 },
                 "fields": [
                     {
@@ -1572,6 +1685,7 @@ TYPES = [
                             "it": "Organico",
                             "pt": "Número de funcionários",
                             "zh": "员工人数",
+                            "ru": "Численность персонала",
                         },
                     },
                     {
@@ -1586,6 +1700,7 @@ TYPES = [
                             "it": "Sede",
                             "pt": "Localização",
                             "zh": "位置",
+                            "ru": "Расположение",
                         },
                     },
                 ],
@@ -1599,6 +1714,7 @@ TYPES = [
                 "it": "Organizzazione",
                 "pt": "Organização",
                 "zh": "组织",
+                "ru": "Организация",
             },
             "description": {
                 "de": "Organisationseinheiten, Regionen, Rechtseinheiten, Teams und Kunden.",
@@ -1607,6 +1723,7 @@ TYPES = [
                 "it": "Unità organizzative, regioni, entità giuridiche, team e clienti.",
                 "pt": "Unidades organizacionais, regiões, entidades legais, equipes e clientes.",
                 "zh": "组织单元、区域、法律实体、团队和客户。",
+                "ru": "Организационные единицы, регионы, юридические лица, команды и клиенты.",
             },
         },
     },
@@ -1630,6 +1747,7 @@ TYPES = [
                     "it": "Informazioni sulla capacità",
                     "pt": "Informações da capacidade",
                     "zh": "能力信息",
+                    "ru": "Информация о возможности",
                 },
                 "fields": [
                     {
@@ -1649,6 +1767,7 @@ TYPES = [
                                     "it": "Livello 1",
                                     "pt": "Nível 1",
                                     "zh": "级别 1",
+                                    "ru": "Уровень 1",
                                 },
                             },
                             {
@@ -1662,6 +1781,7 @@ TYPES = [
                                     "it": "Livello 2",
                                     "pt": "Nível 2",
                                     "zh": "级别 2",
+                                    "ru": "Уровень 2",
                                 },
                             },
                             {
@@ -1675,6 +1795,7 @@ TYPES = [
                                     "it": "Livello 3",
                                     "pt": "Nível 3",
                                     "zh": "级别 3",
+                                    "ru": "Уровень 3",
                                 },
                             },
                             {
@@ -1688,6 +1809,7 @@ TYPES = [
                                     "it": "Livello 4",
                                     "pt": "Nível 4",
                                     "zh": "级别 4",
+                                    "ru": "Уровень 4",
                                 },
                             },
                             {
@@ -1701,6 +1823,7 @@ TYPES = [
                                     "it": "Livello 5",
                                     "pt": "Nível 5",
                                     "zh": "级别 5",
+                                    "ru": "Уровень 5",
                                 },
                             },
                         ],
@@ -1712,6 +1835,7 @@ TYPES = [
                             "it": "Livello di capacità",
                             "pt": "Nível de capacidade",
                             "zh": "能力级别",
+                            "ru": "Уровень возможности",
                         },
                     },
                     {
@@ -1726,6 +1850,7 @@ TYPES = [
                             "it": "Capacità fondamentale",
                             "pt": "Capacidade central",
                             "zh": "核心能力",
+                            "ru": "Ключевая возможность",
                         },
                     },
                 ],
@@ -1739,6 +1864,7 @@ TYPES = [
                     "it": "Valutazione BPM",
                     "pt": "Avaliação BPM",
                     "zh": "BPM评估",
+                    "ru": "Оценка BPM",
                 },
                 "fields": [
                     {
@@ -1757,6 +1883,7 @@ TYPES = [
                                     "it": "Bassa",
                                     "pt": "Baixa",
                                     "zh": "低",
+                                    "ru": "Низкий",
                                 },
                             },
                             {
@@ -1770,6 +1897,7 @@ TYPES = [
                                     "it": "Media",
                                     "pt": "Média",
                                     "zh": "中",
+                                    "ru": "Средний",
                                 },
                             },
                             {
@@ -1783,6 +1911,7 @@ TYPES = [
                                     "it": "Alta",
                                     "pt": "Alta",
                                     "zh": "高",
+                                    "ru": "Высокий",
                                 },
                             },
                             {
@@ -1796,6 +1925,7 @@ TYPES = [
                                     "it": "Critica",
                                     "pt": "Crítica",
                                     "zh": "关键",
+                                    "ru": "Критический",
                                 },
                             },
                         ],
@@ -1807,6 +1937,7 @@ TYPES = [
                             "it": "Importanza strategica",
                             "pt": "Importância estratégica",
                             "zh": "战略重要性",
+                            "ru": "Стратегическая значимость",
                         },
                     },
                     {
@@ -1822,6 +1953,7 @@ TYPES = [
                             "it": "Maturità della capacità",
                             "pt": "Maturidade da capacidade",
                             "zh": "能力成熟度",
+                            "ru": "Зрелость возможности",
                         },
                     },
                 ],
@@ -1835,6 +1967,7 @@ TYPES = [
                 "it": "Capacità aziendale",
                 "pt": "Capacidade de negócio",
                 "zh": "业务能力",
+                "ru": "Бизнес-возможность",
             },
             "description": {
                 "de": "Stabile Zerlegung dessen, was das Unternehmen tut, unabhängig davon, wie es umgesetzt wird.",
@@ -1843,6 +1976,7 @@ TYPES = [
                 "it": "Scomposizione stabile di ciò che fa l'azienda, indipendente da come viene realizzata.",
                 "pt": "Decomposição estável do que a empresa faz, independente de como é realizado.",
                 "zh": "企业职能的稳定分解，与具体实现方式无关。",
+                "ru": "Устойчивая декомпозиция функций предприятия, независимая от способа их реализации.",
             },
         },
     },
@@ -1865,6 +1999,7 @@ TYPES = [
                     "it": "Processo",
                     "pt": "Processo",
                     "zh": "流程",
+                    "ru": "Процесс",
                 },
             },
             {
@@ -1877,6 +2012,7 @@ TYPES = [
                     "it": "Flusso di valore",
                     "pt": "Cadeia de valor",
                     "zh": "价值流",
+                    "ru": "Поток создания ценности",
                 },
             },
             {
@@ -1889,6 +2025,7 @@ TYPES = [
                     "it": "Percorso del cliente",
                     "pt": "Jornada do cliente",
                     "zh": "客户旅程",
+                    "ru": "Путь клиента",
                 },
             },
             {
@@ -1901,6 +2038,7 @@ TYPES = [
                     "it": "Prodotto aziendale",
                     "pt": "Produto de negócio",
                     "zh": "业务产品",
+                    "ru": "Бизнес-продукт",
                 },
             },
             {
@@ -1913,6 +2051,7 @@ TYPES = [
                     "it": "Capacità ESG",
                     "pt": "Capacidade ESG",
                     "zh": "ESG能力",
+                    "ru": "ESG-возможность",
                 },
             },
         ],
@@ -1927,6 +2066,7 @@ TYPES = [
                     "it": "Informazioni sul contesto aziendale",
                     "pt": "Informações do contexto de negócio",
                     "zh": "业务上下文信息",
+                    "ru": "Информация о бизнес-контексте",
                 },
                 "fields": [
                     {
@@ -1945,6 +2085,7 @@ TYPES = [
                                     "it": "Iniziale",
                                     "pt": "Inicial",
                                     "zh": "初始",
+                                    "ru": "Начальный",
                                 },
                             },
                             {
@@ -1958,6 +2099,7 @@ TYPES = [
                                     "it": "Definito",
                                     "pt": "Definido",
                                     "zh": "已定义",
+                                    "ru": "Определённый",
                                 },
                             },
                             {
@@ -1971,6 +2113,7 @@ TYPES = [
                                     "it": "Gestito",
                                     "pt": "Gerenciado",
                                     "zh": "已管理",
+                                    "ru": "Управляемый",
                                 },
                             },
                             {
@@ -1984,6 +2127,7 @@ TYPES = [
                                     "it": "Ottimizzato",
                                     "pt": "Otimizado",
                                     "zh": "已优化",
+                                    "ru": "Оптимизированный",
                                 },
                             },
                         ],
@@ -1995,6 +2139,7 @@ TYPES = [
                             "it": "Maturità",
                             "pt": "Maturidade",
                             "zh": "成熟度",
+                            "ru": "Зрелость",
                         },
                     },
                 ],
@@ -2008,6 +2153,7 @@ TYPES = [
                 "it": "Contesto aziendale",
                 "pt": "Contexto de negócio",
                 "zh": "业务上下文",
+                "ru": "Бизнес-контекст",
             },
             "description": {
                 "de": "Geschäftsprozesse, Wertströme, Customer Journeys und Produkte.",
@@ -2016,6 +2162,7 @@ TYPES = [
                 "it": "Processi aziendali, flussi di valore, percorsi del cliente e prodotti.",
                 "pt": "Processos de negócio, cadeias de valor, jornadas do cliente e produtos.",
                 "zh": "业务流程、价值流、客户旅程和产品。",
+                "ru": "Бизнес-процессы, потоки создания ценности, пути клиентов и продукты.",
             },
         },
     },
@@ -2040,6 +2187,7 @@ TYPES = [
                     "it": "Categoria di processo",
                     "pt": "Categoria de processo",
                     "zh": "流程类别",
+                    "ru": "Категория процесса",
                 },
             },
             {
@@ -2052,6 +2200,7 @@ TYPES = [
                     "it": "Gruppo di processi",
                     "pt": "Grupo de processos",
                     "zh": "流程组",
+                    "ru": "Группа процессов",
                 },
             },
             {
@@ -2064,6 +2213,7 @@ TYPES = [
                     "it": "Processo",
                     "pt": "Processo",
                     "zh": "流程",
+                    "ru": "Процесс",
                 },
             },
             {
@@ -2076,6 +2226,7 @@ TYPES = [
                     "it": "Variante di processo",
                     "pt": "Variante de processo",
                     "zh": "流程变体",
+                    "ru": "Вариант процесса",
                 },
             },
         ],
@@ -2090,6 +2241,7 @@ TYPES = [
                     "it": "Classificazione del processo",
                     "pt": "Classificação do processo",
                     "zh": "流程分类",
+                    "ru": "Классификация процесса",
                 },
                 "fields": [
                     {
@@ -2106,6 +2258,7 @@ TYPES = [
                             "it": "Tipo di processo",
                             "pt": "Tipo de processo",
                             "zh": "流程类型",
+                            "ru": "Тип процесса",
                         },
                     },
                     {
@@ -2121,6 +2274,7 @@ TYPES = [
                             "it": "Maturità (CMMI)",
                             "pt": "Maturidade (CMMI)",
                             "zh": "成熟度 (CMMI)",
+                            "ru": "Зрелость (CMMI)",
                         },
                     },
                     {
@@ -2136,6 +2290,7 @@ TYPES = [
                             "it": "Livello di automazione",
                             "pt": "Nível de automação",
                             "zh": "自动化级别",
+                            "ru": "Уровень автоматизации",
                         },
                     },
                     {
@@ -2151,6 +2306,7 @@ TYPES = [
                             "it": "Livello di rischio",
                             "pt": "Nível de risco",
                             "zh": "风险级别",
+                            "ru": "Уровень риска",
                         },
                     },
                 ],
@@ -2164,6 +2320,7 @@ TYPES = [
                     "it": "Dettagli operativi",
                     "pt": "Detalhes operacionais",
                     "zh": "运营详情",
+                    "ru": "Операционные детали",
                 },
                 "fields": [
                     {
@@ -2179,6 +2336,7 @@ TYPES = [
                             "it": "Frequenza di esecuzione",
                             "pt": "Frequência de execução",
                             "zh": "执行频率",
+                            "ru": "Частота выполнения",
                         },
                     },
                     {
@@ -2193,6 +2351,7 @@ TYPES = [
                             "it": "URL documentazione del processo",
                             "pt": "URL da documentação do processo",
                             "zh": "流程文档 URL",
+                            "ru": "URL документации процесса",
                         },
                     },
                     {
@@ -2207,6 +2366,7 @@ TYPES = [
                             "it": "Rilevanza normativa",
                             "pt": "Relevância regulatória",
                             "zh": "合规相关性",
+                            "ru": "Регуляторная значимость",
                         },
                     },
                 ],
@@ -2225,6 +2385,7 @@ TYPES = [
                 "it": "Processo aziendale",
                 "pt": "Processo de negócio",
                 "zh": "业务流程",
+                "ru": "Бизнес-процесс",
             },
             "description": {
                 "de": "Geschäftsprozesse mit BPMN-2.0-Modellierung, Lebenszyklus- und Reifegradüberwachung.",
@@ -2233,6 +2394,7 @@ TYPES = [
                 "it": "Processi aziendali con modellazione BPMN 2.0, ciclo di vita e monitoraggio della maturità.",
                 "pt": "Processos de negócio com modelagem BPMN 2.0, ciclo de vida e acompanhamento de maturidade.",
                 "zh": "具有BPMN 2.0流程建模、生命周期和成熟度跟踪的业务流程。",
+                "ru": "Бизнес-процессы с моделированием BPMN 2.0, отслеживанием жизненного цикла и уровня зрелости.",
             },
         },
     },
@@ -2257,6 +2419,7 @@ TYPES = [
                     "it": "Applicazione aziendale",
                     "pt": "Aplicação de negócio",
                     "zh": "业务应用",
+                    "ru": "Бизнес-приложение",
                 },
             },
             {
@@ -2269,6 +2432,7 @@ TYPES = [
                     "it": "Microservizio",
                     "pt": "Microsserviço",
                     "zh": "微服务",
+                    "ru": "Микросервис",
                 },
             },
             {
@@ -2281,6 +2445,7 @@ TYPES = [
                     "it": "Agente IA",
                     "pt": "Agente de IA",
                     "zh": "AI代理",
+                    "ru": "ИИ-агент",
                 },
             },
             {
@@ -2293,6 +2458,7 @@ TYPES = [
                     "it": "Distribuzione",
                     "pt": "Implantação",
                     "zh": "部署",
+                    "ru": "Развёртывание",
                 },
             },
         ],
@@ -2307,6 +2473,7 @@ TYPES = [
                     "it": "Informazioni sull'applicazione",
                     "pt": "Informações da aplicação",
                     "zh": "应用信息",
+                    "ru": "Информация о приложении",
                 },
                 "fields": [
                     {
@@ -2323,6 +2490,7 @@ TYPES = [
                             "it": "Criticità aziendale",
                             "pt": "Criticidade de negócio",
                             "zh": "业务关键性",
+                            "ru": "Критичность для бизнеса",
                         },
                     },
                     {
@@ -2338,6 +2506,7 @@ TYPES = [
                             "it": "Idoneità funzionale",
                             "pt": "Adequação funcional",
                             "zh": "功能适用性",
+                            "ru": "Функциональная пригодность",
                         },
                     },
                     {
@@ -2353,6 +2522,7 @@ TYPES = [
                             "it": "Idoneità tecnica",
                             "pt": "Adequação técnica",
                             "zh": "技术适用性",
+                            "ru": "Техническая пригодность",
                         },
                     },
                     {
@@ -2369,6 +2539,7 @@ TYPES = [
                             "it": "Modello TIME",
                             "pt": "Modelo TIME",
                             "zh": "TIME 模型",
+                            "ru": "Модель TIME",
                         },
                     },
                     {
@@ -2384,6 +2555,7 @@ TYPES = [
                             "it": "Tipo di hosting",
                             "pt": "Tipo de hospedagem",
                             "zh": "托管类型",
+                            "ru": "Тип размещения",
                         },
                     },
                     {
@@ -2398,6 +2570,7 @@ TYPES = [
                             "it": "Applicazione commerciale",
                             "pt": "Aplicação comercial",
                             "zh": "商业应用",
+                            "ru": "Коммерческое приложение",
                         },
                     },
                 ],
@@ -2411,6 +2584,7 @@ TYPES = [
                     "it": "Costi e proprietà",
                     "pt": "Custos e propriedade",
                     "zh": "成本与所有权",
+                    "ru": "Стоимость и владение",
                 },
                 "fields": [
                     {
@@ -2425,6 +2599,7 @@ TYPES = [
                             "it": "Costo annuale totale",
                             "pt": "Custo anual total",
                             "zh": "年度总成本",
+                            "ru": "Общая годовая стоимость",
                         },
                     },
                     {
@@ -2439,6 +2614,7 @@ TYPES = [
                             "it": "Numero di utenti",
                             "pt": "Número de usuários",
                             "zh": "用户数量",
+                            "ru": "Количество пользователей",
                         },
                     },
                     {
@@ -2453,6 +2629,7 @@ TYPES = [
                             "it": "Fornitore",
                             "pt": "Fornecedor",
                             "zh": "供应商",
+                            "ru": "Поставщик",
                         },
                     },
                     {
@@ -2467,6 +2644,7 @@ TYPES = [
                             "it": "Nome del prodotto",
                             "pt": "Nome do produto",
                             "zh": "产品名称",
+                            "ru": "Название продукта",
                         },
                     },
                 ],
@@ -2480,6 +2658,7 @@ TYPES = [
                 "it": "Applicazione",
                 "pt": "Aplicação",
                 "zh": "应用程序",
+                "ru": "Приложение",
             },
             "description": {
                 "de": "Softwareanwendungen, Microservices und Deployments in der IT-Landschaft.",
@@ -2488,6 +2667,7 @@ TYPES = [
                 "it": "Applicazioni software, microservizi e distribuzioni nel panorama IT.",
                 "pt": "Aplicações de software, microsserviços e implantações no cenário de TI.",
                 "zh": "IT环境中的软件应用、微服务和部署。",
+                "ru": "Программные приложения, микросервисы и развёртывания в ИТ-среде.",
             },
         },
     },
@@ -2511,6 +2691,7 @@ TYPES = [
                     "it": "Interfaccia logica",
                     "pt": "Interface lógica",
                     "zh": "逻辑接口",
+                    "ru": "Логический интерфейс",
                 },
             },
             {
@@ -2523,6 +2704,7 @@ TYPES = [
                     "it": "API",
                     "pt": "API",
                     "zh": "API",
+                    "ru": "API",
                 },
             },
             {
@@ -2535,6 +2717,7 @@ TYPES = [
                     "it": "Server MCP",
                     "pt": "Servidor MCP",
                     "zh": "MCP服务器",
+                    "ru": "MCP-сервер",
                 },
             },
         ],
@@ -2549,6 +2732,7 @@ TYPES = [
                     "it": "Informazioni sull'interfaccia",
                     "pt": "Informações da interface",
                     "zh": "接口信息",
+                    "ru": "Информация об интерфейсе",
                 },
                 "fields": [
                     {
@@ -2564,6 +2748,7 @@ TYPES = [
                             "it": "Frequenza",
                             "pt": "Frequência",
                             "zh": "频率",
+                            "ru": "Частота",
                         },
                     },
                     {
@@ -2578,6 +2763,7 @@ TYPES = [
                             "it": "Formato dati",
                             "pt": "Formato de dados",
                             "zh": "数据格式",
+                            "ru": "Формат данных",
                         },
                     },
                     {
@@ -2592,6 +2778,7 @@ TYPES = [
                             "it": "Protocollo",
                             "pt": "Protocolo",
                             "zh": "协议",
+                            "ru": "Протокол",
                         },
                     },
                 ],
@@ -2605,6 +2792,7 @@ TYPES = [
                 "it": "Interfaccia",
                 "pt": "Interface",
                 "zh": "接口",
+                "ru": "Интерфейс",
             },
             "description": {
                 "de": "Datenflüsse und Integrationen zwischen Anwendungen.",
@@ -2613,6 +2801,7 @@ TYPES = [
                 "it": "Flussi di dati e integrazioni tra applicazioni.",
                 "pt": "Fluxos de dados e integrações entre aplicações.",
                 "zh": "应用之间的数据流和集成。",
+                "ru": "Потоки данных и интеграции между приложениями.",
             },
         },
     },
@@ -2637,6 +2826,7 @@ TYPES = [
                     "it": "Informazioni sui dati",
                     "pt": "Informações de dados",
                     "zh": "数据信息",
+                    "ru": "Информация о данных",
                 },
                 "fields": [
                     {
@@ -2652,6 +2842,7 @@ TYPES = [
                             "it": "Sensibilità dei dati",
                             "pt": "Sensibilidade dos dados",
                             "zh": "数据敏感性",
+                            "ru": "Конфиденциальность данных",
                         },
                     },
                     {
@@ -2666,6 +2857,7 @@ TYPES = [
                             "it": "Proprietario dei dati",
                             "pt": "Proprietário dos dados",
                             "zh": "数据所有者",
+                            "ru": "Владелец данных",
                         },
                     },
                     {
@@ -2680,6 +2872,7 @@ TYPES = [
                             "it": "Contiene dati personali",
                             "pt": "Contém dados pessoais",
                             "zh": "包含个人数据",
+                            "ru": "Содержит персональные данные",
                         },
                     },
                 ],
@@ -2693,6 +2886,7 @@ TYPES = [
                 "it": "Oggetto dati",
                 "pt": "Objeto de dados",
                 "zh": "数据对象",
+                "ru": "Объект данных",
             },
             "description": {
                 "de": "Geschäftsdatenobjekte und deren Klassifikationen.",
@@ -2701,6 +2895,7 @@ TYPES = [
                 "it": "Oggetti dati aziendali e relative classificazioni.",
                 "pt": "Objetos de dados de negócio e suas classificações.",
                 "zh": "业务数据对象及其分类。",
+                "ru": "Бизнес-объекты данных и их классификация.",
             },
         },
     },
@@ -2725,6 +2920,7 @@ TYPES = [
                     "it": "Software",
                     "pt": "Software",
                     "zh": "软件",
+                    "ru": "Программное обеспечение",
                 },
             },
             {
@@ -2737,6 +2933,7 @@ TYPES = [
                     "it": "Hardware",
                     "pt": "Hardware",
                     "zh": "硬件",
+                    "ru": "Аппаратное обеспечение",
                 },
             },
             {
@@ -2749,6 +2946,7 @@ TYPES = [
                     "it": "SaaS",
                     "pt": "SaaS",
                     "zh": "SaaS",
+                    "ru": "SaaS",
                 },
             },
             {
@@ -2761,6 +2959,7 @@ TYPES = [
                     "it": "PaaS",
                     "pt": "PaaS",
                     "zh": "PaaS",
+                    "ru": "PaaS",
                 },
             },
             {
@@ -2773,6 +2972,7 @@ TYPES = [
                     "it": "IaaS",
                     "pt": "IaaS",
                     "zh": "IaaS",
+                    "ru": "IaaS",
                 },
             },
             {
@@ -2785,6 +2985,7 @@ TYPES = [
                     "it": "Servizio",
                     "pt": "Serviço",
                     "zh": "服务",
+                    "ru": "Сервис",
                 },
             },
             {
@@ -2797,6 +2998,7 @@ TYPES = [
                     "it": "Modello IA",
                     "pt": "Modelo de IA",
                     "zh": "AI模型",
+                    "ru": "Модель ИИ",
                 },
             },
         ],
@@ -2811,6 +3013,7 @@ TYPES = [
                     "it": "Informazioni sul componente",
                     "pt": "Informações do componente",
                     "zh": "组件信息",
+                    "ru": "Информация о компоненте",
                 },
                 "fields": [
                     {
@@ -2826,6 +3029,7 @@ TYPES = [
                             "it": "Idoneità tecnica",
                             "pt": "Adequação técnica",
                             "zh": "技术适用性",
+                            "ru": "Техническая пригодность",
                         },
                     },
                     {
@@ -2841,6 +3045,7 @@ TYPES = [
                             "it": "Classificazione delle risorse",
                             "pt": "Classificação de recursos",
                             "zh": "资源分类",
+                            "ru": "Классификация ресурсов",
                         },
                     },
                     {
@@ -2855,6 +3060,7 @@ TYPES = [
                             "it": "Fornitore",
                             "pt": "Fornecedor",
                             "zh": "供应商",
+                            "ru": "Поставщик",
                         },
                     },
                     {
@@ -2869,6 +3075,7 @@ TYPES = [
                             "it": "Versione",
                             "pt": "Versão",
                             "zh": "版本",
+                            "ru": "Версия",
                         },
                     },
                 ],
@@ -2882,6 +3089,7 @@ TYPES = [
                     "it": "Costi",
                     "pt": "Custos",
                     "zh": "成本",
+                    "ru": "Стоимость",
                 },
                 "fields": [
                     {
@@ -2896,6 +3104,7 @@ TYPES = [
                             "it": "Costo annuale totale",
                             "pt": "Custo anual total",
                             "zh": "年度总成本",
+                            "ru": "Общая годовая стоимость",
                         },
                     },
                     {
@@ -2910,6 +3119,7 @@ TYPES = [
                             "it": "Tipo di licenza",
                             "pt": "Tipo de licença",
                             "zh": "许可类型",
+                            "ru": "Тип лицензии",
                         },
                     },
                 ],
@@ -2923,6 +3133,7 @@ TYPES = [
                 "it": "Componente IT",
                 "pt": "Componente de TI",
                 "zh": "IT组件",
+                "ru": "ИТ-компонент",
             },
             "description": {
                 "de": "Technologiekomponenten: Software, Hardware, SaaS, PaaS, IaaS, Services.",
@@ -2931,6 +3142,7 @@ TYPES = [
                 "it": "Componenti tecnologici: software, hardware, SaaS, PaaS, IaaS, servizi.",
                 "pt": "Componentes tecnológicos: software, hardware, SaaS, PaaS, IaaS, serviços.",
                 "zh": "技术组件：软件、硬件、SaaS、PaaS、IaaS、服务。",
+                "ru": "Технические компоненты: программное обеспечение, оборудование, SaaS, PaaS, IaaS, сервисы.",
             },
         },
     },
@@ -2953,6 +3165,7 @@ TYPES = [
                 "it": "Categoria tecnologica",
                 "pt": "Categoria tecnológica",
                 "zh": "技术类别",
+                "ru": "Техническая категория",
             },
             "description": {
                 "de": "Technologiekategorien zur Klassifizierung von IT-Komponenten (z. B. Datenbanken, Middleware).",
@@ -2961,6 +3174,7 @@ TYPES = [
                 "it": "Categorie tecnologiche per classificare i componenti IT (es. database, middleware).",
                 "pt": "Categorias tecnológicas para classificar componentes de TI (ex.: bancos de dados, middleware).",
                 "zh": "用于分类IT组件的技术类别（如数据库、中间件）。",
+                "ru": "Технические категории для классификации ИТ-компонентов (например, базы данных, промежуточное ПО).",
             },
         },
     },
@@ -2984,6 +3198,7 @@ TYPES = [
                     "it": "Informazioni sul fornitore",
                     "pt": "Informações do fornecedor",
                     "zh": "供应商信息",
+                    "ru": "Информация о поставщике",
                 },
                 "fields": [
                     {
@@ -3001,6 +3216,7 @@ TYPES = [
                                     "it": "Fornitore",
                                     "pt": "Fornecedor",
                                     "zh": "供应商",
+                                    "ru": "Поставщик",
                                 },
                             },
                             {
@@ -3013,6 +3229,7 @@ TYPES = [
                                     "it": "Partner",
                                     "pt": "Parceiro",
                                     "zh": "合作伙伴",
+                                    "ru": "Партнёр",
                                 },
                             },
                             {
@@ -3025,6 +3242,7 @@ TYPES = [
                                     "it": "Fornitore interno",
                                     "pt": "Provedor interno",
                                     "zh": "内部供应商",
+                                    "ru": "Внутренний поставщик",
                                 },
                             },
                         ],
@@ -3036,6 +3254,7 @@ TYPES = [
                             "it": "Tipo di fornitore",
                             "pt": "Tipo de fornecedor",
                             "zh": "供应商类型",
+                            "ru": "Тип поставщика",
                         },
                     },
                     {
@@ -3050,6 +3269,7 @@ TYPES = [
                             "it": "Sito web",
                             "pt": "Website",
                             "zh": "网站",
+                            "ru": "Веб-сайт",
                         },
                     },
                     {
@@ -3064,6 +3284,7 @@ TYPES = [
                             "it": "Data di fine contratto",
                             "pt": "Data de término do contrato",
                             "zh": "合同结束日期",
+                            "ru": "Дата окончания контракта",
                         },
                     },
                 ],
@@ -3077,6 +3298,7 @@ TYPES = [
                 "it": "Fornitore",
                 "pt": "Fornecedor",
                 "zh": "供应商",
+                "ru": "Поставщик",
             },
             "description": {
                 "de": "Externe Technologieanbieter und Lieferanten.",
@@ -3085,6 +3307,7 @@ TYPES = [
                 "it": "Fornitori e venditori di tecnologia esterni.",
                 "pt": "Fornecedores e vendedores de tecnologia externos.",
                 "zh": "外部技术供应商和厂商。",
+                "ru": "Внешние технологические поставщики и вендоры.",
             },
         },
     },
@@ -3111,6 +3334,7 @@ RELATIONS = [
                 "it": "migliora",
                 "pt": "melhora",
                 "zh": "改进",
+                "ru": "улучшает",
             },
             "reverse_label": {
                 "de": "wird verbessert durch",
@@ -3119,6 +3343,7 @@ RELATIONS = [
                 "it": "è migliorato da",
                 "pt": "é melhorado por",
                 "zh": "被改进",
+                "ru": "улучшается",
             },
         },
     },
@@ -3138,6 +3363,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3146,6 +3372,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -3165,6 +3392,7 @@ RELATIONS = [
                 "it": "esegue",
                 "pt": "executa",
                 "zh": "运行",
+                "ru": "запускает",
             },
             "reverse_label": {
                 "de": "läuft auf",
@@ -3173,6 +3401,7 @@ RELATIONS = [
                 "it": "è eseguito su",
                 "pt": "é executado em",
                 "zh": "运行于",
+                "ru": "запускается на",
             },
         },
     },
@@ -3192,6 +3421,7 @@ RELATIONS = [
                 "it": "implementa",
                 "pt": "implementa",
                 "zh": "实现",
+                "ru": "реализует",
             },
             "reverse_label": {
                 "de": "wird implementiert von",
@@ -3200,6 +3430,7 @@ RELATIONS = [
                 "it": "è implementato da",
                 "pt": "é implementado por",
                 "zh": "被实现",
+                "ru": "реализуется",
             },
         },
     },
@@ -3219,6 +3450,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3227,6 +3459,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -3246,6 +3479,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
             "reverse_label": {
                 "de": "wird beeinflusst von",
@@ -3254,6 +3488,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
         },
     },
@@ -3273,6 +3508,7 @@ RELATIONS = [
                 "it": "migliora",
                 "pt": "melhora",
                 "zh": "改进",
+                "ru": "улучшает",
             },
             "reverse_label": {
                 "de": "wird verbessert durch",
@@ -3281,6 +3517,7 @@ RELATIONS = [
                 "it": "è migliorato da",
                 "pt": "é melhorado por",
                 "zh": "被改进",
+                "ru": "улучшается",
             },
         },
     },
@@ -3300,6 +3537,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
             "reverse_label": {
                 "de": "wird beeinflusst von",
@@ -3308,6 +3546,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
         },
     },
@@ -3327,6 +3566,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
             "reverse_label": {
                 "de": "wird beeinflusst von",
@@ -3335,6 +3575,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
         },
     },
@@ -3354,6 +3595,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
             "reverse_label": {
                 "de": "wird beeinflusst von",
@@ -3362,6 +3604,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
         },
     },
@@ -3381,6 +3624,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
             "reverse_label": {
                 "de": "wird beeinflusst von",
@@ -3389,6 +3633,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
         },
     },
@@ -3409,6 +3654,7 @@ RELATIONS = [
                 "it": "possiede",
                 "pt": "possui",
                 "zh": "拥有",
+                "ru": "владеет",
             },
             "reverse_label": {
                 "de": "gehört zu",
@@ -3417,6 +3663,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
         },
     },
@@ -3436,6 +3683,7 @@ RELATIONS = [
                 "it": "possiede",
                 "pt": "possui",
                 "zh": "拥有",
+                "ru": "владеет",
             },
             "reverse_label": {
                 "de": "gehört zu",
@@ -3444,6 +3692,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
         },
     },
@@ -3463,6 +3712,7 @@ RELATIONS = [
                 "it": "possiede",
                 "pt": "possui",
                 "zh": "拥有",
+                "ru": "владеет",
             },
             "reverse_label": {
                 "de": "gehört zu",
@@ -3471,6 +3721,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
         },
     },
@@ -3498,6 +3749,7 @@ RELATIONS = [
                 "it": "utilizza",
                 "pt": "utiliza",
                 "zh": "使用",
+                "ru": "использует",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -3506,6 +3758,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -3525,6 +3778,7 @@ RELATIONS = [
                 "it": "possiede",
                 "pt": "possui",
                 "zh": "拥有",
+                "ru": "владеет",
             },
             "reverse_label": {
                 "de": "gehört zu",
@@ -3533,6 +3787,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
         },
     },
@@ -3567,6 +3822,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3575,6 +3831,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -3594,6 +3851,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3602,6 +3860,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -3621,6 +3880,7 @@ RELATIONS = [
                 "it": "fornisce / consuma",
                 "pt": "fornece / consome",
                 "zh": "提供 / 消费",
+                "ru": "предоставляет / потребляет",
             },
             "reverse_label": {
                 "de": "wird bereitgestellt / konsumiert von",
@@ -3629,6 +3889,7 @@ RELATIONS = [
                 "it": "è fornito / consumato da",
                 "pt": "é fornecido / consumido por",
                 "zh": "被提供 / 被消费",
+                "ru": "предоставляется / потребляется",
             },
         },
     },
@@ -3654,6 +3915,7 @@ RELATIONS = [
                 "it": "CRUD",
                 "pt": "CRUD",
                 "zh": "CRUD",
+                "ru": "CRUD",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -3662,6 +3924,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -3690,6 +3953,7 @@ RELATIONS = [
                 "it": "utilizza",
                 "pt": "utiliza",
                 "zh": "使用",
+                "ru": "использует",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -3698,6 +3962,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -3726,6 +3991,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
             "reverse_label": {
                 "de": "umfasst",
@@ -3734,6 +4000,7 @@ RELATIONS = [
                 "it": "include",
                 "pt": "inclui",
                 "zh": "包含",
+                "ru": "содержит",
             },
         },
     },
@@ -3753,6 +4020,7 @@ RELATIONS = [
                 "it": "implementa",
                 "pt": "implementa",
                 "zh": "实现",
+                "ru": "реализует",
             },
             "reverse_label": {
                 "de": "wird implementiert von",
@@ -3761,6 +4029,7 @@ RELATIONS = [
                 "it": "è implementato da",
                 "pt": "é implementado por",
                 "zh": "被实现",
+                "ru": "реализуется",
             },
         },
     },
@@ -3781,6 +4050,7 @@ RELATIONS = [
                 "it": "trasferisce",
                 "pt": "transfere",
                 "zh": "传输",
+                "ru": "передаёт",
             },
             "reverse_label": {
                 "de": "wird übertragen von",
@@ -3789,6 +4059,7 @@ RELATIONS = [
                 "it": "è trasferito da",
                 "pt": "é transferido por",
                 "zh": "被传输",
+                "ru": "передаётся",
             },
         },
     },
@@ -3808,6 +4079,7 @@ RELATIONS = [
                 "it": "utilizza",
                 "pt": "utiliza",
                 "zh": "使用",
+                "ru": "использует",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -3816,6 +4088,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -3836,6 +4109,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3844,6 +4118,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -3863,6 +4138,7 @@ RELATIONS = [
                 "it": "offre",
                 "pt": "oferece",
                 "zh": "提供",
+                "ru": "предлагает",
             },
             "reverse_label": {
                 "de": "wird angeboten von",
@@ -3871,6 +4147,7 @@ RELATIONS = [
                 "it": "è offerto da",
                 "pt": "é oferecido por",
                 "zh": "由...提供",
+                "ru": "предлагается",
             },
         },
     },
@@ -3890,6 +4167,7 @@ RELATIONS = [
                 "it": "offre",
                 "pt": "oferece",
                 "zh": "提供",
+                "ru": "предлагает",
             },
             "reverse_label": {
                 "de": "wird angeboten von",
@@ -3898,6 +4176,7 @@ RELATIONS = [
                 "it": "è offerto da",
                 "pt": "é oferecido por",
                 "zh": "由...提供",
+                "ru": "предлагается",
             },
         },
     },
@@ -3918,6 +4197,7 @@ RELATIONS = [
                 "it": "è associato a",
                 "pt": "está associado a",
                 "zh": "关联于",
+                "ru": "связан с",
             },
             "reverse_label": {
                 "de": "ist verknüpft mit",
@@ -3926,6 +4206,7 @@ RELATIONS = [
                 "it": "è associato a",
                 "pt": "está associado a",
                 "zh": "关联于",
+                "ru": "связан с",
             },
         },
     },
@@ -3954,6 +4235,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -3962,6 +4244,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -4006,6 +4289,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
             "reverse_label": {
                 "de": "unterstützt",
@@ -4014,6 +4298,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
         },
     },
@@ -4039,6 +4324,7 @@ RELATIONS = [
                 "it": "utilizza",
                 "pt": "utiliza",
                 "zh": "使用",
+                "ru": "использует",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -4047,6 +4333,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -4066,6 +4353,7 @@ RELATIONS = [
                 "it": "utilizza",
                 "pt": "utiliza",
                 "zh": "使用",
+                "ru": "использует",
             },
             "reverse_label": {
                 "de": "wird genutzt von",
@@ -4074,6 +4362,7 @@ RELATIONS = [
                 "it": "è utilizzato da",
                 "pt": "é utilizado por",
                 "zh": "被使用",
+                "ru": "используется",
             },
         },
     },
@@ -4093,6 +4382,7 @@ RELATIONS = [
                 "it": "dipende da",
                 "pt": "depende de",
                 "zh": "依赖于",
+                "ru": "зависит от",
             },
             "reverse_label": {
                 "de": "wird benötigt von",
@@ -4101,6 +4391,7 @@ RELATIONS = [
                 "it": "è richiesto da",
                 "pt": "é requerido por",
                 "zh": "被依赖",
+                "ru": "от него зависит",
             },
         },
     },
@@ -4120,6 +4411,7 @@ RELATIONS = [
                 "it": "appartiene a",
                 "pt": "pertence a",
                 "zh": "属于",
+                "ru": "принадлежит",
             },
             "reverse_label": {
                 "de": "besitzt",
@@ -4128,6 +4420,7 @@ RELATIONS = [
                 "it": "possiede",
                 "pt": "possui",
                 "zh": "拥有",
+                "ru": "владеет",
             },
         },
     },
@@ -4147,6 +4440,7 @@ RELATIONS = [
                 "it": "è influenzato da",
                 "pt": "é afetado por",
                 "zh": "被影响",
+                "ru": "подвержен влиянию",
             },
             "reverse_label": {
                 "de": "beeinflusst",
@@ -4155,6 +4449,7 @@ RELATIONS = [
                 "it": "influenza",
                 "pt": "afeta",
                 "zh": "影响",
+                "ru": "влияет на",
             },
         },
     },
@@ -4174,6 +4469,7 @@ RELATIONS = [
                 "it": "supporta",
                 "pt": "suporta",
                 "zh": "支持",
+                "ru": "поддерживает",
             },
             "reverse_label": {
                 "de": "wird unterstützt von",
@@ -4182,6 +4478,7 @@ RELATIONS = [
                 "it": "è supportato da",
                 "pt": "é suportado por",
                 "zh": "被支持",
+                "ru": "поддерживается",
             },
         },
     },
@@ -4201,6 +4498,7 @@ RELATIONS = [
                 "it": "realizza",
                 "pt": "realiza",
                 "zh": "实现",
+                "ru": "реализует",
             },
             "reverse_label": {
                 "de": "wird realisiert durch",
@@ -4209,6 +4507,7 @@ RELATIONS = [
                 "it": "è realizzato da",
                 "pt": "é realizado por",
                 "zh": "被实现",
+                "ru": "реализуется",
             },
         },
     },
@@ -4229,6 +4528,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4237,6 +4537,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4256,6 +4557,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4264,6 +4566,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4283,6 +4586,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4291,6 +4595,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4310,6 +4615,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4318,6 +4624,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4337,6 +4644,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4345,6 +4653,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4364,6 +4673,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4372,6 +4682,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },
@@ -4391,6 +4702,7 @@ RELATIONS = [
                 "it": "succede a",
                 "pt": "sucede a",
                 "zh": "继承",
+                "ru": "предшествует",
             },
             "reverse_label": {
                 "de": "wird abgelöst durch",
@@ -4399,6 +4711,7 @@ RELATIONS = [
                 "it": "è preceduto da",
                 "pt": "é precedido por",
                 "zh": "被继承",
+                "ru": "следует за",
             },
         },
     },

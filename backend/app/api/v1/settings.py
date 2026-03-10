@@ -739,7 +739,7 @@ async def test_ai_connection(
     return result
 
 
-SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"]
+SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru"]
 
 
 class EnabledLocalesPayload(BaseModel):

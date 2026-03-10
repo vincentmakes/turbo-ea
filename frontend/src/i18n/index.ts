@@ -100,7 +100,21 @@ import deliveryDe from "./locales/de/delivery.json";
 import notificationsDe from "./locales/de/notifications.json";
 import validationDe from "./locales/de/validation.json";
 
-export const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh"] as const;
+// Russian
+import commonRu from "./locales/ru/common.json";
+import authRu from "./locales/ru/auth.json";
+import navRu from "./locales/ru/nav.json";
+import inventoryRu from "./locales/ru/inventory.json";
+import cardsRu from "./locales/ru/cards.json";
+import reportsRu from "./locales/ru/reports.json";
+import adminRu from "./locales/ru/admin.json";
+import bpmRu from "./locales/ru/bpm.json";
+import diagramsRu from "./locales/ru/diagrams.json";
+import deliveryRu from "./locales/ru/delivery.json";
+import notificationsRu from "./locales/ru/notifications.json";
+import validationRu from "./locales/ru/validation.json";
+
+export const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const LOCALE_LABELS: Record<SupportedLocale, string> = {
@@ -111,6 +125,7 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   it: "Italiano",
   pt: "Português",
   zh: "中文",
+  ru: "Русский",
 };
 
 i18n
@@ -215,6 +230,20 @@ i18n
         delivery: deliveryDe,
         notifications: notificationsDe,
         validation: validationDe,
+      },
+      ru: {
+        common: commonRu,
+        auth: authRu,
+        nav: navRu,
+        inventory: inventoryRu,
+        cards: cardsRu,
+        reports: reportsRu,
+        admin: adminRu,
+        bpm: bpmRu,
+        diagrams: diagramsRu,
+        delivery: deliveryRu,
+        notifications: notificationsRu,
+        validation: validationRu,
       },
     },
     fallbackLng: "en",

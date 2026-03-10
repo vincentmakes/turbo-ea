@@ -255,6 +255,39 @@ plugins:
             ServiceNow Integration: ServiceNow 集成
             Reference: 参考
             Glossary: 术语表
+        - locale: ru
+          name: Русский
+          build: true
+          nav_translations:
+            Home: Главная
+            Getting Started: Начало работы
+            Accessing the Platform: Доступ к платформе
+            User Guide: Руководство пользователя
+            Dashboard: Панель управления
+            Inventory: Инвентаризация
+            Card Details: Детали карточки
+            Reports: Отчёты
+            Saved Reports: Сохранённые отчёты
+            BPM: BPM
+            Diagrams: Диаграммы
+            EA Delivery: Поставка EA
+            Tasks & Surveys: Задачи и опросы
+            Notifications: Уведомления
+            Administration: Администрирование
+            General Settings: Общие настройки
+            Metamodel: Метамодель
+            Calculations: Вычисления
+            Tags: Теги
+            Users & Roles: Пользователи и роли
+            Authentication & SSO: Аутентификация и SSO
+            AI Capabilities: Возможности ИИ
+            MCP Integration: Интеграция MCP
+            End-of-Life (EOL): Окончание жизненного цикла (EOL)
+            Surveys: Опросы
+            Web Portals: Веб-порталы
+            ServiceNow Integration: Интеграция с ServiceNow
+            Reference: Справочник
+            Glossary: Глоссарий
 
   - search:
       lang:
@@ -264,6 +297,7 @@ plugins:
         - fr
         - it
         - pt
+        - ru
 
 # ---------------------------------------------------------------------------
 # Markdown extensions
@@ -353,6 +387,9 @@ extra:
     - name: 中文
       link: /zh/
       lang: zh
+    - name: Русский
+      link: /ru/
+      lang: ru
 
   # Optional: version banner
   # version:

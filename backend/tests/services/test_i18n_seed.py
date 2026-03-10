@@ -11,7 +11,7 @@ import pytest
 
 from app.services.seed import RELATIONS, TYPES
 
-SUPPORTED_LOCALES = ["de", "fr", "es", "it", "pt", "zh"]
+SUPPORTED_LOCALES = ["de", "fr", "es", "it", "pt", "zh", "ru"]
 
 
 # ---------------------------------------------------------------------------

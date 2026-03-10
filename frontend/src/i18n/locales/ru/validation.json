@@ -1,0 +1,15 @@
+{
+  "required": "Это поле обязательно для заполнения",
+  "invalidEmail": "Неверный адрес электронной почты",
+  "tooLong": "Слишком длинное значение (максимум {{max}} символов)",
+  "tooShort": "Слишком короткое значение (минимум {{min}} символов)",
+  "invalidUrl": "Неверный URL-адрес",
+  "key.mustStartWithLetter": "Должен начинаться с буквы",
+  "key.noUnderscores": "Подчёркивания не допускаются — используйте camelCase",
+  "key.noSpaces": "Пробелы не допускаются — используйте camelCase",
+  "key.noAccents": "Символы с диакритикой не допускаются",
+  "key.lettersAndDigitsOnly": "Только буквы и цифры (camelCase)",
+  "key.cannotChange": "Ключ нельзя изменить после создания",
+  "key.valid": "Корректный ключ",
+  "key.hint": "Только буквы и цифры, camelCase (например, businessFit)"
+}
