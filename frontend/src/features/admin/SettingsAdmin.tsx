@@ -705,7 +705,7 @@ function GeneralTab() {
             {t("settings.ppm.title")}
           </Typography>
           <Chip
-            label={ppmEnabled ? t("settings.bpm.enabled") : t("settings.bpm.disabled")}
+            label={ppmEnabled ? t("settings.ppm.enabled") : t("settings.ppm.disabled")}
             size="small"
             color={ppmEnabled ? "success" : "default"}
             sx={{ ml: 1 }}
@@ -722,7 +722,7 @@ function GeneralTab() {
               disabled={savingPpm}
             />
           }
-          label={ppmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
+          label={ppmEnabled ? t("settings.ppm.visible") : t("settings.ppm.hidden")}
         />
       </Paper>
 

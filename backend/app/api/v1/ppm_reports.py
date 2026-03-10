@@ -10,7 +10,6 @@ from app.api.deps import get_current_user, get_db
 from app.models.card import Card
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.stakeholder import Stakeholder
-from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.user import User
 from app.schemas.ppm import PpmGanttItem, PpmGanttStakeholder, PpmStatusReportOut, ReporterOut
 from app.services.permission_service import PermissionService
@@ -138,22 +137,17 @@ async def ppm_gantt(
 
         # Stakeholders
         sh_result = await db.execute(
-            select(Stakeholder, User, StakeholderRoleDefinition)
+            select(Stakeholder, User)
             .join(User, Stakeholder.user_id == User.id)
-            .join(
-                StakeholderRoleDefinition,
-                (Stakeholder.role == StakeholderRoleDefinition.key)
-                & (StakeholderRoleDefinition.card_type_key == card.type),
-            )
             .where(Stakeholder.card_id == card.id)
         )
         stakeholders = [
             PpmGanttStakeholder(
                 user_id=str(sh.user_id),
                 display_name=u.display_name or u.email,
-                role_key=srd.key,
+                role_key=sh.role,
             )
-            for sh, u, srd in sh_result.all()
+            for sh, u in sh_result.all()
         ]
 
         items.append(
