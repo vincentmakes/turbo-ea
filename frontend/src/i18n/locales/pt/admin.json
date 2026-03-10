@@ -204,6 +204,7 @@
   "users.columns.role": "Papel",
   "users.columns.auth": "Autenticação",
   "users.columns.status": "Status",
+  "users.columns.lastLogin": "Último acesso",
   "users.columns.actions": "Ações",
   "users.archivedRoleWarning": "Este usuário possui um papel arquivado. Considere reatribuí-lo.",
   "users.archivedRoleTooltip": "Papel arquivado",

@@ -307,6 +307,7 @@ async def login(
     # Reset failed attempts on successful login
     user.failed_login_attempts = 0
     user.locked_until = None
+    user.last_login = datetime.now(timezone.utc)
     await db.commit()
 
     token = create_access_token(user.id, user.role)
@@ -611,6 +612,7 @@ async def sso_callback(
         if display_name and not user.display_name:
             user.display_name = display_name
         user.password_setup_token = None
+        user.last_login = datetime.now(timezone.utc)
         await db.commit()
         if not user.is_active:
             raise HTTPException(403, "Account disabled")
@@ -635,6 +637,7 @@ async def sso_callback(
         role=role,
         auth_provider="sso",
         sso_subject_id=sso_subject_id,
+        last_login=datetime.now(timezone.utc),
     )
     db.add(user)
     await db.commit()

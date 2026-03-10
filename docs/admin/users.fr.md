@@ -14,6 +14,7 @@ La liste des utilisateurs affiche tous les comptes enregistrés avec les colonne
 | **E-mail** | Adresse e-mail (utilisée pour la connexion) |
 | **Rôle** | Rôle attribué (sélectionnable en ligne via une liste déroulante) |
 | **Auth** | Méthode d'authentification : « Local », « SSO », « SSO + Mot de passe » ou « Configuration en attente » |
+| **Dernière connexion** | Date et heure de la dernière connexion de l'utilisateur. Affiche « — » si l'utilisateur ne s'est jamais connecté |
 | **Statut** | Actif ou Désactivé |
 | **Actions** | Modifier, activer/désactiver ou supprimer l'utilisateur |
 

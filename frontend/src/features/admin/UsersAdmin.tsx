@@ -380,13 +380,14 @@ export default function UsersAdmin() {
               <TableCell>{t("users.columns.role")}</TableCell>
               <TableCell>{t("users.columns.auth")}</TableCell>
               <TableCell>{t("users.columns.status")}</TableCell>
+              <TableCell>{t("users.columns.lastLogin")}</TableCell>
               <TableCell align="right">{t("users.columns.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {t("users.loadingUsers")}
                   </Typography>
@@ -395,7 +396,7 @@ export default function UsersAdmin() {
             )}
             {!loading && users.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {t("users.noUsers")}
                   </Typography>
@@ -482,6 +483,16 @@ export default function UsersAdmin() {
                       label={u.is_active ? t("users.status.active") : t("users.status.disabled")}
                       color={u.is_active ? "success" : "default"}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary">
+                      {u.last_login
+                        ? new Date(u.last_login).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "—"}
+                    </Typography>
                   </TableCell>
                   <TableCell align="right">
                     <Tooltip title={t("users.editTooltip")}>

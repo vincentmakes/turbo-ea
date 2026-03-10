@@ -14,6 +14,7 @@ A lista de usuários exibe todas as contas registradas com as seguintes colunas:
 | **E-mail** | Endereço de e-mail (usado para login) |
 | **Papel** | Papel atribuído (selecionável inline via dropdown) |
 | **Auth** | Método de autenticação: "Local", "SSO", "SSO + Senha" ou "Configuração Pendente" |
+| **Último login** | Data e hora do último login do usuário. Mostra "—" se o usuário nunca fez login |
 | **Status** | Ativo ou Desabilitado |
 | **Ações** | Editar, ativar/desativar ou excluir o usuário |
 

@@ -204,6 +204,7 @@
   "users.columns.role": "Роль",
   "users.columns.auth": "Аутентификация",
   "users.columns.status": "Статус",
+  "users.columns.lastLogin": "Последний вход",
   "users.columns.actions": "Действия",
   "users.archivedRoleWarning": "У этого пользователя архивная роль. Рекомендуется переназначить.",
   "users.archivedRoleTooltip": "Архивная роль",

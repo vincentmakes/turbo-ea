@@ -14,6 +14,7 @@ The user list displays all registered accounts with the following columns:
 | **Email** | Email address (used for login) |
 | **Role** | Assigned role (selectable inline via dropdown) |
 | **Auth** | Authentication method: "Local", "SSO", "SSO + Password", or "Pending Setup" |
+| **Last Login** | Date and time of the user's most recent login. Shows "—" if the user has never logged in |
 | **Status** | Active or Disabled |
 | **Actions** | Edit, activate/deactivate, or delete the user |
 

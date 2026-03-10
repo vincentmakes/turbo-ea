@@ -204,6 +204,7 @@
   "users.columns.role": "角色",
   "users.columns.auth": "认证",
   "users.columns.status": "状态",
+  "users.columns.lastLogin": "最后登录",
   "users.columns.actions": "操作",
   "users.archivedRoleWarning": "此用户拥有一个已归档的角色。请考虑重新分配。",
   "users.archivedRoleTooltip": "已归档的角色",

@@ -11,6 +11,7 @@ export interface User {
   has_password?: boolean;
   pending_setup?: boolean;
   created_at?: string;
+  last_login?: string;
   permissions?: Record<string, boolean>;
 }
 

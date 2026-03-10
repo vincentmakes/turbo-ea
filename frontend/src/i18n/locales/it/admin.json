@@ -204,6 +204,7 @@
   "users.columns.role": "Ruolo",
   "users.columns.auth": "Autenticazione",
   "users.columns.status": "Stato",
+  "users.columns.lastLogin": "Ultimo accesso",
   "users.columns.actions": "Azioni",
   "users.archivedRoleWarning": "Questo utente ha un ruolo archiviato. Si consiglia la riassegnazione.",
   "users.archivedRoleTooltip": "Ruolo archiviato",

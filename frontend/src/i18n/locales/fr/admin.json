@@ -204,6 +204,7 @@
   "users.columns.role": "R\u00f4le",
   "users.columns.auth": "Auth.",
   "users.columns.status": "Statut",
+  "users.columns.lastLogin": "Dernière connexion",
   "users.columns.actions": "Actions",
   "users.archivedRoleWarning": "Cet utilisateur a un r\u00f4le archiv\u00e9. Pensez \u00e0 le r\u00e9assigner.",
   "users.archivedRoleTooltip": "R\u00f4le archiv\u00e9",

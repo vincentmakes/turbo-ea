@@ -14,6 +14,7 @@ Die Benutzerliste zeigt alle registrierten Konten mit folgenden Spalten:
 | **E-Mail** | E-Mail-Adresse (wird für die Anmeldung verwendet) |
 | **Rolle** | Zugewiesene Rolle (inline per Dropdown auswählbar) |
 | **Authentifizierung** | Authentifizierungsmethode: «Lokal», «SSO», «SSO + Passwort» oder «Einrichtung ausstehend» |
+| **Letzte Anmeldung** | Datum und Uhrzeit der letzten Anmeldung des Benutzers. Zeigt «—» an, wenn sich der Benutzer noch nie angemeldet hat |
 | **Status** | Aktiv oder Deaktiviert |
 | **Aktionen** | Bearbeiten, Aktivieren/Deaktivieren oder Benutzer löschen |
 

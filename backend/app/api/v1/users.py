@@ -62,6 +62,7 @@ def _user_response(u: User) -> dict:
         "has_password": bool(u.password_hash),
         "pending_setup": bool(u.password_setup_token),
         "created_at": u.created_at.isoformat() if u.created_at else None,
+        "last_login": u.last_login.isoformat() if u.last_login else None,
     }
 
 

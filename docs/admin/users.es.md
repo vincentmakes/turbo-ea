@@ -14,6 +14,7 @@ La lista de usuarios muestra todas las cuentas registradas con las siguientes co
 | **Correo** | Dirección de correo electrónico (utilizada para iniciar sesión) |
 | **Rol** | Rol asignado (seleccionable directamente mediante un desplegable) |
 | **Autenticación** | Método de autenticación: «Local», «SSO», «SSO + Contraseña» o «Configuración pendiente» |
+| **Último acceso** | Fecha y hora del último inicio de sesión del usuario. Muestra «—» si el usuario nunca ha iniciado sesión |
 | **Estado** | Activo o Desactivado |
 | **Acciones** | Editar, activar/desactivar o eliminar el usuario |
 

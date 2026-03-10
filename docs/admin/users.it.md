@@ -14,6 +14,7 @@ L'elenco utenti mostra tutti gli account registrati con le seguenti colonne:
 | **Email** | Indirizzo email (utilizzato per il login) |
 | **Ruolo** | Ruolo assegnato (selezionabile in linea tramite menu a tendina) |
 | **Autenticazione** | Metodo di autenticazione: "Locale", "SSO", "SSO + Password" o "In attesa di configurazione" |
+| **Ultimo accesso** | Data e ora dell'ultimo accesso dell'utente. Mostra "—" se l'utente non ha mai effettuato il login |
 | **Stato** | Attivo o Disabilitato |
 | **Azioni** | Modifica, attiva/disattiva o elimina l'utente |
 

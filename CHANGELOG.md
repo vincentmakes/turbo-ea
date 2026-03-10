@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Subtype sub-templates: each subtype can now control field visibility, hiding irrelevant fields from card detail and creation forms
 - Hidden fields are excluded from data quality scoring so users are only scored on visible fields
 - Subtype template editor in the metamodel admin with per-field visibility toggles
+- Last login date/time column on the User Management admin page
 
 ## [0.30.0] - 2026-03-10
 
