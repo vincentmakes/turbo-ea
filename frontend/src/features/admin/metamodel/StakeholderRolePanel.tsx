@@ -18,6 +18,8 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import ColorPicker from "@/components/ColorPicker";
 import KeyInput from "@/components/KeyInput";
 import { api } from "@/api/client";
+import { LOCALE_LABELS } from "@/i18n";
+import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import type { StakeholderRoleDefinitionFull, MetamodelTranslations } from "@/types";
 
 /** Clean a MetamodelTranslations object, removing empty maps. */
@@ -48,6 +50,7 @@ export interface StakeholderRolePanelProps {
 
 export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRolePanelProps) {
   const { t } = useTranslation(["admin", "common"]);
+  const { enabledLocales } = useEnabledLocales();
   const [roles, setRoles] = useState<StakeholderRoleDefinitionFull[]>([]);
   const [permissionsSchema, setPermissionsSchema] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -231,6 +234,41 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
     </Box>
   );
 
+  /* --- Translation fields helper --- */
+  const nonEnLocales = enabledLocales.filter((l) => l !== "en");
+  const renderTranslationFields = (
+    trans: MetamodelTranslations,
+    onChange: (updated: MetamodelTranslations) => void,
+  ) =>
+    nonEnLocales.length > 0 ? (
+      <Box sx={{ mt: 1 }}>
+        <Typography
+          variant="caption"
+          fontWeight={600}
+          color="text.secondary"
+          sx={{ mb: 0.5, display: "block" }}
+        >
+          {t("metamodel.stakeholderPanel.translations")}
+        </Typography>
+        {nonEnLocales.map((locale) => (
+          <TextField
+            key={locale}
+            size="small"
+            label={LOCALE_LABELS[locale as keyof typeof LOCALE_LABELS] || locale}
+            value={trans?.label?.[locale] || ""}
+            onChange={(e) =>
+              onChange({
+                ...trans,
+                label: { ...trans?.label, [locale]: e.target.value },
+              })
+            }
+            fullWidth
+            sx={{ mb: 1 }}
+          />
+        ))}
+      </Box>
+    ) : null;
+
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
@@ -378,6 +416,9 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                           permissions: { ...editForm.permissions, [key]: val },
                         }),
                       )}
+                      {renderTranslationFields(editForm.translations, (updated) =>
+                        setEditForm({ ...editForm, translations: updated }),
+                      )}
                       <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
                         <Button size="small" onClick={cancelEdit}>
                           {t("common:actions.cancel")}
@@ -472,6 +513,9 @@ export default function StakeholderRolePanel({ typeKey, onError }: StakeholderRo
                   ...createForm,
                   permissions: { ...createForm.permissions, [key]: val },
                 }),
+              )}
+              {renderTranslationFields(createForm.translations, (updated) =>
+                setCreateForm({ ...createForm, translations: updated }),
               )}
               <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 1 }}>
                 <Button

@@ -24,6 +24,7 @@ import type {
   TranslationMap,
   SectionDef,
   SubtypeDef,
+  StakeholderRoleDefinitionFull,
 } from "@/types";
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
@@ -151,6 +152,9 @@ export default function TranslationDialog({
   const [translations, setTranslations] = useState<MetamodelTranslations>({});
   const [subtypes, setSubtypes] = useState<SubtypeDef[]>([]);
   const [fieldsSchema, setFieldsSchema] = useState<SectionDef[]>([]);
+  const [stakeholderRoles, setStakeholderRoles] = useState<
+    { key: string; label: string; translations: MetamodelTranslations }[]
+  >([]);
   const [saving, setSaving] = useState(false);
 
   // Deep-clone state from cardType when dialog opens
@@ -159,6 +163,23 @@ export default function TranslationDialog({
       setTranslations(JSON.parse(JSON.stringify(cardType.translations || {})));
       setSubtypes(JSON.parse(JSON.stringify(cardType.subtypes || [])));
       setFieldsSchema(JSON.parse(JSON.stringify(cardType.fields_schema || [])));
+      // Fetch stakeholder roles for this type
+      api
+        .get<StakeholderRoleDefinitionFull[]>(
+          `/metamodel/types/${cardType.key}/stakeholder-roles`,
+        )
+        .then((roles) =>
+          setStakeholderRoles(
+            roles
+              .filter((r) => !r.is_archived)
+              .map((r) => ({
+                key: r.key,
+                label: r.label,
+                translations: JSON.parse(JSON.stringify(r.translations || {})),
+              })),
+          ),
+        )
+        .catch(() => setStakeholderRoles([]));
     }
   }, [open, cardType]);
 
@@ -245,6 +266,25 @@ export default function TranslationDialog({
     [],
   );
 
+  const updateStakeholderRoleTranslation = useCallback(
+    (idx: number, locale: string, value: string) => {
+      setStakeholderRoles((prev) =>
+        prev.map((r, i) =>
+          i === idx
+            ? {
+                ...r,
+                translations: {
+                  ...r.translations,
+                  label: { ...r.translations.label, [locale]: value },
+                },
+              }
+            : r,
+        ),
+      );
+    },
+    [],
+  );
+
   // --- Completion counts per locale ---
 
   const completionCounts = useMemo(() => {
@@ -285,10 +325,16 @@ export default function TranslationDialog({
         });
       });
 
+      // Stakeholder roles
+      stakeholderRoles.forEach((r) => {
+        total++;
+        if (r.translations?.label?.[locale]?.trim()) filled++;
+      });
+
       counts[locale] = { filled, total };
     });
     return counts;
-  }, [translations, subtypes, fieldsSchema, cardType, visibleLocales]);
+  }, [translations, subtypes, fieldsSchema, stakeholderRoles, cardType, visibleLocales]);
 
   // --- Save ---
 
@@ -315,6 +361,15 @@ export default function TranslationDialog({
           })),
         })),
       });
+      // Save stakeholder role translations
+      await Promise.all(
+        stakeholderRoles.map((r) =>
+          api.patch(
+            `/metamodel/types/${cardType.key}/stakeholder-roles/${r.key}`,
+            { translations: cleanTranslations(r.translations) || null },
+          ),
+        ),
+      );
       onSave();
       onClose();
     } catch {
@@ -428,6 +483,28 @@ export default function TranslationDialog({
                   reference={s.key}
                   value={s.translations?.[activeLocale] || ""}
                   onChange={(v) => updateSubtypeTranslation(idx, activeLocale, v)}
+                />
+              ))}
+            </TranslationGroup>
+          </>
+        )}
+
+        {/* Stakeholder Roles */}
+        {stakeholderRoles.length > 0 && (
+          <>
+            <Divider sx={{ mb: 2 }} />
+            <TranslationGroup
+              title={t("metamodel.translationDialog.stakeholderRoles")}
+              count={stakeholderRoles.length}
+            >
+              {stakeholderRoles.map((r, idx) => (
+                <TranslationRow
+                  key={r.key}
+                  reference={r.label}
+                  value={r.translations?.label?.[activeLocale] || ""}
+                  onChange={(v) =>
+                    updateStakeholderRoleTranslation(idx, activeLocale, v)
+                  }
                 />
               ))}
             </TranslationGroup>
