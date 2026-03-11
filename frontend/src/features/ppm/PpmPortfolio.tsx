@@ -21,7 +21,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import type {
   PpmGanttItem,
   PpmGroupOption,
@@ -197,6 +197,7 @@ export default function PpmPortfolio() {
   const { fmtShort, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
+  const rml = useResolveMetaLabel();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PpmGanttItem[]>([]);
@@ -742,11 +743,17 @@ export default function PpmPortfolio() {
             label={t("groupBy")}
             onChange={(e) => setGroupBy(e.target.value)}
           >
-            {groupOptions.map((opt) => (
-              <MenuItem key={opt.type_key} value={opt.type_key}>
-                {opt.type_label}
-              </MenuItem>
-            ))}
+            {groupOptions.map((opt) => {
+              const ct = getType(opt.type_key);
+              const label = ct
+                ? rml(ct.label, ct.translations, "label")
+                : opt.type_label;
+              return (
+                <MenuItem key={opt.type_key} value={opt.type_key}>
+                  {label}
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 140 } }}>
