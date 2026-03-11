@@ -252,16 +252,22 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [loadData],
   );
 
+  /** Single click: only handle the empty row (create WBS). */
   const handleClick = useCallback(
     (task: TaskOrEmpty) => {
-      const id = task.id;
-      if (id === "__empty__") {
-        // Click on empty row → create new WBS
+      if (task.id === "__empty__") {
         setEditingWbs(undefined);
         setMilestoneDefault(false);
         setWbsDialogOpen(true);
-        return;
       }
+    },
+    [],
+  );
+
+  /** Double-click: open edit dialog for WBS or task. */
+  const handleDoubleClick = useCallback(
+    (task: Task) => {
+      const id = task.id;
       if (id.startsWith("wbs-")) {
         const realId = id.slice(4);
         const wbs = wbsList.find((w) => w.id === realId);
@@ -299,7 +305,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {
         label: t("common:actions.edit", "Edit"),
         icon: <MaterialSymbol icon="edit" size={16} />,
-        action: (meta) => handleClick(meta.task),
+        action: (meta) => {
+          if ("start" in meta.task) handleDoubleClick(meta.task as Task);
+        },
       },
       {
         label: t("addTaskUnderWbs"),
@@ -341,7 +349,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         },
       },
     ],
-    [t, handleClick, loadData],
+    [t, handleDoubleClick, loadData],
   );
 
   const ganttColumns: Column[] = useMemo(
@@ -477,6 +485,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           columns={ganttColumns}
           canResizeColumns
           onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
           onDateChange={handleDateChange}
           onProgressChange={handleProgressChange}
           onChangeExpandState={handleExpanderClick}
