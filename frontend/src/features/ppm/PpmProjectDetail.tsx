@@ -201,6 +201,7 @@ export default function PpmProjectDetail() {
           perms={perms}
           onCardUpdate={(updated) => setCard(updated)}
           showBpmTabs={false}
+          showPpmTab={false}
           autoFieldKeys={ppmAutoFieldKeys}
         />
       )}
