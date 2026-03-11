@@ -275,6 +275,19 @@ export default function PpmGanttTab({ initiativeId }: Props) {
         },
       },
       {
+        label: t("markDone"),
+        icon: <MaterialSymbol icon="check_circle" size={16} />,
+        action: async (meta) => {
+          const id = meta.task.id;
+          if (id.startsWith("task-")) {
+            await api.patch(`/ppm/tasks/${id.slice(5)}`, { status: "done" });
+          } else if (id.startsWith("wbs-")) {
+            await api.patch(`/ppm/wbs/${id.slice(4)}`, { completion: 100 });
+          }
+          await loadData();
+        },
+      },
+      {
         label: t("common:actions.delete", "Delete"),
         icon: <MaterialSymbol icon="delete" size={16} />,
         action: async (meta) => {
@@ -298,21 +311,21 @@ export default function PpmGanttTab({ initiativeId }: Props) {
       {
         id: "title",
         Cell: TitleColumn,
-        width: 220,
+        width: 200,
         title: t("wbsTitle"),
         canResize: true,
       },
       {
         id: "start",
         Cell: DateStartColumn,
-        width: 90,
+        width: 100,
         title: t("startDate"),
         canResize: true,
       },
       {
         id: "end",
         Cell: DateEndColumn,
-        width: 90,
+        width: 100,
         title: t("endDate"),
         canResize: true,
       },
@@ -420,6 +433,7 @@ export default function PpmGanttTab({ initiativeId }: Props) {
       ) : (
         <Box
           sx={{
+            mx: -3,
             "& .ganttTable": { fontFamily: theme.typography.fontFamily },
             "& .ganttTable_Header": {
               borderBottom: `1px solid ${theme.palette.divider}`,
@@ -431,13 +445,22 @@ export default function PpmGanttTab({ initiativeId }: Props) {
             viewMode={viewMode}
             viewDate={viewDate}
             columns={ganttColumns}
+            canResizeColumns
             onClick={handleClick}
             onDateChange={handleDateChange}
             onProgressChange={handleProgressChange}
             onChangeExpandState={handleExpanderClick}
             contextMenuOptions={contextMenuOptions}
+            enableTableListContextMenu={2}
             roundDate={roundToDay}
             dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
+            colors={{
+              barLabelColor: "#fff",
+              barLabelWhenOutsideColor: theme.palette.text.primary,
+            }}
+            dateFormats={{
+              dateColumnFormat: "dd MMM ''yy",
+            }}
             distances={{
               columnWidth,
               rowHeight: 40,

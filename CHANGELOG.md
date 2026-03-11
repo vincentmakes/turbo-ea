@@ -11,13 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Gantt table shows start date and end date columns alongside the title for at-a-glance visibility
 - Create Task button in Gantt toolbar to add tasks directly from the Gantt view
 - Work Package selector now visible when editing tasks from the Gantt tab
-- Right-click context menu on Gantt rows for quick edit, add task, and delete actions
+- Right-click context menu on Gantt rows for quick edit, add task, mark done, and delete
+- Context menu also available on the table list side (right-click on rows)
 - Delete confirmation dialogs for both WBS items and tasks to prevent accidental deletion
 - Delete button in task edit dialog (previously only available from the Task Board)
 - Progress bar dragging on WBS items to adjust completion directly in the Gantt chart
 - Task bars use distinct blue color to visually differentiate them from WBS summary bars
+- Resizable table columns in Gantt (drag column borders to adjust width)
 
 ### Changed
+- Gantt bar label text is now white for better contrast on colored bars
+- Gantt chart uses full page width for more timeline space
+- Date columns use compact format (dd MMM 'yy) to prevent cropping
 - Today button in Gantt toolbar now scrolls the chart to the current date
 - PPM navigation icon changed to view_kanban
 
