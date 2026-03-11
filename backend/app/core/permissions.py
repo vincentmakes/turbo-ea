@@ -66,11 +66,19 @@ APP_PERMISSIONS: dict[str, dict] = {
             "bpm.assessments": "Create, edit, and delete process assessments",
         },
     },
+    "ppm": {
+        "label": "PPM",
+        "permissions": {
+            "ppm.view": "View PPM dashboard, Gantt chart, and initiative reports",
+            "ppm.manage": "Create and manage status reports and tasks",
+        },
+    },
     "reports": {
         "label": "Reports",
         "permissions": {
             "reports.ea_dashboard": "View EA dashboard and reports",
             "reports.bpm_dashboard": "View BPM dashboard and reports",
+            "reports.ppm_dashboard": "View PPM dashboard and reports",
             "reports.portfolio": "View portfolio and cost reports",
         },
     },
@@ -250,8 +258,11 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "bpm.manage_drafts": True,
     "bpm.approve_flows": True,
     "bpm.assessments": True,
+    "ppm.view": True,
+    "ppm.manage": True,
     "reports.ea_dashboard": True,
     "reports.bpm_dashboard": True,
+    "reports.ppm_dashboard": True,
     "reports.portfolio": True,
     "surveys.respond": True,
     "surveys.manage": False,
@@ -309,8 +320,11 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "bpm.manage_drafts": True,
     "bpm.approve_flows": False,
     "bpm.assessments": True,
+    "ppm.view": True,
+    "ppm.manage": True,
     "reports.ea_dashboard": True,
     "reports.bpm_dashboard": True,
+    "reports.ppm_dashboard": True,
     "reports.portfolio": True,
     "surveys.respond": True,
     "surveys.manage": False,
@@ -368,8 +382,11 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "bpm.manage_drafts": False,
     "bpm.approve_flows": False,
     "bpm.assessments": False,
+    "ppm.view": True,
+    "ppm.manage": False,
     "reports.ea_dashboard": True,
     "reports.bpm_dashboard": True,
+    "reports.ppm_dashboard": True,
     "reports.portfolio": True,
     "surveys.respond": True,
     "surveys.manage": False,
@@ -496,6 +513,24 @@ BIZ_APP_OWNER_CARD_PERMISSIONS: dict[str, bool] = {
     "card.manage_diagram_links": True,
 }
 
+IT_PROJECT_MANAGER_CARD_PERMISSIONS: dict[str, bool] = {
+    "card.view": True,
+    "card.edit": True,
+    "card.archive": False,
+    "card.delete": False,
+    "card.approval_status": True,
+    "card.manage_stakeholders": True,
+    "card.manage_relations": True,
+    "card.manage_documents": True,
+    "card.manage_comments": False,
+    "card.create_comments": True,
+    "card.bpm_edit": False,
+    "card.bpm_manage_drafts": False,
+    "card.bpm_approve": False,
+    "card.manage_adr_links": True,
+    "card.manage_diagram_links": True,
+}
+
 # Map stakeholder role key → default permissions
 DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "responsible": RESPONSIBLE_CARD_PERMISSIONS,
@@ -503,4 +538,5 @@ DEFAULT_CARD_PERMISSIONS_BY_ROLE: dict[str, dict[str, bool]] = {
     "process_owner": PROCESS_OWNER_CARD_PERMISSIONS,
     "technical_application_owner": TECH_APP_OWNER_CARD_PERMISSIONS,
     "business_application_owner": BIZ_APP_OWNER_CARD_PERMISSIONS,
+    "it_project_manager": IT_PROJECT_MANAGER_CARD_PERMISSIONS,
 }

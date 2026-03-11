@@ -40,6 +40,8 @@ interface Props {
   initialSubTab?: number;
   /** Extra content rendered before tabs (e.g. archive banner, action buttons) */
   beforeTabs?: ReactNode;
+  /** Field keys auto-computed by PPM (treated as readonly with "auto" badge) */
+  autoFieldKeys?: string[];
 }
 
 export default function CardDetailContent({
@@ -50,6 +52,7 @@ export default function CardDetailContent({
   initialTab = 0,
   initialSubTab,
   beforeTabs,
+  autoFieldKeys = [],
 }: Props) {
   const { t } = useTranslation("cards");
   const { getType } = useMetamodel();
@@ -66,7 +69,7 @@ export default function CardDetailContent({
 
   const typeConfig = getType(card.type);
 
-  // Calculated field keys
+  // Calculated field keys (includes auto-computed PPM fields)
   let calcFieldKeys: string[] = [];
   try {
     for (const section of typeConfig?.fields_schema || []) {
@@ -77,6 +80,9 @@ export default function CardDetailContent({
   } catch (err) {
     console.error("[CardDetailContent] calcFieldKeys error", err);
     calcFieldKeys = [];
+  }
+  if (autoFieldKeys.length > 0) {
+    calcFieldKeys = [...new Set([...calcFieldKeys, ...autoFieldKeys])];
   }
 
   // Section config
@@ -269,6 +275,7 @@ export default function CardDetailContent({
         onChange={(_, v) => setTab(v)}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
         <Tab label={t("tabs.card")} />

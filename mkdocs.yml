@@ -70,6 +70,7 @@ plugins:
             Card Details: Detalles de ficha
             Reports: Informes
             Saved Reports: Informes guardados
+            PPM: PPM
             BPM: BPM
             Diagrams: Diagramas
             EA Delivery: Entrega EA
@@ -103,6 +104,7 @@ plugins:
             Card Details: Kartendetails
             Reports: Berichte
             Saved Reports: Gespeicherte Berichte
+            PPM: PPM
             BPM: BPM
             Diagrams: Diagramme
             EA Delivery: EA-Bereitstellung
@@ -136,6 +138,7 @@ plugins:
             Card Details: Détails de la fiche
             Reports: Rapports
             Saved Reports: Rapports enregistrés
+            PPM: PPM
             BPM: BPM
             Diagrams: Diagrammes
             EA Delivery: Livraison EA
@@ -169,6 +172,7 @@ plugins:
             Card Details: Dettagli della card
             Reports: Report
             Saved Reports: Report salvati
+            PPM: PPM
             BPM: BPM
             Diagrams: Diagrammi
             EA Delivery: Consegna EA
@@ -202,6 +206,7 @@ plugins:
             Card Details: Detalhes do card
             Reports: Relatórios
             Saved Reports: Relatórios salvos
+            PPM: PPM
             BPM: BPM
             Diagrams: Diagramas
             EA Delivery: Entrega EA
@@ -235,6 +240,7 @@ plugins:
             Card Details: 卡片详情
             Reports: 报告
             Saved Reports: 已保存的报告
+            PPM: 项目组合管理
             BPM: 业务流程管理
             Diagrams: 图表
             EA Delivery: EA 交付
@@ -268,6 +274,7 @@ plugins:
             Card Details: Детали карточки
             Reports: Отчёты
             Saved Reports: Сохранённые отчёты
+            PPM: PPM
             BPM: BPM
             Diagrams: Диаграммы
             EA Delivery: Поставка EA
@@ -327,6 +334,7 @@ nav:
       - Card Details: guide/card-details.md
       - Reports: guide/reports.md
       - Saved Reports: guide/saved-reports.md
+      - PPM: guide/ppm.md
       - BPM: guide/bpm.md
       - Diagrams: guide/diagrams.md
       - EA Delivery: guide/delivery.md

@@ -21,6 +21,7 @@ import type { Notification, NotificationListResponse } from "@/types";
 
 const NOTIFICATION_ICONS: Record<string, { icon: string; color: string }> = {
   todo_assigned: { icon: "assignment_ind", color: "#1976d2" },
+  task_assigned: { icon: "task", color: "#7b1fa2" },
   card_updated: { icon: "edit_note", color: "#ed6c02" },
   comment_added: { icon: "comment", color: "#2e7d32" },
   approval_status_changed: { icon: "verified", color: "#9c27b0" },

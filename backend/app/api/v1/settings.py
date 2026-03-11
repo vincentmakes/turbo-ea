@@ -273,6 +273,37 @@ async def update_bpm_enabled(
     return {"ok": True}
 
 
+class PpmEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/ppm-enabled")
+async def get_ppm_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the PPM module is enabled."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("ppmEnabled", False)}
+
+
+@router.patch("/ppm-enabled")
+async def update_ppm_enabled(
+    body: PpmEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the PPM module."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["ppmEnabled"] = body.enabled
+    row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
 @router.get("/bpm-row-order")
 async def get_bpm_row_order(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns the configured BPM process type row order."""
@@ -298,6 +329,44 @@ async def update_bpm_row_order(
     await db.commit()
 
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Fiscal Year Start
+# ---------------------------------------------------------------------------
+
+
+class FiscalYearStartPayload(BaseModel):
+    month: int  # 1-12 (January = 1)
+
+
+@router.get("/fiscal-year-start")
+async def get_fiscal_year_start(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the fiscal year start month (1-12)."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"month": general.get("fiscalYearStart", 1)}
+
+
+@router.patch("/fiscal-year-start")
+async def update_fiscal_year_start(
+    body: FiscalYearStartPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set the fiscal year start month (1-12)."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+    if body.month < 1 or body.month > 12:
+        raise HTTPException(status_code=422, detail="Month must be between 1 and 12")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["fiscalYearStart"] = body.month
+    row.general_settings = general
+    await db.commit()
+
+    return {"month": body.month}
 
 
 # ---------------------------------------------------------------------------

@@ -290,6 +290,7 @@ async def create_card(db, *, card_type="Application", name="Test Card", user_id=
     card = Card(
         type=card_type,
         name=name,
+        subtype=kwargs.get("subtype"),
         status=kwargs.get("status", "ACTIVE"),
         approval_status=kwargs.get("approval_status", "DRAFT"),
         data_quality=kwargs.get("data_quality", 0.0),

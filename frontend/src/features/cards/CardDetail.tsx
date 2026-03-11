@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -73,6 +73,10 @@ export default function CardDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
 
+  // PPM auto-computed fields (for Initiative cards with PPM budget/cost lines)
+  const [ppmHasBudget, setPpmHasBudget] = useState(false);
+  const [ppmHasCosts, setPpmHasCosts] = useState(false);
+
   // AI suggestions state
   const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
@@ -97,6 +101,24 @@ export default function CardDetail() {
       .catch(() => {}); // AI feature simply won't show
   }, []);
 
+  // Fetch PPM cost existence for Initiative cards
+  useEffect(() => {
+    if (!card || card.type !== "Initiative") {
+      setPpmHasBudget(false);
+      setPpmHasCosts(false);
+      return;
+    }
+    api
+      .get<{ has_budget_lines: boolean; has_cost_lines: boolean }>(
+        `/ppm/initiatives/${card.id}/has-costs`,
+      )
+      .then((res) => {
+        setPpmHasBudget(res.has_budget_lines);
+        setPpmHasCosts(res.has_cost_lines);
+      })
+      .catch(() => {}); // PPM not enabled or no permission — keep defaults
+  }, [card?.id, card?.type]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!id) return;
     // Read tab from URL search params (e.g. ?tab=1&subtab=1)
@@ -119,6 +141,13 @@ export default function CardDetail() {
       .then(setCard)
       .catch((e) => setError(e.message));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ppmAutoFieldKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (ppmHasBudget) keys.push("costBudget");
+    if (ppmHasCosts) keys.push("costActual");
+    return keys;
+  }, [ppmHasBudget, ppmHasCosts]);
 
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!card)
@@ -336,6 +365,7 @@ export default function CardDetail() {
         onCardUpdate={setCard}
         initialTab={initialTab}
         initialSubTab={initialSubTab}
+        autoFieldKeys={ppmAutoFieldKeys}
         beforeTabs={
           <>
             {/* Archived banner */}

@@ -12,24 +12,30 @@
 | **Fiche** | L'unité d'information de base dans Turbo EA représentant tout composant d'architecture |
 | **Type de fiche** | La catégorie à laquelle appartient une fiche (par ex. Application, Processus Métier, Organisation) |
 | **Score de confiance** | Une note de 0 à 100% indiquant la fiabilité d'une description générée par IA |
+| **Ligne de coût** | Une entrée de budget ou de coût réel (CapEx/OpEx) dans une initiative PPM, utilisée pour suivre les dépenses financières |
 | **Qualité des données** | Un score de complétude de 0 à 100% basé sur les champs remplis et leurs poids configurés |
 | **Diagramme** | Un diagramme d'architecture visuel créé avec l'éditeur DrawIO intégré |
 | **Fichier joint** | Un fichier binaire (PDF, DOCX, XLSX, images, jusqu'à 10 Mo) téléversé directement sur une fiche via l'onglet Ressources |
 | **DrawIO** | L'outil de création de diagrammes open source intégré utilisé pour les diagrammes d'architecture visuels |
 | **Architecture d'entreprise (EA)** | La discipline qui organise et documente la structure métier et technologique d'une organisation |
 | **EOL (Fin de vie)** | La date à laquelle un produit technologique perd le support du fournisseur. Suivi via l'intégration avec endoflife.date |
+| **Diagramme de Gantt** | Une chronologie visuelle avec des barres horizontales montrant le calendrier, la durée et l'avancement du projet |
 | **Initiative** | Un projet ou programme impliquant des modifications de l'architecture |
 | **Cycle de vie** | Les cinq phases par lesquelles passe un composant : Planification, Mise en service, Actif, Retrait progressif, Fin de vie |
 | **LLM** | Grand modèle de langage -- un modèle d'IA qui génère du texte (par ex. Ollama, OpenAI, Anthropic Claude, Google Gemini) |
 | **MCP** | Model Context Protocol -- un standard ouvert permettant aux outils d'IA (Claude, Copilot, Cursor) de se connecter à des sources de données externes. Le serveur MCP intégré de Turbo EA fournit un accès en lecture seule aux données EA avec RBAC par utilisateur |
 | **Métamodèle** | Le modèle piloté par les données qui définit la structure de la plateforme : types de fiches, champs, relations et rôles |
+| **Jalon** | Un événement significatif ou point d'achèvement dans le calendrier d'un projet, affiché comme un indicateur en losange dans le diagramme de Gantt |
 | **Notification** | Une alerte dans l'application ou par e-mail déclenchée par des événements système (tâche assignée, fiche mise à jour, commentaire ajouté, etc.) |
 | **Ollama** | Un outil open source pour exécuter des LLM localement sur votre propre matériel |
 | **Portefeuille** | Un ensemble d'applications ou de technologies gérées en tant que groupe |
+| **PPM** | Gestion de Portefeuille de Projets — la discipline de gestion d'un portefeuille de projets et d'initiatives avec budgets, risques, tâches et rapports de statut |
 | **Numéro de référence** | Un identifiant séquentiel généré automatiquement pour les ADR (par ex. ADR-001, ADR-002) fournissant une étiquette unique et lisible |
 | **Relation** | Une connexion entre deux fiches qui décrit comment elles sont liées (par ex. « utilise », « dépend de », « s'exécute sur ») |
 | **Onglet Ressources** | Un onglet de la page de détail de la fiche qui regroupe les Décisions d'architecture, les fichiers joints et les liens documentaires |
 | **Révision (ADR)** | Une nouvelle version d'un ADR signé qui hérite du contenu et des liaisons avec les fiches de la version précédente, avec un numéro de révision incrémenté |
+| **Statut RAG** | Indicateur de santé Rouge-Ambre-Vert utilisé dans les rapports de statut PPM pour le calendrier, les coûts et le périmètre |
+| **Score de risque** | Une valeur calculée automatiquement (probabilité x impact) qui quantifie la gravité d'un risque projet |
 | **Rapport sauvegardé** | Une configuration de rapport persistée avec des filtres, des axes et des paramètres de visualisation qui peut être rechargée |
 | **Section** | Une zone regroupable de la page de détail de la fiche contenant des champs liés, configurable par type de fiche |
 | **Signataire** | Un utilisateur désigné pour examiner et signer un document ADR ou SoAW. Le processus de signature suit les signatures en attente et terminées |
@@ -41,5 +47,8 @@
 | **Enquête** | Un questionnaire de maintenance de données ciblant des types de fiches spécifiques pour collecter des informations auprès des parties prenantes |
 | **Tag / Groupe de tags** | Une étiquette de classification organisée en groupes avec des modes de sélection unique ou multiple |
 | **TOGAF** | The Open Group Architecture Framework -- une méthodologie EA largement utilisée. La fonctionnalité SoAW de Turbo EA est alignée sur TOGAF |
+| **Rapport de statut** | Un rapport PPM mensuel suivant la santé du projet via des indicateurs RAG pour le calendrier, les coûts et le périmètre |
 | **Portail web** | Une vue publique en lecture seule de fiches sélectionnées accessible sans authentification via une URL unique |
+| **Structure de Découpage du Travail (WBS)** | Une décomposition hiérarchique du périmètre du projet en lots de travaux |
+| **Lot de travaux** | Un regroupement logique de tâches dans un calendrier Gantt avec ses propres dates de début/fin et pourcentage d'achèvement |
 | **Suggestion IA** | Une description de fiche générée automatiquement produite en combinant les résultats de recherche web avec un grand modèle de langage (LLM) |

@@ -139,6 +139,14 @@ function GeneralTab() {
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
 
+  // PPM toggle state
+  const [ppmEnabled, setPpmEnabled] = useState(false);
+  const [savingPpm, setSavingPpm] = useState(false);
+
+  // Fiscal year start
+  const [fiscalYearStart, setFiscalYearStart] = useState(1);
+  const [savingFiscal, setSavingFiscal] = useState(false);
+
   // Enabled locales state
   const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
   const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
@@ -165,8 +173,10 @@ function GeneralTab() {
       api.get<{ currency: string }>("/settings/currency"),
       api.get<{ enabled: boolean }>("/settings/bpm-enabled"),
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
+      api.get<{ enabled: boolean }>("/settings/ppm-enabled"),
+      api.get<{ month: number }>("/settings/fiscal-year-start"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -179,6 +189,8 @@ function GeneralTab() {
         setHasCustomFavicon(faviconData.has_custom_favicon);
         setSelectedCurrency(currencyData.currency);
         setBpmEnabled(bpmData.enabled);
+        setPpmEnabled(ppmData.enabled);
+        setFiscalYearStart(fiscalData.month);
         const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
@@ -315,6 +327,34 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingBpm(false);
+    }
+  };
+
+  const handlePpmToggle = async (enabled: boolean) => {
+    setSavingPpm(true);
+    setError("");
+    try {
+      await api.patch("/settings/ppm-enabled", { enabled });
+      setPpmEnabled(enabled);
+      setSnack(enabled ? t("settings.ppm.enabledSuccess") : t("settings.ppm.disabledSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingPpm(false);
+    }
+  };
+
+  const handleFiscalYearSave = async (month: number) => {
+    setSavingFiscal(true);
+    setError("");
+    try {
+      await api.patch("/settings/fiscal-year-start", { month });
+      setFiscalYearStart(month);
+      setSnack(t("settings.fiscal.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingFiscal(false);
     }
   };
 
@@ -675,6 +715,66 @@ function GeneralTab() {
           }
           label={bpmEnabled ? t("settings.bpm.visible") : t("settings.bpm.hidden")}
         />
+      </Paper>
+
+      {/* PPM Module Toggle */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="assignment" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.ppm.title")}
+          </Typography>
+          <Chip
+            label={ppmEnabled ? t("settings.ppm.enabled") : t("settings.ppm.disabled")}
+            size="small"
+            color={ppmEnabled ? "success" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.ppm.description")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={ppmEnabled}
+              onChange={(e) => handlePpmToggle(e.target.checked)}
+              disabled={savingPpm}
+            />
+          }
+          label={ppmEnabled ? t("settings.ppm.visible") : t("settings.ppm.hidden")}
+        />
+      </Paper>
+
+      {/* Fiscal Year Start */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="calendar_month" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.fiscal.title")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.fiscal.description")}
+        </Typography>
+        <TextField
+          select
+          size="small"
+          label={t("settings.fiscal.startMonth")}
+          value={fiscalYearStart}
+          onChange={(e) => handleFiscalYearSave(Number(e.target.value))}
+          disabled={savingFiscal}
+          sx={{ minWidth: 220 }}
+        >
+          {Array.from({ length: 12 }, (_, i) => {
+            const d = new Date(2000, i, 1);
+            return (
+              <MenuItem key={i + 1} value={i + 1}>
+                {d.toLocaleString(undefined, { month: "long" })} ({i + 1})
+              </MenuItem>
+            );
+          })}
+        </TextField>
       </Paper>
 
       {/* ── Email ─────────────────────────────────────────────────── */}

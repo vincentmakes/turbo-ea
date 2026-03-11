@@ -16,19 +16,25 @@
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |
 | **File Attachment** | A binary file (PDF, DOCX, XLSX, images, up to 10 MB) uploaded directly to a card via the Resources tab |
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
+| **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
 | **EOL (End of Life)** | The date when a technology product loses vendor support. Tracked via integration with endoflife.date |
+| **Gantt Chart** | A visual timeline with horizontal bars showing project schedule, duration, and progress for each work package and task |
 | **Initiative** | A project or program involving changes to the architecture |
 | **Lifecycle** | The five phases a component goes through: Plan, Phase In, Active, Phase Out, End of Life |
 | **LLM** | Large Language Model — an AI model that generates text (e.g., Ollama, OpenAI, Anthropic Claude, Google Gemini) |
 | **MCP** | Model Context Protocol — an open standard that lets AI tools (Claude, Copilot, Cursor) connect to external data sources. Turbo EA's built-in MCP server provides read-only access to EA data with per-user RBAC |
 | **Metamodel** | The data-driven model that defines the platform's structure: card types, fields, relations, and roles |
+| **Milestone** | A significant event or completion point in a project timeline, shown as a diamond indicator in the Gantt chart |
 | **Notification** | An in-app or email alert triggered by system events (todo assigned, card updated, comment added, etc.) |
 | **Ollama** | An open-source tool for running LLMs locally on your own hardware |
 | **Portfolio** | A collection of applications or technologies managed as a group |
+| **PPM** | Project Portfolio Management — the discipline of managing a portfolio of projects and initiatives with budgets, risks, tasks, and status reporting |
 | **Reference Number** | An auto-generated sequential identifier for ADRs (e.g., ADR-001, ADR-002) that provides a unique, human-readable label |
 | **Relation** | A connection between two cards that describes how they relate (e.g., "uses", "depends on", "runs on") |
 | **Resources Tab** | A card detail tab that consolidates Architecture Decision Records, file attachments, and document links in one place |
+| **RAG Status** | Red-Amber-Green health indicator used in PPM status reports for schedule, cost, and scope (mapped to Off Track, At Risk, On Track) |
+| **Risk Score** | An auto-calculated value (probability x impact) that quantifies the severity of a project risk in the PPM risk register |
 | **Saved Report** | A persisted report configuration with filters, axes, and visualization settings that can be reloaded |
 | **Revision (ADR)** | A new version of a signed ADR that inherits the content and card links from the previous version, with an incremented revision number |
 | **Section** | A groupable area of the card detail page containing related fields, configurable per card type |
@@ -41,5 +47,8 @@
 | **Survey** | A data-maintenance questionnaire targeting specific card types to collect information from stakeholders |
 | **Tag / Tag Group** | A classification label organized into groups with single-select or multi-select modes |
 | **TOGAF** | The Open Group Architecture Framework — a widely used EA methodology. Turbo EA's SoAW feature aligns with TOGAF |
+| **Status Report** | A monthly PPM report tracking project health via RAG indicators for schedule, cost, and scope, along with accomplishments and next steps |
 | **Web Portal** | A public, read-only view of selected cards accessible without authentication via a unique URL |
+| **Work Breakdown Structure (WBS)** | A hierarchical decomposition of project scope into work packages, each with start/end dates and completion tracking. Used in the PPM Gantt chart |
+| **Work Package** | A logical grouping of tasks within a Gantt timeline that has its own start date, end date, and completion percentage |
 | **AI Suggestion** | An auto-generated card description produced by combining web search results with a Large Language Model (LLM) |

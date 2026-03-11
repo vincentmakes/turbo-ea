@@ -402,6 +402,7 @@ async def run_calculations_for_card(
     card: Card,
     *,
     exclude_field: str | None = None,
+    exclude_fields: set[str] | None = None,
 ) -> list[dict]:
     """Run all active calculations for a card's type, in execution_order.
 
@@ -409,6 +410,8 @@ async def run_calculations_for_card(
         db: database session
         card: the card to compute
         exclude_field: skip calculations targeting this field (loop prevention)
+        exclude_fields: skip calculations targeting any of these fields
+                        (e.g. PPM-managed cost fields)
 
     Returns list of {calculation_id, name, success, error} dicts.
     """
@@ -425,6 +428,8 @@ async def run_calculations_for_card(
     results = []
     for calc in calcs:
         if exclude_field and calc.target_field_key == exclude_field:
+            continue
+        if exclude_fields and calc.target_field_key in exclude_fields:
             continue
 
         success, error = await execute_calculation(db, calc, card)

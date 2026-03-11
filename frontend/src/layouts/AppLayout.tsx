@@ -34,6 +34,7 @@ import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
+import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -76,6 +77,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
+  { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
@@ -117,6 +119,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { getType } = useMetamodel();
   const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
+  const { ppmEnabled } = usePpmEnabled();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
 
@@ -140,6 +143,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     });
     let items = NAV_ITEM_DEFS as NavItemDef[];
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
+    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
     return items
       .filter((item) => {
         if (!item.permission) return true;
@@ -147,7 +151,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         return can(item.permission);
       })
       .map(resolve);
-  }, [bpmEnabled, can, t]);
+  }, [bpmEnabled, ppmEnabled, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {

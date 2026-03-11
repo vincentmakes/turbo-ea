@@ -995,3 +995,162 @@ export interface PortfolioInsightsResponse {
   insights: (string | StructuredInsight)[];
   model?: string;
 }
+
+// ── PPM ─────────────────────────────────────────────────────────
+
+export interface PpmStatusReport {
+  id: string;
+  initiative_id: string;
+  reporter_id: string;
+  reporter: { id: string; display_name: string } | null;
+  report_date: string;
+  schedule_health: string;
+  cost_health: string;
+  scope_health: string;
+  summary: string | null;
+  accomplishments: string | null;
+  next_steps: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmCostLine {
+  id: string;
+  initiative_id: string;
+  description: string;
+  category: "capex" | "opex";
+  planned: number;
+  actual: number;
+  date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmBudgetLine {
+  id: string;
+  initiative_id: string;
+  fiscal_year: number;
+  category: "capex" | "opex";
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmRisk {
+  id: string;
+  initiative_id: string;
+  title: string;
+  description: string | null;
+  probability: number;
+  impact: number;
+  risk_score: number;
+  mitigation: string | null;
+  owner_id: string | null;
+  owner_name: string | null;
+  status: "open" | "mitigating" | "mitigated" | "closed" | "accepted";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmGanttStakeholder {
+  user_id: string;
+  display_name: string;
+  role_key: string;
+}
+
+export interface PpmGanttItem {
+  id: string;
+  name: string;
+  subtype: string | null;
+  status: string | null;
+  parent_id: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  cost_budget: number | null;
+  cost_actual: number | null;
+  capex_planned: number;
+  capex_actual: number;
+  opex_planned: number;
+  opex_actual: number;
+  group_id: string | null;
+  group_name: string | null;
+  latest_report: PpmStatusReport | null;
+  latest_report_id: string | null;
+  stakeholders: PpmGanttStakeholder[];
+}
+
+export type PpmHealthValue = "onTrack" | "atRisk" | "offTrack";
+
+export interface PpmHealthCounts {
+  onTrack: number;
+  atRisk: number;
+  offTrack: number;
+  noReport: number;
+}
+
+export interface PpmWbs {
+  id: string;
+  initiative_id: string;
+  parent_id: string | null;
+  title: string;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  sort_order: number;
+  is_milestone: boolean;
+  completion: number;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  progress: number;
+  task_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PpmTaskStatus = "todo" | "in_progress" | "done" | "blocked";
+export type PpmTaskPriority = "critical" | "high" | "medium" | "low";
+
+export interface PpmTask {
+  id: string;
+  initiative_id: string;
+  title: string;
+  description: string | null;
+  status: PpmTaskStatus;
+  priority: PpmTaskPriority;
+  assignee_id: string | null;
+  assignee_name: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  sort_order: number;
+  tags: string[];
+  wbs_id: string | null;
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmTaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  user_display_name: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PpmGroupOption {
+  type_key: string;
+  type_label: string;
+}
+
+export interface PpmDashboardData {
+  total_initiatives: number;
+  by_subtype: Record<string, number>;
+  by_status: Record<string, number>;
+  total_budget: number;
+  total_actual: number;
+  health_schedule: PpmHealthCounts;
+  health_cost: PpmHealthCounts;
+  health_scope: PpmHealthCounts;
+}

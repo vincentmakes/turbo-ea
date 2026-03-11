@@ -937,6 +937,59 @@ export const MARKETING_PAGES: PageDef[] = [
     filenames: { en: "end-of-life" },
   },
 
+  // PPM
+  {
+    id: "ppm-portfolio-dashboard",
+    route: "/ppm",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    viewport: { width: 1200, height: 800 },
+    filenames: {
+      en: "ppm-portfolio-dashboard",
+      es: "ppm-panel-portafolio",
+      de: "ppm-portfolio-dashboard",
+      fr: "ppm-tableau-portefeuille",
+      it: "ppm-dashboard-portafoglio",
+      pt: "ppm-painel-portfolio",
+      zh: "ppm-portfolio-dashboard",
+      ru: "ppm-portfolio-dashboard",
+    },
+  },
+  {
+    id: "ppm-gantt-chart",
+    route: "/ppm/{{cardId:sampleInitiative}}?tab=gantt",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 1000 }],
+    viewport: { width: 1200, height: 700 },
+    filenames: {
+      en: "ppm-gantt-chart",
+      es: "ppm-diagrama-gantt",
+      de: "ppm-gantt-diagramm",
+      fr: "ppm-diagramme-gantt",
+      it: "ppm-diagramma-gantt",
+      pt: "ppm-diagrama-gantt",
+      zh: "ppm-gantt-chart",
+      ru: "ppm-gantt-chart",
+    },
+  },
+  {
+    id: "ppm-task-board",
+    route: "/ppm/{{cardId:sampleInitiative}}?tab=tasks",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    viewport: { width: 1200, height: 700 },
+    filenames: {
+      en: "ppm-task-board",
+      es: "ppm-tablero-tareas",
+      de: "ppm-aufgaben-board",
+      fr: "ppm-tableau-taches",
+      it: "ppm-board-attivita",
+      pt: "ppm-quadro-tarefas",
+      zh: "ppm-task-board",
+      ru: "ppm-task-board",
+    },
+  },
+
   // BPM
   {
     id: "bpm-process-navigator",

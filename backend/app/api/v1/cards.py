@@ -16,6 +16,7 @@ from app.database import get_db
 from app.models.card import Card
 from app.models.card_type import CardType
 from app.models.event import Event
+from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.relation import Relation
 from app.models.stakeholder import Stakeholder
 from app.models.tag import Tag
@@ -33,6 +34,28 @@ from app.services import notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
+
+# Fields that PPM budget/cost lines manage — calculations must not overwrite these.
+_PPM_MANAGED_FIELDS = {"costBudget", "costActual"}
+
+
+async def _get_ppm_exclusions(db: AsyncSession, card: Card) -> set[str]:
+    """Return field keys that PPM manages for this card (skip in calculations)."""
+    if card.type != "Initiative":
+        return set()
+    has_budget = await db.scalar(
+        select(func.count(PpmBudgetLine.id)).where(PpmBudgetLine.initiative_id == card.id)
+    )
+    has_costs = await db.scalar(
+        select(func.count(PpmCostLine.id)).where(PpmCostLine.initiative_id == card.id)
+    )
+    excluded: set[str] = set()
+    if has_budget:
+        excluded.add("costBudget")
+    if has_costs:
+        excluded.add("costActual")
+    return excluded
+
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -357,8 +380,9 @@ async def create_card(
     # Compute data quality score
     card.data_quality = await _calc_data_quality(db, card)
 
-    # Run calculated fields
-    await run_calculations_for_card(db, card)
+    # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
+    ppm_excl = await _get_ppm_exclusions(db, card)
+    await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
 
     await event_bus.publish(
         "card.created",
@@ -502,6 +526,17 @@ async def update_card(
     if "attributes" in updates and updates["attributes"]:
         await _validate_url_attributes(db, card.type, updates["attributes"])
 
+    # Preserve PPM-managed cost fields so the frontend payload doesn't wipe them
+    if card.type == "Initiative" and "attributes" in updates:
+        ppm_excl = await _get_ppm_exclusions(db, card)
+        if ppm_excl:
+            old_attrs = dict(card.attributes or {})
+            new_attrs = dict(updates["attributes"] or {})
+            for key in ppm_excl:
+                if key in old_attrs:
+                    new_attrs[key] = old_attrs[key]
+            updates["attributes"] = new_attrs
+
     # Guard: hierarchy depth limit before applying parent change
     if "parent_id" in updates:
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
@@ -542,8 +577,9 @@ async def update_card(
         # Recalculate completion
         card.data_quality = await _calc_data_quality(db, card)
 
-        # Run calculated fields
-        await run_calculations_for_card(db, card)
+        # Run calculated fields (skip PPM-managed cost fields if PPM data exists)
+        ppm_excl = await _get_ppm_exclusions(db, card)
+        await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
 
         def _serialize_val(v: object) -> object:
             """Convert a value to something JSON-serialisable."""

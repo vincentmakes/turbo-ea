@@ -12,24 +12,30 @@
 | **Ficha (Card)** | La unidad básica de información en Turbo EA que representa cualquier componente de arquitectura |
 | **Tipo de Ficha** | La categoría a la que pertenece una ficha (ej., Aplicación, Proceso de Negocio, Organización) |
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
+| **Línea de costo** | Una entrada de presupuesto o costo real (CapEx/OpEx) en una iniciativa PPM, utilizada para rastrear el gasto financiero |
 | **Calidad de Datos** | Una puntuación de completitud de 0–100% basada en campos completados y sus pesos configurados |
 | **Archivo adjunto** | Un archivo binario (PDF, DOCX, XLSX, imágenes, hasta 10 MB) cargado directamente a una ficha mediante la pestaña Recursos |
 | **Diagrama** | Un diagrama visual de arquitectura creado con el editor DrawIO integrado |
 | **DrawIO** | La herramienta de diagramación de código abierto integrada utilizada para diagramas visuales de arquitectura |
 | **Arquitectura Empresarial (EA)** | La disciplina que organiza y documenta la estructura de negocio y tecnología de una organización |
 | **EOL (Fin de Vida)** | La fecha en que un producto tecnológico pierde soporte del proveedor. Rastreado mediante integración con endoflife.date |
+| **Diagrama de Gantt** | Una línea de tiempo visual con barras horizontales que muestra el cronograma, duración y progreso del proyecto |
 | **Iniciativa** | Un proyecto o programa que implica cambios en la arquitectura |
 | **Ciclo de Vida** | Las cinco fases por las que pasa un componente: Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida |
 | **LLM** | Modelo de Lenguaje Grande — un modelo de IA que genera texto (ej., Ollama, OpenAI, Anthropic Claude, Google Gemini) |
 | **MCP** | Model Context Protocol — un estándar abierto que permite a herramientas de IA (Claude, Copilot, Cursor) conectarse a fuentes de datos externas. El servidor MCP integrado de Turbo EA proporciona acceso de solo lectura a los datos de EA con RBAC por usuario |
 | **Metamodelo** | El modelo basado en datos que define la estructura de la plataforma: tipos de fichas, campos, relaciones y roles |
+| **Hito** | Un evento significativo o punto de finalización en el cronograma de un proyecto, mostrado como un indicador de diamante en el diagrama de Gantt |
 | **Notificación** | Una alerta en la aplicación o por correo electrónico activada por eventos del sistema (tarea asignada, ficha actualizada, comentario agregado, etc.) |
 | **Ollama** | Una herramienta de código abierto para ejecutar LLMs localmente en su propio hardware |
 | **Portafolio** | Un conjunto de aplicaciones o tecnologías gestionadas como un grupo |
+| **PPM** | Gestión de Cartera de Proyectos — la disciplina de gestionar un portafolio de proyectos e iniciativas con presupuestos, riesgos, tareas e informes de estado |
 | **Número de referencia** | Un identificador secuencial generado automáticamente para los ADR (ej., ADR-001, ADR-002) que proporciona una etiqueta única y legible |
 | **Relación** | Una conexión entre dos fichas que describe cómo se relacionan (ej., «utiliza», «depende de», «se ejecuta en») |
 | **Pestaña Recursos** | Una pestaña en el detalle de ficha que consolida Decisiones de Arquitectura, archivos adjuntos y enlaces a documentos en un solo lugar |
 | **Revisión (ADR)** | Una nueva versión de un ADR firmado que hereda el contenido y los vínculos de fichas de la versión anterior, con un número de revisión incrementado |
+| **Estado RAG** | Indicador de salud Rojo-Ámbar-Verde utilizado en informes de estado PPM para cronograma, costo y alcance |
+| **Puntuación de riesgo** | Un valor calculado automáticamente (probabilidad x impacto) que cuantifica la gravedad de un riesgo del proyecto |
 | **Informe Guardado** | Una configuración de informe persistida con filtros, ejes y ajustes de visualización que se puede recargar |
 | **Sección** | Un área agrupable de la página de detalle de ficha que contiene campos relacionados, configurable por tipo de ficha |
 | **Signatario** | Un usuario designado para revisar y firmar un documento ADR o SoAW. El flujo de firma rastrea las firmas pendientes y completadas |
@@ -41,5 +47,8 @@
 | **Encuesta** | Un cuestionario de mantenimiento de datos dirigido a tipos específicos de fichas para recopilar información de las partes interesadas |
 | **Etiqueta / Grupo de Etiquetas** | Una etiqueta de clasificación organizada en grupos con modos de selección única o múltiple |
 | **TOGAF** | The Open Group Architecture Framework — una metodología de EA ampliamente utilizada. La función SoAW de Turbo EA se alinea con TOGAF |
+| **Informe de estado** | Un informe PPM mensual que rastrea la salud del proyecto mediante indicadores RAG para cronograma, costo y alcance |
 | **Portal Web** | Una vista pública de solo lectura de fichas seleccionadas accesible sin autenticación a través de una URL única |
+| **Estructura de Desglose del Trabajo (WBS)** | Una descomposición jerárquica del alcance del proyecto en paquetes de trabajo |
+| **Paquete de trabajo** | Una agrupación lógica de tareas dentro de un cronograma Gantt que tiene sus propias fechas de inicio/fin y porcentaje de finalización |
 | **Sugerencia IA** | Una descripción de ficha generada automáticamente combinando resultados de búsqueda web con un Modelo de Lenguaje Grande (LLM) |

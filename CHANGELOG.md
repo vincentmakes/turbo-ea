@@ -5,6 +5,75 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.4] - 2026-03-11
+
+### Added
+- URL persistence for PPM tab selection, task board filters, and portfolio grouping across page refreshes
+- Backend integration tests for all PPM API endpoints (status reports, costs, budgets, risks, tasks, WBS, task comments, completion)
+- Backend integration tests for PPM portfolio report endpoints (dashboard, gantt, group-options)
+- Frontend unit tests for the `usePpmEnabled` hook
+- PPM user guide documentation page in all 8 supported languages
+- PPM-related terms added to the glossary in all 8 supported languages
+- PPM screenshot definitions added to the automated screenshot capture script
+
+## [0.32.3] - 2026-03-11
+
+### Added
+- Gantt table shows start date and end date columns alongside the title for at-a-glance visibility
+- Create Task button in Gantt toolbar to add tasks directly from the Gantt view
+- Work Package selector now visible when editing tasks from the Gantt tab
+- Right-click context menu on Gantt rows for quick edit, add task, mark done, and delete
+- Context menu also available on the table list side (right-click on rows)
+- Delete confirmation dialogs for both WBS items and tasks to prevent accidental deletion
+- Delete button in task edit dialog (previously only available from the Task Board)
+- Progress bar dragging on WBS items to adjust completion directly in the Gantt chart
+- Task bars use distinct blue color to visually differentiate them from WBS summary bars
+- Resizable table columns in Gantt (drag column borders to adjust width)
+
+### Changed
+- Gantt bar label text is now white for better contrast on colored bars
+- Gantt chart uses full page width for more timeline space
+- Date columns use compact format (dd MMM 'yy) to prevent cropping
+- Today button in Gantt toolbar now scrolls the chart to the current date
+- PPM navigation icon changed to view_kanban
+
+## [0.32.2] - 2026-03-11
+
+### Added
+- PPM budget/cost rollup: budget and cost line totals automatically sync to Initiative card attributes (costBudget/costActual)
+- Cost fields marked as auto-computed (readonly with badge) in Card Detail when PPM lines exist
+- New endpoint `GET /ppm/initiatives/{id}/has-costs` for lightweight PPM cost existence check
+
+### Changed
+- Portfolio dashboard group headers use darker background for better visual separation
+- Gantt bar resizing no longer jumps to week/month boundaries — custom `roundDate` ensures smooth 1-day snapping
+
+### Fixed
+- Gantt bar drag/resize caused bars to snap to week or month boundaries instead of individual days
+
+## [0.32.1] - 2026-03-11
+
+### Changed
+- Gantt chart bar resizing is now 1-day granular regardless of zoom level (day/week/month)
+- PPM color palette aligned with MUI theme (primary, success, warning, error) across all components
+- Financials KPI and Budget/Costs cards merged into a single combined card in project overview
+- Card Details tab in PPM project detail now shows full card detail with all tabs (comments, todos, stakeholders, resources, history)
+
+### Removed
+- Standalone PpmCardDetailsTab component replaced by reusable CardDetailContent
+
+## [0.32.0] - 2026-03-10
+
+### Added
+- Project Portfolio Management (PPM) module with enable/disable toggle in admin settings
+- Portfolio dashboard with KPI cards, health pie charts, and status distribution
+- Gantt chart with quarterly ticks, timeline bars, RAG health indicators, and budget progress
+- Per-initiative detail view with overview, monthly status reports, and task management tabs
+- Status reports with RAG health tracking (schedule/cost/scope), cost line items (CapEx/OpEx), and risk register
+- AG Grid-based task manager with filter sidebar, inline editing, and assignee management
+- New permissions: `ppm.view`, `ppm.manage`, `reports.ppm_dashboard`
+- Database tables: `ppm_status_reports`, `ppm_tasks`
+
 ## [0.31.0] - 2026-03-10
 
 ### Added

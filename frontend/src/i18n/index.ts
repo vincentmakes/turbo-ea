@@ -11,6 +11,7 @@ import cardsEn from "./locales/en/cards.json";
 import reportsEn from "./locales/en/reports.json";
 import adminEn from "./locales/en/admin.json";
 import bpmEn from "./locales/en/bpm.json";
+import ppmEn from "./locales/en/ppm.json";
 import diagramsEn from "./locales/en/diagrams.json";
 import deliveryEn from "./locales/en/delivery.json";
 import notificationsEn from "./locales/en/notifications.json";
@@ -25,6 +26,7 @@ import cardsFr from "./locales/fr/cards.json";
 import reportsFr from "./locales/fr/reports.json";
 import adminFr from "./locales/fr/admin.json";
 import bpmFr from "./locales/fr/bpm.json";
+import ppmFr from "./locales/fr/ppm.json";
 import diagramsFr from "./locales/fr/diagrams.json";
 import deliveryFr from "./locales/fr/delivery.json";
 import notificationsFr from "./locales/fr/notifications.json";
@@ -39,6 +41,7 @@ import cardsEs from "./locales/es/cards.json";
 import reportsEs from "./locales/es/reports.json";
 import adminEs from "./locales/es/admin.json";
 import bpmEs from "./locales/es/bpm.json";
+import ppmEs from "./locales/es/ppm.json";
 import diagramsEs from "./locales/es/diagrams.json";
 import deliveryEs from "./locales/es/delivery.json";
 import notificationsEs from "./locales/es/notifications.json";
@@ -53,6 +56,7 @@ import cardsIt from "./locales/it/cards.json";
 import reportsIt from "./locales/it/reports.json";
 import adminIt from "./locales/it/admin.json";
 import bpmIt from "./locales/it/bpm.json";
+import ppmIt from "./locales/it/ppm.json";
 import diagramsIt from "./locales/it/diagrams.json";
 import deliveryIt from "./locales/it/delivery.json";
 import notificationsIt from "./locales/it/notifications.json";
@@ -67,6 +71,7 @@ import cardsPt from "./locales/pt/cards.json";
 import reportsPt from "./locales/pt/reports.json";
 import adminPt from "./locales/pt/admin.json";
 import bpmPt from "./locales/pt/bpm.json";
+import ppmPt from "./locales/pt/ppm.json";
 import diagramsPt from "./locales/pt/diagrams.json";
 import deliveryPt from "./locales/pt/delivery.json";
 import notificationsPt from "./locales/pt/notifications.json";
@@ -81,6 +86,7 @@ import cardsZh from "./locales/zh/cards.json";
 import reportsZh from "./locales/zh/reports.json";
 import adminZh from "./locales/zh/admin.json";
 import bpmZh from "./locales/zh/bpm.json";
+import ppmZh from "./locales/zh/ppm.json";
 import diagramsZh from "./locales/zh/diagrams.json";
 import deliveryZh from "./locales/zh/delivery.json";
 import notificationsZh from "./locales/zh/notifications.json";
@@ -95,6 +101,7 @@ import cardsDe from "./locales/de/cards.json";
 import reportsDe from "./locales/de/reports.json";
 import adminDe from "./locales/de/admin.json";
 import bpmDe from "./locales/de/bpm.json";
+import ppmDe from "./locales/de/ppm.json";
 import diagramsDe from "./locales/de/diagrams.json";
 import deliveryDe from "./locales/de/delivery.json";
 import notificationsDe from "./locales/de/notifications.json";
@@ -109,6 +116,7 @@ import cardsRu from "./locales/ru/cards.json";
 import reportsRu from "./locales/ru/reports.json";
 import adminRu from "./locales/ru/admin.json";
 import bpmRu from "./locales/ru/bpm.json";
+import ppmRu from "./locales/ru/ppm.json";
 import diagramsRu from "./locales/ru/diagrams.json";
 import deliveryRu from "./locales/ru/delivery.json";
 import notificationsRu from "./locales/ru/notifications.json";
@@ -142,6 +150,7 @@ i18n
         reports: reportsEn,
         admin: adminEn,
         bpm: bpmEn,
+        ppm: ppmEn,
         diagrams: diagramsEn,
         delivery: deliveryEn,
         notifications: notificationsEn,
@@ -156,6 +165,7 @@ i18n
         reports: reportsFr,
         admin: adminFr,
         bpm: bpmFr,
+        ppm: ppmFr,
         diagrams: diagramsFr,
         delivery: deliveryFr,
         notifications: notificationsFr,
@@ -170,6 +180,7 @@ i18n
         reports: reportsEs,
         admin: adminEs,
         bpm: bpmEs,
+        ppm: ppmEs,
         diagrams: diagramsEs,
         delivery: deliveryEs,
         notifications: notificationsEs,
@@ -184,6 +195,7 @@ i18n
         reports: reportsIt,
         admin: adminIt,
         bpm: bpmIt,
+        ppm: ppmIt,
         diagrams: diagramsIt,
         delivery: deliveryIt,
         notifications: notificationsIt,
@@ -198,6 +210,7 @@ i18n
         reports: reportsPt,
         admin: adminPt,
         bpm: bpmPt,
+        ppm: ppmPt,
         diagrams: diagramsPt,
         delivery: deliveryPt,
         notifications: notificationsPt,
@@ -212,6 +225,7 @@ i18n
         reports: reportsZh,
         admin: adminZh,
         bpm: bpmZh,
+        ppm: ppmZh,
         diagrams: diagramsZh,
         delivery: deliveryZh,
         notifications: notificationsZh,
@@ -226,6 +240,7 @@ i18n
         reports: reportsDe,
         admin: adminDe,
         bpm: bpmDe,
+        ppm: ppmDe,
         diagrams: diagramsDe,
         delivery: deliveryDe,
         notifications: notificationsDe,
@@ -240,6 +255,7 @@ i18n
         reports: reportsRu,
         admin: adminRu,
         bpm: bpmRu,
+        ppm: ppmRu,
         diagrams: diagramsRu,
         delivery: deliveryRu,
         notifications: notificationsRu,

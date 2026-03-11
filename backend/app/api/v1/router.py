@@ -19,6 +19,8 @@ from app.api.v1 import (
     file_attachments,
     metamodel,
     notifications,
+    ppm,
+    ppm_reports,
     relations,
     reports,
     roles,
@@ -66,5 +68,7 @@ api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(ai_suggest.router)
+api_router.include_router(ppm.router)
+api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
 api_router.include_router(file_attachments.router)
