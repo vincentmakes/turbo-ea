@@ -40,6 +40,7 @@ import type { PpmWbs, PpmTask } from "@/types";
 interface GanttRowMeta {
   completion: number;
   assigneeName: string | null;
+  hasChildren: boolean;
 }
 
 interface Props {
@@ -87,6 +88,24 @@ function roundToDay(date: Date): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/** Check if a date falls on Saturday or Sunday (unused params from library API). */
+function checkIsWeekend(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+/** Build a set of WBS IDs that have at least one child. */
+function getParentIds(wbsList: PpmWbs[], tasks: PpmTask[]): Set<string> {
+  const ids = new Set<string>();
+  for (const w of wbsList) {
+    if (w.parent_id) ids.add(w.parent_id);
+  }
+  for (const t of tasks) {
+    if (t.wbs_id) ids.add(t.wbs_id);
+  }
+  return ids;
 }
 
 export default function PpmGanttTab({ initiativeId, card }: Props) {
@@ -141,6 +160,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  /** Set of WBS IDs that have children (completion auto-rolled up). */
+  const parentIds = useMemo(() => getParentIds(wbsList, tasks), [wbsList, tasks]);
 
   /** Map WBS + Tasks → gantt-task-react Task[] with trailing empty row. */
   const ganttTasks: TaskOrEmpty[] = useMemo(() => {
@@ -233,6 +255,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       map.set(`wbs-${w.id}`, {
         completion: w.completion,
         assigneeName: w.assignee_name,
+        hasChildren: parentIds.has(w.id),
       });
     }
     for (const tk of tasks) {
@@ -241,10 +264,11 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       map.set(`task-${tk.id}`, {
         completion: pct,
         assigneeName: tk.assignee_name,
+        hasChildren: false,
       });
     }
     return map;
-  }, [wbsList, tasks]);
+  }, [wbsList, tasks, parentIds]);
 
   const handleDateChange: OnDateChange = useCallback(
     async (task) => {
@@ -273,6 +297,8 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     async (task) => {
       const id = task.id;
       if (id.startsWith("wbs-")) {
+        // Only allow progress change on leaf WBS (no children)
+        if (parentIds.has(id.slice(4))) return;
         const realId = id.slice(4);
         await api.patch(`/ppm/wbs/${realId}`, {
           completion: Math.round(task.progress),
@@ -280,16 +306,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         await loadData();
       }
     },
-    [loadData],
+    [loadData, parentIds],
   );
 
   /**
-   * Drag guard: the library fires onClick as a standard click event after
-   * mouseup. When the user drags to resize or change progress, we must
-   * suppress the subsequent click. We track mouse movement and record the
-   * timestamp when a drag ends, then suppress any click within 200ms.
+   * Drag/click guard. The library fires onClick **synchronously inside
+   * onMouseDown** for task-list rows, so a simple flag check doesn't work —
+   * we must defer the dialog open with a timer and cancel it if mouse
+   * movement is detected.  For SVG bar clicks (native click event after
+   * mouseup), we also check whether a drag ended recently.
    */
   const dragGuard = useRef({ x: 0, y: 0, dragging: false, dragEndAt: 0 });
+  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ganttRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -305,7 +333,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       if (!g.dragging) {
         const dx = Math.abs(e.clientX - g.x);
         const dy = Math.abs(e.clientY - g.y);
-        if (dx > 5 || dy > 5) g.dragging = true;
+        if (dx > 5 || dy > 5) {
+          g.dragging = true;
+          // Cancel any pending deferred click
+          if (clickTimer.current) {
+            clearTimeout(clickTimer.current);
+            clickTimer.current = null;
+          }
+        }
       }
     };
     const onUp = () => {
@@ -324,24 +359,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
-  /**
-   * onClick fires as a standard click event after mouseup. We suppress it
-   * if the user was dragging (moved >5px) by checking whether a drag ended
-   * within the last 200ms.
-   */
-  const handleClick = useCallback(
-    (task: TaskOrEmpty) => {
-      const id = task.id;
-      // Empty row: always open immediately (no drag concern)
-      if (id === "__empty__") {
-        setEditingWbs(undefined);
-        setMilestoneDefault(false);
-        setWbsDialogOpen(true);
-        return;
-      }
-      // Suppress click if a drag just ended
-      const g = dragGuard.current;
-      if (g.dragging || Date.now() - g.dragEndAt < 200) return;
+  /** Open dialog for a given task id (deferred to allow drag cancellation). */
+  const openDialogForId = useCallback(
+    (id: string) => {
       if (id.startsWith("wbs-")) {
         const realId = id.slice(4);
         const wbs = wbsList.find((w) => w.id === realId);
@@ -359,6 +379,41 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
     },
     [wbsList, tasks],
+  );
+
+  /**
+   * onClick handler — defers dialog open by 150ms so mousemove detection
+   * can cancel it during a drag. Also suppresses if a drag just ended
+   * (covers the SVG bar native click path).
+   */
+  const handleClick = useCallback(
+    (task: TaskOrEmpty) => {
+      // Cancel any previously pending click
+      if (clickTimer.current) {
+        clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+      }
+
+      const id = task.id;
+      // Empty row: always open immediately (no drag concern)
+      if (id === "__empty__") {
+        setEditingWbs(undefined);
+        setMilestoneDefault(false);
+        setWbsDialogOpen(true);
+        return;
+      }
+
+      // If a SVG bar drag just ended, suppress immediately
+      const g = dragGuard.current;
+      if (g.dragging || Date.now() - g.dragEndAt < 300) return;
+
+      // Defer open — mousemove will cancel this timer if a drag starts
+      clickTimer.current = setTimeout(() => {
+        clickTimer.current = null;
+        openDialogForId(id);
+      }, 150);
+    },
+    [openDialogForId],
   );
 
   const handleExpanderClick = useCallback((task: Task) => {
@@ -379,7 +434,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {
         label: t("common:actions.edit", "Edit"),
         icon: <MaterialSymbol icon="edit" size={16} />,
-        action: (meta) => handleClick(meta.task),
+        action: (meta) => openDialogForId(meta.task.id),
       },
       {
         label: t("addTaskUnderWbs"),
@@ -440,7 +495,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         },
       },
     ],
-    [t, handleClick, loadData],
+    [t, openDialogForId, loadData],
   );
 
   /** State for inline completion slider popover. */
@@ -463,12 +518,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [completionEditId, loadData],
   );
 
-  /** Custom column: completion % chip — click to edit with slider popover. */
+  /** Custom column: completion % chip — click to edit with slider popover.
+   *  Parent WBS items (with children) show a read-only calculated value. */
   const CompletionCell = useMemo(() => {
     const Cell = ({ data }: ColumnProps) => {
       const meta = rowMeta.get(data.task.id);
       if (!meta) return null;
       const pct = Math.round(meta.completion);
+      const isCalculated = meta.hasChildren;
       return (
         <Box
           sx={{
@@ -476,20 +533,30 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             alignItems: "center",
             justifyContent: "center",
             height: "100%",
-            cursor: "pointer",
+            cursor: isCalculated ? "default" : "pointer",
           }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setCompletionEditId(data.task.id);
-            setCompletionEditValue(pct);
-            setCompletionAnchor(e.currentTarget);
-          }}
+          onClick={
+            isCalculated
+              ? undefined
+              : (e) => {
+                  e.stopPropagation();
+                  setCompletionEditId(data.task.id);
+                  setCompletionEditValue(pct);
+                  setCompletionAnchor(e.currentTarget);
+                }
+          }
         >
           <Chip
             label={`${pct}%`}
             size="small"
-            sx={{ height: 20, fontSize: 11, fontWeight: 600 }}
+            sx={{
+              height: 20,
+              fontSize: 11,
+              fontWeight: 600,
+              opacity: isCalculated ? 0.7 : 1,
+            }}
             color={pct >= 100 ? "success" : pct > 0 ? "primary" : "default"}
+            variant={isCalculated ? "outlined" : "filled"}
           />
         </Box>
       );
@@ -569,7 +636,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   const columnWidth = useMemo(() => {
     switch (viewMode) {
       case ViewMode.Day:
-        return 60;
+        return 32;
       case ViewMode.Week:
         return 200;
       case ViewMode.Month:
@@ -578,6 +645,47 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         return 200;
     }
   }, [viewMode]);
+
+  /**
+   * Context menu dismiss workaround: the library's ContextMenu component uses
+   * floating-ui's useDismiss but doesn't wire onOpenChange, so escape / outside
+   * clicks don't actually close it. We add our own global listeners.
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    const hideContextMenu = () => {
+      const menuOpts = el.querySelectorAll('[class*="menuOption_"]');
+      if (!menuOpts.length) return;
+      const floatingParent = menuOpts[0].closest(
+        'div[style*="position"]',
+      ) as HTMLElement | null;
+      if (floatingParent) floatingParent.style.display = "none";
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      const menuOpts = el.querySelectorAll('[class*="menuOption_"]');
+      if (!menuOpts.length) return;
+      const floatingParent = menuOpts[0].closest(
+        'div[style*="position"]',
+      ) as HTMLElement;
+      if (floatingParent && !floatingParent.contains(e.target as Node)) {
+        floatingParent.style.display = "none";
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") hideContextMenu();
+    };
+
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -588,9 +696,16 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }
 
   return (
-    <Box>
+    <Box sx={{ mx: { xs: -2, md: -3 } }}>
       {/* Toolbar */}
-      <Box display="flex" alignItems="center" gap={1} mb={2} flexWrap="wrap">
+      <Box
+        display="flex"
+        alignItems="center"
+        gap={1}
+        mb={2}
+        flexWrap="wrap"
+        px={{ xs: 2, md: 3 }}
+      >
         <Button
           variant="contained"
           size="small"
@@ -688,12 +803,16 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           enableTableListContextMenu={2}
           roundDate={roundToDay}
           dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
+          checkIsHoliday={checkIsWeekend}
           colors={{
             selectedTaskBackgroundColor: "rgba(25, 118, 210, 0.08)",
             todayColor: "rgba(25, 118, 210, 0.08)",
+            holidayBackgroundColor: "rgba(0, 0, 0, 0.04)",
           }}
           dateFormats={{
             dateColumnFormat: "dd MMM ''yy",
+            dayBottomHeaderFormat: "d",
+            dayTopHeaderFormat: "LLLL yyyy",
           }}
           distances={{
             columnWidth,
