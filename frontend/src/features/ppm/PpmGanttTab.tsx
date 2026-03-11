@@ -27,7 +27,9 @@ import type {
 } from "@wamra/gantt-task-react";
 import "@wamra/gantt-task-react/dist/style.css";
 import Chip from "@mui/material/Chip";
-import LinearProgress from "@mui/material/LinearProgress";
+import Popover from "@mui/material/Popover";
+import Slider from "@mui/material/Slider";
+import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import PpmWbsDialog from "./PpmWbsDialog";
@@ -282,19 +284,21 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   );
 
   /**
-   * Drag guard: the library fires onClick on mousedown (not mouseup),
-   * so dragging a row immediately opens the dialog. We intercept mousedown
-   * to record the position, track mousemove, and suppress onClick if the
-   * user moved more than 5px (i.e. a drag, not a click).
+   * Drag guard: the library fires onClick as a standard click event after
+   * mouseup. When the user drags to resize or change progress, we must
+   * suppress the subsequent click. We track mouse movement and record the
+   * timestamp when a drag ends, then suppress any click within 200ms.
    */
-  const dragGuard = useRef({ x: 0, y: 0, dragging: false });
+  const dragGuard = useRef({ x: 0, y: 0, dragging: false, dragEndAt: 0 });
   const ganttRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ganttRef.current;
     if (!el) return;
     const onDown = (e: MouseEvent) => {
-      dragGuard.current = { x: e.clientX, y: e.clientY, dragging: false };
+      dragGuard.current.x = e.clientX;
+      dragGuard.current.y = e.clientY;
+      dragGuard.current.dragging = false;
     };
     const onMove = (e: MouseEvent) => {
       const g = dragGuard.current;
@@ -305,10 +309,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       }
     };
     const onUp = () => {
-      // Reset after a tick so the onClick (which already fired on mousedown) can read the flag
-      setTimeout(() => {
-        dragGuard.current.dragging = false;
-      }, 0);
+      if (dragGuard.current.dragging) {
+        dragGuard.current.dragEndAt = Date.now();
+      }
+      dragGuard.current.dragging = false;
     };
     el.addEventListener("mousedown", onDown, true);
     el.addEventListener("mousemove", onMove, true);
@@ -321,10 +325,9 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
   }, []);
 
   /**
-   * The library calls onClick synchronously inside onMouseDown, so the drag
-   * guard hasn't had time to detect movement yet. We defer the dialog open
-   * by a microtask — if a drag starts, the mousemove handler sets the flag
-   * before our deferred callback runs.
+   * onClick fires as a standard click event after mouseup. We suppress it
+   * if the user was dragging (moved >5px) by checking whether a drag ended
+   * within the last 200ms.
    */
   const handleClick = useCallback(
     (task: TaskOrEmpty) => {
@@ -336,25 +339,24 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
         setWbsDialogOpen(true);
         return;
       }
-      // Defer to let drag detection run first
-      requestAnimationFrame(() => {
-        if (dragGuard.current.dragging) return;
-        if (id.startsWith("wbs-")) {
-          const realId = id.slice(4);
-          const wbs = wbsList.find((w) => w.id === realId);
-          if (wbs) {
-            setEditingWbs(wbs);
-            setWbsDialogOpen(true);
-          }
-        } else if (id.startsWith("task-")) {
-          const realId = id.slice(5);
-          const tk = tasks.find((t) => t.id === realId);
-          if (tk) {
-            setEditingTask(tk);
-            setTaskDialogOpen(true);
-          }
+      // Suppress click if a drag just ended
+      const g = dragGuard.current;
+      if (g.dragging || Date.now() - g.dragEndAt < 200) return;
+      if (id.startsWith("wbs-")) {
+        const realId = id.slice(4);
+        const wbs = wbsList.find((w) => w.id === realId);
+        if (wbs) {
+          setEditingWbs(wbs);
+          setWbsDialogOpen(true);
         }
-      });
+      } else if (id.startsWith("task-")) {
+        const realId = id.slice(5);
+        const tk = tasks.find((t) => t.id === realId);
+        if (tk) {
+          setEditingTask(tk);
+          setTaskDialogOpen(true);
+        }
+      }
     },
     [wbsList, tasks],
   );
@@ -441,7 +443,27 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [t, handleClick, loadData],
   );
 
-  /** Custom column: completion % with progress bar pill. */
+  /** State for inline completion slider popover. */
+  const [completionAnchor, setCompletionAnchor] =
+    useState<HTMLElement | null>(null);
+  const [completionEditId, setCompletionEditId] = useState("");
+  const [completionEditValue, setCompletionEditValue] = useState(0);
+
+  const handleCompletionSave = useCallback(
+    async (val: number) => {
+      const id = completionEditId;
+      if (id.startsWith("wbs-")) {
+        await api.patch(`/ppm/wbs/${id.slice(4)}`, { completion: val });
+      } else if (id.startsWith("task-")) {
+        const status = val >= 100 ? "done" : val > 0 ? "in_progress" : "todo";
+        await api.patch(`/ppm/tasks/${id.slice(5)}`, { status });
+      }
+      await loadData();
+    },
+    [completionEditId, loadData],
+  );
+
+  /** Custom column: completion % chip — click to edit with slider popover. */
   const CompletionCell = useMemo(() => {
     const Cell = ({ data }: ColumnProps) => {
       const meta = rowMeta.get(data.task.id);
@@ -452,22 +474,17 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           sx={{
             display: "flex",
             alignItems: "center",
-            gap: 0.5,
-            px: 1,
+            justifyContent: "center",
             height: "100%",
+            cursor: "pointer",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setCompletionEditId(data.task.id);
+            setCompletionEditValue(pct);
+            setCompletionAnchor(e.currentTarget);
           }}
         >
-          <LinearProgress
-            variant="determinate"
-            value={pct}
-            sx={{
-              flex: 1,
-              height: 8,
-              borderRadius: 4,
-              bgcolor: "action.hover",
-              "& .MuiLinearProgress-bar": { borderRadius: 4 },
-            }}
-          />
           <Chip
             label={`${pct}%`}
             size="small"
@@ -520,28 +537,28 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       {
         id: "completion",
         Cell: CompletionCell,
-        width: 120,
+        width: 56,
         title: "%",
-        canResize: true,
+        canResize: false,
       },
       {
         id: "assignee",
         Cell: AssigneeCell,
-        width: 120,
+        width: 100,
         title: t("wbsAssignee"),
         canResize: true,
       },
       {
         id: "start",
         Cell: DateStartColumn,
-        width: 100,
+        width: 90,
         title: t("startDate"),
         canResize: true,
       },
       {
         id: "end",
         Cell: DateEndColumn,
-        width: 100,
+        width: 90,
         title: t("endDate"),
         canResize: true,
       },
@@ -686,6 +703,37 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           }}
         />
       </Box>
+
+      {/* Inline completion slider popover */}
+      <Popover
+        open={Boolean(completionAnchor)}
+        anchorEl={completionAnchor}
+        onClose={() => {
+          handleCompletionSave(completionEditValue);
+          setCompletionAnchor(null);
+        }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        disableRestoreFocus
+      >
+        <Box sx={{ px: 2, py: 1.5, width: 180 }}>
+          <Typography variant="caption" fontWeight={600}>
+            {t("completion")}: {Math.round(completionEditValue)}%
+          </Typography>
+          <Slider
+            value={completionEditValue}
+            onChange={(_, v) => setCompletionEditValue(v as number)}
+            onChangeCommitted={(_, v) => {
+              handleCompletionSave(v as number);
+              setCompletionAnchor(null);
+            }}
+            min={0}
+            max={100}
+            step={5}
+            size="small"
+          />
+        </Box>
+      </Popover>
 
       {/* WBS Dialog */}
       {wbsDialogOpen && (

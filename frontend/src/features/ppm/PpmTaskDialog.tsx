@@ -17,6 +17,7 @@ import IconButton from "@mui/material/IconButton";
 import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
+import Slider from "@mui/material/Slider";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -236,6 +237,30 @@ export default function PpmTaskDialog({
                 <MenuItem value="low">{t("priorityLow")}</MenuItem>
               </Select>
             </FormControl>
+          </Box>
+
+          <Box>
+            <Typography variant="body2" gutterBottom>
+              {t("completion")}:{" "}
+              {status === "done" ? 100 : status === "in_progress" ? 50 : 0}%
+            </Typography>
+            <Slider
+              value={
+                status === "done" ? 100 : status === "in_progress" ? 50 : 0
+              }
+              onChange={(_, v) => {
+                const val = v as number;
+                if (val >= 100) setStatus("done");
+                else if (val > 0) setStatus("in_progress");
+                else setStatus("todo");
+              }}
+              min={0}
+              max={100}
+              step={25}
+              size="small"
+              valueLabelDisplay="auto"
+              valueLabelFormat={(v) => `${v}%`}
+            />
           </Box>
 
           <Autocomplete
