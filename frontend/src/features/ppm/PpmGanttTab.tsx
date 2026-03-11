@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import ToggleButton from "@mui/material/ToggleButton";
@@ -252,31 +252,80 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     [loadData],
   );
 
-  /** Click: open edit dialog for WBS/task, or create dialog for empty row. */
+  /**
+   * Drag guard: the library fires onClick on mousedown (not mouseup),
+   * so dragging a row immediately opens the dialog. We intercept mousedown
+   * to record the position, track mousemove, and suppress onClick if the
+   * user moved more than 5px (i.e. a drag, not a click).
+   */
+  const dragGuard = useRef({ x: 0, y: 0, dragging: false });
+  const ganttRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+    const onDown = (e: MouseEvent) => {
+      dragGuard.current = { x: e.clientX, y: e.clientY, dragging: false };
+    };
+    const onMove = (e: MouseEvent) => {
+      const g = dragGuard.current;
+      if (!g.dragging) {
+        const dx = Math.abs(e.clientX - g.x);
+        const dy = Math.abs(e.clientY - g.y);
+        if (dx > 5 || dy > 5) g.dragging = true;
+      }
+    };
+    const onUp = () => {
+      // Reset after a tick so the onClick (which already fired on mousedown) can read the flag
+      setTimeout(() => {
+        dragGuard.current.dragging = false;
+      }, 0);
+    };
+    el.addEventListener("mousedown", onDown, true);
+    el.addEventListener("mousemove", onMove, true);
+    el.addEventListener("mouseup", onUp, true);
+    return () => {
+      el.removeEventListener("mousedown", onDown, true);
+      el.removeEventListener("mousemove", onMove, true);
+      el.removeEventListener("mouseup", onUp, true);
+    };
+  }, []);
+
+  /**
+   * The library calls onClick synchronously inside onMouseDown, so the drag
+   * guard hasn't had time to detect movement yet. We defer the dialog open
+   * by a microtask — if a drag starts, the mousemove handler sets the flag
+   * before our deferred callback runs.
+   */
   const handleClick = useCallback(
     (task: TaskOrEmpty) => {
       const id = task.id;
+      // Empty row: always open immediately (no drag concern)
       if (id === "__empty__") {
         setEditingWbs(undefined);
         setMilestoneDefault(false);
         setWbsDialogOpen(true);
         return;
       }
-      if (id.startsWith("wbs-")) {
-        const realId = id.slice(4);
-        const wbs = wbsList.find((w) => w.id === realId);
-        if (wbs) {
-          setEditingWbs(wbs);
-          setWbsDialogOpen(true);
+      // Defer to let drag detection run first
+      requestAnimationFrame(() => {
+        if (dragGuard.current.dragging) return;
+        if (id.startsWith("wbs-")) {
+          const realId = id.slice(4);
+          const wbs = wbsList.find((w) => w.id === realId);
+          if (wbs) {
+            setEditingWbs(wbs);
+            setWbsDialogOpen(true);
+          }
+        } else if (id.startsWith("task-")) {
+          const realId = id.slice(5);
+          const tk = tasks.find((t) => t.id === realId);
+          if (tk) {
+            setEditingTask(tk);
+            setTaskDialogOpen(true);
+          }
         }
-      } else if (id.startsWith("task-")) {
-        const realId = id.slice(5);
-        const tk = tasks.find((t) => t.id === realId);
-        if (tk) {
-          setEditingTask(tk);
-          setTaskDialogOpen(true);
-        }
-      }
+      });
     },
     [wbsList, tasks],
   );
@@ -471,6 +520,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
 
       {/* Gantt Chart — always shown, with empty row at bottom */}
       <Box
+        ref={ganttRef}
         sx={{
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
@@ -486,6 +536,15 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
+          /* Context menu: ensure it renders above everything and captures hover */
+          "& [class*='menuOption_']": {
+            position: "relative",
+            zIndex: 9999,
+            pointerEvents: "auto",
+            "&:hover": {
+              backgroundColor: `${theme.palette.action.hover} !important`,
+            },
+          },
         }}
       >
         <Gantt
