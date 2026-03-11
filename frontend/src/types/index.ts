@@ -98,7 +98,7 @@ export interface StakeholderRoleDef {
   key: string;
   label: string;
   allowed_types: string[] | null;
-  translations?: TranslationMap;
+  translations?: MetamodelTranslations;
 }
 
 /** Locale-keyed translations for a single property (e.g., label). */
