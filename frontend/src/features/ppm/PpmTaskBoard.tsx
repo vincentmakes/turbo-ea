@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
@@ -102,10 +103,13 @@ function DroppableColumn({
 
 export default function PpmTaskBoard({ initiativeId }: Props) {
   const { t } = useTranslation("ppm");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<PpmTask[]>([]);
   const [wbsList, setWbsList] = useState<PpmWbs[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"kanban" | "list">("kanban");
+  const [view, setView] = useState<"kanban" | "list">(
+    (searchParams.get("view") as "kanban" | "list") || "kanban",
+  );
   const [activeTask, setActiveTask] = useState<PpmTask | null>(null);
   const [taskDialog, setTaskDialog] = useState<{
     open: boolean;
@@ -118,8 +122,22 @@ export default function PpmTaskBoard({ initiativeId }: Props) {
   } | null>(null);
 
   // Filter & group state
-  const [filterWbs, setFilterWbs] = useState<string>("");
-  const [groupByWbs, setGroupByWbs] = useState(false);
+  const [filterWbs, setFilterWbs] = useState<string>(searchParams.get("wbs") || "");
+  const [groupByWbs, setGroupByWbs] = useState(searchParams.get("groupWbs") === "1");
+
+  // Sync filter/view state to URL
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (view !== "kanban") next.set("view", view);
+      else next.delete("view");
+      if (filterWbs) next.set("wbs", filterWbs);
+      else next.delete("wbs");
+      if (groupByWbs) next.set("groupWbs", "1");
+      else next.delete("groupWbs");
+      return next;
+    }, { replace: true });
+  }, [view, filterWbs, groupByWbs, setSearchParams]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),

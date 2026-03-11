@@ -16,7 +16,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
@@ -193,6 +193,7 @@ export default function PpmPortfolio() {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { fmtShort, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
@@ -201,10 +202,24 @@ export default function PpmPortfolio() {
   const [items, setItems] = useState<PpmGanttItem[]>([]);
   const [dashboard, setDashboard] = useState<PpmDashboardData | null>(null);
   const [groupOptions, setGroupOptions] = useState<PpmGroupOption[]>([]);
-  const [groupBy, setGroupBy] = useState("Organization");
-  const [search, setSearch] = useState("");
-  const [subtypeFilter, setSubtypeFilter] = useState("");
+  const [groupBy, setGroupBy] = useState(searchParams.get("groupBy") || "Organization");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [subtypeFilter, setSubtypeFilter] = useState(searchParams.get("subtype") || "");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // Sync filters to URL
+  useEffect(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (groupBy && groupBy !== "Organization") next.set("groupBy", groupBy);
+      else next.delete("groupBy");
+      if (search) next.set("search", search);
+      else next.delete("search");
+      if (subtypeFilter) next.set("subtype", subtypeFilter);
+      else next.delete("subtype");
+      return next;
+    }, { replace: true });
+  }, [groupBy, search, subtypeFilter, setSearchParams]);
 
   // ── Report hover popover state ──
   const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);

@@ -26,13 +26,25 @@ const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "det
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation("ppm");
 
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const initialTab = TAB_KEYS.indexOf(searchParams.get("tab") || "overview");
   const [tab, setTab] = useState(initialTab >= 0 ? initialTab : 0);
+
+  const handleTabChange = useCallback(
+    (_: unknown, v: number) => {
+      setTab(v);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", TAB_KEYS[v]);
+        return next;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
   const [card, setCard] = useState<Card | null>(null);
   const [reports, setReports] = useState<PpmStatusReport[]>([]);
   const [costLines, setCostLines] = useState<PpmCostLine[]>([]);
@@ -136,7 +148,7 @@ export default function PpmProjectDetail() {
       {/* Tabs */}
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={handleTabChange}
         variant="scrollable"
         scrollButtons="auto"
         allowScrollButtonsMobile
