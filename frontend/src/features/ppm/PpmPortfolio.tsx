@@ -543,15 +543,15 @@ export default function PpmPortfolio() {
         <Box display="flex" alignItems="center" gap={1.5} mt={0.75}>
           {(
             [
-              ["schedule_health", "S"],
-              ["cost_health", "C"],
-              ["scope_health", "Sc"],
+              ["schedule_health", "onTime"],
+              ["cost_health", "onCost"],
+              ["scope_health", "onScope"],
             ] as const
-          ).map(([field, letter]) => (
+          ).map(([field, labelKey]) => (
             <Box key={field} display="flex" alignItems="center" gap={0.25}>
               {ragDot(rep?.[field], 14)}
               <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
-                {letter}
+                {t(labelKey)}
               </Typography>
             </Box>
           ))}
@@ -759,7 +759,7 @@ export default function PpmPortfolio() {
             alignItems: "end",
             bgcolor: alpha(theme.palette.primary.main, 0.08),
             borderRadius: "8px 8px 0 0",
-            minHeight: 40,
+            minHeight: 56,
             pb: 0.5,
           }}
         >
@@ -813,21 +813,38 @@ export default function PpmPortfolio() {
               )
               .elements}
           </Box>
-          <Tooltip title={t("health_schedule")}>
-            <Typography variant="caption" fontWeight={600} textAlign="center">
-              S
-            </Typography>
-          </Tooltip>
-          <Tooltip title={t("health_cost")}>
-            <Typography variant="caption" fontWeight={600} textAlign="center">
-              C
-            </Typography>
-          </Tooltip>
-          <Tooltip title={t("health_scope")}>
-            <Typography variant="caption" fontWeight={600} textAlign="center">
-              Sc
-            </Typography>
-          </Tooltip>
+          {(
+            [
+              ["health_schedule", "onTime"],
+              ["health_cost", "onCost"],
+              ["health_scope", "onScope"],
+            ] as const
+          ).map(([tooltipKey, labelKey]) => (
+            <Tooltip key={tooltipKey} title={t(tooltipKey)}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "flex-end",
+                  overflow: "hidden",
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  fontWeight={600}
+                  sx={{
+                    writingMode: "vertical-rl",
+                    transform: "rotate(180deg)",
+                    whiteSpace: "nowrap",
+                    fontSize: "0.65rem",
+                    lineHeight: 1,
+                  }}
+                >
+                  {t(labelKey)}
+                </Typography>
+              </Box>
+            </Tooltip>
+          ))}
           <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
             {t("capex")}
           </Typography>
