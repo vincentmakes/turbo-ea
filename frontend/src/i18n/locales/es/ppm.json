@@ -108,5 +108,8 @@
   "fiscalYear": "Año fiscal",
   "amount": "Importe",
   "date": "Fecha",
-  "markDone": "Marcar como completado"
+  "markDone": "Marcar como completado",
+  "reporter": "Informante",
+  "projectCount_one": "{{count}} proyecto",
+  "projectCount_other": "{{count}} proyectos"
 }

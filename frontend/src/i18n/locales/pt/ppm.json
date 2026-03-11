@@ -108,5 +108,8 @@
   "fiscalYear": "Ano fiscal",
   "amount": "Valor",
   "date": "Data",
-  "markDone": "Marcar como concluído"
+  "markDone": "Marcar como concluído",
+  "reporter": "Relator",
+  "projectCount_one": "{{count}} projeto",
+  "projectCount_other": "{{count}} projetos"
 }

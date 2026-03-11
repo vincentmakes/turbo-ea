@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -9,7 +9,11 @@ import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
+import Chip from "@mui/material/Chip";
+import Popover from "@mui/material/Popover";
+import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme, alpha } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -18,12 +22,23 @@ import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
-import type { PpmGanttItem, PpmGroupOption, PpmDashboardData } from "@/types";
+import type {
+  PpmGanttItem,
+  PpmGroupOption,
+  PpmDashboardData,
+  PpmStatusReport,
+} from "@/types";
 
 const RAG: Record<string, string> = {
   onTrack: "#4caf50",
   atRisk: "#ff9800",
   offTrack: "#f44336",
+};
+
+const RAG_LABEL: Record<string, string> = {
+  onTrack: "health_onTrack",
+  atRisk: "health_atRisk",
+  offTrack: "health_offTrack",
 };
 
 /** Format a date string as "Q3'25" */
@@ -41,6 +56,12 @@ function fmtMonthYear(dateStr: string): string {
   const m = d.toLocaleString("en", { month: "short" });
   const y = String(d.getFullYear()).slice(2);
   return `${m}-${y}`;
+}
+
+/** Format a date as "Mar 11, 2026" */
+function fmtDateLong(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function getQuarters(startMonth: Date, months: number) {
@@ -65,7 +86,6 @@ function fmtK(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (Math.abs(n) >= 1_000) {
     const k = n / 1_000;
-    // Show comma-separated for values >= 1,000k (i.e. >= 1M shown as k)
     return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(k);
   }
   return String(Math.round(n));
@@ -85,10 +105,12 @@ function CostBar({
   actual,
   planned,
   currency,
+  label,
 }: {
   actual: number;
   planned: number;
   currency: string;
+  label?: string;
 }) {
   if (!planned && !actual) {
     return (
@@ -99,7 +121,6 @@ function CostBar({
   }
   const overBudget = actual > planned && planned > 0;
   const barColor = overBudget ? COST_BAR_OVER : COST_BAR_COLOR;
-  // For normal: fill up to 100%. For over-budget: the bar overflows the track.
   const pct = planned > 0 ? (actual / planned) * 100 : 0;
   const unit = costUnit(planned, actual, currency);
   const useK = Math.abs(planned) >= 1_000 || Math.abs(actual) >= 1_000;
@@ -108,6 +129,14 @@ function CostBar({
 
   return (
     <Box sx={{ width: "100%", minWidth: 90 }}>
+      {label && (
+        <Typography
+          variant="caption"
+          sx={{ display: "block", fontSize: "0.6rem", color: "text.secondary", mb: 0.25 }}
+        >
+          {label}
+        </Typography>
+      )}
       {/* Track + fill bar */}
       <Box sx={{ position: "relative", height: 10, borderRadius: 5, bgcolor: "action.hover" }}>
         <Box
@@ -122,7 +151,6 @@ function CostBar({
             zIndex: 1,
           }}
         />
-        {/* Over-budget overflow: red bar extending past the grey track */}
         {overBudget && (
           <Box
             sx={{
@@ -167,6 +195,7 @@ export default function PpmPortfolio() {
   const { fmtShort, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PpmGanttItem[]>([]);
   const [dashboard, setDashboard] = useState<PpmDashboardData | null>(null);
@@ -175,6 +204,27 @@ export default function PpmPortfolio() {
   const [search, setSearch] = useState("");
   const [subtypeFilter, setSubtypeFilter] = useState("");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  // ── Report hover popover state ──
+  const [reportAnchorEl, setReportAnchorEl] = useState<HTMLElement | null>(null);
+  const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleReportEnter = (
+    e: React.MouseEvent<HTMLElement>,
+    report: PpmStatusReport,
+  ) => {
+    clearTimeout(leaveTimer.current);
+    setReportAnchorEl(e.currentTarget);
+    setHoveredReport(report);
+  };
+
+  const handleReportLeave = () => {
+    leaveTimer.current = setTimeout(() => {
+      setReportAnchorEl(null);
+      setHoveredReport(null);
+    }, 150);
+  };
 
   const now = new Date();
   const windowStart = new Date(now.getFullYear(), now.getMonth() - 6, 1);
@@ -263,6 +313,7 @@ export default function PpmPortfolio() {
     );
   }
 
+  // ── Desktop: Gantt timeline bar ──
   const renderBar = (item: PpmGanttItem) => {
     const startPct = pctOf(item.start_date);
     const endPct = pctOf(item.end_date);
@@ -274,7 +325,6 @@ export default function PpmPortfolio() {
         : item.latest_report?.schedule_health === "atRisk"
           ? "#ffa726"
           : COST_BAR_COLOR;
-    // Round the start/end of the bar unless it is clipped at the window edge
     const clippedLeft = startPct <= 0;
     const clippedRight = endPct >= 100;
     const borderRadius = `${clippedLeft ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedRight ? 0 : 8}px ${clippedLeft ? 0 : 8}px`;
@@ -300,13 +350,26 @@ export default function PpmPortfolio() {
     );
   };
 
+  // ── RAG dot helper ──
+  const ragDot = (value: string | undefined, size = 16) => (
+    <Box
+      sx={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        bgcolor: value ? RAG[value] || "#bdbdbd" : "#bdbdbd",
+        border: value ? undefined : `1px solid ${theme.palette.divider}`,
+        flexShrink: 0,
+      }}
+    />
+  );
+
+  // ── Desktop: grid row ──
   const renderRow = (item: PpmGanttItem) => {
     const rep = item.latest_report;
-    const pm = item.stakeholders.find(
-      (s) => s.role_key === "it_project_manager",
-    ) || item.stakeholders.find(
-      (s) => s.role_key === "responsible",
-    );
+    const pm =
+      item.stakeholders.find((s) => s.role_key === "it_project_manager") ||
+      item.stakeholders.find((s) => s.role_key === "responsible");
 
     const plan = `${fmtQuarter(item.start_date)} / ${fmtQuarter(item.end_date)}`;
 
@@ -344,8 +407,13 @@ export default function PpmPortfolio() {
           {pm?.display_name || "\u2014"}
         </Typography>
 
-        {/* Plan column: Q start / Q end */}
-        <Typography variant="caption" color="text.secondary" sx={{ px: 0.5, textAlign: "center" }} noWrap>
+        {/* Plan column */}
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ px: 0.5, textAlign: "center" }}
+          noWrap
+        >
           {plan}
         </Typography>
 
@@ -370,37 +438,21 @@ export default function PpmPortfolio() {
         {/* RAG dots */}
         {(["schedule_health", "cost_health", "scope_health"] as const).map((field) => (
           <Box key={field} display="flex" justifyContent="center">
-            <Box
-              sx={{
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                bgcolor: rep ? RAG[rep[field]] || "#bdbdbd" : "#bdbdbd",
-                border: `1px solid ${rep ? "transparent" : theme.palette.divider}`,
-              }}
-            />
+            {ragDot(rep?.[field])}
           </Box>
         ))}
 
         {/* CapEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar
-            actual={item.capex_actual}
-            planned={item.capex_planned}
-            currency={currency}
-          />
+          <CostBar actual={item.capex_actual} planned={item.capex_planned} currency={currency} />
         </Box>
 
         {/* OpEx bar */}
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar
-            actual={item.opex_actual}
-            planned={item.opex_planned}
-            currency={currency}
-          />
+          <CostBar actual={item.opex_actual} planned={item.opex_planned} currency={currency} />
         </Box>
 
-        {/* Last Report date — clickable */}
+        {/* Last Report date — hoverable + clickable */}
         {rep ? (
           <Typography
             variant="caption"
@@ -411,6 +463,8 @@ export default function PpmPortfolio() {
               "&:hover": { textDecoration: "underline" },
             }}
             noWrap
+            onMouseEnter={(e) => handleReportEnter(e, rep)}
+            onMouseLeave={handleReportLeave}
             onClick={(e) => {
               e.stopPropagation();
               navigate(`/ppm/${item.id}?tab=reports`);
@@ -419,7 +473,12 @@ export default function PpmPortfolio() {
             {fmtMonthYear(rep.report_date as unknown as string)}
           </Typography>
         ) : (
-          <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }} noWrap>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ textAlign: "center" }}
+            noWrap
+          >
             {"\u2014"}
           </Typography>
         )}
@@ -427,7 +486,124 @@ export default function PpmPortfolio() {
     );
   };
 
-  /** Group totals row */
+  // ── Mobile: card row ──
+  const renderMobileCard = (item: PpmGanttItem) => {
+    const rep = item.latest_report;
+    const pm =
+      item.stakeholders.find((s) => s.role_key === "it_project_manager") ||
+      item.stakeholders.find((s) => s.role_key === "responsible");
+    const plan = `${fmtQuarter(item.start_date)} \u2013 ${fmtQuarter(item.end_date)}`;
+
+    return (
+      <Box
+        key={item.id}
+        sx={{
+          p: 1.5,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          "&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+        }}
+      >
+        {/* Row 1: Name + Subtype */}
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            noWrap
+            sx={{
+              flex: 1,
+              cursor: "pointer",
+              "&:hover": { textDecoration: "underline" },
+              mr: 1,
+            }}
+            onClick={() => navigate(`/ppm/${item.id}`)}
+          >
+            {item.name}
+          </Typography>
+          {item.subtype && (
+            <Chip
+              label={resolveSubtype(item.subtype)}
+              size="small"
+              variant="outlined"
+              sx={{ flexShrink: 0, height: 22, "& .MuiChip-label": { px: 1, fontSize: "0.7rem" } }}
+            />
+          )}
+        </Box>
+
+        {/* Row 2: PM + Timeline quarters */}
+        <Box display="flex" justifyContent="space-between" alignItems="center" mt={0.5}>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {pm?.display_name || "\u2014"}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {plan}
+          </Typography>
+        </Box>
+
+        {/* Row 3: RAG dots + Report date */}
+        <Box display="flex" alignItems="center" gap={1.5} mt={0.75}>
+          {(
+            [
+              ["schedule_health", "S"],
+              ["cost_health", "C"],
+              ["scope_health", "Sc"],
+            ] as const
+          ).map(([field, letter]) => (
+            <Box key={field} display="flex" alignItems="center" gap={0.25}>
+              {ragDot(rep?.[field], 14)}
+              <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
+                {letter}
+              </Typography>
+            </Box>
+          ))}
+          <Box flexGrow={1} />
+          {rep ? (
+            <Typography
+              variant="caption"
+              color="primary"
+              sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/ppm/${item.id}?tab=reports`);
+              }}
+            >
+              {fmtMonthYear(rep.report_date as unknown as string)}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              {"\u2014"}
+            </Typography>
+          )}
+        </Box>
+
+        {/* Row 4: Cost bars side by side */}
+        {(item.capex_planned > 0 ||
+          item.capex_actual > 0 ||
+          item.opex_planned > 0 ||
+          item.opex_actual > 0) && (
+          <Box display="flex" gap={2} mt={0.75}>
+            <Box flex={1}>
+              <CostBar
+                actual={item.capex_actual}
+                planned={item.capex_planned}
+                currency={currency}
+                label={t("capex")}
+              />
+            </Box>
+            <Box flex={1}>
+              <CostBar
+                actual={item.opex_actual}
+                planned={item.opex_planned}
+                currency={currency}
+                label={t("opex")}
+              />
+            </Box>
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
+  /** Group totals row (desktop only) */
   const renderGroupTotals = (groupItems: PpmGanttItem[]) => {
     const totCapexP = groupItems.reduce((s, i) => s + i.capex_planned, 0);
     const totCapexA = groupItems.reduce((s, i) => s + i.capex_actual, 0);
@@ -469,7 +645,7 @@ export default function PpmPortfolio() {
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1800, mx: "auto" }}>
+    <Box sx={{ p: { xs: 1.5, sm: 3 }, maxWidth: 1800, mx: "auto" }}>
       {/* Header */}
       <Box display="flex" alignItems="center" gap={1.5} mb={2}>
         <MaterialSymbol icon="assignment" size={28} />
@@ -483,8 +659,8 @@ export default function PpmPortfolio() {
         <Paper
           sx={{
             display: "flex",
-            gap: 4,
-            px: 3,
+            gap: { xs: 2, sm: 4 },
+            px: { xs: 2, sm: 3 },
             py: 1.5,
             mb: 2,
             alignItems: "center",
@@ -517,11 +693,17 @@ export default function PpmPortfolio() {
               ] as const
             ).map(([key, count]) => (
               <Box key={key} display="flex" alignItems="center" gap={0.5}>
-                <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: RAG[key] }} />
-                <Typography variant="body2" fontWeight={600}>{count}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {t(`health_${key}`)}
+                <Box
+                  sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: RAG[key] }}
+                />
+                <Typography variant="body2" fontWeight={600}>
+                  {count}
                 </Typography>
+                {!isMobile && (
+                  <Typography variant="caption" color="text.secondary">
+                    {t(`health_${key}`)}
+                  </Typography>
+                )}
               </Box>
             ))}
           </Box>
@@ -535,99 +717,137 @@ export default function PpmPortfolio() {
           placeholder={t("searchInitiatives")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ width: 240 }}
+          sx={{ width: { xs: "100%", sm: 240 } }}
         />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
+        <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 180 } }}>
           <InputLabel>{t("groupBy")}</InputLabel>
-          <Select value={groupBy} label={t("groupBy")} onChange={(e) => setGroupBy(e.target.value)}>
+          <Select
+            value={groupBy}
+            label={t("groupBy")}
+            onChange={(e) => setGroupBy(e.target.value)}
+          >
             {groupOptions.map((opt) => (
-              <MenuItem key={opt.type_key} value={opt.type_key}>{opt.type_label}</MenuItem>
+              <MenuItem key={opt.type_key} value={opt.type_key}>
+                {opt.type_label}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
+        <FormControl size="small" sx={{ minWidth: { xs: "calc(50% - 8px)", sm: 140 } }}>
           <InputLabel>{t("subtype")}</InputLabel>
-          <Select value={subtypeFilter} label={t("subtype")} onChange={(e) => setSubtypeFilter(e.target.value)}>
+          <Select
+            value={subtypeFilter}
+            label={t("subtype")}
+            onChange={(e) => setSubtypeFilter(e.target.value)}
+          >
             <MenuItem value="">{t("common:all", "All")}</MenuItem>
             {subtypes.map((s) => (
-              <MenuItem key={s} value={s!}>{resolveSubtype(s)}</MenuItem>
+              <MenuItem key={s} value={s!}>
+                {resolveSubtype(s)}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
       </Box>
 
-      {/* Gantt Header */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: gridCols,
-          alignItems: "end",
-          bgcolor: alpha(theme.palette.primary.main, 0.08),
-          borderRadius: "8px 8px 0 0",
-          minHeight: 40,
-          pb: 0.5,
-        }}
-      >
-        <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
-          {t("initiativeName")}
-        </Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ px: 1 }}>
-          {t("projectManager")}
-        </Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ px: 0.5, textAlign: "center" }}>
-          {t("planColumn", "Plan")}
-        </Typography>
-        {/* Quarter labels spanning timeline column */}
-        <Box sx={{ display: "flex", position: "relative", height: "100%", overflow: "hidden" }}>
-          {quarters.reduce<{ elements: React.ReactNode[]; lastPct: number }>(
-            (acc, q) => {
-              const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-              // Skip labels too close to previous (< 6% apart) to prevent overlap
-              if (acc.elements.length > 0 && left - acc.lastPct < 6) return acc;
-              acc.elements.push(
-                <Typography
-                  key={q.label}
-                  variant="caption"
-                  fontWeight={600}
-                  sx={{
-                    position: "absolute",
-                    left: `${left}%`,
-                    bottom: 2,
-                    whiteSpace: "nowrap",
-                    fontSize: "0.65rem",
-                  }}
-                >
-                  {q.label}
-                </Typography>,
-              );
-              acc.lastPct = left;
-              return acc;
-            },
-            { elements: [], lastPct: -10 },
-          ).elements}
+      {/* Gantt Header — desktop only */}
+      {!isMobile && (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: gridCols,
+            alignItems: "end",
+            bgcolor: alpha(theme.palette.primary.main, 0.08),
+            borderRadius: "8px 8px 0 0",
+            minHeight: 40,
+            pb: 0.5,
+          }}
+        >
+          <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
+            {t("initiativeName")}
+          </Typography>
+          <Typography variant="caption" fontWeight={600} sx={{ px: 1 }}>
+            {t("projectManager")}
+          </Typography>
+          <Typography
+            variant="caption"
+            fontWeight={600}
+            sx={{ px: 0.5, textAlign: "center" }}
+          >
+            {t("planColumn", "Plan")}
+          </Typography>
+          {/* Quarter labels spanning timeline column */}
+          <Box
+            sx={{
+              display: "flex",
+              position: "relative",
+              height: "100%",
+              overflow: "hidden",
+            }}
+          >
+            {quarters
+              .reduce<{ elements: React.ReactNode[]; lastPct: number }>(
+                (acc, q) => {
+                  const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+                  if (acc.elements.length > 0 && left - acc.lastPct < 6) return acc;
+                  acc.elements.push(
+                    <Typography
+                      key={q.label}
+                      variant="caption"
+                      fontWeight={600}
+                      sx={{
+                        position: "absolute",
+                        left: `${left}%`,
+                        bottom: 2,
+                        whiteSpace: "nowrap",
+                        fontSize: "0.65rem",
+                      }}
+                    >
+                      {q.label}
+                    </Typography>,
+                  );
+                  acc.lastPct = left;
+                  return acc;
+                },
+                { elements: [], lastPct: -10 },
+              )
+              .elements}
+          </Box>
+          <Tooltip title={t("health_schedule")}>
+            <Typography variant="caption" fontWeight={600} textAlign="center">
+              S
+            </Typography>
+          </Tooltip>
+          <Tooltip title={t("health_cost")}>
+            <Typography variant="caption" fontWeight={600} textAlign="center">
+              C
+            </Typography>
+          </Tooltip>
+          <Tooltip title={t("health_scope")}>
+            <Typography variant="caption" fontWeight={600} textAlign="center">
+              Sc
+            </Typography>
+          </Tooltip>
+          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+            {t("capex")}
+          </Typography>
+          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+            {t("opex")}
+          </Typography>
+          <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
+            {t("lastReport", "Report")}
+          </Typography>
         </Box>
-        <Tooltip title={t("health_schedule")}>
-          <Typography variant="caption" fontWeight={600} textAlign="center">S</Typography>
-        </Tooltip>
-        <Tooltip title={t("health_cost")}>
-          <Typography variant="caption" fontWeight={600} textAlign="center">C</Typography>
-        </Tooltip>
-        <Tooltip title={t("health_scope")}>
-          <Typography variant="caption" fontWeight={600} textAlign="center">Sc</Typography>
-        </Tooltip>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-          {t("capex")}
-        </Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-          {t("opex")}
-        </Typography>
-        <Typography variant="caption" fontWeight={600} sx={{ textAlign: "center" }}>
-          {t("lastReport", "Report")}
-        </Typography>
-      </Box>
+      )}
 
       {/* Rows grouped */}
-      <Paper variant="outlined" sx={{ borderTop: 0, borderRadius: "0 0 8px 8px" }}>
+      <Paper
+        variant="outlined"
+        sx={{
+          borderTop: isMobile ? undefined : 0,
+          borderRadius: isMobile ? 2 : "0 0 8px 8px",
+        }}
+      >
         {groups.map(([groupId, group]) => {
           const isCollapsed = collapsed.has(groupId);
           return (
@@ -639,9 +859,10 @@ export default function PpmPortfolio() {
                   alignItems: "center",
                   px: 1,
                   py: 0.75,
-                  bgcolor: theme.palette.mode === "dark"
-                    ? alpha(theme.palette.primary.main, 0.15)
-                    : alpha(theme.palette.primary.main, 0.85),
+                  bgcolor:
+                    theme.palette.mode === "dark"
+                      ? alpha(theme.palette.primary.main, 0.15)
+                      : alpha(theme.palette.primary.main, 0.85),
                   borderBottom: `1px solid ${theme.palette.divider}`,
                   cursor: "pointer",
                 }}
@@ -654,10 +875,26 @@ export default function PpmPortfolio() {
                   });
                 }}
               >
-                <IconButton size="small" sx={{ mr: 0.5, color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}>
-                  <MaterialSymbol icon={isCollapsed ? "chevron_right" : "expand_more"} size={18} />
+                <IconButton
+                  size="small"
+                  sx={{
+                    mr: 0.5,
+                    color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
+                  }}
+                >
+                  <MaterialSymbol
+                    icon={isCollapsed ? "chevron_right" : "expand_more"}
+                    size={18}
+                  />
                 </IconButton>
-                <MaterialSymbol icon="folder" size={18} style={{ marginRight: 6, color: theme.palette.mode === "dark" ? undefined : "#fff" }} />
+                <MaterialSymbol
+                  icon="folder"
+                  size={18}
+                  style={{
+                    marginRight: 6,
+                    color: theme.palette.mode === "dark" ? undefined : "#fff",
+                  }}
+                />
                 <Typography
                   variant="body2"
                   fontWeight={700}
@@ -667,13 +904,22 @@ export default function PpmPortfolio() {
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ ml: 1, color: theme.palette.mode === "dark" ? "text.secondary" : alpha("#fff", 0.8) }}
+                  sx={{
+                    ml: 1,
+                    color:
+                      theme.palette.mode === "dark"
+                        ? "text.secondary"
+                        : alpha("#fff", 0.8),
+                  }}
                 >
-                  &mdash; {group.items.length} {group.items.length === 1 ? "project" : "projects"}
+                  &mdash; {t("projectCount", { count: group.items.length })}
                 </Typography>
               </Box>
-              {!isCollapsed && group.items.map(renderRow)}
-              {!isCollapsed && renderGroupTotals(group.items)}
+              {!isCollapsed &&
+                group.items.map((item) =>
+                  isMobile ? renderMobileCard(item) : renderRow(item),
+                )}
+              {!isCollapsed && !isMobile && renderGroupTotals(group.items)}
             </Box>
           );
         })}
@@ -684,6 +930,142 @@ export default function PpmPortfolio() {
           </Box>
         )}
       </Paper>
+
+      {/* ── Report Hover Popover ── */}
+      <Popover
+        open={Boolean(reportAnchorEl)}
+        anchorEl={reportAnchorEl}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+        onClose={handleReportLeave}
+        disableRestoreFocus
+        sx={{ pointerEvents: "none" }}
+        slotProps={{
+          paper: {
+            sx: { pointerEvents: "auto", maxWidth: 320, p: 2 },
+            onMouseEnter: () => clearTimeout(leaveTimer.current),
+            onMouseLeave: handleReportLeave,
+          },
+        }}
+      >
+        {hoveredReport && (
+          <Box>
+            {/* Date + Reporter */}
+            <Typography variant="subtitle2" fontWeight={600}>
+              {fmtDateLong(hoveredReport.report_date)}
+            </Typography>
+            {hoveredReport.reporter && (
+              <Typography variant="caption" color="text.secondary">
+                {t("reporter")}: {hoveredReport.reporter.display_name}
+              </Typography>
+            )}
+
+            <Divider sx={{ my: 1 }} />
+
+            {/* RAG dots */}
+            <Box display="flex" gap={2} mb={1}>
+              {(
+                [
+                  ["schedule_health", t("health_schedule")],
+                  ["cost_health", t("health_cost")],
+                  ["scope_health", t("health_scope")],
+                ] as const
+              ).map(([field, label]) => {
+                const value = hoveredReport[field];
+                return (
+                  <Box key={field} display="flex" alignItems="center" gap={0.5}>
+                    {ragDot(value, 14)}
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontSize: "0.7rem", display: "block", lineHeight: 1.2 }}
+                      >
+                        {label}
+                      </Typography>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontSize: "0.65rem",
+                          color: RAG[value] || "text.secondary",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {t(RAG_LABEL[value] || "health_noReport")}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+
+            {/* Summary */}
+            {hoveredReport.summary && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="caption" fontWeight={600} display="block">
+                  {t("summary")}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {hoveredReport.summary}
+                </Typography>
+              </>
+            )}
+
+            {/* Accomplishments */}
+            {hoveredReport.accomplishments && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="caption" fontWeight={600} display="block">
+                  {t("accomplishments")}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {hoveredReport.accomplishments}
+                </Typography>
+              </>
+            )}
+
+            {/* Next Steps */}
+            {hoveredReport.next_steps && (
+              <>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="caption" fontWeight={600} display="block">
+                  {t("nextSteps")}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {hoveredReport.next_steps}
+                </Typography>
+              </>
+            )}
+          </Box>
+        )}
+      </Popover>
     </Box>
   );
 }

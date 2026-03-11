@@ -108,5 +108,8 @@
   "fiscalYear": "Geschäftsjahr",
   "amount": "Betrag",
   "date": "Datum",
-  "markDone": "Als erledigt markieren"
+  "markDone": "Als erledigt markieren",
+  "reporter": "Berichterstatter",
+  "projectCount_one": "{{count}} Projekt",
+  "projectCount_other": "{{count}} Projekte"
 }

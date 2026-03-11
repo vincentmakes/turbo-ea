@@ -108,5 +108,8 @@
   "fiscalYear": "财政年度",
   "amount": "金额",
   "date": "日期",
-  "markDone": "标记为完成"
+  "markDone": "标记为完成",
+  "reporter": "报告人",
+  "projectCount_one": "{{count}} 个项目",
+  "projectCount_other": "{{count}} 个项目"
 }

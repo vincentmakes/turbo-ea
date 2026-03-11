@@ -108,5 +108,8 @@
   "fiscalYear": "Fiscal Year",
   "amount": "Amount",
   "date": "Date",
-  "markDone": "Mark as done"
+  "markDone": "Mark as done",
+  "reporter": "Reporter",
+  "projectCount_one": "{{count}} project",
+  "projectCount_other": "{{count}} projects"
 }

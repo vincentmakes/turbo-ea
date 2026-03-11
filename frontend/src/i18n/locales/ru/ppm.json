@@ -108,5 +108,8 @@
   "fiscalYear": "Финансовый год",
   "amount": "Сумма",
   "date": "Дата",
-  "markDone": "Отметить как выполненное"
+  "markDone": "Отметить как выполненное",
+  "reporter": "Докладчик",
+  "projectCount_one": "{{count}} проект",
+  "projectCount_other": "{{count}} проектов"
 }

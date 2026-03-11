@@ -108,5 +108,8 @@
   "fiscalYear": "Exercice fiscal",
   "amount": "Montant",
   "date": "Date",
-  "markDone": "Marquer comme terminé"
+  "markDone": "Marquer comme terminé",
+  "reporter": "Rapporteur",
+  "projectCount_one": "{{count}} projet",
+  "projectCount_other": "{{count}} projets"
 }
