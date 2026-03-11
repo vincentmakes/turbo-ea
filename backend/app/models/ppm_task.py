@@ -26,6 +26,13 @@ class PpmTask(Base, UUIDMixin, TimestampMixin):
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     tags: Mapped[list | None] = mapped_column(JSONB, default=list)
+    wbs_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ppm_wbs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )

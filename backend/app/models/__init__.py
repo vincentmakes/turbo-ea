@@ -18,6 +18,7 @@ from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.ppm_task_comment import PpmTaskComment
+from app.models.ppm_wbs import PpmWbs
 from app.models.process_assessment import ProcessAssessment
 from app.models.process_diagram import ProcessDiagram
 from app.models.process_element import ProcessElement
@@ -77,6 +78,7 @@ __all__ = [
     "PpmStatusReport",
     "PpmTask",
     "PpmTaskComment",
+    "PpmWbs",
     "AppSettings",
     "Survey",
     "SurveyResponse",

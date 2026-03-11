@@ -17,10 +17,11 @@ import PpmReportsTab from "./PpmReportsTab";
 import PpmCostTab from "./PpmCostTab";
 import PpmRiskTab from "./PpmRiskTab";
 import PpmTaskBoard from "./PpmTaskBoard";
+import PpmGanttTab from "./PpmGanttTab";
 import PpmCardDetailsTab from "./PpmCardDetailsTab";
 import type { Card, PpmStatusReport, PpmCostLine, PpmBudgetLine, PpmRisk } from "@/types";
 
-const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "details"];
+const TAB_KEYS = ["overview", "reports", "cost", "risks", "tasks", "gantt", "details"];
 
 export default function PpmProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -116,6 +117,7 @@ export default function PpmProjectDetail() {
         <Tab label={t("budgetAndCosts")} />
         <Tab label={t("riskManagement")} />
         <Tab label={t("tasks")} />
+        <Tab label={t("gantt")} />
         <Tab label={t("cardDetails")} />
       </Tabs>
 
@@ -150,7 +152,8 @@ export default function PpmProjectDetail() {
         />
       )}
       {tab === 4 && <PpmTaskBoard initiativeId={id!} />}
-      {tab === 5 && (
+      {tab === 5 && <PpmGanttTab initiativeId={id!} />}
+      {tab === 6 && (
         <PpmCardDetailsTab
           card={card}
           canEdit

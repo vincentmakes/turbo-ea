@@ -1088,6 +1088,21 @@ export interface PpmHealthCounts {
   noReport: number;
 }
 
+export interface PpmWbs {
+  id: string;
+  initiative_id: string;
+  parent_id: string | null;
+  title: string;
+  description: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  sort_order: number;
+  progress: number;
+  task_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export type PpmTaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export type PpmTaskPriority = "critical" | "high" | "medium" | "low";
 
@@ -1100,9 +1115,11 @@ export interface PpmTask {
   priority: PpmTaskPriority;
   assignee_id: string | null;
   assignee_name: string | null;
+  start_date: string | null;
   due_date: string | null;
   sort_order: number;
   tags: string[];
+  wbs_id: string | null;
   comment_count: number;
   created_at: string;
   updated_at: string;

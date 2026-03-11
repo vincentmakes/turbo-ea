@@ -24,6 +24,7 @@ import type {
   PpmTaskStatus,
   PpmTaskPriority,
   PpmTaskComment,
+  PpmWbs,
 } from "@/types";
 
 interface UserOption {
@@ -34,6 +35,7 @@ interface UserOption {
 interface Props {
   initiativeId: string;
   task?: PpmTask;
+  wbsList?: PpmWbs[];
   onClose: () => void;
   onSaved: () => void;
 }
@@ -50,6 +52,7 @@ function initials(name: string): string {
 export default function PpmTaskDialog({
   initiativeId,
   task,
+  wbsList,
   onClose,
   onSaved,
 }: Props) {
@@ -65,7 +68,9 @@ export default function PpmTaskDialog({
     task?.priority || "medium",
   );
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
+  const [startDate, setStartDate] = useState(task?.start_date || "");
   const [dueDate, setDueDate] = useState(task?.due_date || "");
+  const [wbsId, setWbsId] = useState(task?.wbs_id || "");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
 
@@ -110,7 +115,9 @@ export default function PpmTaskDialog({
         status,
         priority,
         assignee_id: assigneeId || null,
+        start_date: startDate || null,
         due_date: dueDate || null,
+        wbs_id: wbsId || null,
       };
       if (isEdit) {
         await api.patch(`/ppm/tasks/${task.id}`, payload);
@@ -233,15 +240,44 @@ export default function PpmTaskDialog({
             size="small"
           />
 
-          <TextField
-            label={t("taskDueDate")}
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            fullWidth
-            size="small"
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
+          <Box display="flex" gap={2}>
+            <TextField
+              label={t("taskStartDate")}
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label={t("taskDueDate")}
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              fullWidth
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Box>
+
+          {wbsList && wbsList.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>{t("wbs")}</InputLabel>
+              <Select
+                value={wbsId}
+                label={t("wbs")}
+                onChange={(e) => setWbsId(e.target.value)}
+              >
+                <MenuItem value="">—</MenuItem>
+                {wbsList.map((w) => (
+                  <MenuItem key={w.id} value={w.id}>
+                    {w.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
 
           {/* Comments section (only in edit mode) */}
           {isEdit && (

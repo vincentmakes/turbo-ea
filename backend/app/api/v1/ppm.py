@@ -15,6 +15,7 @@ from app.models.ppm_risk import PpmRisk
 from app.models.ppm_status_report import PpmStatusReport
 from app.models.ppm_task import PpmTask
 from app.models.ppm_task_comment import PpmTaskComment
+from app.models.ppm_wbs import PpmWbs
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.ppm import (
@@ -36,6 +37,9 @@ from app.schemas.ppm import (
     PpmTaskCreate,
     PpmTaskOut,
     PpmTaskUpdate,
+    PpmWbsCreate,
+    PpmWbsOut,
+    PpmWbsUpdate,
     ReporterOut,
 )
 from app.services import notification_service
@@ -519,9 +523,11 @@ async def _task_to_out(db: AsyncSession, task: PpmTask) -> PpmTaskOut:
         priority=task.priority,
         assignee_id=str(task.assignee_id) if task.assignee_id else None,
         assignee_name=assignee_name,
+        start_date=task.start_date,
         due_date=task.due_date,
         sort_order=task.sort_order,
         tags=task.tags or [],
+        wbs_id=str(task.wbs_id) if task.wbs_id else None,
         comment_count=comment_count,
         created_at=task.created_at,
         updated_at=task.updated_at,
@@ -561,9 +567,11 @@ async def create_task(
         status=body.status,
         priority=body.priority,
         assignee_id=body.assignee_id,
+        start_date=body.start_date,
         due_date=body.due_date,
         sort_order=body.sort_order,
         tags=body.tags,
+        wbs_id=body.wbs_id,
     )
     db.add(task)
     await db.flush()
@@ -735,4 +743,146 @@ async def delete_task_comment(
     if comment.user_id != user.id and not has_manage:
         raise HTTPException(status_code=403, detail="Not allowed")
     await db.delete(comment)
+    await db.commit()
+
+
+# ── WBS (Work Breakdown Structure) ────────────────────────────────
+
+
+async def _wbs_to_out(db: AsyncSession, wbs: PpmWbs) -> PpmWbsOut:
+    total = (await db.scalar(select(func.count(PpmTask.id)).where(PpmTask.wbs_id == wbs.id))) or 0
+    done = (
+        await db.scalar(
+            select(func.count(PpmTask.id)).where(PpmTask.wbs_id == wbs.id, PpmTask.status == "done")
+        )
+    ) or 0
+    progress = round((done / total) * 100, 1) if total else 0
+    return PpmWbsOut(
+        id=str(wbs.id),
+        initiative_id=str(wbs.initiative_id),
+        parent_id=str(wbs.parent_id) if wbs.parent_id else None,
+        title=wbs.title,
+        description=wbs.description,
+        start_date=wbs.start_date,
+        end_date=wbs.end_date,
+        sort_order=wbs.sort_order,
+        progress=progress,
+        task_count=total,
+        created_at=wbs.created_at,
+        updated_at=wbs.updated_at,
+    )
+
+
+@router.get("/initiatives/{initiative_id}/wbs", response_model=list[PpmWbsOut])
+async def list_wbs(
+    initiative_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.view")
+    await _get_initiative_or_404(db, initiative_id)
+    result = await db.execute(
+        select(PpmWbs)
+        .where(PpmWbs.initiative_id == initiative_id)
+        .order_by(PpmWbs.sort_order, PpmWbs.created_at)
+    )
+    return [await _wbs_to_out(db, w) for w in result.scalars().all()]
+
+
+@router.post("/initiatives/{initiative_id}/wbs", response_model=PpmWbsOut)
+async def create_wbs(
+    initiative_id: str,
+    body: PpmWbsCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    await _get_initiative_or_404(db, initiative_id)
+    if body.parent_id:
+        parent_result = await db.execute(
+            select(PpmWbs).where(
+                PpmWbs.id == body.parent_id,
+                PpmWbs.initiative_id == initiative_id,
+            )
+        )
+        if not parent_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="Parent WBS item not found in this initiative",
+            )
+    wbs = PpmWbs(
+        id=uuid.uuid4(),
+        initiative_id=initiative_id,
+        parent_id=body.parent_id,
+        title=body.title,
+        description=body.description,
+        start_date=body.start_date,
+        end_date=body.end_date,
+        sort_order=body.sort_order,
+    )
+    db.add(wbs)
+    await db.commit()
+    await db.refresh(wbs)
+    return await _wbs_to_out(db, wbs)
+
+
+@router.patch("/wbs/{wbs_id}", response_model=PpmWbsOut)
+async def update_wbs(
+    wbs_id: str,
+    body: PpmWbsUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmWbs).where(PpmWbs.id == wbs_id))
+    wbs = result.scalar_one_or_none()
+    if not wbs:
+        raise HTTPException(status_code=404, detail="WBS item not found")
+    data = body.model_dump(exclude_unset=True)
+    # Validate parent_id to prevent cycles
+    if "parent_id" in data and data["parent_id"]:
+        new_parent_id = data["parent_id"]
+        if new_parent_id == wbs_id:
+            raise HTTPException(status_code=400, detail="WBS item cannot be its own parent")
+        parent_result = await db.execute(
+            select(PpmWbs).where(
+                PpmWbs.id == new_parent_id,
+                PpmWbs.initiative_id == wbs.initiative_id,
+            )
+        )
+        if not parent_result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=400,
+                detail="Parent WBS item not found in this initiative",
+            )
+        # Walk ancestors to detect cycle
+        cursor = new_parent_id
+        while cursor:
+            if cursor == wbs_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Circular parent reference detected",
+                )
+            anc = await db.execute(select(PpmWbs.parent_id).where(PpmWbs.id == cursor))
+            row = anc.first()
+            cursor = str(row[0]) if row and row[0] else None
+    for key, val in data.items():
+        setattr(wbs, key, val)
+    await db.commit()
+    await db.refresh(wbs)
+    return await _wbs_to_out(db, wbs)
+
+
+@router.delete("/wbs/{wbs_id}", status_code=204)
+async def delete_wbs(
+    wbs_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    await PermissionService.require_permission(db, user, "ppm.manage")
+    result = await db.execute(select(PpmWbs).where(PpmWbs.id == wbs_id))
+    wbs = result.scalar_one_or_none()
+    if not wbs:
+        raise HTTPException(status_code=404, detail="WBS item not found")
+    await db.delete(wbs)
     await db.commit()

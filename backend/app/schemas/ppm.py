@@ -152,9 +152,11 @@ class PpmTaskCreate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] = "todo"
     priority: Literal["critical", "high", "medium", "low"] = "medium"
     assignee_id: str | None = None
+    start_date: date_type | None = None
     due_date: date_type | None = None
     sort_order: int = 0
     tags: list[str] = []
+    wbs_id: str | None = None
 
 
 class PpmTaskUpdate(BaseModel):
@@ -163,9 +165,11 @@ class PpmTaskUpdate(BaseModel):
     status: Literal["todo", "in_progress", "done", "blocked"] | None = None
     priority: Literal["critical", "high", "medium", "low"] | None = None
     assignee_id: str | None = None
+    start_date: date_type | None = None
     due_date: date_type | None = None
     sort_order: int | None = None
     tags: list[str] | None = None
+    wbs_id: str | None = None
 
 
 class PpmTaskOut(BaseModel):
@@ -177,9 +181,11 @@ class PpmTaskOut(BaseModel):
     priority: str
     assignee_id: str | None
     assignee_name: str | None = None
+    start_date: date_type | None = None
     due_date: date_type | None
     sort_order: int
     tags: list[str]
+    wbs_id: str | None = None
     comment_count: int = 0
     created_at: datetime
     updated_at: datetime
@@ -202,6 +208,42 @@ class PpmTaskCommentOut(BaseModel):
     user_id: str
     user_display_name: str
     content: str
+    created_at: datetime
+    updated_at: datetime
+
+
+# --- WBS (Work Breakdown Structure) ---
+
+
+class PpmWbsCreate(BaseModel):
+    title: str
+    description: str | None = None
+    parent_id: str | None = None
+    start_date: date_type | None = None
+    end_date: date_type | None = None
+    sort_order: int = 0
+
+
+class PpmWbsUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    parent_id: str | None = None
+    start_date: date_type | None = None
+    end_date: date_type | None = None
+    sort_order: int | None = None
+
+
+class PpmWbsOut(BaseModel):
+    id: str
+    initiative_id: str
+    parent_id: str | None
+    title: str
+    description: str | None
+    start_date: date_type | None
+    end_date: date_type | None
+    sort_order: int
+    progress: float = 0
+    task_count: int = 0
     created_at: datetime
     updated_at: datetime
 
