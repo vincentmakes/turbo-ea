@@ -142,5 +142,8 @@
   "completion": "Achèvement",
   "completionDesc": "Achèvement moyen sur l'ensemble des lots de travail",
   "completionAutoRollup": "L'achèvement est calculé automatiquement à partir des éléments enfants",
-  "workPackage": "Lot de travail"
+  "workPackage": "Lot de travail",
+  "confirmDeleteTask": "Supprimer cette tâche ? Cette action est irréversible.",
+  "addTaskUnderWbs": "Ajouter une tâche",
+  "deleteConfirm": "Confirmer la suppression"
 }

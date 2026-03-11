@@ -142,5 +142,8 @@
   "completion": "Fertigstellung",
   "completionDesc": "Durchschnittliche Fertigstellung über alle Arbeitspakete",
   "completionAutoRollup": "Fertigstellung wird automatisch aus untergeordneten Elementen berechnet",
-  "workPackage": "Arbeitspaket"
+  "workPackage": "Arbeitspaket",
+  "confirmDeleteTask": "Diese Aufgabe löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+  "addTaskUnderWbs": "Aufgabe hinzufügen",
+  "deleteConfirm": "Löschen bestätigen"
 }

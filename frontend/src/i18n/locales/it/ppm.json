@@ -142,5 +142,8 @@
   "completion": "Completamento",
   "completionDesc": "Completamento medio dei pacchetti di lavoro",
   "completionAutoRollup": "Il completamento è calcolato automaticamente dagli elementi figli",
-  "workPackage": "Pacchetto di lavoro"
+  "workPackage": "Pacchetto di lavoro",
+  "confirmDeleteTask": "Eliminare questa attività? Questa azione non può essere annullata.",
+  "addTaskUnderWbs": "Aggiungi attività",
+  "deleteConfirm": "Conferma eliminazione"
 }

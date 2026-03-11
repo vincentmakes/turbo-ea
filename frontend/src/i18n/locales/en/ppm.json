@@ -142,5 +142,8 @@
   "completion": "Completion",
   "completionDesc": "Average completion across work packages",
   "completionAutoRollup": "Completion is auto-calculated from child items",
-  "workPackage": "Work Package"
+  "workPackage": "Work Package",
+  "confirmDeleteTask": "Delete this task? This action cannot be undone.",
+  "addTaskUnderWbs": "Add Task",
+  "deleteConfirm": "Confirm Delete"
 }

@@ -5,6 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.3] - 2026-03-11
+
+### Added
+- Gantt table shows start date and end date columns alongside the title for at-a-glance visibility
+- Create Task button in Gantt toolbar to add tasks directly from the Gantt view
+- Work Package selector now visible when editing tasks from the Gantt tab
+- Right-click context menu on Gantt rows for quick edit, add task, and delete actions
+- Delete confirmation dialogs for both WBS items and tasks to prevent accidental deletion
+- Delete button in task edit dialog (previously only available from the Task Board)
+- Progress bar dragging on WBS items to adjust completion directly in the Gantt chart
+- Task bars use distinct blue color to visually differentiate them from WBS summary bars
+
+### Changed
+- Today button in Gantt toolbar now scrolls the chart to the current date
+- PPM navigation icon changed to view_kanban
+
 ## [0.32.2] - 2026-03-11
 
 ### Added

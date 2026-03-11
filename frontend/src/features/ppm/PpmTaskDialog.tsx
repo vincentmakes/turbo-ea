@@ -14,6 +14,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
 import IconButton from "@mui/material/IconButton";
+import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
@@ -36,6 +37,7 @@ interface Props {
   initiativeId: string;
   task?: PpmTask;
   wbsList?: PpmWbs[];
+  defaultWbsId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -53,6 +55,7 @@ export default function PpmTaskDialog({
   initiativeId,
   task,
   wbsList,
+  defaultWbsId,
   onClose,
   onSaved,
 }: Props) {
@@ -70,9 +73,10 @@ export default function PpmTaskDialog({
   const [assigneeId, setAssigneeId] = useState(task?.assignee_id || "");
   const [startDate, setStartDate] = useState(task?.start_date || "");
   const [dueDate, setDueDate] = useState(task?.due_date || "");
-  const [wbsId, setWbsId] = useState(task?.wbs_id || "");
+  const [wbsId, setWbsId] = useState(task?.wbs_id || defaultWbsId || "");
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Comments
   const [comments, setComments] = useState<PpmTaskComment[]>([]);
@@ -151,6 +155,12 @@ export default function PpmTaskDialog({
   const handleDeleteComment = async (commentId: string) => {
     await api.delete(`/ppm/task-comments/${commentId}`);
     loadComments();
+  };
+
+  const handleDelete = async () => {
+    if (!task) return;
+    await api.delete(`/ppm/tasks/${task.id}`);
+    onSaved();
   };
 
   return (
@@ -371,7 +381,38 @@ export default function PpmTaskDialog({
           )}
         </Box>
       </DialogContent>
+      {isEdit && confirmDelete && (
+        <Alert
+          severity="error"
+          sx={{ mx: 3, mb: 1 }}
+          action={
+            <Box display="flex" gap={0.5}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setConfirmDelete(false)}
+              >
+                {t("common:actions.cancel", "Cancel")}
+              </Button>
+              <Button color="error" size="small" onClick={handleDelete}>
+                {t("deleteConfirm")}
+              </Button>
+            </Box>
+          }
+        >
+          {t("confirmDeleteTask")}
+        </Alert>
+      )}
       <DialogActions>
+        {isEdit && (
+          <Button
+            color="error"
+            onClick={() => setConfirmDelete(true)}
+            sx={{ mr: "auto" }}
+          >
+            {t("common:actions.delete", "Delete")}
+          </Button>
+        )}
         <Button onClick={onClose}>
           {t("common:actions.cancel", "Cancel")}
         </Button>

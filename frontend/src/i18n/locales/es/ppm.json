@@ -142,5 +142,8 @@
   "completion": "Finalización",
   "completionDesc": "Finalización promedio de los paquetes de trabajo",
   "completionAutoRollup": "La finalización se calcula automáticamente a partir de los elementos hijos",
-  "workPackage": "Paquete de trabajo"
+  "workPackage": "Paquete de trabajo",
+  "confirmDeleteTask": "¿Eliminar esta tarea? Esta acción no se puede deshacer.",
+  "addTaskUnderWbs": "Agregar tarea",
+  "deleteConfirm": "Confirmar eliminación"
 }

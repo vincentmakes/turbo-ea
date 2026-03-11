@@ -9,8 +9,22 @@ import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { useTranslation } from "react-i18next";
-import { Gantt, ViewMode, TitleColumn, GanttDateRoundingTimeUnit } from "@wamra/gantt-task-react";
-import type { Task, OnDateChange, TaskOrEmpty, Column } from "@wamra/gantt-task-react";
+import {
+  Gantt,
+  ViewMode,
+  TitleColumn,
+  DateStartColumn,
+  DateEndColumn,
+  GanttDateRoundingTimeUnit,
+} from "@wamra/gantt-task-react";
+import type {
+  Task,
+  OnDateChange,
+  OnProgressChange,
+  TaskOrEmpty,
+  Column,
+  ContextMenuOptionType,
+} from "@wamra/gantt-task-react";
 import "@wamra/gantt-task-react/dist/style.css";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
@@ -71,6 +85,10 @@ export default function PpmGanttTab({ initiativeId }: Props) {
   // Task dialog state
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<PpmTask | undefined>();
+  const [preselectedWbsId, setPreselectedWbsId] = useState<string>("");
+
+  // Today button → scroll gantt to current date
+  const [viewDate, setViewDate] = useState<Date | undefined>();
 
   const loadData = useCallback(async () => {
     try {
@@ -154,6 +172,12 @@ export default function PpmGanttTab({ initiativeId }: Props) {
         progress,
         parent: tk.wbs_id ? `wbs-${tk.wbs_id}` : undefined,
         isDisabled: false,
+        styles: {
+          barBackgroundColor: theme.palette.info.light,
+          barProgressColor: theme.palette.info.main,
+          barBackgroundSelectedColor: theme.palette.info.dark,
+          barProgressSelectedColor: theme.palette.info.main,
+        },
       });
     }
 
@@ -179,6 +203,20 @@ export default function PpmGanttTab({ initiativeId }: Props) {
         });
       }
       await loadData();
+    },
+    [loadData],
+  );
+
+  const handleProgressChange: OnProgressChange = useCallback(
+    async (task) => {
+      const id = task.id;
+      if (id.startsWith("wbs-")) {
+        const realId = id.slice(4);
+        await api.patch(`/ppm/wbs/${realId}`, {
+          completion: Math.round(task.progress),
+        });
+        await loadData();
+      }
     },
     [loadData],
   );
@@ -218,13 +256,64 @@ export default function PpmGanttTab({ initiativeId }: Props) {
     }
   }, []);
 
+  const contextMenuOptions: ContextMenuOptionType[] = useMemo(
+    () => [
+      {
+        label: t("common:actions.edit", "Edit"),
+        icon: <MaterialSymbol icon="edit" size={16} />,
+        action: (meta) => handleClick(meta.task),
+      },
+      {
+        label: t("addTaskUnderWbs"),
+        icon: <MaterialSymbol icon="add_task" size={16} />,
+        action: (meta) => {
+          if (!meta.task.id.startsWith("wbs-")) return;
+          const wbsRealId = meta.task.id.slice(4);
+          setEditingTask(undefined);
+          setPreselectedWbsId(wbsRealId);
+          setTaskDialogOpen(true);
+        },
+      },
+      {
+        label: t("common:actions.delete", "Delete"),
+        icon: <MaterialSymbol icon="delete" size={16} />,
+        action: async (meta) => {
+          const id = meta.task.id;
+          if (id.startsWith("wbs-")) {
+            if (!window.confirm(t("confirmDeleteWbs"))) return;
+            await api.delete(`/ppm/wbs/${id.slice(4)}`);
+          } else if (id.startsWith("task-")) {
+            if (!window.confirm(t("confirmDeleteTask"))) return;
+            await api.delete(`/ppm/tasks/${id.slice(5)}`);
+          }
+          await loadData();
+        },
+      },
+    ],
+    [t, handleClick, loadData],
+  );
+
   const ganttColumns: Column[] = useMemo(
     () => [
       {
         id: "title",
         Cell: TitleColumn,
-        width: 240,
+        width: 220,
         title: t("wbsTitle"),
+        canResize: true,
+      },
+      {
+        id: "start",
+        Cell: DateStartColumn,
+        width: 90,
+        title: t("startDate"),
+        canResize: true,
+      },
+      {
+        id: "end",
+        Cell: DateEndColumn,
+        width: 90,
+        title: t("endDate"),
         canResize: true,
       },
     ],
@@ -280,9 +369,21 @@ export default function PpmGanttTab({ initiativeId }: Props) {
         >
           {t("addMilestone")}
         </Button>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<MaterialSymbol icon="add_task" size={18} />}
+          onClick={() => {
+            setEditingTask(undefined);
+            setPreselectedWbsId("");
+            setTaskDialogOpen(true);
+          }}
+        >
+          {t("createTask")}
+        </Button>
         <Box flex={1} />
         <Tooltip title={t("today")}>
-          <IconButton size="small" onClick={() => {}}>
+          <IconButton size="small" onClick={() => setViewDate(new Date())}>
             <MaterialSymbol icon="today" size={20} />
           </IconButton>
         </Tooltip>
@@ -328,10 +429,13 @@ export default function PpmGanttTab({ initiativeId }: Props) {
           <Gantt
             tasks={ganttTasks}
             viewMode={viewMode}
+            viewDate={viewDate}
             columns={ganttColumns}
             onClick={handleClick}
             onDateChange={handleDateChange}
+            onProgressChange={handleProgressChange}
             onChangeExpandState={handleExpanderClick}
+            contextMenuOptions={contextMenuOptions}
             roundDate={roundToDay}
             dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
             distances={{
@@ -364,17 +468,21 @@ export default function PpmGanttTab({ initiativeId }: Props) {
       )}
 
       {/* Task Dialog */}
-      {taskDialogOpen && editingTask && (
+      {taskDialogOpen && (
         <PpmTaskDialog
           initiativeId={initiativeId}
           task={editingTask}
+          wbsList={wbsList}
+          defaultWbsId={preselectedWbsId}
           onClose={() => {
             setTaskDialogOpen(false);
             setEditingTask(undefined);
+            setPreselectedWbsId("");
           }}
           onSaved={() => {
             setTaskDialogOpen(false);
             setEditingTask(undefined);
+            setPreselectedWbsId("");
             loadData();
           }}
         />

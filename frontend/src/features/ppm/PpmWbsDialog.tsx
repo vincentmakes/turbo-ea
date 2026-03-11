@@ -14,6 +14,7 @@ import Switch from "@mui/material/Switch";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
 import Box from "@mui/material/Box";
+import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
@@ -65,6 +66,7 @@ export default function PpmWbsDialog({
   );
   const [completion, setCompletion] = useState(wbs?.completion ?? 0);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Check if this WBS has children (completion will be auto-rolled up)
   const hasChildren = wbsList.some((w) => w.parent_id === wbs?.id);
@@ -195,9 +197,35 @@ export default function PpmWbsDialog({
           </Box>
         </Box>
       </DialogContent>
+      {isEdit && confirmDelete && (
+        <Alert
+          severity="error"
+          sx={{ mx: 3, mb: 1 }}
+          action={
+            <Box display="flex" gap={0.5}>
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => setConfirmDelete(false)}
+              >
+                {t("common:actions.cancel", "Cancel")}
+              </Button>
+              <Button color="error" size="small" onClick={handleDelete}>
+                {t("deleteConfirm")}
+              </Button>
+            </Box>
+          }
+        >
+          {t("confirmDeleteWbs")}
+        </Alert>
+      )}
       <DialogActions>
         {isEdit && (
-          <Button color="error" onClick={handleDelete} sx={{ mr: "auto" }}>
+          <Button
+            color="error"
+            onClick={() => setConfirmDelete(true)}
+            sx={{ mr: "auto" }}
+          >
             {t("deleteWbs")}
           </Button>
         )}

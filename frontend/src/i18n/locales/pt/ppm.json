@@ -142,5 +142,8 @@
   "completion": "Conclusão",
   "completionDesc": "Conclusão média dos pacotes de trabalho",
   "completionAutoRollup": "A conclusão é calculada automaticamente a partir dos itens filhos",
-  "workPackage": "Pacote de trabalho"
+  "workPackage": "Pacote de trabalho",
+  "confirmDeleteTask": "Excluir esta tarefa? Esta ação não pode ser desfeita.",
+  "addTaskUnderWbs": "Adicionar tarefa",
+  "deleteConfirm": "Confirmar exclusão"
 }

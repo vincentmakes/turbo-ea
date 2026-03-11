@@ -142,5 +142,8 @@
   "completion": "完成度",
   "completionDesc": "各工作包的平均完成度",
   "completionAutoRollup": "完成度根据子项自动计算",
-  "workPackage": "工作包"
+  "workPackage": "工作包",
+  "confirmDeleteTask": "删除此任务？此操作无法撤销。",
+  "addTaskUnderWbs": "添加任务",
+  "deleteConfirm": "确认删除"
 }

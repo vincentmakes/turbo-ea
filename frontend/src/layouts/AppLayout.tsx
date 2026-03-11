@@ -77,7 +77,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
-  { labelKey: "ppm", icon: "assignment", path: "/ppm", permission: "ppm.view" },
+  { labelKey: "ppm", icon: "view_kanban", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
