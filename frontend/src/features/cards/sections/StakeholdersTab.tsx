@@ -86,11 +86,11 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
         <MuiCard key={role.key} sx={{ mb: 2 }}>
           <CardContent>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              {rl(role.key, role.translations)}
+              {rl(role.label, role.translations?.label)}
             </Typography>
             {items.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                {t("stakeholders.noneAssigned", { role: rl(role.key, role.translations).toLowerCase() })}
+                {t("stakeholders.noneAssigned", { role: rl(role.label, role.translations?.label).toLowerCase() })}
               </Typography>
             ) : (
               <List dense disablePadding>
@@ -129,7 +129,7 @@ function StakeholdersTab({ card, onRefresh, canManageStakeholders = true }: { ca
                 <InputLabel>{t("stakeholders.role")}</InputLabel>
                 <Select value={addRole} label={t("stakeholders.role")} onChange={(e) => setAddRole(e.target.value)}>
                   {roles.map((r) => (
-                    <MenuItem key={r.key} value={r.key}>{rl(r.key, r.translations)}</MenuItem>
+                    <MenuItem key={r.key} value={r.key}>{rl(r.label, r.translations?.label)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>

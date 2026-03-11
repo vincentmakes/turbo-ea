@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.5] - 2026-03-11
+
+### Fixed
+- Stakeholder roles in card details now display translated labels instead of raw keys
+- Stakeholder role labels are now included in the metamodel translation management dialog
+- Stakeholder role panel in metamodel admin now supports inline label translations
+
 ## [0.32.4] - 2026-03-11
 
 ### Added

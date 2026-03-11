@@ -37,7 +37,15 @@ async def _roles_for_type(db: AsyncSession, type_key: str) -> list[dict]:
     )
     srds = result.scalars().all()
     if srds:
-        return [{"key": s.key, "label": s.label, "color": s.color} for s in srds]
+        return [
+            {
+                "key": s.key,
+                "label": s.label,
+                "color": s.color,
+                "translations": s.translations or {},
+            }
+            for s in srds
+        ]
     # Fallback to JSONB for backward compat during migration
     result = await db.execute(select(CardType.stakeholder_roles).where(CardType.key == type_key))
     roles = result.scalar_one_or_none()
@@ -61,16 +69,34 @@ async def list_roles(
     """Return role definitions from stakeholder_role_definitions table."""
     if type_key:
         roles = await _roles_for_type(db, type_key)
-        return [{"key": r["key"], "label": r["label"]} for r in roles]
+        return [
+            {
+                "key": r["key"],
+                "label": r["label"],
+                "translations": r.get("translations", {}),
+            }
+            for r in roles
+        ]
 
     # Return all unique active roles across all types
     result = await db.execute(
-        select(StakeholderRoleDefinition.key, StakeholderRoleDefinition.label)
+        select(
+            StakeholderRoleDefinition.key,
+            StakeholderRoleDefinition.label,
+            StakeholderRoleDefinition.translations,
+        )
         .where(StakeholderRoleDefinition.is_archived == False)  # noqa: E712
         .distinct(StakeholderRoleDefinition.key)
         .order_by(StakeholderRoleDefinition.key)
     )
-    return [{"key": row[0], "label": row[1]} for row in result.all()]
+    return [
+        {
+            "key": row[0],
+            "label": row[1],
+            "translations": row[2] or {},
+        }
+        for row in result.all()
+    ]
 
 
 @router.get("/cards/{card_id}/stakeholders")

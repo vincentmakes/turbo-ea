@@ -1569,9 +1569,51 @@ TYPES = [
             },
         ],
         "stakeholder_roles": [
-            {"key": "responsible", "label": "Responsible"},
-            {"key": "it_project_manager", "label": "IT Project Manager"},
-            {"key": "observer", "label": "Observer"},
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": {
+                        "de": "Verantwortlicher",
+                        "fr": "Responsable",
+                        "es": "Responsable",
+                        "it": "Responsabile",
+                        "pt": "Responsável",
+                        "zh": "负责人",
+                        "ru": "Ответственный",
+                    },
+                },
+            },
+            {
+                "key": "it_project_manager",
+                "label": "IT Project Manager",
+                "translations": {
+                    "label": {
+                        "de": "IT-Projektleiter",
+                        "fr": "Chef de projet IT",
+                        "es": "Director de proyecto TI",
+                        "it": "Responsabile progetto IT",
+                        "pt": "Gerente de projeto TI",
+                        "zh": "IT项目经理",
+                        "ru": "IT-руководитель проекта",
+                    },
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": {
+                        "de": "Beobachter",
+                        "fr": "Observateur",
+                        "es": "Observador",
+                        "it": "Osservatore",
+                        "pt": "Observador",
+                        "zh": "观察者",
+                        "ru": "Наблюдатель",
+                    },
+                },
+            },
         ],
         "translations": {
             "label": {
@@ -2398,9 +2440,51 @@ TYPES = [
             },
         ],
         "stakeholder_roles": [
-            {"key": "responsible", "label": "Responsible"},
-            {"key": "process_owner", "label": "Process Owner"},
-            {"key": "observer", "label": "Observer"},
+            {
+                "key": "responsible",
+                "label": "Responsible",
+                "translations": {
+                    "label": {
+                        "de": "Verantwortlicher",
+                        "fr": "Responsable",
+                        "es": "Responsable",
+                        "it": "Responsabile",
+                        "pt": "Responsável",
+                        "zh": "负责人",
+                        "ru": "Ответственный",
+                    },
+                },
+            },
+            {
+                "key": "process_owner",
+                "label": "Process Owner",
+                "translations": {
+                    "label": {
+                        "de": "Prozessverantwortlicher",
+                        "fr": "Propriétaire du processus",
+                        "es": "Propietario del proceso",
+                        "it": "Responsabile del processo",
+                        "pt": "Proprietário do processo",
+                        "zh": "流程负责人",
+                        "ru": "Владелец процесса",
+                    },
+                },
+            },
+            {
+                "key": "observer",
+                "label": "Observer",
+                "translations": {
+                    "label": {
+                        "de": "Beobachter",
+                        "fr": "Observateur",
+                        "es": "Observador",
+                        "it": "Osservatore",
+                        "pt": "Observador",
+                        "zh": "观察者",
+                        "ru": "Наблюдатель",
+                    },
+                },
+            },
         ],
         "translations": {
             "label": {
@@ -4809,12 +4893,68 @@ async def seed_metamodel(db: AsyncSession) -> None:
     new sections (e.g. the BPM Assessment section on BusinessCapability).
     """
     _default_roles = [
-        {"key": "responsible", "label": "Responsible"},
-        {"key": "observer", "label": "Observer"},
+        {
+            "key": "responsible",
+            "label": "Responsible",
+            "translations": {
+                "label": {
+                    "de": "Verantwortlicher",
+                    "fr": "Responsable",
+                    "es": "Responsable",
+                    "it": "Responsabile",
+                    "pt": "Responsável",
+                    "zh": "负责人",
+                    "ru": "Ответственный",
+                },
+            },
+        },
+        {
+            "key": "observer",
+            "label": "Observer",
+            "translations": {
+                "label": {
+                    "de": "Beobachter",
+                    "fr": "Observateur",
+                    "es": "Observador",
+                    "it": "Osservatore",
+                    "pt": "Observador",
+                    "zh": "观察者",
+                    "ru": "Наблюдатель",
+                },
+            },
+        },
     ]
     _app_roles = _default_roles + [
-        {"key": "technical_application_owner", "label": "Technical Application Owner"},
-        {"key": "business_application_owner", "label": "Business Application Owner"},
+        {
+            "key": "technical_application_owner",
+            "label": "Technical Application Owner",
+            "translations": {
+                "label": {
+                    "de": "Technischer Anwendungsverantwortlicher",
+                    "fr": "Responsable technique de l'application",
+                    "es": "Responsable técnico de la aplicación",
+                    "it": "Responsabile tecnico dell'applicazione",
+                    "pt": "Responsável técnico da aplicação",
+                    "zh": "技术应用负责人",
+                    "ru": "Технический владелец приложения",
+                },
+            },
+        },
+        {
+            "key": "business_application_owner",
+            "label": "Business Application Owner",
+            "translations": {
+                "label": {
+                    "de": "Fachlicher Anwendungsverantwortlicher",
+                    "fr": "Responsable métier de l'application",
+                    "es": "Responsable de negocio de la aplicación",
+                    "it": "Responsabile aziendale dell'applicazione",
+                    "pt": "Responsável de negócio da aplicação",
+                    "zh": "业务应用负责人",
+                    "ru": "Бизнес-владелец приложения",
+                },
+            },
+        },
     ]
 
     # Load existing keys so we can skip or update
@@ -5029,7 +5169,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
     await db.flush()
 
     existing_srd_result = await db.execute(select(StakeholderRoleDefinition))
-    existing_srd_keys = {(s.card_type_key, s.key) for s in existing_srd_result.scalars().all()}
+    existing_srd_map = {(s.card_type_key, s.key): s for s in existing_srd_result.scalars().all()}
 
     for t in TYPES:
         type_key = t["key"]
@@ -5045,7 +5185,15 @@ async def seed_metamodel(db: AsyncSession) -> None:
 
         for idx, sr in enumerate(roles_for_type):
             sr_key = sr["key"]
-            if (type_key, sr_key) in existing_srd_keys:
+            existing_srd = existing_srd_map.get((type_key, sr_key))
+            if existing_srd:
+                # Merge translations into existing role definitions
+                seed_trans = sr.get("translations", {})
+                if seed_trans:
+                    merged = dict(existing_srd.translations or {})
+                    for prop, locale_map in seed_trans.items():
+                        merged[prop] = {**merged.get(prop, {}), **locale_map}
+                    existing_srd.translations = merged
                 continue
             permissions = DEFAULT_CARD_PERMISSIONS_BY_ROLE.get(sr_key, {})
             db.add(
@@ -5055,6 +5203,7 @@ async def seed_metamodel(db: AsyncSession) -> None:
                     label=sr["label"],
                     permissions=permissions,
                     sort_order=idx,
+                    translations=sr.get("translations", {}),
                 )
             )
 
