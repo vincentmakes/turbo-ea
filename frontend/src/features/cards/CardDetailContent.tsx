@@ -267,14 +267,14 @@ export default function CardDetailContent({
   const isBpm = showBpmTabs && card.type === "BusinessProcess";
   const isPpm = showPpmTab && ppmEnabled && card.type === "Initiative";
 
-  // BPM adds 2 tabs, PPM adds 1 (mutually exclusive by card type)
-  const extraTabs = isBpm ? 2 : isPpm ? 1 : 0;
-  const ppmTabIdx = isPpm ? 1 : -1;
-  const commentsIdx = 1 + extraTabs;
-  const todosIdx = 2 + extraTabs;
-  const stakeholdersIdx = 3 + extraTabs;
-  const resourcesIdx = 4 + extraTabs;
-  const historyIdx = 5 + extraTabs;
+  // BPM adds 2 tabs after Card; PPM tab goes at the very end
+  const bpmOffset = isBpm ? 2 : 0;
+  const commentsIdx = 1 + bpmOffset;
+  const todosIdx = 2 + bpmOffset;
+  const stakeholdersIdx = 3 + bpmOffset;
+  const resourcesIdx = 4 + bpmOffset;
+  const historyIdx = 5 + bpmOffset;
+  const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
 
   return (
     <>
@@ -297,12 +297,12 @@ export default function CardDetailContent({
         <Tab label={t("tabs.card")} />
         {isBpm && <Tab label={t("tabs.processFlow")} />}
         {isBpm && <Tab label={t("tabs.assessments")} />}
-        {isPpm && <Tab label={t("tabs.ppm")} />}
         <Tab label={t("tabs.comments")} />
         <Tab label={t("tabs.todos")} />
         <Tab label={t("tabs.stakeholders")} />
         <Tab label={t("tabs.resources")} />
         <Tab label={t("tabs.history")} />
+        {isPpm && <Tab label={t("tabs.ppm")} />}
       </Tabs>
 
       {tab === 0 && (
