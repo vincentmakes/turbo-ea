@@ -60,58 +60,111 @@ function getQuarters(startMonth: Date, months: number) {
   return qs;
 }
 
-/** Format a number in compact "k" notation */
+/** Format a number in compact "k" notation with thousands separator */
 function fmtK(n: number): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
+  if (Math.abs(n) >= 1_000) {
+    const k = n / 1_000;
+    // Show comma-separated for values >= 1,000k (i.e. >= 1M shown as k)
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(k);
+  }
   return String(Math.round(n));
+}
+
+/** Determine the "k" suffix: values in thousands → "k{CUR}", otherwise "{CUR}" */
+function costUnit(planned: number, actual: number, currency: string): string {
+  if (Math.abs(planned) >= 1_000 || Math.abs(actual) >= 1_000) return `k${currency}`;
+  return currency;
 }
 
 const COST_BAR_COLOR = "#5c6bc0";
 const COST_BAR_OVER = "#b71c1c";
 
-/** Mini cost bar: actual vs planned with color coding */
+/** Mini cost bar matching the design: bar on top, label "578/1,350 kCHF" below */
 function CostBar({
   actual,
   planned,
-  label,
+  currency,
 }: {
   actual: number;
   planned: number;
-  label: string;
+  currency: string;
 }) {
-  if (!planned && !actual) return <Typography variant="caption" color="text.disabled">&mdash;</Typography>;
-  const pct = planned > 0 ? Math.min((actual / planned) * 100, 100) : 0;
+  if (!planned && !actual) {
+    return (
+      <Typography variant="caption" color="text.disabled">
+        &mdash;
+      </Typography>
+    );
+  }
   const overBudget = actual > planned && planned > 0;
   const barColor = overBudget ? COST_BAR_OVER : COST_BAR_COLOR;
+  // For normal: fill up to 100%. For over-budget: the bar overflows the track.
+  const pct = planned > 0 ? (actual / planned) * 100 : 0;
+  const unit = costUnit(planned, actual, currency);
+  const useK = Math.abs(planned) >= 1_000 || Math.abs(actual) >= 1_000;
+  const aVal = useK ? fmtK(actual) : String(Math.round(actual));
+  const pVal = useK ? fmtK(planned) : String(Math.round(planned));
 
   return (
-    <Tooltip title={label}>
-      <Box sx={{ width: "100%", minWidth: 80 }}>
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 0.25 }}>
-          <Typography
-            variant="caption"
-            sx={{ fontSize: "0.65rem", lineHeight: 1.2, color: overBudget ? COST_BAR_OVER : "text.secondary" }}
-          >
-            {fmtK(actual)}/{fmtK(planned)}
-          </Typography>
-        </Box>
-        <Box sx={{ height: 6, bgcolor: "action.hover", borderRadius: 3, overflow: "hidden" }}>
-          <Box sx={{ height: "100%", width: `${pct}%`, bgcolor: barColor, borderRadius: 3 }} />
-        </Box>
+    <Box sx={{ width: "100%", minWidth: 90 }}>
+      {/* Track + fill bar */}
+      <Box sx={{ position: "relative", height: 10, borderRadius: 5, bgcolor: "action.hover" }}>
+        <Box
+          sx={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            height: "100%",
+            width: `${Math.min(pct, 100)}%`,
+            bgcolor: barColor,
+            borderRadius: 5,
+            zIndex: 1,
+          }}
+        />
+        {/* Over-budget overflow: red bar extending past the grey track */}
+        {overBudget && (
+          <Box
+            sx={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              height: "100%",
+              width: `${Math.min(pct, 130)}%`,
+              bgcolor: COST_BAR_OVER,
+              borderRadius: 5,
+              zIndex: 0,
+            }}
+          />
+        )}
       </Box>
-    </Tooltip>
+      {/* Label below */}
+      <Typography
+        variant="caption"
+        sx={{
+          display: "block",
+          textAlign: "center",
+          fontSize: "0.6rem",
+          lineHeight: 1.4,
+          mt: 0.25,
+          color: overBudget ? COST_BAR_OVER : "text.secondary",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {aVal}/{pVal} {unit}
+      </Typography>
+    </Box>
   );
 }
 
 const gridCols =
-  "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 100px 100px 64px";
+  "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 120px 120px 64px";
 
 export default function PpmPortfolio() {
   const { t } = useTranslation("ppm");
   const theme = useTheme();
   const navigate = useNavigate();
-  const { fmtShort } = useCurrency();
+  const { fmtShort, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const [loading, setLoading] = useState(true);
@@ -334,7 +387,7 @@ export default function PpmPortfolio() {
           <CostBar
             actual={item.capex_actual}
             planned={item.capex_planned}
-            label={`${t("capex")}: ${fmtK(item.capex_actual)} / ${fmtK(item.capex_planned)}`}
+            currency={currency}
           />
         </Box>
 
@@ -343,7 +396,7 @@ export default function PpmPortfolio() {
           <CostBar
             actual={item.opex_actual}
             planned={item.opex_planned}
-            label={`${t("opex")}: ${fmtK(item.opex_actual)} / ${fmtK(item.opex_planned)}`}
+            currency={currency}
           />
         </Box>
 
@@ -405,10 +458,10 @@ export default function PpmPortfolio() {
         <Box />
         <Box />
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totCapexA} planned={totCapexP} label={`${t("capex")} total`} />
+          <CostBar actual={totCapexA} planned={totCapexP} currency={currency} />
         </Box>
         <Box sx={{ px: 0.5, display: "flex", justifyContent: "center" }}>
-          <CostBar actual={totOpexA} planned={totOpexP} label={`${t("opex")} total`} />
+          <CostBar actual={totOpexA} planned={totOpexP} currency={currency} />
         </Box>
         <Box />
       </Box>

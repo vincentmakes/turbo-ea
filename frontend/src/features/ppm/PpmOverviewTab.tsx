@@ -38,14 +38,20 @@ function BudgetBar({
   label,
   budget,
   actual,
+  currency,
 }: {
   label: string;
   budget: number;
   actual: number;
+  currency: string;
 }) {
   const pct = budget > 0 ? Math.min((actual / budget) * 100, 100) : 0;
   const over = actual > budget && budget > 0;
   const barColor = over ? OVER_BUDGET : BUDGET_BAR;
+  const useK = Math.abs(budget) >= 1_000 || Math.abs(actual) >= 1_000;
+  const unit = useK ? `k${currency}` : currency;
+  const aVal = useK ? fmtK(actual) : String(Math.round(actual));
+  const pVal = useK ? fmtK(budget) : String(Math.round(budget));
 
   return (
     <Box sx={{ mb: 1.5 }}>
@@ -57,7 +63,7 @@ function BudgetBar({
           variant="caption"
           sx={{ color: over ? OVER_BUDGET : "text.secondary" }}
         >
-          {fmtK(actual)} / {fmtK(budget)}
+          {aVal}/{pVal} {unit}
           {budget > 0 && ` (${Math.round((actual / budget) * 100)}%)`}
         </Typography>
       </Box>
@@ -65,12 +71,12 @@ function BudgetBar({
         variant="determinate"
         value={pct}
         sx={{
-          height: 8,
-          borderRadius: 4,
+          height: 10,
+          borderRadius: 5,
           bgcolor: "action.hover",
           "& .MuiLinearProgress-bar": {
             bgcolor: barColor,
-            borderRadius: 4,
+            borderRadius: 5,
           },
         }}
       />
@@ -85,7 +91,7 @@ export default function PpmOverviewTab({
   budgetLines,
 }: Props) {
   const { t } = useTranslation("ppm");
-  const { fmt } = useCurrency();
+  const { fmt, currency } = useCurrency();
   const { getType } = useMetamodel();
   const rl = useResolveLabel();
   const attrs = card.attributes || {};
@@ -227,19 +233,19 @@ export default function PpmOverviewTab({
             label={t("totalBudget")}
             budget={totalBudget}
             actual={totalActual}
-
+            currency={currency}
           />
           <BudgetBar
             label={t("capex")}
             budget={capexBudget}
             actual={capexActual}
-
+            currency={currency}
           />
           <BudgetBar
             label={t("opex")}
             budget={opexBudget}
             actual={opexActual}
-
+            currency={currency}
           />
         </Paper>
       </Grid>
