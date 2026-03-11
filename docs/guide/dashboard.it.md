@@ -14,7 +14,7 @@ Nella parte superiore dello schermo si trova la **barra di navigazione principal
 - **Report**: Report visivi e analitici
 - **BPM**: Business Process Management (se abilitato)
 - **Diagrammi**: Editor visivo di diagrammi architetturali
-- **Delivery**: Gestione delle iniziative architetturali
+- **EA Delivery**: Gestione delle iniziative architetturali
 - **Todo**: Attività in sospeso e sondaggi assegnati
 - **Cerca card**: Barra di ricerca rapida con autocompletamento
 - **+ Crea**: Pulsante per creare rapidamente nuove card

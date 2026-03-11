@@ -14,7 +14,7 @@ En la parte superior de la pantalla encontrará la **barra de navegación princi
 - **Informes**: Informes visuales y analíticos
 - **BPM**: Gestión de Procesos de Negocio (si está habilitado)
 - **Diagramas**: Editor visual de diagramas de arquitectura
-- **Entrega**: Gestión de iniciativas de arquitectura
+- **Entrega EA**: Gestión de iniciativas de arquitectura
 - **Tareas**: Tareas pendientes y encuestas asignadas
 - **Buscar fichas**: Barra de búsqueda rápida con autocompletado
 - **+ Crear**: Botón para crear nuevas fichas rápidamente

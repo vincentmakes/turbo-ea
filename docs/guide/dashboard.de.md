@@ -14,7 +14,7 @@ Am oberen Bildschirmrand finden Sie die **Hauptnavigationsleiste** mit folgenden
 - **Berichte**: Visuelle und analytische Berichte
 - **BPM**: Business Process Management (wenn aktiviert)
 - **Diagramme**: Visueller Architekturdiagramm-Editor
-- **Delivery**: Verwaltung von Architekturinitiativen
+- **EA Delivery**: Verwaltung von Architekturinitiativen
 - **Aufgaben**: Anstehende Aufgaben und zugewiesene Umfragen
 - **Karten suchen**: Schnellsuchleiste mit Autovervollständigung
 - **+ Erstellen**: Schaltfläche zum schnellen Erstellen neuer Karten

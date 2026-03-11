@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.32.5] - 2026-03-11
 
+### Changed
+- Renamed navigation label from "Delivery" to "EA Delivery" to distinguish from PPM
+- Added page subtitle on the EA Delivery page explaining its TOGAF alignment and purpose
+
 ### Fixed
 - Stakeholder roles in card details now display translated labels instead of raw keys
 - Stakeholder role labels are now included in the metamodel translation management dialog

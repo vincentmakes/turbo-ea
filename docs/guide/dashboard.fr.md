@@ -14,7 +14,7 @@ En haut de l'écran, vous trouverez la **barre de navigation principale** avec l
 - **Rapports** : Rapports visuels et analytiques
 - **BPM** : Gestion des processus métier (si activé)
 - **Diagrammes** : Éditeur visuel de diagrammes d'architecture
-- **Delivery** : Gestion des initiatives d'architecture
+- **EA Delivery** : Gestion des initiatives d'architecture
 - **Tâches** : Tâches en attente et enquêtes assignées
 - **Rechercher des fiches** : Barre de recherche rapide avec autocompletion
 - **+ Créer** : Bouton pour créer rapidement de nouvelles fiches

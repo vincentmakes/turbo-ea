@@ -14,7 +14,7 @@ At the top of the screen, you will find the **main navigation bar** with the fol
 - **Reports**: Visual and analytical reports
 - **BPM**: Business Process Management (if enabled)
 - **Diagrams**: Visual architecture diagram editor
-- **Delivery**: Architecture initiative management
+- **EA Delivery**: Architecture initiative management
 - **Todos**: Pending tasks and assigned surveys
 - **Search cards**: Quick search bar with autocomplete
 - **+ Create**: Button to quickly create new cards

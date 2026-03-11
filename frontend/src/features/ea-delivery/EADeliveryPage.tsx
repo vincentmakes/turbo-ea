@@ -600,9 +600,14 @@ export default function EADeliveryPage() {
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
         <MaterialSymbol icon="architecture" size={28} color="#1976d2" />
-        <Typography variant="h5" sx={{ ml: 1, fontWeight: 700 }}>
-          {t("page.title")}
-        </Typography>
+        <Box sx={{ ml: 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {t("page.title")}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t("page.subtitle")}
+          </Typography>
+        </Box>
         <Box sx={{ flex: 1 }} />
 {pageTab === "decisions" && (
           <Button
