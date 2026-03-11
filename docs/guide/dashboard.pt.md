@@ -14,7 +14,7 @@ Na parte superior da tela, você encontrará a **barra de navegação principal*
 - **Relatórios**: Relatórios visuais e analíticos
 - **BPM**: Business Process Management (se habilitado)
 - **Diagramas**: Editor visual de diagramas de arquitetura
-- **Entregas**: Gestão de iniciativas de arquitetura
+- **Entrega EA**: Gestão de iniciativas de arquitetura
 - **Tarefas**: Tarefas pendentes e pesquisas atribuídas
 - **Pesquisar cards**: Barra de busca rápida com autocompletar
 - **+ Criar**: Botão para criar rapidamente novos cards

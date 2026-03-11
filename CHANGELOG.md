@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.5] - 2026-03-11
+
+### Changed
+- Renamed navigation label from "Delivery" to "EA Delivery" to distinguish from PPM
+- Added page subtitle on the EA Delivery page explaining its TOGAF alignment and purpose
+
 ## [0.32.4] - 2026-03-11
 
 ### Added
