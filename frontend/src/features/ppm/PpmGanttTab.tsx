@@ -898,6 +898,14 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
+          /* Enable touch-based horizontal scrolling on iPad / tablets */
+          "& [class*='scrollWrapper']": {
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
+          },
+          "& svg": {
+            touchAction: "pan-x pan-y",
+          },
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
             borderBottom: `1px solid ${theme.palette.divider}`,

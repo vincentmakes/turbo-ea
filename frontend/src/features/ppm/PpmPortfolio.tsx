@@ -188,6 +188,7 @@ function CostBar({
 
 const gridCols =
   "minmax(180px,1.5fr) 120px 90px 1fr 32px 32px 32px 120px 120px 64px";
+const GRID_MIN_WIDTH = 1100;
 
 export default function PpmPortfolio() {
   const { t } = useTranslation("ppm");
@@ -773,8 +774,10 @@ export default function PpmPortfolio() {
         </FormControl>
       </Box>
 
-      {/* Gantt Header — desktop only */}
+      {/* Scrollable wrapper for desktop grid — enables horizontal scroll on iPad */}
       {!isMobile && (
+        <Box sx={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <Box sx={{ minWidth: GRID_MIN_WIDTH }}>
         <Box
           sx={{
             display: "grid",
@@ -784,6 +787,9 @@ export default function PpmPortfolio() {
             borderRadius: "8px 8px 0 0",
             minHeight: 56,
             pb: 0.5,
+            position: "sticky",
+            top: 0,
+            zIndex: 2,
           }}
         >
           <Typography variant="caption" fontWeight={600} sx={{ px: 1.5 }}>
@@ -812,7 +818,7 @@ export default function PpmPortfolio() {
               .reduce<{ elements: React.ReactNode[]; lastPct: number }>(
                 (acc, q) => {
                   const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  if (acc.elements.length > 0 && left - acc.lastPct < 10) return acc;
+                  if (acc.elements.length > 0 && left - acc.lastPct < 14) return acc;
                   acc.elements.push(
                     <Typography
                       key={q.label}
@@ -824,6 +830,7 @@ export default function PpmPortfolio() {
                         bottom: 2,
                         whiteSpace: "nowrap",
                         fontSize: "0.65rem",
+                        transform: "translateX(-50%)",
                       }}
                     >
                       {q.label}
@@ -832,7 +839,7 @@ export default function PpmPortfolio() {
                   acc.lastPct = left;
                   return acc;
                 },
-                { elements: [], lastPct: -10 },
+                { elements: [], lastPct: -20 },
               )
               .elements}
           </Box>
@@ -878,14 +885,13 @@ export default function PpmPortfolio() {
             {t("lastReport", "Report")}
           </Typography>
         </Box>
-      )}
 
       {/* Rows grouped */}
       <Paper
         variant="outlined"
         sx={{
-          borderTop: isMobile ? undefined : 0,
-          borderRadius: isMobile ? 2 : "0 0 8px 8px",
+          borderTop: 0,
+          borderRadius: "0 0 8px 8px",
         }}
       >
         {groups.map(([groupId, group]) => {
@@ -956,10 +962,8 @@ export default function PpmPortfolio() {
                 </Typography>
               </Box>
               {!isCollapsed &&
-                group.items.map((item) =>
-                  isMobile ? renderMobileCard(item) : renderRow(item),
-                )}
-              {!isCollapsed && !isMobile && renderGroupTotals(group.items)}
+                group.items.map((item) => renderRow(item))}
+              {!isCollapsed && renderGroupTotals(group.items)}
             </Box>
           );
         })}
@@ -970,6 +974,95 @@ export default function PpmPortfolio() {
           </Box>
         )}
       </Paper>
+      </Box>
+      </Box>
+      )}
+
+      {/* Mobile rows — outside scrollable wrapper */}
+      {isMobile && (
+        <Paper
+          variant="outlined"
+          sx={{ borderRadius: 2 }}
+        >
+          {groups.map(([groupId, group]) => {
+            const isCollapsed = collapsed.has(groupId);
+            return (
+              <Box key={groupId}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    px: 1,
+                    py: 0.75,
+                    bgcolor:
+                      theme.palette.mode === "dark"
+                        ? alpha(theme.palette.primary.main, 0.2)
+                        : theme.palette.primary.dark,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setCollapsed((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(groupId)) next.delete(groupId);
+                      else next.add(groupId);
+                      return next;
+                    });
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    sx={{
+                      mr: 0.5,
+                      color: theme.palette.mode === "dark" ? "text.primary" : "#fff",
+                    }}
+                  >
+                    <MaterialSymbol
+                      icon={isCollapsed ? "chevron_right" : "expand_more"}
+                      size={18}
+                    />
+                  </IconButton>
+                  <MaterialSymbol
+                    icon="folder"
+                    size={18}
+                    style={{
+                      marginRight: 6,
+                      color: theme.palette.mode === "dark" ? undefined : "#fff",
+                    }}
+                  />
+                  <Typography
+                    variant="body2"
+                    fontWeight={700}
+                    sx={{ color: theme.palette.mode === "dark" ? "text.primary" : "#fff" }}
+                  >
+                    {group.name}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      ml: 1,
+                      color:
+                        theme.palette.mode === "dark"
+                          ? "text.secondary"
+                          : alpha("#fff", 0.8),
+                    }}
+                  >
+                    &mdash; {t("projectCount", { count: group.items.length })}
+                  </Typography>
+                </Box>
+                {!isCollapsed &&
+                  group.items.map((item) => renderMobileCard(item))}
+              </Box>
+            );
+          })}
+
+          {filtered.length === 0 && (
+            <Box textAlign="center" py={4}>
+              <Typography color="text.secondary">{t("noInitiatives")}</Typography>
+            </Box>
+          )}
+        </Paper>
+      )}
 
       {/* ── Report Hover Popover ── */}
       <Popover
