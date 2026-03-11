@@ -269,6 +269,7 @@ export default function CardDetailContent({
         onChange={(_, v) => setTab(v)}
         variant="scrollable"
         scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
         <Tab label={t("tabs.card")} />
