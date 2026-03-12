@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
@@ -228,7 +228,37 @@ export default function PpmPortfolio() {
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [timelineWidth, setTimelineWidth] = useState(0);
+
+  // After every render / resize, hide quarter labels that overlap
+  const pruneQuarterLabels = useCallback(() => {
+    const container = timelineRef.current;
+    if (!container) return;
+    const labels = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-qlabel]"),
+    );
+    if (!labels.length) return;
+    const GAP = 4; // minimum px between labels
+    let lastRight = -Infinity;
+    const containerRight = container.getBoundingClientRect().right;
+    for (const el of labels) {
+      const r = el.getBoundingClientRect();
+      if (r.left < lastRight + GAP || r.right > containerRight) {
+        el.style.visibility = "hidden";
+      } else {
+        el.style.visibility = "visible";
+        lastRight = r.right;
+      }
+    }
+  }, []);
+
+  useLayoutEffect(pruneQuarterLabels);
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(pruneQuarterLabels);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pruneQuarterLabels]);
 
   const handleReportEnter = (
     e: React.MouseEvent<HTMLElement>,
@@ -270,21 +300,6 @@ export default function PpmPortfolio() {
       .finally(() => setLoading(false));
   }, [groupBy]);
 
-  // Measure actual timeline column width for quarter label spacing.
-  // useLayoutEffect ensures the first paint already has the correct width.
-  useLayoutEffect(() => {
-    const el = timelineRef.current;
-    if (el) setTimelineWidth(el.offsetWidth);
-  }, []);
-  useEffect(() => {
-    const el = timelineRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setTimelineWidth(entry.contentRect.width);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const typeConfig = getType("Initiative");
 
@@ -833,39 +848,26 @@ export default function PpmPortfolio() {
               overflow: "hidden",
             }}
           >
-            {quarters
-              .reduce<{ elements: React.ReactNode[]; lastRight: number }>(
-                (acc, q) => {
-                  const leftPct = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  const leftPx = (leftPct / 100) * timelineWidth;
-                  // Once the container has been measured, skip labels that
-                  // would overlap the previous one or get clipped at the edge
-                  if (timelineWidth > 0) {
-                    if (leftPx < acc.lastRight + 6) return acc;
-                    if (leftPx + 34 > timelineWidth) return acc;
-                  }
-                  acc.elements.push(
-                    <Typography
-                      key={q.label}
-                      variant="caption"
-                      fontWeight={600}
-                      sx={{
-                        position: "absolute",
-                        left: `${leftPct}%`,
-                        bottom: 2,
-                        whiteSpace: "nowrap",
-                        fontSize: "0.65rem",
-                      }}
-                    >
-                      {q.label}
-                    </Typography>,
-                  );
-                  acc.lastRight = leftPx + 34;
-                  return acc;
-                },
-                { elements: [], lastRight: -Infinity },
-              )
-              .elements}
+            {quarters.map((q) => {
+              const leftPct = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+              return (
+                <Typography
+                  key={q.label}
+                  data-qlabel
+                  variant="caption"
+                  fontWeight={600}
+                  sx={{
+                    position: "absolute",
+                    left: `${leftPct}%`,
+                    bottom: 2,
+                    whiteSpace: "nowrap",
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  {q.label}
+                </Typography>
+              );
+            })}
           </Box>
           {(
             [
