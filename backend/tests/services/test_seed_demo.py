@@ -35,6 +35,7 @@ from app.services.seed_demo_bpm import (
     _BPM_RELATION_SPECS,
     PROCESSES,
 )
+from app.services.seed_demo_ppm import REFERENCED_INITIATIVE_NAMES
 
 # ---------------------------------------------------------------------------
 # Build lookup structures from the metamodel (runs once at import time)
@@ -335,3 +336,19 @@ class TestBpmRelationSpecsMatchMetamodel:
                             f"has invalid option '{attr_val}', valid: {valid_opts}"
                         )
         assert not errors, "\n".join(errors)
+
+
+# ===========================================================================
+# Tests — PPM demo data (seed_demo_ppm.py)
+# ===========================================================================
+
+# Build lookup of all Initiative card names from the base demo dataset
+_initiative_names = {c["name"] for c in INITIATIVES}
+
+
+class TestPpmReferencesMatchDemoData:
+    """PPM seed data must reference Initiative cards that exist in seed_demo.py."""
+
+    def test_all_referenced_initiatives_exist(self):
+        missing = set(REFERENCED_INITIATIVE_NAMES) - _initiative_names
+        assert not missing, f"PPM seed references initiatives not in seed_demo.py: {missing}"

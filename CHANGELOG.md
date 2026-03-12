@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.6] - 2026-03-12
+
+### Added
+- PPM seed demo data for NexaTech Industries initiatives (status reports, WBS, tasks, budget/cost lines, risks)
+- `SEED_PPM` environment variable for incremental PPM demo data seeding
+
 ## [0.32.5] - 2026-03-11
 
 ### Changed

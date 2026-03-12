@@ -341,8 +341,8 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_demo] Skipped: {result.get('reason', 'unknown')}")
 
-    # Ensure a demo admin user exists before BPM seed (needed for assessments).
-    if settings.SEED_DEMO or settings.SEED_BPM:
+    # Ensure a demo admin user exists before BPM/PPM seed (needed for assessments/reports).
+    if settings.SEED_DEMO or settings.SEED_BPM or settings.SEED_PPM:
         from app.core.security import hash_password
         from app.models.user import User
 
@@ -374,6 +374,22 @@ async def lifespan(app: FastAPI):
                 )
             else:
                 print(f"[seed_bpm] Skipped: {result.get('reason', 'unknown')}")
+
+    # Seed PPM demo data
+    if settings.SEED_DEMO or settings.SEED_PPM:
+        from app.services.seed_demo_ppm import seed_ppm_demo_data
+
+        async with async_session() as db:
+            result = await seed_ppm_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_ppm] Seeded {result['status_reports']} status reports, "
+                    f"{result['wbs_items']} WBS items, {result['tasks']} tasks, "
+                    f"{result['budget_lines']} budget lines, {result['cost_lines']} cost lines, "
+                    f"{result['risks']} risks"
+                )
+            else:
+                print(f"[seed_ppm] Skipped: {result.get('reason', 'unknown')}")
 
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
