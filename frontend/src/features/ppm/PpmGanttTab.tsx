@@ -821,6 +821,74 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     return () => el.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
+  /**
+   * Touch-scroll workaround: the gantt-task-react library attaches a touchmove
+   * handler on the SVG that always calls preventDefault(), completely blocking
+   * native scroll on touch devices. We work around this by detecting touches on
+   * non-bar areas (grid background, calendar header) and manually adjusting
+   * scrollLeft on the library's scroll container.
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    let scrollContainer: HTMLElement | null = null;
+    let touchStartX = 0;
+    let scrollStartLeft = 0;
+    let isManualScroll = false;
+
+    const findScrollContainer = (): HTMLElement | null => {
+      if (scrollContainer) return scrollContainer;
+      scrollContainer = el.querySelector(
+        '[class*="ganttTaskRoot"]',
+      ) as HTMLElement | null;
+      return scrollContainer;
+    };
+
+    const isBarElement = (target: EventTarget | null): boolean => {
+      if (!(target instanceof Element)) return false;
+      return (
+        target.closest(
+          '[class*="barWrapper"], [class*="projectWrapper"], [class*="milestoneWrapper"], [class*="barHandle"]',
+        ) !== null
+      );
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      if (isBarElement(e.target)) {
+        isManualScroll = false;
+        return;
+      }
+      const sc = findScrollContainer();
+      if (!sc) return;
+      touchStartX = e.touches[0].clientX;
+      scrollStartLeft = sc.scrollLeft;
+      isManualScroll = true;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!isManualScroll || e.touches.length !== 1) return;
+      const sc = findScrollContainer();
+      if (!sc) return;
+      const dx = touchStartX - e.touches[0].clientX;
+      sc.scrollLeft = scrollStartLeft + dx;
+    };
+
+    const onTouchEnd = () => {
+      isManualScroll = false;
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
+    el.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
+    el.addEventListener("touchend", onTouchEnd, { capture: true, passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart, true);
+      el.removeEventListener("touchmove", onTouchMove, true);
+      el.removeEventListener("touchend", onTouchEnd, true);
+    };
+  }, []);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
@@ -898,18 +966,6 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
-          /* ── Touch scrolling fix for iPad / tablets ── */
-          "& [class*='ganttTaskRoot']": {
-            WebkitOverflowScrolling: "touch",
-          },
-          "& [class*='ganttTaskContent']": {
-            WebkitOverflowScrolling: "touch",
-          },
-          /* Allow touch panning on SVG areas so swipe-to-scroll works */
-          "& svg": {
-            touchAction: "pan-x pan-y",
-          },
-
           /* ── Base styles ── */
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
@@ -922,6 +978,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           },
           /* Pointer cursor on clickable table rows */
           "& [class*='taskListTableRow_']": { cursor: "pointer" },
+          /* Alternating row colors on the side table (all themes) */
+          "& [class*='taskListTableRow_']:nth-of-type(even)": {
+            backgroundColor: theme.palette.action.hover,
+          },
           /* Remove 45-degree angled ends on project (WBS) bars — make them rectangular */
           "& [class*='projectTop_']": { display: "none" },
           "& [class*='projectBackground_']": { opacity: "1 !important" },
@@ -957,18 +1017,18 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             "& [class*='calendarMain']": {
               borderColor: `${theme.palette.divider} !important`,
             },
-            /* Grid row backgrounds */
-            "& [class*='gridRow']": {
-              fill: `${theme.palette.background.default} !important`,
-            },
-            /* Table root left border */
+            /* Table root — border + text color for all children */
             "& [class*='ganttTableRoot']": {
               borderColor: `${theme.palette.divider} !important`,
+              color: `${theme.palette.text.primary} !important`,
             },
-            /* Table header borders */
+            /* Table header borders + text */
             "& [class*='ganttTable_Header']": {
               borderColor: `${theme.palette.divider} !important`,
-              color: theme.palette.text.primary,
+              color: `${theme.palette.text.primary} !important`,
+            },
+            "& [class*='ganttTable_HeaderItem']": {
+              color: `${theme.palette.text.primary} !important`,
             },
             /* Header column separators */
             "& [class*='ganttTable_HeaderSeparator']": {
@@ -997,6 +1057,10 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
             /* Relation lines */
             "& [class*='relationLine']": {
               stroke: `${theme.palette.text.disabled} !important`,
+            },
+            /* Scrollbar */
+            "& [class*='ganttTableWrapper']::-webkit-scrollbar-thumb": {
+              background: "rgba(255, 255, 255, 0.2) !important",
             },
           }),
         }}
