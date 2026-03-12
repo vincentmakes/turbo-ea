@@ -158,17 +158,98 @@ HOST_PORT=8920
 docker compose -f docker-compose.db.yml up --build -d
 ```
 
+This uses `docker-compose.db.yml`, which includes an embedded PostgreSQL container — no external database needed. Data is persisted in the `turboea-pgdata` Docker volume.
+
 That's it. Open **http://localhost:8920** in your browser.
 
 The **first user to register** automatically gets the **admin** role.
 
+#### Docker Compose files
+
+| File | Database | Use case |
+|------|----------|----------|
+| `docker-compose.db.yml` | **Embedded** PostgreSQL container | Quickest start — everything in Docker, no external DB needed |
+| `docker-compose.yml` | **External** (you provide) | Production setups with a managed or existing PostgreSQL server |
+
+Both files support optional profiles:
+
+| Profile | Command flag | What it adds |
+|---------|-------------|-------------|
+| `ai` | `--profile ai` | Bundled Ollama container for AI description suggestions |
+| `mcp` | `--profile mcp` | MCP server for AI tool integration (Claude Desktop, Cursor, etc.) |
+
+Example combining everything:
+
+```bash
+docker compose -f docker-compose.db.yml --profile ai --profile mcp up --build -d
+```
+
 ### Load demo data (optional)
 
-To start with a fully populated demo dataset (NexaTech Industries), add this to your `.env` before the first startup:
+To start with a fully populated demo dataset (NexaTech Industries), add seed variables to your `.env` before the first startup:
 
 ```dotenv
+SEED_DEMO=true    # Full demo: NexaTech Industries (~150 cards, BPM processes, PPM projects)
+```
+
+Setting `SEED_DEMO=true` includes **everything** — the NexaTech organizational structure, applications, IT components, interfaces, business capabilities, processes, initiatives, tags, relations, BPM process flows with BPMN diagrams, and PPM project data (status reports, WBS, tasks, budgets, costs, risks).
+
+You can also seed BPM or PPM data independently:
+
+```dotenv
+SEED_BPM=true     # Only BPM demo data (requires SEED_DEMO to have run first)
+SEED_PPM=true     # Only PPM demo data (requires SEED_DEMO to have run first)
+```
+
+A demo admin account is created automatically:
+
+| Field | Value |
+|-------|-------|
+| Email | `admin@turboea.demo` |
+| Password | `TurboEA!2025` |
+| Role | Admin |
+
+> **Tip:** To start fresh with AI features included, combine seed data with the bundled Ollama container:
+>
+> ```bash
+> # Add to .env:
+> SEED_DEMO=true
+> AI_PROVIDER_URL=http://ollama:11434
+> AI_MODEL=gemma3:4b
+> AI_AUTO_CONFIGURE=true
+>
+> # Start with AI profile:
+> docker compose -f docker-compose.db.yml --profile ai up --build -d
+> ```
+
+#### What the demo data includes
+
+| Category | Content |
+|----------|---------|
+| **Organizations** | NexaTech Industries corporate hierarchy (business units, regions, teams) |
+| **Business Capabilities** | 20+ capabilities in a multi-level hierarchy |
+| **Business Contexts** | Processes, value streams, customer journeys, business products |
+| **Applications** | 15+ apps (NexaCore ERP, IoT Platform, Salesforce CRM, etc.) with lifecycle and cost data |
+| **IT Components** | 20+ infrastructure items (databases, servers, SaaS, AI models) |
+| **Interfaces & Data Objects** | API definitions and data flows |
+| **Platforms** | Cloud and IoT platforms |
+| **Objectives & Initiatives** | 6 strategic initiatives with approval statuses |
+| **Tags** | 5 tag groups (Business Value, Technology Stack, Lifecycle Status, Risk Level, Regulatory Scope) |
+| **Relations** | 60+ relations linking cards across all layers |
+| **BPM** (via `SEED_DEMO` or `SEED_BPM`) | ~30 business processes in a 4-level hierarchy, BPMN 2.0 diagrams, element-to-card links, process assessments |
+| **PPM** (via `SEED_DEMO` or `SEED_PPM`) | Status reports, WBS hierarchies, tasks, budget/cost lines, and risks for 6 initiatives |
+| **EA Delivery** | Architecture Decision Records and Statements of Architecture Work |
+
+#### Resetting the database
+
+To wipe everything and re-seed from scratch:
+
+```dotenv
+RESET_DB=true
 SEED_DEMO=true
 ```
+
+Then restart: `docker compose -f docker-compose.db.yml up --build -d`. Remove `RESET_DB` from `.env` afterward to avoid resetting on every restart.
 
 ---
 

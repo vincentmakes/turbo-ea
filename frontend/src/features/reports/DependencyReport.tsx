@@ -17,8 +17,11 @@ import Tooltip from "@mui/material/Tooltip";
 import InputAdornment from "@mui/material/InputAdornment";
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
+import C4DiagramView from "./C4DiagramView";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useSavedReport } from "@/hooks/useSavedReport";
@@ -357,6 +360,7 @@ export default function DependencyReport() {
   const [edges, setEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"chart" | "table">("chart");
+  const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -370,6 +374,43 @@ export default function DependencyReport() {
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
 
+  /* -- C4 navigation history (browser-style back/forward) -- */
+  const [navHistory, setNavHistory] = useState<string[]>([]);
+  const [navIndex, setNavIndex] = useState(-1);
+
+  const navigateToC4 = useCallback(
+    (cardId: string) => {
+      setChartMode("c4");
+      setCenter(cardId);
+      setNavHistory((prev) => [...prev.slice(0, navIndex + 1), cardId]);
+      setNavIndex((prev) => prev + 1);
+    },
+    [navIndex],
+  );
+
+  const hasPrev = navIndex > 0;
+  const hasNext = navIndex >= 0 && navIndex < navHistory.length - 1;
+
+  const handleNavPrev = useCallback(() => {
+    if (navIndex <= 0) return;
+    const newIdx = navIndex - 1;
+    setNavIndex(newIdx);
+    setCenter(navHistory[newIdx]);
+  }, [navIndex, navHistory]);
+
+  const handleNavNext = useCallback(() => {
+    if (navIndex >= navHistory.length - 1) return;
+    const newIdx = navIndex + 1;
+    setNavIndex(newIdx);
+    setCenter(navHistory[newIdx]);
+  }, [navIndex, navHistory]);
+
+  const handleNavHome = useCallback(() => {
+    setCenter("");
+    setNavHistory([]);
+    setNavIndex(-1);
+  }, []);
+
   // Load saved report config
   useEffect(() => {
     const cfg = saved.consumeConfig();
@@ -377,15 +418,16 @@ export default function DependencyReport() {
       if (cfg.cardTypeKey !== undefined) setCardTypeKey(cfg.cardTypeKey as string);
       if (cfg.center) setCenter(cfg.center as string);
       if (cfg.view) setView(cfg.view as "chart" | "table");
+      if (cfg.chartMode) setChartMode(cfg.chartMode as "tree" | "c4");
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardTypeKey, center, view });
+  const getConfig = () => ({ cardTypeKey, center, view, chartMode });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [cardTypeKey, center, view]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardTypeKey, center, view, chartMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -393,15 +435,16 @@ export default function DependencyReport() {
     setCardTypeKey("");
     setCenter("");
     setView("chart");
+    setChartMode("c4");
     setPickerSearch("");
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch data
+  // Fetch data — in C4 mode skip type filter to preserve cross-layer edges
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
-    if (cardTypeKey) p.set("type", cardTypeKey);
+    if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -409,7 +452,7 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [cardTypeKey]);
+  }, [cardTypeKey, chartMode]);
 
   // Adjacency map
   const adjMap = useMemo(() => {
@@ -431,6 +474,30 @@ export default function DependencyReport() {
     for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
     return m;
   }, [nodes, adjMap]);
+
+  // C4 mode: BFS from center to get dependency neighborhood (all types)
+  const c4Data = useMemo(() => {
+    if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
+    const C4_DEPTH = 1;
+    const visited = new Set<string>([center]);
+    let frontier = new Set<string>([center]);
+    for (let d = 0; d < C4_DEPTH; d++) {
+      const next = new Set<string>();
+      for (const nid of frontier) {
+        for (const neighbor of adjMap.get(nid) || []) {
+          if (!visited.has(neighbor.nodeId) && nodeMap.has(neighbor.nodeId)) {
+            visited.add(neighbor.nodeId);
+            next.add(neighbor.nodeId);
+          }
+        }
+      }
+      frontier = next;
+      if (next.size === 0) break;
+    }
+    const filteredNodes = nodes.filter((n) => visited.has(n.id));
+    const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
+    return { nodes: filteredNodes, edges: filteredEdges };
+  }, [center, nodes, edges, adjMap, nodeMap]);
 
   // Reset expansion when center changes
   useEffect(() => {
@@ -533,8 +600,9 @@ export default function DependencyReport() {
     }
     if (centerNode) params.push({ label: t("dependency.center"), value: centerNode.name });
     if (view === "table") params.push({ label: t("common.view"), value: t("common.table") });
+    if (chartMode === "c4") params.push({ label: t("common.view"), value: t("dependency.c4View") });
     return params;
-  }, [cardTypeKey, types, centerNode, view]);
+  }, [cardTypeKey, types, centerNode, view, chartMode]);
 
   if (loading)
     return (
@@ -618,12 +686,37 @@ export default function DependencyReport() {
             sx={{ minWidth: 220 }}
           />
 
-          {center && (
+          {center && chartMode === "tree" && (
             <Tooltip title={t("dependency.collapseAll")}>
               <IconButton size="small" onClick={collapseAll}>
                 <MaterialSymbol icon="unfold_less" size={20} />
               </IconButton>
             </Tooltip>
+          )}
+
+          {view === "chart" && (
+            <ToggleButtonGroup
+              value={chartMode}
+              exclusive
+              size="small"
+              onChange={(_, v) => v && setChartMode(v)}
+              sx={{ ml: "auto" }}
+            >
+              <ToggleButton value="tree">
+                <Tooltip title={t("dependency.treeView")}>
+                  <Box sx={{ display: "flex" }}>
+                    <MaterialSymbol icon="account_tree" size={18} />
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="c4">
+                <Tooltip title={t("dependency.c4View")}>
+                  <Box sx={{ display: "flex" }}>
+                    <MaterialSymbol icon="hub" size={18} />
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
           )}
         </>
       }
@@ -649,13 +742,65 @@ export default function DependencyReport() {
     >
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
-        center && layout && layout.cards.length > 0 ? (
+        chartMode === "c4" && center && c4Data.nodes.length > 0 ? (
+          /* ---------- C4 DIAGRAM VIEW ---------- */
+          <C4DiagramView
+            nodes={c4Data.nodes}
+            edges={c4Data.edges}
+            types={types}
+            onNodeClick={setSidePanelCardId}
+            onNodeShiftClick={navigateToC4}
+            onHome={handleNavHome}
+            onPrev={handleNavPrev}
+            onNext={handleNavNext}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            centerName={centerNode?.name}
+          />
+        ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (
           /* ---------- TREE VIEW ---------- */
           <Paper
             variant="outlined"
             ref={scrollRef}
             sx={{ overflow: "auto", bgcolor: "action.hover", borderRadius: 2 }}
           >
+            {/* Tree view navigation bar */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 1.5,
+                py: 0.5,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                minHeight: 40,
+                bgcolor: "background.paper",
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+              }}
+            >
+              <Tooltip title={t("dependency.home")} arrow>
+                <IconButton size="small" onClick={() => setCenter("")}>
+                  <MaterialSymbol icon="home" size={20} />
+                </IconButton>
+              </Tooltip>
+              {centerNode && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    ml: 0.5,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {centerNode.name}
+                </Typography>
+              )}
+            </Box>
             <Box
               sx={{
                 position: "relative",

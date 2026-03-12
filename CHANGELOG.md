@@ -5,11 +5,36 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.33.1] - 2026-03-12
+## [0.36.0] - 2026-03-12
 
 ### Added
 - Expanded demo seed data with comments, stakeholders, history events, diagrams, saved reports, surveys, todos, documents, and bookmarks
 - Standalone script (`scripts/seed_extras.py`) to populate extra demo data on existing databases
+## [0.35.0] - 2026-03-12
+
+### Added
+- Navigation bar in C4 diagram view with home, previous, and next buttons for browsing cards
+- Home button in tree view for returning to the card picker
+- Hover-only C4 navigation icon on cards in picker and tree view to jump directly to C4 diagram
+
+### Changed
+- C4 diagram is now the default view in the Dependency Report (was tree view)
+- Removed minimap from C4 diagram view for a cleaner display
+
+## [0.34.2] - 2026-03-12
+
+### Added
+- UML, C4, Azure, and SAP shape libraries in the DrawIO diagram editor sidebar
+
+## [0.34.1] - 2026-03-12
+
+### Added
+- Installation & Setup guide in README and user documentation covering seed demo data (BPM, PPM), Docker Compose options (embedded vs external database), environment configuration, and optional AI/MCP profiles — available in all 8 supported languages
+
+## [0.34.0] - 2026-03-12
+
+### Added
+- C4 diagram view toggle in the Dependency Report — switch between the existing tree view and a C4-notation diagram powered by React Flow, with nodes grouped by architectural layer, directional labeled edges, pan/zoom, and minimap
 
 ## [0.33.0] - 2026-03-12
 

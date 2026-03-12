@@ -54,6 +54,17 @@ O **Relatório de Dependências** visualiza **conexões entre componentes** como
 - **Exploração interativa** — Clique em qualquer nó para recentrar o grafo naquele card
 - **Análise de impacto** — Entenda o raio de impacto de alterações em um componente específico
 
+### Vista de Diagrama C4
+
+![Vista de Diagrama C4](../assets/img/en/13b_dependencies_c4.png)
+
+Alterne para a vista de **Diagrama C4** usando os botões de modo de visualização na barra de ferramentas. Esta vista renderiza os mesmos dados de dependências usando notação C4:
+
+- **Caixas de contorno** — Os cards são agrupados por camada arquitetural (Estratégia, Negócio, Aplicação, Técnica) dentro de retângulos de contorno tracejados
+- **Canvas interativo** — Mova, amplie e use o minimapa para navegar em diagramas grandes
+- **Clique para inspecionar** — Clique em qualquer nó para abrir o painel lateral de detalhes do card
+- **Sem card central necessário** — A vista C4 mostra todos os cards que correspondem ao filtro de tipo atual
+
 ## Relatório de Custos
 
 ![Relatório de Custos](../assets/img/pt/34_relatorio_custos.png)

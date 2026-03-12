@@ -63,6 +63,7 @@ plugins:
           nav_translations:
             Home: Inicio
             Getting Started: Primeros pasos
+            Installation & Setup: Instalación y configuración
             Accessing the Platform: Acceso a la plataforma
             User Guide: Guía del usuario
             Dashboard: Panel de control
@@ -97,6 +98,7 @@ plugins:
           nav_translations:
             Home: Startseite
             Getting Started: Erste Schritte
+            Installation & Setup: Installation und Einrichtung
             Accessing the Platform: Zugang zur Plattform
             User Guide: Benutzerhandbuch
             Dashboard: Dashboard
@@ -131,6 +133,7 @@ plugins:
           nav_translations:
             Home: Accueil
             Getting Started: Premiers pas
+            Installation & Setup: Installation et configuration
             Accessing the Platform: Accès à la plateforme
             User Guide: Guide utilisateur
             Dashboard: Tableau de bord
@@ -165,6 +168,7 @@ plugins:
           nav_translations:
             Home: Home
             Getting Started: Per iniziare
+            Installation & Setup: Installazione e configurazione
             Accessing the Platform: Accesso alla piattaforma
             User Guide: Guida utente
             Dashboard: Dashboard
@@ -199,6 +203,7 @@ plugins:
           nav_translations:
             Home: Início
             Getting Started: Primeiros passos
+            Installation & Setup: Instalação e configuração
             Accessing the Platform: Acesso à plataforma
             User Guide: Guia do usuário
             Dashboard: Painel de controle
@@ -233,6 +238,7 @@ plugins:
           nav_translations:
             Home: 首页
             Getting Started: 快速开始
+            Installation & Setup: 安装与配置
             Accessing the Platform: 访问平台
             User Guide: 用户指南
             Dashboard: 仪表盘
@@ -267,6 +273,7 @@ plugins:
           nav_translations:
             Home: Главная
             Getting Started: Начало работы
+            Installation & Setup: Установка и настройка
             Accessing the Platform: Доступ к платформе
             User Guide: Руководство пользователя
             Dashboard: Панель управления
@@ -327,6 +334,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started:
+      - Installation & Setup: getting-started/setup.md
       - Accessing the Platform: getting-started/login.md
   - User Guide:
       - Dashboard: guide/dashboard.md
