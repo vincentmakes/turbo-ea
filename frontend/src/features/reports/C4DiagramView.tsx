@@ -15,7 +15,7 @@ import {
   type NodeProps,
   type EdgeProps,
   type Node,
-  getBezierPath,
+  getSmoothStepPath,
   BaseEdge,
   EdgeLabelRenderer,
   ReactFlowProvider,
@@ -175,13 +175,14 @@ const C4EdgeComponent = memo(
     const theme = useTheme();
     const edgeColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
 
-    const [edgePath, labelX, labelY] = getBezierPath({
+    const [edgePath, labelX, labelY] = getSmoothStepPath({
       sourceX,
       sourceY,
       targetX,
       targetY,
       sourcePosition,
       targetPosition,
+      borderRadius: 8,
     });
 
     const edgeData = data as C4EdgeData | undefined;
@@ -193,7 +194,7 @@ const C4EdgeComponent = memo(
           id={id}
           path={edgePath}
           markerEnd={markerEnd}
-          style={{ stroke: edgeColor, strokeWidth: 1.4, strokeDasharray: "6 3" }}
+          style={{ stroke: edgeColor, strokeWidth: 1.2, strokeDasharray: "5 3" }}
         />
         {label && (
           <EdgeLabelRenderer>

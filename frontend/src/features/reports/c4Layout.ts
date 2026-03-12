@@ -81,13 +81,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 /** Padding inside each group boundary */
-const PAD = 40;
+const PAD = 30;
 /** Height reserved for the category label at top of group */
-const LABEL_H = 36;
+const LABEL_H = 32;
 /** Vertical gap between stacked category groups */
-const GROUP_GAP = 60;
+const GROUP_GAP = 48;
 /** Max nodes per row when a category has many nodes with no intra-group edges */
-const MAX_COLS = 5;
+const MAX_COLS = 3;
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -131,8 +131,8 @@ function layoutGroup(
     const g = new dagre.graphlib.Graph();
     g.setGraph({
       rankdir: "TB",
-      ranksep: 60,
-      nodesep: 30,
+      ranksep: 50,
+      nodesep: 20,
       marginx: 0,
       marginy: 0,
     });
@@ -180,8 +180,8 @@ function layoutGroup(
 
   // No intra-group edges: grid layout
   const cols = Math.min(catNodes.length, MAX_COLS);
-  const hGap = 24;
-  const vGap = 20;
+  const hGap = 16;
+  const vGap = 14;
   const positioned: PositionedNode[] = catNodes.map((n, i) => ({
     id: n.id,
     x: (i % cols) * (C4_NODE_W + hGap),
@@ -316,20 +316,52 @@ export function buildC4Flow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
+  // Deduplicate edges: merge multiple edges between the same pair into one
+  const edgePairMap = new Map<string, { labels: string[]; description?: string }>();
+  for (const e of validEdges) {
+    // Normalize key so A→B and B→A collapse to the same pair
+    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
+    const key = `${lo}||${hi}`;
+    const existing = edgePairMap.get(key);
+    const lbl = e.label || e.type;
+    if (existing) {
+      if (!existing.labels.includes(lbl)) existing.labels.push(lbl);
+    } else {
+      edgePairMap.set(key, { labels: [lbl], description: e.description });
+    }
+  }
+
+  // Keep original direction from first occurrence
+  const seen = new Set<string>();
+  const dedupedEdges: typeof validEdges = [];
+  for (const e of validEdges) {
+    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
+    const key = `${lo}||${hi}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    dedupedEdges.push(e);
+  }
+
   // Build React Flow edges
-  const rfEdges: Edge[] = validEdges.map((e, i) => ({
-    id: `c4e-${i}`,
-    source: e.source,
-    target: e.target,
-    type: "c4Edge",
-    label: e.label || e.type,
-    data: {
-      relLabel: e.label || e.type,
-      description: e.description,
-    } satisfies C4EdgeData,
-    animated: false,
-    markerEnd: { type: "arrowclosed" as const, color: "#888" },
-  }));
+  const rfEdges: Edge[] = dedupedEdges.map((e, i) => {
+    const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
+    const key = `${lo}||${hi}`;
+    const merged = edgePairMap.get(key)!;
+    const relLabel = merged.labels.join(" / ");
+    return {
+      id: `c4e-${i}`,
+      source: e.source,
+      target: e.target,
+      type: "c4Edge",
+      label: relLabel,
+      data: {
+        relLabel,
+        description: merged.description,
+      } satisfies C4EdgeData,
+      animated: false,
+      markerEnd: { type: "arrowclosed" as const, color: "#888" },
+    };
+  });
 
   return { nodes: rfNodes, edges: rfEdges };
 }
