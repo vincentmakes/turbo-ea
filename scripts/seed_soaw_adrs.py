@@ -3,12 +3,23 @@
 
 Wipes all existing SoAW and ADR records, then inserts the full demo dataset.
 
-Usage:
-    cd backend && python ../scripts/seed_soaw_adrs.py
+Usage (run inside the backend container where asyncpg is installed):
 
-Requires:
-    - pip install asyncpg sqlalchemy  (or run inside the backend venv/container)
-    - Same environment variables as the backend (POSTGRES_HOST, etc.)
+    docker compose exec backend python -c "
+    import asyncio
+    from app.database import async_session
+    from app.services.seed_demo_soaw_adrs import seed
+    async def run():
+        async with async_session() as db:
+            result = await seed(db)
+        print(result)
+    asyncio.run(run())
+    "
+
+Or copy this script into the container and run directly:
+
+    docker compose cp scripts/seed_soaw_adrs.py backend:/app/
+    docker compose exec backend python /app/seed_soaw_adrs.py
 """
 
 from __future__ import annotations
@@ -18,9 +29,10 @@ import os
 import sys
 from pathlib import Path
 
-# Ensure the backend package is importable
+# When running outside the container, add backend/ to sys.path
 backend_dir = Path(__file__).resolve().parent.parent / "backend"
-sys.path.insert(0, str(backend_dir))
+if backend_dir.is_dir():
+    sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy import delete, select  # noqa: E402
 from sqlalchemy.ext.asyncio import (  # noqa: E402
