@@ -1072,6 +1072,25 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               backgroundColor: `${theme.palette.action.hover} !important`,
             },
           },
+          /* ── Horizontal grid lines on the SVG gantt side ──
+             The library doesn't render row separators in the SVG area.
+             We use a repeating gradient to draw 1px lines every 40px (rowHeight). */
+          "& [class*='ganttTaskContent_'] > div > svg": {
+            backgroundImage: `repeating-linear-gradient(
+              to bottom,
+              transparent 0px,
+              transparent 39px,
+              ${theme.palette.divider} 39px,
+              ${theme.palette.divider} 40px
+            ) !important`,
+          },
+          /* ── Touch scrolling: allow native pan gestures on all scroll containers ── */
+          "& [class*='ganttTaskRoot_']": { touchAction: "pan-x pan-y" },
+          "& [class*='ganttTaskContent_']": { touchAction: "pan-x pan-y" },
+          "& [class*='ganttTableWrapper_']": { touchAction: "pan-x pan-y" },
+          "& [class*='wrapper_'][data-testid='gantt-main']": {
+            touchAction: "pan-x pan-y",
+          },
 
           /* ── Dark mode overrides (CSS-class-based elements only;
                inline-style colors are handled via the colors prop) ── */
@@ -1146,6 +1165,7 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           roundDate={roundToDay}
           dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
           checkIsHoliday={checkIsWeekend}
+          preStepsCount={2}
           colors={{
             /* Row backgrounds — applied as inline styles by the library,
                so CSS overrides can't reach them. Must be set here. */
