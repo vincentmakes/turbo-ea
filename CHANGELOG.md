@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.33.1] - 2026-03-12
+
+### Added
+- Expanded demo seed data with comments, stakeholders, history events, diagrams, saved reports, surveys, todos, documents, and bookmarks
+- Standalone script (`scripts/seed_extras.py`) to populate extra demo data on existing databases
+
 ## [0.33.0] - 2026-03-12
 
 ### Added

@@ -40,6 +40,20 @@ from app.services.seed_demo_bpm import (
     _BPM_RELATION_SPECS,
     PROCESSES,
 )
+from app.services.seed_demo_extras import (
+    BOOKMARK_DEFS,
+    COMMENT_DEFS,
+    DIAGRAM_DEFS,
+    DOCUMENT_DEFS,
+    REFERENCED_CARD_NAMES,
+    SAVED_REPORT_DEFS,
+    STAKEHOLDER_ASSIGNMENTS,
+    SURVEY_DEFS,
+    SURVEY_RESPONSE_CARDS,
+    TODO_DEFS,
+    VALID_REPORT_TYPES,
+    VALID_STAKEHOLDER_ROLES_BY_TYPE,
+)
 from app.services.seed_demo_ppm import REFERENCED_INITIATIVE_NAMES
 
 # ---------------------------------------------------------------------------
@@ -452,3 +466,134 @@ class TestExtraAdrsDemoData:
         expected = {"ADR-004", "ADR-005", "ADR-006", "ADR-007"}
         actual = {a["reference_number"] for a in DEMO_ADRS_EXTRA}
         assert actual == expected, f"Expected {expected}, got {actual}"
+
+
+# ===========================================================================
+# Tests — extras demo data (seed_demo_extras.py)
+# ===========================================================================
+
+# Build card name set from all demo cards
+_all_card_names = {c["name"] for c in ALL_DEMO_CARDS}
+
+# Build card name → type lookup
+_card_type_by_name: dict[str, str] = {c["name"]: c["type"] for c in ALL_DEMO_CARDS}
+
+
+class TestExtrasDemoData:
+    """Extras seed data must reference valid cards and use valid metamodel values."""
+
+    def test_all_referenced_card_names_exist(self):
+        """All card names referenced by extras must exist in the base demo data."""
+        missing = set(REFERENCED_CARD_NAMES) - _all_card_names
+        assert not missing, f"Extras reference cards not in seed_demo.py: {missing}"
+
+    def test_comment_card_names_exist(self):
+        """All comment target cards must exist in demo data."""
+        errors = []
+        for card_name, content, _, _ in COMMENT_DEFS:
+            if card_name not in _all_card_names:
+                errors.append(f"Comment targets unknown card '{card_name}'")
+            if not content or len(content) < 5:
+                errors.append(f"Comment on '{card_name}' has empty/short content")
+        assert not errors, "\n".join(errors)
+
+    def test_comment_reply_indices_valid(self):
+        """Reply indices must point to earlier comments in the list."""
+        errors = []
+        for i, (_, _, _, reply_idx) in enumerate(COMMENT_DEFS):
+            if reply_idx is not None:
+                if reply_idx >= i:
+                    errors.append(f"Comment #{i}: reply_idx {reply_idx} must be < {i}")
+                if reply_idx < 0:
+                    errors.append(f"Comment #{i}: reply_idx {reply_idx} must be >= 0")
+        assert not errors, "\n".join(errors)
+
+    def test_stakeholder_roles_valid_for_card_type(self):
+        """Each stakeholder assignment must use a role valid for that card type."""
+        errors = []
+        for card_name, role in STAKEHOLDER_ASSIGNMENTS:
+            card_type = _card_type_by_name.get(card_name)
+            if card_type is None:
+                errors.append(f"Stakeholder: card '{card_name}' not found")
+                continue
+            valid_roles = VALID_STAKEHOLDER_ROLES_BY_TYPE.get(
+                card_type, {"responsible", "observer"}
+            )
+            if role not in valid_roles:
+                errors.append(
+                    f"Stakeholder on '{card_name}' ({card_type}): "
+                    f"invalid role '{role}', valid: {valid_roles}"
+                )
+        assert not errors, "\n".join(errors)
+
+    def test_saved_report_types_valid(self):
+        """Saved report types must be in the valid set."""
+        errors = []
+        for report in SAVED_REPORT_DEFS:
+            if report["report_type"] not in VALID_REPORT_TYPES:
+                errors.append(f"Report '{report['name']}': invalid type '{report['report_type']}'")
+        assert not errors, "\n".join(errors)
+
+    def test_survey_target_types_valid(self):
+        """Survey target_type_key must be a valid card type."""
+        errors = []
+        for survey in SURVEY_DEFS:
+            if survey["target_type_key"] not in _type_by_key:
+                errors.append(
+                    f"Survey '{survey['name']}': invalid target type '{survey['target_type_key']}'"
+                )
+        assert not errors, "\n".join(errors)
+
+    def test_survey_response_cards_exist(self):
+        """Survey response target cards must exist in demo data."""
+        errors = []
+        for card_name, status, _ in SURVEY_RESPONSE_CARDS:
+            if card_name not in _all_card_names:
+                errors.append(f"Survey response: card '{card_name}' not found")
+            if status not in ("pending", "completed"):
+                errors.append(f"Survey response for '{card_name}': invalid status '{status}'")
+        assert not errors, "\n".join(errors)
+
+    def test_todo_card_names_exist(self):
+        """Todo target cards must exist in demo data."""
+        errors = []
+        for card_name, desc, status, _ in TODO_DEFS:
+            if card_name and card_name not in _all_card_names:
+                errors.append(f"Todo: card '{card_name}' not found")
+            if status not in ("open", "done"):
+                errors.append(f"Todo '{desc}': invalid status '{status}'")
+        assert not errors, "\n".join(errors)
+
+    def test_document_card_names_exist(self):
+        """Document target cards must exist in demo data."""
+        errors = []
+        for card_name, _, url in DOCUMENT_DEFS:
+            if card_name not in _all_card_names:
+                errors.append(f"Document: card '{card_name}' not found")
+            if not url.startswith("http"):
+                errors.append(f"Document on '{card_name}': invalid URL '{url}'")
+        assert not errors, "\n".join(errors)
+
+    def test_diagram_card_refs_exist(self):
+        """Diagram card references must exist in demo data."""
+        errors = []
+        for diag in DIAGRAM_DEFS:
+            for card_name, card_type, _, _, _ in diag["card_refs"]:
+                if card_name not in _all_card_names:
+                    errors.append(f"Diagram '{diag['name']}': card '{card_name}' not found")
+                actual_type = _card_type_by_name.get(card_name)
+                if actual_type and actual_type != card_type:
+                    errors.append(
+                        f"Diagram '{diag['name']}': card '{card_name}' "
+                        f"type mismatch: '{card_type}' vs '{actual_type}'"
+                    )
+        assert not errors, "\n".join(errors)
+
+    def test_bookmark_card_types_valid(self):
+        """Bookmark card types must be valid metamodel types."""
+        errors = []
+        for bm in BOOKMARK_DEFS:
+            ct = bm.get("card_type")
+            if ct and ct not in _type_by_key:
+                errors.append(f"Bookmark '{bm['name']}': invalid card_type '{ct}'")
+        assert not errors, "\n".join(errors)

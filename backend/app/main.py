@@ -392,6 +392,24 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_ppm] Skipped: {result.get('reason', 'unknown')}")
 
+    # Seed extras demo data (comments, stakeholders, diagrams, etc.)
+    if settings.SEED_DEMO:
+        from app.services.seed_demo_extras import seed_extras_demo_data
+
+        async with async_session() as db:
+            result = await seed_extras_demo_data(db)
+            if not result.get("skipped"):
+                print(
+                    f"[seed_extras] Seeded {result['comments']} comments, "
+                    f"{result['stakeholders']} stakeholders, "
+                    f"{result['events']} events, "
+                    f"{result['diagrams']} diagrams, "
+                    f"{result['saved_reports']} saved reports, "
+                    f"{result['surveys']} surveys"
+                )
+            else:
+                print(f"[seed_extras] Skipped: {result.get('reason', 'unknown')}")
+
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
     if settings.AI_AUTO_CONFIGURE:
