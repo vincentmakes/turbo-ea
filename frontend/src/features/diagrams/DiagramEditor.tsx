@@ -60,7 +60,7 @@ const DRAWIO_URL_PARAMS = new URLSearchParams({
   saveAndExit: "1",
   noSaveBtn: "0",
   noExitBtn: "0",
-  libs: "general;uml;c4;aws4;azure;gcp2;sap",
+  libs: "general;uml;c4;azure;sap",
 }).toString();
 
 const EMPTY_DIAGRAM =

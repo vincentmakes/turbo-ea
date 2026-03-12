@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.32.7] - 2026-03-12
 
 ### Added
-- UML, C4, AWS, Azure, GCP, and SAP shape libraries in the DrawIO diagram editor sidebar
+- UML, C4, Azure, and SAP shape libraries in the DrawIO diagram editor sidebar
 
 ## [0.32.6] - 2026-03-12
 
