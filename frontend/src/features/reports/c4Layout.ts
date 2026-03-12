@@ -385,24 +385,39 @@ export function buildC4Flow(
     const ti = tgtCounter.get(target) ?? 0;
     tgtCounter.set(target, ti + 1);
 
-    // Pick handle based on relative horizontal position when possible
+    // Pick handle based on relative position to spread edges apart
     let sourceHandle: string;
     let targetHandle: string;
     const sPos = absPos.get(source);
     const tPos = absPos.get(target);
+    const sameGroup = nodeCatMap.get(source) === nodeCatMap.get(target);
 
     if (sPos && tPos) {
       const dx = tPos.x - sPos.x;
-      if (dx < -40) {
-        // Target is to the left → use left-side handles
-        sourceHandle = srcHandles[0]; // b-l
-        targetHandle = tgtHandles[2]; // t-r
-      } else if (dx > 40) {
-        // Target is to the right → use right-side handles
-        sourceHandle = srcHandles[2]; // b-r
-        targetHandle = tgtHandles[0]; // t-l
+      const dy = tPos.y - sPos.y;
+      const absDx = Math.abs(dx);
+
+      if (!sameGroup && absDx > C4_NODE_W * 0.8) {
+        // Large horizontal offset across groups → use side handles
+        // This routes the edge out sideways, creating better separation
+        if (dx < 0) {
+          sourceHandle = "left-src";
+          targetHandle = "right-tgt";
+        } else {
+          sourceHandle = "right";
+          targetHandle = "left";
+        }
+      } else if (absDx > 30 && Math.abs(dy) > 30) {
+        // Diagonal — use angled top/bottom handles
+        if (dx < 0) {
+          sourceHandle = srcHandles[0]; // b-l
+          targetHandle = tgtHandles[2]; // t-r
+        } else {
+          sourceHandle = srcHandles[2]; // b-r
+          targetHandle = tgtHandles[0]; // t-l
+        }
       } else {
-        // Roughly aligned → rotate through center handles
+        // Roughly aligned → rotate through handles
         sourceHandle = srcHandles[si % 3];
         targetHandle = tgtHandles[ti % 3];
       }

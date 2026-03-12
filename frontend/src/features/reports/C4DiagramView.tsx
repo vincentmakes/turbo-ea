@@ -1,4 +1,4 @@
-import { useMemo, useCallback, memo } from "react";
+import { useMemo, useCallback, useState, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
@@ -14,6 +14,7 @@ import {
   Position,
   type NodeProps,
   type EdgeProps,
+  type Edge,
   type Node,
   getSmoothStepPath,
   BaseEdge,
@@ -83,9 +84,11 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       <Handle type="source" position={Position.Bottom} id="b-l" style={{ ...hs, left: "25%" }} />
       <Handle type="source" position={Position.Bottom} id="b-c" style={{ ...hs, left: "50%" }} />
       <Handle type="source" position={Position.Bottom} id="b-r" style={{ ...hs, left: "75%" }} />
-      {/* Side handles */}
+      {/* Side handles — both source and target on each side */}
       <Handle type="target" position={Position.Left} id="left" style={hs} />
+      <Handle type="source" position={Position.Left} id="left-src" style={hs} />
       <Handle type="source" position={Position.Right} id="right" style={hs} />
+      <Handle type="target" position={Position.Right} id="right-tgt" style={hs} />
       <Typography
         variant="body2"
         sx={{
@@ -154,61 +157,79 @@ const C4Group = memo(({ data }: NodeProps<Node<C4GroupData>>) => {
 C4Group.displayName = "C4Group";
 
 /* ------------------------------------------------------------------ */
-/*  Shared edge label                                                  */
-/* ------------------------------------------------------------------ */
-
-function EdgeLabel({ label, x, y }: { label: string; x: number; y: number }) {
-  if (!label) return null;
-  return (
-    <EdgeLabelRenderer>
-      <Box
-        sx={{
-          position: "absolute",
-          transform: `translate(-50%, -50%) translate(${x}px,${y}px)`,
-          fontSize: "0.62rem",
-          color: "text.secondary",
-          bgcolor: "background.paper",
-          border: "1px solid",
-          borderColor: "divider",
-          px: 0.75,
-          py: 0.25,
-          borderRadius: 1,
-          pointerEvents: "none",
-          whiteSpace: "nowrap",
-          maxWidth: 160,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          lineHeight: 1.3,
-        }}
-        className="nodrag nopan"
-      >
-        {label}
-      </Box>
-    </EdgeLabelRenderer>
-  );
-}
-
-const edgeStyle = (color: string) => ({
-  stroke: color,
-  strokeWidth: 1.2,
-  strokeDasharray: "5 3",
-});
-
-/* ------------------------------------------------------------------ */
-/*  Custom C4 Edge (smoothstep)                                        */
+/*  Custom C4 Edge (smoothstep + hover highlight)                      */
 /* ------------------------------------------------------------------ */
 
 const C4EdgeComponent = memo(
   ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
-    const color = theme.palette.mode === "dark" ? "#aaa" : "#777";
-    const [path, lx, ly] = getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 8 });
+    const [hovered, setHovered] = useState(false);
+    const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
+    const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
+    const color = hovered ? hoverColor : baseColor;
+
+    const [path, lx, ly] = getSmoothStepPath({
+      sourceX, sourceY, targetX, targetY,
+      sourcePosition, targetPosition,
+      borderRadius: 8,
+    });
+
     const label = (data as C4EdgeData | undefined)?.relLabel || "";
+
     return (
-      <>
-        <BaseEdge id={id} path={path} markerEnd={markerEnd} style={edgeStyle(color)} />
-        <EdgeLabel label={label} x={lx} y={ly} />
-      </>
+      <g
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Invisible wider path for easier hover targeting */}
+        <path
+          d={path}
+          fill="none"
+          stroke="transparent"
+          strokeWidth={14}
+          style={{ cursor: "pointer" }}
+        />
+        <BaseEdge
+          id={id}
+          path={path}
+          markerEnd={markerEnd}
+          style={{
+            stroke: color,
+            strokeWidth: hovered ? 2 : 1.2,
+            strokeDasharray: hovered ? "none" : "5 3",
+            transition: "stroke 0.15s, stroke-width 0.15s",
+          }}
+        />
+        {label && (
+          <EdgeLabelRenderer>
+            <Box
+              sx={{
+                position: "absolute",
+                transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
+                fontSize: "0.62rem",
+                color: hovered ? "primary.main" : "text.secondary",
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: hovered ? "primary.main" : "divider",
+                px: 0.75,
+                py: 0.25,
+                borderRadius: 1,
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+                maxWidth: 160,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                lineHeight: 1.3,
+                transition: "color 0.15s, border-color 0.15s",
+                zIndex: hovered ? 10 : 0,
+              }}
+              className="nodrag nopan"
+            >
+              {label}
+            </Box>
+          </EdgeLabelRenderer>
+        )}
+      </g>
     );
   },
 );
@@ -261,6 +282,23 @@ function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
     [onNodeClick],
   );
 
+  // Bring hovered edge to front by reordering
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  const handleEdgeMouseEnter = useCallback((_: React.MouseEvent, edge: Edge) => {
+    setHoveredEdge(edge.id);
+  }, []);
+  const handleEdgeMouseLeave = useCallback(() => {
+    setHoveredEdge(null);
+  }, []);
+
+  // Reorder edges so hovered one renders last (on top)
+  const orderedEdges = useMemo(() => {
+    if (!hoveredEdge) return rfEdges;
+    const rest = rfEdges.filter((e) => e.id !== hoveredEdge);
+    const hovered = rfEdges.find((e) => e.id === hoveredEdge);
+    return hovered ? [...rest, hovered] : rfEdges;
+  }, [rfEdges, hoveredEdge]);
+
   if (rfNodes.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center", borderRadius: 2 }}>
@@ -274,10 +312,12 @@ function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
       <Box sx={{ height: 600 }}>
         <ReactFlow
           nodes={rfNodes}
-          edges={rfEdges}
+          edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
+          onEdgeMouseEnter={handleEdgeMouseEnter}
+          onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView
           fitViewOptions={{ padding: 0.15 }}
           minZoom={0.2}
