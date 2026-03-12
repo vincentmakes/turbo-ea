@@ -4558,7 +4558,6 @@ DEMO_ADRS = [
         "reference_number": "ADR-001",
         "title": "Adopt Cloud-First Strategy for All New Applications",
         "status": "signed",
-        "initiative_id": _id("init_digital_program"),
         "context": (
             "<p>NexaTech currently runs 80% of its applications on-premises. "
             "Rising data centre costs, limited scalability, and the need for "
@@ -4598,7 +4597,6 @@ DEMO_ADRS = [
         "reference_number": "ADR-002",
         "title": "Introduce Centralized API Gateway for All External Integrations",
         "status": "signed",
-        "initiative_id": _id("init_digital_program"),
         "context": (
             "<p>Multiple applications expose APIs directly, leading to inconsistent "
             "authentication, rate limiting, and monitoring. A centralized gateway "
@@ -4637,7 +4635,6 @@ DEMO_ADRS = [
         "reference_number": "ADR-003",
         "title": "Use SAP Integration Suite for S/4HANA Connectivity",
         "status": "draft",
-        "initiative_id": _id("init_sap_migration"),
         "context": (
             "<p>The SAP S/4HANA migration requires reliable integration with "
             "surrounding systems (MES, PLM, CRM). Multiple integration patterns "
@@ -4662,14 +4659,17 @@ DEMO_ADRS = [
     },
 ]
 
-# Links between ADRs and cards
+# Links between ADRs and cards (includes initiative links via junction table)
 DEMO_ADR_CARD_LINKS = [
-    # ADR-001 linked to cloud-related apps
+    # ADR-001 linked to its initiative + cloud-related apps
+    {"adr_ref": "adr_cloud_first", "card_ref": "init_digital_program"},
     {"adr_ref": "adr_cloud_first", "card_ref": "app_azure_iot"},
     {"adr_ref": "adr_cloud_first", "card_ref": "app_nexacloud"},
-    # ADR-002 linked to integration components
+    # ADR-002 linked to its initiative + integration components
+    {"adr_ref": "adr_api_gateway", "card_ref": "init_digital_program"},
     {"adr_ref": "adr_api_gateway", "card_ref": "app_kafka"},
-    # ADR-003 linked to SAP application
+    # ADR-003 linked to its initiative + SAP application
+    {"adr_ref": "adr_sap_integration", "card_ref": "init_sap_migration"},
     {"adr_ref": "adr_sap_integration", "card_ref": "app_sap_s4"},
 ]
 
