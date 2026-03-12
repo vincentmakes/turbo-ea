@@ -143,6 +143,9 @@
   "dependency.relation": "Relaci\u00f3n",
   "dependency.target": "Destino",
   "dependency.stats": "{{nodes}} nodos \u00b7 {{relations}} relaciones",
+  "dependency.treeView": "Vista de árbol",
+  "dependency.c4View": "Diagrama C4",
+  "dependency.c4NoData": "Sin datos de dependencias. Ajuste el filtro de tipo o cree relaciones entre fichas.",
 
   "cost.title": "An\u00e1lisis de costos",
   "cost.cardType": "Tipo de ficha",

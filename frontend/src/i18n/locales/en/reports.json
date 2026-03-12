@@ -143,6 +143,9 @@
   "dependency.relation": "Relation",
   "dependency.target": "Target",
   "dependency.stats": "{{nodes}} nodes \u00B7 {{relations}} relations",
+  "dependency.treeView": "Tree View",
+  "dependency.c4View": "C4 Diagram",
+  "dependency.c4NoData": "No dependency data. Adjust the type filter or create relations between cards.",
 
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",

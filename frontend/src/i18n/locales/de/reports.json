@@ -143,6 +143,9 @@
   "dependency.relation": "Beziehung",
   "dependency.target": "Ziel",
   "dependency.stats": "{{nodes}} Knoten \u00B7 {{relations}} Beziehungen",
+  "dependency.treeView": "Baumansicht",
+  "dependency.c4View": "C4-Diagramm",
+  "dependency.c4NoData": "Keine Abhängigkeitsdaten. Passen Sie den Typfilter an oder erstellen Sie Beziehungen zwischen Karten.",
 
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

@@ -54,6 +54,17 @@ Il **Report Dipendenze** visualizza le **connessioni tra componenti** come un gr
 - **Esplorazione interattiva** — Cliccate su qualsiasi nodo per ricentrare il grafo su quella card
 - **Analisi dell'impatto** — Comprendete il raggio d'azione delle modifiche a un componente specifico
 
+### Vista Diagramma C4
+
+![Vista Diagramma C4](../assets/img/en/13b_dependencies_c4.png)
+
+Passate alla vista **Diagramma C4** usando i pulsanti di modalità di visualizzazione nella barra degli strumenti. Questa mostra gli stessi dati di dipendenza utilizzando la notazione C4:
+
+- **Riquadri di confine** — Le card sono raggruppate per livello architetturale (Strategia, Business, Applicazione, Tecnico) all'interno di rettangoli di confine tratteggiati
+- **Canvas interattivo** — Spostate, zoomate e usate la minimappa per navigare diagrammi di grandi dimensioni
+- **Cliccate per ispezionare** — Cliccate su qualsiasi nodo per aprire il pannello laterale di dettaglio della card
+- **Nessuna card centrale richiesta** — La vista C4 mostra tutte le card che corrispondono al filtro di tipo corrente
+
 ## Report Costi
 
 ![Report Costi](../assets/img/en/34_report_cost.png)

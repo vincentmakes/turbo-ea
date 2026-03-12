@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -15,15 +15,127 @@ import Tooltip from "@mui/material/Tooltip";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel } from "@/hooks/useResolveLabel";
 import InitiativeCard from "./InitiativeCard";
 import InitiativeListView from "./InitiativeListView";
 import ArtefactColumns from "./ArtefactColumns";
-import { useInitiativeData } from "./useInitiativeData";
+import { useInitiativeData, type InitiativeTreeNode } from "./useInitiativeData";
 import type { SoAW, DiagramSummary } from "@/types";
 
 type ViewMode = "cards" | "list";
+
+const EXPANDED_STORAGE_KEY = "turboea-delivery-expanded";
+const VIEW_STORAGE_KEY = "turboea-delivery-view";
+
+interface StoredViewPrefs {
+  viewMode?: ViewMode;
+  favoritesOnly?: boolean;
+}
+
+function readViewPrefs(): StoredViewPrefs {
+  try {
+    const raw = localStorage.getItem(VIEW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeViewPrefs(prefs: StoredViewPrefs) {
+  try {
+    localStorage.setItem(VIEW_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+function readExpandedFromStorage(): Record<string, boolean> {
+  try {
+    const raw = localStorage.getItem(EXPANDED_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeExpandedToStorage(expanded: Record<string, boolean>) {
+  try {
+    localStorage.setItem(EXPANDED_STORAGE_KEY, JSON.stringify(expanded));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+/** Collect all initiative IDs from a tree (recursively). */
+function collectIds(nodes: InitiativeTreeNode[]): string[] {
+  const ids: string[] = [];
+  for (const node of nodes) {
+    ids.push(node.initiative.id);
+    ids.push(...collectIds(node.children));
+  }
+  return ids;
+}
+
+/** Check if a node or any of its descendants is a favorite. */
+function hasFavoriteDescendant(
+  node: InitiativeTreeNode,
+  favorites: Set<string>,
+): boolean {
+  if (favorites.has(node.initiative.id)) return true;
+  return node.children.some((c) => hasFavoriteDescendant(c, favorites));
+}
+
+/**
+ * Sort tree nodes so favorites (or nodes containing favorite descendants) appear
+ * first. Preserves order within each group. Recurses into children.
+ */
+function sortTreeByFavorites(
+  nodes: InitiativeTreeNode[],
+  favorites: Set<string>,
+): InitiativeTreeNode[] {
+  const top = nodes.filter((n) => hasFavoriteDescendant(n, favorites));
+  const rest = nodes.filter((n) => !hasFavoriteDescendant(n, favorites));
+  return [...top, ...rest].map((node) => ({
+    ...node,
+    children: sortTreeByFavorites(node.children, favorites),
+  }));
+}
+
+/**
+ * Filter tree to favorites only. Favorite nodes are kept with all their children.
+ * Non-favorite parents are removed but their favorite children are promoted up.
+ */
+function filterTreeToFavorites(
+  nodes: InitiativeTreeNode[],
+  favorites: Set<string>,
+): InitiativeTreeNode[] {
+  const result: InitiativeTreeNode[] = [];
+  for (const node of nodes) {
+    if (favorites.has(node.initiative.id)) {
+      // Keep the node and all its children (filter children recursively too for ordering)
+      result.push({
+        ...node,
+        children: filterTreeToFavorites(node.children, favorites),
+        level: 0, // will be recalculated
+      });
+    } else {
+      // Not a favorite — promote any favorite children
+      result.push(...filterTreeToFavorites(node.children, favorites));
+    }
+  }
+  return result;
+}
+
+/** Recalculate levels in a tree starting from a given level. */
+function recalcLevels(nodes: InitiativeTreeNode[], level = 0): InitiativeTreeNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    level,
+    children: recalcLevels(node.children, level + 1),
+  }));
+}
 
 interface Props {
   onCreateSoaw: (initiativeId: string) => void;
@@ -77,8 +189,111 @@ export default function InitiativesTab({
     onDataReady?.(data);
   }, [data, onDataReady]);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [storedViewPrefs] = useState(readViewPrefs);
+  const [viewMode, setViewModeRaw] = useState<ViewMode>(storedViewPrefs.viewMode ?? "cards");
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
+
+  const setViewMode = useCallback((v: ViewMode) => {
+    setViewModeRaw(v);
+    writeViewPrefs({ ...readViewPrefs(), viewMode: v });
+  }, []);
+
+  // ── Expand/collapse state (persisted to localStorage) ──
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(readExpandedFromStorage);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      writeExpandedToStorage(next);
+      return next;
+    });
+  }, []);
+
+  // Auto-expand on "With Artefacts" filter
+  const prevExpandedRef = useRef<Record<string, boolean> | null>(null);
+
+  useEffect(() => {
+    if (artefactFilter === "with") {
+      // Save current state before auto-expanding
+      if (prevExpandedRef.current === null) {
+        prevExpandedRef.current = { ...expandedIds };
+      }
+      // Expand all visible initiatives
+      const allIds = collectIds(tree);
+      const next: Record<string, boolean> = {};
+      for (const id of allIds) next[id] = true;
+      setExpandedIds(next);
+      writeExpandedToStorage(next);
+    } else if (prevExpandedRef.current !== null) {
+      // Restore previous state
+      setExpandedIds(prevExpandedRef.current);
+      writeExpandedToStorage(prevExpandedRef.current);
+      prevExpandedRef.current = null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artefactFilter, tree]);
+
+  // ── Favorites (server-side) ──
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoritesOnly, setFavoritesOnlyRaw] = useState(storedViewPrefs.favoritesOnly ?? false);
+
+  const setFavoritesOnly = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
+    setFavoritesOnlyRaw((prev) => {
+      const next = typeof v === "function" ? v(prev) : v;
+      writeViewPrefs({ ...readViewPrefs(), favoritesOnly: next });
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .get<{ id: string; card_id: string }[]>("/favorites?type=Initiative")
+      .then((res) => {
+        if (!cancelled) {
+          setFavorites(new Set(res.map((f) => f.card_id)));
+        }
+      })
+      .catch(() => {
+        // silently ignore — favorites are non-critical
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleFavorite = useCallback((id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+        api.delete(`/favorites/${id}`).catch(() => {
+          // Revert on failure
+          setFavorites((p) => new Set(p).add(id));
+        });
+      } else {
+        next.add(id);
+        api.post(`/favorites/${id}`).catch(() => {
+          // Revert on failure
+          setFavorites((p) => {
+            const r = new Set(p);
+            r.delete(id);
+            return r;
+          });
+        });
+      }
+      return next;
+    });
+  }, []);
+
+  // Sort tree: favorites first; when favoritesOnly, extract & promote favorite nodes
+  const sortedTree = useMemo(() => {
+    if (favoritesOnly) {
+      const filtered = filterTreeToFavorites(tree, favorites);
+      return recalcLevels(filtered);
+    }
+    return sortTreeByFavorites(tree, favorites);
+  }, [tree, favorites, favoritesOnly]);
 
   const initiativeType = useMemo(
     () => metamodelTypes.find((t) => t.key === "Initiative"),
@@ -170,6 +385,21 @@ export default function InitiativesTab({
           <MenuItem value="without">{t("filter.withoutArtefacts")}</MenuItem>
         </TextField>
 
+        {/* Favorites only toggle */}
+        <Tooltip title={t("filter.favoritesOnly")}>
+          <IconButton
+            size="small"
+            onClick={() => setFavoritesOnly((p) => !p)}
+            sx={{
+              color: favoritesOnly ? "#f5a623" : "text.secondary",
+              border: favoritesOnly ? "1px solid #f5a623" : "1px solid transparent",
+              borderRadius: 1,
+            }}
+          >
+            <MaterialSymbol icon="cards_star" size={22} />
+          </IconButton>
+        </Tooltip>
+
         <Box sx={{ flex: 1 }} />
 
         <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
@@ -179,7 +409,7 @@ export default function InitiativesTab({
         <ToggleButtonGroup
           value={viewMode}
           exclusive
-          onChange={(_, v) => v && setViewMode(v)}
+          onChange={(_, v: ViewMode | null) => v && setViewMode(v)}
           size="small"
         >
           <ToggleButton value="cards">
@@ -209,7 +439,11 @@ export default function InitiativesTab({
       {/* List view */}
       {viewMode === "list" && (
         <InitiativeListView
-          tree={tree}
+          tree={sortedTree}
+          expandedIds={expandedIds}
+          onToggleExpand={toggleExpanded}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
           onLinkDiagrams={onLinkDiagrams}
           onCreateArtefact={onCreateArtefact}
           onUnlinkDiagram={onUnlinkDiagram}
@@ -226,11 +460,16 @@ export default function InitiativesTab({
             </Alert>
           )}
 
-          {tree.map((node, idx) => (
+          {sortedTree.map((node) => (
             <InitiativeCard
               key={node.initiative.id}
               node={node}
-              defaultExpanded={idx === 0}
+              expanded={!!expandedIds[node.initiative.id]}
+              onToggleExpand={toggleExpanded}
+              isFavorite={favorites.has(node.initiative.id)}
+              onToggleFavorite={toggleFavorite}
+              favorites={favorites}
+              expandedIds={expandedIds}
               onLinkDiagrams={onLinkDiagrams}
               onCreateArtefact={onCreateArtefact}
               onUnlinkDiagram={onUnlinkDiagram}

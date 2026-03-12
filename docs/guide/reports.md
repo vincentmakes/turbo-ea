@@ -54,6 +54,17 @@ The **Dependencies Report** visualizes **connections between components** as a n
 - **Interactive exploration** — Click any node to recenter the graph on that card
 - **Impact analysis** — Understand the blast radius of changes to a specific component
 
+### C4 Diagram View
+
+![C4 Diagram View](../assets/img/en/13b_dependencies_c4.png)
+
+Toggle to the **C4 Diagram** view using the view-mode buttons in the toolbar. This renders the same dependency data using C4-notation:
+
+- **Boundary boxes** — Cards are grouped by architectural layer (Strategy, Business, Application, Technical) inside dashed boundary rectangles
+- **Interactive canvas** — Pan, zoom, and use the minimap to navigate large diagrams
+- **Click to inspect** — Click any node to open the card detail side panel
+- **No center card required** — The C4 view shows all cards matching the current type filter
+
 ## Cost Report
 
 ![Cost Report](../assets/img/en/34_report_cost.png)

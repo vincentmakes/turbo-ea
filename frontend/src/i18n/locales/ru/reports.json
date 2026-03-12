@@ -143,6 +143,9 @@
   "dependency.relation": "Связь",
   "dependency.target": "Цель",
   "dependency.stats": "{{nodes}} узлов \u00B7 {{relations}} связей",
+  "dependency.treeView": "Древовидный вид",
+  "dependency.c4View": "Диаграмма C4",
+  "dependency.c4NoData": "Нет данных о зависимостях. Измените фильтр типа или создайте связи между карточками.",
 
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

@@ -54,6 +54,17 @@ Der **Abhängigkeitsbericht** visualisiert **Verbindungen zwischen Komponenten**
 - **Interaktive Erkundung** — Klicken Sie auf einen beliebigen Knoten, um den Graph auf diese Karte zu zentrieren
 - **Auswirkungsanalyse** — Den Wirkungsradius von Änderungen an einer bestimmten Komponente verstehen
 
+### C4-Diagrammansicht
+
+![C4-Diagrammansicht](../assets/img/en/13b_dependencies_c4.png)
+
+Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **C4-Diagramm**-Ansicht. Diese stellt die gleichen Abhängigkeitsdaten in C4-Notation dar:
+
+- **Grenzrahmen** — Karten werden nach Architekturebene (Strategie, Business, Anwendung, Technologie) in gestrichelten Grenzrechtecken gruppiert
+- **Interaktive Leinwand** — Schwenken, Zoomen und die Minimap nutzen, um große Diagramme zu navigieren
+- **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen
+- **Kein Zentralknoten erforderlich** — Die C4-Ansicht zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
+
 ## Kostenbericht
 
 ![Kostenbericht](../assets/img/en/34_report_cost.png)

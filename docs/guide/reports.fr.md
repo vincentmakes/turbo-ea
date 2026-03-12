@@ -54,6 +54,17 @@ Le **Rapport Dépendances** visualise les **connexions entre composants** sous f
 - **Exploration interactive** -- Cliquer sur n'importe quel nœud pour recentrer le graphe sur cette fiche
 - **Analyse d'impact** -- Comprendre le rayon d'impact des modifications sur un composant spécifique
 
+### Vue Diagramme C4
+
+![Vue Diagramme C4](../assets/img/en/13b_dependencies_c4.png)
+
+Basculez vers la vue **Diagramme C4** à l'aide des boutons de mode d'affichage dans la barre d'outils. Celle-ci restitue les mêmes données de dépendances en notation C4 :
+
+- **Cadres de périmètre** — Les fiches sont regroupées par couche architecturale (Stratégie, Métier, Application, Technique) dans des rectangles de périmètre en pointillés
+- **Canevas interactif** — Déplacez, zoomez et utilisez la minimap pour naviguer dans les grands diagrammes
+- **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche
+- **Pas de fiche centrale requise** — La vue C4 affiche toutes les fiches correspondant au filtre de type actuel
+
 ## Rapport Coûts
 
 ![Rapport Coûts](../assets/img/en/34_report_cost.png)

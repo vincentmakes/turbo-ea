@@ -54,6 +54,17 @@ El **Informe de Dependencias** visualiza las **conexiones entre componentes** co
 - **Exploración interactiva** — Haga clic en cualquier nodo para recentrar el grafo en esa ficha
 - **Análisis de impacto** — Comprenda el radio de impacto de los cambios en un componente específico
 
+### Vista de Diagrama C4
+
+![Vista de Diagrama C4](../assets/img/es/13b_dependencies_c4.png)
+
+Cambie a la vista de **Diagrama C4** utilizando los botones de modo de vista en la barra de herramientas. Esta vista renderiza los mismos datos de dependencias usando notación C4:
+
+- **Cajas de contorno** — Las fichas se agrupan por capa arquitectónica (Estrategia, Negocio, Aplicación, Técnica) dentro de rectángulos de contorno punteados
+- **Lienzo interactivo** — Desplace, haga zoom y use el minimapa para navegar por diagramas grandes
+- **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha
+- **Sin ficha central requerida** — La vista C4 muestra todas las fichas que coinciden con el filtro de tipo actual
+
 ## Informe de Costos
 
 ![Informe de Costos](../assets/img/es/34_informe_costos.png)

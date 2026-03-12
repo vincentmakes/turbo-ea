@@ -137,6 +137,10 @@
   "dependency.relation": "Relazione",
   "dependency.target": "Destinazione",
   "dependency.stats": "{{nodes}} nodi \u00b7 {{relations}} relazioni",
+  "dependency.treeView": "Vista ad albero",
+  "dependency.c4View": "Diagramma C4",
+  "dependency.c4NoData": "Nessun dato sulle dipendenze. Regola il filtro per tipo o crea relazioni tra le schede.",
+
   "cost.title": "Analisi dei costi",
   "cost.cardType": "Tipo di scheda",
   "cost.costField": "Campo costo",

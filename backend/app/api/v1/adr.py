@@ -18,6 +18,7 @@ from app.models.user import User
 from app.schemas.adr import (
     ADRCardLink,
     ADRCreate,
+    ADRRejectRequest,
     ADRSignatureRequest,
     ADRUpdate,
 )
@@ -307,6 +308,16 @@ async def update_adr(
     if body.status is not None:
         if body.status == "signed":
             raise HTTPException(400, "Use the sign endpoint to sign a decision")
+        if body.status == "in_review":
+            raise HTTPException(
+                400,
+                "Use the request-signatures endpoint to send for review",
+            )
+        if body.status == "draft" and adr.status == "in_review":
+            raise HTTPException(
+                400,
+                "Use the recall-signatures endpoint to reset to draft",
+            )
         adr.status = body.status
 
     await db.commit()
@@ -542,6 +553,162 @@ async def sign_adr(
             "title": adr.title,
             "signer": user.display_name,
             "all_signed": all_signed,
+        },
+        db=db,
+        user_id=user.id,
+    )
+
+    return await _adr_to_dict(db, adr)
+
+
+@router.post("/{adr_id}/recall-signatures")
+async def recall_adr_signatures(
+    adr_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Recall all pending signature requests. Resets status to draft and
+    clears signatories."""
+    await PermissionService.require_permission(db, user, "adr.manage")
+    adr = await _get_adr(db, adr_id)
+
+    if adr.status != "in_review":
+        raise HTTPException(400, "Only decisions in review can have signatures recalled")
+
+    # Close pending sign-request todos
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.ilike(f"%Sign ADR%{adr.reference_number}%"),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
+
+    # Notify pending signatories
+    for sig in adr.signatories or []:
+        if sig["status"] == "pending":
+            await notification_service.create_notification(
+                db,
+                user_id=uuid.UUID(sig["user_id"]),
+                notif_type="adr_sign_recalled",
+                title="ADR Signature Request Recalled",
+                message=(
+                    f"{user.display_name} recalled the signature request "
+                    f'for "{adr.reference_number} — {adr.title}"'
+                ),
+                link=f"/ea-delivery/adr/{adr_id}",
+                data={"adr_id": adr_id, "adr_title": adr.title},
+            )
+
+    adr.signatories = []
+    flag_modified(adr, "signatories")
+    adr.status = "draft"
+
+    await db.commit()
+    await db.refresh(adr)
+
+    await event_bus.publish(
+        "adr.signatures_recalled",
+        {
+            "id": adr_id,
+            "reference_number": adr.reference_number,
+            "title": adr.title,
+        },
+        db=db,
+        user_id=user.id,
+    )
+
+    return await _adr_to_dict(db, adr)
+
+
+@router.post("/{adr_id}/reject")
+async def reject_adr(
+    adr_id: str,
+    body: ADRRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reject the ADR as a signatory. Resets to draft, increments revision
+    number, clears all signatories, and notifies the creator."""
+    await PermissionService.require_permission(db, user, "adr.sign")
+    adr = await _get_adr(db, adr_id)
+
+    if adr.status != "in_review":
+        raise HTTPException(400, "Only decisions in review can be rejected")
+
+    signatories = list(adr.signatories or [])
+    if not any(sig["user_id"] == str(user.id) for sig in signatories):
+        raise HTTPException(403, "You are not a signatory of this decision")
+
+    # Close all pending sign-request todos
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.ilike(f"%Sign ADR%{adr.reference_number}%"),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
+
+    # Notify the creator
+    if adr.created_by:
+        await notification_service.create_notification(
+            db,
+            user_id=adr.created_by,
+            notif_type="adr_rejected",
+            title="ADR Rejected",
+            message=(
+                f"{user.display_name} rejected "
+                f'"{adr.reference_number} — {adr.title}": {body.comment}'
+            ),
+            link=f"/ea-delivery/adr/{adr_id}",
+            data={
+                "adr_id": adr_id,
+                "adr_title": adr.title,
+                "comment": body.comment,
+            },
+        )
+
+    # Notify other signatories
+    for sig in signatories:
+        if sig["user_id"] != str(user.id):
+            await notification_service.create_notification(
+                db,
+                user_id=uuid.UUID(sig["user_id"]),
+                notif_type="adr_rejected",
+                title="ADR Rejected",
+                message=(
+                    f"{user.display_name} rejected "
+                    f'"{adr.reference_number} — {adr.title}": '
+                    f"{body.comment}"
+                ),
+                link=f"/ea-delivery/adr/{adr_id}",
+                data={
+                    "adr_id": adr_id,
+                    "adr_title": adr.title,
+                    "comment": body.comment,
+                },
+            )
+
+    adr.signatories = []
+    flag_modified(adr, "signatories")
+    adr.status = "draft"
+    adr.revision_number += 1
+
+    await db.commit()
+    await db.refresh(adr)
+
+    await event_bus.publish(
+        "adr.rejected",
+        {
+            "id": adr_id,
+            "reference_number": adr.reference_number,
+            "title": adr.title,
+            "rejector": user.display_name,
+            "comment": body.comment,
         },
         db=db,
         user_id=user.id,

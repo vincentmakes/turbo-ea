@@ -137,6 +137,10 @@
   "dependency.relation": "关系",
   "dependency.target": "目标",
   "dependency.stats": "{{nodes}} 个节点 \u00B7 {{relations}} 个关系",
+  "dependency.treeView": "树状视图",
+  "dependency.c4View": "C4 图表",
+  "dependency.c4NoData": "没有依赖数据。请调整类型筛选器或在卡片之间创建关系。",
+
   "cost.title": "成本分析",
   "cost.cardType": "卡片类型",
   "cost.costField": "成本字段",

@@ -144,12 +144,12 @@ function DescriptionSection({
             </Box>
           </Box>
         ) : (
-          <Box>
+          <Box sx={{ containerType: "inline-size" }}>
             <Typography variant="body2" color="text.secondary" whiteSpace="pre-wrap" sx={{ mb: extraFields?.length ? 1 : 0 }}>
               {card.description || t("description.noDescription")}
             </Typography>
             {extraFields && extraFields.length > 0 && (
-              <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr", rowGap: 1, columnGap: 2, "@container (min-width: 480px)": { gridTemplateColumns: "180px 1fr", alignItems: "center" } }}>
                 {extraFields.map((field) => (
                   <Box key={field.key} sx={{ display: "contents" }}>
                     <Typography variant="body2" color="text.secondary">{rl(field.key, field.translations)}</Typography>

@@ -29,6 +29,10 @@ class ADRSignatureRequest(BaseModel):
     message: str | None = None
 
 
+class ADRRejectRequest(BaseModel):
+    comment: str
+
+
 class ADRCardLink(BaseModel):
     card_id: str
 

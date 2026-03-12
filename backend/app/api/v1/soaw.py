@@ -49,6 +49,10 @@ class SignatureRequest(BaseModel):
     message: str | None = None
 
 
+class RejectRequest(BaseModel):
+    comment: str
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -156,6 +160,18 @@ async def update_soaw(
         # Don't allow direct status change to 'signed' — use the sign endpoint
         if body.status == "signed":
             raise HTTPException(400, "Use the sign endpoint to sign a document")
+        # Don't allow direct status change to 'in_review' — use request-signatures
+        if body.status == "in_review":
+            raise HTTPException(
+                400,
+                "Use the request-signatures endpoint to send for review",
+            )
+        # Don't allow resetting from in_review via PATCH — use recall-signatures
+        if body.status == "draft" and s.status == "in_review":
+            raise HTTPException(
+                400,
+                "Use the recall-signatures endpoint to reset to draft",
+            )
         s.status = body.status
     if body.document_info is not None:
         s.document_info = body.document_info
@@ -343,6 +359,147 @@ async def sign_soaw(
     await event_bus.publish(
         "soaw.signed",
         {"id": soaw_id, "name": s.name, "signer": user.display_name, "all_signed": all_signed},
+        db=db,
+        user_id=user.id,
+    )
+
+    return _row_to_dict(s)
+
+
+@router.post("/{soaw_id}/recall-signatures")
+async def recall_signatures(
+    soaw_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Recall all pending signature requests. Only the creator or an admin
+    can recall. Resets status to draft and clears signatories."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    s = await _get_soaw(db, soaw_id)
+
+    if s.status != "in_review":
+        raise HTTPException(400, "Only documents in review can have signatures recalled")
+
+    # Close pending sign-request todos
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.ilike(f'%Sign SoAW%"{s.name}"%'),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
+
+    # Notify pending signatories that the request was recalled
+    for sig in s.signatories or []:
+        if sig["status"] == "pending":
+            await notification_service.create_notification(
+                db,
+                user_id=uuid.UUID(sig["user_id"]),
+                notif_type="soaw_sign_recalled",
+                title="Signature Request Recalled",
+                message=(f'{user.display_name} recalled the signature request for "{s.name}"'),
+                link=f"/ea-delivery/soaw/{soaw_id}",
+                data={"soaw_id": soaw_id, "soaw_name": s.name},
+            )
+
+    s.signatories = []
+    flag_modified(s, "signatories")
+    s.status = "draft"
+
+    await db.commit()
+    await db.refresh(s)
+
+    await event_bus.publish(
+        "soaw.signatures_recalled",
+        {"id": soaw_id, "name": s.name},
+        db=db,
+        user_id=user.id,
+    )
+
+    return _row_to_dict(s)
+
+
+@router.post("/{soaw_id}/reject")
+async def reject_soaw(
+    soaw_id: str,
+    body: RejectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Reject the SoAW as a signatory. Resets to draft, increments revision
+    number, clears all signatories, and notifies the creator."""
+    await PermissionService.require_permission(db, user, "soaw.manage")
+    s = await _get_soaw(db, soaw_id)
+
+    if s.status != "in_review":
+        raise HTTPException(400, "Only documents in review can be rejected")
+
+    signatories = list(s.signatories or [])
+    if not any(sig["user_id"] == str(user.id) for sig in signatories):
+        raise HTTPException(403, "You are not a signatory of this document")
+
+    # Close all pending sign-request todos
+    sign_todos = await db.execute(
+        select(Todo).where(
+            Todo.is_system == True,  # noqa: E712
+            Todo.status == "open",
+            Todo.description.ilike(f'%Sign SoAW%"{s.name}"%'),
+        )
+    )
+    for t in sign_todos.scalars().all():
+        t.status = "done"
+
+    # Notify the creator
+    if s.created_by:
+        await notification_service.create_notification(
+            db,
+            user_id=s.created_by,
+            notif_type="soaw_rejected",
+            title="SoAW Rejected",
+            message=(f'{user.display_name} rejected "{s.name}": {body.comment}'),
+            link=f"/ea-delivery/soaw/{soaw_id}",
+            data={
+                "soaw_id": soaw_id,
+                "soaw_name": s.name,
+                "comment": body.comment,
+            },
+        )
+
+    # Notify other signatories
+    for sig in signatories:
+        if sig["user_id"] != str(user.id):
+            await notification_service.create_notification(
+                db,
+                user_id=uuid.UUID(sig["user_id"]),
+                notif_type="soaw_rejected",
+                title="SoAW Rejected",
+                message=(f'{user.display_name} rejected "{s.name}": {body.comment}'),
+                link=f"/ea-delivery/soaw/{soaw_id}",
+                data={
+                    "soaw_id": soaw_id,
+                    "soaw_name": s.name,
+                    "comment": body.comment,
+                },
+            )
+
+    s.signatories = []
+    flag_modified(s, "signatories")
+    s.status = "draft"
+    s.revision_number += 1
+
+    await db.commit()
+    await db.refresh(s)
+
+    await event_bus.publish(
+        "soaw.rejected",
+        {
+            "id": soaw_id,
+            "name": s.name,
+            "rejector": user.display_name,
+            "comment": body.comment,
+        },
         db=db,
         user_id=user.id,
     )

@@ -124,7 +124,7 @@ function AttributeSection({
 
   // Read-only field grid
   const renderReadGrid = (fields: FieldDef[]) => (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "180px 1fr" }, rowGap: 1, columnGap: 2, alignItems: { sm: "center" } }}>
+    <Box sx={{ display: "grid", gridTemplateColumns: "1fr", rowGap: 1, columnGap: 2, "@container (min-width: 480px)": { gridTemplateColumns: "180px 1fr", alignItems: "center" } }}>
       {fields.map((field) => (
         <Box key={field.key} sx={{ display: "contents" }}>
           <Typography variant="body2" color="text.secondary">
@@ -201,7 +201,7 @@ function AttributeSection({
   const renderSectionBody = (isEdit: boolean) => {
     if (!is2Col) return renderColumnItems(col0Items, isEdit);
     return (
-      <Box sx={{ display: "flex", gap: 3, flexDirection: { xs: "column", sm: "row" } }}>
+      <Box sx={{ display: "flex", gap: 3, flexDirection: "column", "@container (min-width: 780px)": { flexDirection: "row" } }}>
         <Box sx={{ flex: 1 }}>{renderColumnItems(col0Items, isEdit)}</Box>
         {col1Items.length > 0 && (
           <Box sx={{ flex: 1 }}>{renderColumnItems(col1Items, isEdit)}</Box>
@@ -236,7 +236,7 @@ function AttributeSection({
       </AccordionSummary>
       <AccordionDetails>
         {editing && canEdit ? (
-          <Box>
+          <Box sx={{ containerType: "inline-size" }}>
             {renderSectionBody(true)}
             {saveError && (
               <Alert severity="error" sx={{ mt: 1 }} onClose={() => setSaveError(null)}>
@@ -260,7 +260,7 @@ function AttributeSection({
             </Box>
           </Box>
         ) : (
-          <Box>
+          <Box sx={{ containerType: "inline-size" }}>
             {renderSectionBody(false)}
           </Box>
         )}

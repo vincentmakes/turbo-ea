@@ -375,6 +375,25 @@ export const DOC_PAGES: PageDef[] = [
       ru: "13_zavisimosti",
     },
   },
+  {
+    id: "13b_dependencies_c4",
+    route: "/reports/dependencies",
+    waitFor: ".react-flow",
+    actions: [
+      { type: "click", selector: "[value='c4']" },
+      { type: "wait", ms: 1500 },
+    ],
+    filenames: {
+      en: "13b_dependencies_c4",
+      de: "13b_abhaengigkeiten_c4",
+      fr: "13b_dependances_c4",
+      es: "13b_dependencias_c4",
+      it: "13b_dipendenze_c4",
+      pt: "13b_dependencias_c4",
+      zh: "13b_dependencies_c4",
+      ru: "13b_zavisimosti_c4",
+    },
+  },
 
   // ── BPM ────────────────────────────────────────────────────────────────
   {
