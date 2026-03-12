@@ -57,6 +57,8 @@ export interface PageDef {
 /** Cards that will be looked up by name at runtime.  Key → search name. */
 export const CARD_LOOKUPS = {
   sampleApp: { name: "SAP S/4HANA", type: "Application" },
+  sampleInitiative: { name: "SAP S/4HANA Migration", type: "Initiative" },
+  sampleProcess: { name: "Order to Cash", type: "BusinessProcess" },
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,27 @@ const TAB_RESOURCES = tabSelector(
   "Resources", "Ressourcen", "Ressources", "Recursos",
   "Risorse", "资源", "Ресурсы",
 );
+const TAB_PPM_OVERVIEW = tabSelector(
+  "Overview", "Übersicht", "Vue d'ensemble", "Resumen",
+  "Panoramica", "Visão geral", "概览", "Обзор",
+);
+const TAB_PPM_STATUS_REPORTS = tabSelector(
+  "Status Reports", "Statusberichte", "Rapports de statut", "Informes de estado",
+  "Rapporti di stato", "Relatórios de estado", "状态报告", "Отчёты о статусе",
+);
+const TAB_PPM_BUDGET = tabSelector(
+  "Budget & Costs", "Budget & Kosten", "Budget et coûts", "Presupuesto y costes",
+  "Budget e costi", "Orçamento e custos", "预算与成本", "Бюджет и затраты",
+);
+const TAB_PPM_RISK = tabSelector(
+  "Risk Management", "Risikomanagement", "Gestion des risques", "Gestión de riesgos",
+  "Gestione dei rischi", "Gestão de riscos", "风险管理", "Управление рисками",
+);
+const TAB_PPM_TASKS = tabSelector(
+  "Tasks", "Aufgaben", "Tâches", "Tareas",
+  "Attività", "Tarefas", "任务", "Задачи",
+);
+const TAB_PPM_GANTT = tabSelector("Gantt");
 const BTN_CREATE = [
   "button:has-text('Create')", "button:has-text('Erstellen')",
   "button:has-text('Créer')", "button:has-text('Crear')",
@@ -884,6 +907,162 @@ export const DOC_PAGES: PageDef[] = [
       pt: "39_admin_papeis",
       zh: "39_admin_roles",
       ru: "39_admin_roli",
+    },
+  },
+
+  // ── PPM (Project Portfolio Management) ──────────────────────────────────
+  {
+    id: "40_ppm_portfolio",
+    route: "/ppm",
+    waitFor: ".MuiPaper-root",
+    actions: [{ type: "wait", ms: 800 }],
+    filenames: {
+      en: "40_ppm_portfolio",
+      de: "40_ppm_portfolio",
+      fr: "40_ppm_portefeuille",
+      es: "40_ppm_portafolio",
+      it: "40_ppm_portafoglio",
+      pt: "40_ppm_portfolio",
+      zh: "40_ppm_portfolio",
+      ru: "40_ppm_portfel",
+    },
+  },
+  {
+    id: "41_ppm_overview",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_OVERVIEW },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "41_ppm_overview",
+      de: "41_ppm_uebersicht",
+      fr: "41_ppm_vue_ensemble",
+      es: "41_ppm_resumen",
+      it: "41_ppm_panoramica",
+      pt: "41_ppm_visao_geral",
+      zh: "41_ppm_overview",
+      ru: "41_ppm_obzor",
+    },
+  },
+  {
+    id: "42_ppm_status_reports",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_STATUS_REPORTS },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "42_ppm_status_reports",
+      de: "42_ppm_statusberichte",
+      fr: "42_ppm_rapports_statut",
+      es: "42_ppm_informes_estado",
+      it: "42_ppm_rapporti_stato",
+      pt: "42_ppm_relatorios_estado",
+      zh: "42_ppm_status_reports",
+      ru: "42_ppm_otchety_statusa",
+    },
+  },
+  {
+    id: "43_ppm_budget_costs",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_BUDGET },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "43_ppm_budget_costs",
+      de: "43_ppm_budget_kosten",
+      fr: "43_ppm_budget_couts",
+      es: "43_ppm_presupuesto_costes",
+      it: "43_ppm_budget_costi",
+      pt: "43_ppm_orcamento_custos",
+      zh: "43_ppm_budget_costs",
+      ru: "43_ppm_byudzhet_zatraty",
+    },
+  },
+  {
+    id: "44_ppm_risk_management",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_RISK },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "44_ppm_risk_management",
+      de: "44_ppm_risikomanagement",
+      fr: "44_ppm_gestion_risques",
+      es: "44_ppm_gestion_riesgos",
+      it: "44_ppm_gestione_rischi",
+      pt: "44_ppm_gestao_riscos",
+      zh: "44_ppm_risk_management",
+      ru: "44_ppm_upravlenie_riskami",
+    },
+  },
+  {
+    id: "45_ppm_task_board",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_TASKS },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "45_ppm_task_board",
+      de: "45_ppm_aufgaben_board",
+      fr: "45_ppm_tableau_taches",
+      es: "45_ppm_tablero_tareas",
+      it: "45_ppm_board_attivita",
+      pt: "45_ppm_quadro_tarefas",
+      zh: "45_ppm_task_board",
+      ru: "45_ppm_doska_zadach",
+    },
+  },
+  {
+    id: "46_ppm_gantt",
+    route: "/ppm/{{cardId:sampleInitiative}}",
+    waitFor: ".MuiPaper-root",
+    actions: [
+      { type: "wait", ms: 400 },
+      { type: "click", selector: TAB_PPM_GANTT },
+      { type: "wait", ms: 800 },
+    ],
+    filenames: {
+      en: "46_ppm_gantt",
+      de: "46_ppm_gantt",
+      fr: "46_ppm_gantt",
+      es: "46_ppm_gantt",
+      it: "46_ppm_gantt",
+      pt: "46_ppm_gantt",
+      zh: "46_ppm_gantt",
+      ru: "46_ppm_gantt",
+    },
+  },
+
+  // ── BPM Process Flow Editor ──────────────────────────────────────────────
+  {
+    id: "47_bpm_process_flow",
+    route: "/bpm/processes/{{cardId:sampleProcess}}/flow",
+    waitFor: ".bjs-container, [class*='BpmnModeler'], [class*='ProcessFlow'], .MuiPaper-root",
+    actions: [{ type: "wait", ms: 1200 }],
+    filenames: {
+      en: "47_bpm_process_flow",
+      de: "47_bpm_prozessfluss",
+      fr: "47_bpm_flux_processus",
+      es: "47_bpm_flujo_proceso",
+      it: "47_bpm_flusso_processo",
+      pt: "47_bpm_fluxo_processo",
+      zh: "47_bpm_process_flow",
+      ru: "47_bpm_potok_protsessa",
     },
   },
 ];

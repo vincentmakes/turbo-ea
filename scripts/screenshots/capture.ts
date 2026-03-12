@@ -48,7 +48,7 @@ const DEFAULT_CONFIG: Config = {
   baseUrl: process.env.BASE_URL || "http://localhost:8920",
   email: process.env.SCREENSHOT_EMAIL || "admin@turboea.demo",
   password: process.env.SCREENSHOT_PASSWORD || "TurboEA!2025",
-  locales: ["en", "de", "fr", "es", "it", "pt", "zh"],
+  locales: ["en", "de", "fr", "es", "it", "pt", "zh", "ru"],
   captureDocs: true,
   captureMarketing: false,
   only: [],
