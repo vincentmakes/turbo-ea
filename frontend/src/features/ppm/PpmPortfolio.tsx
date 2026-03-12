@@ -818,7 +818,7 @@ export default function PpmPortfolio() {
               .reduce<{ elements: React.ReactNode[]; lastPct: number }>(
                 (acc, q) => {
                   const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                  if (acc.elements.length > 0 && left - acc.lastPct < 14) return acc;
+                  if (acc.elements.length > 0 && left - acc.lastPct < 17) return acc;
                   acc.elements.push(
                     <Typography
                       key={q.label}

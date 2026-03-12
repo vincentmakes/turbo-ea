@@ -898,14 +898,19 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
       <Box
         ref={ganttRef}
         sx={{
-          /* Enable touch-based horizontal scrolling on iPad / tablets */
-          "& [class*='scrollWrapper']": {
+          /* ── Touch scrolling fix for iPad / tablets ── */
+          "& [class*='ganttTaskRoot']": {
             WebkitOverflowScrolling: "touch",
-            touchAction: "pan-x pan-y",
           },
+          "& [class*='ganttTaskContent']": {
+            WebkitOverflowScrolling: "touch",
+          },
+          /* Allow touch panning on SVG areas so swipe-to-scroll works */
           "& svg": {
             touchAction: "pan-x pan-y",
           },
+
+          /* ── Base styles ── */
           "& .ganttTable": { fontFamily: theme.typography.fontFamily },
           "& .ganttTable_Header": {
             borderBottom: `1px solid ${theme.palette.divider}`,
@@ -929,6 +934,71 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
               backgroundColor: `${theme.palette.action.hover} !important`,
             },
           },
+
+          /* ── Dark mode overrides ── */
+          ...(theme.palette.mode === "dark" && {
+            /* Calendar header cells (SVG rects) */
+            "& [class*='calendarHeader']": {
+              fill: `${theme.palette.background.paper} !important`,
+              stroke: `${theme.palette.divider} !important`,
+            },
+            /* Calendar top text (months/years) + bottom text (days) */
+            "& [class*='calendarTopText']": {
+              fill: `${theme.palette.text.secondary} !important`,
+            },
+            "& [class*='calendarBottomText']": {
+              fill: `${theme.palette.text.primary} !important`,
+            },
+            /* Calendar tick lines */
+            "& [class*='calendarTopTick']": {
+              stroke: `${theme.palette.divider} !important`,
+            },
+            /* Calendar border (top/bottom) */
+            "& [class*='calendarMain']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            /* Grid row backgrounds */
+            "& [class*='gridRow']": {
+              fill: `${theme.palette.background.default} !important`,
+            },
+            /* Table root left border */
+            "& [class*='ganttTableRoot']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            /* Table header borders */
+            "& [class*='ganttTable_Header']": {
+              borderColor: `${theme.palette.divider} !important`,
+              color: theme.palette.text.primary,
+            },
+            /* Header column separators */
+            "& [class*='ganttTable_HeaderSeparator']": {
+              borderColor: `${theme.palette.divider} !important`,
+            },
+            /* Task list rows — text color */
+            "& [class*='taskListCell']": {
+              color: `${theme.palette.text.primary} !important`,
+            },
+            /* Task list resizer */
+            "& [class*='taskListResizer']::before": {
+              backgroundColor: `${theme.palette.divider} !important`,
+            },
+            /* Tooltip */
+            "& [class*='tooltipDefaultContainer_']": {
+              background: `${theme.palette.background.paper} !important`,
+              color: `${theme.palette.text.primary} !important`,
+            },
+            "& [class*='tooltipDefaultContainerParagraph']": {
+              color: `${theme.palette.text.secondary} !important`,
+            },
+            /* Bar handles */
+            "& [class*='barHandle']": {
+              fill: `${theme.palette.action.selected} !important`,
+            },
+            /* Relation lines */
+            "& [class*='relationLine']": {
+              stroke: `${theme.palette.text.disabled} !important`,
+            },
+          }),
         }}
       >
         <Gantt
@@ -947,9 +1017,23 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
           dateMoveStep={{ value: 1, timeUnit: GanttDateRoundingTimeUnit.DAY }}
           checkIsHoliday={checkIsWeekend}
           colors={{
-            selectedTaskBackgroundColor: "rgba(25, 118, 210, 0.08)",
-            todayColor: "rgba(25, 118, 210, 0.08)",
-            holidayBackgroundColor: "rgba(0, 0, 0, 0.04)",
+            selectedTaskBackgroundColor: theme.palette.action.selected,
+            todayColor:
+              theme.palette.mode === "dark"
+                ? "rgba(25, 118, 210, 0.15)"
+                : "rgba(25, 118, 210, 0.08)",
+            holidayBackgroundColor:
+              theme.palette.mode === "dark"
+                ? "rgba(255, 255, 255, 0.03)"
+                : "rgba(0, 0, 0, 0.04)",
+            evenTaskBackgroundColor: theme.palette.background.default,
+            oddTaskBackgroundColor:
+              theme.palette.mode === "dark"
+                ? theme.palette.background.paper
+                : undefined!,
+            contextMenuBgColor: theme.palette.background.paper,
+            contextMenuTextColor: theme.palette.text.primary,
+            contextMenuBoxShadow: theme.shadows[8],
           }}
           dateFormats={{
             dateColumnFormat: "dd MMM ''yy",
