@@ -69,13 +69,18 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   const hs = { background: color, width: 5, height: 5, border: "none" } as const;
 
   /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fireTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pressing, setPressing] = useState(false);
 
   const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    if (fireTimerRef.current) {
+      clearTimeout(fireTimerRef.current);
+      fireTimerRef.current = null;
     }
     setPressing(false);
   }, []);
@@ -83,8 +88,9 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   const handlePointerDown = useCallback(() => {
     if (!data.onLongPress || !data.nodeId) return;
     _longPressFired = false;
-    setPressing(true);
-    timerRef.current = setTimeout(() => {
+    // Delay showing the ring so quick taps don't flash it
+    showTimerRef.current = setTimeout(() => setPressing(true), 150);
+    fireTimerRef.current = setTimeout(() => {
       _longPressFired = true;
       setPressing(false);
       data.onLongPress!(data.nodeId!);
@@ -138,7 +144,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
               strokeDasharray={LP_CIRCUMFERENCE}
               strokeDashoffset={LP_CIRCUMFERENCE}
               style={{
-                animation: "c4-lp-ring 1s linear forwards",
+                animation: "c4-lp-ring 850ms linear forwards",
                 transformOrigin: "center",
                 transform: "rotate(-90deg)",
               }}
