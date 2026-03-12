@@ -910,6 +910,82 @@ export default function PpmGanttTab({ initiativeId, card }: Props) {
     };
   }, []);
 
+  /**
+   * Vertical scroll synchronization: the gantt library renders the left table
+   * (ganttTableWrapper_) and right timeline (ganttTaskContent_) as separate
+   * scrollable containers. On iPad, native touch scroll targets each
+   * independently, causing vertical misalignment. We sync their scrollTop
+   * values via scroll event listeners with a guard flag to prevent infinite
+   * feedback loops.
+   */
+  useEffect(() => {
+    const el = ganttRef.current;
+    if (!el) return;
+
+    let tableWrapper: HTMLElement | null = null;
+    let taskContent: HTMLElement | null = null;
+    let isSyncing = false;
+    let cleanedUp = false;
+
+    const onTableScroll = () => {
+      if (isSyncing || !taskContent || !tableWrapper) return;
+      isSyncing = true;
+      taskContent.scrollTop = tableWrapper.scrollTop;
+      requestAnimationFrame(() => {
+        isSyncing = false;
+      });
+    };
+
+    const onTaskContentScroll = () => {
+      if (isSyncing || !taskContent || !tableWrapper) return;
+      isSyncing = true;
+      tableWrapper.scrollTop = taskContent.scrollTop;
+      requestAnimationFrame(() => {
+        isSyncing = false;
+      });
+    };
+
+    const attach = (): boolean => {
+      tableWrapper = el.querySelector(
+        '[class*="ganttTableWrapper_"]',
+      ) as HTMLElement | null;
+      taskContent = el.querySelector(
+        '[class*="ganttTaskContent_"]',
+      ) as HTMLElement | null;
+      if (tableWrapper && taskContent) {
+        tableWrapper.addEventListener("scroll", onTableScroll, {
+          passive: true,
+        });
+        taskContent.addEventListener("scroll", onTaskContentScroll, {
+          passive: true,
+        });
+        return true;
+      }
+      return false;
+    };
+
+    // If containers aren't in the DOM yet, watch for them
+    let observer: MutationObserver | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    if (!attach() && !cleanedUp) {
+      observer = new MutationObserver(() => {
+        if (attach()) observer!.disconnect();
+      });
+      observer.observe(el, { childList: true, subtree: true });
+      timeout = setTimeout(() => observer!.disconnect(), 5000);
+    }
+
+    return () => {
+      cleanedUp = true;
+      observer?.disconnect();
+      if (timeout) clearTimeout(timeout);
+      if (tableWrapper)
+        tableWrapper.removeEventListener("scroll", onTableScroll);
+      if (taskContent)
+        taskContent.removeEventListener("scroll", onTaskContentScroll);
+    };
+  }, []);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" mt={4}>
