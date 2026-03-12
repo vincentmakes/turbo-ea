@@ -829,14 +829,19 @@ export default function PpmPortfolio() {
             }}
           >
             {(() => {
-              // ~40px per label; compute min % gap so labels don't overlap
+              // Each label is ~42px wide at 0.65rem + 8px gap
+              const labelPx = 50;
               const minGapPct =
-                timelineWidth > 0 ? (40 / timelineWidth) * 100 : 10;
+                timelineWidth > 0 ? (labelPx / timelineWidth) * 100 : 10;
+              // Drop labels whose right edge would exceed the container
+              const maxLeftPct =
+                timelineWidth > 0 ? 100 - (labelPx / timelineWidth) * 100 : 95;
 
               const visible: { label: string; left: number }[] = [];
               let lastPct = -Infinity;
               for (const q of quarters) {
                 const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+                if (left > maxLeftPct) break;
                 if (visible.length > 0 && left - lastPct < minGapPct) continue;
                 visible.push({ label: q.label, left });
                 lastPct = left;
