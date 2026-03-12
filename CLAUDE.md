@@ -308,6 +308,8 @@ turbo-ea/
 │   │   │       ├── bpm_assessments.py # /bpm (process assessments)
 │   │   │       ├── bpm_reports.py     # /bpm/reports (maturity, risk, automation)
 │   │   │       ├── bpm_workflow.py    # /bpm (process flow version approval)
+│   │   │       ├── ppm.py             # /ppm (status reports, costs, budgets, risks, tasks, WBS)
+│   │   │       ├── ppm_reports.py     # /reports/ppm (dashboard, gantt, group-options)
 │   │   │       ├── diagrams.py        # /diagrams CRUD (DrawIO XML storage)
 │   │   │       ├── soaw.py            # /soaw (Statement of Architecture Work)
 │   │   │       ├── reports.py         # /reports (dashboard, portfolio, matrix, etc.)
@@ -338,6 +340,7 @@ turbo-ea/
 │   │   │   ├── common.py              # Shared schemas (pagination, sorting)
 │   │   │   ├── relation.py            # Relation schemas
 │   │   │   ├── bpm.py                 # BPM schemas
+│   │   │   ├── ppm.py                 # PPM schemas
 │   │   │   └── ai_suggest.py          # AI suggestion request/response schemas
 │   │   ├── services/
 │   │   │   ├── event_bus.py           # In-memory pub/sub + SSE streaming
@@ -350,6 +353,7 @@ turbo-ea/
 │   │   │   ├── seed.py                # Default metamodel (14 types, 30+ relations)
 │   │   │   ├── seed_demo.py           # NexaTech Industries demo dataset
 │   │   │   ├── seed_demo_bpm.py       # Demo BPM processes
+│   │   │   ├── seed_demo_ppm.py       # Demo PPM data (status reports, WBS, tasks, budgets, costs, risks)
 │   │   │   ├── notification_service.py # In-memory + DB notification management
 │   │   │   └── email_service.py       # SMTP-based email sending
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
@@ -374,6 +378,7 @@ turbo-ea/
 │   │   │   ├── usePermissions.ts      # Effective permissions for current card
 │   │   │   ├── useCalculatedFields.ts # Track calculated fields per type
 │   │   │   ├── useBpmEnabled.ts       # BPM feature flag
+│   │   │   ├── usePpmEnabled.ts       # PPM feature flag
 │   │   │   ├── useSavedReport.ts      # Saved report caching
 │   │   │   ├── useThumbnailCapture.ts # SVG → PNG for report thumbnails
 │   │   │   └── useTimeline.ts         # Process timeline data
@@ -430,6 +435,19 @@ turbo-ea/
 │   │   │   │   ├── ProcessNavigator.tsx
 │   │   │   │   ├── ElementLinker.tsx
 │   │   │   │   └── BpmReportPage.tsx
+│   │   │   ├── ppm/                          # Project Portfolio Management
+│   │   │   │   ├── PpmPortfolio.tsx          # Portfolio dashboard with Gantt chart
+│   │   │   │   ├── PpmProjectDetail.tsx      # Initiative detail (tabbed)
+│   │   │   │   ├── PpmOverviewTab.tsx        # Initiative snapshot
+│   │   │   │   ├── PpmReportsTab.tsx         # Status reports with health badges
+│   │   │   │   ├── PpmCostTab.tsx            # Budget + cost lines
+│   │   │   │   ├── PpmRiskTab.tsx            # Risk matrix + list
+│   │   │   │   ├── PpmTaskBoard.tsx          # Kanban board (dnd-kit)
+│   │   │   │   ├── PpmTaskCard.tsx           # Task card component
+│   │   │   │   ├── PpmTaskDialog.tsx         # Create/edit task dialog
+│   │   │   │   ├── PpmGanttTab.tsx           # Timeline view with milestones
+│   │   │   │   ├── PpmWbsDialog.tsx          # Create/edit WBS item dialog
+│   │   │   │   └── StatusReportDialog.tsx    # Create/edit status report dialog
 │   │   │   ├── diagrams/
 │   │   │   │   ├── DiagramsPage.tsx         # Gallery with thumbnails
 │   │   │   │   ├── DiagramEditor.tsx        # DrawIO iframe editor
@@ -521,6 +539,7 @@ turbo-ea/
 | `RESET_DB` | `false` | Drop all tables and re-create + re-seed on startup |
 | `SEED_DEMO` | `false` | Populate NexaTech Industries demo data on startup |
 | `SEED_BPM` | `false` | Populate demo BPM processes |
+| `SEED_PPM` | `false` | Populate demo PPM data (status reports, WBS, tasks, budgets, costs, risks) |
 | `ENVIRONMENT` | `development` | Runtime environment. Controls: API docs visibility, secret key validation |
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
 | `SMTP_HOST` | *(empty)* | SMTP server hostname (optional) |
@@ -573,6 +592,18 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `process_elements` | `ProcessElement` | Extracted BPMN elements (tasks, events, gateways, lanes) |
 | `process_flow_versions` | `ProcessFlowVersion` | Version history with approval workflow (draft/pending/published/archived) |
 | `process_assessments` | `ProcessAssessment` | Process scores: efficiency, effectiveness, compliance |
+
+### PPM Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `ppm_status_reports` | `PpmStatusReport` | Initiative health reports: schedule/cost/scope health, summary, accomplishments, next steps |
+| `ppm_cost_lines` | `PpmCostLine` | Actual cost transactions: description, category (capex/opex), planned, actual, date |
+| `ppm_budget_lines` | `PpmBudgetLine` | Planned budget per fiscal year: category (capex/opex), amount |
+| `ppm_risks` | `PpmRisk` | Initiative risks: probability (1-5), impact (1-5), auto-computed risk_score, mitigation, status |
+| `ppm_tasks` | `PpmTask` | Work items: status (todo/in_progress/done/blocked), priority, assignee, tags (JSONB), WBS link |
+| `ppm_task_comments` | `PpmTaskComment` | Comments on PPM tasks |
+| `ppm_wbs` | `PpmWbs` | Work Breakdown Structure: self-referential hierarchy, completion (auto-rolled up), milestones |
 
 ### Calculation Tables
 
@@ -713,6 +744,46 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | GET | `/bpm/reports/risk` | Risk assessment overview |
 | GET | `/bpm/reports/automation` | Automation levels |
 
+### PPM (`/ppm`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/ppm/initiatives/{id}/reports` | List status reports for an initiative |
+| POST | `/ppm/initiatives/{id}/reports` | Create status report |
+| PATCH | `/ppm/reports/{id}` | Update status report |
+| DELETE | `/ppm/reports/{id}` | Delete status report |
+| GET | `/ppm/initiatives/{id}/costs` | List cost lines |
+| POST | `/ppm/initiatives/{id}/costs` | Create cost line (auto-syncs initiative costActual) |
+| PATCH | `/ppm/costs/{id}` | Update cost line |
+| DELETE | `/ppm/costs/{id}` | Delete cost line |
+| GET | `/ppm/initiatives/{id}/budgets` | List budget lines |
+| POST | `/ppm/initiatives/{id}/budgets` | Create budget line (auto-syncs initiative costBudget) |
+| PATCH | `/ppm/budgets/{id}` | Update budget line |
+| DELETE | `/ppm/budgets/{id}` | Delete budget line |
+| GET | `/ppm/initiatives/{id}/has-costs` | Check if initiative has budget/cost lines |
+| GET | `/ppm/initiatives/{id}/risks` | List risks (ordered by risk_score desc) |
+| POST | `/ppm/initiatives/{id}/risks` | Create risk (auto-computes risk_score) |
+| PATCH | `/ppm/risks/{id}` | Update risk |
+| DELETE | `/ppm/risks/{id}` | Delete risk |
+| GET | `/ppm/initiatives/{id}/tasks` | List tasks |
+| POST | `/ppm/initiatives/{id}/tasks` | Create task (auto-syncs to system Todo) |
+| PATCH | `/ppm/tasks/{id}` | Update task |
+| DELETE | `/ppm/tasks/{id}` | Delete task |
+| GET | `/ppm/tasks/{id}/comments` | List task comments |
+| POST | `/ppm/tasks/{id}/comments` | Create task comment |
+| PATCH | `/ppm/task-comments/{id}` | Update comment (author or ppm.manage) |
+| DELETE | `/ppm/task-comments/{id}` | Delete comment |
+| GET | `/ppm/initiatives/{id}/wbs` | List WBS items with progress |
+| POST | `/ppm/initiatives/{id}/wbs` | Create WBS item |
+| PATCH | `/ppm/wbs/{id}` | Update WBS (auto-rollup completion) |
+| DELETE | `/ppm/wbs/{id}` | Delete WBS item |
+| GET | `/ppm/initiatives/{id}/completion` | Overall initiative completion % |
+| GET | `/reports/ppm/dashboard` | PPM dashboard KPIs |
+| GET | `/reports/ppm/gantt` | Gantt chart data. `?group_by={type_key}` for grouping |
+| GET | `/reports/ppm/group-options` | Available card types for Gantt grouping |
+| GET | `/settings/ppm-enabled` | Check if PPM module is enabled (public) |
+| PATCH | `/settings/ppm-enabled` | Toggle PPM module (admin only) |
+
 ### Reports (`/reports`)
 
 | Method | Path | Description |
@@ -822,6 +893,8 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 | `/reports/data-quality` | `DataQualityReport` | Completeness dashboard |
 | `/reports/eol` | `EolReport` | End-of-Life status |
 | `/reports/saved` | `SavedReportsPage` | Saved report gallery |
+| `/ppm` | `PpmPortfolio` | PPM portfolio dashboard with Gantt chart |
+| `/ppm/:id` | `PpmProjectDetail` | Initiative detail (overview, reports, cost, risks, tasks, gantt) |
 | `/bpm` | `BpmDashboard` | BPM maturity overview |
 | `/bpm/processes/:id/flow` | `ProcessFlowEditorPage` | BPMN editor with approval workflow |
 | `/diagrams` | `DiagramsPage` | Diagram gallery with thumbnails |
@@ -968,7 +1041,7 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (18 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `ai.*`, `admin.*`
+**App-level permissions** (19 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `ai.*`, `admin.*`
 
 **Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
 
@@ -1036,6 +1109,32 @@ COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 BusinessProcess cards show extra tabs in CardDetail:
 - **Process Flow** tab: Embedded BPMN viewer/editor
 - **Assessments** tab: Process assessment scores
+
+---
+
+## PPM (Project Portfolio Management)
+
+Optional module (toggled via admin settings) for managing Initiative cards as full projects.
+
+### Architecture
+- **Scoped to Initiative cards** — All PPM data (reports, WBS, tasks, budgets, costs, risks) is linked to Initiative cards via `initiative_id` FK
+- **Feature flag**: `usePpmEnabled()` hook (module-level singleton cache, fetches `GET /settings/ppm-enabled`)
+- **Cost sync**: Creating/updating/deleting budget or cost lines auto-syncs the Initiative card's `costBudget` and `costActual` attributes and recalculates data quality
+- **WBS rollup**: Task status changes trigger bottom-up completion recalculation through the WBS hierarchy
+- **Task-Todo sync**: Assigning a PPM task auto-creates a system Todo (`is_system=true`); clearing assignee deletes it
+- **Notifications**: Task assignment sends a `task_assigned` notification
+- **Permissions**: `ppm.view` (read) and `ppm.manage` (write), granted to admin, bpm_admin, and member roles
+
+### Frontend Components
+- **`PpmPortfolio.tsx`** — Portfolio dashboard with Gantt visualization, KPI cards, grouping by related card type
+- **`PpmProjectDetail.tsx`** — Tabbed initiative detail (overview, reports, cost, risks, tasks, gantt, details)
+- **`PpmTaskBoard.tsx`** — Kanban board with @dnd-kit drag-drop (todo/in_progress/done/blocked columns)
+- **`PpmRiskTab.tsx`** — Risk matrix visualization (probability x impact grid) and risk cards
+- **`PpmCostTab.tsx`** — Budget lines (planned by fiscal year) and cost lines (actuals)
+- **`PpmGanttTab.tsx`** — Timeline view of WBS items with milestones and completion bars
+
+### Demo Data
+`seed_demo_ppm.py` populates PPM data for 6 Initiative cards when `SEED_DEMO=true` or `SEED_PPM=true`. Includes status reports, WBS hierarchies, tasks, budget/cost lines, and risks with varied project health stories.
 
 ---
 

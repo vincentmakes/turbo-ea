@@ -37,6 +37,16 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 - **Process Assessments** — Record maturity assessments (efficiency, effectiveness, compliance, automation) with 1–5 scoring, action items, and historical tracking.
 - **BPM Reports** — Process map, capability-process matrix, process-application matrix, process dependencies, and element-application map.
 
+### Project Portfolio Management (PPM)
+
+- **Portfolio Dashboard** — Gantt chart overview of all initiatives with quarter headers, cost aggregations, health status indicators, and grouping by related card types (e.g., group by Organization or Platform).
+- **Status Reports** — Periodic health snapshots for initiatives tracking schedule, cost, and scope health (on track / at risk / off track) with summary, accomplishments, and next steps.
+- **Work Breakdown Structure** — Hierarchical WBS with parent-child nesting, milestones, date ranges, and auto-computed completion that rolls up from task progress through parent WBS items.
+- **Task Board** — Kanban board (todo, in progress, done, blocked) with drag-and-drop, priority levels, assignees, due dates, tags, WBS linking, and threaded comments. Tasks auto-sync to the system todo list.
+- **Budget & Cost Tracking** — Budget lines (capex/opex by fiscal year) and cost lines (actual expenditures with dates). Budget and cost totals auto-sync to the initiative card's costBudget and costActual fields.
+- **Risk Management** — Risk register with probability/impact scoring (1-5), auto-computed risk score, status tracking (open/mitigating/mitigated/closed/accepted), mitigation plans, and risk matrix visualization.
+- **PPM Reports** — Portfolio-level dashboard with KPIs (total budget, actual spend, health distribution) and Gantt timeline with optional grouping.
+
 ### Diagrams & Documents
 
 - **Diagram Editor** — Self-hosted DrawIO integration for creating architecture diagrams linked to your cards. Shapes are colored by card type with synced/pending states.
@@ -388,6 +398,8 @@ turbo-ea/
 │   │   │   ├── auth/        # Login, SSO callback, password setup
 │   │   │   ├── bpm/         # BPMN editor, viewer, process navigator,
 │   │   │   │                # assessments, element linker, BPM reports
+│   │   │   ├── ppm/         # Portfolio dashboard, initiative detail,
+│   │   │   │                # task board, risk matrix, cost tracking, WBS
 │   │   │   ├── cards/       # Card detail page
 │   │   │   ├── dashboard/   # KPI cards + recent activity
 │   │   │   ├── diagrams/    # DrawIO editor + shape system
