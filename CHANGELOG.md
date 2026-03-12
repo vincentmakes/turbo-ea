@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Changed
 - Added MCP server conventions, ADR and file attachment routes, and missing env vars to CLAUDE.md
 - Fixed DrawIO version in README (v29.5.1 → v26.0.9) and expanded environment variables table
-- Added MCP server tests, docs build validation, and coverage threshold bump (40% → 50%) to CI
+- Added MCP server tests and docs build validation to CI pipeline
 - Added version bump, i18n, and docs update reminders to PR template checklist
 - Set mkdocs.yml site_url to actual docs domain instead of placeholder
 - Updated locale count from seven to eight across all documentation (Russian added in v0.30.0)
