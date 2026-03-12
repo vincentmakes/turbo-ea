@@ -838,11 +838,12 @@ export default function PpmPortfolio() {
                 (acc, q) => {
                   const leftPct = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
                   const leftPx = (leftPct / 100) * timelineWidth;
-                  // Skip if this label would overlap the previous one
-                  // (each label ~34px wide at 0.65rem 600-weight + 6px gap)
-                  if (leftPx < acc.lastRight + 6) return acc;
-                  // Skip if the label would be clipped at the right edge
-                  if (leftPx + 34 > timelineWidth) return acc;
+                  // Once the container has been measured, skip labels that
+                  // would overlap the previous one or get clipped at the edge
+                  if (timelineWidth > 0) {
+                    if (leftPx < acc.lastRight + 6) return acc;
+                    if (leftPx + 34 > timelineWidth) return acc;
+                  }
                   acc.elements.push(
                     <Typography
                       key={q.label}
