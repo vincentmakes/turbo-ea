@@ -6,12 +6,15 @@ Wipes all existing SoAW and ADR records, then inserts the full demo dataset.
 Usage:
     cd backend && python ../scripts/seed_soaw_adrs.py
 
-Requires the same environment variables as the backend (POSTGRES_HOST, etc.).
+Requires:
+    - pip install asyncpg sqlalchemy  (or run inside the backend venv/container)
+    - Same environment variables as the backend (POSTGRES_HOST, etc.)
 """
 
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -20,9 +23,12 @@ backend_dir = Path(__file__).resolve().parent.parent / "backend"
 sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy import delete, select  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-from app.database import async_session  # noqa: E402
 from app.models.architecture_decision import ArchitectureDecision  # noqa: E402
 from app.models.architecture_decision_card import ArchitectureDecisionCard  # noqa: E402
 from app.models.soaw import SoAW  # noqa: E402
@@ -35,6 +41,16 @@ from app.services.seed_demo import (  # noqa: E402
     DEMO_SOAWS,
     _id,
 )
+
+
+def _build_database_url() -> str:
+    """Build the async database URL from environment variables."""
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    db = os.getenv("POSTGRES_DB", "turboea")
+    user = os.getenv("POSTGRES_USER", "turboea")
+    password = os.getenv("POSTGRES_PASSWORD", "turboea")
+    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 
 async def seed(db: AsyncSession) -> dict:
@@ -83,8 +99,15 @@ async def seed(db: AsyncSession) -> dict:
 
 
 async def main() -> None:
-    async with async_session() as db:
+    url = _build_database_url()
+    print(f"[seed_soaw_adrs] Connecting to {url.split('@')[1]}...")
+    engine = create_async_engine(url, echo=False)
+    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+    async with session_factory() as db:
         result = await seed(db)
+
+    await engine.dispose()
     print(
         f"[seed_soaw_adrs] Done: {result['adrs']} ADRs, "
         f"{result['adr_links']} ADR-card links, {result['soaws']} SoAWs"
