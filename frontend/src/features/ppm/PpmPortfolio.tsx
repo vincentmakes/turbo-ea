@@ -228,7 +228,7 @@ export default function PpmPortfolio() {
   const [hoveredReport, setHoveredReport] = useState<PpmStatusReport | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout>>();
   const timelineRef = useRef<HTMLDivElement>(null);
-  const [timelineWidth, setTimelineWidth] = useState(300);
+  const [timelineWidth, setTimelineWidth] = useState(600);
 
   const handleReportEnter = (
     e: React.MouseEvent<HTMLElement>,
@@ -828,42 +828,38 @@ export default function PpmPortfolio() {
               overflow: "hidden",
             }}
           >
-            {(() => {
-              // Each label is ~42px wide at 0.65rem + 8px gap
-              const labelPx = 50;
-              const minGapPct =
-                timelineWidth > 0 ? (labelPx / timelineWidth) * 100 : 10;
-              // Drop labels whose right edge would exceed the container
-              const maxLeftPct =
-                timelineWidth > 0 ? 100 - (labelPx / timelineWidth) * 100 : 95;
-
-              const visible: { label: string; left: number }[] = [];
-              let lastPct = -Infinity;
-              for (const q of quarters) {
-                const left = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
-                if (left > maxLeftPct) break;
-                if (visible.length > 0 && left - lastPct < minGapPct) continue;
-                visible.push({ label: q.label, left });
-                lastPct = left;
-              }
-
-              return visible.map((q) => (
-                <Typography
-                  key={q.label}
-                  variant="caption"
-                  fontWeight={600}
-                  sx={{
-                    position: "absolute",
-                    left: `${q.left}%`,
-                    bottom: 2,
-                    whiteSpace: "nowrap",
-                    fontSize: "0.65rem",
-                  }}
-                >
-                  {q.label}
-                </Typography>
-              ));
-            })()}
+            {quarters
+              .reduce<{ elements: React.ReactNode[]; lastRight: number }>(
+                (acc, q) => {
+                  const leftPct = pctOf(q.start.toISOString().slice(0, 10)) ?? 0;
+                  const leftPx = (leftPct / 100) * timelineWidth;
+                  // Skip if this label would overlap the previous one
+                  // (each label ~34px wide at 0.65rem 600-weight + 6px gap)
+                  if (leftPx < acc.lastRight + 6) return acc;
+                  // Skip if the label would be clipped at the right edge
+                  if (leftPx + 34 > timelineWidth) return acc;
+                  acc.elements.push(
+                    <Typography
+                      key={q.label}
+                      variant="caption"
+                      fontWeight={600}
+                      sx={{
+                        position: "absolute",
+                        left: `${leftPct}%`,
+                        bottom: 2,
+                        whiteSpace: "nowrap",
+                        fontSize: "0.65rem",
+                      }}
+                    >
+                      {q.label}
+                    </Typography>,
+                  );
+                  acc.lastRight = leftPx + 34;
+                  return acc;
+                },
+                { elements: [], lastRight: -Infinity },
+              )
+              .elements}
           </Box>
           {(
             [
