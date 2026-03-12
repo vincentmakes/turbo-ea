@@ -5,6 +5,18 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.32.6] - 2026-03-12
+
+### Changed
+- Added MCP server conventions, ADR and file attachment routes, and missing env vars to CLAUDE.md
+- Fixed DrawIO version in README (v29.5.1 → v26.0.9) and expanded environment variables table
+- Added MCP server tests, docs build validation, and coverage threshold bump (40% → 50%) to CI
+- Added version bump, i18n, and docs update reminders to PR template checklist
+- Set mkdocs.yml site_url to actual docs domain instead of placeholder
+
+### Added
+- SECURITY.md with responsible disclosure process and security controls summary
+
 ## [0.32.5] - 2026-03-11
 
 ### Changed
