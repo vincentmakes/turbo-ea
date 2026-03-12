@@ -14,9 +14,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Paper from "@mui/material/Paper";
 import Divider from "@mui/material/Divider";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -52,12 +49,11 @@ export default function SoAWEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Only manual statuses in the dropdown — "in_review" is set via
-  // Request Signatures and "signed" via the Sign button.
-  const STATUS_OPTIONS: { value: string; label: string }[] = [
-    { value: "draft", label: t("status.draft") },
-    { value: "approved", label: t("status.approved") },
-  ];
+  const STATUS_CHIP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" }> = {
+    draft: { label: t("status.draft"), color: "default" },
+    in_review: { label: t("status.inReview"), color: "warning" },
+    signed: { label: t("status.signed"), color: "success" },
+  };
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = !id;
@@ -277,7 +273,6 @@ export default function SoAWEditor() {
       const payload = {
         name: name.trim(),
         initiative_id: initiativeId || null,
-        status,
         document_info: docInfo,
         version_history: versionHistory,
         sections: allSections,
@@ -709,14 +704,13 @@ export default function SoAWEditor() {
           />
         </Box>
 
-        {status === "in_review" ? (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Chip
-              icon={<MaterialSymbol icon="draw" size={16} />}
-              label={t("status.inReview")}
-              color="warning"
-              size="small"
-            />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip
+            label={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).label}
+            color={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).color}
+            size="small"
+          />
+          {status === "in_review" && (
             <Tooltip title={t("editor.recallSignaturesTooltip")}>
               <Button
                 size="small"
@@ -729,24 +723,8 @@ export default function SoAWEditor() {
                 {t("editor.recallSignatures")}
               </Button>
             </Tooltip>
-          </Box>
-        ) : (
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>{t("editor.status")}</InputLabel>
-            <Select
-              value={status}
-              label={t("editor.status")}
-              onChange={(e) => setStatus(e.target.value)}
-              disabled={isSigned}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <MenuItem key={o.value} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        )}
+          )}
+        </Box>
         {revisionNumber > 1 && (
           <Chip
             label={t("editor.revisionLabel", { number: revisionNumber })}
