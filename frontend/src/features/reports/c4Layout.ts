@@ -44,6 +44,8 @@ export interface C4NodeData {
   typeLabel: string;
   typeColor: string;
   category: string;
+  nodeId?: string;
+  onLongPress?: (id: string) => void;
   [key: string]: unknown;
 }
 

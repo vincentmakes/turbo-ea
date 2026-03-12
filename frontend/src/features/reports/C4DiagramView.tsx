@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
+import { useMemo, useCallback, useState, useRef, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -38,6 +38,12 @@ import {
 } from "./c4Layout";
 
 /* ------------------------------------------------------------------ */
+/*  Module-level long-press flag (shared between C4Node and click handler) */
+/* ------------------------------------------------------------------ */
+
+let _longPressFired = false;
+
+/* ------------------------------------------------------------------ */
 /*  Custom C4 Node                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -60,8 +66,31 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const hs = { background: color, width: 5, height: 5, border: "none" } as const;
 
+  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const handlePointerDown = useCallback(() => {
+    if (!data.onLongPress || !data.nodeId) return;
+    _longPressFired = false;
+    timerRef.current = setTimeout(() => {
+      _longPressFired = true;
+      data.onLongPress!(data.nodeId!);
+    }, 1000);
+  }, [data]);
+
   return (
     <Box
+      onPointerDown={handlePointerDown}
+      onPointerUp={clearTimer}
+      onPointerCancel={clearTimer}
+      onPointerLeave={clearTimer}
       sx={{
         width: C4_NODE_W,
         height: C4_NODE_H,
@@ -75,6 +104,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         px: 1,
         cursor: "pointer",
         transition: "box-shadow 0.15s",
+        touchAction: "none",
         "&:hover": { boxShadow: 4 },
       }}
     >
@@ -288,44 +318,27 @@ function C4DiagramInner({
   const { t } = useTranslation(["reports"]);
   const theme = useTheme();
 
-  const { nodes: rfNodes, edges: rfEdges } = useMemo(
+  const { nodes: builtNodes, edges: rfEdges } = useMemo(
     () => buildC4Flow(nodes, edges, types),
     [nodes, edges, types],
   );
 
-  /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFired = useRef(false);
-
-  const cancelLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }, []);
-
-  // Clean up timer on unmount
-  useEffect(() => cancelLongPress, [cancelLongPress]);
-
-  const handleNodeMouseDown = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      if (node.type !== "c4Node" || !onNodeShiftClick) return;
-      longPressFired.current = false;
-      longPressTimer.current = setTimeout(() => {
-        longPressFired.current = true;
-        onNodeShiftClick(node.id);
-      }, 1000);
-    },
-    [onNodeShiftClick],
+  // Inject long-press callback into c4Node data so C4Node can handle pointer events
+  const rfNodes = useMemo(
+    () =>
+      builtNodes.map((n) =>
+        n.type === "c4Node" && onNodeShiftClick
+          ? { ...n, data: { ...n.data, nodeId: n.id, onLongPress: onNodeShiftClick } }
+          : n,
+      ),
+    [builtNodes, onNodeShiftClick],
   );
 
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
-      cancelLongPress();
-      // Only handle clicks on c4Node, not groups
       if (node.type === "c4Node") {
-        if (longPressFired.current) {
-          longPressFired.current = false;
+        if (_longPressFired) {
+          _longPressFired = false;
           return; // already handled by long-press
         }
         if (event.shiftKey && onNodeShiftClick) {
@@ -335,7 +348,7 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick, cancelLongPress],
+    [onNodeClick, onNodeShiftClick],
   );
 
   // Bring hovered edge to front by reordering
@@ -418,9 +431,7 @@ function C4DiagramInner({
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onNodeMouseDown={handleNodeMouseDown}
           onNodeClick={handleNodeClick}
-          onMoveStart={cancelLongPress}
           onEdgeMouseEnter={handleEdgeMouseEnter}
           onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView
