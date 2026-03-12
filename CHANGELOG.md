@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.33.0] - 2026-03-12
+
+### Added
+- Signature recall workflow for SoAW and ADR — authors and admins can recall pending signature requests, resetting the document to draft
+- Signature rejection workflow for SoAW and ADR — signatories can reject with a comment, resetting the document to draft with an incremented revision number
+- Notifications sent to all affected parties on recall and rejection
+
+### Changed
+- Status dropdown on SoAW editor no longer shows "In Review" or "Signed" — these states are only reachable via the proper workflow buttons
+- Direct status changes to "in_review" or from "in_review" to "draft" via PATCH are now blocked on both SoAW and ADR endpoints
+
 ## [0.32.6] - 2026-03-12
 
 ### Added

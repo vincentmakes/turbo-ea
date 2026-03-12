@@ -65,12 +65,27 @@ export default function ADREditor() {
   const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [requestingSignatures, setRequestingSignatures] = useState(false);
 
+  // Reject dialog
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectComment, setRejectComment] = useState("");
+
+  // Current user
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
   // Card link dialog
   const [cardLinkOpen, setCardLinkOpen] = useState(false);
   const [cardSearch, setCardSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Card[]>([]);
 
   const isSigned = status === "signed";
+
+  // Load current user
+  useEffect(() => {
+    api
+      .get<{ id: string }>("/auth/me")
+      .then((res) => setCurrentUserId(res.id))
+      .catch(() => {});
+  }, []);
 
   // Load existing ADR
   useEffect(() => {
@@ -206,6 +221,47 @@ export default function ADREditor() {
     }
   };
 
+  // Recall signatures
+  const handleRecallSignatures = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      const updated = await api.post<ArchitectureDecision>(
+        `/adr/${id}/recall-signatures`,
+        {},
+      );
+      setSignatories(updated.signatories || []);
+      setStatus(updated.status);
+      setSnackbar(t("adr.editor.signaturesRecalled"));
+    } catch {
+      setError(t("adr.editor.error.recallFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reject
+  const handleReject = async () => {
+    if (!id || !rejectComment.trim()) return;
+    setSaving(true);
+    try {
+      const updated = await api.post<ArchitectureDecision>(
+        `/adr/${id}/reject`,
+        { comment: rejectComment.trim() },
+      );
+      setSignatories(updated.signatories || []);
+      setStatus(updated.status);
+      setRevisionNumber(updated.revision_number);
+      setRejectDialogOpen(false);
+      setRejectComment("");
+      setSnackbar(t("adr.editor.documentRejected"));
+    } catch {
+      setError(t("adr.editor.error.rejectFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Card linking
   const openCardLink = () => {
     setCardLinkOpen(true);
@@ -253,8 +309,8 @@ export default function ADREditor() {
     }
   };
 
-  const currentUserSignatory = signatories.find(
-    (s) => s.status === "pending",
+  const currentUserIsSignatory = signatories.some(
+    (s) => s.user_id === currentUserId && s.status === "pending",
   );
   const signedCount = signatories.filter((s) => s.status === "signed").length;
 
@@ -359,16 +415,42 @@ export default function ADREditor() {
             {t("adr.editor.requestSignatures")}
           </Button>
         )}
-        {!isNew && status === "in_review" && currentUserSignatory && (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<MaterialSymbol icon="draw" size={18} />}
-            onClick={handleSign}
-            sx={{ textTransform: "none" }}
-          >
-            {t("adr.editor.sign")}
-          </Button>
+        {!isNew && status === "in_review" && (
+          <Tooltip title={t("adr.editor.recallSignaturesTooltip")}>
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={<MaterialSymbol icon="undo" size={18} />}
+              onClick={handleRecallSignatures}
+              disabled={saving}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.recallSignatures")}
+            </Button>
+          </Tooltip>
+        )}
+        {!isNew && status === "in_review" && currentUserIsSignatory && (
+          <>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<MaterialSymbol icon="draw" size={18} />}
+              onClick={handleSign}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.sign")}
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<MaterialSymbol icon="block" size={18} />}
+              onClick={() => setRejectDialogOpen(true)}
+              disabled={saving}
+              sx={{ textTransform: "none" }}
+            >
+              {t("adr.editor.reject")}
+            </Button>
+          </>
         )}
         {isSigned && (
           <Button
@@ -639,6 +721,44 @@ export default function ADREditor() {
         <DialogActions>
           <Button onClick={() => setCardLinkOpen(false)}>
             {t("common:actions.cancel")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Reject Dialog ── */}
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("adr.editor.rejectDialog.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t("adr.editor.rejectDialog.description")}
+          </Typography>
+          <TextField
+            autoFocus
+            label={t("adr.editor.rejectDialog.commentLabel")}
+            fullWidth
+            multiline
+            minRows={3}
+            value={rejectComment}
+            onChange={(e) => setRejectComment(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!rejectComment.trim() || saving}
+            onClick={handleReject}
+          >
+            {t("adr.editor.reject")}
           </Button>
         </DialogActions>
       </Dialog>

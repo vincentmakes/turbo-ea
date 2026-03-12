@@ -14,9 +14,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Tooltip from "@mui/material/Tooltip";
 import Paper from "@mui/material/Paper";
 import Divider from "@mui/material/Divider";
-import Select from "@mui/material/Select";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -52,12 +49,11 @@ export default function SoAWEditor() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const STATUS_OPTIONS: { value: string; label: string }[] = [
-    { value: "draft", label: t("status.draft") },
-    { value: "in_review", label: t("status.inReview") },
-    { value: "approved", label: t("status.approved") },
-    { value: "signed", label: t("status.signed") },
-  ];
+  const STATUS_CHIP: Record<string, { label: string; color: "default" | "warning" | "success" | "info" }> = {
+    draft: { label: t("status.draft"), color: "default" },
+    in_review: { label: t("status.inReview"), color: "warning" },
+    signed: { label: t("status.signed"), color: "success" },
+  };
   const theme = useTheme();
   const compact = useMediaQuery(theme.breakpoints.down("sm"));
   const isNew = !id;
@@ -108,6 +104,8 @@ export default function SoAWEditor() {
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [revisionNumber, setRevisionNumber] = useState(1);
   const [signDialogOpen, setSignDialogOpen] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectComment, setRejectComment] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const isSigned = status === "signed";
 
@@ -275,7 +273,6 @@ export default function SoAWEditor() {
       const payload = {
         name: name.trim(),
         initiative_id: initiativeId || null,
-        status,
         document_info: docInfo,
         version_history: versionHistory,
         sections: allSections,
@@ -331,6 +328,50 @@ export default function SoAWEditor() {
       setSnack(data.status === "signed" ? t("editor.documentFullySigned") : t("editor.signatureRecorded"));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("editor.error.signFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRecallSignatures = async () => {
+    if (!soawIdRef.current) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await api.post<SoAW>(
+        `/soaw/${soawIdRef.current}/recall-signatures`,
+      );
+      setStatus(data.status);
+      setSignatories(data.signatories ?? []);
+      setSnack(t("editor.signaturesRecalled"));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : t("editor.error.recallFailed"),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!soawIdRef.current || !rejectComment.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const data = await api.post<SoAW>(
+        `/soaw/${soawIdRef.current}/reject`,
+        { comment: rejectComment.trim() },
+      );
+      setStatus(data.status);
+      setSignatories(data.signatories ?? []);
+      setRevisionNumber(data.revision_number ?? revisionNumber);
+      setRejectDialogOpen(false);
+      setRejectComment("");
+      setSnack(t("editor.documentRejected"));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : t("editor.error.rejectFailed"),
+      );
     } finally {
       setSaving(false);
     }
@@ -521,7 +562,7 @@ export default function SoAWEditor() {
           </Button>
         )}
         {/* Signing actions */}
-        {!isNew && !isSigned && soawIdRef.current && (
+        {!isNew && !isSigned && status === "draft" && soawIdRef.current && (
           <Button
             size="small"
             variant="outlined"
@@ -533,17 +574,30 @@ export default function SoAWEditor() {
           </Button>
         )}
         {currentUserIsSignatory && (
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            startIcon={<MaterialSymbol icon="task_alt" size={18} />}
-            sx={{ textTransform: "none" }}
-            disabled={saving}
-            onClick={handleSign}
-          >
-            {t("editor.sign")}
-          </Button>
+          <>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<MaterialSymbol icon="task_alt" size={18} />}
+              sx={{ textTransform: "none" }}
+              disabled={saving}
+              onClick={handleSign}
+            >
+              {t("editor.sign")}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<MaterialSymbol icon="block" size={18} />}
+              sx={{ textTransform: "none" }}
+              disabled={saving}
+              onClick={() => setRejectDialogOpen(true)}
+            >
+              {t("editor.reject")}
+            </Button>
+          </>
         )}
         {isSigned && (
           <Button
@@ -650,29 +704,34 @@ export default function SoAWEditor() {
           />
         </Box>
 
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>{t("editor.status")}</InputLabel>
-          <Select
-            value={status}
-            label={t("editor.status")}
-            onChange={(e) => setStatus(e.target.value)}
-            disabled={isSigned}
-          >
-            {STATUS_OPTIONS.map((o) => (
-              <MenuItem key={o.value} value={o.value}>
-                {o.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {revisionNumber > 1 && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Chip
-            label={t("editor.revisionLabel", { number: revisionNumber })}
+            label={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).label}
+            color={(STATUS_CHIP[status] ?? STATUS_CHIP.draft).color}
             size="small"
-            variant="outlined"
-            sx={{ ml: 1 }}
           />
-        )}
+          {status === "in_review" && (
+            <Tooltip title={t("editor.recallSignaturesTooltip")}>
+              <Button
+                size="small"
+                color="warning"
+                startIcon={<MaterialSymbol icon="undo" size={16} />}
+                sx={{ textTransform: "none" }}
+                disabled={saving}
+                onClick={handleRecallSignatures}
+              >
+                {t("editor.recallSignatures")}
+              </Button>
+            </Tooltip>
+          )}
+          {revisionNumber > 1 && (
+            <Chip
+              label={t("editor.revisionLabel", { number: revisionNumber })}
+              size="small"
+              variant="outlined"
+            />
+          )}
+        </Box>
       </Paper>
 
       {/* ── Version History ────────────────────────────────────────────── */}
@@ -1147,6 +1206,44 @@ export default function SoAWEditor() {
         description={t("editor.signDialog.description")}
         requesting={saving}
       />
+
+      {/* Reject dialog */}
+      <Dialog
+        open={rejectDialogOpen}
+        onClose={() => setRejectDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{t("editor.rejectDialog.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {t("editor.rejectDialog.description")}
+          </Typography>
+          <TextField
+            autoFocus
+            label={t("editor.rejectDialog.commentLabel")}
+            fullWidth
+            multiline
+            minRows={3}
+            value={rejectComment}
+            onChange={(e) => setRejectComment(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)}>
+            {t("common:actions.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!rejectComment.trim() || saving}
+            onClick={handleReject}
+          >
+            {t("editor.reject")}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar
