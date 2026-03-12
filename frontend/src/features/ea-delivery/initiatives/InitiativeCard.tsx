@@ -101,7 +101,7 @@ export default function InitiativeCard({
               sx={{ mr: 0.5 }}
             >
               <MaterialSymbol
-                icon="kid_star"
+                icon="cards_star"
                 size={20}
                 color={isFavorite ? "#f5a623" : "#ccc"}
               />

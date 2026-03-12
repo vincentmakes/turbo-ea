@@ -396,7 +396,7 @@ export default function InitiativesTab({
               borderRadius: 1,
             }}
           >
-            <MaterialSymbol icon="kid_star" size={22} />
+            <MaterialSymbol icon="cards_star" size={22} />
           </IconButton>
         </Tooltip>
 
