@@ -22,6 +22,31 @@ export interface InitiativeTreeNode {
 type StatusFilter = "ACTIVE" | "ARCHIVED" | "";
 type ArtefactFilter = "" | "with" | "without";
 
+const FILTERS_STORAGE_KEY = "turboea-delivery-filters";
+
+interface StoredFilters {
+  statusFilter?: StatusFilter;
+  subtypeFilter?: string;
+  artefactFilter?: ArtefactFilter;
+}
+
+function readFiltersFromStorage(): StoredFilters {
+  try {
+    const raw = localStorage.getItem(FILTERS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeFiltersToStorage(filters: StoredFilters) {
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  } catch {
+    // localStorage unavailable
+  }
+}
+
 interface UseInitiativeDataResult {
   tree: InitiativeTreeNode[];
   flatGroups: InitiativeGroup[];
@@ -112,9 +137,28 @@ export function useInitiativeData(): UseInitiativeDataResult {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ACTIVE");
-  const [subtypeFilter, setSubtypeFilter] = useState("");
-  const [artefactFilter, setArtefactFilter] = useState<ArtefactFilter>("");
+
+  const storedFilters = useMemo(readFiltersFromStorage, []);
+  const [statusFilter, setStatusFilterRaw] = useState<StatusFilter>(
+    storedFilters.statusFilter ?? "ACTIVE",
+  );
+  const [subtypeFilter, setSubtypeFilterRaw] = useState(storedFilters.subtypeFilter ?? "");
+  const [artefactFilter, setArtefactFilterRaw] = useState<ArtefactFilter>(
+    storedFilters.artefactFilter ?? "",
+  );
+
+  const setStatusFilter = useCallback((v: StatusFilter) => {
+    setStatusFilterRaw(v);
+    writeFiltersToStorage({ ...readFiltersFromStorage(), statusFilter: v });
+  }, []);
+  const setSubtypeFilter = useCallback((v: string) => {
+    setSubtypeFilterRaw(v);
+    writeFiltersToStorage({ ...readFiltersFromStorage(), subtypeFilter: v });
+  }, []);
+  const setArtefactFilter = useCallback((v: ArtefactFilter) => {
+    setArtefactFilterRaw(v);
+    writeFiltersToStorage({ ...readFiltersFromStorage(), artefactFilter: v });
+  }, []);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);

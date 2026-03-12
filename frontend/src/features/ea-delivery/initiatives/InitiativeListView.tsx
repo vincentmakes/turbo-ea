@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -22,6 +22,10 @@ import type { SoAW, DiagramSummary } from "@/types";
 
 interface Props {
   tree: InitiativeTreeNode[];
+  expandedIds: Record<string, boolean>;
+  onToggleExpand: (id: string) => void;
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
   onLinkDiagrams: (initiativeId: string) => void;
   onCreateArtefact: (e: React.MouseEvent<HTMLElement>, initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
@@ -30,6 +34,10 @@ interface Props {
 
 export default function InitiativeListView({
   tree,
+  expandedIds,
+  onToggleExpand,
+  favorites,
+  onToggleFavorite,
   onLinkDiagrams,
   onCreateArtefact,
   onUnlinkDiagram,
@@ -37,10 +45,6 @@ export default function InitiativeListView({
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
   const navigate = useNavigate();
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-
-  const toggleRow = (id: string) =>
-    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const flat = flattenTree(tree);
 
@@ -84,8 +88,9 @@ export default function InitiativeListView({
             const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
             const initStatus = attrs.initiativeStatus as string | undefined;
             const artefactCount = soaws.length + diagrams.length + adrs.length;
-            const isRowOpen = expandedRows[initiative.id] ?? false;
+            const isRowOpen = expandedIds[initiative.id] ?? false;
             const isArchived = initiative.status === "ARCHIVED";
+            const isFav = favorites.has(initiative.id);
 
             return (
               <React.Fragment key={initiative.id}>
@@ -108,6 +113,24 @@ export default function InitiativeListView({
                         pl: level * 3,
                       }}
                     >
+                      <Tooltip
+                        title={isFav ? t("favorite.remove") : t("favorite.add")}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(initiative.id);
+                          }}
+                          sx={{ p: 0.25 }}
+                        >
+                          <MaterialSymbol
+                            icon="kid_star"
+                            size={18}
+                            color={isFav ? "#f5a623" : "#ccc"}
+                          />
+                        </IconButton>
+                      </Tooltip>
                       <MaterialSymbol icon="rocket_launch" size={18} color="#33cc58" />
                       <Typography variant="body2" sx={{ fontWeight: 500 }}>
                         {initiative.name}
@@ -162,7 +185,7 @@ export default function InitiativeListView({
                   <TableCell
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (artefactCount > 0) toggleRow(initiative.id);
+                      if (artefactCount > 0) onToggleExpand(initiative.id);
                     }}
                     sx={
                       artefactCount > 0
@@ -189,7 +212,7 @@ export default function InitiativeListView({
                   <TableCell
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (artefactCount > 0) toggleRow(initiative.id);
+                      if (artefactCount > 0) onToggleExpand(initiative.id);
                     }}
                     sx={
                       artefactCount > 0
@@ -217,7 +240,7 @@ export default function InitiativeListView({
                   <TableCell
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (artefactCount > 0) toggleRow(initiative.id);
+                      if (artefactCount > 0) onToggleExpand(initiative.id);
                     }}
                     sx={
                       artefactCount > 0

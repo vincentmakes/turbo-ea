@@ -27,6 +27,10 @@
   "filter.artefacts": "Артефакты",
   "filter.withArtefacts": "С артефактами",
   "filter.withoutArtefacts": "Без артефактов",
+  "filter.favoritesOnly": "Только избранное",
+
+  "favorite.add": "Добавить в избранное",
+  "favorite.remove": "Удалить из избранного",
 
   "view.cardView": "Карточки",
   "view.listView": "Список",

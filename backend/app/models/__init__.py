@@ -43,6 +43,7 @@ from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
 from app.models.user import User
+from app.models.user_favorite import UserFavorite
 from app.models.web_portal import WebPortal
 
 __all__ = [
@@ -94,4 +95,5 @@ __all__ = [
     "SnowSyncRun",
     "SnowStagedRecord",
     "SnowIdentityMap",
+    "UserFavorite",
 ]

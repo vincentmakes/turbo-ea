@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
@@ -16,7 +16,12 @@ import type { SoAW, DiagramSummary } from "@/types";
 
 interface Props {
   node: InitiativeTreeNode;
-  defaultExpanded?: boolean;
+  expanded: boolean;
+  onToggleExpand: (id: string) => void;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+  favorites: Set<string>;
+  expandedIds: Record<string, boolean>;
   onLinkDiagrams: (initiativeId: string) => void;
   onCreateArtefact: (e: React.MouseEvent<HTMLElement>, initiativeId: string) => void;
   onUnlinkDiagram: (diagram: DiagramSummary, initiativeId: string) => void;
@@ -27,7 +32,12 @@ interface Props {
 
 export default function InitiativeCard({
   node,
-  defaultExpanded = false,
+  expanded,
+  onToggleExpand,
+  isFavorite,
+  onToggleFavorite,
+  favorites,
+  expandedIds,
   onLinkDiagrams,
   onCreateArtefact,
   onUnlinkDiagram,
@@ -37,7 +47,6 @@ export default function InitiativeCard({
 }: Props) {
   const { t } = useTranslation(["delivery", "common"]);
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(defaultExpanded);
 
   const { initiative, diagrams, soaws, adrs, children, level } = node;
   const attrs = (initiative.attributes ?? {}) as Record<string, unknown>;
@@ -73,11 +82,32 @@ export default function InitiativeCard({
             cursor: "pointer",
             "&:hover": { bgcolor: "action.hover" },
           }}
-          onClick={() => setExpanded((p) => !p)}
+          onClick={() => onToggleExpand(initiative.id)}
         >
           <IconButton size="small" sx={{ mr: 1 }}>
             <MaterialSymbol icon={expanded ? "expand_more" : "chevron_right"} size={20} />
           </IconButton>
+
+          {/* Favorite star */}
+          <Tooltip
+            title={isFavorite ? t("favorite.remove") : t("favorite.add")}
+          >
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(initiative.id);
+              }}
+              sx={{ mr: 0.5 }}
+            >
+              <MaterialSymbol
+                icon="kid_star"
+                size={20}
+                color={isFavorite ? "#f5a623" : "#ccc"}
+              />
+            </IconButton>
+          </Tooltip>
+
           <MaterialSymbol
             icon="rocket_launch"
             size={22}
@@ -273,6 +303,12 @@ export default function InitiativeCard({
         <InitiativeCard
           key={child.initiative.id}
           node={child}
+          expanded={!!expandedIds[child.initiative.id]}
+          onToggleExpand={onToggleExpand}
+          isFavorite={favorites.has(child.initiative.id)}
+          onToggleFavorite={onToggleFavorite}
+          favorites={favorites}
+          expandedIds={expandedIds}
           onLinkDiagrams={onLinkDiagrams}
           onCreateArtefact={onCreateArtefact}
           onUnlinkDiagram={onUnlinkDiagram}

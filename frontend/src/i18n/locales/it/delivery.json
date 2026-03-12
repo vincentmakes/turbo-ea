@@ -23,6 +23,11 @@
   "filter.artefacts": "Artefatti",
   "filter.withArtefacts": "Con artefatti",
   "filter.withoutArtefacts": "Senza artefatti",
+  "filter.favoritesOnly": "Solo preferiti",
+
+  "favorite.add": "Aggiungi ai preferiti",
+  "favorite.remove": "Rimuovi dai preferiti",
+
   "view.cardView": "Vista a schede",
   "view.listView": "Vista a elenco",
   "empty.noInitiatives": "Nessuna iniziativa trovata. Creare prima le iniziative nell'Inventario, poi tornare qui per gestire gli artefatti.",

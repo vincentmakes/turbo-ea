@@ -16,6 +16,7 @@ from app.api.v1 import (
     documents,
     eol,
     events,
+    favorites,
     file_attachments,
     metamodel,
     notifications,
@@ -72,3 +73,4 @@ api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
 api_router.include_router(file_attachments.router)
+api_router.include_router(favorites.router)

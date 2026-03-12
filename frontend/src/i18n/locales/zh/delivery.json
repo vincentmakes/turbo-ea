@@ -27,6 +27,10 @@
   "filter.artefacts": "工件",
   "filter.withArtefacts": "有工件",
   "filter.withoutArtefacts": "无工件",
+  "filter.favoritesOnly": "仅收藏",
+
+  "favorite.add": "添加到收藏",
+  "favorite.remove": "从收藏中移除",
 
   "view.cardView": "卡片视图",
   "view.listView": "列表视图",

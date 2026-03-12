@@ -27,6 +27,10 @@
   "filter.artefacts": "Artefacts",
   "filter.withArtefacts": "Avec artefacts",
   "filter.withoutArtefacts": "Sans artefacts",
+  "filter.favoritesOnly": "Favoris uniquement",
+
+  "favorite.add": "Ajouter aux favoris",
+  "favorite.remove": "Retirer des favoris",
 
   "view.cardView": "Vue carte",
   "view.listView": "Vue liste",
