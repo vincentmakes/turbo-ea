@@ -146,6 +146,11 @@
   "dependency.treeView": "Baumansicht",
   "dependency.c4View": "C4-Diagramm",
   "dependency.c4NoData": "Keine Abhängigkeitsdaten. Passen Sie den Typfilter an oder erstellen Sie Beziehungen zwischen Karten.",
+  "dependency.home": "Zurück zur Kartenauswahl",
+  "dependency.previousCard": "Vorherige Karte",
+  "dependency.nextCard": "Nächste Karte",
+  "dependency.viewInC4": "Im C4-Diagramm anzeigen",
+  "dependency.shiftClickHint": "Umschalt+Klick auf eine Karte, um das Diagramm darauf zu zentrieren",
 
   "cost.title": "Kostenanalyse",
   "cost.cardType": "Kartentyp",

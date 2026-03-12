@@ -360,7 +360,7 @@ export default function DependencyReport() {
   const [edges, setEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<"chart" | "table">("chart");
-  const [chartMode, setChartMode] = useState<"tree" | "c4">("tree");
+  const [chartMode, setChartMode] = useState<"tree" | "c4">("c4");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [hovered, setHovered] = useState<string | null>(null);
   const [hoveredConn, setHoveredConn] = useState<{
@@ -373,6 +373,43 @@ export default function DependencyReport() {
   /* -- picker state -- */
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerTypeFilter, setPickerTypeFilter] = useState<string | null>(null);
+
+  /* -- C4 navigation history (browser-style back/forward) -- */
+  const [navHistory, setNavHistory] = useState<string[]>([]);
+  const [navIndex, setNavIndex] = useState(-1);
+
+  const navigateToC4 = useCallback(
+    (cardId: string) => {
+      setChartMode("c4");
+      setCenter(cardId);
+      setNavHistory((prev) => [...prev.slice(0, navIndex + 1), cardId]);
+      setNavIndex((prev) => prev + 1);
+    },
+    [navIndex],
+  );
+
+  const hasPrev = navIndex > 0;
+  const hasNext = navIndex >= 0 && navIndex < navHistory.length - 1;
+
+  const handleNavPrev = useCallback(() => {
+    if (navIndex <= 0) return;
+    const newIdx = navIndex - 1;
+    setNavIndex(newIdx);
+    setCenter(navHistory[newIdx]);
+  }, [navIndex, navHistory]);
+
+  const handleNavNext = useCallback(() => {
+    if (navIndex >= navHistory.length - 1) return;
+    const newIdx = navIndex + 1;
+    setNavIndex(newIdx);
+    setCenter(navHistory[newIdx]);
+  }, [navIndex, navHistory]);
+
+  const handleNavHome = useCallback(() => {
+    setCenter("");
+    setNavHistory([]);
+    setNavIndex(-1);
+  }, []);
 
   // Load saved report config
   useEffect(() => {
@@ -398,7 +435,7 @@ export default function DependencyReport() {
     setCardTypeKey("");
     setCenter("");
     setView("chart");
-    setChartMode("tree");
+    setChartMode("c4");
     setPickerSearch("");
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -712,6 +749,13 @@ export default function DependencyReport() {
             edges={c4Data.edges}
             types={types}
             onNodeClick={setSidePanelCardId}
+            onNodeShiftClick={navigateToC4}
+            onHome={handleNavHome}
+            onPrev={handleNavPrev}
+            onNext={handleNavNext}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            centerName={centerNode?.name}
           />
         ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (
           /* ---------- TREE VIEW ---------- */
@@ -720,6 +764,43 @@ export default function DependencyReport() {
             ref={scrollRef}
             sx={{ overflow: "auto", bgcolor: "action.hover", borderRadius: 2 }}
           >
+            {/* Tree view navigation bar */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                px: 1.5,
+                py: 0.5,
+                borderBottom: "1px solid",
+                borderColor: "divider",
+                minHeight: 40,
+                bgcolor: "background.paper",
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+              }}
+            >
+              <Tooltip title={t("dependency.home")} arrow>
+                <IconButton size="small" onClick={() => setCenter("")}>
+                  <MaterialSymbol icon="home" size={20} />
+                </IconButton>
+              </Tooltip>
+              {centerNode && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    ml: 0.5,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {centerNode.name}
+                </Typography>
+              )}
+            </Box>
             <Box
               sx={{
                 position: "relative",

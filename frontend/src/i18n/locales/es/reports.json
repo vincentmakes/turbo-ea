@@ -146,6 +146,11 @@
   "dependency.treeView": "Vista de árbol",
   "dependency.c4View": "Diagrama C4",
   "dependency.c4NoData": "Sin datos de dependencias. Ajuste el filtro de tipo o cree relaciones entre fichas.",
+  "dependency.home": "Volver al selector de tarjetas",
+  "dependency.previousCard": "Tarjeta anterior",
+  "dependency.nextCard": "Tarjeta siguiente",
+  "dependency.viewInC4": "Ver en diagrama C4",
+  "dependency.shiftClickHint": "Mayús+clic en una tarjeta para centrar el diagrama en ella",
 
   "cost.title": "An\u00e1lisis de costos",
   "cost.cardType": "Tipo de ficha",

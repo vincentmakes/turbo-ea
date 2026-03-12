@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.35.0] - 2026-03-12
+
+### Added
+- Navigation bar in C4 diagram view with home, previous, and next buttons for browsing cards
+- Home button in tree view for returning to the card picker
+- Hover-only C4 navigation icon on cards in picker and tree view to jump directly to C4 diagram
+
+### Changed
+- C4 diagram is now the default view in the Dependency Report (was tree view)
+- Removed minimap from C4 diagram view for a cleaner display
+
 ## [0.34.2] - 2026-03-12
 
 ### Added

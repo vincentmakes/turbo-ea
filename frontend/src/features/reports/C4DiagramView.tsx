@@ -1,15 +1,17 @@
 import { useMemo, useCallback, useState, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import { useTheme } from "@mui/material/styles";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   Handle,
   Position,
   type NodeProps,
@@ -257,13 +259,32 @@ interface Props {
   edges: GEdge[];
   types: CardType[];
   onNodeClick: (id: string) => void;
+  onNodeShiftClick?: (id: string) => void;
+  onHome: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
+  centerName?: string;
 }
 
 /* ------------------------------------------------------------------ */
 /*  Inner component (needs ReactFlowProvider ancestor)                 */
 /* ------------------------------------------------------------------ */
 
-function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
+function C4DiagramInner({
+  nodes,
+  edges,
+  types,
+  onNodeClick,
+  onNodeShiftClick,
+  onHome,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+  centerName,
+}: Props) {
   const { t } = useTranslation(["reports"]);
   const theme = useTheme();
 
@@ -273,13 +294,17 @@ function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
   );
 
   const handleNodeClick = useCallback(
-    (_: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node) => {
       // Only handle clicks on c4Node, not groups
       if (node.type === "c4Node") {
-        onNodeClick(node.id);
+        if (event.shiftKey && onNodeShiftClick) {
+          onNodeShiftClick(node.id);
+        } else {
+          onNodeClick(node.id);
+        }
       }
     },
-    [onNodeClick],
+    [onNodeClick, onNodeShiftClick],
   );
 
   // Bring hovered edge to front by reordering
@@ -309,6 +334,53 @@ function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+      {/* Navigation bar */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          px: 1.5,
+          py: 0.5,
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          minHeight: 40,
+        }}
+      >
+        <Tooltip title={t("dependency.home")} arrow>
+          <IconButton size="small" onClick={onHome}>
+            <MaterialSymbol icon="home" size={20} />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t("dependency.previousCard")} arrow>
+          <span>
+            <IconButton size="small" disabled={!hasPrev} onClick={onPrev}>
+              <MaterialSymbol icon="chevron_left" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        <Tooltip title={t("dependency.nextCard")} arrow>
+          <span>
+            <IconButton size="small" disabled={!hasNext} onClick={onNext}>
+              <MaterialSymbol icon="chevron_right" size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
+        {centerName && (
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 600, ml: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+          >
+            {centerName}
+          </Typography>
+        )}
+        <Typography
+          variant="caption"
+          sx={{ ml: "auto", color: "text.disabled", whiteSpace: "nowrap", fontSize: "0.68rem" }}
+        >
+          {t("dependency.shiftClickHint")}
+        </Typography>
+      </Box>
       <Box sx={{ height: 600 }}>
         <ReactFlow
           nodes={rfNodes}
@@ -330,19 +402,6 @@ function C4DiagramInner({ nodes, edges, types, onNodeClick }: Props) {
         >
           <Background gap={16} size={1} />
           <Controls showInteractive={false} />
-          <MiniMap
-            nodeColor={(node) => {
-              if (node.type === "c4Group") return "transparent";
-              const d = node.data as C4NodeData;
-              return d.typeColor || "#999";
-            }}
-            maskColor={
-              theme.palette.mode === "dark"
-                ? "rgba(0,0,0,0.6)"
-                : "rgba(240,240,240,0.7)"
-            }
-            style={{ borderRadius: 8 }}
-          />
         </ReactFlow>
       </Box>
       <Box sx={{ px: 1.5, py: 0.75, textAlign: "right" }}>
