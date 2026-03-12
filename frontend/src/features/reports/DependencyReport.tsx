@@ -403,11 +403,11 @@ export default function DependencyReport() {
     setPickerTypeFilter(null);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch data
+  // Fetch data — in C4 mode skip type filter to preserve cross-layer edges
   useEffect(() => {
     setLoading(true);
     const p = new URLSearchParams();
-    if (cardTypeKey) p.set("type", cardTypeKey);
+    if (cardTypeKey && chartMode !== "c4") p.set("type", cardTypeKey);
     api
       .get<{ nodes: GNode[]; edges: GEdge[] }>(`/reports/dependencies?${p}`)
       .then((r) => {
@@ -415,7 +415,7 @@ export default function DependencyReport() {
         setEdges(r.edges);
         setLoading(false);
       });
-  }, [cardTypeKey]);
+  }, [cardTypeKey, chartMode]);
 
   // Adjacency map
   const adjMap = useMemo(() => {
@@ -437,6 +437,30 @@ export default function DependencyReport() {
     for (const n of nodes) m.set(n.id, (adjMap.get(n.id) || []).length);
     return m;
   }, [nodes, adjMap]);
+
+  // C4 mode: BFS from center to get dependency neighborhood (all types)
+  const c4Data = useMemo(() => {
+    if (!center || !nodeMap.has(center)) return { nodes: [] as GNode[], edges: [] as GEdge[] };
+    const C4_DEPTH = 3;
+    const visited = new Set<string>([center]);
+    let frontier = new Set<string>([center]);
+    for (let d = 0; d < C4_DEPTH; d++) {
+      const next = new Set<string>();
+      for (const nid of frontier) {
+        for (const neighbor of adjMap.get(nid) || []) {
+          if (!visited.has(neighbor.nodeId) && nodeMap.has(neighbor.nodeId)) {
+            visited.add(neighbor.nodeId);
+            next.add(neighbor.nodeId);
+          }
+        }
+      }
+      frontier = next;
+      if (next.size === 0) break;
+    }
+    const filteredNodes = nodes.filter((n) => visited.has(n.id));
+    const filteredEdges = edges.filter((e) => visited.has(e.source) && visited.has(e.target));
+    return { nodes: filteredNodes, edges: filteredEdges };
+  }, [center, nodes, edges, adjMap, nodeMap]);
 
   // Reset expansion when center changes
   useEffect(() => {
@@ -681,15 +705,15 @@ export default function DependencyReport() {
     >
       {/* ==================== CHART VIEW ==================== */}
       {view === "chart" ? (
-        chartMode === "c4" ? (
+        chartMode === "c4" && center && c4Data.nodes.length > 0 ? (
           /* ---------- C4 DIAGRAM VIEW ---------- */
           <C4DiagramView
-            nodes={nodes}
-            edges={edges}
+            nodes={c4Data.nodes}
+            edges={c4Data.edges}
             types={types}
             onNodeClick={setSidePanelCardId}
           />
-        ) : center && layout && layout.cards.length > 0 ? (
+        ) : chartMode === "tree" && center && layout && layout.cards.length > 0 ? (
           /* ---------- TREE VIEW ---------- */
           <Paper
             variant="outlined"
