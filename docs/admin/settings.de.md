@@ -18,11 +18,17 @@ Wählen Sie die Währung, die für Kostenfelder in der gesamten Plattform verwen
 
 ### Aktivierte Sprachen
 
-Schalten Sie um, welche Sprachen den Benutzern in ihrer Sprachauswahl zur Verfügung stehen. Alle sieben unterstützten Gebietsschemas können einzeln aktiviert oder deaktiviert werden:
+Schalten Sie um, welche Sprachen den Benutzern in ihrer Sprachauswahl zur Verfügung stehen. Alle acht unterstützten Gebietsschemas können einzeln aktiviert oder deaktiviert werden:
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
 
 Mindestens eine Sprache muss jederzeit aktiviert bleiben.
+
+### Beginn des Geschäftsjahres
+
+Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Januar bis Dezember). Diese Einstellung beeinflusst, wie **Budgetzeilen** im PPM-Modul nach Geschäftsjahr gruppiert werden. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027.
+
+Der Standardwert ist **Januar** (Kalenderjahr = Geschäftsjahr).
 
 ## E-Mail (SMTP)
 
@@ -51,3 +57,12 @@ Schalten Sie das **Business Process Management**-Modul ein oder aus. Wenn deakti
 - Geschäftsprozess-Karten verbleiben in der Datenbank, aber BPM-spezifische Funktionen (Prozessfluss-Editor, BPM-Dashboard, BPM-Berichte) sind nicht zugänglich
 
 Dies ist nützlich für Organisationen, die BPM nicht nutzen und eine übersichtlichere Navigation wünschen.
+
+## PPM-Modul
+
+Schalten Sie das **Projektportfoliomanagement**-Modul (PPM) ein oder aus. Wenn deaktiviert:
+
+- Der **PPM**-Navigationspunkt wird für alle Benutzer ausgeblendet
+- Initiativen-Karten verbleiben in der Datenbank, aber PPM-spezifische Funktionen (Statusberichte, Budget- und Kostenverfolgung, Risikoregister, Aufgabentafel, Gantt-Diagramm) sind nicht zugänglich
+
+Wenn aktiviert, erhalten Initiativen-Karten einen **PPM**-Tab in ihrer Detailansicht und das PPM-Portfolio-Dashboard wird in der Hauptnavigation verfügbar. Siehe [Projektportfoliomanagement](../guide/ppm.md) für die vollständige Funktionsübersicht.

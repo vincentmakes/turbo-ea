@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Demo seed data for 3 SoAW documents and 4 additional ADRs in the EA Delivery module
 - Standalone script (`scripts/seed_soaw_adrs.py`) to seed SoAW and ADR demo data on existing databases
 
+### Changed
+- Added MCP server conventions, ADR and file attachment routes, and missing env vars to CLAUDE.md
+- Fixed DrawIO version in README (v29.5.1 → v26.0.9) and expanded environment variables table
+- Added MCP server tests and docs build validation to CI pipeline
+- Added version bump, i18n, and docs update reminders to PR template checklist
+- Set mkdocs.yml site_url to actual docs domain instead of placeholder
+- Updated locale count from seven to eight across all documentation (Russian added in v0.30.0)
+- Expanded admin index page from stub to comprehensive overview of all admin pages (all 8 locales)
+- Added Fiscal Year Start, PPM Module toggle sections to admin settings docs (all 8 locales)
+- Added fiscal year budget grouping reference and WBS completion rollup details to PPM guide (all 8 locales)
+- Added metamodel translations section documenting the Translation Dialog (all 8 locales)
+- Completed Spanish translation of ServiceNow integration documentation
+- Added Fiscal Year, OData Feed, and BPM Row Order terms to glossary (all 8 locales)
+
 ## [0.32.5] - 2026-03-11
 
 ### Changed

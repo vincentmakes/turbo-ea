@@ -54,7 +54,7 @@ Relatórios de status mensais acompanham a saúde do projeto ao longo do tempo. 
 
 Acompanhamento de dados financeiros com dois tipos de itens:
 
-- **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx)
+- **Linhas de orçamento** — Orçamento planejado por ano fiscal e categoria (CapEx / OpEx). As linhas de orçamento são agrupadas de acordo com o **mês de início do ano fiscal** configurado nas [Configurações](../admin/settings.md#início-do-ano-fiscal). Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027
 - **Linhas de custo** — Despesas reais com data, descrição e categoria
 
 Os totais de orçamento e custos são automaticamente acumulados nos atributos `costBudget` e `costActual` do card de Iniciativa.
@@ -107,7 +107,7 @@ A EAP fornece uma decomposição hierárquica do escopo do projeto:
 - **Pacotes de trabalho** — Agrupamentos lógicos de tarefas com datas de início/fim e acompanhamento de conclusão
 - **Marcos** — Eventos significativos ou pontos de conclusão
 - **Hierarquia** — Relações pai-filho entre itens da EAP
-- **Auto-conclusão** — A porcentagem de conclusão é calculada automaticamente a partir das proporções de tarefas concluídas/totais
+- **Auto-conclusão** — A porcentagem de conclusão é calculada automaticamente a partir das proporções de tarefas concluídas/totais, acumulada recursivamente pela hierarquia WBS até os itens pai. A conclusão do nível superior representa o progresso geral da iniciativa
 
 ## Integração com os detalhes do card
 

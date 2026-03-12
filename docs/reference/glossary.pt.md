@@ -3,6 +3,7 @@
 | Termo | Definição |
 |-------|-----------|
 | **ADR (Architecture Decision Record)** | Um documento formal que registra uma decisão de arquitetura importante, incluindo contexto, justificativa, consequências e alternativas consideradas. Os ADRs suportam um fluxo de assinatura e uma cadeia de revisões |
+| **Ano Fiscal** | O período de 12 meses usado para orçamento e relatórios financeiros. Configurável via Admin > Configurações — o mês de início (janeiro a dezembro) determina como as linhas de orçamento PPM são agrupadas |
 | **Status de Aprovação** | O estado de revisão de um card: Rascunho, Aprovado, Quebrado ou Rejeitado. Cards aprovados mudam para Quebrado quando editados |
 | **Favorito / Visualização Salva** | Uma configuração salva de filtros, colunas e ordenação no Inventário que pode ser recarregada com um clique |
 | **BPM** | Business Process Management (Gestão de Processos de Negócio) — a disciplina de modelar, analisar e melhorar processos de negócio |
@@ -15,6 +16,7 @@
 | **Linha de custo** | Uma entrada de orçamento ou custo real (CapEx/OpEx) em uma iniciativa PPM, usada para rastrear gastos financeiros |
 | **Qualidade de Dados** | Uma pontuação de completude de 0–100% baseada nos campos preenchidos e seus pesos configurados |
 | **Anexo de arquivo** | Um arquivo binário (PDF, DOCX, XLSX, imagens, até 10 MB) carregado diretamente em um card pela aba Recursos |
+| **Feed OData** | Um feed de dados JSON disponível em visualizações salvas do inventário (marcadores) para consumo por ferramentas externas como Power BI ou Excel |
 | **Diagrama** | Um diagrama visual de arquitetura criado com o editor DrawIO integrado |
 | **DrawIO** | A ferramenta de diagramação de código aberto integrada, utilizada para diagramas visuais de arquitetura |
 | **Arquitetura Empresarial (EA)** | A disciplina que organiza e documenta a estrutura de negócios e tecnologia de uma organização |
@@ -28,6 +30,7 @@
 | **Marco** | Um evento significativo ou ponto de conclusão no cronograma de um projeto, mostrado como um indicador de diamante no diagrama de Gantt |
 | **Notificação** | Um alerta no aplicativo ou por e-mail disparado por eventos do sistema (tarefa atribuída, card atualizado, comentário adicionado, etc.) |
 | **Ollama** | Uma ferramenta de código aberto para executar LLMs localmente em seu próprio hardware |
+| **Ordem de Linhas BPM** | A ordem de exibição das linhas de tipos de processo (Core, Suporte, Gestão) no navegador de processos BPM, configurável arrastando linhas |
 | **Portfólio** | Uma coleção de aplicações ou tecnologias gerenciadas como um grupo |
 | **PPM** | Gerenciamento de Portfólio de Projetos — a disciplina de gerenciar um portfólio de projetos e iniciativas com orçamentos, riscos, tarefas e relatórios de status |
 | **Número de referência** | Um identificador sequencial gerado automaticamente para ADRs (ex.: ADR-001, ADR-002) que fornece um rótulo único e legível |

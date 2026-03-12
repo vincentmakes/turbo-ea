@@ -80,6 +80,18 @@ Quando nessun sottotipo è selezionato su una card (o il tipo non ha sottotipi),
 
 Definite ruoli personalizzati per questo tipo (es. "Application Owner", "Technical Owner"). Ogni ruolo porta **permessi a livello di card** che vengono combinati con il ruolo a livello di applicazione dell'utente quando accede a una card. Vedi [Utenti e ruoli](users.md) per maggiori informazioni sul modello dei permessi.
 
+#### Traduzioni
+
+Cliccate sul pulsante **Traduci** nella barra degli strumenti del drawer del tipo per aprire il **Dialogo delle traduzioni**. Qui potete fornire traduzioni per tutte le etichette del metamodello in ogni lingua supportata:
+
+- **Etichetta del tipo** — Il nome visualizzato del tipo di card
+- **Sottotipi** — Etichette per ogni sottotipo
+- **Sezioni** — Intestazioni delle sezioni nella pagina di dettaglio della card
+- **Campi** — Etichette dei campi e delle opzioni di selezione
+- **Ruoli degli stakeholder** — Nomi dei ruoli visualizzati nell'interfaccia di assegnazione degli stakeholder
+
+Le traduzioni sono memorizzate insieme a ciascun tipo di card e vengono risolte al momento del rendering in base alla lingua selezionata dall'utente. Le etichette non tradotte utilizzano il valore predefinito in inglese.
+
 ### Eliminazione di un tipo
 
 - I **tipi predefiniti** vengono eliminati temporaneamente (nascosti) e possono essere ripristinati

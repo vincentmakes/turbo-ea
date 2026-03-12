@@ -3,6 +3,7 @@
 | Terme | Définition |
 |-------|------------|
 | **ADR (Architecture Decision Record)** | Un document formel qui enregistre une décision d'architecture importante, incluant le contexte, la justification, les conséquences et les alternatives envisagées. Les ADR supportent un processus de signature et une chaîne de révisions |
+| **Année fiscale** | La période de 12 mois utilisée pour la budgétisation et les rapports financiers. Configurable via Admin > Paramètres — le mois de début (janvier à décembre) détermine le regroupement des lignes budgétaires PPM |
 | **Statut d'approbation** | L'état de révision d'une fiche : Brouillon, Approuvé, Cassé ou Rejeté. Les fiches approuvées passent à Cassé lorsqu'elles sont modifiées |
 | **Signet / Vue sauvegardée** | Une configuration sauvegardée de filtres, colonnes et tri dans l'Inventaire qui peut être rechargée en un clic |
 | **BPM** | Gestion des processus métier -- la discipline de modélisation, d'analyse et d'amélioration des processus métier |
@@ -16,6 +17,7 @@
 | **Qualité des données** | Un score de complétude de 0 à 100% basé sur les champs remplis et leurs poids configurés |
 | **Diagramme** | Un diagramme d'architecture visuel créé avec l'éditeur DrawIO intégré |
 | **Fichier joint** | Un fichier binaire (PDF, DOCX, XLSX, images, jusqu'à 10 Mo) téléversé directement sur une fiche via l'onglet Ressources |
+| **Flux OData** | Un flux de données JSON disponible sur les vues d'inventaire enregistrées (favoris) pour la consommation par des outils externes tels que Power BI ou Excel |
 | **DrawIO** | L'outil de création de diagrammes open source intégré utilisé pour les diagrammes d'architecture visuels |
 | **Architecture d'entreprise (EA)** | La discipline qui organise et documente la structure métier et technologique d'une organisation |
 | **EOL (Fin de vie)** | La date à laquelle un produit technologique perd le support du fournisseur. Suivi via l'intégration avec endoflife.date |
@@ -28,6 +30,7 @@
 | **Jalon** | Un événement significatif ou point d'achèvement dans le calendrier d'un projet, affiché comme un indicateur en losange dans le diagramme de Gantt |
 | **Notification** | Une alerte dans l'application ou par e-mail déclenchée par des événements système (tâche assignée, fiche mise à jour, commentaire ajouté, etc.) |
 | **Ollama** | Un outil open source pour exécuter des LLM localement sur votre propre matériel |
+| **Ordre des lignes BPM** | L'ordre d'affichage des lignes de types de processus (Cœur, Support, Management) dans le navigateur de processus BPM, configurable en glissant les lignes |
 | **Portefeuille** | Un ensemble d'applications ou de technologies gérées en tant que groupe |
 | **PPM** | Gestion de Portefeuille de Projets — la discipline de gestion d'un portefeuille de projets et d'initiatives avec budgets, risques, tâches et rapports de statut |
 | **Numéro de référence** | Un identifiant séquentiel généré automatiquement pour les ADR (par ex. ADR-001, ADR-002) fournissant une étiquette unique et lisible |

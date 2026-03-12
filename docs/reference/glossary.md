@@ -6,6 +6,7 @@
 | **Approval Status** | The review state of a card: Draft, Approved, Broken, or Rejected. Approved cards change to Broken when edited |
 | **Bookmark / Saved View** | A saved filter, column, and sort configuration in the Inventory that can be reloaded with one click |
 | **BPM** | Business Process Management — the discipline of modeling, analyzing, and improving business processes |
+| **BPM Row Order** | The display order of process type rows (Core, Support, Management) in the BPM process navigator, configurable by dragging rows |
 | **BPMN** | Business Process Model and Notation — the standard notation for modeling business processes (version 2.0) |
 | **Business Capability** | What an organization can do, regardless of how it does it |
 | **Calculation** | An admin-defined formula that automatically computes a field value when a card is saved |
@@ -15,6 +16,7 @@
 | **Data Quality** | A 0–100% completeness score based on filled fields and their configured weights |
 | **Diagram** | A visual architecture diagram created with the embedded DrawIO editor |
 | **File Attachment** | A binary file (PDF, DOCX, XLSX, images, up to 10 MB) uploaded directly to a card via the Resources tab |
+| **Fiscal Year** | The 12-month period used for budgeting and financial reporting. Configurable via Admin > Settings — the start month (January through December) determines how PPM budget lines are grouped |
 | **DrawIO** | The embedded open-source diagramming tool used for visual architecture diagrams |
 | **Cost Line** | A budget or actual cost entry (CapEx/OpEx) in a PPM initiative, used to track financial spending |
 | **Enterprise Architecture (EA)** | The discipline that organizes and documents an organization's business and technology structure |
@@ -27,6 +29,7 @@
 | **Metamodel** | The data-driven model that defines the platform's structure: card types, fields, relations, and roles |
 | **Milestone** | A significant event or completion point in a project timeline, shown as a diamond indicator in the Gantt chart |
 | **Notification** | An in-app or email alert triggered by system events (todo assigned, card updated, comment added, etc.) |
+| **OData Feed** | A JSON data feed available on saved inventory views (bookmarks) for consumption by external tools such as Power BI or Excel |
 | **Ollama** | An open-source tool for running LLMs locally on your own hardware |
 | **Portfolio** | A collection of applications or technologies managed as a group |
 | **PPM** | Project Portfolio Management — the discipline of managing a portfolio of projects and initiatives with budgets, risks, tasks, and status reporting |

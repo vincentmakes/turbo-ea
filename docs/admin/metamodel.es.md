@@ -80,6 +80,18 @@ Cuando no se selecciona ningún subtipo en una ficha (o el tipo no tiene subtipo
 
 Defina roles personalizados para este tipo (ej., «Propietario de Aplicación», «Propietario Técnico»). Cada rol tiene **permisos a nivel de ficha** que se combinan con el rol a nivel de aplicación del usuario al acceder a una ficha. Ver [Usuarios y Roles](users.es.md) para más información sobre el modelo de permisos.
 
+#### Traducciones
+
+Haga clic en el botón **Traducir** en la barra de herramientas del cajón de tipo para abrir el **Diálogo de Traducciones**. Aquí puede proporcionar traducciones para todas las etiquetas del metamodelo en cada idioma soportado:
+
+- **Etiqueta del tipo** — El nombre de visualización del tipo de ficha
+- **Subtipos** — Etiquetas para cada subtipo
+- **Secciones** — Encabezados de sección en la página de detalle de la ficha
+- **Campos** — Etiquetas de campos y etiquetas de opciones de selección
+- **Roles de Parte Interesada** — Nombres de roles mostrados en la interfaz de asignación de stakeholders
+
+Las traducciones se almacenan junto con cada tipo de ficha y se resuelven en tiempo de renderizado según el idioma seleccionado por el usuario. Las etiquetas sin traducir recurren al valor predeterminado en inglés.
+
 ### Eliminar un Tipo
 
 - Los **tipos predefinidos** se eliminan suavemente (se ocultan) y pueden restaurarse

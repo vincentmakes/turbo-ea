@@ -54,7 +54,7 @@ Monatliche Statusberichte verfolgen die Projektgesundheit über die Zeit. Jeder 
 
 Finanzdaten verfolgen mit zwei Arten von Positionen:
 
-- **Budgetpositionen** — Geplantes Budget nach Geschäftsjahr und Kategorie (CapEx / OpEx)
+- **Budgetpositionen** — Geplantes Budget nach Geschäftsjahr und Kategorie (CapEx / OpEx). Budgetzeilen werden nach dem **Geschäftsjahresbeginn** gruppiert, der in den [Einstellungen](../admin/settings.md#beginn-des-geschäftsjahres) konfiguriert ist. Wenn das Geschäftsjahr beispielsweise im April beginnt, gehört eine Budgetzeile vom Juni 2026 zum GJ 2026–2027
 - **Kostenpositionen** — Tatsächliche Ausgaben mit Datum, Beschreibung und Kategorie
 
 Budget- und Kostensummen werden automatisch in die `costBudget`- und `costActual`-Attribute der Initiativ-Karte hochgerechnet.
@@ -107,7 +107,7 @@ Der PSP bietet eine hierarchische Zerlegung des Projektumfangs:
 - **Arbeitspakete** — Logische Gruppierungen von Aufgaben mit Start-/Enddaten und Fortschrittsverfolgung
 - **Meilensteine** — Bedeutende Ereignisse oder Abschlusspunkte
 - **Hierarchie** — Eltern-Kind-Beziehungen zwischen PSP-Elementen
-- **Auto-Fertigstellung** — Der Fertigstellungsgrad wird automatisch aus dem Verhältnis erledigter/gesamter Aufgaben berechnet
+- **Auto-Fertigstellung** — Der Fertigstellungsgrad wird automatisch aus dem Verhältnis erledigter/gesamter Aufgaben berechnet und dann rekursiv durch die WBS-Hierarchie bis zu den übergeordneten Elementen aufgerollt. Der Gesamtfortschritt auf oberster Ebene repräsentiert den Gesamtfortschritt der Initiative
 
 ## Kartendetail-Integration
 

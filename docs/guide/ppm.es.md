@@ -54,7 +54,7 @@ Los informes de estado mensuales rastrean la salud del proyecto a lo largo del t
 
 Seguimiento de datos financieros con dos tipos de partidas:
 
-- **Líneas de presupuesto** — Presupuesto planificado por año fiscal y categoría (CapEx / OpEx)
+- **Líneas de presupuesto** — Presupuesto planificado por año fiscal y categoría (CapEx / OpEx). Las líneas de presupuesto se agrupan según el **mes de inicio del año fiscal** configurado en [Configuración](../admin/settings.md#inicio-del-año-fiscal). Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027
 - **Líneas de costo** — Gastos reales con fecha, descripción y categoría
 
 Los totales de presupuesto y costos se acumulan automáticamente en los atributos `costBudget` y `costActual` de la tarjeta de Iniciativa.
@@ -107,7 +107,7 @@ La WBS proporciona una descomposición jerárquica del alcance del proyecto:
 - **Paquetes de trabajo** — Agrupaciones lógicas de tareas con fechas de inicio/fin y seguimiento de finalización
 - **Hitos** — Eventos significativos o puntos de finalización
 - **Jerarquía** — Relaciones padre-hijo entre elementos WBS
-- **Auto-finalización** — El porcentaje de finalización se calcula automáticamente a partir de las proporciones de tareas hechas/totales
+- **Auto-finalización** — El porcentaje de finalización se calcula automáticamente a partir de las proporciones de tareas hechas/totales, acumulándose recursivamente a través de la jerarquía WBS hasta los elementos padre. El completamiento del nivel superior representa el progreso general de la iniciativa
 
 ## Integración con los detalles de la ficha
 

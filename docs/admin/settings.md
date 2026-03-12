@@ -18,11 +18,17 @@ Select the currency used for cost fields across the platform. This affects how c
 
 ### Enabled Languages
 
-Toggle which languages are available to users in their language selector. All seven supported locales can be individually enabled or disabled:
+Toggle which languages are available to users in their language selector. All eight supported locales can be individually enabled or disabled:
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
 
 At least one language must remain enabled at all times.
+
+### Fiscal Year Start
+
+Select the month that begins your organization's fiscal year (January through December). This setting affects how **budget lines** in the PPM module are grouped by fiscal year. For example, if the fiscal year starts in April, a budget line dated June 2026 belongs to FY 2026–2027.
+
+The default is **January** (calendar year = fiscal year).
 
 ## Email (SMTP)
 
@@ -51,3 +57,12 @@ Toggle the **Business Process Management** module on or off. When disabled:
 - Business Process cards remain in the database but BPM-specific features (process flow editor, BPM dashboard, BPM reports) are not accessible
 
 This is useful for organizations that do not use BPM and want a cleaner navigation experience.
+
+## PPM Module
+
+Toggle the **Project Portfolio Management** module on or off. When disabled:
+
+- The **PPM** navigation item is hidden from all users
+- Initiative cards remain in the database but PPM-specific features (status reports, budget & cost tracking, risk register, task board, Gantt chart) are not accessible
+
+When enabled, Initiative cards gain a **PPM** tab in their detail view and the PPM portfolio dashboard becomes available in the main navigation. See [Project Portfolio Management](../guide/ppm.md) for the full feature guide.

@@ -54,7 +54,7 @@ Les rapports de statut mensuels suivent la santé du projet au fil du temps. Cha
 
 Suivi des données financières avec deux types de lignes :
 
-- **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx)
+- **Lignes de budget** — Budget planifié par année fiscale et catégorie (CapEx / OpEx). Les lignes budgétaires sont regroupées selon le **mois de début de l'exercice fiscal** configuré dans les [Paramètres](../admin/settings.md#début-de-lexercice-fiscal). Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027
 - **Lignes de coût** — Dépenses réelles avec date, description et catégorie
 
 Les totaux de budget et de coûts sont automatiquement agrégés dans les attributs `costBudget` et `costActual` de la carte Initiative.
@@ -107,7 +107,7 @@ La WBS fournit une décomposition hiérarchique du périmètre du projet :
 - **Lots de travaux** — Regroupements logiques de tâches avec dates de début/fin et suivi de l'achèvement
 - **Jalons** — Événements significatifs ou points d'achèvement
 - **Hiérarchie** — Relations parent-enfant entre les éléments WBS
-- **Auto-achèvement** — Le pourcentage d'achèvement est automatiquement calculé à partir des ratios de tâches terminées/totales
+- **Auto-achèvement** — Le pourcentage d'achèvement est automatiquement calculé à partir des ratios de tâches terminées/totales, puis cumulé récursivement à travers la hiérarchie WBS jusqu'aux éléments parents. Le taux d'achèvement du niveau supérieur représente la progression globale de l'initiative
 
 ## Intégration avec les détails de la fiche
 

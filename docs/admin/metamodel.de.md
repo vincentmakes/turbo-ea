@@ -80,6 +80,18 @@ Wenn bei einer Karte kein Subtyp ausgewählt ist (oder der Typ keine Subtypen ha
 
 Definieren Sie benutzerdefinierte Rollen für diesen Typ (z.B. «Anwendungseigner», «Technischer Eigner»). Jede Rolle hat **kartenebene Berechtigungen**, die beim Zugriff auf eine Karte mit der anwendungsweiten Rolle des Benutzers kombiniert werden. Siehe [Benutzer & Rollen](users.md) für mehr zum Berechtigungsmodell.
 
+#### Übersetzungen
+
+Klicken Sie auf die Schaltfläche **Übersetzen** in der Symbolleiste des Typ-Drawers, um den **Übersetzungsdialog** zu öffnen. Hier können Sie Übersetzungen für alle Metamodell-Bezeichnungen in jeder unterstützten Sprache angeben:
+
+- **Typbezeichnung** — Der Anzeigename des Kartentyps
+- **Untertypen** — Bezeichnungen für jeden Untertyp
+- **Sektionen** — Abschnittsüberschriften auf der Kartendetailseite
+- **Felder** — Feldbezeichnungen und Auswahloptionsbezeichnungen
+- **Stakeholder-Rollen** — Rollennamen, die in der Stakeholder-Zuweisungs-UI angezeigt werden
+
+Übersetzungen werden zusammen mit jedem Kartentyp gespeichert und beim Rendern entsprechend der vom Benutzer ausgewählten Sprache aufgelöst. Nicht übersetzte Bezeichnungen fallen auf den englischen Standard zurück.
+
 ### Einen Typ löschen
 
 - **Integrierte Typen** werden weich gelöscht (ausgeblendet) und können wiederhergestellt werden

@@ -80,6 +80,18 @@ Quando nenhum subtipo é selecionado num card (ou o tipo não possui subtipos), 
 
 Defina papéis personalizados para este tipo (ex.: "Proprietário da Aplicação", "Proprietário Técnico"). Cada papel carrega **permissões em nível de card** que são combinadas com o papel em nível de aplicação do usuário ao acessar um card. Veja [Usuários e Papéis](users.md) para mais informações sobre o modelo de permissões.
 
+#### Traduções
+
+Clique no botão **Traduzir** na barra de ferramentas do drawer do tipo para abrir o **Diálogo de Traduções**. Aqui você pode fornecer traduções para todos os rótulos do metamodelo em cada idioma suportado:
+
+- **Rótulo do tipo** — O nome de exibição do tipo de card
+- **Subtipos** — Rótulos para cada subtipo
+- **Seções** — Cabeçalhos de seção na página de detalhe do card
+- **Campos** — Rótulos de campos e rótulos de opções de seleção
+- **Papéis de stakeholder** — Nomes de papéis exibidos na interface de atribuição de stakeholders
+
+As traduções são armazenadas junto com cada tipo de card e são resolvidas no momento da renderização de acordo com o idioma selecionado pelo usuário. Rótulos não traduzidos recorrem ao padrão em inglês.
+
 ### Excluindo um Tipo
 
 - **Tipos incorporados** são excluídos temporariamente (ocultos) e podem ser restaurados

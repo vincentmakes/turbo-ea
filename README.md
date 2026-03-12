@@ -291,7 +291,7 @@ npm run build         # TypeScript check + production build
 └───────────────────────────────────────────────────────────┘
 ```
 
-**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v29.5.1) and served under `/drawio/` by Nginx.
+**DrawIO** is self-hosted inside the frontend Docker image (cloned at build time from `jgraph/drawio` v26.0.9) and served under `/drawio/` by Nginx.
 
 ---
 
@@ -310,6 +310,25 @@ npm run build         # TypeScript check + production build
 | `ALLOWED_ORIGINS` | `http://localhost:8920` | CORS allowed origins (comma-separated) |
 | `RESET_DB` | `false` | Drop all tables and re-seed on startup |
 | `SEED_DEMO` | `false` | Populate demo dataset on first startup |
+| `SEED_BPM` | `false` | Populate demo BPM processes |
+| `SEED_PPM` | `false` | Populate demo PPM data |
+| `ENVIRONMENT` | `production` | Runtime environment (`development` enables API docs) |
+| `SMTP_HOST` | *(empty)* | SMTP server hostname (optional) |
+| `SMTP_PORT` | `587` | SMTP server port |
+| `SMTP_USER` | *(empty)* | SMTP username |
+| `SMTP_PASSWORD` | *(empty)* | SMTP password |
+| `SMTP_FROM` | `noreply@turboea.local` | Sender email address |
+| `SMTP_TLS` | `true` | Use TLS for SMTP |
+| `AI_PROVIDER_URL` | *(empty)* | Ollama-compatible LLM provider URL |
+| `AI_MODEL` | *(empty)* | LLM model name (e.g., `gemma3:4b`) |
+| `AI_SEARCH_PROVIDER` | `duckduckgo` | Web search provider: `duckduckgo`, `google`, or `searxng` |
+| `AI_SEARCH_URL` | *(empty)* | Search provider URL (SearXNG URL or `API_KEY:CX` for Google) |
+| `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
+| `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container |
+| `MCP_PUBLIC_URL` | `http://localhost:8920/mcp` | (MCP server) Public URL for OAuth metadata |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | (MCP server) Public-facing Turbo EA URL |
+
+> **API Documentation**: Swagger UI is available at `/api/docs` when running in development mode (`ENVIRONMENT=development`).
 
 ---
 

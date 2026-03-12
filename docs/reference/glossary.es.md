@@ -3,12 +3,14 @@
 | Término | Definición |
 |---------|------------|
 | **ADR (Architecture Decision Record)** | Un documento formal que registra una decisión de arquitectura importante, incluyendo el contexto, la justificación, las consecuencias y las alternativas consideradas. Los ADR admiten un flujo de firma y una cadena de revisiones |
+| **Año Fiscal** | El período de 12 meses utilizado para la presupuestación y los informes financieros. Configurable en Administrador > Configuración — el mes de inicio (enero a diciembre) determina cómo se agrupan las líneas de presupuesto PPM |
 | **Estado de Aprobación** | El estado de revisión de una ficha: Borrador, Aprobado, Roto o Rechazado. Las fichas aprobadas cambian a Roto cuando se editan |
 | **Marcador / Vista Guardada** | Una configuración guardada de filtros, columnas y ordenamiento en el Inventario que se puede recargar con un clic |
 | **BPM** | Gestión de Procesos de Negocio — la disciplina de modelar, analizar y mejorar procesos de negocio |
 | **BPMN** | Notación de Modelado de Procesos de Negocio — la notación estándar para modelar procesos de negocio (versión 2.0) |
 | **Capacidad de Negocio** | Lo que una organización puede hacer, independientemente de cómo lo hace |
 | **Cálculo** | Una fórmula definida por el administrador que calcula automáticamente el valor de un campo cuando se guarda una ficha |
+| **Feed OData** | Un feed de datos JSON disponible en las vistas guardadas del inventario (marcadores) para el consumo por herramientas externas como Power BI o Excel |
 | **Ficha (Card)** | La unidad básica de información en Turbo EA que representa cualquier componente de arquitectura |
 | **Tipo de Ficha** | La categoría a la que pertenece una ficha (ej., Aplicación, Proceso de Negocio, Organización) |
 | **Puntuación de Confianza** | Una calificación de 0–100% que indica la fiabilidad de una descripción generada por IA |
@@ -28,6 +30,7 @@
 | **Hito** | Un evento significativo o punto de finalización en el cronograma de un proyecto, mostrado como un indicador de diamante en el diagrama de Gantt |
 | **Notificación** | Una alerta en la aplicación o por correo electrónico activada por eventos del sistema (tarea asignada, ficha actualizada, comentario agregado, etc.) |
 | **Ollama** | Una herramienta de código abierto para ejecutar LLMs localmente en su propio hardware |
+| **Orden de Filas BPM** | El orden de visualización de las filas de tipos de proceso (Básico, Soporte, Gestión) en el navegador de procesos BPM, configurable arrastrando filas |
 | **Portafolio** | Un conjunto de aplicaciones o tecnologías gestionadas como un grupo |
 | **PPM** | Gestión de Cartera de Proyectos — la disciplina de gestionar un portafolio de proyectos e iniciativas con presupuestos, riesgos, tareas e informes de estado |
 | **Número de referencia** | Un identificador secuencial generado automáticamente para los ADR (ej., ADR-001, ADR-002) que proporciona una etiqueta única y legible |

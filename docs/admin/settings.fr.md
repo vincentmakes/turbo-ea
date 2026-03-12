@@ -18,11 +18,17 @@ Sélectionnez la devise utilisée pour les champs de coût dans toute la platefo
 
 ### Langues activées
 
-Basculez les langues disponibles pour les utilisateurs dans leur sélecteur de langue. Les sept langues supportées peuvent être activées ou désactivées individuellement :
+Basculez les langues disponibles pour les utilisateurs dans leur sélecteur de langue. Les huit langues supportées peuvent être activées ou désactivées individuellement :
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
 
 Au moins une langue doit rester activée en permanence.
+
+### Début de l'exercice fiscal
+
+Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janvier à décembre). Ce paramètre affecte le regroupement des **lignes budgétaires** dans le module PPM par exercice fiscal. Par exemple, si l'exercice fiscal commence en avril, une ligne budgétaire de juin 2026 appartient à l'EF 2026–2027.
+
+La valeur par défaut est **janvier** (année civile = exercice fiscal).
 
 ## E-mail (SMTP)
 
@@ -51,3 +57,12 @@ Activez ou désactivez le module **Gestion des processus métier**. Lorsqu'il es
 - Les fiches Processus Métier restent dans la base de données mais les fonctionnalités spécifiques au BPM (éditeur de flux de processus, tableau de bord BPM, rapports BPM) ne sont pas accessibles
 
 Ceci est utile pour les organisations qui n'utilisent pas le BPM et souhaitent une expérience de navigation plus épurée.
+
+## Module PPM
+
+Activez ou désactivez le module **Gestion de portefeuille de projets** (PPM). Lorsqu'il est désactivé :
+
+- L'élément de navigation **PPM** est masqué pour tous les utilisateurs
+- Les fiches Initiative restent dans la base de données mais les fonctionnalités spécifiques au PPM (rapports de statut, suivi budgétaire et des coûts, registre des risques, tableau de tâches, diagramme de Gantt) ne sont pas accessibles
+
+Lorsqu'il est activé, les fiches Initiative disposent d'un onglet **PPM** dans leur vue de détail et le tableau de bord du portefeuille PPM est disponible dans la navigation principale. Voir [Gestion de portefeuille de projets](../guide/ppm.md) pour le guide complet des fonctionnalités.

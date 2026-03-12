@@ -54,7 +54,7 @@ Monthly status reports track project health over time. Each report includes:
 
 Track financial data with two types of line items:
 
-- **Budget Lines** — Planned budget by fiscal year and category (CapEx / OpEx)
+- **Budget Lines** — Planned budget by fiscal year and category (CapEx / OpEx). Budget lines are grouped according to the **fiscal year start month** configured in [Settings](../admin/settings.md#fiscal-year-start). For example, if the fiscal year begins in April, a budget line dated June 2026 belongs to FY 2026–2027
 - **Cost Lines** — Actual expenditures with date, description, and category
 
 Budget and cost totals automatically roll up to the Initiative card's `costBudget` and `costActual` attributes. When PPM cost lines exist, these card fields are marked as auto-computed and become read-only in the card detail view.
@@ -120,7 +120,7 @@ The WBS provides a hierarchical decomposition of project scope:
 - **Work Packages** — Logical groupings of tasks with start/end dates and completion tracking
 - **Milestones** — Significant events or completion points
 - **Hierarchy** — Parent-child relationships between WBS items
-- **Auto-completion** — Completion percentage is automatically calculated from child task done/total ratios, then rolled up to parent items
+- **Auto-completion** — Completion percentage is automatically calculated from child task done/total ratios, then rolled up recursively through the WBS hierarchy to parent items. Top-level completion represents overall initiative progress
 
 ## Card Detail Integration
 

@@ -80,6 +80,18 @@ When no subtype is selected on a card (or the type has no subtypes), all fields 
 
 Define custom roles for this type (e.g., "Application Owner", "Technical Owner"). Each role carries **card-level permissions** that are combined with the user's app-level role when accessing a card. See [Users & Roles](users.md) for more on the permission model.
 
+#### Translations
+
+Click the **Translate** button in the type drawer toolbar to open the **Translation Dialog**. Here you can provide translations for all metamodel labels in each supported language:
+
+- **Type label** — The display name of the card type
+- **Subtypes** — Labels for each subtype
+- **Sections** — Section headings on the card detail page
+- **Fields** — Field labels and select option labels
+- **Stakeholder Roles** — Role names displayed in the stakeholder assignment UI
+
+Translations are stored alongside each card type and are resolved at render time using the user's selected locale. Untranslated labels fall back to the English default.
+
 ### Deleting a Type
 
 - **Built-in types** are soft-deleted (hidden) and can be restored

@@ -37,6 +37,17 @@ When working on this codebase, follow these conventions:
 - Ruff linting: line length 100, rules E/F/I/N/W. Run `ruff check .` and `ruff format .`.
 - **Before every commit**, run `cd backend && ruff format . && ruff check .` to ensure CI won't fail on formatting or lint errors. This is mandatory — do not skip it.
 
+### MCP Server Conventions
+- The MCP server lives in `mcp-server/` — a separate Python package (`turbo-ea-mcp`) with its own `pyproject.toml` and Dockerfile.
+- It provides **read-only** AI tool access to EA data via the [Model Context Protocol](https://modelcontextprotocol.io/) (FastMCP library).
+- **Two transport modes**: HTTP/SSE (production, via Docker `--profile mcp`) and stdio (local testing with Claude Desktop).
+- **Authentication**: In HTTP mode, users authenticate via OAuth 2.1 delegated to the Turbo EA SSO provider. The MCP server resolves OAuth tokens to Turbo EA JWTs. In stdio mode, `TURBO_EA_EMAIL`/`TURBO_EA_PASSWORD` env vars are used for direct login.
+- **Tools are read-only**: `search_cards`, `get_card`, `get_card_relations`, `get_card_hierarchy`, `list_card_types`, `get_relation_types`, `get_dashboard`, `get_landscape`. Do not add mutating tools without careful security review.
+- **All data access respects RBAC**: The user's JWT is passed through to the backend API, so permission checks are enforced server-side.
+- **Config** is in `mcp-server/turbo_ea_mcp/config.py` — reads from env vars (`TURBO_EA_URL`, `TURBO_EA_PUBLIC_URL`, `MCP_PUBLIC_URL`, `MCP_PORT`).
+- **Tests** live in `mcp-server/tests/` and use `pytest` + `pytest-asyncio`. Run with `cd mcp-server && pip install -e ".[dev]" && pytest`.
+- The MCP server shares the `/VERSION` file with backend/frontend for version consistency.
+
 ### Frontend Conventions
 - Route-level pages use `lazy()` imports in `App.tsx` for code splitting.
 - Shared hooks in `src/hooks/`, shared components in `src/components/`.
@@ -295,7 +306,7 @@ turbo-ea/
 │   │   ├── api/
 │   │   │   ├── deps.py                # Auth dependencies (get_current_user, require_permission)
 │   │   │   └── v1/
-│   │   │       ├── router.py          # Mounts all 32 API routers
+│   │   │       ├── router.py          # Mounts all 34 API routers
 │   │   │       ├── auth.py            # /auth (login, register, me, SSO, set-password)
 │   │   │       ├── cards.py           # /cards CRUD + hierarchy + approval status + CSV export
 │   │   │       ├── metamodel.py       # /metamodel (types + relation types + field/section usage)
@@ -327,7 +338,9 @@ turbo-ea/
 │   │   │       ├── eol.py             # /eol (End-of-Life proxy for endoflife.date)
 │   │   │       ├── web_portals.py     # /web-portals (public portal management)
 │   │   │       ├── notifications.py   # /notifications (user notifications)
-│   │   │       └── servicenow.py      # /servicenow (CMDB sync integration)
+│   │   │       ├── servicenow.py      # /servicenow (CMDB sync integration)
+│   │   │       ├── adr.py             # /adr (Architecture Decision Records)
+│   │   │       └── file_attachments.py # /cards/{id}/attachments (file uploads)
 │   │   ├── core/
 │   │   │   ├── security.py            # JWT creation/validation (PyJWT HS256), bcrypt
 │   │   │   ├── permissions.py         # Permission key registry (single source of truth)
@@ -518,6 +531,19 @@ turbo-ea/
 │   ├── vite.config.ts                       # __APP_VERSION__ injection from VERSION file
 │   └── Dockerfile                           # Multi-stage: node → drawio → nginx (root context)
 │
+├── mcp-server/
+│   ├── turbo_ea_mcp/
+│   │   ├── server.py              # FastMCP tools, resources, prompts + ASGI app
+│   │   ├── api_client.py          # HTTP client for Turbo EA backend API
+│   │   ├── oauth.py               # OAuth 2.1 authorization server (SSO-delegated)
+│   │   ├── config.py              # Environment-based config (TURBO_EA_URL, MCP_PORT, etc.)
+│   │   └── __main__.py            # CLI entry point
+│   ├── tests/
+│   │   ├── test_server.py         # MCP tool tests
+│   │   └── test_oauth.py          # OAuth flow tests
+│   ├── pyproject.toml
+│   └── Dockerfile                 # Python 3.12-alpine + uvicorn
+│
 ├── plan.md
 └── Statement_of_Architecture_Work_Template.md
 ```
@@ -554,6 +580,10 @@ turbo-ea/
 | `AI_SEARCH_URL` | *(empty)* | Search provider URL: SearXNG URL or `API_KEY:CX` for Google |
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container (Docker `--profile ai`) |
+| `TURBO_EA_URL` | `http://localhost:8000` | (MCP server) Internal backend URL |
+| `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | (MCP server) Public-facing Turbo EA URL for OAuth redirects |
+| `MCP_PUBLIC_URL` | `http://localhost:8001` | (MCP server) Public URL for OAuth metadata |
+| `MCP_PORT` | `8001` | (MCP server) Bind port |
 
 For local frontend dev without Docker, create `frontend/.env.development`:
 ```
@@ -856,6 +886,9 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **Settings** | Email SMTP, currency, logo upload, favicon upload, AI config |
 | **Users** | CRUD (admin only), self-update |
 | **Events** | `GET /events`, `GET /events/stream` (SSE) |
+| **ADR** | `GET/POST /adr`, `GET/PATCH/DELETE /adr/{id}`, `/adr/{id}/cards`, `/adr/{id}/sign` |
+| **File Attachments** | `POST /cards/{id}/attachments`, `GET/DELETE /attachments/{id}` |
+| **OData Feeds** | `GET /bookmarks/{id}/odata` (OData-style JSON feed for saved views) |
 | **Health** | `GET /api/health` (no auth, includes version) |
 
 ---

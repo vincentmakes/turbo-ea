@@ -18,11 +18,17 @@ Selecione a moeda usada para campos de custo em toda a plataforma. Isso afeta co
 
 ### Idiomas Habilitados
 
-Alterne quais idiomas estão disponíveis para os usuários no seletor de idioma. Todos os sete idiomas suportados podem ser individualmente habilitados ou desabilitados:
+Alterne quais idiomas estão disponíveis para os usuários no seletor de idioma. Todos os oito idiomas suportados podem ser individualmente habilitados ou desabilitados:
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
 
 Pelo menos um idioma deve permanecer habilitado o tempo todo.
+
+### Início do Ano Fiscal
+
+Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dezembro). Esta configuração afeta como as **linhas de orçamento** no módulo PPM são agrupadas por ano fiscal. Por exemplo, se o ano fiscal começa em abril, uma linha de orçamento de junho de 2026 pertence ao AF 2026–2027.
+
+O padrão é **janeiro** (ano civil = ano fiscal).
 
 ## E-mail (SMTP)
 
@@ -51,3 +57,12 @@ Alterne o módulo de **Business Process Management** ligado ou desligado. Quando
 - Cards de Processo de Negócio permanecem no banco de dados, mas recursos específicos de BPM (editor de fluxo de processo, painel BPM, relatórios BPM) não estão acessíveis
 
 Isso é útil para organizações que não usam BPM e desejam uma experiência de navegação mais limpa.
+
+## Módulo PPM
+
+Alterne o módulo de **Gestão de Portfólio de Projetos** (PPM) ligado ou desligado. Quando desabilitado:
+
+- O item de navegação **PPM** é oculto para todos os usuários
+- Cards de Iniciativa permanecem no banco de dados, mas recursos específicos de PPM (relatórios de status, acompanhamento de orçamento e custos, registro de riscos, quadro de tarefas, gráfico de Gantt) não estão acessíveis
+
+Quando habilitado, cards de Iniciativa ganham uma aba **PPM** na sua visualização de detalhes e o painel do portfólio PPM fica disponível na navegação principal. Veja [Gestão de Portfólio de Projetos](../guide/ppm.md) para o guia completo de funcionalidades.

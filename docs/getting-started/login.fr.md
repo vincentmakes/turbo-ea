@@ -39,7 +39,7 @@ Si c'est votre première visite sur la plateforme, vous pouvez vous inscrire en 
 
 ## Changement de langue
 
-La plateforme prend en charge sept langues. Pour changer la langue :
+La plateforme prend en charge huit langues. Pour changer la langue :
 
 1. Cliquez sur votre icône de profil (coin supérieur droit)
 2. Sélectionnez **Langue**
@@ -51,3 +51,4 @@ La plateforme prend en charge sept langues. Pour changer la langue :
    - Italiano
    - Português
    - 中文 (Chinois)
+   - Русский (Russe)

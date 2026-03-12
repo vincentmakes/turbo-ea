@@ -39,7 +39,7 @@ Se esta é a primeira vez que você acessa a plataforma, pode se registrar clica
 
 ## Alterando o Idioma
 
-A plataforma suporta sete idiomas. Para alterar o idioma:
+A plataforma suporta oito idiomas. Para alterar o idioma:
 
 1. Clique no ícone do seu perfil (canto superior direito)
 2. Selecione **Idioma**
@@ -51,3 +51,4 @@ A plataforma suporta sete idiomas. Para alterar o idioma:
    - Italiano
    - Português
    - 中文 (Chinese)
+   - Русский (Russian)

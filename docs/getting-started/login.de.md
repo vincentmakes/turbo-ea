@@ -39,7 +39,7 @@ Wenn Sie die Plattform zum ersten Mal nutzen, können Sie sich registrieren, ind
 
 ## Sprache ändern
 
-Die Plattform unterstützt sieben Sprachen. Um die Sprache zu ändern:
+Die Plattform unterstützt acht Sprachen. Um die Sprache zu ändern:
 
 1. Klicken Sie auf Ihr Profilsymbol (rechte obere Ecke)
 2. Wählen Sie **Sprache**
@@ -51,3 +51,4 @@ Die Plattform unterstützt sieben Sprachen. Um die Sprache zu ändern:
    - Italiano
    - Português
    - 中文 (Chinese)
+   - Русский (Russian)

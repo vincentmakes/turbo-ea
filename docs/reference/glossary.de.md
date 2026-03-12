@@ -7,6 +7,8 @@
 | **Lesezeichen / Gespeicherte Ansicht** | Eine gespeicherte Filter-, Spalten- und Sortierkonfiguration im Inventar, die mit einem Klick geladen werden kann |
 | **BPM** | Business Process Management — die Disziplin der Modellierung, Analyse und Verbesserung von Geschäftsprozessen |
 | **BPMN** | Business Process Model and Notation — die Standardnotation zur Modellierung von Geschäftsprozessen (Version 2.0) |
+| **BPM-Zeilenreihenfolge** | Die Anzeigereihenfolge der Prozesstypzeilen (Kern, Unterstützung, Management) im BPM-Prozessnavigator, konfigurierbar durch Ziehen von Zeilen |
+| **Geschäftsjahr** | Der 12-monatige Zeitraum für Budgetierung und Finanzberichterstattung. Konfigurierbar über Admin > Einstellungen — der Startmonat (Januar bis Dezember) bestimmt, wie PPM-Budgetzeilen gruppiert werden |
 | **Geschäftsfähigkeit** | Was eine Organisation tun kann, unabhängig davon, wie sie es tut |
 | **Berechnung** | Eine vom Administrator definierte Formel, die automatisch einen Feldwert berechnet, wenn eine Karte gespeichert wird |
 | **Karte** | Die grundlegende Informationseinheit in Turbo EA, die jede Architekturkomponente repräsentiert |
@@ -27,6 +29,7 @@
 | **Metamodell** | Das datengesteuerte Modell, das die Struktur der Plattform definiert: Kartentypen, Felder, Beziehungen und Rollen |
 | **Meilenstein** | Ein bedeutendes Ereignis oder Abschlusspunkt im Projektzeitplan, dargestellt als Rautenindikator im Gantt-Diagramm |
 | **Benachrichtigung** | Ein In-App- oder E-Mail-Hinweis, ausgelöst durch Systemereignisse (Aufgabe zugewiesen, Karte aktualisiert, Kommentar hinzugefügt usw.) |
+| **OData-Feed** | Ein JSON-Datenfeed, der über gespeicherte Inventaransichten (Lesezeichen) für externe Tools wie Power BI oder Excel verfügbar ist |
 | **Ollama** | Ein Open-Source-Werkzeug zum lokalen Ausführen von LLMs auf eigener Hardware |
 | **Portfolio** | Eine Sammlung von Anwendungen oder Technologien, die als Gruppe verwaltet werden |
 | **PPM** | Projektportfoliomanagement — die Disziplin der Verwaltung eines Portfolios von Projekten und Initiativen mit Budgets, Risiken, Aufgaben und Statusberichten |

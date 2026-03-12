@@ -18,11 +18,17 @@ Seleccione la moneda utilizada para los campos de costo en toda la plataforma. E
 
 ### Idiomas Habilitados
 
-Active o desactive los idiomas disponibles para los usuarios en su selector de idioma. Los siete idiomas soportados pueden habilitarse o deshabilitarse individualmente:
+Active o desactive los idiomas disponibles para los usuarios en su selector de idioma. Los ocho idiomas soportados pueden habilitarse o deshabilitarse individualmente:
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
 
 Al menos un idioma debe permanecer habilitado en todo momento.
+
+### Inicio del Año Fiscal
+
+Seleccione el mes en que comienza el año fiscal de su organización (enero a diciembre). Esta configuración afecta cómo se agrupan las **líneas de presupuesto** en el módulo PPM por año fiscal. Por ejemplo, si el año fiscal comienza en abril, una línea de presupuesto de junio de 2026 pertenece al AF 2026–2027.
+
+El valor predeterminado es **enero** (año calendario = año fiscal).
 
 ## Correo Electrónico (SMTP)
 
@@ -51,3 +57,12 @@ Active o desactive el módulo de **Gestión de Procesos de Negocio** (BPM). Cuan
 - Las fichas de Proceso de Negocio permanecen en la base de datos, pero las funciones específicas de BPM (editor de flujos de proceso, panel de control BPM, informes BPM) no están accesibles
 
 Esto es útil para organizaciones que no utilizan BPM y desean una experiencia de navegación más limpia.
+
+## Módulo PPM
+
+Active o desactive el módulo de **Gestión de Portafolio de Proyectos** (PPM). Cuando está desactivado:
+
+- El elemento de navegación **PPM** se oculta para todos los usuarios
+- Las fichas de Iniciativa permanecen en la base de datos, pero las funciones específicas de PPM (informes de estado, seguimiento de presupuesto y costos, registro de riesgos, tablero de tareas, diagrama de Gantt) no están accesibles
+
+Cuando está habilitado, las fichas de Iniciativa obtienen una pestaña **PPM** en su vista de detalle y el panel de portafolio PPM está disponible en la navegación principal. Consulte [Gestión de Portafolio de Proyectos](../guide/ppm.md) para la guía completa de funciones.

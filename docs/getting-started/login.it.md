@@ -39,7 +39,7 @@ Se è la prima volta che accedete alla piattaforma, potete registrarvi cliccando
 
 ## Cambio della lingua
 
-La piattaforma supporta sette lingue. Per cambiare la lingua:
+La piattaforma supporta otto lingue. Per cambiare la lingua:
 
 1. Cliccate sull'icona del profilo (angolo in alto a destra)
 2. Selezionate **Lingua**
@@ -51,3 +51,4 @@ La piattaforma supporta sette lingue. Per cambiare la lingua:
    - Italiano
    - Português
    - 中文 (Chinese)
+   - Русский (Russian)

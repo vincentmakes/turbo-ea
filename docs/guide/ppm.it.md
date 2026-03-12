@@ -54,7 +54,7 @@ I report di stato mensili monitorano la salute del progetto nel tempo. Ogni repo
 
 Monitoraggio dei dati finanziari con due tipi di voci:
 
-- **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx)
+- **Voci di budget** — Budget pianificato per anno fiscale e categoria (CapEx / OpEx). Le linee di budget sono raggruppate in base al **mese di inizio dell'anno fiscale** configurato nelle [Impostazioni](../admin/settings.md#inizio-dellanno-fiscale). Ad esempio, se l'anno fiscale inizia ad aprile, una linea di budget di giugno 2026 appartiene all'AF 2026–2027
 - **Voci di costo** — Spese effettive con data, descrizione e categoria
 
 I totali di budget e costi vengono automaticamente aggregati negli attributi `costBudget` e `costActual` della card Iniziativa.
@@ -107,7 +107,7 @@ La WBS fornisce una scomposizione gerarchica dell'ambito del progetto:
 - **Pacchetti di lavoro** — Raggruppamenti logici di attività con date di inizio/fine e monitoraggio del completamento
 - **Milestone** — Eventi significativi o punti di completamento
 - **Gerarchia** — Relazioni genitore-figlio tra elementi WBS
-- **Auto-completamento** — La percentuale di completamento viene calcolata automaticamente dai rapporti attività completate/totali
+- **Auto-completamento** — La percentuale di completamento viene calcolata automaticamente dai rapporti attività completate/totali, cumulato ricorsivamente attraverso la gerarchia WBS fino agli elementi padre. Il completamento al livello superiore rappresenta il progresso complessivo dell'iniziativa
 
 ## Integrazione con i dettagli della card
 

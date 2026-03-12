@@ -80,6 +80,18 @@ Lorsqu'aucun sous-type n'est sélectionné sur une fiche (ou que le type n'a pas
 
 Définissez des rôles personnalisés pour ce type (par ex. « Responsable Applicatif », « Responsable Technique »). Chaque rôle porte des **permissions au niveau de la fiche** qui sont combinées avec le rôle au niveau de l'application de l'utilisateur lors de l'accès à une fiche. Voir [Utilisateurs et rôles](users.md) pour plus de détails sur le modèle de permissions.
 
+#### Traductions
+
+Cliquez sur le bouton **Traduire** dans la barre d'outils du tiroir de type pour ouvrir le **Dialogue de traductions**. Vous pouvez y fournir des traductions pour tous les libellés du métamodèle dans chaque langue supportée :
+
+- **Libellé du type** — Le nom d'affichage du type de fiche
+- **Sous-types** — Libellés pour chaque sous-type
+- **Sections** — En-têtes de section sur la page de détail de la fiche
+- **Champs** — Libellés des champs et des options de sélection
+- **Rôles des parties prenantes** — Noms de rôles affichés dans l'interface d'attribution des parties prenantes
+
+Les traductions sont stockées avec chaque type de fiche et sont résolues au moment du rendu en fonction de la langue sélectionnée par l'utilisateur. Les libellés non traduits utilisent la valeur anglaise par défaut.
+
 ### Suppression d'un type
 
 - Les **types intégrés** sont masqués (suppression logique) et peuvent être restaurés

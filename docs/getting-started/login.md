@@ -39,7 +39,7 @@ If this is your first time accessing the platform, you can register by clicking 
 
 ## Changing Language
 
-The platform supports seven languages. To change the language:
+The platform supports eight languages. To change the language:
 
 1. Click on your profile icon (top right corner)
 2. Select **Language**
@@ -51,3 +51,4 @@ The platform supports seven languages. To change the language:
    - Italiano
    - Português
    - 中文 (Chinese)
+   - Русский (Russian)

@@ -76,5 +76,8 @@ uploads/
 # Alembic
 alembic/versions/__pycache__/
 
+# MkDocs
+site/
+
 #Archived Plans
 archive/
