@@ -25,6 +25,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8920}
       SEED_BPM: ${SEED_BPM:-false}
+      SEED_PPM: ${SEED_PPM:-false}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
