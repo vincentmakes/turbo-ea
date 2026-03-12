@@ -1182,9 +1182,11 @@ async def seed_extras_demo_data(db: AsyncSession) -> dict:
 
     # ----- Todos -----
     todo_count = 0
-    for card_name, description, status, due_offset in TODO_DEFS:
-        card_id = name_to_id.get(card_name) if card_name else None
-        if card_name and not card_id:
+    for todo_def in TODO_DEFS:
+        t_card: str | None = todo_def[0]
+        description, status, due_offset = todo_def[1], todo_def[2], todo_def[3]
+        card_id = name_to_id.get(t_card) if t_card else None
+        if t_card and not card_id:
             continue
         due = date.today() + timedelta(days=due_offset) if due_offset else None
         db.add(
