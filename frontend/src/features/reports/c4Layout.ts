@@ -64,6 +64,7 @@ export interface C4EdgeData {
   highlightMode?: boolean;
   pathOffset?: number;
   labelT?: number;
+  centerY?: number;
   [key: string]: unknown;
 }
 
@@ -324,6 +325,16 @@ export function buildC4Flow(
     yOffset += gl.groupH + GROUP_GAP;
   }
 
+  // Build group boundary map (category → { top, bottom }) for gap computation
+  const groupBounds = new Map<string, { top: number; bottom: number }>();
+  for (const n of rfNodes) {
+    if (n.type === "c4Group") {
+      const cat = (n.data as C4GroupData).label;
+      const h = (n.style as { height: number }).height;
+      groupBounds.set(cat, { top: n.position.y, bottom: n.position.y + h });
+    }
+  }
+
   // Compute absolute center positions for each node (for edge routing)
   const absPos = new Map<string, { x: number; y: number }>();
   for (const n of rfNodes) {
@@ -525,6 +536,43 @@ export function buildC4Flow(
     }
   }
 
+  // ---- Compute per-edge centerY to spread paths crossing the same gap ----
+  // Group edges by the inter-group gap they cross (sourceCat→targetCat)
+  const edgeCenterYs = new Array<number | undefined>(oriented.length).fill(undefined);
+  const edgesByGap = new Map<string, number[]>();
+  for (let i = 0; i < oriented.length; i++) {
+    const sCat = nodeCatMap.get(oriented[i].source);
+    const tCat = nodeCatMap.get(oriented[i].target);
+    if (!sCat || !tCat || sCat === tCat) continue; // intra-group edges don't need centerY
+    const gapKey = `${sCat}||${tCat}`;
+    if (!edgesByGap.has(gapKey)) edgesByGap.set(gapKey, []);
+    edgesByGap.get(gapKey)!.push(i);
+  }
+
+  for (const [gapKey, indices] of edgesByGap) {
+    if (indices.length <= 1) continue;
+    const [sCat, tCat] = gapKey.split("||");
+    const sBounds = groupBounds.get(sCat);
+    const tBounds = groupBounds.get(tCat);
+    if (!sBounds || !tBounds) continue;
+    // Gap runs from source group bottom to target group top
+    const gapTop = Math.min(sBounds.bottom, tBounds.bottom);
+    const gapBottom = Math.max(sBounds.top, tBounds.top);
+    if (gapBottom <= gapTop) continue;
+    const margin = Math.min(8, (gapBottom - gapTop) * 0.15);
+    // Sort by source X for consistent left-to-right assignment
+    indices.sort((a, b) => {
+      const aX = absPos.get(oriented[a].source)?.x ?? 0;
+      const bX = absPos.get(oriented[b].source)?.x ?? 0;
+      return aX - bX;
+    });
+    const n = indices.length;
+    for (let k = 0; k < n; k++) {
+      edgeCenterYs[indices[k]] =
+        gapTop + margin + (k * (gapBottom - gapTop - 2 * margin)) / (n - 1);
+    }
+  }
+
   // First pass: pick handles for each edge
   const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
@@ -632,6 +680,7 @@ export function buildC4Flow(
       description: e.description,
       pathOffset: pathOffsets[i],
       labelT: labelTs[i],
+      ...(edgeCenterYs[i] !== undefined && { centerY: edgeCenterYs[i] }),
     } satisfies C4EdgeData,
     animated: false,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },

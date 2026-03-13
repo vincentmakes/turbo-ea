@@ -273,6 +273,7 @@ const C4EdgeComponent = (
       sourcePosition, targetPosition,
       borderRadius: 8,
       offset: clampedOffset,
+      ...(edgeData?.centerY !== undefined && { centerY: edgeData.centerY }),
     });
 
     const label = edgeData?.relLabel || "";
@@ -657,7 +658,7 @@ function C4DiagramInner({
                   color: expandMode ? theme.palette.primary.contrastText : undefined,
                 }}
               >
-                <MaterialSymbol icon="open_in_full" size={18} />
+                <MaterialSymbol icon="flowsheet" size={18} />
               </ControlButton>
             )}
           </Controls>
