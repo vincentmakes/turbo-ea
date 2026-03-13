@@ -154,14 +154,18 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         </Box>
       )}
       <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
-      {/* Target handles along top edge (spread at 25%, 50%, 75%) */}
-      <Handle type="target" position={Position.Top} id="t-l" style={{ ...hs, left: "25%" }} />
-      <Handle type="target" position={Position.Top} id="t-c" style={{ ...hs, left: "50%" }} />
-      <Handle type="target" position={Position.Top} id="t-r" style={{ ...hs, left: "75%" }} />
+      {/* Target handles along top edge (spread at 12%, 30%, 50%, 70%, 88%) */}
+      <Handle type="target" position={Position.Top} id="t-1" style={{ ...hs, left: "12%" }} />
+      <Handle type="target" position={Position.Top} id="t-2" style={{ ...hs, left: "30%" }} />
+      <Handle type="target" position={Position.Top} id="t-3" style={{ ...hs, left: "50%" }} />
+      <Handle type="target" position={Position.Top} id="t-4" style={{ ...hs, left: "70%" }} />
+      <Handle type="target" position={Position.Top} id="t-5" style={{ ...hs, left: "88%" }} />
       {/* Source handles along bottom edge */}
-      <Handle type="source" position={Position.Bottom} id="b-l" style={{ ...hs, left: "25%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-c" style={{ ...hs, left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-r" style={{ ...hs, left: "75%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-1" style={{ ...hs, left: "12%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-2" style={{ ...hs, left: "30%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-3" style={{ ...hs, left: "50%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-4" style={{ ...hs, left: "70%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-5" style={{ ...hs, left: "88%" }} />
       {/* Side handles — both source and target on each side */}
       <Handle type="target" position={Position.Left} id="left" style={hs} />
       <Handle type="source" position={Position.Left} id="left-src" style={hs} />
@@ -250,10 +254,12 @@ const C4EdgeComponent = memo(
     const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
+    const pathOffset = edgeData?.pathOffset ?? 20;
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
+      offset: pathOffset,
     });
 
     const label = (data as C4EdgeData | undefined)?.relLabel || "";
@@ -290,11 +296,14 @@ const C4EdgeComponent = memo(
                 transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
                 fontSize: "0.62rem",
                 color: active ? "primary.main" : "text.secondary",
-                bgcolor: "background.paper",
+                bgcolor: theme.palette.mode === "dark"
+                  ? "rgba(18, 18, 18, 0.92)"
+                  : "rgba(255, 255, 255, 0.92)",
+                backdropFilter: "blur(4px)",
                 border: "1px solid",
                 borderColor: active ? "primary.main" : "divider",
-                px: 0.75,
-                py: 0.25,
+                px: 1,
+                py: 0.3,
                 borderRadius: 1,
                 pointerEvents: "none",
                 whiteSpace: "nowrap",

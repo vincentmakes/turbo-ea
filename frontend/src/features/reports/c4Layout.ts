@@ -61,6 +61,7 @@ export interface C4EdgeData {
   description?: string;
   connectedToHovered?: boolean;
   highlightMode?: boolean;
+  pathOffset?: number;
   [key: string]: unknown;
 }
 
@@ -407,34 +408,51 @@ export function buildC4Flow(
   });
 
   // Handle pair candidates and their Manhattan distance from source→target
+  // 5 handles per edge (12%, 30%, 50%, 70%, 88%) for better spread.
   // Rules: side handles always pair same-side (left→left, right→right)
   type HandlePair = { src: string; tgt: string };
   const HANDLE_PAIRS: HandlePair[] = [
-    // Bottom → Top (vertical, spread)
-    { src: "b-l", tgt: "t-l" },
-    { src: "b-c", tgt: "t-c" },
-    { src: "b-r", tgt: "t-r" },
-    // Bottom → Top (diagonal spread)
-    { src: "b-l", tgt: "t-c" },
-    { src: "b-r", tgt: "t-c" },
-    { src: "b-c", tgt: "t-l" },
-    { src: "b-c", tgt: "t-r" },
-    { src: "b-l", tgt: "t-r" },
-    { src: "b-r", tgt: "t-l" },
+    // Bottom → Top (direct: same column)
+    { src: "b-1", tgt: "t-1" },
+    { src: "b-2", tgt: "t-2" },
+    { src: "b-3", tgt: "t-3" },
+    { src: "b-4", tgt: "t-4" },
+    { src: "b-5", tgt: "t-5" },
+    // Bottom → Top (adjacent diagonal, |i-j| = 1)
+    { src: "b-1", tgt: "t-2" },
+    { src: "b-2", tgt: "t-1" },
+    { src: "b-2", tgt: "t-3" },
+    { src: "b-3", tgt: "t-2" },
+    { src: "b-3", tgt: "t-4" },
+    { src: "b-4", tgt: "t-3" },
+    { src: "b-4", tgt: "t-5" },
+    { src: "b-5", tgt: "t-4" },
+    // Bottom → Top (wide diagonal, |i-j| = 2)
+    { src: "b-1", tgt: "t-3" },
+    { src: "b-3", tgt: "t-1" },
+    { src: "b-2", tgt: "t-4" },
+    { src: "b-4", tgt: "t-2" },
+    { src: "b-3", tgt: "t-5" },
+    { src: "b-5", tgt: "t-3" },
     // Side → Side (same side only)
     { src: "left-src", tgt: "left" },
     { src: "right", tgt: "right-tgt" },
   ];
 
   // Handle position offsets relative to node center
+  // 5 positions: 12%, 30%, 50%, 70%, 88% of node width
   function handleOffset(h: string): { dx: number; dy: number } {
     switch (h) {
-      case "b-l":  return { dx: -C4_NODE_W * 0.25, dy: C4_NODE_H / 2 };
-      case "b-c":  return { dx: 0, dy: C4_NODE_H / 2 };
-      case "b-r":  return { dx: C4_NODE_W * 0.25, dy: C4_NODE_H / 2 };
-      case "t-l":  return { dx: -C4_NODE_W * 0.25, dy: -C4_NODE_H / 2 };
-      case "t-c":  return { dx: 0, dy: -C4_NODE_H / 2 };
-      case "t-r":  return { dx: C4_NODE_W * 0.25, dy: -C4_NODE_H / 2 };
+      case "b-1":  return { dx: -C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
+      case "b-2":  return { dx: -C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
+      case "b-3":  return { dx: 0, dy: C4_NODE_H / 2 };
+      case "b-4":  return { dx: C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
+      case "b-5":  return { dx: C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
+      case "t-1":  return { dx: -C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
+      case "t-2":  return { dx: -C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
+      case "t-3":  return { dx: 0, dy: -C4_NODE_H / 2 };
+      case "t-4":  return { dx: C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
+      case "t-5":  return { dx: C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
       case "left-src":
       case "left": return { dx: -C4_NODE_W / 2, dy: 0 };
       case "right":
@@ -447,12 +465,62 @@ export function buildC4Flow(
   const usedSrcHandles = new Map<string, Set<string>>();
   const usedTgtHandles = new Map<string, Set<string>>();
 
+  // ---- Compute per-edge path offsets to separate overlapping routes ----
+  const BASE_OFFSET = 20;
+  const OFFSET_STEP = 24; // ~label height, prevents label overlap
+
+  // Group edge indices by target node
+  const edgesByTarget = new Map<string, number[]>();
+  for (let i = 0; i < oriented.length; i++) {
+    const t = oriented[i].target;
+    if (!edgesByTarget.has(t)) edgesByTarget.set(t, []);
+    edgesByTarget.get(t)!.push(i);
+  }
+
+  const pathOffsets = new Array<number>(oriented.length).fill(BASE_OFFSET);
+
+  for (const indices of edgesByTarget.values()) {
+    if (indices.length <= 1) continue;
+    // Sort by source X for consistent left-to-right offset assignment
+    indices.sort((a, b) => {
+      const aX = absPos.get(oriented[a].source)?.x ?? 0;
+      const bX = absPos.get(oriented[b].source)?.x ?? 0;
+      return aX - bX;
+    });
+    for (let r = 0; r < indices.length; r++) {
+      pathOffsets[indices[r]] = BASE_OFFSET + r * OFFSET_STEP;
+    }
+  }
+
+  // Also group by source and take max offset from both groupings
+  const edgesBySource = new Map<string, number[]>();
+  for (let i = 0; i < oriented.length; i++) {
+    const s = oriented[i].source;
+    if (!edgesBySource.has(s)) edgesBySource.set(s, []);
+    edgesBySource.get(s)!.push(i);
+  }
+
+  for (const indices of edgesBySource.values()) {
+    if (indices.length <= 1) continue;
+    indices.sort((a, b) => {
+      const aX = absPos.get(oriented[a].target)?.x ?? 0;
+      const bX = absPos.get(oriented[b].target)?.x ?? 0;
+      return aX - bX;
+    });
+    for (let r = 0; r < indices.length; r++) {
+      pathOffsets[indices[r]] = Math.max(
+        pathOffsets[indices[r]],
+        BASE_OFFSET + r * OFFSET_STEP,
+      );
+    }
+  }
+
   const rfEdges: Edge[] = oriented.map((e, i) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
-    let bestSrc = "b-c";
-    let bestTgt = "t-c";
+    let bestSrc = "b-3";
+    let bestTgt = "t-3";
 
     if (sPos && tPos) {
       let bestDist = Infinity;
@@ -496,6 +564,7 @@ export function buildC4Flow(
       data: {
         relLabel: e.relLabel,
         description: e.description,
+        pathOffset: pathOffsets[i],
       } satisfies C4EdgeData,
       animated: false,
       markerEnd: { type: "arrowclosed" as const, color: "#888" },
