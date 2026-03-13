@@ -64,6 +64,7 @@ Alterne para a vista de **Diagrama C4** usando os botões de modo de visualizaç
 - **Canvas interativo** — Mova, amplie e use o minimapa para navegar em diagramas grandes
 - **Clique para inspecionar** — Clique em qualquer nó para abrir o painel lateral de detalhes do card
 - **Sem card central necessário** — A vista C4 mostra todos os cards que correspondem ao filtro de tipo atual
+- **Destaque de conexões** — Passe o mouse sobre um card para destacar suas conexões; em dispositivos touch, use o botão de destaque no painel de controles para destacar ao tocar
 
 ## Relatório de Custos
 

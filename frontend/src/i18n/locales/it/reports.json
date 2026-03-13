@@ -145,6 +145,7 @@
   "dependency.nextCard": "Scheda successiva",
   "dependency.viewInC4": "Visualizza nel diagramma C4",
   "dependency.shiftClickHint": "Maiusc+clic o pressione prolungata su una scheda per centrare il diagramma su di essa",
+  "dependency.highlightMode": "Modalit\u00e0 evidenziazione: clicca su una scheda per evidenziare le sue connessioni",
 
   "cost.title": "Analisi dei costi",
   "cost.cardType": "Tipo di scheda",

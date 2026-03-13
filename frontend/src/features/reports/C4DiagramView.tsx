@@ -12,6 +12,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   Handle,
   Position,
   type NodeProps,
@@ -116,7 +117,7 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         px: 1,
         cursor: "pointer",
         position: "relative",
-        transition: "box-shadow 0.15s",
+        transition: "box-shadow 0.15s, opacity 0.15s",
         touchAction: "none",
         "&:hover": { boxShadow: 4 },
       }}
@@ -241,9 +242,13 @@ const C4EdgeComponent = memo(
   ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
     const [hovered, setHovered] = useState(false);
+    const edgeData = data as C4EdgeData | undefined;
+    const connectedToHovered = edgeData?.connectedToHovered ?? false;
+    // In highlight mode, ignore local hover state to prevent stale highlights on touch
+    const active = edgeData?.highlightMode ? connectedToHovered : hovered || connectedToHovered;
     const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
     const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
-    const color = hovered ? hoverColor : baseColor;
+    const color = active ? hoverColor : baseColor;
 
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
@@ -272,8 +277,8 @@ const C4EdgeComponent = memo(
           markerEnd={markerEnd}
           style={{
             stroke: color,
-            strokeWidth: hovered ? 2 : 1.2,
-            strokeDasharray: hovered ? "none" : "5 3",
+            strokeWidth: active ? 2 : 1.2,
+            strokeDasharray: active ? "none" : "5 3",
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
@@ -284,10 +289,10 @@ const C4EdgeComponent = memo(
                 position: "absolute",
                 transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
                 fontSize: "0.62rem",
-                color: hovered ? "primary.main" : "text.secondary",
+                color: active ? "primary.main" : "text.secondary",
                 bgcolor: "background.paper",
                 border: "1px solid",
-                borderColor: hovered ? "primary.main" : "divider",
+                borderColor: active ? "primary.main" : "divider",
                 px: 0.75,
                 py: 0.25,
                 borderRadius: 1,
@@ -298,7 +303,7 @@ const C4EdgeComponent = memo(
                 textOverflow: "ellipsis",
                 lineHeight: 1.3,
                 transition: "color 0.15s, border-color 0.15s",
-                zIndex: hovered ? 10 : 0,
+                zIndex: active ? 10 : 0,
               }}
               className="nodrag nopan"
             >
@@ -379,6 +384,9 @@ function C4DiagramInner({
     [builtNodes, onNodeShiftClick],
   );
 
+  // Highlight mode: click highlights connections instead of opening card
+  const [highlightMode, setHighlightMode] = useState(false);
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (node.type === "c4Node") {
@@ -386,6 +394,15 @@ function C4DiagramInner({
           _longPressFired = false;
           return; // already handled by long-press
         }
+        if (highlightMode) {
+          // Cancel any pending mouse-leave timer to prevent race
+          if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+          // Toggle: tap same card clears, tap different card highlights it
+          setHoveredNode((prev) => (prev === node.id ? null : node.id));
+          return;
+        }
+        // Clear highlight before navigating so it doesn't persist when coming back
+        setHoveredNode(null);
         if (event.shiftKey && onNodeShiftClick) {
           onNodeShiftClick(node.id);
         } else {
@@ -393,8 +410,13 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick],
+    [onNodeClick, onNodeShiftClick, highlightMode],
   );
+
+  // In highlight mode, clicking the canvas (not a node) dismisses the highlight
+  const handlePaneClick = useCallback(() => {
+    if (highlightMode) setHoveredNode(null);
+  }, [highlightMode]);
 
   // Bring hovered edge to front by reordering
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
@@ -405,13 +427,68 @@ function C4DiagramInner({
     setHoveredEdge(null);
   }, []);
 
-  // Reorder edges so hovered one renders last (on top)
+  // Highlight all connections when hovering a card node
+  // Debounce mouseLeave to prevent flickering during React Flow re-renders
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    if (highlightMode) return; // hover disabled in highlight mode
+    if (node.type === "c4Node") {
+      if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+      setHoveredNode(node.id);
+    }
+  }, [highlightMode]);
+  const handleNodeMouseLeave = useCallback(() => {
+    if (highlightMode) return; // hover disabled in highlight mode
+    leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
+  }, [highlightMode]);
+
+  // Set of nodes connected to the hovered node (for dimming others)
+  const hoveredNeighbors = useMemo(() => {
+    if (!hoveredNode) return null;
+    const s = new Set<string>([hoveredNode]);
+    for (const e of rfEdges) {
+      if (e.source === hoveredNode) s.add(e.target);
+      if (e.target === hoveredNode) s.add(e.source);
+    }
+    return s;
+  }, [hoveredNode, rfEdges]);
+
+  // Inject connectedToHovered into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
-    if (!hoveredEdge) return rfEdges;
-    const rest = rfEdges.filter((e) => e.id !== hoveredEdge);
-    const hovered = rfEdges.find((e) => e.id === hoveredEdge);
-    return hovered ? [...rest, hovered] : rfEdges;
-  }, [rfEdges, hoveredEdge]);
+    let result = rfEdges.map((e) => ({
+      ...e,
+      data: {
+        ...e.data,
+        connectedToHovered: hoveredNode
+          ? e.source === hoveredNode || e.target === hoveredNode
+          : false,
+        highlightMode,
+      },
+    }));
+    if (hoveredEdge) {
+      const rest = result.filter((e) => e.id !== hoveredEdge);
+      const h = result.find((e) => e.id === hoveredEdge);
+      result = h ? [...rest, h] : result;
+    } else if (hoveredNode) {
+      const notConn = result.filter((e) => !e.data.connectedToHovered);
+      const conn = result.filter((e) => e.data.connectedToHovered);
+      result = [...notConn, ...conn];
+    }
+    return result;
+  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode]);
+
+  // CSS-based dimming avoids recreating node objects (which causes flickering)
+  const hoverStyle = useMemo(() => {
+    if (!hoveredNeighbors) return "";
+    const keep = [...hoveredNeighbors]
+      .map((id) => `.react-flow__node[data-id="${id}"]`)
+      .join(",");
+    return [
+      `.c4-hover-active .react-flow__node-c4Node { opacity: 0.35; transition: opacity 0.15s; }`,
+      `${keep} { opacity: 1 !important; }`,
+    ].join("\n");
+  }, [hoveredNeighbors]);
 
   if (rfNodes.length === 0) {
     return (
@@ -470,13 +547,17 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ height: 600 }}>
+      <Box sx={{ height: 600 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+        {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={rfNodes}
           edges={orderedEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
+          onNodeMouseEnter={handleNodeMouseEnter}
+          onNodeMouseLeave={handleNodeMouseLeave}
           onEdgeMouseEnter={handleEdgeMouseEnter}
           onEdgeMouseLeave={handleEdgeMouseLeave}
           fitView
@@ -490,7 +571,21 @@ function C4DiagramInner({
           colorMode={theme.palette.mode}
         >
           <Background gap={16} size={1} />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false}>
+            <ControlButton
+              title={t("dependency.highlightMode")}
+              onClick={() => {
+                setHighlightMode((v) => !v);
+                if (highlightMode) setHoveredNode(null);
+              }}
+              style={{
+                background: highlightMode ? theme.palette.primary.main : undefined,
+                color: highlightMode ? theme.palette.primary.contrastText : undefined,
+              }}
+            >
+              <MaterialSymbol icon="highlight" size={18} />
+            </ControlButton>
+          </Controls>
         </ReactFlow>
       </Box>
       <Box sx={{ px: 1.5, py: 0.75, textAlign: "right" }}>

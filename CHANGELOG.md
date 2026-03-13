@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.37.1] - 2026-03-13
+
+### Added
+- Hover highlighting of connected cards and edges in C4 diagram view
+- Highlight mode toggle button in C4 diagram controls for touch devices (iPad)
+
 ## [0.37.0] - 2026-03-13
 
 ### Added

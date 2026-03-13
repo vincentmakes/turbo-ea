@@ -151,6 +151,7 @@
   "dependency.nextCard": "Próximo cartão",
   "dependency.viewInC4": "Ver no diagrama C4",
   "dependency.shiftClickHint": "Shift+clique ou pressão longa num cartão para centrar o diagrama nele",
+  "dependency.highlightMode": "Modo destaque: clique num cartão para destacar as suas conexões",
 
   "cost.title": "Análise de custos",
   "cost.cardType": "Tipo de ficha",

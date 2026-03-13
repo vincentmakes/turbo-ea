@@ -64,6 +64,7 @@ Toggle to the **C4 Diagram** view using the view-mode buttons in the toolbar. Th
 - **Interactive canvas** — Pan, zoom, and use the minimap to navigate large diagrams
 - **Click to inspect** — Click any node to open the card detail side panel
 - **No center card required** — The C4 view shows all cards matching the current type filter
+- **Connection highlighting** — Hover over a card to highlight its connections; on touch devices, use the highlight toggle button in the controls panel to tap-highlight instead
 
 ## Cost Report
 

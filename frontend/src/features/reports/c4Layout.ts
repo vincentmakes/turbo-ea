@@ -46,6 +46,7 @@ export interface C4NodeData {
   category: string;
   nodeId?: string;
   onLongPress?: (id: string) => void;
+  dimmed?: boolean;
   [key: string]: unknown;
 }
 
@@ -58,6 +59,8 @@ export interface C4GroupData {
 export interface C4EdgeData {
   relLabel: string;
   description?: string;
+  connectedToHovered?: boolean;
+  highlightMode?: boolean;
   [key: string]: unknown;
 }
 
