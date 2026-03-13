@@ -242,8 +242,10 @@ const C4EdgeComponent = memo(
   ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
     const theme = useTheme();
     const [hovered, setHovered] = useState(false);
-    const connectedToHovered = (data as C4EdgeData | undefined)?.connectedToHovered ?? false;
-    const active = hovered || connectedToHovered;
+    const edgeData = data as C4EdgeData | undefined;
+    const connectedToHovered = edgeData?.connectedToHovered ?? false;
+    // In highlight mode, ignore local hover state to prevent stale highlights on touch
+    const active = edgeData?.highlightMode ? connectedToHovered : hovered || connectedToHovered;
     const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
     const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
@@ -393,6 +395,8 @@ function C4DiagramInner({
           return; // already handled by long-press
         }
         if (highlightMode) {
+          // Cancel any pending mouse-leave timer to prevent race
+          if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
           // Toggle: tap same card clears, tap different card highlights it
           setHoveredNode((prev) => (prev === node.id ? null : node.id));
           return;
@@ -428,14 +432,16 @@ function C4DiagramInner({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    if (highlightMode) return; // hover disabled in highlight mode
     if (node.type === "c4Node") {
       if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
       setHoveredNode(node.id);
     }
-  }, []);
+  }, [highlightMode]);
   const handleNodeMouseLeave = useCallback(() => {
+    if (highlightMode) return; // hover disabled in highlight mode
     leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
-  }, []);
+  }, [highlightMode]);
 
   // Set of nodes connected to the hovered node (for dimming others)
   const hoveredNeighbors = useMemo(() => {
@@ -457,6 +463,7 @@ function C4DiagramInner({
         connectedToHovered: hoveredNode
           ? e.source === hoveredNode || e.target === hoveredNode
           : false,
+        highlightMode,
       },
     }));
     if (hoveredEdge) {
@@ -469,7 +476,7 @@ function C4DiagramInner({
       result = [...notConn, ...conn];
     }
     return result;
-  }, [rfEdges, hoveredEdge, hoveredNode]);
+  }, [rfEdges, hoveredEdge, hoveredNode, highlightMode]);
 
   // CSS-based dimming avoids recreating node objects (which causes flickering)
   const hoverStyle = useMemo(() => {

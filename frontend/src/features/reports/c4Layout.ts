@@ -60,6 +60,7 @@ export interface C4EdgeData {
   relLabel: string;
   description?: string;
   connectedToHovered?: boolean;
+  highlightMode?: boolean;
   [key: string]: unknown;
 }
 
