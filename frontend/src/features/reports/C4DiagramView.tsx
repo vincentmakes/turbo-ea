@@ -94,29 +94,43 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
     setPressing(false);
   }, []);
 
-  const handlePointerDown = useCallback(() => {
-    if (!data.onLongPress || !data.nodeId) return;
-    _longPressFired = false;
-    // Delay showing the ring so quick taps don't flash it
-    showTimerRef.current = setTimeout(() => setPressing(true), 150);
-    fireTimerRef.current = setTimeout(() => {
-      _longPressFired = true;
-      setPressing(false);
-      data.onLongPress!(data.nodeId!);
-    }, 1000);
-  }, [data]);
+  // Track mousedown so we can fire our own click on mouseup,
+  // bypassing React Flow's internal node click interception.
+  const downRef = useRef<{ x: number; y: number; shift: boolean } | null>(null);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (_longPressFired) { _longPressFired = false; return; }
-    if (data.onClick && data.nodeId) data.onClick(data.nodeId, e.shiftKey);
-  }, [data]);
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      downRef.current = { x: e.clientX, y: e.clientY, shift: e.shiftKey };
+      if (!data.onLongPress || !data.nodeId) return;
+      _longPressFired = false;
+      showTimerRef.current = setTimeout(() => setPressing(true), 150);
+      fireTimerRef.current = setTimeout(() => {
+        _longPressFired = true;
+        setPressing(false);
+        data.onLongPress!(data.nodeId!);
+      }, 1000);
+    },
+    [data],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      clearTimer();
+      if (_longPressFired) { _longPressFired = false; downRef.current = null; return; }
+      const d = downRef.current;
+      downRef.current = null;
+      if (!d) return;
+      // Ignore if pointer moved too far (was a drag, not a click)
+      if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
+      if (data.onClick && data.nodeId) data.onClick(data.nodeId, d.shift);
+    },
+    [data, clearTimer],
+  );
 
   return (
     <Box
-      onClick={handleClick}
       onPointerDown={handlePointerDown}
-      onPointerUp={clearTimer}
+      onPointerUp={handlePointerUp}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
       sx={{
@@ -339,7 +353,7 @@ const C4EdgeComponent = (
             transition: "stroke 0.15s, stroke-width 0.15s",
           }}
         />
-        {label && (
+        {label && active && (
           <>
             <rect
               x={finalLx - estW / 2}
