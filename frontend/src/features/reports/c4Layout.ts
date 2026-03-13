@@ -47,6 +47,7 @@ export interface C4NodeData {
   nodeId?: string;
   onLongPress?: (id: string) => void;
   dimmed?: boolean;
+  usedHandles?: string[];
   [key: string]: unknown;
 }
 
@@ -62,7 +63,7 @@ export interface C4EdgeData {
   connectedToHovered?: boolean;
   highlightMode?: boolean;
   pathOffset?: number;
-  labelNudge?: number;
+  labelT?: number;
   [key: string]: unknown;
 }
 
@@ -564,6 +565,17 @@ export function buildC4Flow(
     return { src: bestSrc, tgt: bestTgt };
   });
 
+  // Merge source and target handle usage into a single set per node
+  const allUsedHandles = new Map<string, Set<string>>();
+  for (const [nodeId, handles] of usedSrcHandles) {
+    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
+    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
+  }
+  for (const [nodeId, handles] of usedTgtHandles) {
+    if (!allUsedHandles.has(nodeId)) allUsedHandles.set(nodeId, new Set());
+    for (const h of handles) allUsedHandles.get(nodeId)!.add(h);
+  }
+
   // Approximate label midpoints for collision detection
   // getSmoothStepPath places the label at the path midpoint ≈ average of endpoints
   const LABEL_COLLISION_H = 22; // vertical space a label occupies
@@ -579,8 +591,8 @@ export function buildC4Flow(
     };
   });
 
-  // Detect label collisions and compute vertical nudges
-  const labelNudges = new Array<number>(oriented.length).fill(0);
+  // Detect label collisions and spread labels along their own paths
+  const labelTs = new Array<number>(oriented.length).fill(0.5);
   // Group labels that overlap: within 80px horizontally and LABEL_COLLISION_H vertically
   const assigned = new Set<number>();
   for (let i = 0; i < labelPositions.length; i++) {
@@ -596,11 +608,12 @@ export function buildC4Flow(
       }
     }
     if (cluster.length > 1) {
-      // Sort cluster by approximate ly so nudges are consistent
-      cluster.sort((a, b) => labelPositions[a].ly - labelPositions[b].ly);
-      const mid = (cluster.length - 1) / 2;
-      for (let k = 0; k < cluster.length; k++) {
-        labelNudges[cluster[k]] = (k - mid) * LABEL_COLLISION_H;
+      // Sort cluster by lx (left-to-right) for spatially consistent assignment
+      cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
+      const n = cluster.length;
+      for (let k = 0; k < n; k++) {
+        // Spread labelT within [0.25, 0.75] so labels stay on-path but separated
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
         assigned.add(cluster[k]);
       }
     }
@@ -618,11 +631,19 @@ export function buildC4Flow(
       relLabel: e.relLabel,
       description: e.description,
       pathOffset: pathOffsets[i],
-      labelNudge: labelNudges[i],
+      labelT: labelTs[i],
     } satisfies C4EdgeData,
     animated: false,
     markerEnd: { type: "arrowclosed" as const, color: "#888" },
   }));
+
+  // Inject used handles into c4Node data (handle selection happens after node creation)
+  for (const n of rfNodes) {
+    if (n.type === "c4Node") {
+      const used = allUsedHandles.get(n.id);
+      (n.data as C4NodeData).usedHandles = used ? [...used] : [];
+    }
+  }
 
   return { nodes: rfNodes, edges: rfEdges };
 }

@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, memo } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -66,7 +66,16 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
 
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
-  const hs = { background: color, width: 5, height: 5, border: "none" } as const;
+  const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
+  const hs = (id: string, extra?: React.CSSProperties) =>
+    ({
+      background: usedSet.has(id) ? color : "transparent",
+      width: 5,
+      height: 5,
+      border: "none",
+      opacity: usedSet.has(id) ? 1 : 0,
+      ...extra,
+    }) as const;
 
   /* ---- Long-press detection (touch-friendly Shift+click alternative) ---- */
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,22 +163,22 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       )}
       <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
       {/* Target handles along top edge (spread at 12%, 30%, 50%, 70%, 88%) */}
-      <Handle type="target" position={Position.Top} id="t-1" style={{ ...hs, left: "12%" }} />
-      <Handle type="target" position={Position.Top} id="t-2" style={{ ...hs, left: "30%" }} />
-      <Handle type="target" position={Position.Top} id="t-3" style={{ ...hs, left: "50%" }} />
-      <Handle type="target" position={Position.Top} id="t-4" style={{ ...hs, left: "70%" }} />
-      <Handle type="target" position={Position.Top} id="t-5" style={{ ...hs, left: "88%" }} />
+      <Handle type="target" position={Position.Top} id="t-1" style={hs("t-1", { left: "12%" })} />
+      <Handle type="target" position={Position.Top} id="t-2" style={hs("t-2", { left: "30%" })} />
+      <Handle type="target" position={Position.Top} id="t-3" style={hs("t-3", { left: "50%" })} />
+      <Handle type="target" position={Position.Top} id="t-4" style={hs("t-4", { left: "70%" })} />
+      <Handle type="target" position={Position.Top} id="t-5" style={hs("t-5", { left: "88%" })} />
       {/* Source handles along bottom edge */}
-      <Handle type="source" position={Position.Bottom} id="b-1" style={{ ...hs, left: "12%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-2" style={{ ...hs, left: "30%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-3" style={{ ...hs, left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-4" style={{ ...hs, left: "70%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-5" style={{ ...hs, left: "88%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-1" style={hs("b-1", { left: "12%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-2" style={hs("b-2", { left: "30%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-3" style={hs("b-3", { left: "50%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-4" style={hs("b-4", { left: "70%" })} />
+      <Handle type="source" position={Position.Bottom} id="b-5" style={hs("b-5", { left: "88%" })} />
       {/* Side handles — both source and target on each side */}
-      <Handle type="target" position={Position.Left} id="left" style={hs} />
-      <Handle type="source" position={Position.Left} id="left-src" style={hs} />
-      <Handle type="source" position={Position.Right} id="right" style={hs} />
-      <Handle type="target" position={Position.Right} id="right-tgt" style={hs} />
+      <Handle type="target" position={Position.Left} id="left" style={hs("left")} />
+      <Handle type="source" position={Position.Left} id="left-src" style={hs("left-src")} />
+      <Handle type="source" position={Position.Right} id="right" style={hs("right")} />
+      <Handle type="target" position={Position.Right} id="right-tgt" style={hs("right-tgt")} />
       <Typography
         variant="body2"
         sx={{
@@ -267,7 +276,7 @@ const C4EdgeComponent = (
     });
 
     const label = edgeData?.relLabel || "";
-    const labelNudge = edgeData?.labelNudge ?? 0;
+    const labelT = edgeData?.labelT ?? 0.5;
     const labelBg = isDark ? "#121212" : "#ffffff";
     const labelColor = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
@@ -275,6 +284,22 @@ const C4EdgeComponent = (
     const labelBorder = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#444" : "#ccc");
+
+    // Measure on-path label position using SVGPathElement
+    const pathRef = useRef<SVGPathElement>(null);
+    const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
+
+    useEffect(() => {
+      const el = pathRef.current;
+      if (!el || !label) return;
+      el.setAttribute("d", path);
+      const total = el.getTotalLength();
+      const pt = el.getPointAtLength(total * labelT);
+      setLabelPos({ x: pt.x, y: pt.y });
+    }, [path, labelT, label]);
+
+    const finalLx = labelPos?.x ?? lx;
+    const finalLy = labelPos?.y ?? ly;
 
     // Estimate SVG text width (~5.8px per char at 10px font + 12px padding)
     const maxChars = 24;
@@ -286,6 +311,8 @@ const C4EdgeComponent = (
 
     return (
       <>
+        {/* Hidden path for label position measurement */}
+        <path ref={pathRef} fill="none" stroke="none" visibility="hidden" />
         {/* Invisible wider path for easier hover targeting */}
         <path
           d={path}
@@ -308,8 +335,8 @@ const C4EdgeComponent = (
         {label && (
           <>
             <rect
-              x={lx - estW / 2}
-              y={ly + labelNudge - labelH / 2}
+              x={finalLx - estW / 2}
+              y={finalLy - labelH / 2}
               width={estW}
               height={labelH}
               rx={4}
@@ -319,8 +346,8 @@ const C4EdgeComponent = (
               strokeWidth={1}
             />
             <text
-              x={lx}
-              y={ly + labelNudge}
+              x={finalLx}
+              y={finalLy}
               textAnchor="middle"
               dominantBaseline="central"
               fill={labelColor}
