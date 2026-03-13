@@ -439,6 +439,12 @@ function C4DiagramInner({
   // Expand mode: click expands a card to show all its relations
   const [expandMode, setExpandMode] = useState(false);
 
+  // Refs to avoid stale closures in React Flow event handlers
+  const highlightModeRef = useRef(highlightMode);
+  highlightModeRef.current = highlightMode;
+  const expandModeRef = useRef(expandMode);
+  expandModeRef.current = expandMode;
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (node.type === "c4Node") {
@@ -446,14 +452,14 @@ function C4DiagramInner({
           _longPressFired = false;
           return; // already handled by long-press
         }
-        if (highlightMode) {
+        if (highlightModeRef.current) {
           // Cancel any pending mouse-leave timer to prevent race
           if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
           // Toggle: tap same card clears, tap different card highlights it
           setHoveredNode((prev) => (prev === node.id ? null : node.id));
           return;
         }
-        if (expandMode && onNodeExpand) {
+        if (expandModeRef.current && onNodeExpand) {
           onNodeExpand(node.id);
           return;
         }
@@ -466,13 +472,13 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick, onNodeExpand, highlightMode, expandMode],
+    [onNodeClick, onNodeShiftClick, onNodeExpand],
   );
 
   // In highlight mode, clicking the canvas (not a node) dismisses the highlight
   const handlePaneClick = useCallback(() => {
-    if (highlightMode) setHoveredNode(null);
-  }, [highlightMode]);
+    if (highlightModeRef.current) setHoveredNode(null);
+  }, []);
 
   // Bring hovered edge to front by reordering
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
@@ -487,19 +493,16 @@ function C4DiagramInner({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
-    if (highlightMode) return; // hover disabled in highlight mode
+    if (highlightModeRef.current) return; // hover disabled in highlight mode
     if (node.type === "c4Node") {
       if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
       setHoveredNode(node.id);
     }
-  }, [highlightMode]);
+  }, []);
   const handleNodeMouseLeave = useCallback(() => {
-    if (highlightMode) return; // hover disabled in highlight mode
-    // Use rAF instead of setTimeout: clears on next frame unless a new
-    // mouseEnter cancels it first — fast enough to avoid stale highlights
-    // but doesn't cause DOM churn that swallows the next card's mouseenter.
+    if (highlightModeRef.current) return; // hover disabled in highlight mode
     leaveTimer.current = setTimeout(() => setHoveredNode(null), 0);
-  }, [highlightMode]);
+  }, []);
 
   // Set of nodes connected to the hovered node (for dimming others)
   const hoveredNeighbors = useMemo(() => {
