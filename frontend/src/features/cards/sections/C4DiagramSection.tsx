@@ -14,17 +14,13 @@ import type { GNode, GEdge } from "@/features/reports/c4Layout";
 
 interface Props {
   cardId: string;
-  initialExpanded?: boolean;
 }
 
-export default function C4DiagramSection({
-  cardId,
-  initialExpanded = false,
-}: Props) {
+export default function C4DiagramSection({ cardId }: Props) {
   const { t } = useTranslation(["cards"]);
   const { types } = useMetamodel();
 
-  const [expanded, setExpanded] = useState(initialExpanded);
+  const [expanded, setExpanded] = useState(true);
   const [nodes, setNodes] = useState<GNode[]>([]);
   const [edges, setEdges] = useState<GEdge[]>([]);
   const [loading, setLoading] = useState(false);
@@ -148,7 +144,7 @@ export default function C4DiagramSection({
 
   return (
     <Accordion
-      defaultExpanded={initialExpanded}
+      defaultExpanded
       disableGutters
       onChange={(_, isExpanded) => setExpanded(isExpanded)}
     >
