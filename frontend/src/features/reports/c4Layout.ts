@@ -276,40 +276,6 @@ export function buildC4Flow(
 
   if (groupLayouts.length === 0) return { nodes: [], edges: [] };
 
-  // Count cross-group edges per adjacent gap so we can widen the gap for many edges.
-  // A "gap" is between two consecutive groups in the vertical stack.
-  const catIndex = new Map<string, number>();
-  for (let i = 0; i < groupLayouts.length; i++) catIndex.set(groupLayouts[i].cat, i);
-
-  // Count edges that cross each gap (gap i = between group i and group i+1).
-  // An edge from group i to group j crosses gaps i, i+1, ..., j-1.
-  const gapEdgeCounts = new Array(groupLayouts.length).fill(0);
-  for (const e of validEdges) {
-    const sCat = nodeCatMap.get(e.source);
-    const tCat = nodeCatMap.get(e.target);
-    if (!sCat || !tCat || sCat === tCat) continue;
-    const si = catIndex.get(sCat) ?? -1;
-    const ti = catIndex.get(tCat) ?? -1;
-    if (si < 0 || ti < 0) continue;
-    const lo = Math.min(si, ti);
-    const hi = Math.max(si, ti);
-    for (let g = lo; g < hi; g++) gapEdgeCounts[g]++;
-  }
-
-  // Compute dynamic gap per transition: enough room for staggered horizontal segments.
-  // Each edge needs ~OFFSET_STEP vertical space; the offset extends from both ends,
-  // so the horizontal band uses ~2 * maxOffset of the gap.
-  const MIN_GROUP_GAP = GROUP_GAP; // 72px baseline
-  const dynamicGaps: number[] = [];
-  for (let i = 0; i < groupLayouts.length; i++) {
-    const edgeCount = gapEdgeCounts[i] || 0;
-    // Need at least BASE_OFFSET*2 + (edgeCount-1)*OFFSET_STEP*2 of vertical space
-    const needed = edgeCount > 1
-      ? 2 * (28 + (edgeCount - 1) * 24) + 20 // +20 margin
-      : MIN_GROUP_GAP;
-    dynamicGaps.push(Math.max(MIN_GROUP_GAP, needed));
-  }
-
   // Find max group width for horizontal centering
   const maxGroupW = Math.max(...groupLayouts.map((gl) => gl.groupW));
 
@@ -317,8 +283,7 @@ export function buildC4Flow(
   const rfNodes: Node[] = [];
   let yOffset = 0;
 
-  for (let gi = 0; gi < groupLayouts.length; gi++) {
-    const gl = groupLayouts[gi];
+  for (const gl of groupLayouts) {
     const catNodes = groups.get(gl.cat)!;
     const groupId = `group:${gl.cat}`;
     const gx = Math.round((maxGroupW - gl.groupW) / 2);
@@ -361,7 +326,7 @@ export function buildC4Flow(
       });
     }
 
-    yOffset += gl.groupH + (dynamicGaps[gi] ?? MIN_GROUP_GAP);
+    yOffset += gl.groupH + GROUP_GAP;
   }
 
   // Compute absolute center positions for each node (for edge routing)
@@ -580,7 +545,6 @@ export function buildC4Flow(
   // horizontal band, so we must stagger their offsets to prevent overlapping
   // horizontal segments (and therefore overlapping labels).
   const BASE_OFFSET = 28;
-  const OFFSET_STEP = 24; // > half label height, ensures labels don't overlap
 
   // Map each node to its group category
   const nodeGroupCat = new Map<string, string>();
@@ -632,11 +596,12 @@ export function buildC4Flow(
     }
     if (!isFinite(minVertGap)) minVertGap = 200;
 
-    // The offset extends from both ends of the edge, so max useful offset
-    // is just under half the handle gap. Use 47% to leave margin.
+    // The offset extends from both ends, so max useful offset ≈ half the
+    // handle gap. Distribute offsets evenly within [BASE_OFFSET, maxOffset]
+    // like a staircase — even small steps create visible separation.
     const maxOffset = minVertGap * 0.47;
     const n = indices.length;
-    const step = n > 1 ? Math.max(OFFSET_STEP, (maxOffset - BASE_OFFSET) / (n - 1)) : 0;
+    const step = n > 1 ? (maxOffset - BASE_OFFSET) / (n - 1) : 0;
 
     for (let r = 0; r < n; r++) {
       pathOffsets[indices[r]] = BASE_OFFSET + r * step;
