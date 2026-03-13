@@ -462,6 +462,7 @@ function C4DiagramInner({
 
     const onTouchEnd = (e: TouchEvent) => {
       if (twoFingerNodeId && e.touches.length === 0) {
+        e.preventDefault(); // prevent synthesized click from opening card details
         _twoFingerTapFired = true;
         setHoveredNode(twoFingerNodeId);
         twoFingerNodeId = null;
@@ -469,7 +470,7 @@ function C4DiagramInner({
     };
 
     el.addEventListener("touchstart", onTouchStart, { passive: false });
-    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchend", onTouchEnd, { passive: false });
     return () => {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchend", onTouchEnd);
