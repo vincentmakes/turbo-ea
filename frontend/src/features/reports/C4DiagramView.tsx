@@ -122,6 +122,8 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
       if (Math.abs(e.clientX - d.x) > 5 || Math.abs(e.clientY - d.y) > 5) return;
       // Stop propagation so React Flow doesn't also fire its own click handler
       e.stopPropagation();
+      // DEBUG: trace whether click reaches handler and what it routes to
+      console.log("[C4Node] pointerUp click →", data.nodeId, "hasOnClick:", !!data.onClick);
       if (data.onClick && data.nodeId) data.onClick(data.nodeId, d.shift);
     },
     [data, clearTimer],
@@ -461,6 +463,8 @@ function C4DiagramInner({
   const handleC4NodeClick = useCallback(
     (nodeId: string, shiftKey: boolean) => {
       const currentMode = modeRef.current;
+      // DEBUG: trace mode routing
+      console.log("[C4] handleC4NodeClick", { nodeId, currentMode, shiftKey, hasExpand: !!onNodeExpand });
       if (currentMode === "highlight") {
         if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
         setHoveredNode((prev) => (prev === nodeId ? null : nodeId));
@@ -677,6 +681,8 @@ function C4DiagramInner({
               title={t("dependency.expandMode")}
               onClick={() => {
                 setMode((m) => {
+                  const next = m === "expand" ? "normal" : "expand";
+                  console.log("[C4] expand button toggled →", next);
                   if (m === "expand") {
                     if (onExpandReset) onExpandReset();
                     return "normal";
