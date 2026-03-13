@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, memo } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect, memo } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
@@ -421,6 +421,53 @@ function C4DiagramInner({
     leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
   }, []);
 
+  // Two-finger tap on iPad: activate highlight on a card, single tap elsewhere to dismiss
+  const rfContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = rfContainerRef.current;
+    if (!el) return;
+
+    const findNodeId = (target: EventTarget | null): string | null => {
+      const node = (target as HTMLElement | null)?.closest?.(
+        ".react-flow__node-c4Node",
+      ) as HTMLElement | null;
+      return node?.dataset?.id ?? null;
+    };
+
+    let twoFingerNodeId: string | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        // Two-finger tap — find which card is under first finger
+        const nodeId = findNodeId(e.touches[0].target);
+        if (nodeId) {
+          twoFingerNodeId = nodeId;
+          e.preventDefault(); // prevent pan/zoom
+        }
+      } else if (e.touches.length === 1 && hoveredNode) {
+        // Single tap while highlight is active — dismiss if not on the same card
+        const nodeId = findNodeId(e.touches[0].target);
+        if (nodeId !== hoveredNode) {
+          setHoveredNode(null);
+        }
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (twoFingerNodeId && e.touches.length === 0) {
+        setHoveredNode(twoFingerNodeId);
+        twoFingerNodeId = null;
+      }
+    };
+
+    el.addEventListener("touchstart", onTouchStart, { passive: false });
+    el.addEventListener("touchend", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [hoveredNode]);
+
   // Set of nodes connected to the hovered node (for dimming others)
   const hoveredNeighbors = useMemo(() => {
     if (!hoveredNode) return null;
@@ -524,7 +571,7 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ height: 600 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+      <Box ref={rfContainerRef} sx={{ height: 600 }} className={hoveredNode ? "c4-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={rfNodes}
