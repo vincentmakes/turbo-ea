@@ -64,6 +64,7 @@ Basculez vers la vue **Diagramme C4** à l'aide des boutons de mode d'affichage 
 - **Canevas interactif** — Déplacez, zoomez et utilisez la minimap pour naviguer dans les grands diagrammes
 - **Cliquer pour inspecter** — Cliquez sur n'importe quel nœud pour ouvrir le panneau latéral de détail de la fiche
 - **Pas de fiche centrale requise** — La vue C4 affiche toutes les fiches correspondant au filtre de type actuel
+- **Mise en surbrillance des connexions** — Survolez une fiche pour mettre en surbrillance ses connexions ; sur les appareils tactiles, utilisez le bouton de surbrillance dans le panneau de contrôle pour mettre en surbrillance par toucher
 
 ## Rapport Coûts
 

@@ -64,6 +64,7 @@ Cambie a la vista de **Diagrama C4** utilizando los botones de modo de vista en 
 - **Lienzo interactivo** — Desplace, haga zoom y use el minimapa para navegar por diagramas grandes
 - **Clic para inspeccionar** — Haga clic en cualquier nodo para abrir el panel lateral de detalle de la ficha
 - **Sin ficha central requerida** — La vista C4 muestra todas las fichas que coinciden con el filtro de tipo actual
+- **Resaltado de conexiones** — Pase el cursor sobre una ficha para resaltar sus conexiones; en dispositivos táctiles, use el botón de resaltado en el panel de controles para resaltar al tocar
 
 ## Informe de Costos
 

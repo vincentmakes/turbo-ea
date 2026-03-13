@@ -64,6 +64,7 @@ Wechseln Sie über die Ansichtsmodus-Schaltflächen in der Symbolleiste zur **C4
 - **Interaktive Leinwand** — Schwenken, Zoomen und die Minimap nutzen, um große Diagramme zu navigieren
 - **Klicken zum Inspizieren** — Klicken Sie auf einen beliebigen Knoten, um das Kartendetail-Seitenpanel zu öffnen
 - **Kein Zentralknoten erforderlich** — Die C4-Ansicht zeigt alle Karten an, die dem aktuellen Typfilter entsprechen
+- **Verbindungshervorhebung** — Fahren Sie mit der Maus über eine Karte, um ihre Verbindungen hervorzuheben; auf Touch-Geräten verwenden Sie die Hervorhebungs-Schaltfläche im Bedienfeld zum Tippen-Hervorheben
 
 ## Kostenbericht
 
