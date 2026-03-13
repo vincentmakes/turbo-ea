@@ -6,3 +6,28 @@ frontend/dist
 backend/__pycache__
 backend/.pytest_cache
 backend/venv
+
+# Documentation (72 MB - MkDocs source + localized screenshots)
+docs/
+
+# Marketing site (6.4 MB)
+marketing-site/
+
+# Development & CI scripts (screenshots, backups, test runner)
+scripts/
+
+# GitHub Actions workflows
+.github/
+
+# MkDocs dependencies
+requirements-docs.txt
+mkdocs.yml
+
+# Editor / IDE artifacts
+.vscode/
+.idea/
+
+# MCP server dev artifacts
+mcp-server/__pycache__
+mcp-server/.pytest_cache
+mcp-server/venv

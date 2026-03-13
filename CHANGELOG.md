@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Full navigation support: shift+click, long press, back/forward arrows, and home button to re-center on current card
 - Section hidden in side panel to avoid recursion when opened from dependency report
 
+## [0.36.1] - 2026-03-13
+
+### Changed
+- Optimized Docker build context by excluding docs, marketing-site, and scripts directories (~80 MB reduction)
+
 ## [0.36.0] - 2026-03-12
 
 ### Added
