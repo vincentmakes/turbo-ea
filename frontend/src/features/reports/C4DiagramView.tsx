@@ -288,13 +288,18 @@ const C4EdgeComponent = (
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
+    const minOffset = edgeData?.minOffset ?? 0;
     const verticalGap = Math.abs(targetY - sourceY);
-    const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
+    // If the edge must clear an obstruction, use at least minOffset; otherwise
+    // clamp to prevent the offset from being too large for short paths.
+    const offset = minOffset > 0
+      ? Math.max(rawOffset, minOffset)
+      : Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
-      offset: clampedOffset,
+      offset,
     });
 
     const label = edgeData?.relLabel || "";

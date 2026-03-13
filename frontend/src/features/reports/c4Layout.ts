@@ -64,6 +64,7 @@ export interface C4EdgeData {
   connectedToHovered?: boolean;
   highlightMode?: boolean;
   pathOffset?: number;
+  minOffset?: number; // minimum offset to clear obstructing nodes
   labelT?: number;
   [key: string]: unknown;
 }
@@ -491,26 +492,29 @@ export function buildC4Flow(
 
   /** Check if a vertical-ish line segment from (sx,sy)→(tx,ty) passes through
    *  any node other than sourceId/targetId. For smooth-step paths the horizontal
-   *  segment sits near sy or ty, so we check a corridor along the X midpoint. */
-  function pathObstructed(
+   *  segment sits near sy or ty, so we check a corridor along the X midpoint.
+   *  Returns the required clearance (0 = not obstructed, >0 = half-width of widest obstacle). */
+  function pathObstruction(
     sx: number, sy: number, tx: number, ty: number,
     sourceId: string, targetId: string,
-  ): boolean {
-    // Build a bounding corridor for the smooth-step path:
-    // The path goes down from (sx,sy), turns horizontal, then down to (tx,ty).
-    // We approximate by checking the vertical strip between min/max X ± margin.
+  ): number {
     const minX = Math.min(sx, tx) - 8;
     const maxX = Math.max(sx, tx) + 8;
     const minY = Math.min(sy, ty);
     const maxY = Math.max(sy, ty);
+    let maxClearance = 0;
     for (const b of allNodeBounds) {
       if (b.id === sourceId || b.id === targetId) continue;
-      // Does this node sit in the corridor between source and target?
       if (b.x2 > minX && b.x1 < maxX && b.y2 > minY && b.y1 < maxY) {
-        return true;
+        // Compute how far to the side we need to route to clear this node
+        const midX = (sx + tx) / 2;
+        const halfW = (b.x2 - b.x1) / 2;
+        const distFromCenter = Math.abs((b.x1 + b.x2) / 2 - midX);
+        const clearance = halfW - distFromCenter + C4_NODE_W * 0.15; // extra margin
+        maxClearance = Math.max(maxClearance, clearance);
       }
     }
-    return false;
+    return maxClearance;
   }
 
   // Track used handles per node to avoid reusing same handle
@@ -567,13 +571,14 @@ export function buildC4Flow(
     }
   }
 
-  // First pass: pick handles for each edge
-  const edgeHandles: { src: string; tgt: string }[] = oriented.map((e) => {
+  // First pass: pick handles for each edge, tracking obstruction clearance
+  const edgeHandles: { src: string; tgt: string; minOffset: number }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
     let bestSrc = "b-3";
     let bestTgt = "t-3";
+    let bestMinOffset = 0;
 
     if (sPos && tPos) {
       let bestDist = Infinity;
@@ -590,8 +595,9 @@ export function buildC4Flow(
         const tx = tPos.x + tOff.dx;
         const ty = tPos.y + tOff.dy;
 
-        // Heavy penalty if the path would pass through another node
-        if (pathObstructed(sx, sy, tx, ty, e.source, e.target)) {
+        // Check if the path would pass through another node
+        const clearance = pathObstruction(sx, sy, tx, ty, e.source, e.target);
+        if (clearance > 0) {
           penalty += 800;
         }
 
@@ -601,6 +607,7 @@ export function buildC4Flow(
           bestDist = dist;
           bestSrc = pair.src;
           bestTgt = pair.tgt;
+          bestMinOffset = clearance;
         }
       }
 
@@ -610,7 +617,7 @@ export function buildC4Flow(
       usedTgtHandles.get(e.target)!.add(bestTgt);
     }
 
-    return { src: bestSrc, tgt: bestTgt };
+    return { src: bestSrc, tgt: bestTgt, minOffset: bestMinOffset };
   });
 
   // Merge source and target handle usage into a single set per node
@@ -722,6 +729,7 @@ export function buildC4Flow(
       relLabel: e.relLabel,
       description: e.description,
       pathOffset: pathOffsets[i],
+      minOffset: edgeHandles[i].minOffset,
       labelT: labelTs[i],
     } satisfies C4EdgeData,
     animated: false,
