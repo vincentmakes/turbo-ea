@@ -411,11 +411,18 @@ function C4DiagramInner({
   }, []);
 
   // Highlight all connections when hovering a card node
+  // Debounce mouseLeave to prevent flickering during React Flow re-renders
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
-    if (node.type === "c4Node") setHoveredNode(node.id);
+    if (node.type === "c4Node") {
+      if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
+      setHoveredNode(node.id);
+    }
   }, []);
-  const handleNodeMouseLeave = useCallback(() => setHoveredNode(null), []);
+  const handleNodeMouseLeave = useCallback(() => {
+    leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
+  }, []);
 
   // Set of nodes connected to the hovered node (for dimming others)
   const hoveredNeighbors = useMemo(() => {
