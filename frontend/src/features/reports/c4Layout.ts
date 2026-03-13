@@ -434,6 +434,14 @@ export function buildC4Flow(
     { src: "b-4", tgt: "t-2" },
     { src: "b-3", tgt: "t-5" },
     { src: "b-5", tgt: "t-3" },
+    // Bottom → Left side (for sources far to the left of target)
+    { src: "b-1", tgt: "left" },
+    { src: "b-2", tgt: "left" },
+    { src: "b-3", tgt: "left" },
+    // Bottom → Right side (for sources far to the right of target)
+    { src: "b-3", tgt: "right-tgt" },
+    { src: "b-4", tgt: "right-tgt" },
+    { src: "b-5", tgt: "right-tgt" },
     // Side → Side (same side only)
     { src: "left-src", tgt: "left" },
     { src: "right", tgt: "right-tgt" },

@@ -21,7 +21,6 @@ import {
   type Node,
   getSmoothStepPath,
   BaseEdge,
-  EdgeLabelRenderer,
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -248,7 +247,6 @@ const C4EdgeComponent = memo(
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
     const isHovered = (edgeData as Record<string, unknown>)?.isHovered === true;
-    // Use parent-managed hover state to avoid stale highlights from SVG reordering
     const active = edgeData?.highlightMode
       ? connectedToHovered
       : isHovered || connectedToHovered;
@@ -258,8 +256,6 @@ const C4EdgeComponent = memo(
     const color = active ? hoverColor : baseColor;
 
     const rawOffset = edgeData?.pathOffset ?? 20;
-    // Clamp offset to avoid S-shaped routing: never exceed ~40% of the
-    // vertical gap between handles, so the path doesn't overshoot the target.
     const verticalGap = Math.abs(targetY - sourceY);
     const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
     const [path, lx, ly] = getSmoothStepPath({
@@ -270,13 +266,21 @@ const C4EdgeComponent = memo(
     });
 
     const label = edgeData?.relLabel || "";
-    const labelBg = isDark ? "rgba(18,18,18,0.96)" : "rgba(255,255,255,0.96)";
+    const labelBg = isDark ? "#121212" : "#ffffff";
     const labelColor = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
       : (isDark ? "#aaa" : "#666");
     const labelBorder = active
       ? (isDark ? "#4fc3f7" : "#1976d2")
-      : (isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)");
+      : (isDark ? "#444" : "#ccc");
+
+    // Estimate SVG text width (~5.8px per char at 10px font + 12px padding)
+    const maxChars = 24;
+    const displayLabel = label.length > maxChars
+      ? label.slice(0, maxChars - 1) + "\u2026"
+      : label;
+    const estW = displayLabel.length * 5.8 + 12;
+    const labelH = 18;
 
     return (
       <>
@@ -300,32 +304,30 @@ const C4EdgeComponent = memo(
           }}
         />
         {label && (
-          <EdgeLabelRenderer>
-            <div
-              className="nodrag nopan"
-              style={{
-                position: "absolute",
-                transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
-                fontSize: "0.62rem",
-                color: labelColor,
-                background: labelBg,
-                backdropFilter: "blur(4px)",
-                border: `1px solid ${labelBorder}`,
-                padding: "2px 8px",
-                borderRadius: 4,
-                pointerEvents: "none",
-                whiteSpace: "nowrap",
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                lineHeight: 1.3,
-                transition: "color 0.15s, border-color 0.15s",
-                zIndex: active ? 10 : 0,
-              }}
+          <>
+            <rect
+              x={lx - estW / 2}
+              y={ly - labelH / 2}
+              width={estW}
+              height={labelH}
+              rx={4}
+              fill={labelBg}
+              stroke={labelBorder}
+              strokeWidth={1}
+            />
+            <text
+              x={lx}
+              y={ly}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={labelColor}
+              fontSize={10}
+              fontFamily="inherit"
+              style={{ pointerEvents: "none" }}
             >
-              {label}
-            </div>
-          </EdgeLabelRenderer>
+              {displayLabel}
+            </text>
+          </>
         )}
       </>
     );
