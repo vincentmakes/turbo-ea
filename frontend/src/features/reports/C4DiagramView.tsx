@@ -21,7 +21,6 @@ import {
   type Node,
   getSmoothStepPath,
   BaseEdge,
-  EdgeLabelRenderer,
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -154,14 +153,18 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         </Box>
       )}
       <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
-      {/* Target handles along top edge (spread at 25%, 50%, 75%) */}
-      <Handle type="target" position={Position.Top} id="t-l" style={{ ...hs, left: "25%" }} />
-      <Handle type="target" position={Position.Top} id="t-c" style={{ ...hs, left: "50%" }} />
-      <Handle type="target" position={Position.Top} id="t-r" style={{ ...hs, left: "75%" }} />
+      {/* Target handles along top edge (spread at 12%, 30%, 50%, 70%, 88%) */}
+      <Handle type="target" position={Position.Top} id="t-1" style={{ ...hs, left: "12%" }} />
+      <Handle type="target" position={Position.Top} id="t-2" style={{ ...hs, left: "30%" }} />
+      <Handle type="target" position={Position.Top} id="t-3" style={{ ...hs, left: "50%" }} />
+      <Handle type="target" position={Position.Top} id="t-4" style={{ ...hs, left: "70%" }} />
+      <Handle type="target" position={Position.Top} id="t-5" style={{ ...hs, left: "88%" }} />
       {/* Source handles along bottom edge */}
-      <Handle type="source" position={Position.Bottom} id="b-l" style={{ ...hs, left: "25%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-c" style={{ ...hs, left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} id="b-r" style={{ ...hs, left: "75%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-1" style={{ ...hs, left: "12%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-2" style={{ ...hs, left: "30%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-3" style={{ ...hs, left: "50%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-4" style={{ ...hs, left: "70%" }} />
+      <Handle type="source" position={Position.Bottom} id="b-5" style={{ ...hs, left: "88%" }} />
       {/* Side handles — both source and target on each side */}
       <Handle type="target" position={Position.Left} id="left" style={hs} />
       <Handle type="source" position={Position.Left} id="left-src" style={hs} />
@@ -238,31 +241,51 @@ C4Group.displayName = "C4Group";
 /*  Custom C4 Edge (smoothstep + hover highlight)                      */
 /* ------------------------------------------------------------------ */
 
-const C4EdgeComponent = memo(
-  ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
+const C4EdgeComponent = (
+  { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps,
+) => {
     const theme = useTheme();
-    const [hovered, setHovered] = useState(false);
     const edgeData = data as C4EdgeData | undefined;
     const connectedToHovered = edgeData?.connectedToHovered ?? false;
-    // In highlight mode, ignore local hover state to prevent stale highlights on touch
-    const active = edgeData?.highlightMode ? connectedToHovered : hovered || connectedToHovered;
-    const baseColor = theme.palette.mode === "dark" ? "#aaa" : "#777";
-    const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
+    const isHovered = (edgeData as Record<string, unknown>)?.isHovered === true;
+    const active = edgeData?.highlightMode
+      ? connectedToHovered
+      : isHovered || connectedToHovered;
+    const isDark = theme.palette.mode === "dark";
+    const baseColor = isDark ? "#aaa" : "#777";
+    const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
+    const rawOffset = edgeData?.pathOffset ?? 20;
+    const verticalGap = Math.abs(targetY - sourceY);
+    const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
+      offset: clampedOffset,
     });
 
-    const label = (data as C4EdgeData | undefined)?.relLabel || "";
+    const label = edgeData?.relLabel || "";
+    const labelNudge = edgeData?.labelNudge ?? 0;
+    const labelBg = isDark ? "#121212" : "#ffffff";
+    const labelColor = active
+      ? (isDark ? "#4fc3f7" : "#1976d2")
+      : (isDark ? "#aaa" : "#666");
+    const labelBorder = active
+      ? (isDark ? "#4fc3f7" : "#1976d2")
+      : (isDark ? "#444" : "#ccc");
+
+    // Estimate SVG text width (~5.8px per char at 10px font + 12px padding)
+    const maxChars = 24;
+    const displayLabel = label.length > maxChars
+      ? label.slice(0, maxChars - 1) + "\u2026"
+      : label;
+    const estW = displayLabel.length * 5.8 + 12;
+    const labelH = 18;
 
     return (
-      <g
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
+      <>
         {/* Invisible wider path for easier hover targeting */}
         <path
           d={path}
@@ -283,39 +306,35 @@ const C4EdgeComponent = memo(
           }}
         />
         {label && (
-          <EdgeLabelRenderer>
-            <Box
-              sx={{
-                position: "absolute",
-                transform: `translate(-50%, -50%) translate(${lx}px,${ly}px)`,
-                fontSize: "0.62rem",
-                color: active ? "primary.main" : "text.secondary",
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: active ? "primary.main" : "divider",
-                px: 0.75,
-                py: 0.25,
-                borderRadius: 1,
-                pointerEvents: "none",
-                whiteSpace: "nowrap",
-                maxWidth: 160,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                lineHeight: 1.3,
-                transition: "color 0.15s, border-color 0.15s",
-                zIndex: active ? 10 : 0,
-              }}
-              className="nodrag nopan"
+          <>
+            <rect
+              x={lx - estW / 2}
+              y={ly + labelNudge - labelH / 2}
+              width={estW}
+              height={labelH}
+              rx={4}
+              fill={labelBg}
+              fillOpacity={0.8}
+              stroke={labelBorder}
+              strokeWidth={1}
+            />
+            <text
+              x={lx}
+              y={ly + labelNudge}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fill={labelColor}
+              fontSize={10}
+              fontFamily="inherit"
+              style={{ pointerEvents: "none" }}
             >
-              {label}
-            </Box>
-          </EdgeLabelRenderer>
+              {displayLabel}
+            </text>
+          </>
         )}
-      </g>
+      </>
     );
-  },
-);
-C4EdgeComponent.displayName = "C4EdgeComponent";
+  };
 
 /* ------------------------------------------------------------------ */
 /*  Node types registry                                                */
@@ -428,7 +447,6 @@ function C4DiagramInner({
   }, []);
 
   // Highlight all connections when hovering a card node
-  // Debounce mouseLeave to prevent flickering during React Flow re-renders
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
@@ -440,7 +458,10 @@ function C4DiagramInner({
   }, [highlightMode]);
   const handleNodeMouseLeave = useCallback(() => {
     if (highlightMode) return; // hover disabled in highlight mode
-    leaveTimer.current = setTimeout(() => setHoveredNode(null), 50);
+    // Use rAF instead of setTimeout: clears on next frame unless a new
+    // mouseEnter cancels it first — fast enough to avoid stale highlights
+    // but doesn't cause DOM churn that swallows the next card's mouseenter.
+    leaveTimer.current = setTimeout(() => setHoveredNode(null), 0);
   }, [highlightMode]);
 
   // Set of nodes connected to the hovered node (for dimming others)
@@ -454,7 +475,7 @@ function C4DiagramInner({
     return s;
   }, [hoveredNode, rfEdges]);
 
-  // Inject connectedToHovered into edges + reorder for z-index
+  // Inject hover state into edges + reorder for z-index
   const orderedEdges = useMemo(() => {
     let result = rfEdges.map((e) => ({
       ...e,
@@ -463,6 +484,7 @@ function C4DiagramInner({
         connectedToHovered: hoveredNode
           ? e.source === hoveredNode || e.target === hoveredNode
           : false,
+        isHovered: e.id === hoveredEdge,
         highlightMode,
       },
     }));

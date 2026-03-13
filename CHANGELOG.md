@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.37.2] - 2026-03-13
+
+### Fixed
+- Edge labels in C4 diagrams now have a semi-opaque background for better readability
+- Overlapping edge label clusters are automatically spread apart vertically
+- Edge highlighting responds reliably during fast mouse movement between cards
+
 ## [0.37.1] - 2026-03-13
 
 ### Added
