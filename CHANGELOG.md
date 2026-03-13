@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.36.1] - 2026-03-13
+
+### Changed
+- Optimized Docker build context by excluding docs, marketing-site, and scripts directories (~80 MB reduction)
+
 ## [0.36.0] - 2026-03-12
 
 ### Added
