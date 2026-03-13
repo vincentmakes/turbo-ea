@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - Optimized Docker build context by excluding docs, marketing-site, and scripts directories (~80 MB reduction)
+- Backend Dockerfile uses multi-stage build to exclude gcc/musl-dev build tools from final image
 
 ## [0.36.0] - 2026-03-12
 
