@@ -94,7 +94,7 @@ const PAD = 30;
 /** Height reserved for the category label at top of group */
 const LABEL_H = 32;
 /** Vertical gap between stacked category groups */
-const GROUP_GAP = 48;
+const GROUP_GAP = 72;
 /** Max nodes per row when a category has many nodes with no intra-group edges */
 const MAX_COLS = 3;
 
@@ -140,8 +140,8 @@ function layoutGroup(
     const g = new dagre.graphlib.Graph();
     g.setGraph({
       rankdir: "TB",
-      ranksep: 50,
-      nodesep: 20,
+      ranksep: 90,
+      nodesep: 50,
       marginx: 0,
       marginy: 0,
     });
@@ -189,8 +189,8 @@ function layoutGroup(
 
   // No intra-group edges: grid layout
   const cols = Math.min(catNodes.length, MAX_COLS);
-  const hGap = 16;
-  const vGap = 14;
+  const hGap = 40;
+  const vGap = 30;
   const positioned: PositionedNode[] = catNodes.map((n, i) => ({
     id: n.id,
     x: (i % cols) * (C4_NODE_W + hGap),
@@ -591,6 +591,31 @@ export function buildC4Flow(
     };
   });
 
+  // Collect all node bounding boxes for label-vs-node overlap checks
+  const nodeBounds: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const [, pos] of absPos) {
+    nodeBounds.push({
+      x1: pos.x - C4_NODE_W / 2 - 4,
+      y1: pos.y - C4_NODE_H / 2 - 4,
+      x2: pos.x + C4_NODE_W / 2 + 4,
+      y2: pos.y + C4_NODE_H / 2 + 4,
+    });
+  }
+
+  /** Check if a label rect overlaps any node bounding box */
+  function labelOverlapsNode(lx: number, ly: number, lw: number): boolean {
+    const lh = 20; // label height
+    for (const b of nodeBounds) {
+      if (
+        lx - lw / 2 < b.x2 &&
+        lx + lw / 2 > b.x1 &&
+        ly - lh / 2 < b.y2 &&
+        ly + lh / 2 > b.y1
+      ) return true;
+    }
+    return false;
+  }
+
   // Detect label collisions and spread labels along their own paths
   const LABEL_COLLISION_H = 22; // vertical space a label occupies
   const labelTs = new Array<number>(oriented.length).fill(0.5);
@@ -613,11 +638,37 @@ export function buildC4Flow(
       cluster.sort((a, b) => labelPositions[a].lx - labelPositions[b].lx);
       const n = cluster.length;
       for (let k = 0; k < n; k++) {
-        // Spread labelT within [0.25, 0.75] so labels stay on-path but separated
-        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.25 + (k * 0.5) / (n - 1);
+        // Spread labelT within [0.2, 0.8] so labels stay on-path but separated
+        labelTs[cluster[k]] = n === 1 ? 0.5 : 0.2 + (k * 0.6) / (n - 1);
         assigned.add(cluster[k]);
       }
     }
+  }
+
+  // Post-pass: push labels that overlap nodes toward the path midpoint
+  for (let i = 0; i < oriented.length; i++) {
+    if (!oriented[i].relLabel) continue;
+    const sPos = absPos.get(oriented[i].source);
+    const tPos = absPos.get(oriented[i].target);
+    if (!sPos || !tPos) continue;
+    const sOff = handleOffset(edgeHandles[i].src);
+    const tOff = handleOffset(edgeHandles[i].tgt);
+    const sx = sPos.x + sOff.dx, sy = sPos.y + sOff.dy;
+    const tx = tPos.x + tOff.dx, ty = tPos.y + tOff.dy;
+    const labelW = Math.min(oriented[i].relLabel.length, 24) * 5.8 + 12;
+
+    // Try current labelT; if it overlaps a node, try shifting toward 0.5
+    let t = labelTs[i];
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Approximate label position along the smooth step path:
+      // For vertical segments, X stays ~constant and Y interpolates
+      const lx = sx + (tx - sx) * t;
+      const ly = sy + (ty - sy) * t;
+      if (!labelOverlapsNode(lx, ly, labelW)) break;
+      // Shift toward 0.5 (center of path, farthest from nodes)
+      t = t + (0.5 - t) * 0.4;
+    }
+    labelTs[i] = t;
   }
 
   const rfEdges: Edge[] = oriented.map((e, i) => ({
