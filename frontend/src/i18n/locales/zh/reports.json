@@ -145,6 +145,7 @@
   "dependency.nextCard": "下一张卡片",
   "dependency.viewInC4": "在C4图中查看",
   "dependency.shiftClickHint": "按住Shift点击或长按卡片可将图表居中显示",
+  "dependency.highlightMode": "高亮模式：点击卡片以高亮显示其连接",
 
   "cost.title": "成本分析",
   "cost.cardType": "卡片类型",

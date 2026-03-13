@@ -151,6 +151,7 @@
   "dependency.nextCard": "Carte suivante",
   "dependency.viewInC4": "Voir dans le diagramme C4",
   "dependency.shiftClickHint": "Maj+clic ou appui long sur une carte pour centrer le diagramme dessus",
+  "dependency.highlightMode": "Mode surbrillance : cliquez sur une carte pour mettre en \u00e9vidence ses connexions",
 
   "cost.title": "Analyse des co\u00fbts",
   "cost.cardType": "Type de fiche",

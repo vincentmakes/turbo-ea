@@ -151,6 +151,7 @@
   "dependency.nextCard": "Следующая карточка",
   "dependency.viewInC4": "Показать на диаграмме C4",
   "dependency.shiftClickHint": "Shift+клик или долгое нажатие на карточку, чтобы центрировать диаграмму на ней",
+  "dependency.highlightMode": "Режим подсветки: нажмите на карточку, чтобы подсветить её связи",
 
   "cost.title": "Анализ стоимости",
   "cost.cardType": "Тип карточки",

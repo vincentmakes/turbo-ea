@@ -151,6 +151,7 @@
   "dependency.nextCard": "Next card",
   "dependency.viewInC4": "View in C4 diagram",
   "dependency.shiftClickHint": "Shift+click or long-press a card to center diagram on it",
+  "dependency.highlightMode": "Highlight mode: click a card to highlight its connections",
 
   "cost.title": "Cost Analysis",
   "cost.cardType": "Card Type",

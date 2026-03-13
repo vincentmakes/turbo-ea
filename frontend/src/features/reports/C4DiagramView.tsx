@@ -12,6 +12,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  ControlButton,
   Handle,
   Position,
   type NodeProps,
@@ -381,12 +382,20 @@ function C4DiagramInner({
     [builtNodes, onNodeShiftClick],
   );
 
+  // Highlight mode: click highlights connections instead of opening card
+  const [highlightMode, setHighlightMode] = useState(false);
+
   const handleNodeClick = useCallback(
     (event: React.MouseEvent, node: Node) => {
       if (node.type === "c4Node") {
         if (_longPressFired) {
           _longPressFired = false;
           return; // already handled by long-press
+        }
+        if (highlightMode) {
+          // Toggle: tap same card clears, tap different card highlights it
+          setHoveredNode((prev) => (prev === node.id ? null : node.id));
+          return;
         }
         // Clear highlight before navigating so it doesn't persist when coming back
         setHoveredNode(null);
@@ -397,8 +406,13 @@ function C4DiagramInner({
         }
       }
     },
-    [onNodeClick, onNodeShiftClick],
+    [onNodeClick, onNodeShiftClick, highlightMode],
   );
+
+  // In highlight mode, clicking the canvas (not a node) dismisses the highlight
+  const handlePaneClick = useCallback(() => {
+    if (highlightMode) setHoveredNode(null);
+  }, [highlightMode]);
 
   // Bring hovered edge to front by reordering
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
@@ -534,6 +548,7 @@ function C4DiagramInner({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodeClick={handleNodeClick}
+          onPaneClick={handlePaneClick}
           onNodeMouseEnter={handleNodeMouseEnter}
           onNodeMouseLeave={handleNodeMouseLeave}
           onEdgeMouseEnter={handleEdgeMouseEnter}
@@ -549,7 +564,21 @@ function C4DiagramInner({
           colorMode={theme.palette.mode}
         >
           <Background gap={16} size={1} />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false}>
+            <ControlButton
+              title={t("dependency.highlightMode")}
+              onClick={() => {
+                setHighlightMode((v) => !v);
+                if (highlightMode) setHoveredNode(null);
+              }}
+              style={{
+                background: highlightMode ? theme.palette.primary.main : undefined,
+                color: highlightMode ? theme.palette.primary.contrastText : undefined,
+              }}
+            >
+              <MaterialSymbol icon="highlight" size={18} />
+            </ControlButton>
+          </Controls>
         </ReactFlow>
       </Box>
       <Box sx={{ px: 1.5, py: 0.75, textAlign: "right" }}>
