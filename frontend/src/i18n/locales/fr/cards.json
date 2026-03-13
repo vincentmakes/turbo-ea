@@ -231,5 +231,8 @@
   "resources.linkDiagramDialog.empty": "Aucun diagramme disponible à associer.",
   "tabs.history": "Historique",
 
-  "sidePanel.openFullPage": "Ouvrir en pleine page"
+  "sidePanel.openFullPage": "Ouvrir en pleine page",
+  "dependencies.title": "Dépendances",
+  "dependencies.empty": "Aucune dépendance trouvée pour cette carte.",
+  "dependencies.error": "Échec du chargement des dépendances."
 }

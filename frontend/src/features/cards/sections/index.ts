@@ -15,6 +15,7 @@ export { default as AttributeSection } from "@/features/cards/sections/Attribute
 export { default as HierarchySection } from "@/features/cards/sections/HierarchySection";
 export { default as SuccessorsSection } from "@/features/cards/sections/SuccessorsSection";
 export { default as RelationsSection } from "@/features/cards/sections/RelationsSection";
+export { default as C4DiagramSection } from "@/features/cards/sections/C4DiagramSection";
 export { default as CommentsTab } from "@/features/cards/sections/CommentsTab";
 export { default as TodosTab } from "@/features/cards/sections/TodosTab";
 export { default as StakeholdersTab } from "@/features/cards/sections/StakeholdersTab";

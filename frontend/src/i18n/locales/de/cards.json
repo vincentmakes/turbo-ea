@@ -217,5 +217,8 @@
   "resources.linkDiagramDialog.search": "Diagramme suchen...",
   "resources.linkDiagramDialog.empty": "Keine Diagramme zum Verknüpfen verfügbar.",
   "tabs.history": "Historie",
-  "sidePanel.openFullPage": "Ganze Seite öffnen"
+  "sidePanel.openFullPage": "Ganze Seite öffnen",
+  "dependencies.title": "Abhängigkeiten",
+  "dependencies.empty": "Keine Abhängigkeiten für diese Karte gefunden.",
+  "dependencies.error": "Abhängigkeiten konnten nicht geladen werden."
 }

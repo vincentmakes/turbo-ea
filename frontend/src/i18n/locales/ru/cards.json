@@ -215,5 +215,8 @@
   "resources.linkDiagramDialog.title": "Привязать диаграмму",
   "resources.linkDiagramDialog.search": "Поиск диаграмм...",
   "resources.linkDiagramDialog.empty": "Нет доступных диаграмм для привязки.",
-  "sidePanel.openFullPage": "Открыть на всю страницу"
+  "sidePanel.openFullPage": "Открыть на всю страницу",
+  "dependencies.title": "Зависимости",
+  "dependencies.empty": "Зависимости для этой карточки не найдены.",
+  "dependencies.error": "Не удалось загрузить зависимости."
 }

@@ -231,5 +231,8 @@
   "resources.linkDiagramDialog.empty": "No hay diagramas disponibles para vincular.",
   "tabs.history": "Historial",
 
-  "sidePanel.openFullPage": "Abrir p\u00e1gina completa"
+  "sidePanel.openFullPage": "Abrir p\u00e1gina completa",
+  "dependencies.title": "Dependencias",
+  "dependencies.empty": "No se encontraron dependencias para esta tarjeta.",
+  "dependencies.error": "Error al cargar las dependencias."
 }

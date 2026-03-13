@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.37.0] - 2026-03-13
+
+### Added
+- C4 diagram section on card detail page showing dependency neighborhood centered on the current card
+- Section appears at bottom of Card tab for all card types with lazy loading on expand
+- Full navigation support: shift+click, long press, back/forward arrows, and home button to re-center on current card
+- Section hidden in side panel to avoid recursion when opened from dependency report
+
 ## [0.36.0] - 2026-03-12
 
 ### Added

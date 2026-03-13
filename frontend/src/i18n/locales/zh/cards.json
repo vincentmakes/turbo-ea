@@ -217,5 +217,8 @@
   "resources.linkDiagramDialog.search": "搜索图表...",
   "resources.linkDiagramDialog.empty": "没有可关联的图表。",
   "tabs.history": "历史",
-  "sidePanel.openFullPage": "打开完整页面"
+  "sidePanel.openFullPage": "打开完整页面",
+  "dependencies.title": "依赖关系",
+  "dependencies.empty": "未找到此卡片的依赖关系。",
+  "dependencies.error": "加载依赖关系失败。"
 }

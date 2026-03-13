@@ -22,6 +22,7 @@ import {
   HierarchySection,
   SuccessorsSection,
   RelationsSection,
+  C4DiagramSection,
   CommentsTab,
   TodosTab,
   StakeholdersTab,
@@ -46,6 +47,8 @@ interface Props {
   beforeTabs?: ReactNode;
   /** Field keys auto-computed by PPM (treated as readonly with "auto" badge) */
   autoFieldKeys?: string[];
+  /** Show C4 diagram section at bottom of Card tab (default true, disabled in side panel) */
+  showC4Section?: boolean;
 }
 
 export default function CardDetailContent({
@@ -58,6 +61,7 @@ export default function CardDetailContent({
   initialSubTab,
   beforeTabs,
   autoFieldKeys = [],
+  showC4Section = true,
 }: Props) {
   const { t } = useTranslation("cards");
   const navigate = useNavigate();
@@ -308,6 +312,11 @@ export default function CardDetailContent({
       {tab === 0 && (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
           {sectionOrder.map(renderSection)}
+          {showC4Section && (
+            <ErrorBoundary label="Dependencies" inline>
+              <C4DiagramSection cardId={card.id} />
+            </ErrorBoundary>
+          )}
         </Box>
       )}
       {isBpm && tab === 1 && (

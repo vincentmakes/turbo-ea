@@ -217,5 +217,8 @@
   "resources.linkDiagramDialog.search": "Cerca diagrammi...",
   "resources.linkDiagramDialog.empty": "Nessun diagramma disponibile da collegare.",
   "tabs.history": "Cronologia",
-  "sidePanel.openFullPage": "Apri a pagina intera"
+  "sidePanel.openFullPage": "Apri a pagina intera",
+  "dependencies.title": "Dipendenze",
+  "dependencies.empty": "Nessuna dipendenza trovata per questa scheda.",
+  "dependencies.error": "Impossibile caricare le dipendenze."
 }

@@ -233,5 +233,9 @@
   "resources.linkDiagramDialog.search": "Search diagrams...",
   "resources.linkDiagramDialog.empty": "No diagrams available to link.",
 
-  "sidePanel.openFullPage": "Open full page"
+  "sidePanel.openFullPage": "Open full page",
+
+  "dependencies.title": "Dependencies",
+  "dependencies.empty": "No dependencies found for this card.",
+  "dependencies.error": "Failed to load dependencies."
 }
