@@ -254,12 +254,16 @@ const C4EdgeComponent = memo(
     const hoverColor = theme.palette.mode === "dark" ? "#4fc3f7" : "#1976d2";
     const color = active ? hoverColor : baseColor;
 
-    const pathOffset = edgeData?.pathOffset ?? 20;
+    const rawOffset = edgeData?.pathOffset ?? 20;
+    // Clamp offset to avoid S-shaped routing: never exceed ~40% of the
+    // vertical gap between handles, so the path doesn't overshoot the target.
+    const verticalGap = Math.abs(targetY - sourceY);
+    const clampedOffset = Math.min(rawOffset, Math.max(10, verticalGap * 0.4));
     const [path, lx, ly] = getSmoothStepPath({
       sourceX, sourceY, targetX, targetY,
       sourcePosition, targetPosition,
       borderRadius: 8,
-      offset: pathOffset,
+      offset: clampedOffset,
     });
 
     const label = (data as C4EdgeData | undefined)?.relLabel || "";
@@ -297,8 +301,8 @@ const C4EdgeComponent = memo(
                 fontSize: "0.62rem",
                 color: active ? "primary.main" : "text.secondary",
                 bgcolor: theme.palette.mode === "dark"
-                  ? "rgba(18, 18, 18, 0.92)"
-                  : "rgba(255, 255, 255, 0.92)",
+                  ? "rgba(18, 18, 18, 0.96)"
+                  : "rgba(255, 255, 255, 0.96)",
                 backdropFilter: "blur(4px)",
                 border: "1px solid",
                 borderColor: active ? "primary.main" : "divider",
