@@ -57,7 +57,7 @@ def _mask_credentials(conn: ArchLensConnection) -> ArchLensConnectionOut:
 def _get_workspace_key(conn: ArchLensConnection) -> str:
     """Derive the ArchLens workspace key from the Turbo EA URL."""
     creds = conn.credentials or {}
-    turbo_url = creds.get("turbo_ea_url", "")
+    turbo_url: str = str(creds.get("turbo_ea_url", ""))
     if turbo_url:
         return turbo_url.rstrip("/")
     return conn.instance_url.rstrip("/")

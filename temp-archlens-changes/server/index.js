@@ -131,9 +131,23 @@ app.post('/api/connect', async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  SYNC — Server-Sent Events live stream
+//  POST accepts credentials in body (preferred); GET kept for backward compat.
 // ═══════════════════════════════════════════════════════════════════════════════
-app.get('/api/sync/stream', async (req, res) => {
-  const { workspace, apiKey, fsTypes = 'all', source_type, email, password } = req.query;
+function extractSyncParams(req) {
+  // Prefer body (POST) to avoid sensitive data in query strings / server logs
+  const src = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
+  return {
+    workspace:   src.workspace,
+    apiKey:      src.apiKey,
+    fsTypes:     src.fsTypes || 'all',
+    source_type: src.source_type,
+    email:       src.email,
+    password:    src.password,
+  };
+}
+
+async function handleSyncStream(req, res) {
+  const { workspace, apiKey, fsTypes, source_type, email, password } = extractSyncParams(req);
   if (!workspace) return res.status(400).json({ error: 'workspace required' });
   if (source_type !== 'turboea' && !apiKey) return res.status(400).json({ error: 'apiKey required for LeanIX sync' });
 
@@ -195,7 +209,11 @@ app.get('/api/sync/stream', async (req, res) => {
     send({ event: 'error', msg: err.message });
   }
   res.end();
-});
+}
+
+// GET kept for backward compatibility (LeanIX); POST preferred for Turbo EA
+app.get('/api/sync/stream', handleSyncStream);
+app.post('/api/sync/stream', handleSyncStream);
 
 // Sync job history
 app.get('/api/sync/jobs', async (req, res) => {
@@ -725,9 +743,19 @@ if (process.env.NODE_ENV === 'production') {
   const path = require('path');
   const buildPath = path.join(__dirname, '..', 'client', 'build');
   app.use(express.static(buildPath, { maxAge: '1y', etag: true }));
+
+  // Lightweight per-IP rate limiter for SPA fallback (100 req/min)
+  const spaHits = new Map();
+  const SPA_WINDOW = 60_000, SPA_MAX = 100;
+  setInterval(() => spaHits.clear(), SPA_WINDOW);
+
   // SPA fallback — any non-API route returns index.html
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
+    const ip = req.ip || 'unknown';
+    const hits = (spaHits.get(ip) || 0) + 1;
+    spaHits.set(ip, hits);
+    if (hits > SPA_MAX) return res.status(429).json({ error: 'Too many requests' });
     res.sendFile(path.join(buildPath, 'index.html'));
   });
 }

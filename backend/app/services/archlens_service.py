@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -79,19 +79,18 @@ class ArchLensClient:
             connect_data = r.json()
             host = connect_data.get("host", turbo_url)
 
-            # Step 2: trigger sync (non-streaming for simplicity)
-            from urllib.parse import urlencode
-
-            qs = urlencode(
-                {
+            # Step 2: trigger sync via POST (credentials in body, not query string)
+            sync_result: dict[str, Any] = {}
+            async with c.stream(
+                "POST",
+                "/api/sync/stream",
+                json={
                     "workspace": host,
                     "source_type": "turboea",
                     "email": email,
                     "password": password,
-                }
-            )
-            sync_result: dict[str, Any] = {}
-            async with c.stream("GET", f"/api/sync/stream?{qs}") as resp:
+                },
+            ) as resp:
                 async for line in resp.aiter_lines():
                     if line.startswith("data: "):
                         import json
@@ -111,20 +110,20 @@ class ArchLensClient:
         async with self._client() as c:
             r = await c.get("/api/data/overview", params={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())
 
     # ── Vendor analysis ─────────────────────────────────────────────────────
     async def trigger_vendor_analysis(self, workspace: str) -> dict[str, Any]:
         async with self._client(timeout=SYNC_TIMEOUT) as c:
             r = await c.post("/api/vendors/analyse", json={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())
 
     async def get_vendors(self, workspace: str) -> list[dict[str, Any]]:
         async with self._client() as c:
             r = await c.get("/api/vendors", params={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(list[dict[str, Any]], r.json())
 
     # ── Vendor resolution ───────────────────────────────────────────────────
     async def trigger_vendor_resolution(self, workspace: str) -> dict[str, Any]:
@@ -154,7 +153,7 @@ class ArchLensClient:
         async with self._client() as c:
             r = await c.get("/api/resolution/hierarchy", params={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(list[dict[str, Any]], r.json())
 
     # ── Duplicate detection ─────────────────────────────────────────────────
     async def trigger_duplicate_detection(self, workspace: str) -> dict[str, Any]:
@@ -184,14 +183,14 @@ class ArchLensClient:
         async with self._client() as c:
             r = await c.get("/api/duplicates", params={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(list[dict[str, Any]], r.json())
 
     # ── Architecture AI ─────────────────────────────────────────────────────
     async def get_landscape(self, workspace: str) -> dict[str, Any]:
         async with self._client() as c:
             r = await c.get("/api/architect/landscape", params={"workspace": workspace})
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())
 
     async def architect_phase1(self, workspace: str, requirement: str) -> dict[str, Any]:
         async with self._client(timeout=120) as c:
@@ -200,7 +199,7 @@ class ArchLensClient:
                 json={"workspace": workspace, "requirement": requirement},
             )
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())
 
     async def architect_phase2(
         self,
@@ -218,7 +217,7 @@ class ArchLensClient:
                 },
             )
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())
 
     async def architect_phase3(
         self,
@@ -236,4 +235,4 @@ class ArchLensClient:
                 },
             )
             r.raise_for_status()
-            return r.json()
+            return cast(dict[str, Any], r.json())

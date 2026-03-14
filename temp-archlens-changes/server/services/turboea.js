@@ -8,9 +8,36 @@ const PAGE_SIZE = 100;
 const tokenCache = new Map();
 
 function parseUrl(raw) {
-  let s = (raw || '').trim().replace(/\/+$/, '');
+  let s = (raw || '').trim();
+  // Remove trailing slashes (single pass, avoids polynomial regex backtracking)
+  while (s.endsWith('/')) s = s.slice(0, -1);
   if (!s) throw new Error('Turbo EA URL is empty');
   if (!s.startsWith('http')) s = 'https://' + s;
+  // Validate URL to prevent SSRF — only allow http(s) schemes
+  let parsed;
+  try {
+    parsed = new URL(s);
+  } catch {
+    throw new Error('Invalid Turbo EA URL');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Turbo EA URL must use http or https');
+  }
+  // Block private/internal IPs (basic SSRF protection)
+  const host = parsed.hostname;
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '0.0.0.0' ||
+    host.startsWith('10.') ||
+    host.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    host.endsWith('.internal') ||
+    host.endsWith('.local')
+  ) {
+    throw new Error('Turbo EA URL must not point to a private/internal address');
+  }
   return s;
 }
 
