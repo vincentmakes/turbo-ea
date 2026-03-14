@@ -10,10 +10,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.archlens import ArchLensVendorAnalysis, ArchLensVendorHierarchy
@@ -115,17 +116,14 @@ async def _load_cards_with_vendors(
     db: AsyncSession,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Load Application/ITComponent cards with their Provider relations."""
-    # Find Provider relation type keys
+    # Find Provider relation type keys (both directions in one query)
     rt_result = await db.execute(
-        select(RelationType.key).where(RelationType.target_type_key == "Provider")
+        select(RelationType.key).where(
+            (RelationType.target_type_key == "Provider")
+            | (RelationType.source_type_key == "Provider")
+        )
     )
-    provider_rel_keys = [r[0] for r in rt_result.all()]
-
-    # Also check source-side relations
-    rt_result2 = await db.execute(
-        select(RelationType.key).where(RelationType.source_type_key == "Provider")
-    )
-    provider_rel_keys_reverse = [r[0] for r in rt_result2.all()]
+    all_provider_rel_keys = [r[0] for r in rt_result.all()]
 
     # Load all relevant cards
     cards_result = await db.execute(
@@ -147,9 +145,7 @@ async def _load_cards_with_vendors(
 
     # Load relations to Providers
     rels_result = await db.execute(
-        select(Relation).where(
-            Relation.relation_type_key.in_(provider_rel_keys + provider_rel_keys_reverse)
-        )
+        select(Relation).where(Relation.relation_type_key.in_(all_provider_rel_keys))
     )
     relations = rels_result.scalars().all()
 
@@ -269,6 +265,23 @@ async def analyse_vendors(db: AsyncSession) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     total_analysed = 0
 
+    # Pre-load existing vendor names for batch upsert (#2: avoid N+1)
+    existing_result = await db.execute(
+        select(ArchLensVendorAnalysis.vendor_name, ArchLensVendorAnalysis.id)
+    )
+    existing_vendor_map: dict[str, ArchLensVendorAnalysis] = {}
+    existing_ids = {row[0]: row[1] for row in existing_result.all()}
+
+    # Load full objects for those that exist
+    if existing_ids:
+        existing_objs_result = await db.execute(
+            select(ArchLensVendorAnalysis).where(
+                ArchLensVendorAnalysis.vendor_name.in_(existing_ids.keys())
+            )
+        )
+        for obj in existing_objs_result.scalars().all():
+            existing_vendor_map[obj.vendor_name] = obj
+
     for i in range(0, len(vendor_list), batch_size):
         batch = vendor_list[i : i + batch_size]
         batch_end = min(i + batch_size, len(vendor_list))
@@ -337,7 +350,7 @@ IMPORTANT:
                     }
                 )
 
-        # Upsert results
+        # Upsert results (using pre-loaded map to avoid N+1 queries)
         for item in parsed or []:
             d = vendor_map.get(item.get("name", ""))
             if not d:
@@ -346,13 +359,7 @@ IMPORTANT:
             if cat not in CATEGORIES:
                 cat = "Other"
 
-            # Upsert
-            existing = await db.execute(
-                select(ArchLensVendorAnalysis).where(
-                    ArchLensVendorAnalysis.vendor_name == item["name"]
-                )
-            )
-            row = existing.scalar_one_or_none()
+            row = existing_vendor_map.get(item["name"])
             if row:
                 row.category = cat
                 row.sub_category = item.get("sub_category", "")
@@ -362,18 +369,18 @@ IMPORTANT:
                 row.app_list = d["apps"]
                 row.analysed_at = now
             else:
-                db.add(
-                    ArchLensVendorAnalysis(
-                        vendor_name=item["name"],
-                        category=cat,
-                        sub_category=item.get("sub_category", ""),
-                        reasoning=item.get("reasoning", ""),
-                        app_count=len(d["apps"]),
-                        total_cost=d["totalCost"],
-                        app_list=d["apps"],
-                        analysed_at=now,
-                    )
+                new_obj = ArchLensVendorAnalysis(
+                    vendor_name=item["name"],
+                    category=cat,
+                    sub_category=item.get("sub_category", ""),
+                    reasoning=item.get("reasoning", ""),
+                    app_count=len(d["apps"]),
+                    total_cost=d["totalCost"],
+                    app_list=d["apps"],
+                    analysed_at=now,
                 )
+                db.add(new_obj)
+                existing_vendor_map[item["name"]] = new_obj
             total_analysed += 1
 
         await db.flush()
@@ -409,8 +416,6 @@ Return ONLY a JSON object (no markdown):
 
     result = await call_ai(db, prompt, 256)
     text = result["text"].replace("```json", "").replace("```", "").strip()
-    import re
-
     match = re.search(r"\{[\s\S]*\}", text)
     if not match:
         raise ValueError("No JSON object found")
@@ -512,10 +517,13 @@ Return ONLY a JSON array:
         if r.get("raw_name") != k:
             canonical_map[k]["aliases"].append(r["raw_name"])
 
+    # Build resolved lookup map (O(1) instead of O(n) per vendor)
+    resolved_map = {r.get("raw_name"): r for r in all_resolved if r.get("raw_name")}
+
     # Enrich with actual counts from cards
     for row in rows:
         for v in row["vendors"]:
-            resolved = next((r for r in all_resolved if r.get("raw_name") == v), None)
+            resolved = resolved_map.get(v)
             k = resolved["canonical_name"] if resolved else v
             if k in canonical_map:
                 canonical_map[k]["app_ids"].add(row["id"])
@@ -526,16 +534,20 @@ Return ONLY a JSON array:
     va_map = {va.vendor_name: va for va in va_result.scalars().all()}
 
     # Clear old hierarchy and persist new
-    old = await db.execute(select(ArchLensVendorHierarchy))
-    for row in old.scalars().all():
-        await db.delete(row)
+    await db.execute(delete(ArchLensVendorHierarchy))
     await db.flush()
+
+    # Build canonical -> resolved entries map for O(1) confidence lookup
+    canonical_resolved: dict[str, list[dict[str, Any]]] = {}
+    for r in all_resolved:
+        cn = r.get("canonical_name", "")
+        canonical_resolved.setdefault(cn, []).append(r)
 
     saved = 0
     for v in canonical_map.values():
         apps = list(v["app_ids"])
         itcs = list(v["itc_ids"])
-        conf_entries = [r for r in all_resolved if r.get("canonical_name") == v["canonical"]]
+        conf_entries = canonical_resolved.get(v["canonical"], [])
         avg_conf = (
             sum(r.get("confidence", 0.8) for r in conf_entries) / len(conf_entries)
             if conf_entries

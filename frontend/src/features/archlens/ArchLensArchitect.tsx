@@ -4,8 +4,6 @@ import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
@@ -24,8 +22,17 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type { ArchitectureResult } from "@/types";
+import {
+  TYPE_COLORS,
+  typeChipColor,
+  urgencyColor,
+  severityIcon,
+  severityColor,
+  effortColor,
+  ARCHITECT_PHASES,
+} from "./utils";
 
 // --- TabPanel helper ---
 function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
@@ -74,12 +81,12 @@ function MermaidDiagram({ code }: { code: string }) {
   }, [code]);
 
   if (err) return (
-    <Box sx={{ p: 2 }}>
-      <Alert severity="warning" sx={{ mb: 2 }}>{t("archlens_arch_diagram_error")}</Alert>
-      <Box component="pre" sx={{ fontFamily: "monospace", fontSize: 12, bgcolor: "grey.50", p: 2, borderRadius: 1, overflow: "auto", maxHeight: 500 }}>
+    <>
+      <Alert severity="warning" sx={{ m: 2, mb: 0 }}>{t("archlens_arch_diagram_error")}</Alert>
+      <Box component="pre" sx={{ fontFamily: "monospace", fontSize: 12, bgcolor: "grey.50", p: 2, m: 2, borderRadius: 1, overflow: "auto", maxHeight: 500 }}>
         {code}
       </Box>
-    </Box>
+    </>
   );
 
   if (!svg) return (
@@ -99,15 +106,15 @@ function MermaidDiagram({ code }: { code: string }) {
         <IconButton size="small" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
           <MaterialSymbol icon="add" size={18} />
         </IconButton>
-        <Button size="small" onClick={() => setZoom(1)}>Reset</Button>
+        <Button size="small" onClick={() => setZoom(1)}>{t("archlens_arch_reset_zoom")}</Button>
         <Box sx={{ flex: 1 }} />
         <Button size="small" startIcon={<MaterialSymbol icon="download" size={16} />}
           onClick={() => { const b = new Blob([svg], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "architecture.svg"; a.click(); }}>
-          SVG
+          {t("archlens_arch_export_svg")}
         </Button>
         <Button size="small" startIcon={<MaterialSymbol icon="content_copy" size={16} />}
           onClick={() => navigator.clipboard?.writeText(code)}>
-          Mermaid
+          {t("archlens_arch_copy_mermaid")}
         </Button>
       </Stack>
       <Box sx={{ overflow: "auto", p: 3, bgcolor: "#fff", minHeight: 300 }}>
@@ -119,7 +126,6 @@ function MermaidDiagram({ code }: { code: string }) {
 }
 
 // --- Architecture result view ---
-const TYPE_COLORS: Record<string, string> = { existing: "#4caf50", new: "#2196f3", recommended: "#ff9800" };
 
 function ArchitectureResultView({ arch, onReset }: { arch: ArchitectureResult; onReset: () => void }) {
   const { t } = useTranslation("admin");
@@ -132,12 +138,6 @@ function ArchitectureResultView({ arch, onReset }: { arch: ArchitectureResult; o
   const criticalGaps = (arch.gaps ?? []).filter(g => g.urgency === "critical").length;
   const integrationCount = (arch.integrations ?? []).length;
   const hasStructuredData = (arch.layers?.length ?? 0) > 0 || gapCount > 0 || integrationCount > 0;
-
-  const typeChipColor = (tp: string) => tp === "existing" ? "success" as const : tp === "new" ? "primary" as const : "warning" as const;
-  const urgencyColor = (u?: string) => u === "critical" ? "error" as const : u === "high" ? "warning" as const : "default" as const;
-  const severityIcon = (s?: string) => s === "high" ? "error" : s === "medium" ? "warning" : "check_circle";
-  const severityColor = (s?: string) => s === "high" ? "#d32f2f" : s === "medium" ? "#ed6c02" : "#2e7d32";
-  const effortColor = (e?: string) => e === "high" ? "error" as const : e === "medium" ? "warning" as const : "success" as const;
 
   if (!hasStructuredData) {
     return (
@@ -438,7 +438,7 @@ export default function ArchLensArchitect() {
         setArchQuestions([]);
       }
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setArchLoading(false);
     }
@@ -467,7 +467,7 @@ export default function ArchLensArchitect() {
 
       <Paper sx={{ p: 3 }}>
         <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-          {[1, 2, 3].map(p => (
+          {ARCHITECT_PHASES.map(p => (
             <Chip key={p} label={`${t("archlens_phase")} ${p}`} color={archPhase >= p ? "primary" : "default"} variant={archPhase === p ? "filled" : "outlined"} size="small" />
           ))}
         </Stack>

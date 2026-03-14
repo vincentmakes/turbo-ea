@@ -7,9 +7,11 @@ use Turbo EA's AI configuration from app_settings.
 
 from __future__ import annotations
 
+import enum
 import logging
 import uuid
 from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import func, select
@@ -42,6 +44,84 @@ from app.services.archlens_ai import get_ai_config, is_ai_configured
 from app.services.permission_service import PermissionService
 
 logger = logging.getLogger(__name__)
+
+
+# ── Enums ─────────────────────────────────────────────────────────────────
+
+
+class AnalysisType(str, enum.Enum):
+    VENDOR_ANALYSIS = "vendor_analysis"
+    VENDOR_RESOLUTION = "vendor_resolution"
+    DUPLICATE_DETECTION = "duplicate_detection"
+    MODERNIZATION = "modernization"
+    ARCHITECT = "architect"
+
+
+class AnalysisStatus(str, enum.Enum):
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# ── Background task helper ────────────────────────────────────────────────
+
+
+async def _run_analysis(
+    run_id: str,
+    service_fn: Callable[[AsyncSession], Awaitable[dict[str, Any]]],
+    label: str,
+) -> None:
+    """Generic background task runner that updates ArchLensAnalysisRun status."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as db:
+        try:
+            result = await service_fn(db)
+
+            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+            if run:
+                run.status = AnalysisStatus.COMPLETED
+                run.completed_at = datetime.now(timezone.utc)
+                run.results = result
+                await db.commit()
+        except Exception as e:
+            logger.exception("%s failed: %s", label, e)
+            # Use a fresh session since the original may be in a bad state
+            async with async_session_factory() as db2:
+                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
+                if run:
+                    run.status = AnalysisStatus.FAILED
+                    run.completed_at = datetime.now(timezone.utc)
+                    run.error_message = str(e)
+                    await db2.commit()
+
+
+async def _create_analysis_run(
+    db: AsyncSession,
+    analysis_type: AnalysisType,
+    user: User,
+) -> ArchLensAnalysisRun:
+    """Create an analysis run, raising 409 if one is already running."""
+    existing = await db.execute(
+        select(ArchLensAnalysisRun).where(
+            ArchLensAnalysisRun.analysis_type == analysis_type,
+            ArchLensAnalysisRun.status == AnalysisStatus.RUNNING,
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(409, f"{analysis_type.value} analysis is already running")
+
+    run = ArchLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type=analysis_type,
+        status=AnalysisStatus.RUNNING,
+        started_at=datetime.now(timezone.utc),
+        created_by=user.id,
+    )
+    db.add(run)
+    await db.commit()
+    return run
+
 
 router = APIRouter(prefix="/archlens", tags=["ArchLens"])
 
@@ -133,46 +213,15 @@ async def trigger_vendor_analysis(
     """Trigger vendor categorisation (background task)."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
-    # Create analysis run
-    run = ArchLensAnalysisRun(
-        id=uuid.uuid4(),
-        analysis_type="vendor_analysis",
-        status="running",
-        started_at=datetime.now(timezone.utc),
-        created_by=user.id,
-    )
-    db.add(run)
-    await db.commit()
+    run = await _create_analysis_run(db, AnalysisType.VENDOR_ANALYSIS, user)
 
-    background_tasks.add_task(_run_vendor_analysis, str(run.id))
-    return {"run_id": str(run.id), "status": "running"}
+    async def _service(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.archlens_vendors import analyse_vendors
 
+        return await analyse_vendors(db_)
 
-async def _run_vendor_analysis(run_id: str) -> None:
-    """Background task for vendor analysis."""
-    from app.database import async_session_factory
-
-    async with async_session_factory() as db:
-        try:
-            from app.services.archlens_vendors import analyse_vendors
-
-            result = await analyse_vendors(db)
-
-            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-            if run:
-                run.status = "completed"
-                run.completed_at = datetime.now(timezone.utc)
-                run.results = result
-                await db.commit()
-        except Exception as e:
-            logger.exception("Vendor analysis failed: %s", e)
-            async with async_session_factory() as db2:
-                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-                if run:
-                    run.status = "failed"
-                    run.completed_at = datetime.now(timezone.utc)
-                    run.error_message = str(e)
-                    await db2.commit()
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "Vendor analysis")
+    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
 
 
 @router.get("/vendors")
@@ -187,9 +236,7 @@ async def get_vendors(
         select(ArchLensVendorAnalysis).order_by(ArchLensVendorAnalysis.app_count.desc())
     )
     return [
-        VendorAnalysisOut(
-            id=str(v.id), **{k: getattr(v, k) for k in VendorAnalysisOut.model_fields if k != "id"}
-        )
+        VendorAnalysisOut.model_validate(v, update={"id": str(v.id)})
         for v in result.scalars().all()
     ]
 
@@ -206,45 +253,15 @@ async def trigger_vendor_resolution(
     """Trigger vendor hierarchy resolution (background task)."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
-    run = ArchLensAnalysisRun(
-        id=uuid.uuid4(),
-        analysis_type="vendor_resolution",
-        status="running",
-        started_at=datetime.now(timezone.utc),
-        created_by=user.id,
-    )
-    db.add(run)
-    await db.commit()
+    run = await _create_analysis_run(db, AnalysisType.VENDOR_RESOLUTION, user)
 
-    background_tasks.add_task(_run_vendor_resolution, str(run.id))
-    return {"run_id": str(run.id), "status": "running"}
+    async def _service(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.archlens_vendors import resolve_vendors
 
+        return await resolve_vendors(db_)
 
-async def _run_vendor_resolution(run_id: str) -> None:
-    """Background task for vendor resolution."""
-    from app.database import async_session_factory
-
-    async with async_session_factory() as db:
-        try:
-            from app.services.archlens_vendors import resolve_vendors
-
-            result = await resolve_vendors(db)
-
-            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-            if run:
-                run.status = "completed"
-                run.completed_at = datetime.now(timezone.utc)
-                run.results = result
-                await db.commit()
-        except Exception as e:
-            logger.exception("Vendor resolution failed: %s", e)
-            async with async_session_factory() as db2:
-                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-                if run:
-                    run.status = "failed"
-                    run.completed_at = datetime.now(timezone.utc)
-                    run.error_message = str(e)
-                    await db2.commit()
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "Vendor resolution")
+    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
 
 
 @router.get("/vendors/hierarchy")
@@ -259,19 +276,12 @@ async def get_vendor_hierarchy(
         select(ArchLensVendorHierarchy).order_by(ArchLensVendorHierarchy.app_count.desc())
     )
     return [
-        VendorHierarchyOut(
-            id=str(v.id),
-            canonical_name=v.canonical_name,
-            vendor_type=v.vendor_type,
-            parent_id=str(v.parent_id) if v.parent_id else None,
-            aliases=v.aliases,
-            category=v.category,
-            sub_category=v.sub_category,
-            app_count=v.app_count,
-            itc_count=v.itc_count,
-            total_cost=v.total_cost,
-            confidence=v.confidence,
-            analysed_at=v.analysed_at,
+        VendorHierarchyOut.model_validate(
+            v,
+            update={
+                "id": str(v.id),
+                "parent_id": str(v.parent_id) if v.parent_id else None,
+            },
         )
         for v in result.scalars().all()
     ]
@@ -289,45 +299,15 @@ async def trigger_duplicate_detection(
     """Trigger duplicate detection (background task)."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
-    run = ArchLensAnalysisRun(
-        id=uuid.uuid4(),
-        analysis_type="duplicate_detection",
-        status="running",
-        started_at=datetime.now(timezone.utc),
-        created_by=user.id,
-    )
-    db.add(run)
-    await db.commit()
+    run = await _create_analysis_run(db, AnalysisType.DUPLICATE_DETECTION, user)
 
-    background_tasks.add_task(_run_duplicate_detection, str(run.id))
-    return {"run_id": str(run.id), "status": "running"}
+    async def _service(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.archlens_duplicates import detect_duplicates
 
+        return await detect_duplicates(db_)
 
-async def _run_duplicate_detection(run_id: str) -> None:
-    """Background task for duplicate detection."""
-    from app.database import async_session_factory
-
-    async with async_session_factory() as db:
-        try:
-            from app.services.archlens_duplicates import detect_duplicates
-
-            result = await detect_duplicates(db)
-
-            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-            if run:
-                run.status = "completed"
-                run.completed_at = datetime.now(timezone.utc)
-                run.results = result
-                await db.commit()
-        except Exception as e:
-            logger.exception("Duplicate detection failed: %s", e)
-            async with async_session_factory() as db2:
-                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-                if run:
-                    run.status = "failed"
-                    run.completed_at = datetime.now(timezone.utc)
-                    run.error_message = str(e)
-                    await db2.commit()
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "Duplicate detection")
+    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
 
 
 @router.get("/duplicates")
@@ -342,18 +322,7 @@ async def get_duplicates(
         select(ArchLensDuplicateCluster).order_by(ArchLensDuplicateCluster.analysed_at.desc())
     )
     return [
-        DuplicateClusterOut(
-            id=str(c.id),
-            cluster_name=c.cluster_name,
-            card_type=c.card_type,
-            functional_domain=c.functional_domain,
-            card_ids=c.card_ids,
-            card_names=c.card_names,
-            evidence=c.evidence,
-            recommendation=c.recommendation,
-            status=c.status,
-            analysed_at=c.analysed_at,
-        )
+        DuplicateClusterOut.model_validate(c, update={"id": str(c.id)})
         for c in result.scalars().all()
     ]
 
@@ -372,9 +341,9 @@ async def update_duplicate_status(
     if not cluster:
         raise HTTPException(404, "Cluster not found")
 
-    valid = {"pending", "confirmed", "investigating", "dismissed"}
-    if body.status not in valid:
-        raise HTTPException(400, f"Invalid status. Must be one of: {valid}")
+    valid_statuses = {"pending", "confirmed", "investigating", "dismissed"}
+    if body.status not in valid_statuses:
+        raise HTTPException(400, f"Invalid status. Must be one of: {valid_statuses}")
 
     cluster.status = body.status
     await db.commit()
@@ -394,50 +363,18 @@ async def trigger_modernization(
     """Trigger modernization assessment for a card type."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
-    run = ArchLensAnalysisRun(
-        id=uuid.uuid4(),
-        analysis_type="modernization",
-        status="running",
-        started_at=datetime.now(timezone.utc),
-        created_by=user.id,
-    )
-    db.add(run)
-    await db.commit()
+    run = await _create_analysis_run(db, AnalysisType.MODERNIZATION, user)
 
-    background_tasks.add_task(
-        _run_modernization,
-        str(run.id),
-        body.target_type,
-        body.modernization_type,
-    )
-    return {"run_id": str(run.id), "status": "running"}
+    target_type = body.target_type
+    modernization_type = body.modernization_type
 
+    async def _service(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.archlens_duplicates import assess_modernization
 
-async def _run_modernization(run_id: str, target_type: str, modernization_type: str) -> None:
-    """Background task for modernization assessment."""
-    from app.database import async_session_factory
+        return await assess_modernization(db_, target_type, modernization_type)
 
-    async with async_session_factory() as db:
-        try:
-            from app.services.archlens_duplicates import assess_modernization
-
-            result = await assess_modernization(db, target_type, modernization_type)
-
-            run = await db.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-            if run:
-                run.status = "completed"
-                run.completed_at = datetime.now(timezone.utc)
-                run.results = result
-                await db.commit()
-        except Exception as e:
-            logger.exception("Modernization assessment failed: %s", e)
-            async with async_session_factory() as db2:
-                run = await db2.get(ArchLensAnalysisRun, uuid.UUID(run_id))
-                if run:
-                    run.status = "failed"
-                    run.completed_at = datetime.now(timezone.utc)
-                    run.error_message = str(e)
-                    await db2.commit()
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "Modernization")
+    return {"run_id": str(run.id), "status": AnalysisStatus.RUNNING}
 
 
 @router.get("/duplicates/modernizations")
@@ -452,19 +389,13 @@ async def get_modernizations(
         select(ArchLensModernization).order_by(ArchLensModernization.analysed_at.desc())
     )
     return [
-        ModernizationOut(
-            id=str(m.id),
-            target_type=m.target_type,
-            cluster_id=str(m.cluster_id) if m.cluster_id else None,
-            card_id=str(m.card_id) if m.card_id else None,
-            card_name=m.card_name,
-            current_tech=m.current_tech,
-            modernization_type=m.modernization_type,
-            recommendation=m.recommendation,
-            effort=m.effort,
-            priority=m.priority,
-            status=m.status,
-            analysed_at=m.analysed_at,
+        ModernizationOut.model_validate(
+            m,
+            update={
+                "id": str(m.id),
+                "cluster_id": str(m.cluster_id) if m.cluster_id else None,
+                "card_id": str(m.card_id) if m.card_id else None,
+            },
         )
         for m in result.scalars().all()
     ]
@@ -530,8 +461,8 @@ async def architect_phase3(
     # Record the run
     run = ArchLensAnalysisRun(
         id=uuid.uuid4(),
-        analysis_type="architect",
-        status="completed",
+        analysis_type=AnalysisType.ARCHITECT,
+        status=AnalysisStatus.COMPLETED,
         started_at=datetime.now(timezone.utc),
         completed_at=datetime.now(timezone.utc),
         results=result,
@@ -558,15 +489,7 @@ async def get_analysis_runs(
         select(ArchLensAnalysisRun).order_by(ArchLensAnalysisRun.started_at.desc()).limit(100)
     )
     return [
-        ArchLensAnalysisRunOut(
-            id=str(r.id),
-            analysis_type=r.analysis_type,
-            status=r.status,
-            started_at=r.started_at,
-            completed_at=r.completed_at,
-            error_message=r.error_message,
-            created_at=r.created_at,
-        )
+        ArchLensAnalysisRunOut.model_validate(r, update={"id": str(r.id)})
         for r in result.scalars().all()
     ]
 

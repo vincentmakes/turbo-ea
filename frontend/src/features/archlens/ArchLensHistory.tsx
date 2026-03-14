@@ -11,6 +11,8 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import type { ArchLensAnalysisRun } from "@/types";
+import { statusColor } from "./utils";
+
 
 export default function ArchLensHistory() {
   const { t } = useTranslation("admin");
@@ -42,7 +44,7 @@ export default function ArchLensHistory() {
                   <Chip
                     size="small"
                     label={run.status}
-                    color={run.status === "completed" ? "success" : run.status === "failed" ? "error" : "warning"}
+                    color={statusColor(run.status)}
                   />
                 </TableCell>
                 <TableCell>{run.started_at ? new Date(run.started_at).toLocaleString() : "—"}</TableCell>

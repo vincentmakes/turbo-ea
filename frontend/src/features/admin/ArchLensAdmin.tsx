@@ -14,11 +14,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
-
-interface ArchLensStatus {
-  ai_configured: boolean;
-  ready: boolean;
-}
+import type { ArchLensStatus } from "@/features/archlens/utils";
 
 export default function ArchLensAdmin() {
   const { t } = useTranslation("admin");

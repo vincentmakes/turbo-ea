@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -14,52 +12,9 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
-import MaterialSymbol from "@/components/MaterialSymbol";
+import MetricCard from "@/features/reports/MetricCard";
 import { api } from "@/api/client";
 import type { ArchLensOverview } from "@/types";
-
-// ---------------------------------------------------------------------------
-// KPI Tile
-// ---------------------------------------------------------------------------
-
-interface KpiTileProps {
-  icon: string;
-  label: string;
-  value: string | number;
-  color?: string;
-}
-
-function KpiTile({ icon, label, value, color = "#0f7eb5" }: KpiTileProps) {
-  return (
-    <Card variant="outlined" sx={{ height: "100%" }}>
-      <CardContent>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Box
-            sx={{
-              width: 48,
-              height: 48,
-              borderRadius: 2,
-              bgcolor: `${color}18`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialSymbol icon={icon} size={28} color={color} />
-          </Box>
-          <Box>
-            <Typography variant="h5" fontWeight="bold">
-              {value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {label}
-            </Typography>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -106,47 +61,38 @@ export default function ArchLensDashboard() {
       </Typography>
 
       {/* KPI Tiles */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4} lg>
-          <KpiTile
-            icon="inventory_2"
-            label={t("archlens_kpi_total_cards")}
-            value={data.total_cards}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg>
-          <KpiTile
-            icon="speed"
-            label={t("archlens_kpi_avg_quality")}
-            value={`${Math.round(data.quality_avg)}%`}
-            color="#4caf50"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg>
-          <KpiTile
-            icon="storefront"
-            label={t("archlens_kpi_vendors")}
-            value={data.vendor_count}
-            color="#ffa31f"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg>
-          <KpiTile
-            icon="content_copy"
-            label={t("archlens_kpi_duplicates")}
-            value={data.duplicate_clusters}
-            color="#f44336"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={4} lg>
-          <KpiTile
-            icon="auto_fix_high"
-            label={t("archlens_kpi_modernizations")}
-            value={data.modernization_count}
-            color="#8e24aa"
-          />
-        </Grid>
-      </Grid>
+      <Stack direction="row" flexWrap="wrap" gap={2} sx={{ mb: 3 }}>
+        <MetricCard
+          icon="inventory_2"
+          label={t("archlens_kpi_total_cards")}
+          value={data.total_cards}
+          color="#0f7eb5"
+        />
+        <MetricCard
+          icon="speed"
+          label={t("archlens_kpi_avg_quality")}
+          value={`${Math.round(data.quality_avg)}%`}
+          color="#4caf50"
+        />
+        <MetricCard
+          icon="storefront"
+          label={t("archlens_kpi_vendors")}
+          value={data.vendor_count}
+          color="#ffa31f"
+        />
+        <MetricCard
+          icon="content_copy"
+          label={t("archlens_kpi_duplicates")}
+          value={data.duplicate_clusters}
+          color="#f44336"
+        />
+        <MetricCard
+          icon="auto_fix_high"
+          label={t("archlens_kpi_modernizations")}
+          value={data.modernization_count}
+          color="#8e24aa"
+        />
+      </Stack>
 
       <Grid container spacing={3}>
         {/* Cards by Type */}

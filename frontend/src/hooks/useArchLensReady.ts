@@ -5,14 +5,10 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/api/client";
-
-interface ArchLensStatus {
-  ai_configured: boolean;
-  ready: boolean;
-}
+import type { ArchLensStatus } from "@/features/archlens/utils";
 
 let _cached: ArchLensStatus | null = null;
-let _listeners: Array<(v: ArchLensStatus) => void> = [];
+const _listeners = new Set<(v: ArchLensStatus) => void>();
 
 const _default: ArchLensStatus = {
   ai_configured: false,
@@ -38,11 +34,11 @@ export function useArchLensReady() {
   const [status, setStatus] = useState<ArchLensStatus>(_cached ?? _default);
 
   useEffect(() => {
-    _listeners.push(setStatus);
+    _listeners.add(setStatus);
     if (_cached === null) _fetch();
     else setStatus(_cached);
     return () => {
-      _listeners = _listeners.filter((fn) => fn !== setStatus);
+      _listeners.delete(setStatus);
     };
   }, []);
 

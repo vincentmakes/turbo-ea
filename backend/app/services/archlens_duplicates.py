@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid as uuid_mod
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.archlens import (
@@ -223,9 +224,7 @@ If no duplicates found, return: []"""
     merged = _merge_overlapping_clusters(all_clusters)
 
     # Clear old clusters and persist new
-    old = await db.execute(select(ArchLensDuplicateCluster))
-    for row in old.scalars().all():
-        await db.delete(row)
+    await db.execute(delete(ArchLensDuplicateCluster))
     await db.flush()
 
     now = datetime.now(timezone.utc)
@@ -321,19 +320,15 @@ Return ONLY a JSON array (empty if no opportunities):
             logger.warning("Modernization batch %d failed: %s", i, e)
 
     # Clear old assessments for this type and persist
-    old = await db.execute(
-        select(ArchLensModernization).where(ArchLensModernization.target_type == target_type)
+    await db.execute(
+        delete(ArchLensModernization).where(ArchLensModernization.target_type == target_type)
     )
-    for row in old.scalars().all():
-        await db.delete(row)
     await db.flush()
 
     for a in all_assessments:
         card_id = a.get("fs_id")
         # Validate card_id is a valid UUID
         try:
-            import uuid as uuid_mod
-
             uuid_mod.UUID(card_id)
         except (ValueError, TypeError):
             card_id = None

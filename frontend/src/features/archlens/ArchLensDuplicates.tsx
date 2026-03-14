@@ -24,62 +24,10 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type { ArchLensDuplicateCluster, ArchLensModernization } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function statusColor(
-  status: string,
-): "default" | "success" | "warning" | "error" | "info" | "primary" {
-  switch (status) {
-    case "confirmed":
-      return "success";
-    case "dismissed":
-      return "default";
-    case "investigating":
-      return "warning";
-    case "pending":
-      return "info";
-    case "open":
-      return "info";
-    case "resolved":
-      return "success";
-    default:
-      return "default";
-  }
-}
-
-function priorityColor(
-  priority: string,
-): "error" | "warning" | "info" | "default" {
-  switch (priority) {
-    case "critical":
-    case "high":
-      return "error";
-    case "medium":
-      return "warning";
-    case "low":
-      return "info";
-    default:
-      return "default";
-  }
-}
-
-function effortColor(effort: string): "error" | "warning" | "success" | "default" {
-  switch (effort) {
-    case "high":
-      return "error";
-    case "medium":
-      return "warning";
-    case "low":
-      return "success";
-    default:
-      return "default";
-  }
-}
+import { statusColor, priorityColor, effortColor } from "./utils";
+import { useAnalysisPolling } from "./useAnalysisPolling";
 
 // ---------------------------------------------------------------------------
 // Target Type Options
@@ -114,6 +62,10 @@ export default function ArchLensDuplicates() {
   // ── Shared state ───────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { startPolling: startDetectPoll, polling: detectPollActive } =
+    useAnalysisPolling(() => loadClusters());
+  const { startPolling: startModernPoll, polling: modernPollActive } =
+    useAnalysisPolling(() => loadModernizations());
 
   // ── Load duplicates ────────────────────────────────────────────────
   const loadClusters = useCallback(async () => {
@@ -154,11 +106,11 @@ export default function ArchLensDuplicates() {
     setError(null);
     setSuccess(null);
     try {
-      await api.post("/archlens/duplicates/analyse");
+      const res = await api.post<{ run_id: string }>("/archlens/duplicates/analyse");
       setSuccess(t("archlens_duplicates_detection_started"));
-      await loadClusters();
+      startDetectPoll(res.run_id);
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setDetecting(false);
     }
@@ -169,11 +121,13 @@ export default function ArchLensDuplicates() {
     setError(null);
     setSuccess(null);
     try {
-      await api.post("/archlens/duplicates/modernize", { target_type: targetType });
+      const res = await api.post<{ run_id: string }>("/archlens/duplicates/modernize", {
+        target_type: targetType,
+      });
       setSuccess(t("archlens_modernization_started"));
-      await loadModernizations();
+      startModernPoll(res.run_id);
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setAssessing(false);
     }
@@ -189,7 +143,7 @@ export default function ArchLensDuplicates() {
         prev.map((c) => (c.id === clusterId ? { ...c, status: action } : c)),
       );
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     }
   };
 
@@ -221,7 +175,7 @@ export default function ArchLensDuplicates() {
             )
           }
           onClick={handleDetect}
-          disabled={detecting}
+          disabled={detecting || detectPollActive}
         >
           {t("archlens_detect_duplicates")}
         </Button>
@@ -392,7 +346,7 @@ export default function ArchLensDuplicates() {
               )
             }
             onClick={handleModernize}
-            disabled={assessing}
+            disabled={assessing || modernPollActive}
           >
             {t("archlens_assess_modernization")}
           </Button>

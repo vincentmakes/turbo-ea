@@ -18,8 +18,10 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type { ArchLensVendor } from "@/types";
+import { formatCost } from "./utils";
+import { useAnalysisPolling } from "./useAnalysisPolling";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,12 +37,6 @@ function groupByCategory(vendors: ArchLensVendor[]): Record<string, ArchLensVend
   return groups;
 }
 
-function formatCost(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return value.toFixed(0);
-}
-
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -52,6 +48,7 @@ export default function ArchLensVendors() {
   const [analysing, setAnalysing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadVendors());
 
   const loadVendors = useCallback(async () => {
     setLoading(true);
@@ -74,11 +71,11 @@ export default function ArchLensVendors() {
     setError(null);
     setSuccess(null);
     try {
-      await api.post("/archlens/vendors/analyse");
+      const res = await api.post<{ run_id: string }>("/archlens/vendors/analyse");
       setSuccess(t("archlens_vendor_analysis_started"));
-      await loadVendors();
+      startPolling(res.run_id);
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setAnalysing(false);
     }
@@ -105,7 +102,7 @@ export default function ArchLensVendors() {
             )
           }
           onClick={handleAnalyse}
-          disabled={analysing}
+          disabled={analysing || pollActive}
         >
           {t("archlens_run_analysis")}
         </Button>

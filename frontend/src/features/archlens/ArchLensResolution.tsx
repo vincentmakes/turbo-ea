@@ -15,33 +15,10 @@ import TableRow from "@mui/material/TableRow";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type { ArchLensVendorHierarchy } from "@/types";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatCost(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
-  return value.toFixed(0);
-}
-
-function typeColor(vendorType: string): "primary" | "secondary" | "default" | "info" | "warning" {
-  switch (vendorType) {
-    case "canonical":
-      return "primary";
-    case "alias":
-      return "secondary";
-    case "subsidiary":
-      return "info";
-    case "parent":
-      return "warning";
-    default:
-      return "default";
-  }
-}
+import { formatCost, vendorTypeColor } from "./utils";
+import { useAnalysisPolling } from "./useAnalysisPolling";
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -54,6 +31,7 @@ export default function ArchLensResolution() {
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { startPolling, polling: pollActive } = useAnalysisPolling(() => loadHierarchy());
 
   const loadHierarchy = useCallback(async () => {
     setLoading(true);
@@ -76,11 +54,11 @@ export default function ArchLensResolution() {
     setError(null);
     setSuccess(null);
     try {
-      await api.post("/archlens/vendors/resolve");
+      const res = await api.post<{ run_id: string }>("/archlens/vendors/resolve");
       setSuccess(t("archlens_resolve_started"));
-      await loadHierarchy();
+      startPolling(res.run_id);
     } catch (err: unknown) {
-      setError(String(err));
+      setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setResolving(false);
     }
@@ -102,7 +80,7 @@ export default function ArchLensResolution() {
             )
           }
           onClick={handleResolve}
-          disabled={resolving}
+          disabled={resolving || pollActive}
         >
           {t("archlens_resolve_vendors")}
         </Button>
@@ -163,7 +141,7 @@ export default function ArchLensResolution() {
                     <Chip
                       label={v.vendor_type}
                       size="small"
-                      color={typeColor(v.vendor_type)}
+                      color={vendorTypeColor(v.vendor_type)}
                     />
                   </TableCell>
                   <TableCell sx={{ maxWidth: 250 }}>
