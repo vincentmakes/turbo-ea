@@ -47,13 +47,14 @@ the existing GET for backward compatibility.
 The SPA fallback route (`app.get('*', ...)`) serves `index.html` via
 `res.sendFile()` without rate limiting, allowing potential abuse.
 
-**Fix**: Added a `spaRateLimiter` Express middleware (100 requests/minute per IP)
-that runs before the file-serving handler. No additional npm dependencies required.
+**Fix**: Uses `express-rate-limit` middleware (100 requests/minute per IP)
+on the SPA fallback handler. Requires `npm install express-rate-limit`.
 
 ## How to apply
 
 ```bash
 cd /path/to/archlens
+npm install express-rate-limit
 cp /path/to/temp-archlens-changes/server/services/turboea.js server/services/
 cp /path/to/temp-archlens-changes/server/index.js server/
 cp /path/to/temp-archlens-changes/server/db/db.js server/db/

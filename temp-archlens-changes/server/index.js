@@ -1,7 +1,8 @@
 require('dotenv').config();
-const express  = require('express');
-const cors     = require('cors');
-const cron     = require('node-cron');
+const express   = require('express');
+const cors      = require('cors');
+const cron      = require('node-cron');
+const rateLimit = require('express-rate-limit');
 const { initDB, getDB }  = require('./db/db');
 const { syncWorkspace: leanixSync, getToken: leanixGetToken, discoverTypes: leanixDiscoverTypes, parseHost } = require('./services/leanix');
 const { syncWorkspace: turboSync, getToken: turboGetToken, discoverTypes: turboDiscoverTypes, parseUrl: parseTurboUrl } = require('./services/turboea');
@@ -765,20 +766,16 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(buildPath, { maxAge: '1y', etag: true }));
 
   // Rate-limiting middleware for SPA fallback (100 req/min per IP)
-  const spaHits = new Map();
-  const SPA_WINDOW = 60_000, SPA_MAX = 100;
-  setInterval(() => spaHits.clear(), SPA_WINDOW);
-
-  function spaRateLimiter(req, res, next) {
-    const ip = req.ip || 'unknown';
-    const hits = (spaHits.get(ip) || 0) + 1;
-    spaHits.set(ip, hits);
-    if (hits > SPA_MAX) return res.status(429).json({ error: 'Too many requests' });
-    next();
-  }
+  const spaLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests' },
+  });
 
   // SPA fallback — any non-API route returns index.html
-  app.get('*', spaRateLimiter, (req, res) => {
+  app.get('*', spaLimiter, (req, res) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
     res.sendFile(path.join(buildPath, 'index.html'));
   });
