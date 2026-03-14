@@ -1,8 +1,4 @@
-"""Add missing created_at / updated_at columns to archlens tables.
-
-When the ArchLens models were added before migration 057 existed,
-create_all may have created tables without TimestampMixin columns.
-This migration safely adds them using IF NOT EXISTS.
+"""Fix archlens tables: add missing timestamp columns, make connection_id nullable.
 
 Revision ID: 058
 Revises: 057
@@ -34,6 +30,10 @@ def upgrade() -> None:
             f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now()"
         )
 
+    # connection_id is unused (ArchLens runs natively, no external connection).
+    # The original migration created it as NOT NULL; make it nullable.
+    op.execute("ALTER TABLE archlens_analysis_runs ALTER COLUMN connection_id DROP NOT NULL")
+
 
 def downgrade() -> None:
-    pass  # created_at / updated_at are expected by the ORM; do not drop
+    pass
