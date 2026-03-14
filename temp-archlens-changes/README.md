@@ -10,8 +10,8 @@ integration PR. Apply them to the ArchLens repo.
 | `server/services/turboea.js` | `server/services/turboea.js` | **NEW** file |
 | `server/index.js` | `server/index.js` | **REPLACE** existing |
 | `server/db/db.js` | `server/db/db.js` | **REPLACE** existing |
-| `server/package.json` | `package.json` | **REPLACE** existing (adds `express-rate-limit`) |
-| `server/package-lock.json` | `package-lock.json` | **REPLACE** existing (lock file in sync) |
+| `package.json` | `package.json` | **REPLACE** existing (adds `express-rate-limit`) |
+| `package-lock.json` | `package-lock.json` | **REPLACE** existing (lock file in sync) |
 
 ## Security fixes included
 
@@ -56,10 +56,12 @@ on the SPA fallback handler. Requires `npm install express-rate-limit`.
 
 ```bash
 cd /path/to/archlens
-npm install express-rate-limit
+cp /path/to/temp-archlens-changes/package.json .
+cp /path/to/temp-archlens-changes/package-lock.json .
 cp /path/to/temp-archlens-changes/server/services/turboea.js server/services/
 cp /path/to/temp-archlens-changes/server/index.js server/
 cp /path/to/temp-archlens-changes/server/db/db.js server/db/
+npm ci
 git add -A && git commit -m "feat: add Turbo EA connector with security hardening"
 git push origin main
 ```
