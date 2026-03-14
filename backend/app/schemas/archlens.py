@@ -51,8 +51,8 @@ class ArchLensArchitectRequest(BaseModel):
 
     phase: int
     requirement: str | None = None
-    phase1_qa: dict | None = Field(None, alias="phase1QA")
-    all_qa: dict | None = Field(None, alias="allQA")
+    phase1_qa: dict | list | None = Field(None, alias="phase1QA")
+    all_qa: dict | list | None = Field(None, alias="allQA")
 
 
 class ArchLensAnalysisRunOut(BaseModel):

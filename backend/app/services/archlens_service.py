@@ -221,7 +221,7 @@ class ArchLensClient:
         self,
         workspace: str,
         requirement: str,
-        phase1_qa: dict[str, Any],
+        phase1_qa: dict[str, Any] | list[Any],
     ) -> dict[str, Any]:
         async with self._client(timeout=120) as c:
             r = await c.post(
@@ -239,7 +239,7 @@ class ArchLensClient:
         self,
         workspace: str,
         requirement: str,
-        all_qa: dict[str, Any],
+        all_qa: dict[str, Any] | list[Any],
     ) -> dict[str, Any]:
         async with self._client(timeout=180) as c:
             r = await c.post(
