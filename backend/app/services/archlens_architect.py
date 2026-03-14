@@ -540,8 +540,29 @@ RULES:
 - Output ONLY the raw Mermaid code, no JSON wrapping, no markdown fences"""
 
     try:
-        diagram_result = await call_ai(db, diagram_prompt, 4000, ARCHITECT_PERSONA)
+        diagram_result = await call_ai(
+            db,
+            diagram_prompt,
+            4000,
+            "You are an enterprise architect. Return ONLY raw Mermaid diagram code. "
+            "No JSON wrapping, no markdown fences, no explanation.",
+        )
         mermaid = diagram_result["text"].replace("```mermaid", "").replace("```", "").strip()
+        # If the AI returned JSON-wrapped output, extract the string value
+        if mermaid.startswith("{") or mermaid.startswith('"'):
+            try:
+                parsed_m = json.loads(mermaid)
+                if isinstance(parsed_m, str):
+                    mermaid = parsed_m
+                elif isinstance(parsed_m, dict):
+                    mermaid = parsed_m.get("diagram") or parsed_m.get("mermaidDiagram", "")
+            except json.JSONDecodeError:
+                pass
+        # Unescape literal \n sequences that some LLMs produce
+        if "\\n" in mermaid:
+            mermaid = mermaid.replace("\\n", "\n")
+        if '\\"' in mermaid:
+            mermaid = mermaid.replace('\\"', '"')
         if not mermaid.startswith("flowchart") and not mermaid.startswith("graph"):
             idx = mermaid.find("flowchart")
             if idx != -1:
