@@ -36,11 +36,11 @@ import type { ArchitectureResult, ArchComponent, ArchIntegration } from "@/types
 // Constants
 // ---------------------------------------------------------------------------
 
-const NODE_W = 190;
-const NODE_H = 64;
-const PAD = 28;
-const LABEL_H = 30;
-const GROUP_GAP = 64;
+const NODE_W = 200;
+const NODE_H = 80;
+const GROUP_PAD_X = 40;
+const GROUP_PAD_TOP = 44;
+const GROUP_PAD_BOTTOM = 28;
 
 const TYPE_COLORS: Record<string, string> = {
   existing: "#4caf50",
@@ -91,40 +91,42 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
   const isDark = theme.palette.mode === "dark";
   const color = TYPE_COLORS[data.compType] || "#999";
   const bg = TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
-  const name = data.name.length > 24 ? data.name.slice(0, 23) + "\u2026" : data.name;
+  const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
+  const handleStyle = { width: 6, height: 6, border: "none" };
 
   return (
     <Box
       sx={{
         width: NODE_W,
         height: NODE_H,
-        borderRadius: "8px",
-        border: `1.5px solid ${color}`,
+        borderRadius: "10px",
+        border: `2px solid ${color}`,
         bgcolor: bg,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        px: 1,
+        px: 1.2,
         position: "relative",
+        boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.08)",
       }}
     >
-      <Handle type="target" position={Position.Top} id="t" style={{ background: color, width: 5, height: 5, border: "none" }} />
-      <Handle type="source" position={Position.Bottom} id="b" style={{ background: color, width: 5, height: 5, border: "none" }} />
-      <Handle type="target" position={Position.Left} id="l" style={{ background: "transparent", width: 5, height: 5, border: "none" }} />
-      <Handle type="source" position={Position.Right} id="r" style={{ background: "transparent", width: 5, height: 5, border: "none" }} />
-      <Tooltip title={data.role || data.product || ""} arrow placement="top">
+      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: color }} />
+      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: color }} />
+      <Handle type="target" position={Position.Left} id="l" style={{ ...handleStyle, background: "transparent" }} />
+      <Handle type="source" position={Position.Right} id="r" style={{ ...handleStyle, background: "transparent" }} />
+      <Tooltip title={data.role || ""} arrow placement="top">
         <Typography
           variant="body2"
           sx={{
-            fontWeight: 600,
+            fontWeight: 700,
             lineHeight: 1.2,
             textAlign: "center",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
             width: "100%",
-            fontSize: 12,
+            fontSize: 12.5,
           }}
         >
           {name}
@@ -133,7 +135,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       {data.product && data.product !== data.name && (
         <Typography
           variant="caption"
-          sx={{ color: "text.secondary", lineHeight: 1.1, fontSize: 10, mt: 0.2, textAlign: "center" }}
+          sx={{ color: "text.secondary", lineHeight: 1.15, fontSize: 10, mt: 0.3, textAlign: "center" }}
           noWrap
         >
           {data.product}
@@ -142,7 +144,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       {data.category && (
         <Typography
           variant="caption"
-          sx={{ color, fontStyle: "italic", lineHeight: 1.1, fontSize: 10, mt: 0.2 }}
+          sx={{ color, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
           noWrap
         >
           [{data.category}]
@@ -261,7 +263,7 @@ const nodeTypes = { archNode: ArchNode, archGroup: ArchGroup };
 const edgeTypes = { archEdge: ArchEdge };
 
 // ---------------------------------------------------------------------------
-// Layout engine
+// Layout engine — single global dagre graph for proper cross-layer spreading
 // ---------------------------------------------------------------------------
 
 function buildArchFlow(
@@ -272,110 +274,115 @@ function buildArchFlow(
 
   if (layers.length === 0) return { nodes: [], edges: [] };
 
-  // Assign unique IDs to components
-  const compIdMap = new Map<string, string>(); // name → id
+  // 1. Assign unique IDs to all components
+  const compIdMap = new Map<string, string>(); // lowercase name → id
   let idCounter = 0;
-  const allComps: { comp: ArchComponent; layerName: string; id: string }[] = [];
+  const allComps: { comp: ArchComponent; layerIdx: number; layerName: string; id: string }[] = [];
 
-  for (const layer of layers) {
-    for (const comp of layer.components ?? []) {
+  for (let li = 0; li < layers.length; li++) {
+    for (const comp of layers[li].components ?? []) {
       const id = `arch-${idCounter++}`;
       compIdMap.set(comp.name.toLowerCase(), id);
-      allComps.push({ comp, layerName: layer.name, id });
+      allComps.push({ comp, layerIdx: li, layerName: layers[li].name, id });
     }
   }
 
-  // Group by layer
-  const layerGroups = new Map<string, typeof allComps>();
-  for (const entry of allComps) {
-    if (!layerGroups.has(entry.layerName)) layerGroups.set(entry.layerName, []);
-    layerGroups.get(entry.layerName)!.push(entry);
-  }
-
-  // Resolve integration endpoints to node IDs
+  // 2. Resolve integration edges
   const resolvedEdges: { sourceId: string; targetId: string; intg: ArchIntegration }[] = [];
   for (const intg of integrations) {
     const srcId = compIdMap.get(intg.from.toLowerCase());
     const tgtId = compIdMap.get(intg.to.toLowerCase());
-    if (srcId && tgtId) {
-      resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
+    if (srcId && tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
+  }
+
+  // 3. Build a SINGLE global dagre graph with ALL nodes and edges
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "TB", ranksep: 100, nodesep: 60, marginx: 0, marginy: 0 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  for (const entry of allComps) {
+    g.setNode(entry.id, { width: NODE_W, height: NODE_H });
+  }
+  for (const re of resolvedEdges) {
+    g.setEdge(re.sourceId, re.targetId);
+  }
+
+  // Add invisible edges between consecutive layers to maintain layer ordering
+  const layerNodeIds: string[][] = [];
+  for (let li = 0; li < layers.length; li++) {
+    layerNodeIds.push(allComps.filter(c => c.layerIdx === li).map(c => c.id));
+  }
+  for (let li = 0; li < layerNodeIds.length - 1; li++) {
+    const curr = layerNodeIds[li];
+    const next = layerNodeIds[li + 1];
+    if (curr.length > 0 && next.length > 0) {
+      // Check if any real edge already connects these layers
+      const hasRealEdge = resolvedEdges.some(re => {
+        const sLayer = allComps.find(c => c.id === re.sourceId)?.layerIdx;
+        const tLayer = allComps.find(c => c.id === re.targetId)?.layerIdx;
+        return (sLayer === li && tLayer === li + 1) || (sLayer === li + 1 && tLayer === li);
+      });
+      if (!hasRealEdge) {
+        // Add a hidden ordering edge from first node of layer to first of next
+        g.setEdge(curr[0], next[0]);
+      }
     }
   }
 
-  // Layer colors (cycling)
-  const LAYER_COLORS = ["#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336"];
+  dagre.layout(g);
 
-  // Layout each layer with dagre
-  const rfNodes: Node[] = [];
-  let yOffset = 0;
-  const layerOrder = [...layerGroups.keys()];
+  // 4. Read absolute positions from dagre
   const nodeAbsPos = new Map<string, { x: number; y: number }>();
+  for (const entry of allComps) {
+    const pos = g.node(entry.id);
+    if (pos) nodeAbsPos.set(entry.id, { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 });
+  }
 
-  for (let li = 0; li < layerOrder.length; li++) {
-    const layerName = layerOrder[li];
-    const entries = layerGroups.get(layerName)!;
-    const layerColor = LAYER_COLORS[li % LAYER_COLORS.length];
+  // 5. Compute group boundaries per layer from actual node positions
+  const LAYER_COLORS = [
+    "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
+  ];
+  const rfNodes: Node[] = [];
+
+  for (let li = 0; li < layers.length; li++) {
+    const entries = allComps.filter(c => c.layerIdx === li);
+    if (entries.length === 0) continue;
+
     const groupId = `layer-${li}`;
+    const layerColor = LAYER_COLORS[li % LAYER_COLORS.length];
 
-    // Dagre layout for components in this layer
-    const g = new dagre.graphlib.Graph();
-    g.setGraph({ rankdir: "LR", ranksep: 60, nodesep: 30, marginx: 0, marginy: 0 });
-    g.setDefaultEdgeLabel(() => ({}));
-
-    const entryIds = new Set(entries.map(e => e.id));
-    for (const e of entries) {
-      g.setNode(e.id, { width: NODE_W, height: NODE_H });
-    }
-    // Add intra-layer edges
-    for (const re of resolvedEdges) {
-      if (entryIds.has(re.sourceId) && entryIds.has(re.targetId)) {
-        g.setEdge(re.sourceId, re.targetId);
-      }
-    }
-
-    dagre.layout(g);
-
-    // Normalize positions
+    // Bounding box from dagre positions
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    const positions: { id: string; x: number; y: number }[] = [];
     for (const e of entries) {
-      const pos = g.node(e.id);
-      if (!pos) continue;
-      const x = pos.x - NODE_W / 2;
-      const y = pos.y - NODE_H / 2;
-      positions.push({ id: e.id, x, y });
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + NODE_W);
-      maxY = Math.max(maxY, y + NODE_H);
+      const p = nodeAbsPos.get(e.id)!;
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x + NODE_W);
+      maxY = Math.max(maxY, p.y + NODE_H);
     }
-    for (const p of positions) {
-      p.x -= minX;
-      p.y -= minY;
-    }
-    const innerW = maxX - minX;
-    const innerH = maxY - minY;
-    const groupW = innerW + 2 * PAD;
-    const groupH = innerH + LABEL_H + 2 * PAD;
+
+    const groupX = minX - GROUP_PAD_X;
+    const groupY = minY - GROUP_PAD_TOP;
+    const groupW = maxX - minX + 2 * GROUP_PAD_X;
+    const groupH = maxY - minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
 
     rfNodes.push({
       id: groupId,
       type: "archGroup",
-      position: { x: 0, y: yOffset },
-      data: { label: layerName, color: layerColor } satisfies ArchGroupData,
+      position: { x: groupX, y: groupY },
+      data: { label: layers[li].name, color: layerColor } satisfies ArchGroupData,
       style: { width: groupW, height: groupH },
       selectable: false,
       draggable: false,
     });
 
-    for (const p of positions) {
-      const entry = entries.find(e => e.id === p.id)!;
-      const relX = PAD + p.x;
-      const relY = LABEL_H + PAD + p.y;
+    // Child nodes with positions relative to group
+    for (const entry of entries) {
+      const absP = nodeAbsPos.get(entry.id)!;
       rfNodes.push({
         id: entry.id,
         type: "archNode",
-        position: { x: relX, y: relY },
+        position: { x: absP.x - groupX, y: absP.y - groupY },
         parentId: groupId,
         extent: "parent" as const,
         data: {
@@ -388,62 +395,43 @@ function buildArchFlow(
         style: { width: NODE_W, height: NODE_H },
         draggable: false,
       });
-      // Track absolute position for edge routing
-      nodeAbsPos.set(entry.id, { x: relX + NODE_W / 2, y: yOffset + relY + NODE_H / 2 });
-    }
-
-    yOffset += groupH + GROUP_GAP;
-  }
-
-  // Center groups horizontally
-  const maxGroupW = Math.max(...rfNodes.filter(n => n.type === "archGroup").map(n => (n.style?.width as number) || 0));
-  for (const n of rfNodes) {
-    if (n.type === "archGroup") {
-      const w = (n.style?.width as number) || 0;
-      n.position.x = Math.round((maxGroupW - w) / 2);
-      // Update child absolute positions
-      const gx = n.position.x;
-      const gy = n.position.y;
-      for (const child of rfNodes) {
-        if (child.parentId === n.id) {
-          nodeAbsPos.set(child.id, {
-            x: gx + child.position.x + NODE_W / 2,
-            y: gy + child.position.y + NODE_H / 2,
-          });
-        }
-      }
     }
   }
 
-  // Build edges
+  // 6. Build edges with smart handle selection
+  const nodeLayerIdx = new Map(allComps.map(c => [c.id, c.layerIdx]));
   const rfEdges: Edge[] = resolvedEdges.map((re, i) => {
     const sPos = nodeAbsPos.get(re.sourceId);
     const tPos = nodeAbsPos.get(re.targetId);
-    // Orient top-to-bottom
+    const sLayer = nodeLayerIdx.get(re.sourceId) ?? 0;
+    const tLayer = nodeLayerIdx.get(re.targetId) ?? 0;
+
     let source = re.sourceId;
     let target = re.targetId;
     let srcHandle = "b";
     let tgtHandle = "t";
-    if (sPos && tPos && tPos.y < sPos.y) {
-      source = re.targetId;
-      target = re.sourceId;
-    }
-    // Same layer? Use side handles
-    if (sPos && tPos && Math.abs(sPos.y - tPos.y) < NODE_H) {
-      if (sPos.x < tPos.x) {
+
+    if (sLayer === tLayer && sPos && tPos) {
+      // Same layer → use left/right handles
+      if (sPos.x <= tPos.x) {
         srcHandle = "r";
         tgtHandle = "l";
       } else {
         srcHandle = "l";
         tgtHandle = "r";
-        // Swap source/target for left-to-right flow
+        [source, target] = [target, source];
+      }
+    } else if (sPos && tPos) {
+      // Cross-layer → use top/bottom, ensure top-to-bottom direction
+      if (sPos.y > tPos.y) {
         [source, target] = [target, source];
       }
     }
 
-    const labelParts = [re.intg.protocol || "API"];
+    const labelParts: string[] = [];
+    if (re.intg.protocol) labelParts.push(re.intg.protocol);
     if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(re.intg.direction);
-    const edgeLabel = labelParts.join(", ");
+    const edgeLabel = labelParts.join(", ") || "";
 
     return {
       id: `arch-e-${i}`,
@@ -452,7 +440,11 @@ function buildArchFlow(
       sourceHandle: srcHandle,
       targetHandle: tgtHandle,
       type: "archEdge",
-      data: { label: edgeLabel, protocol: re.intg.protocol, direction: re.intg.direction } satisfies ArchEdgeData,
+      data: {
+        label: edgeLabel,
+        protocol: re.intg.protocol,
+        direction: re.intg.direction,
+      } satisfies ArchEdgeData,
       animated: false,
       markerEnd: { type: "arrowclosed" as const, color: "#888" },
     };
@@ -539,7 +531,7 @@ function ArchitectureDiagramInner({ arch }: { arch: ArchitectureResult }) {
         <Box sx={{ flex: 1 }} />
         <Chip size="small" label={`${allComps.length} components \u00b7 ${(arch.integrations ?? []).length} integrations`} variant="outlined" />
       </Stack>
-      <Box sx={{ height: 520 }} className={hoveredNode ? "arch-hover-active" : undefined}>
+      <Box sx={{ height: 600 }} className={hoveredNode ? "arch-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={nodes}
