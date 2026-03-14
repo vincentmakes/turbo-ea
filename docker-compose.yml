@@ -127,7 +127,7 @@ services:
   # Requires AI_API_KEY for the AI provider used by ArchLens.
   archlens:
     build:
-      context: https://github.com/vincentmakes/archlens.git
+      context: ./archlens
     profiles: ["archlens"]
     restart: unless-stopped
     security_opt:
