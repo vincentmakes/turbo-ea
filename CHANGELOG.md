@@ -5,47 +5,22 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.40.0] - 2026-03-14
-
-### Added
-- Native ArchLens AI Intelligence module — vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI run natively in Turbo EA (no separate container)
-- Multi-page ArchLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
-- ArchLens top-level navigation section with sub-items (visible when AI is configured)
-- User documentation for ArchLens module in all 8 supported locales
-
-### Changed
-- ArchLens no longer requires a separate Docker container — all AI analysis runs directly in the FastAPI backend using the configured AI provider
-- ArchLens data stored in PostgreSQL (5 new tables) instead of SQLite
-- Replaced proxy-to-container pattern with direct SQLAlchemy service calls
-
-### Removed
-- ArchLens Docker Compose profile (`--profile archlens`) — no longer needed
-- ArchLens connection management (connections table, admin CRUD) — the module uses existing AI config
-- Old `archlens_service.py` HTTP proxy client
-
-## [0.39.0] - 2026-03-14
-
-### Added
-- ArchLens DataProvider abstraction supporting both SQLite (sync) and MCP (live API) data sources
-- MCP connection type for ArchLens — live data from Turbo EA without sync button
-- Bulk JSON export endpoint (`GET /cards/export/json`) for integration consumers
-- McpDataProvider fetches cards live from Turbo EA API with in-memory caching per analysis run
-
-### Changed
-- ArchLens services (architect, resolution, vendor analysis) now use pluggable DataProvider instead of direct SQLite queries
-- Phase 3 architecture generation uses 16K max tokens (up from 8K) to prevent response truncation
-- Phase 3 JSON schema reordered to prioritize structured data (layers, gaps, integrations) before mermaid diagram
-
-### Fixed
-- Phase 3 architecture output missing layers, gaps, integrations, and risks due to AI response truncation at 8K token limit
-
 ## [0.38.0] - 2026-03-14
 
 ### Added
-- ArchLens integration for AI-powered EA intelligence (vendor analysis, duplicate detection, architecture AI)
-- Admin page for managing ArchLens connections, triggering analyses, and viewing results
-- ArchLens as optional Docker Compose profile (`--profile archlens`)
-- New permissions: `archlens.view` and `archlens.manage`
+- ArchLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
+- Vendor categorisation across 45+ industry categories with AI-driven sub-category and reasoning
+- Vendor resolution that groups aliases and product variants into a canonical vendor hierarchy
+- Duplicate detection using union-find clustering to identify functionally overlapping cards
+- Modernization assessment that evaluates effort, priority, and recommendations per card type
+- 3-phase Architecture AI: business clarification, technical deep-dive, and full architecture generation with Mermaid diagrams and landscape cross-referencing
+- Multi-page ArchLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
+- ArchLens navigation section with sub-items (visible when AI is configured)
+- New permissions: `archlens.view` (granted to admin, bpm_admin, member) and `archlens.manage` (admin only)
+- Background task execution with polling for long-running AI analyses
+- Five new database tables: `archlens_vendor_analysis`, `archlens_vendor_hierarchy`, `archlens_duplicate_clusters`, `archlens_modernization_assessments`, `archlens_analysis_runs`
+- Full i18n support for ArchLens UI across all 8 supported locales
+- User documentation for ArchLens module in all 8 supported locales
 
 ## [0.37.2] - 2026-03-13
 
