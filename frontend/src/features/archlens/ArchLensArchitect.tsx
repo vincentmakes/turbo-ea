@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -7,7 +6,6 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
-import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import Paper from "@mui/material/Paper";
@@ -33,113 +31,11 @@ import {
   effortColor,
   ARCHITECT_PHASES,
 } from "./utils";
+import ArchitectureDiagram from "./ArchitectureDiagram";
 
 // --- TabPanel helper ---
 function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
   return value === index ? <Box sx={{ pt: 2 }}>{children}</Box> : null;
-}
-
-// --- Mermaid diagram renderer (CDN lazy-load) ---
-let mermaidLoadPromise: Promise<void> | null = null;
-function ensureMermaid(): Promise<void> {
-  if (mermaidLoadPromise) return mermaidLoadPromise;
-  mermaidLoadPromise = new Promise((resolve, reject) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((window as any).mermaid) { resolve(); return; }
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js";
-    s.onload = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).mermaid.initialize({ startOnLoad: false, theme: "default", securityLevel: "loose" });
-      resolve();
-    };
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-  return mermaidLoadPromise;
-}
-
-/** Ensure Mermaid code has proper newlines — AI sometimes returns single-line. */
-function normalizeMermaid(raw: string): string {
-  let s = raw;
-  // Unescape literal \n and \" if present
-  if (s.includes("\\n")) s = s.replace(/\\n/g, "\n");
-  if (s.includes('\\"')) s = s.replace(/\\"/g, '"');
-  // If code is already multi-line, return as-is
-  if (s.includes("\n")) return s;
-  // Insert newlines before keywords that must start on their own line
-  s = s.replace(/\s{2,}(subgraph|end|classDef|class |click )/g, "\n    $1");
-  s = s.replace(/\s{2,}(\w[\w\d_]*\s*[-=][-=]?>)/g, "\n    $1");
-  s = s.replace(/\s{2,}(\w[\w\d_]*\s*\[)/g, "\n        $1");
-  s = s.replace(/\s{2,}(\w[\w\d_]*\s*\()/g, "\n        $1");
-  return s;
-}
-
-function MermaidDiagram({ code }: { code: string }) {
-  const { t } = useTranslation("admin");
-  const [svg, setSvg] = useState("");
-  const [err, setErr] = useState("");
-  const [zoom, setZoom] = useState(1);
-
-  useEffect(() => {
-    if (!code) return;
-    setSvg(""); setErr("");
-    const normalized = normalizeMermaid(code);
-    ensureMermaid().then(async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const m = (window as any).mermaid;
-        const res = await m.render("mmd-" + Date.now(), normalized);
-        setSvg(res.svg);
-      } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : "Render failed");
-      }
-    }).catch(() => setErr("Failed to load Mermaid library"));
-  }, [code]);
-
-  if (err) return (
-    <>
-      <Alert severity="warning" sx={{ m: 2, mb: 0 }}>{t("archlens_arch_diagram_error")}</Alert>
-      <Box component="pre" sx={{ fontFamily: "monospace", fontSize: 12, bgcolor: "grey.50", p: 2, m: 2, borderRadius: 1, overflow: "auto", maxHeight: 500 }}>
-        {normalizeMermaid(code)}
-      </Box>
-    </>
-  );
-
-  if (!svg) return (
-    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
-      <CircularProgress size={24} />
-      <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>{t("archlens_arch_rendering_diagram")}</Typography>
-    </Box>
-  );
-
-  return (
-    <Box>
-      <Stack direction="row" spacing={1} sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider", alignItems: "center" }}>
-        <IconButton size="small" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
-          <MaterialSymbol icon="remove" size={18} />
-        </IconButton>
-        <Typography variant="caption" sx={{ minWidth: 40, textAlign: "center" }}>{Math.round(zoom * 100)}%</Typography>
-        <IconButton size="small" onClick={() => setZoom(z => Math.min(3, z + 0.1))}>
-          <MaterialSymbol icon="add" size={18} />
-        </IconButton>
-        <Button size="small" onClick={() => setZoom(1)}>{t("archlens_arch_reset_zoom")}</Button>
-        <Box sx={{ flex: 1 }} />
-        <Button size="small" startIcon={<MaterialSymbol icon="download" size={16} />}
-          onClick={() => { const b = new Blob([svg], { type: "image/svg+xml" }); const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = "architecture.svg"; a.click(); }}>
-          {t("archlens_arch_export_svg")}
-        </Button>
-        <Button size="small" startIcon={<MaterialSymbol icon="content_copy" size={16} />}
-          onClick={() => navigator.clipboard?.writeText(code)}>
-          {t("archlens_arch_copy_mermaid")}
-        </Button>
-      </Stack>
-      <Box sx={{ overflow: "auto", p: 3, bgcolor: "#fff", minHeight: 300 }}>
-        <Box sx={{ transform: `scale(${zoom})`, transformOrigin: "top left", transition: "transform .15s" }}
-          dangerouslySetInnerHTML={{ __html: svg }} />
-      </Box>
-    </Box>
-  );
 }
 
 // --- Architecture result view ---
@@ -171,12 +67,9 @@ function ArchitectureResultView({ arch, onReset }: { arch: ArchitectureResult; o
             <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", fontFamily: "monospace", fontSize: 13 }}>{arch.architecture}</Typography>
           </Paper>
         )}
-        {typeof arch.diagram === "string" && (
-          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>{t("archlens_architect_diagram")}</Typography>
-            <Box component="pre" sx={{ whiteSpace: "pre-wrap", fontSize: 12, fontFamily: "monospace", bgcolor: "grey.50", p: 2, borderRadius: 1, overflow: "auto" }}>
-              {arch.diagram}
-            </Box>
+        {(arch.layers?.length ?? 0) > 0 && (
+          <Paper variant="outlined" sx={{ mb: 2 }}>
+            <ArchitectureDiagram arch={arch} />
           </Paper>
         )}
         {!arch.summary && !arch.architecture && (
@@ -238,14 +131,7 @@ function ArchitectureResultView({ arch, onReset }: { arch: ArchitectureResult; o
 
       <TabPanel value={resultTab} index={0}>
         <Paper variant="outlined">
-          <Stack direction="row" spacing={1} sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
-            {([["existing", t("archlens_arch_legend_existing")], ["new", t("archlens_arch_legend_new")], ["recommended", t("archlens_arch_legend_recommended")]] as [string, string][]).map(([key, label]) => (
-              <Chip key={key} size="small" label={label} sx={{ bgcolor: TYPE_COLORS[key] + "18", color: TYPE_COLORS[key], border: `1px solid ${TYPE_COLORS[key]}44`, fontWeight: 600, fontSize: 11 }} />
-            ))}
-          </Stack>
-          {arch.mermaidDiagram ? <MermaidDiagram code={arch.mermaidDiagram} /> : (
-            <Box sx={{ p: 4, textAlign: "center" }}><Typography color="text.secondary">{t("archlens_arch_no_diagram")}</Typography></Box>
-          )}
+          <ArchitectureDiagram arch={arch} />
         </Paper>
       </TabPanel>
 
