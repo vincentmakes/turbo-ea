@@ -1204,3 +1204,77 @@ export interface ArchLensAnalysisRun {
   completed_at?: string | null;
   error_message?: string | null;
 }
+
+// Architecture AI result types
+export interface ArchComponent {
+  name: string;
+  type: "existing" | "new" | "recommended";
+  product?: string;
+  category?: string;
+  role?: string;
+  notes?: string;
+  existsInLandscape?: boolean;
+}
+
+export interface ArchLayer {
+  name: string;
+  components: ArchComponent[];
+}
+
+export interface ArchGapRecommendation {
+  name: string;
+  vendor?: string;
+  why?: string;
+  pros?: string[];
+  cons?: string[];
+  estimatedCost?: string;
+  integrationEffort?: string;
+  recommended?: boolean;
+}
+
+export interface ArchGap {
+  capability: string;
+  impact?: string;
+  urgency?: string;
+  recommendations?: ArchGapRecommendation[];
+}
+
+export interface ArchIntegration {
+  from: string;
+  to: string;
+  protocol?: string;
+  direction?: string;
+  dataFlows?: string;
+  notes?: string;
+}
+
+export interface ArchRisk {
+  risk: string;
+  severity?: string;
+  mitigation?: string;
+}
+
+export interface ArchNextStep {
+  step: string;
+  owner?: string;
+  timeline?: string;
+  effort?: string;
+}
+
+export interface ArchitectureResult {
+  title?: string;
+  summary?: string;
+  architecturalPattern?: string;
+  estimatedComplexity?: string;
+  estimatedDuration?: string;
+  nfrDecisions?: Record<string, string>;
+  layers?: ArchLayer[];
+  gaps?: ArchGap[];
+  integrations?: ArchIntegration[];
+  risks?: ArchRisk[];
+  nextSteps?: ArchNextStep[];
+  mermaidDiagram?: string;
+  // Legacy flat fields
+  architecture?: string;
+  diagram?: string;
+}
