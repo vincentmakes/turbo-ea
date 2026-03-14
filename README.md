@@ -56,6 +56,16 @@ Self-hosted Enterprise Architecture Management platform that creates a **digital
 
 - **AI Description Suggestions** — Generate card descriptions with a single click using a two-step pipeline: web search (DuckDuckGo, Google Custom Search, or SearXNG) followed by LLM extraction. Supports self-hosted Ollama (optionally bundled via Docker Compose `--profile ai`) and commercial providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) with encrypted API key storage. Suggestions are type-aware — the prompt contextualizes each card based on its type (e.g., "software application", "technology vendor", "business process"). Results include a confidence score, editable text, and clickable source links. Admins control which card types get suggestions, the search provider, and the LLM model.
 
+### ArchLens AI Intelligence
+
+AI-powered EA analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea) (MIT License). Runs natively in Turbo EA using the same AI provider configuration.
+
+- **Vendor Analysis** — AI categorizes technology vendors from your portfolio into 45+ industry categories, counting associated applications and costs. Results displayed with category breakdowns and detailed reasoning.
+- **Vendor Resolution** — Builds a canonical vendor hierarchy by resolving aliases, parent-child relationships, and product groupings. Displays confidence scores for each resolution.
+- **Duplicate Detection** — Identifies functional duplicate cards using AI clustering across Application, IT Component, and Interface types. Union-find algorithm merges overlapping clusters across batches. Each cluster includes evidence and retirement recommendations.
+- **Modernization Assessment** — Evaluates cards for modernization opportunities based on current technology trends, providing effort estimates, priority levels, and specific recommendations.
+- **Architecture AI** — 3-phase conversational architecture assistant: (1) business clarification questions, (2) technical deep-dive questions, (3) structured architecture recommendation with component layers, gap analysis with market recommendations, integration map, risk assessment, and interactive Mermaid diagrams.
+
 ### Data Governance
 
 - **Data Maintenance Surveys** — Admin-driven workflows for keeping card data accurate at scale. Target by card type with tag/relation/attribute filters. Users maintain or confirm field values; admins review and apply changes in bulk.
@@ -527,6 +537,12 @@ turbo-ea/
 ├── .env.example             # Template for environment variables
 └── CLAUDE.md                # AI assistant context file
 ```
+
+---
+
+## Credits
+
+- **ArchLens AI Intelligence** — The AI-powered vendor analysis, duplicate detection, and architecture recommendation features are based on [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea), originally released under the MIT License. The analysis logic has been ported from Node.js/Express/SQLite to Python/FastAPI/PostgreSQL and integrated natively into Turbo EA.
 
 ---
 

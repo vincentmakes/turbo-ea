@@ -30,5 +30,12 @@
   "search.placeholder": "Karten suchen...",
   "search.viewAll": "Alle Ergebnisse für \"{{query}}\" anzeigen",
   "createCard": "Karte erstellen",
-  "create": "Erstellen"
+  "create": "Erstellen",
+  "archlens": "ArchLens",
+  "archlens.dashboard": "Dashboard",
+  "archlens.vendors": "Anbieter",
+  "archlens.resolution": "Auflösung",
+  "archlens.duplicates": "Duplikate",
+  "archlens.architect": "Architekt",
+  "archlens.history": "Verlauf"
 }

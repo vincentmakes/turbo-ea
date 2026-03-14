@@ -153,6 +153,13 @@ APP_PERMISSIONS: dict[str, dict] = {
             "servicenow.manage": "Manage ServiceNow connections, mappings, and trigger syncs",
         },
     },
+    "archlens": {
+        "label": "ArchLens",
+        "permissions": {
+            "archlens.view": "View ArchLens analysis results and vendor insights",
+            "archlens.manage": "Manage ArchLens connections and trigger analyses",
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -284,6 +291,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "archlens.view": True,
+    "archlens.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -346,6 +355,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "archlens.view": True,
+    "archlens.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -408,6 +419,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "web_portals.manage": False,
     "servicenow.view": False,
     "servicenow.manage": False,
+    "archlens.view": False,
+    "archlens.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "notifications.manage": True,

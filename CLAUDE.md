@@ -1175,6 +1175,73 @@ Optional module (toggled via admin settings) for managing Initiative cards as fu
 
 ---
 
+## ArchLens (AI-Powered EA Intelligence)
+
+Native AI analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)). Provides vendor analysis, duplicate detection, modernization assessment, and architecture AI recommendations using data directly from the `cards` table.
+
+### Architecture
+- **No separate container**: All logic runs natively in Turbo EA (FastAPI + PostgreSQL). No proxy layer, no SQLite.
+- **AI infrastructure reuse**: Uses the same AI provider config from `app_settings.general_settings.ai` (supports Claude, OpenAI, DeepSeek, Gemini).
+- **Background tasks + polling**: Long-running AI operations use FastAPI `BackgroundTasks` + `ArchLensAnalysisRun` status polling.
+- **Direct data access**: Queries `cards`, `relations`, and `relation_types` tables via SQLAlchemy — no data copy or intermediate storage.
+
+### Database Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `archlens_vendor_analysis` | `ArchLensVendorAnalysis` | AI-categorized vendors with category, sub-category, app counts, costs |
+| `archlens_vendor_hierarchy` | `ArchLensVendorHierarchy` | Resolved canonical vendor tree (parent-child, aliases, confidence) |
+| `archlens_duplicate_clusters` | `ArchLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
+| `archlens_modernization_assessments` | `ArchLensModernization` | Modernization opportunities with effort, priority, current tech |
+| `archlens_analysis_runs` | `ArchLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors) |
+
+### Backend Services
+
+| File | Purpose |
+|------|---------|
+| `services/archlens_ai.py` | Shared AI caller + JSON repair (truncation recovery, bracket balancing) |
+| `services/archlens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
+| `services/archlens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
+| `services/archlens_architect.py` | 3-phase architecture AI: intent detection, landscape context, two-call pattern (structure 8K + diagram 4K tokens) |
+
+### API Routes (`/archlens`)
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/status` | authenticated | AI config status |
+| GET | `/overview` | `archlens.view` | Dashboard KPIs |
+| POST | `/vendors/analyse` | `archlens.manage` | Trigger vendor categorization (background) |
+| GET | `/vendors` | `archlens.view` | Get vendor analysis results |
+| POST | `/vendors/resolve` | `archlens.manage` | Trigger vendor resolution (background) |
+| GET | `/vendors/hierarchy` | `archlens.view` | Get vendor hierarchy |
+| POST | `/duplicates/analyse` | `archlens.manage` | Trigger duplicate detection (background) |
+| GET | `/duplicates` | `archlens.view` | Get duplicate clusters |
+| PATCH | `/duplicates/{id}/status` | `archlens.manage` | Update cluster status |
+| POST | `/duplicates/modernize` | `archlens.manage` | Trigger modernization assessment (background) |
+| GET | `/duplicates/modernizations` | `archlens.view` | Get modernization results |
+| POST | `/architect/phase{1,2,3}` | `archlens.manage` | Run architecture AI phases |
+| GET | `/analysis-runs` | `archlens.view` | Analysis run history |
+
+### Frontend Pages
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/archlens` | `ArchLensDashboard` | KPI tiles, cards by type, quality issues |
+| `/archlens/vendors` | `ArchLensVendors` | Vendor analysis with category breakdown |
+| `/archlens/vendors/resolution` | `ArchLensResolution` | Canonical vendor hierarchy |
+| `/archlens/duplicates` | `ArchLensDuplicates` | Duplicate clusters + modernization assessment |
+| `/archlens/architect` | `ArchLensArchitect` | 3-phase architecture AI with Mermaid diagrams |
+| `/archlens/history` | `ArchLensHistory` | Analysis run history table |
+
+### Permissions
+- **`archlens.view`**: View analysis results. Granted to admin, bpm_admin, member roles.
+- **`archlens.manage`**: Trigger analyses. Granted to admin role.
+
+### Credits
+ArchLens was originally created by [Vinod](https://github.com/vinod-ea/archlens) under the MIT License. The AI analysis logic has been ported to Python and integrated natively into Turbo EA.
+
+---
+
 ## DrawIO Integration
 
 ### How It Works

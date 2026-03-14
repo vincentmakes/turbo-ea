@@ -874,6 +874,117 @@ async def my_permissions(
     return await PermissionService.get_effective_card_permissions(db, user, uuid.UUID(card_id))
 
 
+@router.get("/export/json")
+async def export_json(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    types: str = Query(..., description="Comma-separated type keys"),
+    include_relations: bool = Query(False),
+    include_stakeholders: bool = Query(False),
+):
+    """Bulk export cards as JSON for integration consumers (e.g. ArchLens MCP).
+
+    Returns all active cards of the given types with optional pre-joined
+    provider relation names and stakeholder owner info.
+    """
+    await PermissionService.require_permission(db, user, "inventory.export")
+
+    type_list = [t.strip() for t in types.split(",") if t.strip()]
+    if not type_list:
+        raise HTTPException(400, "At least one type key is required")
+    if len(type_list) > 20:
+        raise HTTPException(400, "Maximum 20 type keys allowed")
+
+    q = (
+        select(Card)
+        .where(Card.status == "ACTIVE", Card.type.in_(type_list))
+        .options(selectinload(Card.tags).selectinload(Tag.group))
+    )
+    if include_stakeholders:
+        q = q.options(selectinload(Card.stakeholders).selectinload(Stakeholder.user))
+
+    result = await db.execute(q)
+    cards = result.scalars().all()
+
+    # Optionally resolve provider relation names per card
+    provider_names_by_card: dict[str, list[str]] = {}
+    if include_relations:
+        card_ids = [c.id for c in cards]
+        if card_ids:
+            # Find all relations where Provider is source or target
+            rel_q = select(Relation).where(
+                or_(
+                    Relation.source_id.in_(card_ids),
+                    Relation.target_id.in_(card_ids),
+                ),
+                Relation.type.like("%Provider%"),
+            )
+            rel_result = await db.execute(rel_q)
+            rels = rel_result.scalars().all()
+
+            # Collect provider card IDs
+            provider_card_ids = set()
+            for rel in rels:
+                provider_card_ids.add(rel.source_id)
+                provider_card_ids.add(rel.target_id)
+            # Remove non-provider IDs (we'll look up names)
+            provider_card_ids -= set(card_ids)
+
+            if provider_card_ids:
+                prov_q = select(Card.id, Card.name).where(Card.id.in_(provider_card_ids))
+                prov_result = await db.execute(prov_q)
+                prov_name_map = {row.id: row.name for row in prov_result.all()}
+
+                for rel in rels:
+                    # Determine which side is the non-provider card
+                    if rel.source_id in prov_name_map:
+                        card_key = str(rel.target_id)
+                        prov_name = prov_name_map[rel.source_id]
+                    elif rel.target_id in prov_name_map:
+                        card_key = str(rel.source_id)
+                        prov_name = prov_name_map[rel.target_id]
+                    else:
+                        continue
+                    provider_names_by_card.setdefault(card_key, []).append(prov_name)
+
+    items = []
+    for card in cards:
+        tags = [
+            {"name": t.name, "color": t.color, "group_name": t.group.name if t.group else None}
+            for t in (card.tags or [])
+        ]
+        owner = None
+        owner_email = None
+        if include_stakeholders:
+            for s in card.stakeholders or []:
+                if s.role and "responsible" in s.role.lower():
+                    if s.user:
+                        owner = s.user.display_name
+                        owner_email = s.user.email
+                    break
+
+        items.append(
+            {
+                "id": str(card.id),
+                "type": card.type,
+                "subtype": card.subtype,
+                "name": card.name,
+                "description": card.description,
+                "lifecycle": card.lifecycle,
+                "attributes": card.attributes or {},
+                "status": card.status,
+                "data_quality": card.data_quality,
+                "updated_at": card.updated_at.isoformat() if card.updated_at else None,
+                "tags": tags,
+                "owner": owner,
+                "owner_email": owner_email,
+                "provider_names": provider_names_by_card.get(str(card.id), []),
+            }
+        )
+
+    return items
+
+
 @router.get("/export/csv")
 async def export_csv(
     db: AsyncSession = Depends(get_db),

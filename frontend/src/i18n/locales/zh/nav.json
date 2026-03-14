@@ -30,5 +30,12 @@
   "search.placeholder": "搜索卡片...",
   "search.viewAll": "查看 \"{{query}}\" 的所有结果",
   "createCard": "创建卡片",
-  "create": "创建"
+  "create": "创建",
+  "archlens": "ArchLens",
+  "archlens.dashboard": "仪表板",
+  "archlens.vendors": "供应商",
+  "archlens.resolution": "解析",
+  "archlens.duplicates": "重复项",
+  "archlens.architect": "架构师",
+  "archlens.history": "历史记录"
 }

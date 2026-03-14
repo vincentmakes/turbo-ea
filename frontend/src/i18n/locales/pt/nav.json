@@ -17,22 +17,25 @@
   "diagrams": "Diagramas",
   "delivery": "Entrega EA",
   "todos": "Tarefas",
-
   "admin": "Admin",
   "admin.metamodel": "Metamodelo",
   "admin.usersAndRoles": "Usuários e papéis",
   "admin.surveys": "Pesquisas",
   "admin.settings": "Configurações",
-
   "userMenu.notificationSettings": "Configurações de notificação",
   "userMenu.darkMode": "Modo escuro",
   "userMenu.lightMode": "Modo claro",
   "userMenu.language": "Idioma",
   "userMenu.userManual": "Manual do usuário",
-
   "search.placeholder": "Pesquisar fichas...",
   "search.viewAll": "Ver todos os resultados para \"{{query}}\"",
-
   "createCard": "Criar ficha",
-  "create": "Criar"
+  "create": "Criar",
+  "archlens": "ArchLens",
+  "archlens.dashboard": "Painel",
+  "archlens.vendors": "Fornecedores",
+  "archlens.resolution": "Resolução",
+  "archlens.duplicates": "Duplicados",
+  "archlens.architect": "Arquiteto",
+  "archlens.history": "Histórico"
 }

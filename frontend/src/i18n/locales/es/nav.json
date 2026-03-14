@@ -17,22 +17,25 @@
   "diagrams": "Diagramas",
   "delivery": "Entrega EA",
   "todos": "Tareas",
-
-  "admin": "Administraci\u00f3n",
+  "admin": "Administración",
   "admin.metamodel": "Metamodelo",
   "admin.usersAndRoles": "Usuarios y roles",
   "admin.surveys": "Encuestas",
-  "admin.settings": "Configuraci\u00f3n",
-
-  "userMenu.notificationSettings": "Configuraci\u00f3n de notificaciones",
+  "admin.settings": "Configuración",
+  "userMenu.notificationSettings": "Configuración de notificaciones",
   "userMenu.darkMode": "Modo oscuro",
   "userMenu.lightMode": "Modo claro",
   "userMenu.language": "Idioma",
   "userMenu.userManual": "Manual de usuario",
-
   "search.placeholder": "Buscar fichas...",
   "search.viewAll": "Ver todos los resultados para \"{{query}}\"",
-
   "createCard": "Crear ficha",
-  "create": "Crear"
+  "create": "Crear",
+  "archlens": "ArchLens",
+  "archlens.dashboard": "Panel",
+  "archlens.vendors": "Proveedores",
+  "archlens.resolution": "Resolución",
+  "archlens.duplicates": "Duplicados",
+  "archlens.architect": "Arquitecto",
+  "archlens.history": "Historial"
 }

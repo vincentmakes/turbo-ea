@@ -73,6 +73,7 @@ plugins:
             Saved Reports: Informes guardados
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
             Tasks & Surveys: Tareas y encuestas
@@ -108,6 +109,7 @@ plugins:
             Saved Reports: Gespeicherte Berichte
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens KI
             Diagrams: Diagramme
             EA Delivery: EA-Bereitstellung
             Tasks & Surveys: Aufgaben und Umfragen
@@ -143,6 +145,7 @@ plugins:
             Saved Reports: Rapports enregistrés
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens IA
             Diagrams: Diagrammes
             EA Delivery: Livraison EA
             Tasks & Surveys: Tâches et enquêtes
@@ -178,6 +181,7 @@ plugins:
             Saved Reports: Report salvati
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens IA
             Diagrams: Diagrammi
             EA Delivery: Consegna EA
             Tasks & Surveys: Attività e sondaggi
@@ -213,6 +217,7 @@ plugins:
             Saved Reports: Relatórios salvos
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens IA
             Diagrams: Diagramas
             EA Delivery: Entrega EA
             Tasks & Surveys: Tarefas e pesquisas
@@ -248,6 +253,7 @@ plugins:
             Saved Reports: 已保存的报告
             PPM: 项目组合管理
             BPM: 业务流程管理
+            ArchLens AI: ArchLens AI 智能
             Diagrams: 图表
             EA Delivery: EA 交付
             Tasks & Surveys: 任务与调查
@@ -283,6 +289,7 @@ plugins:
             Saved Reports: Сохранённые отчёты
             PPM: PPM
             BPM: BPM
+            ArchLens AI: ArchLens ИИ
             Diagrams: Диаграммы
             EA Delivery: Поставка EA
             Tasks & Surveys: Задачи и опросы
@@ -344,6 +351,7 @@ nav:
       - Saved Reports: guide/saved-reports.md
       - PPM: guide/ppm.md
       - BPM: guide/bpm.md
+      - ArchLens AI: guide/archlens.md
       - Diagrams: guide/diagrams.md
       - EA Delivery: guide/delivery.md
       - Tasks & Surveys: guide/tasks.md

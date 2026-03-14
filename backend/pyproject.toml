@@ -52,6 +52,7 @@ select = ["E", "F", "I", "N", "W"]
 
 [tool.ruff.lint.per-file-ignores]
 "app/services/seed*.py" = ["E501"]
+"app/services/archlens_*.py" = ["E501"]
 "alembic/versions/*.py" = ["E501"]
 
 [tool.pytest.ini_options]

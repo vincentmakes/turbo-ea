@@ -30,5 +30,12 @@
   "search.placeholder": "Поиск карточек...",
   "search.viewAll": "Показать все результаты для «{{query}}»",
   "createCard": "Создать карточку",
-  "create": "Создать"
+  "create": "Создать",
+  "archlens": "ArchLens",
+  "archlens.dashboard": "Панель",
+  "archlens.vendors": "Поставщики",
+  "archlens.resolution": "Разрешение",
+  "archlens.duplicates": "Дубликаты",
+  "archlens.architect": "Архитектор",
+  "archlens.history": "История"
 }

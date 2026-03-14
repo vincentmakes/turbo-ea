@@ -5,6 +5,23 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.38.0] - 2026-03-14
+
+### Added
+- ArchLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
+- Vendor categorisation across 45+ industry categories with AI-driven sub-category and reasoning
+- Vendor resolution that groups aliases and product variants into a canonical vendor hierarchy
+- Duplicate detection using union-find clustering to identify functionally overlapping cards
+- Modernization assessment that evaluates effort, priority, and recommendations per card type
+- 3-phase Architecture AI: business clarification, technical deep-dive, and full architecture generation with Mermaid diagrams and landscape cross-referencing
+- Multi-page ArchLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
+- ArchLens navigation section with sub-items (visible when AI is configured)
+- New permissions: `archlens.view` (granted to admin, bpm_admin, member) and `archlens.manage` (admin only)
+- Background task execution with polling for long-running AI analyses
+- Five new database tables: `archlens_vendor_analysis`, `archlens_vendor_hierarchy`, `archlens_duplicate_clusters`, `archlens_modernization_assessments`, `archlens_analysis_runs`
+- Full i18n support for ArchLens UI across all 8 supported locales
+- User documentation for ArchLens module in all 8 supported locales
+
 ## [0.37.2] - 2026-03-13
 
 ### Fixed

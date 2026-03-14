@@ -1154,3 +1154,157 @@ export interface PpmDashboardData {
   health_cost: PpmHealthCounts;
   health_scope: PpmHealthCounts;
 }
+
+// ---------------------------------------------------------------------------
+// ArchLens Integration
+// ---------------------------------------------------------------------------
+
+export interface ArchLensVendor {
+  id: string;
+  vendor_name: string;
+  category: string;
+  sub_category: string;
+  reasoning: string;
+  app_count: number;
+  total_cost: number;
+  app_list: string[] | null;
+  analysed_at: string | null;
+}
+
+export interface ArchLensVendorHierarchy {
+  id: string;
+  canonical_name: string;
+  vendor_type: string;
+  parent_id: string | null;
+  aliases: string[] | null;
+  category: string | null;
+  sub_category: string | null;
+  app_count: number;
+  itc_count: number;
+  total_cost: number;
+  confidence: number | null;
+  analysed_at: string | null;
+}
+
+export interface ArchLensDuplicateCluster {
+  id: string;
+  cluster_name: string;
+  card_type: string;
+  functional_domain: string | null;
+  card_ids: string[] | null;
+  card_names: string[] | null;
+  evidence: string;
+  recommendation: string;
+  status: string;
+  analysed_at: string | null;
+}
+
+export interface ArchLensModernization {
+  id: string;
+  target_type: string;
+  card_name: string | null;
+  current_tech: string;
+  modernization_type: string;
+  recommendation: string;
+  effort: string;
+  priority: string;
+  status: string;
+}
+
+export interface ArchLensAnalysisRun {
+  id: string;
+  analysis_type: string;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
+  created_at: string | null;
+}
+
+export interface ArchLensOverview {
+  total_cards: number;
+  cards_by_type: Record<string, number>;
+  quality_avg: number;
+  quality_bronze: number;
+  quality_silver: number;
+  quality_gold: number;
+  total_cost: number;
+  vendor_count: number;
+  duplicate_clusters: number;
+  modernization_count: number;
+  top_issues: Array<{ id: string; name: string; type: string; data_quality: number }>;
+}
+
+// Architecture AI result types
+export interface ArchComponent {
+  name: string;
+  type: "existing" | "new" | "recommended";
+  product?: string;
+  category?: string;
+  role?: string;
+  notes?: string;
+  existsInLandscape?: boolean;
+}
+
+export interface ArchLayer {
+  name: string;
+  components: ArchComponent[];
+}
+
+export interface ArchGapRecommendation {
+  name: string;
+  vendor?: string;
+  why?: string;
+  pros?: string[];
+  cons?: string[];
+  estimatedCost?: string;
+  integrationEffort?: string;
+  recommended?: boolean;
+}
+
+export interface ArchGap {
+  capability: string;
+  impact?: string;
+  urgency?: string;
+  recommendations?: ArchGapRecommendation[];
+}
+
+export interface ArchIntegration {
+  from: string;
+  to: string;
+  protocol?: string;
+  direction?: string;
+  dataFlows?: string;
+  notes?: string;
+}
+
+export interface ArchRisk {
+  risk: string;
+  severity?: string;
+  mitigation?: string;
+}
+
+export interface ArchNextStep {
+  step: string;
+  owner?: string;
+  timeline?: string;
+  effort?: string;
+}
+
+export interface ArchitectureResult {
+  title?: string;
+  summary?: string;
+  architecturalPattern?: string;
+  estimatedComplexity?: string;
+  estimatedDuration?: string;
+  nfrDecisions?: Record<string, string>;
+  layers?: ArchLayer[];
+  gaps?: ArchGap[];
+  integrations?: ArchIntegration[];
+  risks?: ArchRisk[];
+  nextSteps?: ArchNextStep[];
+  mermaidDiagram?: string;
+  // Legacy flat fields
+  architecture?: string;
+  diagram?: string;
+}

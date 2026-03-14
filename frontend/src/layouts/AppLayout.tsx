@@ -35,6 +35,7 @@ import { useEventStream } from "@/hooks/useEventStream";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
+import { useArchLensReady } from "@/hooks/useArchLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -87,7 +88,7 @@ const ADMIN_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
   { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
+  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage", "archlens.manage"] },
 ];
 
 interface PermissionMap {
@@ -120,6 +121,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const rml = useResolveMetaLabel();
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
+  const { archLensReady } = useArchLensReady();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
 
@@ -134,16 +136,33 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     [user.permissions]
   );
 
-  // Resolve nav item labels via i18n and filter based on BPM/permissions
+  // Resolve nav item labels via i18n and filter based on BPM/PPM/ArchLens/permissions
   const navItems = useMemo(() => {
+    let items = NAV_ITEM_DEFS as NavItemDef[];
+    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
+    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
+
+    // Append single ArchLens entry to Reports dropdown when AI is configured
+    if (archLensReady && can("archlens.view")) {
+      items = items.map((item) =>
+        item.labelKey === "reports"
+          ? {
+              ...item,
+              children: [
+                ...(item.children || []),
+                { labelKey: "archlens", icon: "psychology", path: "/archlens" },
+              ],
+            }
+          : item,
+      );
+    }
+
     const resolve = (def: NavItemDef): NavItem => ({
       ...def,
       label: t(def.labelKey),
       children: def.children?.map((c) => ({ ...c, label: t(c.labelKey) })),
     });
-    let items = NAV_ITEM_DEFS as NavItemDef[];
-    if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
-    if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
+
     return items
       .filter((item) => {
         if (!item.permission) return true;
@@ -151,7 +170,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         return can(item.permission);
       })
       .map(resolve);
-  }, [bpmEnabled, ppmEnabled, can, t]);
+  }, [bpmEnabled, ppmEnabled, archLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
@@ -680,10 +699,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onClose={() => setReportsMenu(null)}
           >
             {navItems.find((n) => n.children)?.children?.map((child, idx) => {
-              const isSavedReports = child.path === "/reports/saved";
+              const needsDivider =
+                child.path === "/reports/saved" || child.path === "/archlens";
               return (
                 <Box key={child.path}>
-                  {isSavedReports && idx > 0 && <Divider sx={{ my: 0.5 }} />}
+                  {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
                   <MenuItem
                     selected={isActive(child.path)}
                     onClick={() => {

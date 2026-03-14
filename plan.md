@@ -1,125 +1,318 @@
-# Plan: Fix PPM Gantt & Portfolio Remaining Issues
+# Plan: Absorb ArchLens into Turbo EA
 
-Four issues to fix. Each has a clear root cause identified from library source code analysis.
+## Goal
 
----
-
-## Issue 1: Alternating Rows Lost in Gantt SVG Area (Both Modes)
-
-**Root cause**: The `@wamra/gantt-task-react` library does **not** render alternating row backgrounds in the SVG gantt area. The SVG gets a single solid `background: colors.oddTaskBackgroundColor` as an inline style (lib line 6175). The only things rendered in the SVG grid are holiday columns and a "today" column. Alternating row colors only exist on the HTML table side via inline `backgroundColor` on each row div.
-
-There is no prop or API to add SVG row striping — it simply doesn't exist in this library.
-
-**Fix**: Post-render DOM injection. After the Gantt mounts, find the SVG's `<g class="gridBody">` element and prepend alternating `<rect>` elements for even-indexed rows.
-
-**Implementation** (in `PpmGanttTab.tsx`):
-1. Add a new `useEffect` that runs after render, keyed on `ganttTasks.length` and `theme.palette.mode`
-2. Inside the effect:
-   - Query `ganttRef.current` for the SVG element, then find `g.gridBody` (or `g.grid`)
-   - Get the row height: the library uses 50px default (matching `fullRowHeight`). We can read the SVG's `height` attribute and divide by the number of task rows to confirm.
-   - Create/update a `<g id="turbo-row-stripes">` element at the beginning of the SVG (before grid lines and task bars) containing `<rect>` elements: even-indexed rows get `fill=evenTaskBackgroundColor`, odd rows are transparent (the SVG background serves as odd color)
-   - Use a `MutationObserver` on the SVG to re-inject when the library re-renders (expand/collapse, scroll)
-3. Colors: light mode even = `#f5f5f5`, dark mode even = `theme.palette.background.paper`. The SVG background (`oddTaskBackgroundColor`) handles odd rows.
-4. Must also handle the case where tasks expand/collapse (row count changes) — the `MutationObserver` covers this.
+Eliminate the separate ArchLens Node.js/Express/SQLite container. All ArchLens functionality becomes native Turbo EA — FastAPI backend, PostgreSQL, React/MUI 6 frontend, full i18n, RBAC, and async patterns. No more proxy layer, no more `archlens_service.py` HTTP client, no more `ArchLensClient`.
 
 ---
 
-## Issue 2: Quarter Labels Overlapping (iPad + Desktop First Label)
+## Current State
 
-**Root cause**: The current code uses `window.innerWidth * 0.35` to estimate the timeline column width. This is completely wrong — the actual timeline column is `1fr` in a CSS grid with fixed columns totaling ~610px. On iPad (1024px viewport) the timeline column might be ~165px while the estimate says ~358px, causing `step=1` (show all labels) when they clearly don't fit.
+### What exists in standalone ArchLens (Node.js + SQLite)
+- **7 SQLite tables**: `fact_sheets`, `vendor_analysis`, `vendor_hierarchy`, `duplicate_clusters`, `modernization_assessments`, `sync_jobs`, `cron_schedules`, `settings`, `workspaces`
+- **3 AI services**: Vendor categorisation (`ai.js`), Vendor resolution (`resolution.js`), Architecture AI 3-phase (`architect.js`)
+- **4 AI providers**: Claude, OpenAI, DeepSeek, Gemini — via direct HTTP calls to provider APIs
+- **9 frontend pages**: Connect, Overview, FSI, Vendors, Resolution, Duplicates, Architect, Settings, Support
+- **SSE streaming**: Real-time progress for sync, vendor analysis, resolution, duplicate detection
 
-The first-label overlap on desktop happens because the first quarter's start date may precede `windowStart`, clamping its `left` to 0%. The next quarter is close by, and `transform: translateX(-50%)` makes the first label's right half overlap the second label's left half.
-
-**Fix**: Use `useRef` + `ResizeObserver` to measure the actual pixel width of the timeline column container.
-
-**Implementation** (in `PpmPortfolio.tsx`):
-1. Add `const timelineRef = useRef<HTMLDivElement>(null)` and `const [timelineWidth, setTimelineWidth] = useState(300)`
-2. Add a `useEffect` with `ResizeObserver`:
-   ```typescript
-   useEffect(() => {
-     const el = timelineRef.current;
-     if (!el) return;
-     const ro = new ResizeObserver(([entry]) => setTimelineWidth(entry.contentRect.width));
-     ro.observe(el);
-     return () => ro.disconnect();
-   }, []);
-   ```
-3. Attach `ref={timelineRef}` to the quarter labels `<Box>` container
-4. Compute step from measured width:
-   ```typescript
-   const pxPerQuarter = quarters.length > 1 ? timelineWidth / quarters.length : timelineWidth;
-   const step = pxPerQuarter >= 60 ? 1 : pxPerQuarter >= 30 ? 2 : 4;
-   ```
-5. For the first-label clipping: offset the first shown label's `left` to at least `2%` so `translateX(-50%)` doesn't push it out of bounds. Alternatively, use `transform: translateX(0)` for the first label and `translateX(-100%)` for the last label (edge-aware positioning).
+### What exists in Turbo EA integration today
+- **2 PostgreSQL tables**: `archlens_connections`, `archlens_analysis_runs` (proxy metadata only)
+- **Backend proxy**: `archlens.py` routes -> `ArchLensClient` HTTP calls -> standalone ArchLens container
+- **Frontend**: Single `ArchLensPage.tsx` with 4 tabs (Vendors, Duplicates, Architect, History)
+- **Permissions**: `archlens.view`, `archlens.manage`
 
 ---
 
-## Issue 3: Dark Mode — Selected Row Turns White on Table Side
+## Architecture Decision
 
-**Root cause**: The library's `selectedTaskBackgroundColor` is applied as an inline `backgroundColor` on the row div (lib line 1258). We set it to `rgba(144, 202, 249, 0.16)` — a semi-transparent value. The issue: the library also creates its own internal MUI theme (lib line 1012, `createTheme(themeOptions)`) which is always a **light** theme (variable named `materialLightTheme`). MUI focus/hover states from this internal light theme may paint white overlays on top. Additionally, semi-transparent colors blend differently depending on what's underneath, and on odd rows vs even rows the underlying color differs, creating inconsistent visual results.
+**ArchLens's `fact_sheets` table is unnecessary.** Turbo EA already has the `cards` table with the same data (name, type, description, lifecycle, owner, cost, etc.). All ArchLens AI services should query `cards` directly via SQLAlchemy — no data copy, no sync step.
 
-**Fix**: Use **opaque** selection colors that look correct regardless of what's underneath, bypassing any alpha-blending issues.
+**ArchLens's AI provider logic duplicates Turbo EA's.** Turbo EA already has `ai_service.py` that calls external LLMs. The new ArchLens services should reuse the same AI infrastructure (read provider/key from `app_settings`, call via httpx).
 
-**Implementation** (in `PpmGanttTab.tsx`):
-1. Change `selectedTaskBackgroundColor` from semi-transparent rgba to opaque values:
-   - Dark mode: `#1a3a5c` (a dark navy blue — visually similar to the current intent but opaque)
-   - Light mode: `#e3f2fd` (MUI blue-50 — a light blue that's clearly highlighted)
-2. These opaque colors guarantee the selected row looks identical on even and odd rows, and aren't affected by the library's internal light theme overlays.
+**ArchLens's "workspace" concept maps to "the entire Turbo EA instance."** There is only one landscape — no need for workspace routing.
 
 ---
 
-## Issue 4: Touch Horizontal Scroll Not Working
+## Phase 1: Backend — New PostgreSQL Tables + Alembic Migration
 
-**Root cause**: The library registers a `touchmove` handler on the SVG element (lib line 7841) that unconditionally calls `event.preventDefault()` (lib line 7801) — even when no task drag is in progress. The `handleMove()` function bails out early when no drag is happening, but `preventDefault()` is called **before** `handleMove()`, killing the browser's native touch scroll.
+### New tables (replace all SQLite tables)
 
-Our current workaround uses capture-phase **passive** touch handlers. This can't work because:
-- `passive: true` means we can't call `stopPropagation()` or `preventDefault()`
-- The library's bubble-phase handler fires after ours and still calls `preventDefault()`
-- Our manual `scrollLeft` changes are fighting against the blocked native scroll
+```
+archlens_vendor_analysis        — AI-categorised vendors
+archlens_vendor_hierarchy       — Canonical vendor tree (vendor -> product -> module)
+archlens_duplicate_clusters     — Duplicate detection results
+archlens_modernization_assessments — Modernization recommendations
+```
 
-**Fix**: Use a capture-phase **non-passive** `touchmove` handler that calls `stopImmediatePropagation()` when the user is scrolling (not dragging a task bar). This prevents the library's handler from ever firing.
+Keep existing `archlens_analysis_runs` (remove FK to connections, make standalone).
+Drop `archlens_connections` (no longer needed — no external container).
 
-**Implementation** (in `PpmGanttTab.tsx`):
-1. Replace the current passive touch workaround with:
-   ```typescript
-   const onTouchStart = (e: TouchEvent) => {
-     if (e.touches.length !== 1) return;
-     // If touch starts on a task bar, let the library handle it (drag)
-     if (isBarElement(e.target)) { isManualScroll = false; return; }
-     const sc = findScrollContainer();
-     if (!sc) return;
-     touchStartX = e.touches[0].clientX;
-     touchStartY = e.touches[0].clientY;
-     scrollStartLeft = sc.scrollLeft;
-     isManualScroll = true;
-   };
+**Migration**: `058_archlens_native.py`
+- Create 4 new tables
+- Alter `archlens_analysis_runs`: drop FK to connections, add nullable columns
+- Drop `archlens_connections` table
 
-   const onTouchMove = (e: TouchEvent) => {
-     if (!isManualScroll || e.touches.length !== 1) return;
-     // Key: stopImmediatePropagation prevents the library's touchmove handler
-     // from firing, which would call preventDefault() and kill scrolling
-     e.stopImmediatePropagation();
-     const sc = findScrollContainer();
-     if (sc) {
-       const dx = touchStartX - e.touches[0].clientX;
-       sc.scrollLeft = scrollStartLeft + dx;
-     }
-   };
-   ```
-2. Register with `{ capture: true, passive: false }` — non-passive is required so `stopImmediatePropagation()` works before the browser decides whether to scroll natively, and capture phase fires before the library's bubble-phase handler.
-3. The `touchstart` handler stays `passive: true` since it doesn't need to prevent anything.
-4. Add a deadzone check: only activate manual scroll if horizontal movement exceeds vertical by a threshold (e.g., 10px), so vertical page scrolling still works naturally.
+### New SQLAlchemy models
+
+`backend/app/models/archlens.py` — replace current proxy models:
+
+| Model | Key Columns |
+|-------|-------------|
+| `ArchLensVendorAnalysis` | vendor_name (unique), category, sub_category, reasoning, app_count, total_cost, app_list (JSONB), analysed_at |
+| `ArchLensVendorHierarchy` | canonical_name (unique), vendor_type (vendor/product/platform/module), parent_id (self-ref), aliases (JSONB), category, sub_category, app_count, itc_count, total_cost, linked_fs (JSONB), confidence, analysed_at |
+| `ArchLensDuplicateCluster` | cluster_name, card_type, functional_domain, card_ids (JSONB), card_names (JSONB), evidence, recommendation, status (pending/confirmed/investigating/dismissed), analysed_at |
+| `ArchLensModernization` | target_type, cluster_id (FK), card_id (FK nullable), card_name, current_tech, modernization_type, recommendation, effort, priority, status, analysed_at |
+| `ArchLensAnalysisRun` | (keep existing, remove connection_id FK) analysis_type, status, started_at, completed_at, results (JSONB), error_message, created_by |
+
+---
+
+## Phase 2: Backend — AI Services (Python rewrite)
+
+### New service files
+
+#### `backend/app/services/archlens_ai.py` — Shared AI caller
+
+Reuse Turbo EA's existing AI config from `app_settings.general_settings.ai`:
+- Read `providerType` (anthropic/openai) and `apiKey` from DB
+- Support Claude, OpenAI, DeepSeek, Gemini (same 4 providers as current ArchLens)
+- Return `{text, truncated}` with truncation detection
+- `parse_json(raw)` utility with truncated JSON repair
+
+This replaces ArchLens's `callAI()` function from `architect.js`.
+
+#### `backend/app/services/archlens_vendors.py` — Vendor Analysis
+
+Port `ai.js` -> `analyse_vendors()`:
+1. Query all cards with Provider relations from `cards` table (replaces `fact_sheets` query)
+2. Extract distinct vendor names from provider relation names
+3. Call AI to categorise vendors into 40+ categories (same prompt as current)
+4. Upsert results into `archlens_vendor_analysis`
+5. Return categorised vendors
+
+Port `resolution.js` -> `resolve_vendors()`:
+1. Load vendor analysis results + card data
+2. Call AI to build canonical vendor hierarchy (vendor -> product -> platform -> module)
+3. Upsert into `archlens_vendor_hierarchy`
+4. Return hierarchy tree
+
+#### `backend/app/services/archlens_duplicates.py` — Duplicate Detection
+
+Port duplicate detection logic:
+1. Query cards by type from `cards` table
+2. Group by type (Application, ITComponent, Interface)
+3. Call AI with card names + descriptions for semantic clustering
+4. Store clusters in `archlens_duplicate_clusters`
+5. Return clusters with evidence + recommendations
+
+Port modernization assessment:
+1. For selected duplicate clusters, call AI for modernization recommendations
+2. Store in `archlens_modernization_assessments`
+
+#### `backend/app/services/archlens_architect.py` — Architecture AI
+
+Port the 3-phase architect from `architect.js`:
+
+**`load_landscape()`**: Query cards from `cards` table with vendor/provider relations (replaces `fact_sheets` + `vendor_analysis` queries). Group by category for landscape context.
+
+**`phase1_questions(requirement)`**: Same prompt structure — detect architecture patterns, generate 6-8 business clarification questions.
+
+**`phase2_questions(requirement, phase1_qa)`**: Same prompt — refine requirement, identify missing capabilities, generate NFR + technical questions.
+
+**`phase3_architecture(requirement, all_qa)`**: Two-call pattern (already implemented in current fix):
+- Call 1: Structure (layers, gaps, integrations, risks, nextSteps) — 8K tokens
+- Call 2: Mermaid diagram — 4K tokens
+- Truncation detection + retry for missing sections
+- Cross-reference components against landscape
+
+---
+
+## Phase 3: Backend — API Routes
+
+### Replace `backend/app/api/v1/archlens.py`
+
+Remove all proxy logic and `ArchLensClient`. New direct endpoints:
+
+**Status & Overview**
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/archlens/status` | Check if AI is configured (read `app_settings`) |
+| `GET` | `/archlens/overview` | Dashboard KPIs: card counts by type, quality distribution, cost summary, top issues |
+
+**Vendor Analysis**
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/archlens/vendors/analyse` | Trigger vendor categorisation (background task) |
+| `GET` | `/archlens/vendors` | Get categorised vendors |
+| `POST` | `/archlens/vendors/resolve` | Trigger vendor resolution (background task) |
+| `GET` | `/archlens/vendors/hierarchy` | Get vendor hierarchy tree |
+
+**Duplicate Detection**
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/archlens/duplicates/analyse` | Trigger duplicate detection (background task) |
+| `GET` | `/archlens/duplicates` | Get duplicate clusters |
+| `PATCH` | `/archlens/duplicates/{id}/status` | Update cluster status (confirm/dismiss/investigate) |
+| `POST` | `/archlens/duplicates/modernize` | Trigger modernization assessment |
+| `GET` | `/archlens/duplicates/modernizations` | Get modernization results |
+
+**Architecture AI**
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/archlens/architect/phase1` | Phase 1 questions |
+| `POST` | `/archlens/architect/phase2` | Phase 2 questions |
+| `POST` | `/archlens/architect/phase3` | Phase 3 architecture generation |
+
+**Analysis History**
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/archlens/analysis-runs` | List analysis runs |
+
+### Long-running operations
+
+For AI operations (vendor analysis, resolution, duplicate detection): use **background tasks + polling** via `archlens_analysis_runs` status. The frontend polls the run status until complete. This is simpler than SSE and matches the existing pattern.
+
+### Permissions
+
+Keep existing keys: `archlens.view`, `archlens.manage`. No changes needed.
+
+### Pydantic Schemas
+
+Update `backend/app/schemas/archlens.py`:
+- Remove `ArchLensConnectionCreate/Update/Out` (no more connections)
+- Remove `ArchLensSyncRequest` (no more sync)
+- Add `VendorAnalysisOut`, `VendorHierarchyOut`, `DuplicateClusterOut`, `ModernizationOut`
+- Keep `ArchLensArchitectRequest` (phases 1-3)
+- Add `ArchLensOverviewOut`
+
+---
+
+## Phase 4: Frontend — Multi-Page ArchLens Feature
+
+### Route Structure
+
+Replace single `ArchLensPage.tsx` with multiple route-level pages:
+
+| Route | Component | Description |
+|-------|-----------|-------------|
+| `/archlens` | `ArchLensDashboard` | Overview dashboard (KPIs, quality distribution, top issues) |
+| `/archlens/vendors` | `ArchLensVendors` | Vendor analysis + categorisation with category cards |
+| `/archlens/vendors/resolution` | `ArchLensResolution` | Vendor hierarchy / deduplication tree |
+| `/archlens/duplicates` | `ArchLensDuplicates` | Duplicate detection + modernization wizard |
+| `/archlens/architect` | `ArchLensArchitect` | Architecture AI (3-phase wizard) |
+| `/archlens/history` | `ArchLensHistory` | Analysis run history |
+
+All pages use `lazy()` imports in `App.tsx` for code splitting.
+
+### Navigation
+
+Add "ArchLens" as a top-level nav section with sub-items:
+- Overview
+- Vendor Analysis
+- Vendor Resolution
+- Duplicate Detection
+- Architecture AI
+
+Guard all links behind `archlens.view` permission check.
+
+### Component Structure
+
+```
+frontend/src/features/archlens/
+  ArchLensDashboard.tsx        — KPI tiles, quality distribution, top issues, type breakdown
+  ArchLensVendors.tsx          — Category cards grid, vendor table, trigger analysis
+  ArchLensResolution.tsx       — Vendor hierarchy tree, canonical names, aliases
+  ArchLensDuplicates.tsx       — Cluster cards, status management, modernization wizard
+  ArchLensArchitect.tsx        — 3-phase wizard (extracted from current ArchLensPage.tsx)
+  ArchLensHistory.tsx          — Analysis runs table
+  components/
+    ArchitectureResultView.tsx  — Tabbed result display (extract from current)
+    MermaidDiagram.tsx          — Mermaid renderer (extract from current)
+    VendorCategoryCard.tsx      — Category card with icon, count, cost
+    DuplicateClusterCard.tsx    — Expandable cluster with actions
+    QualityDistribution.tsx     — Bronze/Silver/Gold locker tiles
+    ModernizationWizard.tsx     — Modernization assessment dialog
+  index.ts                      — Barrel exports
+```
+
+### What gets dropped (not ported)
+
+| Standalone Feature | Decision | Reason |
+|---|---|---|
+| **ConnectPage** | Drop | No external container to connect to |
+| **SettingsPage** | Drop | AI settings in Admin > Settings > AI; no separate DB config |
+| **SupportPage / FAQ** | Drop | Can be added to docs if needed |
+| **FSIPage (Fact Sheet Inventory)** | Drop | Turbo EA's Inventory page already provides this with AG Grid |
+| **Cron scheduling** | Drop for now | Background scheduling is a separate feature; can be added later |
+| **LeanIX-specific sync** | Drop | Turbo EA has its own card import mechanisms |
+
+### What gets fully ported
+
+| Feature | Source -> Target |
+|---|---|
+| **Overview Dashboard** | `OverviewPage.js` -> `ArchLensDashboard.tsx` |
+| **Vendor Categorisation** | `VendorsPage.js` -> `ArchLensVendors.tsx` |
+| **Vendor Resolution** | `ResolutionPage.js` -> `ArchLensResolution.tsx` |
+| **Duplicate Detection + Modernization** | `DuplicatesPage.js` -> `ArchLensDuplicates.tsx` |
+| **Architecture AI** | `ArchitectPage.js` -> `ArchLensArchitect.tsx` (mostly done already) |
+| **Analysis History** | Existing tab -> `ArchLensHistory.tsx` |
+
+---
+
+## Phase 5: i18n
+
+Add translation keys for all new pages across 8 locales (`en`, `de`, `fr`, `es`, `it`, `pt`, `zh`, `ru`). Use existing `admin` namespace (already has `archlens_*` keys).
+
+New key groups:
+- `archlens_dashboard_*` — Overview dashboard
+- `archlens_vendor_*` — Vendor analysis (expand existing)
+- `archlens_resolution_*` — Vendor resolution
+- `archlens_duplicate_*` — Duplicate detection
+- `archlens_modernization_*` — Modernization wizard
+
+---
+
+## Phase 6: Cleanup
+
+1. **Remove `archlens_connections` table** (migration drops it)
+2. **Remove `backend/app/services/archlens_service.py`** (HTTP client no longer needed)
+3. **Remove proxy logic from `archlens.py`** (replaced with direct service calls)
+4. **Remove `temp-archlens-changes/` directory** (no longer needed)
+5. **Update `docker-compose.yml`** — remove any ArchLens container references
+6. **Update `CLAUDE.md`** project structure docs
+7. **Update `CHANGELOG.md`** + bump version
 
 ---
 
 ## Implementation Order
 
-1. **Touch scroll** (Issue 4) — highest user impact, completely broken
-2. **Selected row white** (Issue 3) — simple color change, quick fix
-3. **Quarter labels** (Issue 2) — ResizeObserver measurement
-4. **SVG alternating rows** (Issue 1) — DOM injection, most complex
+| Step | Scope | Dependencies |
+|------|-------|-------------|
+| 1 | Alembic migration (new tables, drop connections) | None |
+| 2 | SQLAlchemy models | Step 1 |
+| 3 | `archlens_ai.py` — shared AI caller | Step 2 |
+| 4 | `archlens_vendors.py` — vendor analysis + resolution | Step 3 |
+| 5 | `archlens_duplicates.py` — duplicate detection + modernization | Step 3 |
+| 6 | `archlens_architect.py` — 3-phase architecture AI | Step 3 |
+| 7 | Pydantic schemas | Step 2 |
+| 8 | API routes (replace proxy with direct) | Steps 4-7 |
+| 9 | Frontend: `ArchLensDashboard.tsx` | Step 8 |
+| 10 | Frontend: `ArchLensVendors.tsx` + `VendorCategoryCard.tsx` | Step 8 |
+| 11 | Frontend: `ArchLensResolution.tsx` | Step 8 |
+| 12 | Frontend: `ArchLensDuplicates.tsx` + modernization wizard | Step 8 |
+| 13 | Frontend: `ArchLensArchitect.tsx` (extract + polish existing) | Step 8 |
+| 14 | Frontend: Routes in `App.tsx` + nav integration | Steps 9-13 |
+| 15 | i18n: All 8 locales | Steps 9-13 |
+| 16 | Cleanup: Remove old files, update docs | All |
+| 17 | Backend tests | Steps 4-8 |
+| 18 | Frontend tests | Steps 9-13 |
 
-## Files Modified
+---
 
-- `frontend/src/features/ppm/PpmGanttTab.tsx` — Issues 1, 3, 4
-- `frontend/src/features/ppm/PpmPortfolio.tsx` — Issue 2
+## Key Design Decisions
+
+1. **No data copy** — ArchLens queries `cards` table directly, no intermediate `fact_sheets` table
+2. **Reuse AI infrastructure** — Same AI config from `app_settings`, same provider patterns
+3. **Background tasks + polling** — Not SSE streaming (simpler, existing pattern)
+4. **Multi-page routing** — Each ArchLens feature is its own route, not tabs in one page
+5. **Drop LeanIX-specific features** — ConnectPage, cron sync, FSI table all replaced by Turbo EA native
+6. **Keep all AI features** — Vendor analysis, resolution, duplicates, modernization, architect
