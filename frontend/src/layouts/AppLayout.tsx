@@ -142,15 +142,19 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
 
-    // Add ArchLens as top-level nav item when AI is configured
+    // Append single ArchLens entry to Reports dropdown when AI is configured
     if (archLensReady && can("archlens.view")) {
-      const todosIdx = items.findIndex((item) => item.labelKey === "todos");
-      const insertAt = todosIdx >= 0 ? todosIdx : items.length;
-      items = [
-        ...items.slice(0, insertAt),
-        { labelKey: "archlens", icon: "psychology", path: "/archlens", permission: "archlens.view" },
-        ...items.slice(insertAt),
-      ];
+      items = items.map((item) =>
+        item.labelKey === "reports"
+          ? {
+              ...item,
+              children: [
+                ...(item.children || []),
+                { labelKey: "archlens", icon: "psychology", path: "/archlens" },
+              ],
+            }
+          : item,
+      );
     }
 
     const resolve = (def: NavItemDef): NavItem => ({
@@ -695,7 +699,8 @@ export default function AppLayout({ children, user, onLogout }: Props) {
             onClose={() => setReportsMenu(null)}
           >
             {navItems.find((n) => n.children)?.children?.map((child, idx) => {
-              const needsDivider = child.path === "/reports/saved";
+              const needsDivider =
+                child.path === "/reports/saved" || child.path === "/archlens";
               return (
                 <Box key={child.path}>
                   {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}
