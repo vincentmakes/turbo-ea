@@ -55,6 +55,8 @@ export function useAnalysisPolling(onComplete?: () => void) {
       }
     };
 
+    // Check immediately, then poll at interval
+    check();
     timerRef.current = setInterval(check, POLL_INTERVAL_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);

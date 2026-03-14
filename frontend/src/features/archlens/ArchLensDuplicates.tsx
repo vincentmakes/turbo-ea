@@ -65,6 +65,7 @@ export default function ArchLensDuplicates() {
   // ── Shared state ───────────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [updatingCluster, setUpdatingCluster] = useState<string | null>(null);
   const { startPolling: startDetectPoll, polling: detectPollActive } =
     useAnalysisPolling(() => loadClusters());
   const { startPolling: startModernPoll, polling: modernPollActive } =
@@ -173,6 +174,7 @@ export default function ArchLensDuplicates() {
     clusterId: string,
     action: "confirmed" | "dismissed" | "investigating",
   ) => {
+    setUpdatingCluster(clusterId);
     try {
       await api.patch(`/archlens/duplicates/${clusterId}/status`, { status: action });
       setClusters((prev) =>
@@ -180,6 +182,8 @@ export default function ArchLensDuplicates() {
       );
     } catch (err: unknown) {
       setError(err instanceof ApiError ? err.message : String(err));
+    } finally {
+      setUpdatingCluster(null);
     }
   };
 
@@ -387,36 +391,48 @@ export default function ArchLensDuplicates() {
 
                       {/* Actions */}
                       <Stack direction="row" spacing={1}>
-                        <Tooltip title={t("archlens_action_confirm")}>
-                          <IconButton
-                            size="small"
-                            color="success"
-                            onClick={() => handleClusterAction(cluster.id, "confirmed")}
-                            disabled={cluster.status === "confirmed"}
-                          >
-                            <MaterialSymbol icon="check_circle" size={20} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("archlens_action_dismiss")}>
-                          <IconButton
-                            size="small"
-                            color="default"
-                            onClick={() => handleClusterAction(cluster.id, "dismissed")}
-                            disabled={cluster.status === "dismissed"}
-                          >
-                            <MaterialSymbol icon="cancel" size={20} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("archlens_action_investigate")}>
-                          <IconButton
-                            size="small"
-                            color="warning"
-                            onClick={() => handleClusterAction(cluster.id, "investigating")}
-                            disabled={cluster.status === "investigating"}
-                          >
-                            <MaterialSymbol icon="search" size={20} />
-                          </IconButton>
-                        </Tooltip>
+                        {updatingCluster === cluster.id ? (
+                          <CircularProgress size={20} sx={{ m: 0.5 }} />
+                        ) : (
+                          <>
+                            <Tooltip title={t("archlens_action_confirm")}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="success"
+                                  onClick={() => handleClusterAction(cluster.id, "confirmed")}
+                                  disabled={cluster.status === "confirmed"}
+                                >
+                                  <MaterialSymbol icon="check_circle" size={20} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title={t("archlens_action_dismiss")}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="default"
+                                  onClick={() => handleClusterAction(cluster.id, "dismissed")}
+                                  disabled={cluster.status === "dismissed"}
+                                >
+                                  <MaterialSymbol icon="cancel" size={20} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                            <Tooltip title={t("archlens_action_investigate")}>
+                              <span>
+                                <IconButton
+                                  size="small"
+                                  color="warning"
+                                  onClick={() => handleClusterAction(cluster.id, "investigating")}
+                                  disabled={cluster.status === "investigating"}
+                                >
+                                  <MaterialSymbol icon="search" size={20} />
+                                </IconButton>
+                              </span>
+                            </Tooltip>
+                          </>
+                        )}
                       </Stack>
                     </CardContent>
                   </Card>

@@ -517,12 +517,4 @@ async def get_analysis_run(
     if not run:
         raise HTTPException(404, "Analysis run not found")
 
-    return {
-        "id": str(run.id),
-        "analysis_type": run.analysis_type,
-        "status": run.status,
-        "started_at": run.started_at,
-        "completed_at": run.completed_at,
-        "results": run.results,
-        "error_message": run.error_message,
-    }
+    return ArchLensAnalysisRunOut.model_validate(run, from_attributes=True)
