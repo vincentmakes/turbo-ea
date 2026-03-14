@@ -18,7 +18,12 @@ from app.models.archlens import ArchLensVendorAnalysis
 from app.models.card import Card
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
-from app.services.archlens_ai import call_ai, parse_json
+from app.services.archlens_ai import (
+    call_ai,
+    format_principles_block,
+    load_active_principles,
+    parse_json,
+)
 
 logger = logging.getLogger("turboea.archlens.architect")
 
@@ -44,6 +49,15 @@ When asking questions, you think like a real architect running a discovery sessi
 - You flag when an event-driven or async pattern is needed vs synchronous REST
 
 Always respond with valid JSON only \u2014 no markdown fences, no preamble text."""
+
+
+async def _build_persona_with_principles(db: AsyncSession) -> str:
+    """Build the architect persona with EA principles appended."""
+    principles = await load_active_principles(db)
+    block = format_principles_block(principles)
+    if not block:
+        return ARCHITECT_PERSONA
+    return ARCHITECT_PERSONA + "\n\n" + block
 
 
 # ---------------------------------------------------------------------------
@@ -284,6 +298,7 @@ CRITICAL RULES:
 3. Mix question types: use 'choice' for bounded answers, 'multi' for multi-select, 'text' for open-ended # noqa: E501
 4. The 'why' field must explain the ARCHITECTURAL IMPLICATION
 5. Each question must directly affect an architectural decision
+6. If EA principles are provided, ensure at least one question probes alignment with key principles
 
 Respond with ONLY this JSON:
 {{
@@ -302,7 +317,8 @@ Respond with ONLY this JSON:
   ]
 }}"""
 
-    result = await call_ai(db, prompt, 2500, ARCHITECT_PERSONA)
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 2500, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -346,6 +362,7 @@ CRITICAL RULES:
 1. Build on Phase 1 answers \u2014 do not repeat
 2. Reference existing landscape systems
 3. Each question must change a specific design decision in Phase 3
+4. Consider alignment with EA principles when formulating technical questions
 
 Respond with ONLY this JSON:
 {{
@@ -366,7 +383,8 @@ Respond with ONLY this JSON:
   ]
 }}"""
 
-    result = await call_ai(db, prompt, 2800, ARCHITECT_PERSONA)
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 2800, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 
@@ -411,6 +429,7 @@ RULES:
 2. GAP ANALYSIS: For every missing capability, provide 3-4 named product recommendations.
 3. INTEGRATION MAP: List every integration with protocol, direction, data flows.
 4. Include ALL 7 sections below.
+5. PRINCIPLE ALIGNMENT: Note when components or decisions align with or conflict with stated EA principles.
 
 Respond with ONLY this JSON:
 {{
@@ -454,7 +473,8 @@ Respond with ONLY this JSON:
   ]
 }}"""
 
-    struct_result = await call_ai(db, structure_prompt, 8000, ARCHITECT_PERSONA)
+    persona = await _build_persona_with_principles(db)
+    struct_result = await call_ai(db, structure_prompt, 8000, persona)
     result: dict[str, Any] = parse_json(struct_result["text"])
 
     # Check for truncation
@@ -481,7 +501,7 @@ REQUIREMENT: "{requirement}"
 Respond with ONLY a JSON object containing the missing sections."""
 
         try:
-            retry_result = await call_ai(db, retry_prompt, 6000, ARCHITECT_PERSONA)
+            retry_result = await call_ai(db, retry_prompt, 6000, persona)
             retry_data = parse_json(retry_result["text"])
             for section in missing_sections:
                 if retry_data.get(section):
