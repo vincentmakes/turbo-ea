@@ -22,6 +22,22 @@ class ArchLensClient:
     def _client(self, timeout: float = DEFAULT_TIMEOUT) -> httpx.AsyncClient:
         return httpx.AsyncClient(base_url=self._base, timeout=timeout)
 
+    @staticmethod
+    def _check_response(r: httpx.Response, endpoint: str) -> None:
+        """Raise with the upstream error message instead of a bare status code."""
+        if r.is_success:
+            return
+        detail = ""
+        try:
+            detail = r.json().get("error", "")
+        except Exception:
+            detail = r.text[:300]
+        raise httpx.HTTPStatusError(
+            f"ArchLens {endpoint} failed ({r.status_code}): {detail}",
+            request=r.request,
+            response=r,
+        )
+
     # ── Health / connectivity ───────────────────────────────────────────────
     async def test_connection(self) -> tuple[bool, str]:
         """Hit GET /api/health and return (ok, message)."""
@@ -198,7 +214,7 @@ class ArchLensClient:
                 "/api/architect/phase1",
                 json={"workspace": workspace, "requirement": requirement},
             )
-            r.raise_for_status()
+            self._check_response(r, "architect/phase1")
             return cast(dict[str, Any], r.json())
 
     async def architect_phase2(
@@ -216,7 +232,7 @@ class ArchLensClient:
                     "phase1QA": phase1_qa,
                 },
             )
-            r.raise_for_status()
+            self._check_response(r, "architect/phase2")
             return cast(dict[str, Any], r.json())
 
     async def architect_phase3(
@@ -234,5 +250,5 @@ class ArchLensClient:
                     "allQA": all_qa,
                 },
             )
-            r.raise_for_status()
+            self._check_response(r, "architect/phase3")
             return cast(dict[str, Any], r.json())
