@@ -83,4 +83,4 @@ site/
 archive/
 
 # ArchLens fork (built from GitHub URL in docker-compose)
-archlens/
+/archlens/

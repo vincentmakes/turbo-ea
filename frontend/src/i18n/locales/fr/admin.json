@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Portails web",
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "Apparence",
   "settings.section.modules": "Modules",
   "settings.section.authentication": "Authentification",
@@ -861,5 +862,8 @@
   "archlens_started_at": "Démarré",
   "archlens_completed_at": "Terminé",
   "archlens_error": "Erreur",
-  "archlens_no_history": "Aucun historique d'analyse."
+  "archlens_no_history": "Aucun historique d'analyse.",
+  "archlens_settings_description": "Gérer les connexions aux instances ArchLens pour l'analyse par IA.",
+  "archlens_no_connection_title": "Aucune connexion configurée",
+  "archlens_no_connection_description": "Configurez une connexion ArchLens dans les paramètres d'administration pour utiliser l'analyse des fournisseurs, la détection des doublons et l'IA d'architecture."
 }

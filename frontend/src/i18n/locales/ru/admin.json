@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Веб-порталы",
   "settings.tabs.ai": "ИИ",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "Внешний вид",
   "settings.section.modules": "Модули",
   "settings.section.authentication": "Аутентификация",
@@ -861,5 +862,8 @@
   "archlens_started_at": "Начало",
   "archlens_completed_at": "Завершение",
   "archlens_error": "Ошибка",
-  "archlens_no_history": "История анализов пуста."
+  "archlens_no_history": "История анализов пуста.",
+  "archlens_settings_description": "Управление подключениями к экземплярам ArchLens для анализа на базе ИИ.",
+  "archlens_no_connection_title": "Подключение не настроено",
+  "archlens_no_connection_description": "Настройте подключение ArchLens в параметрах администрирования, чтобы использовать анализ поставщиков, обнаружение дубликатов и ИИ для архитектуры."
 }

@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Web-Portale",
   "settings.tabs.ai": "KI",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "Erscheinungsbild",
   "settings.section.modules": "Module",
   "settings.section.authentication": "Authentifizierung",
@@ -861,5 +862,8 @@
   "archlens_started_at": "Gestartet",
   "archlens_completed_at": "Abgeschlossen",
   "archlens_error": "Fehler",
-  "archlens_no_history": "Noch keine Analyseläufe."
+  "archlens_no_history": "Noch keine Analyseläufe.",
+  "archlens_settings_description": "Verbindungen zu ArchLens-Instanzen für KI-gestützte Analysen verwalten.",
+  "archlens_no_connection_title": "Keine Verbindung konfiguriert",
+  "archlens_no_connection_description": "Richten Sie eine ArchLens-Verbindung in den Admin-Einstellungen ein, um Anbieteranalyse, Duplikaterkennung und Architektur-KI zu nutzen."
 }

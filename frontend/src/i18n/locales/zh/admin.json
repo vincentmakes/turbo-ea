@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Web 门户",
   "settings.tabs.ai": "AI",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "外观",
   "settings.section.modules": "模块",
   "settings.section.authentication": "认证",
@@ -861,5 +862,8 @@
   "archlens_started_at": "开始时间",
   "archlens_completed_at": "完成时间",
   "archlens_error": "错误",
-  "archlens_no_history": "暂无分析记录。"
+  "archlens_no_history": "暂无分析记录。",
+  "archlens_settings_description": "管理与ArchLens实例的连接，用于AI驱动的分析。",
+  "archlens_no_connection_title": "未配置连接",
+  "archlens_no_connection_description": "在管理设置中配置ArchLens连接，以开始使用供应商分析、重复检测和架构AI。"
 }

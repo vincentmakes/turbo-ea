@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Web Portals",
   "settings.tabs.ai": "AI",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "Appearance",
   "settings.section.modules": "Modules",
   "settings.section.authentication": "Authentication",
@@ -861,5 +862,8 @@
   "archlens_started_at": "Started",
   "archlens_completed_at": "Completed",
   "archlens_error": "Error",
-  "archlens_no_history": "No analysis runs yet."
+  "archlens_no_history": "No analysis runs yet.",
+  "archlens_settings_description": "Manage connections to ArchLens instances for AI-powered analysis.",
+  "archlens_no_connection_title": "No Connection Configured",
+  "archlens_no_connection_description": "Set up an ArchLens connection in Admin Settings to start using vendor analysis, duplicate detection, and architecture AI."
 }

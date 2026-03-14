@@ -250,6 +250,7 @@
   "settings.tabs.webPortals": "Portais web",
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
+  "settings.tabs.archlens": "ArchLens",
   "settings.section.appearance": "Aparência",
   "settings.section.modules": "Módulos",
   "settings.section.authentication": "Autenticação",
@@ -861,5 +862,8 @@
   "archlens_started_at": "Iniciado",
   "archlens_completed_at": "Concluído",
   "archlens_error": "Erro",
-  "archlens_no_history": "Sem histórico de análises."
+  "archlens_no_history": "Sem histórico de análises.",
+  "archlens_settings_description": "Gerir ligações a instâncias ArchLens para análise com IA.",
+  "archlens_no_connection_title": "Nenhuma ligação configurada",
+  "archlens_no_connection_description": "Configure uma ligação ArchLens nas definições de administração para utilizar a análise de fornecedores, a deteção de duplicados e a IA de arquitetura."
 }

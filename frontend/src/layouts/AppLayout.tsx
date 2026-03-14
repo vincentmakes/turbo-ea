@@ -81,14 +81,14 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
+  { labelKey: "archlens", icon: "psychology", path: "/archlens", permission: "archlens.view" },
 ];
 
 const ADMIN_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
   { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage"] },
-  { labelKey: "admin.archlens", icon: "psychology", path: "/admin/archlens", permission: "archlens.view" },
+  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage", "archlens.manage"] },
 ];
 
 interface PermissionMap {
