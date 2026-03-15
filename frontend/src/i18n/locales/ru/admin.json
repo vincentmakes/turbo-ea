@@ -1038,6 +1038,8 @@
   "archlens_architect_proposed_cards": "Предлагаемые новые карточки",
   "archlens_architect_proposed_relations": "Предлагаемые новые связи",
   "archlens_architect_no_new_cards": "Новые карточки не предложены",
+  "archlens_architect_enable_card": "Включить эту карточку и её связи",
+  "archlens_architect_disable_card": "Отключить эту карточку и её связи",
   "archlens_architect_new": "Новый",
   "archlens_architect_existing": "Существующий",
   "archlens_architect_dependency_diagram": "Диаграмма зависимостей",

@@ -1038,6 +1038,8 @@
   "archlens_architect_proposed_cards": "Nuove schede proposte",
   "archlens_architect_proposed_relations": "Nuove relazioni proposte",
   "archlens_architect_no_new_cards": "Nessuna nuova scheda proposta",
+  "archlens_architect_enable_card": "Attivare questa scheda e le sue relazioni",
+  "archlens_architect_disable_card": "Disattivare questa scheda e le sue relazioni",
   "archlens_architect_new": "Nuovo",
   "archlens_architect_existing": "Esistente",
   "archlens_architect_dependency_diagram": "Diagramma delle dipendenze",

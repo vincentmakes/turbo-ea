@@ -1038,6 +1038,8 @@
   "archlens_architect_proposed_cards": "建议的新卡片",
   "archlens_architect_proposed_relations": "建议的新关系",
   "archlens_architect_no_new_cards": "未建议新卡片",
+  "archlens_architect_enable_card": "启用此卡片及其关系",
+  "archlens_architect_disable_card": "禁用此卡片及其关系",
   "archlens_architect_new": "新建",
   "archlens_architect_existing": "现有",
   "archlens_architect_dependency_diagram": "依赖关系图",

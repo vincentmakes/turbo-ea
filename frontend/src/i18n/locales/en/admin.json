@@ -1039,6 +1039,8 @@
   "archlens_architect_proposed_cards": "Proposed New Cards",
   "archlens_architect_proposed_relations": "Proposed New Relations",
   "archlens_architect_no_new_cards": "No new cards proposed",
+  "archlens_architect_enable_card": "Enable this card and its relations",
+  "archlens_architect_disable_card": "Disable this card and its relations",
   "archlens_architect_new": "New",
   "archlens_architect_existing": "Existing",
   "archlens_architect_dependency_diagram": "Dependency Diagram",

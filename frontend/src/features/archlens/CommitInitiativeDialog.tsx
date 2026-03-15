@@ -57,17 +57,35 @@ export default function CommitInitiativeDialog({
   const pollRef = useRef<ReturnType<typeof setInterval>>();
 
   const newCards = useMemo(
-    () => capabilityMapping.proposedCards.filter((c) => c.isNew),
+    () => capabilityMapping.proposedCards.filter((c) => c.isNew && !c.disabled),
     [capabilityMapping],
   );
 
-  // Pre-select all new cards and relations
+  // Pre-select all new cards and relations (excluding disabled)
+  const disabledCardIds = useMemo(
+    () =>
+      new Set(
+        capabilityMapping.proposedCards
+          .filter((c) => c.disabled)
+          .map((c) => c.id),
+      ),
+    [capabilityMapping],
+  );
   useEffect(() => {
     setSelectedCards(new Set(newCards.map((c) => c.id)));
     setSelectedRels(
-      new Set(capabilityMapping.proposedRelations.map((_, i) => i)),
+      new Set(
+        capabilityMapping.proposedRelations
+          .map((rel, i) => ({ rel, i }))
+          .filter(
+            ({ rel }) =>
+              !disabledCardIds.has(rel.sourceId) &&
+              !disabledCardIds.has(rel.targetId),
+          )
+          .map(({ i }) => i),
+      ),
     );
-  }, [newCards, capabilityMapping.proposedRelations]);
+  }, [newCards, capabilityMapping.proposedRelations, disabledCardIds]);
 
   const toggleCard = (id: string) => {
     setSelectedCards((prev) => {

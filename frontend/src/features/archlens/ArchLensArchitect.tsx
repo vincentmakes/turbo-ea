@@ -8,6 +8,9 @@ import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Switch from "@mui/material/Switch";
+import Tooltip from "@mui/material/Tooltip";
 import Paper from "@mui/material/Paper";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
@@ -718,6 +721,8 @@ export default function ArchLensArchitect() {
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [commitDialogOpen, setCommitDialogOpen] = useState(false);
   const [snackMsg, setSnackMsg] = useState("");
+  // Proposed card edit state: { cardId: editedName }
+  const [editingCard, setEditingCard] = useState<{ id: string; name: string } | null>(null);
 
   const saveSession = useCallback(() => {
     const session: ArchSession = {
@@ -804,8 +809,13 @@ export default function ArchLensArchitect() {
       }
     }
 
-    // Add proposed cards as nodes with proposed=true
+    // Add proposed cards as nodes with proposed=true (skip disabled)
+    const disabledIds = new Set<string>();
     for (const card of capabilityMapping.proposedCards) {
+      if (card.disabled) {
+        disabledIds.add(card.id);
+        continue;
+      }
       if (!nodeMap.has(card.id)) {
         nodeMap.set(card.id, {
           id: card.id,
@@ -845,6 +855,8 @@ export default function ArchLensArchitect() {
 
     // Proposed relations as edges — enforce metamodel source/target direction
     for (const rel of capabilityMapping.proposedRelations) {
+      // Skip relations involving disabled cards
+      if (disabledIds.has(rel.sourceId) || disabledIds.has(rel.targetId)) continue;
       const resolveId = (refId: string): string => {
         const cap = capabilityMapping.capabilities.find((c) => c.id === refId);
         if (cap) return cap.existingCardId || cap.id;
@@ -2069,44 +2081,190 @@ export default function ArchLensArchitect() {
                             const ti = types.find(
                               (tp) => tp.key === card.cardTypeKey,
                             );
+                            const isEditing = editingCard?.id === card.id;
                             return (
                               <Stack
                                 key={card.id}
                                 direction="row"
-                                spacing={1}
+                                spacing={0.5}
                                 alignItems="center"
+                                sx={{
+                                  opacity: card.disabled ? 0.45 : 1,
+                                  transition: "opacity 0.2s",
+                                }}
                               >
+                                <Tooltip
+                                  title={
+                                    card.disabled
+                                      ? t("archlens_architect_enable_card")
+                                      : t("archlens_architect_disable_card")
+                                  }
+                                  arrow
+                                >
+                                  <Switch
+                                    size="small"
+                                    checked={!card.disabled}
+                                    onChange={() => {
+                                      setCapabilityMapping((prev) => {
+                                        if (!prev) return prev;
+                                        return {
+                                          ...prev,
+                                          proposedCards:
+                                            prev.proposedCards.map((c) =>
+                                              c.id === card.id
+                                                ? {
+                                                    ...c,
+                                                    disabled: !c.disabled,
+                                                  }
+                                                : c,
+                                            ),
+                                        };
+                                      });
+                                    }}
+                                    sx={{ mr: 0.5 }}
+                                  />
+                                </Tooltip>
                                 {ti && (
                                   <MaterialSymbol
                                     icon={ti.icon}
                                     size={14}
-                                    color={ti.color}
+                                    color={
+                                      card.disabled
+                                        ? "inherit"
+                                        : ti.color
+                                    }
                                   />
                                 )}
-                                <TextField
-                                  size="small"
-                                  variant="standard"
-                                  value={card.name}
-                                  onChange={(e) => {
-                                    const newName = e.target.value;
-                                    setCapabilityMapping((prev) => {
-                                      if (!prev) return prev;
-                                      return {
-                                        ...prev,
-                                        proposedCards: prev.proposedCards.map(
-                                          (c) =>
-                                            c.id === card.id
-                                              ? { ...c, name: newName }
-                                              : c,
-                                        ),
-                                      };
-                                    });
-                                  }}
-                                  inputProps={{
-                                    style: { fontSize: 14, padding: 0 },
-                                  }}
-                                  sx={{ flex: 1, minWidth: 120 }}
-                                />
+                                {isEditing ? (
+                                  <>
+                                    <TextField
+                                      size="small"
+                                      variant="standard"
+                                      autoFocus
+                                      value={editingCard.name}
+                                      onChange={(e) =>
+                                        setEditingCard({
+                                          id: card.id,
+                                          name: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setCapabilityMapping((prev) => {
+                                            if (!prev) return prev;
+                                            return {
+                                              ...prev,
+                                              proposedCards:
+                                                prev.proposedCards.map((c) =>
+                                                  c.id === card.id
+                                                    ? {
+                                                        ...c,
+                                                        name:
+                                                          editingCard.name,
+                                                      }
+                                                    : c,
+                                                ),
+                                            };
+                                          });
+                                          setEditingCard(null);
+                                        } else if (e.key === "Escape") {
+                                          setEditingCard(null);
+                                        }
+                                      }}
+                                      inputProps={{
+                                        style: {
+                                          fontSize: 14,
+                                          padding: 0,
+                                        },
+                                      }}
+                                      sx={{ flex: 1, minWidth: 120 }}
+                                    />
+                                    <Tooltip
+                                      title={t("common:actions.save")}
+                                      arrow
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        color="primary"
+                                        onClick={() => {
+                                          setCapabilityMapping((prev) => {
+                                            if (!prev) return prev;
+                                            return {
+                                              ...prev,
+                                              proposedCards:
+                                                prev.proposedCards.map((c) =>
+                                                  c.id === card.id
+                                                    ? {
+                                                        ...c,
+                                                        name:
+                                                          editingCard.name,
+                                                      }
+                                                    : c,
+                                                ),
+                                            };
+                                          });
+                                          setEditingCard(null);
+                                        }}
+                                      >
+                                        <MaterialSymbol
+                                          icon="check"
+                                          size={16}
+                                        />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip
+                                      title={t("common:actions.cancel")}
+                                      arrow
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          setEditingCard(null)
+                                        }
+                                      >
+                                        <MaterialSymbol
+                                          icon="close"
+                                          size={16}
+                                        />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        flex: 1,
+                                        textDecoration: card.disabled
+                                          ? "line-through"
+                                          : undefined,
+                                      }}
+                                    >
+                                      {card.name}
+                                    </Typography>
+                                    {!card.disabled && (
+                                      <Tooltip
+                                        title={t("common:actions.edit")}
+                                        arrow
+                                      >
+                                        <IconButton
+                                          size="small"
+                                          onClick={() =>
+                                            setEditingCard({
+                                              id: card.id,
+                                              name: card.name,
+                                            })
+                                          }
+                                        >
+                                          <MaterialSymbol
+                                            icon="edit"
+                                            size={14}
+                                          />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                  </>
+                                )}
                                 {card.subtype && (
                                   <Typography
                                     variant="caption"
@@ -2150,28 +2308,38 @@ export default function ArchLensArchitect() {
                     </Typography>
                     <Stack spacing={0.3}>
                       {capabilityMapping.proposedRelations.map((rel, i) => {
+                        const srcCard = capabilityMapping.proposedCards.find(
+                          (c) => c.id === rel.sourceId,
+                        );
+                        const tgtCard = capabilityMapping.proposedCards.find(
+                          (c) => c.id === rel.targetId,
+                        );
                         const srcName =
-                          capabilityMapping.proposedCards.find(
-                            (c) => c.id === rel.sourceId,
-                          )?.name ||
+                          srcCard?.name ||
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.sourceId,
                           )?.name ||
                           rel.sourceId;
                         const tgtName =
-                          capabilityMapping.proposedCards.find(
-                            (c) => c.id === rel.targetId,
-                          )?.name ||
+                          tgtCard?.name ||
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.targetId,
                           )?.name ||
                           rel.targetId;
+                        const relDisabled =
+                          srcCard?.disabled || tgtCard?.disabled;
                         return (
                           <Stack
                             key={i}
                             direction="row"
                             spacing={0.5}
                             alignItems="center"
+                            sx={{
+                              opacity: relDisabled ? 0.4 : 1,
+                              textDecoration: relDisabled
+                                ? "line-through"
+                                : undefined,
+                            }}
                           >
                             <Typography variant="caption">
                               {srcName}

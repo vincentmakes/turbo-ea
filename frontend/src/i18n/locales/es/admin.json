@@ -1038,6 +1038,8 @@
   "archlens_architect_proposed_cards": "Nuevas tarjetas propuestas",
   "archlens_architect_proposed_relations": "Nuevas relaciones propuestas",
   "archlens_architect_no_new_cards": "No se proponen nuevas tarjetas",
+  "archlens_architect_enable_card": "Activar esta tarjeta y sus relaciones",
+  "archlens_architect_disable_card": "Desactivar esta tarjeta y sus relaciones",
   "archlens_architect_new": "Nuevo",
   "archlens_architect_existing": "Existente",
   "archlens_architect_dependency_diagram": "Diagrama de dependencias",

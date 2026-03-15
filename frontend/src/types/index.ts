@@ -1365,6 +1365,7 @@ export interface ProposedCard {
   subtype?: string;
   isNew: boolean;
   rationale?: string;
+  disabled?: boolean;
 }
 
 export interface ProposedRelation {
