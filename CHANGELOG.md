@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.39.1] - 2026-03-15
+
+### Added
+- Comprehensive user documentation for the ArchLens AI Intelligence module covering all features: dashboard, vendor analysis, vendor resolution, duplicate detection, modernization assessment, and the 5-step Architecture AI wizard — in all 8 supported locales
+- Expanded CLAUDE.md ArchLens section with full API route table, Architecture AI flow description, and frontend component reference
+- Automated screenshot entries for all 6 ArchLens pages in all 8 locales
+
 ## [0.39.0] - 2026-03-15
 
 ### Added

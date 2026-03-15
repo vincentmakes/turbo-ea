@@ -1184,6 +1184,7 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 - **AI infrastructure reuse**: Uses the same AI provider config from `app_settings.general_settings.ai` (supports Claude, OpenAI, DeepSeek, Gemini).
 - **Background tasks + polling**: Long-running AI operations use FastAPI `BackgroundTasks` + `ArchLensAnalysisRun` status polling.
 - **Direct data access**: Queries `cards`, `relations`, and `relation_types` tables via SQLAlchemy — no data copy or intermediate storage.
+- **Session persistence**: The Architecture AI wizard saves progress to `sessionStorage` so users can navigate away and return without losing their place.
 
 ### Database Tables
 
@@ -1202,7 +1203,20 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `services/archlens_ai.py` | Shared AI caller + JSON repair (truncation recovery, bracket balancing) |
 | `services/archlens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
 | `services/archlens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
-| `services/archlens_architect.py` | 3-phase architecture AI: intent detection, landscape context, two-call pattern (structure 8K + diagram 4K tokens) |
+| `services/archlens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture with C4 diagram visualization |
+
+### Architecture AI Flow
+
+The Architecture AI follows a 5-step guided wizard:
+
+1. **Requirements** (Phase 0) — User enters a business requirement, selects existing Objective cards (autocomplete), and optionally selects or creates Business Capabilities (free-text for new ones).
+2. **Business Fit** (Phase 1) — AI generates business clarification questions with typed inputs (text, single-choice, multi-choice with NFR categories).
+3. **Technical Fit** (Phase 2) — AI generates technical deep-dive questions.
+4. **Solution** (Phase 3) — Three sub-phases:
+   - **3a: Options** — AI generates solution option cards (buy/build/extend/reuse) with impact preview (new/modified/retired components, integrations), estimated cost, duration, and complexity.
+   - **3b: Gap Analysis** — After selecting an option, AI identifies capability gaps with ranked market product recommendations (gold/silver/bronze). Users select products via checkboxes.
+   - **3c: Dependencies** — After selecting products, AI identifies additional infrastructure/platform dependencies needed. Users select dependencies via checkboxes.
+5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel), proposed relations, and an interactive C4 dependency diagram rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge.
 
 ### API Routes (`/archlens`)
 
@@ -1219,19 +1233,38 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | PATCH | `/duplicates/{id}/status` | `archlens.manage` | Update cluster status |
 | POST | `/duplicates/modernize` | `archlens.manage` | Trigger modernization assessment (background) |
 | GET | `/duplicates/modernizations` | `archlens.view` | Get modernization results |
-| POST | `/architect/phase{1,2,3}` | `archlens.manage` | Run architecture AI phases |
+| GET | `/architect/objectives` | `archlens.manage` | Search Objective cards for autocomplete |
+| GET | `/architect/capabilities` | `archlens.manage` | Search BusinessCapability cards |
+| GET | `/architect/objective-dependencies` | `archlens.manage` | BFS depth-1 dependency subgraph for objectives |
+| POST | `/architect/phase1` | `archlens.manage` | Business clarification questions |
+| POST | `/architect/phase2` | `archlens.manage` | Technical deep-dive questions |
+| POST | `/architect/phase3/options` | `archlens.manage` | Generate solution options |
+| POST | `/architect/phase3/gaps` | `archlens.manage` | Gap analysis for selected option |
+| POST | `/architect/phase3/deps` | `archlens.manage` | Dependency analysis for selected products |
+| POST | `/architect/phase3` | `archlens.manage` | Capability mapping (full target architecture) |
 | GET | `/analysis-runs` | `archlens.view` | Analysis run history |
+| GET | `/analysis-runs/{run_id}` | `archlens.view` | Get specific run with results |
 
 ### Frontend Pages
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/archlens` | `ArchLensDashboard` | KPI tiles, cards by type, quality issues |
-| `/archlens/vendors` | `ArchLensVendors` | Vendor analysis with category breakdown |
-| `/archlens/vendors/resolution` | `ArchLensResolution` | Canonical vendor hierarchy |
-| `/archlens/duplicates` | `ArchLensDuplicates` | Duplicate clusters + modernization assessment |
-| `/archlens/architect` | `ArchLensArchitect` | 3-phase architecture AI with Mermaid diagrams |
-| `/archlens/history` | `ArchLensHistory` | Analysis run history table |
+| `/archlens` | `ArchLensPage` | Tab container: Dashboard, Vendors, Resolution, Duplicates, Architect, History |
+| `/archlens` (Dashboard tab) | `ArchLensDashboard` | KPI tiles, cards by type, quality tiers (Bronze/Silver/Gold), top issues |
+| `/archlens` (Vendors tab) | `ArchLensVendors` | Vendor analysis with category breakdown, grid/table toggle |
+| `/archlens` (Resolution tab) | `ArchLensResolution` | Canonical vendor hierarchy with confidence scores |
+| `/archlens` (Duplicates tab) | `ArchLensDuplicates` | Duplicate clusters + modernization assessment (sub-tabs) |
+| `/archlens` (Architect tab) | `ArchLensArchitect` | 5-step architecture AI wizard with C4 diagram visualization |
+| `/archlens` (History tab) | `ArchLensHistory` | Analysis run history table |
+
+### Key Frontend Components
+
+| Component | Purpose |
+|-----------|---------|
+| `ArchLensArchitect.tsx` | 5-step wizard: requirement input → Q&A → options → gaps → deps → capability mapping |
+| `ArchitectureDiagram.tsx` | Mermaid diagram renderer for architecture visualizations |
+| `useAnalysisPolling.ts` | Custom hook: polls analysis runs every 3s until completion/failure |
+| `utils.ts` | Shared helpers: `formatCost()`, color mappers, `ARCHITECT_STEPS` stepper config |
 
 ### Permissions
 - **`archlens.view`**: View analysis results. Granted to admin, bpm_admin, member roles.
