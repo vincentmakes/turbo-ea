@@ -1054,5 +1054,6 @@
   "archlens_architect_choose_different": "Elegir otro enfoque",
   "archlens_architect_gaps_intro": "Estas son las brechas de capacidad identificadas para el enfoque seleccionado:",
   "archlens_architect_generate_capability_map": "Generar mapa de capacidades",
+  "archlens_architect_recs_selected": "{{count}} recomendación(es) seleccionada(s) — se usarán en el mapa de capacidades.",
   "archlens_architect_analyzing_gaps": "La IA está analizando las brechas para el enfoque seleccionado..."
 }

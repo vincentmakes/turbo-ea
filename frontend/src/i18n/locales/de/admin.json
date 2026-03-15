@@ -1054,5 +1054,6 @@
   "archlens_architect_choose_different": "Anderen Ansatz wählen",
   "archlens_architect_gaps_intro": "Hier sind die identifizierten Fähigkeitslücken für den gewählten Ansatz:",
   "archlens_architect_generate_capability_map": "Fähigkeitskarte generieren",
+  "archlens_architect_recs_selected": "{{count}} Empfehlung(en) ausgewählt — diese werden in der Fähigkeitskarte verwendet.",
   "archlens_architect_analyzing_gaps": "KI analysiert Lücken für den gewählten Ansatz..."
 }

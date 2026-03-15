@@ -1054,5 +1054,6 @@
   "archlens_architect_choose_different": "Choisir une autre approche",
   "archlens_architect_gaps_intro": "Voici les lacunes de capacités identifiées pour l'approche sélectionnée :",
   "archlens_architect_generate_capability_map": "Générer la carte des capacités",
+  "archlens_architect_recs_selected": "{{count}} recommandation(s) sélectionnée(s) — elles seront utilisées dans la carte des capacités.",
   "archlens_architect_analyzing_gaps": "L'IA analyse les lacunes pour l'approche sélectionnée..."
 }

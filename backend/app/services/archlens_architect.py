@@ -455,6 +455,7 @@ async def phase3_capability_mapping(
     objective_ids: list[str],
     existing_dependencies: dict[str, Any],
     selected_option: dict[str, Any] | None = None,
+    selected_recommendations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Analyse capability impact and propose new cards/relations for the architecture."""
     landscape = await load_landscape(db)
@@ -500,12 +501,29 @@ async def phase3_capability_mapping(
     if selected_option:
         option_ctx = "\n" + _build_option_context(selected_option) + "\n"
 
+    recs_ctx = ""
+    if selected_recommendations:
+        recs_lines = ["=== USER-SELECTED RECOMMENDATIONS (from gap analysis) ==="]
+        for rec in selected_recommendations:
+            vendor = rec.get("vendor", "")
+            vendor_str = f" ({vendor})" if vendor else ""
+            recs_lines.append(
+                f'- For gap "{rec.get("capability", "?")}": '
+                f"{rec.get('recommendation', '?')}{vendor_str}"
+            )
+        recs_lines.append(
+            "\nIncorporate these specific products/tools into the capability mapping. "
+            "Propose cards for them and create appropriate relations."
+        )
+        recs_ctx = "\n".join(recs_lines)
+
     prompt = f"""You are analysing the capability impact of a new architecture requirement
 on an existing enterprise landscape.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
 {option_ctx}
+{recs_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 

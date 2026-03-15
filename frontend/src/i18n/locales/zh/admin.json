@@ -1054,5 +1054,6 @@
   "archlens_architect_choose_different": "选择其他方案",
   "archlens_architect_gaps_intro": "以下是为所选方案识别的能力差距：",
   "archlens_architect_generate_capability_map": "生成能力地图",
+  "archlens_architect_recs_selected": "已选择 {{count}} 条建议——这些将用于能力地图。",
   "archlens_architect_analyzing_gaps": "AI正在分析所选方案的差距..."
 }

@@ -730,8 +730,9 @@ async def architect_phase3(
 
             dep_graph = {"nodes": dep_nodes, "edges": dep_edges}
 
+    sel_recs = body.selected_recommendations or []
     result = await phase3_capability_mapping(
-        db, body.requirement, qa_list, obj_ids, dep_graph, option
+        db, body.requirement, qa_list, obj_ids, dep_graph, option, sel_recs
     )
 
     # Record the run

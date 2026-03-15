@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
@@ -310,12 +311,20 @@ function OptionCard({
 
 // --- Gaps view component ---
 
+/** Key for a specific recommendation within a gap: "gapIndex:recIndex" */
+type RecKey = string;
+const recKey = (gi: number, ri: number): RecKey => `${gi}:${ri}`;
+
 function GapsView({
   gaps,
   summary,
+  selectedRecs,
+  onToggleRec,
 }: {
   gaps: ArchGap[];
   summary?: string;
+  selectedRecs?: Set<RecKey>;
+  onToggleRec?: (key: RecKey) => void;
 }) {
   const { t } = useTranslation("admin");
 
@@ -390,14 +399,23 @@ function GapsView({
                 {t("archlens_arch_market_recommendations")}
               </Typography>
               <Grid container spacing={1.5}>
-                {(gap.recommendations ?? []).map((rec, ri) => (
+                {(gap.recommendations ?? []).map((rec, ri) => {
+                  const rk = recKey(gi, ri);
+                  const isSelected = selectedRecs?.has(rk);
+                  const selectable = !!onToggleRec;
+                  return (
                   <Grid item key={ri} xs={12} sm={6} md={4}>
                     <Paper
                       variant="outlined"
+                      onClick={selectable ? () => onToggleRec(rk) : undefined}
                       sx={{
                         p: 2,
                         height: "100%",
-                        bgcolor: rec.recommended ? "primary.50" : undefined,
+                        bgcolor: isSelected
+                          ? "action.selected"
+                          : rec.recommended
+                            ? "primary.50"
+                            : undefined,
                         borderTop: 3,
                         borderColor:
                           ri === 0
@@ -405,8 +423,20 @@ function GapsView({
                             : ri === 1
                               ? "#C0C0C0"
                               : "#CD7F32",
+                        cursor: selectable ? "pointer" : undefined,
+                        outline: isSelected ? "2px solid" : undefined,
+                        outlineColor: isSelected ? "primary.main" : undefined,
+                        transition: "outline 0.15s, background-color 0.15s",
                       }}
                     >
+                      {selectable && (
+                        <Checkbox
+                          size="small"
+                          checked={!!isSelected}
+                          sx={{ float: "right", mt: -0.5, mr: -0.5 }}
+                          tabIndex={-1}
+                        />
+                      )}
                       <Stack
                         direction="row"
                         spacing={1}
@@ -500,7 +530,8 @@ function GapsView({
                       </Stack>
                     </Paper>
                   </Grid>
-                ))}
+                  );
+                })}
               </Grid>
             </Box>
           </Paper>
@@ -587,6 +618,7 @@ export default function ArchLensArchitect() {
   const [gapResult, setGapResult] = useState<GapAnalysisResult | null>(
     saved?.gapResult ?? null,
   );
+  const [selectedRecs, setSelectedRecs] = useState<Set<RecKey>>(new Set());
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] =
     useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
@@ -797,6 +829,22 @@ export default function ArchLensArchitect() {
         ];
         payload.selectedOption = selectedOpt ?? null;
         payload.objectiveIds = selectedObjectives.map((o) => o.id);
+        // Build selected recommendations from gap result
+        if (gapResult && selectedRecs.size > 0) {
+          const picks: { capability: string; recommendation: string; vendor?: string }[] = [];
+          gapResult.gaps.forEach((gap, gi) => {
+            (gap.recommendations ?? []).forEach((rec, ri) => {
+              if (selectedRecs.has(recKey(gi, ri))) {
+                picks.push({
+                  capability: gap.capability,
+                  recommendation: rec.name,
+                  vendor: rec.vendor,
+                });
+              }
+            });
+          });
+          payload.selectedRecommendations = picks;
+        }
         const result = await api.post<CapabilityMappingResult>(
           "/archlens/architect/phase3",
           payload,
@@ -853,12 +901,29 @@ export default function ArchLensArchitect() {
         payload,
       );
       setGapResult(result);
+      // Pre-select recommended items
+      const preselected = new Set<RecKey>();
+      (result.gaps ?? []).forEach((gap, gi) => {
+        (gap.recommendations ?? []).forEach((rec, ri) => {
+          if (rec.recommended) preselected.add(recKey(gi, ri));
+        });
+      });
+      setSelectedRecs(preselected);
     } catch (err: unknown) {
       setError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setArchLoading(false);
     }
   };
+
+  const toggleRec = useCallback((key: RecKey) => {
+    setSelectedRecs((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const handleAnswerChange = (index: number, value: string) => {
     setArchQuestions((prev) =>
@@ -877,6 +942,7 @@ export default function ArchLensArchitect() {
     setSelectedOptionId(null);
     setSelectedObjectives([]);
     setGapResult(null);
+    setSelectedRecs(new Set());
     setCapabilityMapping(null);
     setError("");
     sessionStorage.removeItem(SESSION_KEY);
@@ -886,6 +952,7 @@ export default function ArchLensArchitect() {
     setArchPhase(3);
     setSelectedOptionId(null);
     setGapResult(null);
+    setSelectedRecs(new Set());
     setCapabilityMapping(null);
   };
 
@@ -1300,13 +1367,21 @@ export default function ArchLensArchitect() {
             <GapsView
               gaps={gapResult.gaps}
               summary={gapResult.summary}
+              selectedRecs={selectedRecs}
+              onToggleRec={toggleRec}
             />
 
-            <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
+            {selectedRecs.size > 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
+                {t("archlens_architect_recs_selected", { count: selectedRecs.size })}
+              </Typography>
+            )}
+
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
               <Button
                 variant="contained"
                 onClick={() => runPhase(4)}
-                disabled={archLoading}
+                disabled={archLoading || selectedRecs.size === 0}
                 startIcon={<MaterialSymbol icon="hub" size={18} />}
               >
                 {t("archlens_architect_generate_capability_map")}
