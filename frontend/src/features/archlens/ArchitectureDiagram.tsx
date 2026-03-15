@@ -331,11 +331,38 @@ function buildArchFlow(
 
   dagre.layout(g);
 
-  // 4. Read absolute positions from dagre
+  // 4. Read absolute positions from dagre, then normalise per-layer so all
+  //    nodes in the same layer share the same Y baseline and are arranged in
+  //    a compact horizontal row.  Dagre can scatter same-layer nodes across
+  //    different ranks when cross-layer edges pull them apart — this causes
+  //    oversized group containers.
   const nodeAbsPos = new Map<string, { x: number; y: number }>();
   for (const entry of allComps) {
     const pos = g.node(entry.id);
     if (pos) nodeAbsPos.set(entry.id, { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 });
+  }
+
+  // Normalise: within each layer, set all nodes to the same Y (min of the
+  // group) and lay them out horizontally with consistent spacing.
+  for (let li = 0; li < layers.length; li++) {
+    const entries = allComps.filter(c => c.layerIdx === li);
+    if (entries.length === 0) continue;
+    // Use dagre's average Y for the layer as the baseline
+    let sumY = 0;
+    for (const e of entries) sumY += nodeAbsPos.get(e.id)!.y;
+    const baseY = sumY / entries.length;
+    // Sort horizontally by dagre's X to preserve its left-right ordering
+    entries.sort((a, b) => nodeAbsPos.get(a.id)!.x - nodeAbsPos.get(b.id)!.x);
+    // Centre the row around dagre's average X
+    let sumX = 0;
+    for (const e of entries) sumX += nodeAbsPos.get(e.id)!.x;
+    const centreX = sumX / entries.length;
+    const totalW = entries.length * NODE_W + (entries.length - 1) * 60; // 60 = nodesep
+    let startX = centreX - totalW / 2 + NODE_W / 2;
+    for (const e of entries) {
+      nodeAbsPos.set(e.id, { x: startX, y: baseY });
+      startX += NODE_W + 60;
+    }
   }
 
   // 5. Compute group boundaries per layer, then resolve overlaps
