@@ -619,11 +619,12 @@ RULES:
 4. CRITICAL — RELATION TYPE COMPLIANCE: Every proposed relation MUST use a valid
    "relationType" key from the METAMODEL RELATION TYPES section. The source card's
    cardTypeKey MUST match the relation type's source_type_key, and the target card's
-   cardTypeKey MUST match the relation type's target_type_key. Before assigning a
-   cardTypeKey to a proposed card, look up which relation types connect it to
-   other cards and choose the type that fits. For example, if a BusinessCapability
-   needs to be supported by a component and the only matching relation goes from
-   BusinessCapability to Application, then the component MUST be typed as Application.
+   cardTypeKey MUST match the relation type's target_type_key. Check available
+   relation types BEFORE assigning a cardTypeKey. If a product is infrastructure
+   (see rule 12) but needs to support a BusinessCapability, do NOT retype it as
+   Application — instead type it as ITComponent and connect it to an Application
+   that supports the capability. The chain is: Application -[relAppToBC]-> Capability
+   AND Application -[relAppToITC]-> ITComponent.
 5. Include relations that connect proposed new cards to existing cards AND to each other.
 6. Be specific: name real products for recommended purchases, name existing systems for reuse.
 7. Provide a clear "rationale" for each new capability and card.
@@ -640,6 +641,35 @@ RULES:
     data entities, not processes or states.
 11. CAPABILITIES — USER SELECTIONS: If TARGET BUSINESS CAPABILITIES are listed
     above, use those exact names for capabilities. Do not rename them.
+12. CARD TYPE CLASSIFICATION:
+    - Application: Business-facing software that users interact with or that delivers
+      business logic (e.g. "Apollo", "SAP S/4HANA", "Salesforce CRM", a custom app).
+      Use subtype "businessApplication" for COTS/SaaS products configured for business use.
+    - ITComponent: Infrastructure, platform, or technical middleware that Applications
+      run on or use — users do NOT interact with it directly. Examples: databases
+      (PostgreSQL), API gateways (Azure API Management, Kong), message brokers (Kafka,
+      RabbitMQ), cloud platforms (AWS Lambda), monitoring (Datadog), identity providers
+      (Okta, Azure AD), ETL tools, CI/CD pipelines. Use subtypes: saas, paas, iaas,
+      software, hardware, service as appropriate.
+    - Interface: A named integration point or data flow between two systems. Represents
+      an API contract or sync (e.g. "Apollo → D365 Sync", "REST API: Orders").
+      Use subtypes: api, logicalInterface as appropriate.
+    KEY TEST: "Does a business user use this product directly?" → Application.
+    "Is this infrastructure that developers/IT teams manage?" → ITComponent.
+    "Is this a data flow or API between two systems?" → Interface.
+13. INTERFACE CONNECTIVITY: Every proposed Interface MUST have at least one
+    relAppToInterface relation connecting it to the Application that provides or
+    consumes it. Interfaces do not exist in isolation — they are integration points
+    OF applications. If an interface bridges App A and App B, create TWO
+    relAppToInterface relations: one from App A and one from App B.
+14. ARCHITECTURE COHERENCE — LAYERED GRAPH: The target architecture must form a
+    coherent, fully connected graph following EA layers:
+    a) BusinessCapability cards at the top, supported by Applications (relAppToBC)
+    b) Applications in the middle, connected to each other via Interfaces (relAppToInterface)
+    c) Applications using ITComponents for infrastructure (relAppToITC)
+    d) Interfaces transferring DataObjects where relevant (relInterfaceToDataObj)
+    Every proposed card MUST connect to at least one other card via a relation.
+    No orphan cards. Think: "what does this card connect to upstream and downstream?"
 
 Respond with ONLY this JSON:
 {{
