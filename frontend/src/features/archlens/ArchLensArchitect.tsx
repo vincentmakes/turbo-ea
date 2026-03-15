@@ -599,7 +599,14 @@ export default function ArchLensArchitect() {
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>{t("archlens_architect_title")}</Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        <Typography variant="h6">{t("archlens_architect_title")}</Typography>
+        {(archPhase > 0 || archResult || archOptions) && (
+          <Button variant="outlined" size="small" startIcon={<MaterialSymbol icon="add" size={18} />} onClick={reset}>
+            {t("archlens_architect_new_assessment")}
+          </Button>
+        )}
+      </Stack>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>{t("archlens_architect_description")}</Typography>
 
       {error && <Alert severity="error" onClose={() => setError("")} sx={{ mb: 2 }}>{error}</Alert>}
