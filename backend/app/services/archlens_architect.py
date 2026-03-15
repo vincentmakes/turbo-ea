@@ -707,36 +707,32 @@ RULES:
       {{ sourceId: "app_a_id", targetId: "interface_id", relationType: "relAppToInterface" }}
       {{ sourceId: "app_b_id", targetId: "interface_id", relationType: "relAppToInterface" }}
     If one endpoint is an existing Application, use its existing ID.
-14. COMPLETENESS CHECKLIST — verify EVERY proposed card has all required relations:
+14. MANDATORY COMPANION CARDS — for EVERY Application you propose, you MUST also
+    propose these companion cards and relations:
 
-    For each APPLICATION:
-    - At least one relAppToBC connecting it to a BusinessCapability it supports
-    - A relProviderToApp from its vendor/Provider (create a Provider card if needed)
-    - At least one relAppToITC to the ITComponent it runs on or depends on
-      (the platform, runtime, or SaaS product — create the ITComponent if needed)
-    - relAppToInterface for each Interface it provides or consumes
+    a) ITComponent: the technology platform or SaaS product the Application runs on.
+       Example: Application "ZoomInfo SalesOS" → ITComponent "ZoomInfo Platform"
+       (subtype: saas) + relation relAppToITC.
+       Example: Application "Azure Logic Apps" → ITComponent "Azure Logic Apps"
+       (subtype: paas) + relation relAppToITC.
+       The ITComponent often has the SAME name as the Application — that is fine.
 
-    For each INTERFACE:
-    - relAppToInterface from BOTH endpoint Applications (see rule 13)
-    - relInterfaceToDataObj if it transfers a specific data entity
+    b) Provider: the vendor that offers the Application and/or ITComponent.
+       Example: Provider "ZoomInfo" with relProviderToApp and relProviderToITC.
+       Check the ALL EXISTING CARDS list — reuse existing Providers by UUID.
 
-    For each ITCOMPONENT:
-    - At least one relAppToITC from the Application that uses it
-    - A relProviderToITC from its vendor if it is a commercial product
+    c) Capability relation: relAppToBC connecting it to a BusinessCapability.
 
-    For each PROVIDER:
-    - At least one relProviderToApp or relProviderToITC
+    For every Interface, BOTH endpoint Applications MUST be in proposedCards
+    (even if they are existing cards — include them with isNew: false).
 
     NO ORPHAN CARDS. Every card must have at least one relation.
-    Run through this checklist mentally before outputting your JSON.
-15. L1 DEPENDENCIES — CONNECT TO EXISTING CARDS: When a proposed Interface or
-    relation involves an EXISTING application, ITComponent, or provider from the
-    ALL EXISTING CARDS list, you MUST use that card's UUID as the sourceId or
-    targetId. Do NOT omit a relation just because the other card already exists.
-    For example, if you propose interface "D365 → ZoomInfo Sync", and D365 CRM
-    exists in the landscape with UUID "abc-123", create:
-      {{ sourceId: "abc-123", targetId: "new_iface_1", relationType: "relAppToInterface" }}
-    This ensures the target architecture connects to the existing landscape.
+15. INCLUDE EXISTING CARDS IN OUTPUT: When a proposed relation references an
+    existing card (e.g. HubSpot Marketing, D365 CRM), you MUST:
+    a) Add that existing card to "proposedCards" with isNew: false and its UUID
+       from ALL EXISTING CARDS as both "id" and "existingCardId".
+    b) Use the UUID in the relation's sourceId/targetId.
+    This ensures every card visible in the diagram is part of the output.
 
 Respond with ONLY this JSON:
 {{
@@ -776,6 +772,54 @@ Respond with ONLY this JSON:
 
     # Attach existing dependency graph so frontend can merge
     parsed["existingDependencies"] = existing_dependencies
+
+    # ---- Post-processing: resolve dangling card references ----
+    # Collect all IDs that are already known (proposed cards, capabilities, dep graph)
+    known_ids: set[str] = set()
+    for cap in parsed.get("capabilities", []):
+        known_ids.add(cap.get("id", ""))
+        if cap.get("existingCardId"):
+            known_ids.add(cap["existingCardId"])
+    for card in parsed.get("proposedCards", []):
+        known_ids.add(card.get("id", ""))
+        if card.get("existingCardId"):
+            known_ids.add(card["existingCardId"])
+    for node in dep_nodes:
+        known_ids.add(node.get("id", ""))
+    known_ids.discard("")
+
+    # Find IDs referenced in relations but not in known set
+    dangling_ids: set[str] = set()
+    for rel in parsed.get("proposedRelations", []):
+        for key in ("sourceId", "targetId"):
+            rid = rel.get(key, "")
+            if rid and rid not in known_ids and not rid.startswith("new_"):
+                dangling_ids.add(rid)
+
+    # Look up dangling IDs in the database and add them as existing cards
+    if dangling_ids:
+        from uuid import UUID as _UUID
+
+        valid_uuids = []
+        for did in dangling_ids:
+            try:
+                valid_uuids.append(_UUID(did))
+            except (ValueError, TypeError):
+                continue
+        if valid_uuids:
+            found = await db.execute(select(Card).where(Card.id.in_(valid_uuids)))
+            for card in found.scalars().all():
+                parsed.setdefault("proposedCards", []).append(
+                    {
+                        "id": str(card.id),
+                        "name": card.name,
+                        "cardTypeKey": card.type,
+                        "subtype": card.subtype,
+                        "isNew": False,
+                        "existingCardId": str(card.id),
+                        "rationale": "Existing card referenced by proposed relations",
+                    }
+                )
 
     return parsed
 
