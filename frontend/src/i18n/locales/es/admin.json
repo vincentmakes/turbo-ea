@@ -1059,5 +1059,14 @@
   "archlens_architect_analyse_deps": "Analizar dependencias",
   "archlens_architect_deps_intro": "Estas son las dependencias de integración requeridas para que los productos seleccionados funcionen en su entorno:",
   "archlens_architect_no_deps": "No se necesitan dependencias adicionales — los productos seleccionados pueden integrarse con su entorno existente.",
-  "archlens_architect_analyzing_gaps": "La IA está analizando las brechas para el enfoque seleccionado..."
+  "archlens_architect_analyzing_gaps": "La IA está analizando las brechas para el enfoque seleccionado...",
+  "archlens_architect_step_requirements": "Requisitos de negocio",
+  "archlens_architect_step_business_fit": "Ajuste de negocio",
+  "archlens_architect_step_technical_fit": "Ajuste técnico",
+  "archlens_architect_step_solution": "Arquitectura de solución",
+  "archlens_architect_step_target": "Arquitectura objetivo",
+  "archlens_architect_select_capabilities": "¿Qué capacidades de negocio está mejorando o introduciendo?",
+  "archlens_architect_capabilities_hint": "Seleccione capacidades de negocio existentes o escriba nuevas que aún no existan.",
+  "archlens_architect_search_capabilities": "Buscar o escribir nueva capacidad...",
+  "archlens_architect_new_capability": "Nuevo: {{name}}"
 }

@@ -448,6 +448,38 @@ async def architect_objectives(
     ]
 
 
+@router.get("/architect/capabilities")
+async def architect_capabilities(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+    search: str | None = None,
+):
+    """Search BusinessCapability cards for architect capability selection."""
+    from sqlalchemy import or_
+
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    q = select(Card).where(Card.type == "BusinessCapability", Card.status != "ARCHIVED")
+    if search:
+        q = q.where(
+            or_(
+                Card.name.ilike(f"%{search}%"),
+                Card.description.ilike(f"%{search}%"),
+            )
+        )
+    q = q.order_by(Card.name).limit(50)
+    result = await db.execute(q)
+    cards = result.scalars().all()
+    return [
+        {
+            "id": str(c.id),
+            "name": c.name,
+            "description": c.description,
+        }
+        for c in cards
+    ]
+
+
 @router.get("/architect/objective-dependencies")
 async def architect_objective_dependencies(
     db: AsyncSession = Depends(get_db),
@@ -573,7 +605,9 @@ async def architect_phase1(
 
     from app.services.archlens_architect import phase1_questions
 
-    result = await phase1_questions(db, body.requirement)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    result = await phase1_questions(db, body.requirement, obj_ids or None, caps or None)
     return result
 
 
@@ -592,7 +626,9 @@ async def architect_phase2(
     from app.services.archlens_architect import phase2_questions
 
     qa_list = body.phase1_qa if isinstance(body.phase1_qa, list) else []
-    result = await phase2_questions(db, body.requirement, qa_list)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    result = await phase2_questions(db, body.requirement, qa_list, obj_ids or None, caps or None)
     return result
 
 
@@ -612,7 +648,8 @@ async def architect_phase3_options(
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
     obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
-    return await phase3_options(db, body.requirement, qa_list, obj_ids or None)
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    return await phase3_options(db, body.requirement, qa_list, obj_ids or None, caps or None)
 
 
 @router.post("/architect/phase3/gaps")
@@ -634,7 +671,8 @@ async def architect_phase3_gaps(
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
     option = body.selected_option if isinstance(body.selected_option, dict) else {}
     obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
-    return await phase3_gaps(db, body.requirement, qa_list, option, obj_ids or None)
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
+    return await phase3_gaps(db, body.requirement, qa_list, option, obj_ids or None, caps or None)
 
 
 @router.post("/architect/phase3/deps")
@@ -757,8 +795,16 @@ async def architect_phase3(
             dep_graph = {"nodes": dep_nodes, "edges": dep_edges}
 
     sel_recs = body.selected_recommendations or []
+    caps = body.selected_capabilities if isinstance(body.selected_capabilities, list) else []
     result = await phase3_capability_mapping(
-        db, body.requirement, qa_list, obj_ids, dep_graph, option, sel_recs
+        db,
+        body.requirement,
+        qa_list,
+        obj_ids,
+        dep_graph,
+        option,
+        sel_recs,
+        caps or None,
     )
 
     # Record the run

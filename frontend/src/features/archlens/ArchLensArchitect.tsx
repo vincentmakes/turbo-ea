@@ -25,11 +25,15 @@ import type {
   GapAnalysisResult,
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/c4Layout";
+import Step from "@mui/material/Step";
+import StepLabel from "@mui/material/StepLabel";
+import Stepper from "@mui/material/Stepper";
 import {
   urgencyColor,
   effortColor,
   approachColor,
-  ARCHITECT_PHASES,
+  ARCHITECT_STEPS,
+  phaseToStepIndex,
 } from "./utils";
 import C4DiagramView from "@/features/reports/C4DiagramView";
 
@@ -552,6 +556,12 @@ interface ObjectiveOption {
   subtype?: string;
 }
 
+interface CapabilityOption {
+  id: string;
+  name: string;
+  isNew: boolean;
+}
+
 interface ArchSession {
   archReq: string;
   archPhase: number;
@@ -567,6 +577,7 @@ interface ArchSession {
   archOptions: ArchSolutionOption[] | null;
   selectedOptionId: string | null;
   selectedObjectives: ObjectiveOption[];
+  selectedCapabilities: CapabilityOption[];
   gapResult: GapAnalysisResult | null;
   depsResult: DependencyAnalysisResult | null;
   capabilityMapping: CapabilityMappingResult | null;
@@ -616,6 +627,14 @@ export default function ArchLensArchitect() {
   );
   const [objectiveOptions, setObjectiveOptions] = useState<ObjectiveOption[]>([]);
   const [objectiveLoading, setObjectiveLoading] = useState(false);
+  // Capability selection state
+  const [selectedCapabilities, setSelectedCapabilities] = useState<
+    CapabilityOption[]
+  >(saved?.selectedCapabilities ?? []);
+  const [capabilityOptions, setCapabilityOptions] = useState<
+    { id: string; name: string; description?: string }[]
+  >([]);
+  const [capabilityLoading, setCapabilityLoading] = useState(false);
   // Gap analysis state (Phase 3b: product selection)
   const [gapResult, setGapResult] = useState<GapAnalysisResult | null>(
     saved?.gapResult ?? null,
@@ -639,6 +658,7 @@ export default function ArchLensArchitect() {
       archOptions,
       selectedOptionId,
       selectedObjectives,
+      selectedCapabilities,
       gapResult,
       depsResult,
       capabilityMapping,
@@ -652,6 +672,7 @@ export default function ArchLensArchitect() {
     archOptions,
     selectedOptionId,
     selectedObjectives,
+    selectedCapabilities,
     gapResult,
     depsResult,
     capabilityMapping,
@@ -661,20 +682,30 @@ export default function ArchLensArchitect() {
     saveSession();
   }, [saveSession]);
 
-  // Load all objectives once on mount
+  // Load all objectives + capabilities once on mount
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setObjectiveLoading(true);
+      setCapabilityLoading(true);
       try {
-        const results = await api.get<ObjectiveOption[]>(
-          "/archlens/architect/objectives",
-        );
-        if (!cancelled) setObjectiveOptions(results);
+        const [objs, caps] = await Promise.all([
+          api.get<ObjectiveOption[]>("/archlens/architect/objectives"),
+          api.get<{ id: string; name: string; description?: string }[]>(
+            "/archlens/architect/capabilities",
+          ),
+        ]);
+        if (!cancelled) {
+          setObjectiveOptions(objs);
+          setCapabilityOptions(caps);
+        }
       } catch {
         /* ignore */
       } finally {
-        if (!cancelled) setObjectiveLoading(false);
+        if (!cancelled) {
+          setObjectiveLoading(false);
+          setCapabilityLoading(false);
+        }
       }
     })();
     return () => {
@@ -798,7 +829,16 @@ export default function ArchLensArchitect() {
     setArchLoading(true);
     setError("");
     try {
-      const payload: Record<string, unknown> = { phase, requirement: archReq };
+      const payload: Record<string, unknown> = {
+        phase,
+        requirement: archReq,
+        objectiveIds: selectedObjectives.map((o) => o.id),
+        selectedCapabilities: selectedCapabilities.map((c) => ({
+          id: c.id,
+          name: c.name,
+          isNew: c.isNew,
+        })),
+      };
       if (phase === 2) {
         const qa = archQuestions.map((q) => ({
           question: q.question,
@@ -963,6 +1003,11 @@ export default function ArchLensArchitect() {
         ],
         selectedOption: selectedOpt ?? null,
         objectiveIds: selectedObjectives.map((o) => o.id),
+        selectedCapabilities: selectedCapabilities.map((c) => ({
+          id: c.id,
+          name: c.name,
+          isNew: c.isNew,
+        })),
       };
       const result = await api.post<GapAnalysisResult>(
         "/archlens/architect/phase3/gaps",
@@ -1018,6 +1063,7 @@ export default function ArchLensArchitect() {
     setArchOptions(null);
     setSelectedOptionId(null);
     setSelectedObjectives([]);
+    setSelectedCapabilities([]);
     setGapResult(null);
     setSelectedRecs(new Set());
     setDepsResult(null);
@@ -1074,19 +1120,22 @@ export default function ArchLensArchitect() {
       )}
 
       <Paper sx={{ p: 3 }}>
-        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-          {ARCHITECT_PHASES.map((p) => (
-            <Chip
-              key={p}
-              label={`${t("archlens_phase")} ${p}`}
-              color={archPhase >= p ? "primary" : "default"}
-              variant={archPhase === p ? "filled" : "outlined"}
-              size="small"
-            />
+        <Stepper
+          activeStep={phaseToStepIndex(archPhase)}
+          alternativeLabel
+          sx={{ mb: 3 }}
+        >
+          {ARCHITECT_STEPS.map((step) => (
+            <Step
+              key={step.key}
+              completed={phaseToStepIndex(archPhase) > ARCHITECT_STEPS.indexOf(step)}
+            >
+              <StepLabel>{t(`archlens_architect_step_${step.key}`)}</StepLabel>
+            </Step>
           ))}
-        </Stack>
+        </Stepper>
 
-        {/* Phase 0: Input */}
+        {/* Phase 0: Business Requirements Input */}
         {archPhase === 0 && (
           <>
             <TextField
@@ -1098,10 +1147,133 @@ export default function ArchLensArchitect() {
               minRows={3}
               sx={{ mb: 2 }}
             />
+
+            {/* Objective selection */}
+            <Paper
+              variant="outlined"
+              sx={{ p: 2, mb: 2, borderLeft: 3, borderColor: "secondary.main" }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {t("archlens_architect_select_objectives")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("archlens_architect_objectives_hint")}
+              </Typography>
+              <Autocomplete
+                multiple
+                options={objectiveOptions}
+                value={selectedObjectives}
+                getOptionLabel={(o) => o.name}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                loading={objectiveLoading}
+                onChange={(_, v) => setSelectedObjectives(v)}
+                filterSelectedOptions
+                openOnFocus
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box>
+                      <Typography variant="body2">{option.name}</Typography>
+                      {option.description && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{
+                            display: "block",
+                            maxWidth: 400,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {option.description}
+                        </Typography>
+                      )}
+                    </Box>
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    placeholder={t("archlens_architect_search_objectives")}
+                  />
+                )}
+              />
+            </Paper>
+
+            {/* Capability selection (existing or free-text new) */}
+            <Paper
+              variant="outlined"
+              sx={{ p: 2, mb: 2, borderLeft: 3, borderColor: "info.main" }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {t("archlens_architect_select_capabilities")}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mb: 1.5 }}
+              >
+                {t("archlens_architect_capabilities_hint")}
+              </Typography>
+              <Autocomplete
+                multiple
+                freeSolo
+                options={capabilityOptions.map((c) => c.name)}
+                value={selectedCapabilities.map((c) => c.name)}
+                loading={capabilityLoading}
+                onChange={(_, values) => {
+                  const caps: CapabilityOption[] = values.map((v) => {
+                    const existing = capabilityOptions.find((c) => c.name === v);
+                    return existing
+                      ? { id: existing.id, name: existing.name, isNew: false }
+                      : { id: `new_${v}`, name: v, isNew: true };
+                  });
+                  setSelectedCapabilities(caps);
+                }}
+                filterSelectedOptions
+                openOnFocus
+                renderTags={(values, getTagProps) =>
+                  values.map((v, i) => {
+                    const cap = selectedCapabilities.find((c) => c.name === v);
+                    return (
+                      <Chip
+                        {...getTagProps({ index: i })}
+                        key={v}
+                        label={
+                          cap?.isNew
+                            ? t("archlens_architect_new_capability", { name: v })
+                            : v
+                        }
+                        size="small"
+                        color={cap?.isNew ? "info" : "default"}
+                        variant={cap?.isNew ? "filled" : "outlined"}
+                      />
+                    );
+                  })
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    placeholder={t("archlens_architect_search_capabilities")}
+                  />
+                )}
+              />
+            </Paper>
+
             <Button
               variant="contained"
               onClick={() => runPhase(1)}
-              disabled={archLoading || !archReq}
+              disabled={
+                archLoading ||
+                !archReq ||
+                selectedObjectives.length === 0
+              }
               startIcon={
                 archLoading ? <CircularProgress size={18} /> : undefined
               }
@@ -1289,64 +1461,6 @@ export default function ArchLensArchitect() {
                 );
               })}
             </Stack>
-            {archPhase === 2 && allAnswered && (
-              <Paper
-                variant="outlined"
-                sx={{ p: 2, mb: 2, borderLeft: 3, borderColor: "secondary.main" }}
-              >
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {t("archlens_architect_select_objectives")}
-                </Typography>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mb: 1.5 }}
-                >
-                  {t("archlens_architect_objectives_hint")}
-                </Typography>
-                <Autocomplete
-                  multiple
-                  options={objectiveOptions}
-                  value={selectedObjectives}
-                  getOptionLabel={(o) => o.name}
-                  isOptionEqualToValue={(a, b) => a.id === b.id}
-                  loading={objectiveLoading}
-                  onChange={(_, v) => setSelectedObjectives(v)}
-                  filterSelectedOptions
-                  openOnFocus
-                  renderOption={(props, option) => (
-                    <li {...props} key={option.id}>
-                      <Box>
-                        <Typography variant="body2">{option.name}</Typography>
-                        {option.description && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{
-                              display: "block",
-                              maxWidth: 400,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {option.description}
-                          </Typography>
-                        )}
-                      </Box>
-                    </li>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      placeholder={t("archlens_architect_search_objectives")}
-                    />
-                  )}
-                />
-              </Paper>
-            )}
-
             <Stack direction="row" spacing={2}>
               {archPhase === 1 ? (
                 <Button
@@ -1360,7 +1474,7 @@ export default function ArchLensArchitect() {
                 <Button
                   variant="contained"
                   onClick={() => runPhase(3)}
-                  disabled={!allAnswered || selectedObjectives.length === 0}
+                  disabled={!allAnswered}
                   startIcon={<MaterialSymbol icon="hub" size={18} />}
                 >
                   {t("archlens_architect_analyze_capabilities")}

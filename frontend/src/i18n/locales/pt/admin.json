@@ -1059,5 +1059,14 @@
   "archlens_architect_analyse_deps": "Analisar dependências",
   "archlens_architect_deps_intro": "Estas são as dependências de integração necessárias para que os produtos selecionados funcionem no seu ambiente:",
   "archlens_architect_no_deps": "Nenhuma dependência adicional necessária — os produtos selecionados podem se integrar ao seu cenário existente.",
-  "archlens_architect_analyzing_gaps": "A IA está analisando as lacunas para a abordagem selecionada..."
+  "archlens_architect_analyzing_gaps": "A IA está analisando as lacunas para a abordagem selecionada...",
+  "archlens_architect_step_requirements": "Requisitos de negócio",
+  "archlens_architect_step_business_fit": "Adequação de negócio",
+  "archlens_architect_step_technical_fit": "Adequação técnica",
+  "archlens_architect_step_solution": "Arquitetura de solução",
+  "archlens_architect_step_target": "Arquitetura alvo",
+  "archlens_architect_select_capabilities": "Quais capacidades de negócio está a melhorar ou a introduzir?",
+  "archlens_architect_capabilities_hint": "Selecione capacidades de negócio existentes ou digite novas que ainda não existam.",
+  "archlens_architect_search_capabilities": "Pesquisar ou digitar nova capacidade...",
+  "archlens_architect_new_capability": "Novo: {{name}}"
 }

@@ -271,15 +271,22 @@ def _detect_intent_patterns(requirement: str) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-async def phase1_questions(db: AsyncSession, requirement: str) -> dict[str, Any]:
+async def phase1_questions(
+    db: AsyncSession,
+    requirement: str,
+    objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Generate Phase 1 business clarification questions."""
     landscape = await load_landscape(db)
     ctx = _build_landscape_context(landscape)
     patterns = _detect_intent_patterns(requirement)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
 
     prompt = f"""A stakeholder has submitted this architecture requirement:
 "{requirement}"
-
+{objectives_ctx}{caps_ctx}
 {ctx}
 
 DETECTED ARCHITECTURE INTENT: {", ".join(patterns)}
@@ -292,6 +299,10 @@ Phase 1 focuses on FUNCTIONAL and BUSINESS requirements:
 - Data: what data flows, ownership, sensitivity
 - Stakeholders: who owns the system, who are the consumers
 - Timeline and phasing: MVP vs full rollout
+
+The user has already identified their business objectives and target capabilities
+(shown above). Tailor your questions to explore HOW those capabilities should be
+improved or introduced, not WHETHER they are the right ones.
 
 CRITICAL RULES:
 1. Tailor questions to the detected patterns ({", ".join(patterns)})
@@ -333,17 +344,21 @@ async def phase2_questions(
     db: AsyncSession,
     requirement: str,
     phase1_qa: list[dict[str, Any]],
+    objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate Phase 2 technical deep-dive questions."""
     landscape = await load_landscape(db)
     ctx = _build_landscape_context(landscape)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
 
     answers_text = "\n\n".join(
         f"Q: {qa.get('question', '')}\nA: {qa.get('answer', '')}" for qa in phase1_qa
     )
 
     prompt = f"""Original requirement: "{requirement}"
-
+{objectives_ctx}{caps_ctx}
 Phase 1 answers from the business stakeholder:
 {answers_text}
 
@@ -459,6 +474,41 @@ async def _load_relation_types_context(db: AsyncSession) -> str:
     return "\n".join(lines)
 
 
+async def _load_existing_cards_context(db: AsyncSession) -> str:
+    """Load ALL existing cards grouped by type for AI to reference exact names."""
+    lookup_types = [
+        "Application",
+        "DataObject",
+        "Interface",
+        "ITComponent",
+        "BusinessCapability",
+        "System",
+    ]
+    result = await db.execute(
+        select(Card)
+        .where(Card.type.in_(lookup_types), Card.status != "ARCHIVED")
+        .order_by(Card.type, Card.name)
+    )
+    cards = result.scalars().all()
+    if not cards:
+        return ""
+
+    by_type: dict[str, list[str]] = {}
+    for c in cards:
+        by_type.setdefault(c.type, []).append(c.name)
+
+    lines = [
+        "",
+        "=== ALL EXISTING CARDS (use these EXACT names — do NOT invent variants) ===",
+    ]
+    for card_type in lookup_types:
+        names = by_type.get(card_type, [])
+        if names:
+            lines.append(f"[{card_type}]: {', '.join(names)}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Phase 3a — Capability Mapping (dependency-aware)
 # ---------------------------------------------------------------------------
@@ -472,6 +522,7 @@ async def phase3_capability_mapping(
     existing_dependencies: dict[str, Any],
     selected_option: dict[str, Any] | None = None,
     selected_recommendations: list[dict[str, Any]] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Analyse capability impact and propose new cards/relations for the architecture."""
     landscape = await load_landscape(db)
@@ -479,6 +530,9 @@ async def phase3_capability_mapping(
     metamodel_ctx = await _load_metamodel_types_context(db)
     rel_types_ctx = await _load_relation_types_context(db)
     patterns = _detect_intent_patterns(requirement)
+    existing_cards_ctx = await _load_existing_cards_context(db)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
 
     answers_text = "\n\n".join(
         f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
@@ -538,7 +592,7 @@ on an existing enterprise landscape.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-{option_ctx}
+{objectives_ctx}{caps_ctx}{option_ctx}
 {recs_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
@@ -546,6 +600,7 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {dep_context}
 
 {ctx}
+{existing_cards_ctx}
 {metamodel_ctx}
 {rel_types_ctx}
 EXISTING NODE IDs (use these exact IDs when referencing existing cards):
@@ -574,6 +629,17 @@ RULES:
 7. Provide a clear "rationale" for each new capability and card.
 8. Do NOT invent relation types. If no relation type exists between two card types,
    do NOT propose that relation — restructure the card types instead.
+9. NAMING — REUSE EXISTING: Check the ALL EXISTING CARDS list above. If a card
+   with the same product or concept already exists, use its EXACT name and mark
+   isNew: false. Do NOT create variants like "X Enhanced", "X Extended",
+   "X Platform", or "X Hub". If you need to describe changes to an existing
+   system, use the existing name and explain the change in the rationale field.
+10. NAMING — CLEAN DOMAIN ENTITIES: For DataObjects, use concise domain entity
+    names (e.g. "Lead", "Customer", "Order"), NOT descriptive phrases like
+    "Enriched Lead Data" or "Customer Profile Data". DataObjects represent
+    data entities, not processes or states.
+11. CAPABILITIES — USER SELECTIONS: If TARGET BUSINESS CAPABILITIES are listed
+    above, use those exact names for capabilities. Do not rename them.
 
 Respond with ONLY this JSON:
 {{
@@ -660,6 +726,34 @@ async def _load_objectives_context(db: AsyncSession, objective_ids: list[str] | 
     return "\n".join(lines)
 
 
+def _build_capabilities_context(
+    selected_capabilities: list[dict[str, Any]] | None,
+) -> str:
+    """Format user-selected capabilities (existing + new) for AI prompt context."""
+    if not selected_capabilities:
+        return ""
+
+    existing = [c for c in selected_capabilities if not c.get("isNew")]
+    new = [c for c in selected_capabilities if c.get("isNew")]
+
+    lines = [
+        "",
+        "=== TARGET BUSINESS CAPABILITIES ===",
+        "The user has identified these capabilities as the focus of this initiative.",
+        "",
+    ]
+    if existing:
+        lines.append("Existing capabilities to IMPROVE:")
+        for c in existing:
+            lines.append(f"  - {c.get('name', '?')}")
+    if new:
+        lines.append("New capabilities to INTRODUCE:")
+        for c in new:
+            lines.append(f"  - {c.get('name', '?')}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Phase 3a — Solution Options
 # ---------------------------------------------------------------------------
@@ -670,6 +764,7 @@ async def phase3_options(
     requirement: str,
     all_qa: list[dict[str, Any]],
     objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Generate 2-4 solution options with architectural impact previews."""
     landscape = await load_landscape(db)
@@ -677,6 +772,7 @@ async def phase3_options(
     metamodel_ctx = await _load_metamodel_types_context(db)
     patterns = _detect_intent_patterns(requirement)
     objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
 
     answers_text = "\n\n".join(
         f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
@@ -687,7 +783,7 @@ async def phase3_options(
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-{objectives_ctx}
+{objectives_ctx}{caps_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
@@ -800,6 +896,7 @@ async def phase3_gaps(
     all_qa: list[dict[str, Any]],
     selected_option: dict[str, Any],
     objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Phase 3b: identify the products needed to achieve the business requirements."""
     landscape = await load_landscape(db)
@@ -807,6 +904,7 @@ async def phase3_gaps(
     metamodel_ctx = await _load_metamodel_types_context(db)
     patterns = _detect_intent_patterns(requirement)
     objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
 
     answers_text = "\n\n".join(
         f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
@@ -820,7 +918,7 @@ to achieve the business requirements.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-{objectives_ctx}
+{objectives_ctx}{caps_ctx}
 {option_ctx}
 
 ALL REQUIREMENTS ({len(all_qa)} questions answered):

@@ -29,6 +29,7 @@ class ArchLensArchitectRequest(BaseModel):
     selected_recommendations: list[dict] | None = Field(None, alias="selectedRecommendations")
     selected_products: list[dict] | None = Field(None, alias="selectedProducts")
     objective_ids: list[str] | None = Field(None, alias="objectiveIds")
+    selected_capabilities: list[dict] | None = Field(None, alias="selectedCapabilities")
 
 
 class ArchLensDuplicateStatusUpdate(BaseModel):

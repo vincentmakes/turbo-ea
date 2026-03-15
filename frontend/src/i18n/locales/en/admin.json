@@ -1060,5 +1060,14 @@
   "archlens_architect_analyse_deps": "Analyse Dependencies",
   "archlens_architect_deps_intro": "These are the integration dependencies required for your selected products to work in your environment:",
   "archlens_architect_no_deps": "No additional dependencies needed — the selected products can integrate with your existing landscape.",
-  "archlens_architect_analyzing_gaps": "AI is analyzing gaps for the selected approach..."
+  "archlens_architect_analyzing_gaps": "AI is analyzing gaps for the selected approach...",
+  "archlens_architect_step_requirements": "Business Requirements",
+  "archlens_architect_step_business_fit": "Business Fit",
+  "archlens_architect_step_technical_fit": "Technical Fit",
+  "archlens_architect_step_solution": "Solution Architecture",
+  "archlens_architect_step_target": "Target Architecture",
+  "archlens_architect_select_capabilities": "Which business capabilities are you improving or introducing?",
+  "archlens_architect_capabilities_hint": "Select existing Business Capabilities from your landscape, or type new ones that don't exist yet.",
+  "archlens_architect_search_capabilities": "Search or type new capability...",
+  "archlens_architect_new_capability": "New: {{name}}"
 }

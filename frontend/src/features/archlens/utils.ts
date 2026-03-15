@@ -115,9 +115,24 @@ export function severityColor(s?: string): string {
       : "#2e7d32";
 }
 
-// ── Architect phases ────────────────────────────────────────────────────
+// ── Architect steps ─────────────────────────────────────────────────────
 
-export const ARCHITECT_PHASES = [1, 2, 3, 4, 5] as const;
+/** High-level stepper groups that map internal archPhase numbers to UI steps. */
+export const ARCHITECT_STEPS = [
+  { key: "requirements", phases: [0] },
+  { key: "business_fit", phases: [1] },
+  { key: "technical_fit", phases: [2] },
+  { key: "solution", phases: [3, 3.5, 4] },
+  { key: "target", phases: [5] },
+] as const;
+
+/** Map an archPhase number to the ARCHITECT_STEPS index (0-based). */
+export function phaseToStepIndex(phase: number): number {
+  for (let i = 0; i < ARCHITECT_STEPS.length; i++) {
+    if ((ARCHITECT_STEPS[i].phases as readonly number[]).includes(phase)) return i;
+  }
+  return 0;
+}
 
 const APPROACH_COLORS: Record<string, ChipColor> = {
   buy: "info",

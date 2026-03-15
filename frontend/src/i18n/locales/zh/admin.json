@@ -1059,5 +1059,14 @@
   "archlens_architect_analyse_deps": "分析依赖项",
   "archlens_architect_deps_intro": "以下是所选产品在您的环境中正常运行所需的集成依赖项：",
   "archlens_architect_no_deps": "无需额外依赖项——所选产品可以与您的现有环境集成。",
-  "archlens_architect_analyzing_gaps": "AI正在分析所选方案的差距..."
+  "archlens_architect_analyzing_gaps": "AI正在分析所选方案的差距...",
+  "archlens_architect_step_requirements": "业务需求",
+  "archlens_architect_step_business_fit": "业务适配",
+  "archlens_architect_step_technical_fit": "技术适配",
+  "archlens_architect_step_solution": "解决方案架构",
+  "archlens_architect_step_target": "目标架构",
+  "archlens_architect_select_capabilities": "您正在改进或引入哪些业务能力？",
+  "archlens_architect_capabilities_hint": "从您的架构中选择现有的业务能力，或输入尚不存在的新能力。",
+  "archlens_architect_search_capabilities": "搜索或输入新能力...",
+  "archlens_architect_new_capability": "新建：{{name}}"
 }

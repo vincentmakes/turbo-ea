@@ -1059,5 +1059,14 @@
   "archlens_architect_analyse_deps": "Анализировать зависимости",
   "archlens_architect_deps_intro": "Вот интеграционные зависимости, необходимые для работы выбранных продуктов в вашей среде:",
   "archlens_architect_no_deps": "Дополнительные зависимости не требуются — выбранные продукты могут интегрироваться с вашим существующим ландшафтом.",
-  "archlens_architect_analyzing_gaps": "ИИ анализирует пробелы для выбранного подхода..."
+  "archlens_architect_analyzing_gaps": "ИИ анализирует пробелы для выбранного подхода...",
+  "archlens_architect_step_requirements": "Бизнес-требования",
+  "archlens_architect_step_business_fit": "Бизнес-соответствие",
+  "archlens_architect_step_technical_fit": "Техническое соответствие",
+  "archlens_architect_step_solution": "Архитектура решения",
+  "archlens_architect_step_target": "Целевая архитектура",
+  "archlens_architect_select_capabilities": "Какие бизнес-способности вы улучшаете или внедряете?",
+  "archlens_architect_capabilities_hint": "Выберите существующие бизнес-способности из вашего ландшафта или введите новые, которых ещё нет.",
+  "archlens_architect_search_capabilities": "Поиск или ввод новой способности...",
+  "archlens_architect_new_capability": "Новое: {{name}}"
 }

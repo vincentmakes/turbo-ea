@@ -1059,5 +1059,14 @@
   "archlens_architect_analyse_deps": "Abhängigkeiten analysieren",
   "archlens_architect_deps_intro": "Dies sind die Integrationsabhängigkeiten, die für Ihre ausgewählten Produkte in Ihrer Umgebung benötigt werden:",
   "archlens_architect_no_deps": "Keine zusätzlichen Abhängigkeiten erforderlich — die ausgewählten Produkte können in Ihre bestehende Landschaft integriert werden.",
-  "archlens_architect_analyzing_gaps": "KI analysiert Lücken für den gewählten Ansatz..."
+  "archlens_architect_analyzing_gaps": "KI analysiert Lücken für den gewählten Ansatz...",
+  "archlens_architect_step_requirements": "Geschäftsanforderungen",
+  "archlens_architect_step_business_fit": "Geschäftseignung",
+  "archlens_architect_step_technical_fit": "Technische Eignung",
+  "archlens_architect_step_solution": "Lösungsarchitektur",
+  "archlens_architect_step_target": "Zielarchitektur",
+  "archlens_architect_select_capabilities": "Welche Geschäftsfähigkeiten verbessern oder führen Sie ein?",
+  "archlens_architect_capabilities_hint": "Wählen Sie vorhandene Geschäftsfähigkeiten aus Ihrer Landschaft oder geben Sie neue ein, die noch nicht existieren.",
+  "archlens_architect_search_capabilities": "Suchen oder neue Fähigkeit eingeben...",
+  "archlens_architect_new_capability": "Neu: {{name}}"
 }
