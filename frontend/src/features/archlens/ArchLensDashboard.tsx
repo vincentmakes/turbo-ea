@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
@@ -51,8 +53,18 @@ const TIERS = [
 export default function ArchLensDashboard() {
   const { t } = useTranslation("admin");
   const navigate = useNavigate();
+  const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
   const [data, setData] = useState<ArchLensOverview | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const typeLabel = useCallback(
+    (key: string) => {
+      const tp = types.find(t => t.key === key);
+      return tp ? rml(tp.key, tp.translations, "label") : key;
+    },
+    [types, rml],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -200,7 +212,7 @@ export default function ArchLensDashboard() {
                     sx={{ cursor: "pointer" }}
                     onClick={() => navigate(`/inventory?type=${type}`)}
                   >
-                    <TableCell>{type}</TableCell>
+                    <TableCell>{typeLabel(type)}</TableCell>
                     <TableCell align="right">{count}</TableCell>
                   </TableRow>
                 ))}
@@ -241,7 +253,7 @@ export default function ArchLensDashboard() {
                     onClick={() => navigate(`/cards/${issue.id}`)}
                   >
                     <TableCell>{issue.name}</TableCell>
-                    <TableCell>{issue.type}</TableCell>
+                    <TableCell>{typeLabel(issue.type)}</TableCell>
                     <TableCell align="right">
                       <Stack
                         direction="row"

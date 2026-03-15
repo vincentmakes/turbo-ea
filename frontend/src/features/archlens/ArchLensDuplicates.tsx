@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -46,6 +48,15 @@ const STATUS_KEYS = ["pending", "confirmed", "investigating", "dismissed"] as co
 
 export default function ArchLensDuplicates() {
   const { t } = useTranslation("admin");
+  const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const typeLabel = useCallback(
+    (key: string) => {
+      const tp = types.find(t => t.key === key);
+      return tp ? rml(tp.key, tp.translations, "label") : key;
+    },
+    [types, rml],
+  );
   const [activeTab, setActiveTab] = useState(0);
 
   // ── Duplicates state ───────────────────────────────────────────────
@@ -280,7 +291,7 @@ export default function ArchLensDuplicates() {
               >
                 <MenuItem value="__all__">{t("archlens_filter_all")}</MenuItem>
                 {clusterTypes.map(tp => (
-                  <MenuItem key={tp} value={tp}>{tp}</MenuItem>
+                  <MenuItem key={tp} value={tp}>{typeLabel(tp)}</MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -339,7 +350,7 @@ export default function ArchLensDuplicates() {
 
                       <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
                         <Chip
-                          label={cluster.card_type}
+                          label={typeLabel(cluster.card_type)}
                           size="small"
                           variant="outlined"
                         />
@@ -461,7 +472,7 @@ export default function ArchLensDuplicates() {
                 return (
                   <Chip
                     key={tp}
-                    label={`${tp} (${cnt})`}
+                    label={`${typeLabel(tp)} (${cnt})`}
                     onClick={() => setModTypeFilter(tp)}
                     color={modTypeFilter === tp ? "primary" : "default"}
                     variant={modTypeFilter === tp ? "filled" : "outlined"}
@@ -481,7 +492,7 @@ export default function ArchLensDuplicates() {
                 >
                   {TARGET_TYPES.map((type) => (
                     <MenuItem key={type} value={type}>
-                      {type}
+                      {typeLabel(type)}
                     </MenuItem>
                   ))}
                 </Select>
