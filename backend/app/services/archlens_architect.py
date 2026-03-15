@@ -618,6 +618,49 @@ Respond with ONLY this JSON:
 
 
 # ---------------------------------------------------------------------------
+# Objective context loader
+# ---------------------------------------------------------------------------
+
+
+async def _load_objectives_context(db: AsyncSession, objective_ids: list[str] | None) -> str:
+    """Load selected Objective cards and format as prompt context."""
+    if not objective_ids:
+        return ""
+
+    from uuid import UUID
+
+    valid_ids = []
+    for oid in objective_ids:
+        try:
+            valid_ids.append(UUID(oid))
+        except (ValueError, TypeError):
+            continue
+
+    if not valid_ids:
+        return ""
+
+    result = await db.execute(select(Card).where(Card.id.in_(valid_ids)))
+    objectives = result.scalars().all()
+    if not objectives:
+        return ""
+
+    lines = [
+        "",
+        "=== SELECTED BUSINESS OBJECTIVES ===",
+        "The architecture must serve these business objectives. Every proposed",
+        "solution must trace back to improving a business capability that",
+        "supports one of these objectives.",
+        "",
+    ]
+    for obj in objectives:
+        desc = (obj.description or "").strip()
+        desc_str = f": {desc[:200]}" if desc else ""
+        lines.append(f"- {obj.name}{desc_str}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Phase 3a — Solution Options
 # ---------------------------------------------------------------------------
 
@@ -626,12 +669,14 @@ async def phase3_options(
     db: AsyncSession,
     requirement: str,
     all_qa: list[dict[str, Any]],
+    objective_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Generate 2-4 solution options with architectural impact previews."""
     landscape = await load_landscape(db)
     ctx = _build_compact_context(landscape)
     metamodel_ctx = await _load_metamodel_types_context(db)
     patterns = _detect_intent_patterns(requirement)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
 
     answers_text = "\n\n".join(
         f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
@@ -642,13 +687,22 @@ async def phase3_options(
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-
+{objectives_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
 {ctx}
 {metamodel_ctx}
 TASK: Propose 2-4 distinct solution approaches for this requirement.
+
+Each approach must clearly explain:
+1. Which BUSINESS CAPABILITIES it improves or introduces (capabilities that
+   directly support the selected business objectives above).
+2. What concrete solution components are needed to enable those capabilities.
+
+The chain is: Business Objective → Business Capability → Solution.
+Every option must trace back to the objectives.
+
 Each approach should represent a fundamentally different strategy
 (e.g. buy a product, extend an existing system, build custom, reuse
 components from the landscape).
@@ -659,16 +713,18 @@ RULES:
 3. Tag every component in impactPreview with a "cardTypeKey" from the metamodel.
 4. impactPreview shows the architectural delta — what changes if this option is chosen.
 5. Be concrete: name real products for "buy", name existing systems for "extend"/"reuse".
+6. The "summary" of each option MUST explain which business capabilities are
+   improved or created and how they serve the business objectives.
 
 Respond with ONLY this JSON:
 {{
-  "summary": "<one sentence restating the requirement>",
+  "summary": "<one sentence restating the requirement and its business objectives>",
   "options": [
     {{
       "id": "opt_1",
       "title": "<concise option title>",
       "approach": "buy | build | extend | reuse",
-      "summary": "<2-3 sentence description>",
+      "summary": "<2-3 sentences: which capabilities this improves/creates and how>",
       "estimatedCost": "<cost range>",
       "estimatedDuration": "<timeline>",
       "estimatedComplexity": "low | medium | high | very_high",
@@ -743,12 +799,14 @@ async def phase3_gaps(
     requirement: str,
     all_qa: list[dict[str, Any]],
     selected_option: dict[str, Any],
+    objective_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Phase 3b: identify capability gaps with competing products to choose from."""
+    """Phase 3b: identify the products needed to achieve the business requirements."""
     landscape = await load_landscape(db)
     ctx = _build_compact_context(landscape)
     metamodel_ctx = await _load_metamodel_types_context(db)
     patterns = _detect_intent_patterns(requirement)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
 
     answers_text = "\n\n".join(
         f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
@@ -757,72 +815,56 @@ async def phase3_gaps(
 
     option_ctx = _build_option_context(selected_option)
 
-    # Extract the primary products from the selected option's impact preview
-    primary_products: list[str] = []
-    impact = selected_option.get("impactPreview") or {}
-    for comp in impact.get("newComponents") or []:
-        name = comp.get("name", "")
-        if name:
-            primary_products.append(name)
-    option_title = selected_option.get("title", "")
-
-    primary_ctx = ""
-    if primary_products:
-        primary_ctx = (
-            "\n=== PRIMARY PRODUCTS IN THIS APPROACH ===\n"
-            f"The selected approach centres on: {', '.join(primary_products)}.\n"
-            "These MUST appear as the top recommendation (marked recommended) in the\n"
-            "first gap. Include 2-3 direct competitors alongside them so the user can\n"
-            "compare and choose.\n"
-        )
-
-    prompt = f"""You are a principal enterprise architect performing product selection.
+    prompt = f"""You are a principal enterprise architect identifying the products needed \
+to achieve the business requirements.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-
+{objectives_ctx}
 {option_ctx}
-{primary_ctx}
+
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
 {ctx}
 {metamodel_ctx}
-TASK: For the selected approach, identify the key capability gaps and provide
-competing product options for EACH gap so the user can pick one product per gap.
+TASK: For the selected approach, identify ONLY the products that are needed to
+achieve the business requirements — nothing more.
 
-The FIRST gap must be the primary capability (e.g. "Sales Intelligence Platform"
-if the approach is Buy Apollo). Include the main product from the approach as the
-top recommendation, plus 2-3 direct market competitors.
+The chain is: Business Objective → Business Capability → Product/Solution.
+Each gap represents a business capability that needs to be enabled or improved
+to achieve the business objectives. The product recommendation is what fulfils
+that capability gap.
 
-Additional gaps should cover ONLY capabilities that are genuinely missing from the
-existing landscape and needed for this approach. For each, provide 3-4 competing
-products. Check what already exists — skip capabilities that are covered.
+Do NOT over-engineer: only include the products strictly required by this
+approach to deliver the business capabilities. Skip anything the existing
+landscape already covers.
 
 RULES:
-1. The FIRST gap is the primary capability. The product(s) from the approach
-   ({", ".join(primary_products) if primary_products else option_title})
-   MUST be the top recommendation, marked "recommended": true. Add 2-3 direct
-   competitors in the same category.
-2. Aim for 1-3 total gaps. Only include additional gaps for capabilities that
-   are truly missing and required — not sub-components of the main product.
-3. Each recommendation must name a REAL product/vendor with concrete pros/cons.
-4. The user will pick ONE product per gap — present them as genuine alternatives.
-5. Include integration effort and cost estimates for each recommendation.
+1. Each gap must name the BUSINESS CAPABILITY it addresses and explain which
+   business objective it supports.
+2. The recommendation for each gap is the product that best fulfils that
+   capability need — mark it "recommended": true.
+3. Include 1-2 alternatives only when genuine alternatives exist for that
+   specific capability gap. Do not pad with unrelated products.
+4. Aim for 1-3 total gaps. Only include capabilities that are genuinely
+   missing and required — not sub-components of the main product.
+5. Each recommendation must name a REAL product/vendor with concrete pros/cons.
+6. Include integration effort and cost estimates for each recommendation.
 
 Respond with ONLY this JSON:
 {{
-  "summary": "<1-2 sentence overview of the product selection>",
+  "summary": "<1-2 sentences: which business capabilities are being addressed and why>",
   "gaps": [
     {{
-      "capability": "<capability to fill>",
-      "impact": "<why this capability is needed>",
+      "capability": "<business capability to enable/improve>",
+      "impact": "<which business objective this supports and why>",
       "urgency": "critical | high | medium",
       "recommendations": [
         {{
           "name": "<product name>",
           "vendor": "<vendor>",
-          "why": "<why this product fits>",
+          "why": "<why this product fulfils the capability>",
           "pros": ["<advantage>"],
           "cons": ["<disadvantage>"],
           "estimatedCost": "<cost range>",

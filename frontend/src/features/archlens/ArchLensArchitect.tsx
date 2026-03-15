@@ -814,6 +814,7 @@ export default function ArchLensArchitect() {
           answer: q.answer,
         }));
         payload.allQA = [...phase1Answers, ...phase2qa];
+        payload.objectiveIds = selectedObjectives.map((o) => o.id);
         const result = await api.post<{ options: ArchSolutionOption[] }>(
           "/archlens/architect/phase3/options",
           payload,
@@ -961,6 +962,7 @@ export default function ArchLensArchitect() {
           })),
         ],
         selectedOption: selectedOpt ?? null,
+        objectiveIds: selectedObjectives.map((o) => o.id),
       };
       const result = await api.post<GapAnalysisResult>(
         "/archlens/architect/phase3/gaps",

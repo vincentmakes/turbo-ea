@@ -611,7 +611,8 @@ async def architect_phase3_options(
     from app.services.archlens_architect import phase3_options
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
-    return await phase3_options(db, body.requirement, qa_list)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    return await phase3_options(db, body.requirement, qa_list, obj_ids or None)
 
 
 @router.post("/architect/phase3/gaps")
@@ -620,7 +621,7 @@ async def architect_phase3_gaps(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Phase 3b: gap analysis for a selected solution option."""
+    """Phase 3b: identify products needed for the business requirements."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
     if not body.requirement or not body.all_qa:
@@ -632,7 +633,8 @@ async def architect_phase3_gaps(
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
     option = body.selected_option if isinstance(body.selected_option, dict) else {}
-    return await phase3_gaps(db, body.requirement, qa_list, option)
+    obj_ids = body.objective_ids if isinstance(body.objective_ids, list) else []
+    return await phase3_gaps(db, body.requirement, qa_list, option, obj_ids or None)
 
 
 @router.post("/architect/phase3/deps")
