@@ -482,6 +482,7 @@ async def _load_existing_cards_context(db: AsyncSession) -> str:
         "Interface",
         "ITComponent",
         "BusinessCapability",
+        "Provider",
         "System",
     ]
     result = await db.execute(
@@ -493,18 +494,23 @@ async def _load_existing_cards_context(db: AsyncSession) -> str:
     if not cards:
         return ""
 
-    by_type: dict[str, list[str]] = {}
+    by_type: dict[str, list[tuple[str, str]]] = {}
     for c in cards:
-        by_type.setdefault(c.type, []).append(c.name)
+        by_type.setdefault(c.type, []).append((str(c.id), c.name))
 
     lines = [
         "",
-        "=== ALL EXISTING CARDS (use these EXACT names — do NOT invent variants) ===",
+        "=== ALL EXISTING CARDS (use EXACT names — do NOT invent variants) ===",
+        'Format: "<UUID>": <name>',
+        "Use the UUID as existingCardId when referencing existing cards in relations.",
+        "",
     ]
     for card_type in lookup_types:
-        names = by_type.get(card_type, [])
-        if names:
-            lines.append(f"[{card_type}]: {', '.join(names)}")
+        entries = by_type.get(card_type, [])
+        if entries:
+            lines.append(f"[{card_type}]:")
+            for card_id, name in entries:
+                lines.append(f'  "{card_id}": {name}')
     lines.append("")
     return "\n".join(lines)
 
@@ -632,10 +638,11 @@ RULES:
 8. Do NOT invent relation types. If no relation type exists between two card types,
    do NOT propose that relation — restructure the card types instead.
 9. NAMING — REUSE EXISTING: Check the ALL EXISTING CARDS list above. If a card
-   with the same product or concept already exists, use its EXACT name and mark
-   isNew: false. Do NOT create variants like "X Enhanced", "X Extended",
-   "X Platform", or "X Hub". If you need to describe changes to an existing
-   system, use the existing name and explain the change in the rationale field.
+   with the same product or concept already exists, use its EXACT name, its UUID
+   as "id" and "existingCardId", and mark isNew: false. Do NOT create variants
+   like "X Enhanced", "X Extended", "X Platform", or "X Hub". If you need to
+   describe changes to an existing system, use the existing name and explain
+   the change in the rationale field.
 10. NAMING — CLEAN DOMAIN ENTITIES: For DataObjects, use concise domain entity
     names (e.g. "Lead", "Customer", "Order"), NOT descriptive phrases like
     "Enriched Lead Data" or "Customer Profile Data". DataObjects represent
@@ -691,6 +698,14 @@ RULES:
 
     NO ORPHAN CARDS. Every card must have at least one relation.
     Run through this checklist mentally before outputting your JSON.
+15. L1 DEPENDENCIES — CONNECT TO EXISTING CARDS: When a proposed Interface or
+    relation involves an EXISTING application, ITComponent, or provider from the
+    ALL EXISTING CARDS list, you MUST use that card's UUID as the sourceId or
+    targetId. Do NOT omit a relation just because the other card already exists.
+    For example, if you propose interface "D365 → ZoomInfo Sync", and D365 CRM
+    exists in the landscape with UUID "abc-123", create:
+      {{ sourceId: "abc-123", targetId: "new_iface_1", relationType: "relAppToInterface" }}
+    This ensures the target architecture connects to the existing landscape.
 
 Respond with ONLY this JSON:
 {{
@@ -1050,7 +1065,7 @@ async def phase3_deps(
 
     option_ctx = _build_option_context(selected_option)
 
-    # Build the picked products context
+    # Build the picked products context with pros/cons for integration awareness
     picks_lines: list[str] = []
     for sp in selected_products:
         line = f"  - {sp.get('name', '?')}"
@@ -1058,6 +1073,12 @@ async def phase3_deps(
             line += f" ({sp['vendor']})"
         line += f" — for: {sp.get('capability', '?')}"
         picks_lines.append(line)
+        pros = sp.get("pros")
+        if pros and isinstance(pros, list):
+            picks_lines.append(f"    Pros: {', '.join(pros)}")
+        cons = sp.get("cons")
+        if cons and isinstance(cons, list):
+            picks_lines.append(f"    Cons: {', '.join(cons)}")
     picks_block = "\n".join(picks_lines) if picks_lines else "  (none)"
 
     prompt = f"""You are a principal enterprise architect analysing integration dependencies.
@@ -1087,11 +1108,15 @@ RULES:
 1. ONLY include dependencies that are directly required by the selected products.
 2. Check the existing landscape — if a dependency is already covered (e.g. an
    API gateway already exists), skip it entirely.
-3. Each dependency should name 2-3 REAL product options with pros/cons.
-4. Aim for 1-4 dependencies total. Zero is valid if no additional tooling is
-   needed. Fewer is better.
-5. Mark the best-fit product as "recommended": true.
-6. Explain WHY each dependency is needed (which selected product requires it
+3. NATIVE INTEGRATIONS: Read the product Pros carefully. If a selected product
+   already has native/built-in integration with an existing system (e.g. "Native
+   D365 integration"), do NOT propose middleware or connectors for that integration.
+   The product handles it natively — no additional tooling is needed.
+4. Each dependency should name 2-3 REAL product options with pros/cons.
+5. Aim for 0-3 dependencies total. Zero is valid and preferred if products have
+   native integrations. Fewer is better — do NOT over-engineer.
+6. Mark the best-fit product as "recommended": true.
+7. Explain WHY each dependency is needed (which selected product requires it
    and what for).
 
 Respond with ONLY this JSON:

@@ -879,7 +879,13 @@ export default function ArchLensArchitect() {
         ];
         payload.selectedOption = selectedOpt ?? null;
         // Build selected products from gap result
-        const products: { name: string; vendor?: string; capability: string }[] = [];
+        const products: {
+          name: string;
+          vendor?: string;
+          capability: string;
+          pros?: string[];
+          cons?: string[];
+        }[] = [];
         if (gapResult && selectedRecs.size > 0) {
           gapResult.gaps.forEach((gap, gi) => {
             (gap.recommendations ?? []).forEach((rec, ri) => {
@@ -888,6 +894,8 @@ export default function ArchLensArchitect() {
                   capability: gap.capability,
                   name: rec.name,
                   vendor: rec.vendor,
+                  pros: rec.pros,
+                  cons: rec.cons,
                 });
               }
             });
