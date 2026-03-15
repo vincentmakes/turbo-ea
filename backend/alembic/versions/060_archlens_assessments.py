@@ -55,6 +55,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_archlens_assessments_initiative_id", table_name="archlens_assessments")
-    op.drop_index("ix_archlens_assessments_created_by", table_name="archlens_assessments")
+    # Use IF EXISTS because create_all() may have created the table without
+    # these migration-only indexes (see CI migration-rollback test pattern).
+    op.execute("DROP INDEX IF EXISTS ix_archlens_assessments_initiative_id")
+    op.execute("DROP INDEX IF EXISTS ix_archlens_assessments_created_by")
     op.drop_table("archlens_assessments")
