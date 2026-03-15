@@ -858,8 +858,13 @@ export default function ArchLensArchitect() {
       // Skip relations involving disabled cards
       if (disabledIds.has(rel.sourceId) || disabledIds.has(rel.targetId)) continue;
       const resolveId = (refId: string): string => {
-        const cap = capabilityMapping.capabilities.find((c) => c.id === refId);
+        // Check capabilities by id or existingCardId
+        const cap = capabilityMapping.capabilities.find(
+          (c) => c.id === refId || c.existingCardId === refId,
+        );
         if (cap) return cap.existingCardId || cap.id;
+        // If the ID is in the nodeMap already, use it directly
+        if (nodeMap.has(refId)) return refId;
         return refId;
       };
       let sid = resolveId(rel.sourceId);
@@ -1206,6 +1211,9 @@ export default function ArchLensArchitect() {
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
+    // Reset assessment so the updated session data gets saved on next commit
+    setAssessmentId(null);
+    setAssessmentSaved(false);
   };
 
   const handleSaveAssessment = async (): Promise<string | null> => {

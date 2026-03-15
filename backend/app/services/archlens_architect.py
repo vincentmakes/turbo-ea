@@ -520,6 +520,44 @@ async def _load_existing_cards_context(db: AsyncSession) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _merge_new_capabilities_into_proposed(parsed: dict[str, Any]) -> None:
+    """Add new capabilities to proposedCards so they appear in the UI and get committed.
+
+    Also normalises relation IDs: if a proposed relation references a capability
+    by its temporary ``id`` (e.g. ``new_cap_1``), that same ID is used as the
+    card's ``id`` in proposedCards so edges resolve correctly in the diagram.
+    """
+    proposed_cards = parsed.setdefault("proposedCards", [])
+    proposed_ids = {c.get("id", "") for c in proposed_cards}
+    # Also track existingCardIds to avoid duplicates with existing cards
+    existing_card_ids = {
+        c.get("existingCardId", "") for c in proposed_cards if c.get("existingCardId")
+    }
+
+    for cap in parsed.get("capabilities", []):
+        if not cap.get("isNew"):
+            continue
+        cap_id = cap.get("id", "")
+        existing_id = cap.get("existingCardId", "")
+        # Skip if already in proposedCards (by either ID)
+        if cap_id in proposed_ids or (existing_id and existing_id in existing_card_ids):
+            continue
+        proposed_cards.append(
+            {
+                "id": cap_id,
+                "name": cap.get("name", ""),
+                "cardTypeKey": "BusinessCapability",
+                "isNew": True,
+                "rationale": cap.get("rationale", ""),
+            }
+        )
+        proposed_ids.add(cap_id)
+        logger.info(
+            "Guardrail: merged new capability %s into proposedCards",
+            cap.get("name"),
+        )
+
+
 def _enforce_mandatory_relations(
     parsed: dict[str, Any],
     selected_capabilities: list[dict[str, Any]],
@@ -973,6 +1011,12 @@ Respond with ONLY this JSON:
                         "rationale": "Existing card referenced by proposed relations",
                     }
                 )
+
+    # ---- Post-processing: merge new capabilities into proposedCards ----
+    # New capabilities live in the separate "capabilities" array but must also
+    # appear in "proposedCards" so they (a) show in the UI cards list,
+    # (b) get committed as real cards, and (c) have consistent IDs for edges.
+    _merge_new_capabilities_into_proposed(parsed)
 
     # ---- Post-processing: enforce mandatory relations ----
     _enforce_mandatory_relations(
