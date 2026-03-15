@@ -1024,5 +1024,18 @@
   "archlens_status_investigating": "На рассмотрении",
   "archlens_status_dismissed": "Отклонено",
   "archlens_critical_high": "критический/высокий",
-  "archlens_architect_custom_answer": "Или введите свой ответ..."
+  "archlens_architect_custom_answer": "Или введите свой ответ...",
+  "archlens_architect_options_intro": "На основе ваших требований, вот рекомендуемые подходы к решению:",
+  "archlens_architect_select_option": "Выбрать этот подход",
+  "archlens_architect_generating_options": "ИИ анализирует подходы к решению...",
+  "archlens_architect_approach_buy": "Купить",
+  "archlens_architect_approach_build": "Разработать",
+  "archlens_architect_approach_extend": "Расширить",
+  "archlens_architect_approach_reuse": "Переиспользовать",
+  "archlens_architect_impact_preview": "Архитектурное влияние",
+  "archlens_architect_new_components": "Новые компоненты",
+  "archlens_architect_modified_components": "Изменённые компоненты",
+  "archlens_architect_new_integrations": "Новые интеграции",
+  "archlens_architect_retired_components": "Выводимые компоненты",
+  "archlens_architect_choose_different": "Выбрать другой подход"
 }

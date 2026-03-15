@@ -1024,5 +1024,18 @@
   "archlens_status_investigating": "调查中",
   "archlens_status_dismissed": "已忽略",
   "archlens_critical_high": "关键/高",
-  "archlens_architect_custom_answer": "或输入您自己的答案..."
+  "archlens_architect_custom_answer": "或输入您自己的答案...",
+  "archlens_architect_options_intro": "根据您的需求，以下是推荐的解决方案：",
+  "archlens_architect_select_option": "选择此方案",
+  "archlens_architect_generating_options": "AI 正在分析解决方案...",
+  "archlens_architect_approach_buy": "购买",
+  "archlens_architect_approach_build": "自建",
+  "archlens_architect_approach_extend": "扩展",
+  "archlens_architect_approach_reuse": "复用",
+  "archlens_architect_impact_preview": "架构影响",
+  "archlens_architect_new_components": "新增组件",
+  "archlens_architect_modified_components": "修改组件",
+  "archlens_architect_new_integrations": "新增集成",
+  "archlens_architect_retired_components": "淘汰组件",
+  "archlens_architect_choose_different": "选择其他方案"
 }

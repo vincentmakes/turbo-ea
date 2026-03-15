@@ -452,13 +452,31 @@ async def architect_phase2(
     return result
 
 
+@router.post("/architect/phase3/options")
+async def architect_phase3_options(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3a: propose solution options with architectural impact previews."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+
+    from app.services.archlens_architect import phase3_options
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    return await phase3_options(db, body.requirement, qa_list)
+
+
 @router.post("/architect/phase3")
 async def architect_phase3(
     body: ArchLensArchitectRequest,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Phase 3: architecture generation + Mermaid diagram."""
+    """Phase 3b: generate architecture for a selected solution option."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
     if not body.requirement or not body.all_qa:
@@ -467,7 +485,8 @@ async def architect_phase3(
     from app.services.archlens_architect import phase3_architecture
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
-    result = await phase3_architecture(db, body.requirement, qa_list)
+    option = body.selected_option if isinstance(body.selected_option, dict) else None
+    result = await phase3_architecture(db, body.requirement, qa_list, option)
 
     # Record the run
     run = ArchLensAnalysisRun(

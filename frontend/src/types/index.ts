@@ -1244,6 +1244,7 @@ export interface ArchComponent {
   role?: string;
   notes?: string;
   existsInLandscape?: boolean;
+  cardTypeKey?: string;
 }
 
 export interface ArchLayer {
@@ -1307,4 +1308,37 @@ export interface ArchitectureResult {
   // Legacy flat fields
   architecture?: string;
   diagram?: string;
+}
+
+export interface ArchOptionImpactComponent {
+  name: string;
+  cardTypeKey: string;
+  subtype?: string;
+  role?: string;
+  change?: string;
+}
+
+export interface ArchOptionImpact {
+  newComponents: ArchOptionImpactComponent[];
+  modifiedComponents: ArchOptionImpactComponent[];
+  newIntegrations: Array<{ from: string; to: string; protocol?: string }>;
+  retiredComponents: ArchOptionImpactComponent[];
+}
+
+export interface ArchSolutionOption {
+  id: string;
+  title: string;
+  approach: "buy" | "build" | "extend" | "reuse";
+  summary: string;
+  estimatedCost?: string;
+  estimatedDuration?: string;
+  estimatedComplexity?: string;
+  pros?: string[];
+  cons?: string[];
+  impactPreview: ArchOptionImpact;
+}
+
+export interface ArchOptionsResult {
+  summary?: string;
+  options: ArchSolutionOption[];
 }

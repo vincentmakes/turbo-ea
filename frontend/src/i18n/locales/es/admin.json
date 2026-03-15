@@ -1024,5 +1024,18 @@
   "archlens_status_investigating": "En investigación",
   "archlens_status_dismissed": "Descartado",
   "archlens_critical_high": "crítico/alto",
-  "archlens_architect_custom_answer": "O escriba su propia respuesta..."
+  "archlens_architect_custom_answer": "O escriba su propia respuesta...",
+  "archlens_architect_options_intro": "Según sus requisitos, estas son las soluciones recomendadas:",
+  "archlens_architect_select_option": "Seleccionar este enfoque",
+  "archlens_architect_generating_options": "La IA está analizando enfoques de solución...",
+  "archlens_architect_approach_buy": "Comprar",
+  "archlens_architect_approach_build": "Construir",
+  "archlens_architect_approach_extend": "Extender",
+  "archlens_architect_approach_reuse": "Reutilizar",
+  "archlens_architect_impact_preview": "Impacto arquitectónico",
+  "archlens_architect_new_components": "Nuevos componentes",
+  "archlens_architect_modified_components": "Componentes modificados",
+  "archlens_architect_new_integrations": "Nuevas integraciones",
+  "archlens_architect_retired_components": "Componentes retirados",
+  "archlens_architect_choose_different": "Elegir otro enfoque"
 }

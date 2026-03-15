@@ -13,6 +13,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import dagre from "@dagrejs/dagre";
 import {
   ReactFlow,
@@ -30,7 +31,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { ArchitectureResult, ArchComponent, ArchIntegration } from "@/types";
+import type { ArchitectureResult, ArchComponent, ArchIntegration, CardType } from "@/types";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -64,6 +65,9 @@ interface ArchNodeData {
   category?: string;
   role?: string;
   product?: string;
+  cardTypeKey?: string;
+  cardTypeColor?: string;
+  cardTypeIcon?: string;
   [key: string]: unknown;
 }
 
@@ -89,8 +93,12 @@ interface ArchEdgeData {
 const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  const color = TYPE_COLORS[data.compType] || "#999";
-  const bg = TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
+  // Use metamodel color when available, otherwise fall back to type-based color
+  const metaColor = data.cardTypeColor;
+  const color = metaColor || TYPE_COLORS[data.compType] || "#999";
+  const bg = metaColor
+    ? `${metaColor}${isDark ? "1F" : "14"}`
+    : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
   const handleStyle = { width: 6, height: 6, border: "none" };
 
@@ -115,6 +123,11 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: color }} />
       <Handle type="target" position={Position.Left} id="l" style={{ ...handleStyle, background: "transparent" }} />
       <Handle type="source" position={Position.Right} id="r" style={{ ...handleStyle, background: "transparent" }} />
+      {data.cardTypeIcon && (
+        <Box sx={{ position: "absolute", top: 4, right: 6, opacity: 0.6 }}>
+          <MaterialSymbol icon={data.cardTypeIcon} size={14} color={color} />
+        </Box>
+      )}
       <Tooltip title={data.role || ""} arrow placement="top">
         <Typography
           variant="body2"
@@ -268,6 +281,7 @@ const edgeTypes = { archEdge: ArchEdge };
 
 function buildArchFlow(
   arch: ArchitectureResult,
+  typeMap?: Map<string, { color: string; icon: string }>,
 ): { nodes: Node[]; edges: Edge[] } {
   const layers = arch.layers ?? [];
   const integrations = arch.integrations ?? [];
@@ -435,6 +449,8 @@ function buildArchFlow(
 
     for (const entry of gb.entries) {
       const absP = nodeAbsPos.get(entry.id)!;
+      const ctk = entry.comp.cardTypeKey;
+      const meta = ctk && typeMap ? typeMap.get(ctk) : undefined;
       rfNodes.push({
         id: entry.id,
         type: "archNode",
@@ -447,6 +463,9 @@ function buildArchFlow(
           category: entry.comp.category,
           role: entry.comp.role,
           product: entry.comp.product,
+          cardTypeKey: ctk,
+          cardTypeColor: meta?.color,
+          cardTypeIcon: meta?.icon,
         } satisfies ArchNodeData,
         style: { width: NODE_W, height: NODE_H },
         draggable: false,
@@ -513,11 +532,18 @@ function buildArchFlow(
 // Inner component
 // ---------------------------------------------------------------------------
 
-function ArchitectureDiagramInner({ arch }: { arch: ArchitectureResult }) {
+function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
   const { t } = useTranslation("admin");
   const theme = useTheme();
 
-  const { nodes, edges } = useMemo(() => buildArchFlow(arch), [arch]);
+  const typeMap = useMemo(() => {
+    if (!types?.length) return undefined;
+    const m = new Map<string, { color: string; icon: string }>();
+    for (const ct of types) m.set(ct.key, { color: ct.color, icon: ct.icon });
+    return m;
+  }, [types]);
+
+  const { nodes, edges } = useMemo(() => buildArchFlow(arch, typeMap), [arch, typeMap]);
 
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
@@ -619,10 +645,10 @@ function ArchitectureDiagramInner({ arch }: { arch: ArchitectureResult }) {
 // Exported wrapper
 // ---------------------------------------------------------------------------
 
-export default function ArchitectureDiagram({ arch }: { arch: ArchitectureResult }) {
+export default function ArchitectureDiagram({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
   return (
     <ReactFlowProvider>
-      <ArchitectureDiagramInner arch={arch} />
+      <ArchitectureDiagramInner arch={arch} types={types} />
     </ReactFlowProvider>
   );
 }

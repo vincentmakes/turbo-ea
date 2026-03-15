@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.archlens import ArchLensVendorAnalysis
 from app.models.card import Card
+from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.services.archlens_ai import (
@@ -390,18 +391,50 @@ Respond with ONLY this JSON:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3 — Architecture Generation (two-call pattern)
+# Metamodel type context for AI prompts
 # ---------------------------------------------------------------------------
 
 
-async def phase3_architecture(
+async def _load_metamodel_types_context(db: AsyncSession) -> str:
+    """Load card types and format them for AI prompt context."""
+    result = await db.execute(
+        select(CardType)
+        .where(CardType.is_hidden.is_(False))
+        .order_by(CardType.sort_order, CardType.key)
+    )
+    types = result.scalars().all()
+    if not types:
+        return ""
+
+    lines = [
+        "",
+        "=== METAMODEL CARD TYPES ===",
+        "Tag each component with a cardTypeKey from this list:",
+        "",
+    ]
+    for ct in types:
+        subtypes = ct.subtypes or []
+        sub_labels = [s.get("label", s.get("key", "")) for s in subtypes]
+        sub_str = f" (subtypes: {', '.join(sub_labels)})" if sub_labels else ""
+        lines.append(f"- {ct.key}: {ct.label}{sub_str}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3a — Solution Options
+# ---------------------------------------------------------------------------
+
+
+async def phase3_options(
     db: AsyncSession,
     requirement: str,
     all_qa: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Generate full architecture with landscape mapping + Mermaid diagram."""
+    """Generate 2-4 solution options with architectural impact previews."""
     landscape = await load_landscape(db)
     ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
     patterns = _detect_intent_patterns(requirement)
 
     answers_text = "\n\n".join(
@@ -409,10 +442,7 @@ async def phase3_architecture(
         for i, qa in enumerate(all_qa)
     )
 
-    # ── Call 1: Structured architecture ──────────────────────────────────
-    logger.info("Phase 3 \u2014 Call 1: generating architecture structure...")
-
-    structure_prompt = f"""You are generating a complete enterprise solution architecture.
+    prompt = f"""You are a principal enterprise architect proposing solution approaches.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
@@ -421,15 +451,113 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
 {ctx}
+{metamodel_ctx}
+TASK: Propose 2-4 distinct solution approaches for this requirement.
+Each approach should represent a fundamentally different strategy
+(e.g. buy a product, extend an existing system, build custom, reuse
+components from the landscape).
 
+RULES:
+1. Each option MUST have a different "approach" type: buy, build, extend, or reuse.
+2. Reference SPECIFIC systems from the existing landscape where relevant.
+3. Tag every component in impactPreview with a "cardTypeKey" from the metamodel.
+4. impactPreview shows the architectural delta — what changes if this option is chosen.
+5. Be concrete: name real products for "buy", name existing systems for "extend"/"reuse".
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<one sentence restating the requirement>",
+  "options": [
+    {{
+      "id": "opt_1",
+      "title": "<concise option title>",
+      "approach": "buy | build | extend | reuse",
+      "summary": "<2-3 sentence description>",
+      "estimatedCost": "<cost range>",
+      "estimatedDuration": "<timeline>",
+      "estimatedComplexity": "low | medium | high | very_high",
+      "pros": ["<advantage 1>", "<advantage 2>"],
+      "cons": ["<disadvantage 1>", "<disadvantage 2>"],
+      "impactPreview": {{
+        "newComponents": [
+          {{ "name": "<name>", "cardTypeKey": "<type key>", "subtype": "<subtype>", "role": "<what it does>" }}
+        ],
+        "modifiedComponents": [
+          {{ "name": "<existing system>", "cardTypeKey": "<type key>", "change": "<what changes>" }}
+        ],
+        "newIntegrations": [
+          {{ "from": "<source>", "to": "<target>", "protocol": "<REST|GraphQL|Event|gRPC>" }}
+        ],
+        "retiredComponents": [
+          {{ "name": "<system to retire>", "cardTypeKey": "<type key>", "role": "<current role>" }}
+        ]
+      }}
+    }}
+  ]
+}}"""  # noqa: E501
+
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 4000, persona)
+    parsed: dict[str, Any] = parse_json(result["text"])
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Phase 3b — Architecture Generation (two-call pattern)
+# ---------------------------------------------------------------------------
+
+
+async def phase3_architecture(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    selected_option: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Generate full architecture with landscape mapping."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
+    patterns = _detect_intent_patterns(requirement)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    # Build selected option context if provided
+    option_ctx = ""
+    if selected_option:
+        option_ctx = f"""
+SELECTED SOLUTION APPROACH:
+Title: {selected_option.get("title", "")}
+Approach: {selected_option.get("approach", "")}
+Summary: {selected_option.get("summary", "")}
+
+Generate the full architecture specifically for this selected approach.
+"""
+
+    # ── Call 1: Structured architecture ──────────────────────────────────
+    logger.info("Phase 3 — Call 1: generating architecture structure...")
+
+    structure_prompt = f"""You are generating a complete enterprise solution architecture.
+
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+{option_ctx}
+ALL REQUIREMENTS ({len(all_qa)} questions answered):
+{answers_text}
+
+{ctx}
+{metamodel_ctx}
 TASK: Generate the full architecture structure. Do NOT include a diagram.
 
 RULES:
-1. LANDSCAPE MAPPING: Mark 'existing' only if in landscape, 'recommended' for procurement, 'new' for custom-built. # noqa: E501
+1. LANDSCAPE MAPPING: Mark 'existing' only if in landscape, 'recommended' for procurement, 'new' for custom-built.
 2. GAP ANALYSIS: For every missing capability, provide 3-4 named product recommendations.
 3. INTEGRATION MAP: List every integration with protocol, direction, data flows.
 4. Include ALL 7 sections below.
 5. PRINCIPLE ALIGNMENT: Note when components or decisions align with or conflict with stated EA principles.
+6. METAMODEL TAGGING: Tag each component with a "cardTypeKey" from the metamodel types list.
 
 Respond with ONLY this JSON:
 {{
@@ -448,7 +576,7 @@ Respond with ONLY this JSON:
     {{
       "name": "<layer name>",
       "components": [
-        {{ "name": "<name>", "type": "existing | new | recommended", "product": "<vendor/product>", "category": "<tech category>", "role": "<1-2 sentences>", "notes": "<optional>" }} # noqa: E501
+        {{ "name": "<name>", "type": "existing | new | recommended", "product": "<vendor/product>", "category": "<tech category>", "role": "<1-2 sentences>", "cardTypeKey": "<metamodel type key>", "notes": "<optional>" }}
       ]
     }}
   ],

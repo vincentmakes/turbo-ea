@@ -117,4 +117,15 @@ export function severityColor(s?: string): string {
 
 // ── Architect phases ────────────────────────────────────────────────────
 
-export const ARCHITECT_PHASES = [1, 2, 3] as const;
+export const ARCHITECT_PHASES = [1, 2, 3, 4] as const;
+
+const APPROACH_COLORS: Record<string, ChipColor> = {
+  buy: "info",
+  build: "primary",
+  extend: "warning",
+  reuse: "success",
+};
+
+export function approachColor(approach: string): ChipColor {
+  return APPROACH_COLORS[approach] ?? "default";
+}

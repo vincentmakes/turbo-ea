@@ -25,6 +25,7 @@ class ArchLensArchitectRequest(BaseModel):
     requirement: str | None = None
     phase1_qa: dict | list | None = Field(None, alias="phase1QA")
     all_qa: dict | list | None = Field(None, alias="allQA")
+    selected_option: dict | None = Field(None, alias="selectedOption")
 
 
 class ArchLensDuplicateStatusUpdate(BaseModel):
