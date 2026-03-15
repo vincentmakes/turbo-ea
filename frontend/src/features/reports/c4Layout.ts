@@ -469,16 +469,16 @@ export function buildC4Flow(
   // 5 positions: 12%, 30%, 50%, 70%, 88% of node width
   function handleOffset(h: string): { dx: number; dy: number } {
     switch (h) {
-      case "b-1":  return { dx: -C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
-      case "b-2":  return { dx: -C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
-      case "b-3":  return { dx: 0, dy: C4_NODE_H / 2 };
-      case "b-4":  return { dx: C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
-      case "b-5":  return { dx: C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
-      case "t-1":  return { dx: -C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
-      case "t-2":  return { dx: -C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
-      case "t-3":  return { dx: 0, dy: -C4_NODE_H / 2 };
-      case "t-4":  return { dx: C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
-      case "t-5":  return { dx: C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
+      case "b-1": case "bt-1": return { dx: -C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
+      case "b-2": case "bt-2": return { dx: -C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
+      case "b-3": case "bt-3": return { dx: 0, dy: C4_NODE_H / 2 };
+      case "b-4": case "bt-4": return { dx: C4_NODE_W * 0.20, dy: C4_NODE_H / 2 };
+      case "b-5": case "bt-5": return { dx: C4_NODE_W * 0.38, dy: C4_NODE_H / 2 };
+      case "t-1": case "ts-1": return { dx: -C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
+      case "t-2": case "ts-2": return { dx: -C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
+      case "t-3": case "ts-3": return { dx: 0, dy: -C4_NODE_H / 2 };
+      case "t-4": case "ts-4": return { dx: C4_NODE_W * 0.20, dy: -C4_NODE_H / 2 };
+      case "t-5": case "ts-5": return { dx: C4_NODE_W * 0.38, dy: -C4_NODE_H / 2 };
       case "left-src":
       case "left": return { dx: -C4_NODE_W / 2, dy: 0 };
       case "right":
@@ -618,8 +618,11 @@ export function buildC4Flow(
   // the arrow exits from the top of the source node and enters the bottom of
   // the target node while preserving the metamodel arrow direction.
   function flipHandle(h: string): string {
-    if (h.startsWith("b-")) return "t-" + h.slice(2);
-    if (h.startsWith("t-")) return "b-" + h.slice(2);
+    // For flipped edges (upward arrows), bottom source → top source, top target → bottom target.
+    // Uses mirrored handle IDs: "ts-N" (top source) and "bt-N" (bottom target)
+    // so React Flow can match handle type correctly.
+    if (h.startsWith("b-")) return "ts-" + h.slice(2); // bottom source → top source mirror
+    if (h.startsWith("t-")) return "bt-" + h.slice(2); // top target → bottom target mirror
     return h; // side handles stay unchanged
   }
 

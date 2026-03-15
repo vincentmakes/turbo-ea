@@ -69,15 +69,23 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
 
   const usedSet = useMemo(() => new Set(data.usedHandles ?? []), [data.usedHandles]);
-  const hs = (id: string, extra?: React.CSSProperties) =>
-    ({
-      background: usedSet.has(id) ? color : "transparent",
+  const hs = (id: string, extra?: React.CSSProperties) => {
+    // Mirrored handles (ts-N, bt-N) share visibility with their base (t-N, b-N)
+    const baseId = id.startsWith("ts-")
+      ? "t-" + id.slice(3)
+      : id.startsWith("bt-")
+        ? "b-" + id.slice(3)
+        : id;
+    const isUsed = usedSet.has(id) || usedSet.has(baseId);
+    return {
+      background: isUsed ? color : "transparent",
       width: 5,
       height: 5,
       border: "none",
-      opacity: usedSet.has(id) ? 1 : 0,
+      opacity: isUsed ? 1 : 0,
       ...extra,
-    }) as const;
+    } as const;
+  };
 
   /* ---- Click + long-press via pointer events ---- */
   /* React Flow v12 swallows click events on custom nodes, but pointer
@@ -198,18 +206,28 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         </Box>
       )}
       <style>{`@keyframes c4-lp-ring{to{stroke-dashoffset:0}}`}</style>
-      {/* Target handles along top edge (spread at 12%, 30%, 50%, 70%, 88%) */}
+      {/* Top edge: target handles + source mirrors for flipped (upward) edges */}
       <Handle type="target" position={Position.Top} id="t-1" style={hs("t-1", { left: "12%" })} />
       <Handle type="target" position={Position.Top} id="t-2" style={hs("t-2", { left: "30%" })} />
       <Handle type="target" position={Position.Top} id="t-3" style={hs("t-3", { left: "50%" })} />
       <Handle type="target" position={Position.Top} id="t-4" style={hs("t-4", { left: "70%" })} />
       <Handle type="target" position={Position.Top} id="t-5" style={hs("t-5", { left: "88%" })} />
-      {/* Source handles along bottom edge */}
+      <Handle type="source" position={Position.Top} id="ts-1" style={hs("ts-1", { left: "12%" })} />
+      <Handle type="source" position={Position.Top} id="ts-2" style={hs("ts-2", { left: "30%" })} />
+      <Handle type="source" position={Position.Top} id="ts-3" style={hs("ts-3", { left: "50%" })} />
+      <Handle type="source" position={Position.Top} id="ts-4" style={hs("ts-4", { left: "70%" })} />
+      <Handle type="source" position={Position.Top} id="ts-5" style={hs("ts-5", { left: "88%" })} />
+      {/* Bottom edge: source handles + target mirrors for flipped (upward) edges */}
       <Handle type="source" position={Position.Bottom} id="b-1" style={hs("b-1", { left: "12%" })} />
       <Handle type="source" position={Position.Bottom} id="b-2" style={hs("b-2", { left: "30%" })} />
       <Handle type="source" position={Position.Bottom} id="b-3" style={hs("b-3", { left: "50%" })} />
       <Handle type="source" position={Position.Bottom} id="b-4" style={hs("b-4", { left: "70%" })} />
       <Handle type="source" position={Position.Bottom} id="b-5" style={hs("b-5", { left: "88%" })} />
+      <Handle type="target" position={Position.Bottom} id="bt-1" style={hs("bt-1", { left: "12%" })} />
+      <Handle type="target" position={Position.Bottom} id="bt-2" style={hs("bt-2", { left: "30%" })} />
+      <Handle type="target" position={Position.Bottom} id="bt-3" style={hs("bt-3", { left: "50%" })} />
+      <Handle type="target" position={Position.Bottom} id="bt-4" style={hs("bt-4", { left: "70%" })} />
+      <Handle type="target" position={Position.Bottom} id="bt-5" style={hs("bt-5", { left: "88%" })} />
       {/* Side handles — both source and target on each side */}
       <Handle type="target" position={Position.Left} id="left" style={hs("left")} />
       <Handle type="source" position={Position.Left} id="left-src" style={hs("left-src")} />
