@@ -602,21 +602,58 @@ async def architect_phase3_options(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Phase 3a: capability mapping with dependency analysis."""
+    """Phase 3a: generate solution options."""
     await PermissionService.require_permission(db, user, "archlens.manage")
 
     if not body.requirement or not body.all_qa:
         raise HTTPException(400, "Requirement and allQA are required")
 
+    from app.services.archlens_architect import phase3_options
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    return await phase3_options(db, body.requirement, qa_list)
+
+
+@router.post("/architect/phase3/gaps")
+async def architect_phase3_gaps(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3b: gap analysis for a selected solution option."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+    if not body.selected_option:
+        raise HTTPException(400, "selectedOption is required for gap analysis")
+
+    from app.services.archlens_architect import phase3_gaps
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    option = body.selected_option if isinstance(body.selected_option, dict) else {}
+    return await phase3_gaps(db, body.requirement, qa_list, option)
+
+
+@router.post("/architect/phase3")
+async def architect_phase3(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 4: capability mapping with selected option context."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required for Phase 3")
+
     from app.models.relation import Relation
     from app.models.relation_type import RelationType
-    from app.services.archlens_architect import (
-        phase3_capability_mapping,
-        phase3_options,
-    )
+    from app.services.archlens_architect import phase3_capability_mapping
 
     qa_list = body.all_qa if isinstance(body.all_qa, list) else []
     obj_ids = body.objective_ids or []
+    option = body.selected_option if isinstance(body.selected_option, dict) else None
 
     # Fetch dependency subgraph for the selected objectives
     dep_graph: dict[str, Any] = {"nodes": [], "edges": []}
@@ -693,29 +730,9 @@ async def architect_phase3_options(
 
             dep_graph = {"nodes": dep_nodes, "edges": dep_edges}
 
-    cap_result = await phase3_capability_mapping(db, body.requirement, qa_list, obj_ids, dep_graph)
-    options_result = await phase3_options(db, body.requirement, qa_list)
-    cap_result["options"] = options_result.get("options", [])
-    return cap_result
-
-
-@router.post("/architect/phase3")
-async def architect_phase3(
-    body: ArchLensArchitectRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-):
-    """Phase 3b: generate architecture for a selected solution option."""
-    await PermissionService.require_permission(db, user, "archlens.manage")
-
-    if not body.requirement or not body.all_qa:
-        raise HTTPException(400, "Requirement and allQA are required for Phase 3")
-
-    from app.services.archlens_architect import phase3_architecture
-
-    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
-    option = body.selected_option if isinstance(body.selected_option, dict) else None
-    result = await phase3_architecture(db, body.requirement, qa_list, option)
+    result = await phase3_capability_mapping(
+        db, body.requirement, qa_list, obj_ids, dep_graph, option
+    )
 
     # Record the run
     run = ArchLensAnalysisRun(

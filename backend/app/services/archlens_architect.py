@@ -454,6 +454,7 @@ async def phase3_capability_mapping(
     all_qa: list[dict[str, Any]],
     objective_ids: list[str],
     existing_dependencies: dict[str, Any],
+    selected_option: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Analyse capability impact and propose new cards/relations for the architecture."""
     landscape = await load_landscape(db)
@@ -495,12 +496,16 @@ async def phase3_capability_mapping(
         f'  "{n["id"]}": "{n["name"]}" ({n.get("type", "?")})' for n in dep_nodes
     )
 
+    option_ctx = ""
+    if selected_option:
+        option_ctx = "\n" + _build_option_context(selected_option) + "\n"
+
     prompt = f"""You are analysing the capability impact of a new architecture requirement
 on an existing enterprise landscape.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
-
+{option_ctx}
 ALL REQUIREMENTS ({len(all_qa)} questions answered):
 {answers_text}
 
@@ -512,8 +517,21 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 EXISTING NODE IDs (use these exact IDs when referencing existing cards):
 {existing_id_map}
 
+CARD TYPE GUIDANCE (choose the right type for each proposed card):
+- "Application" (subtypes: Business Application, Microservice, AI Agent, Deployment):
+  Software that delivers business functionality — custom-built apps, configured business
+  systems, microservices, deployed workloads.
+- "ITComponent" (subtypes: Software, Hardware, SaaS, PaaS, IaaS, Service, AI Model):
+  Infrastructure and platform products that are bought, subscribed to, or run as-is —
+  databases, middleware, cloud services, COTS products, monitoring tools, AI models.
+- "Interface" (subtypes: Logical Interface, API, MCP Server):
+  Connection points between systems — APIs, integration endpoints, data feeds.
+- Use "Application" for custom apps and configured business systems.
+- Use "ITComponent" for COTS products, cloud services, infrastructure, databases, middleware.
+
 TASK: Determine which Business Capabilities are relevant, propose new cards
 that the architecture introduces, and define relations between them.
+{"Base the analysis on the SELECTED SOLUTION APPROACH above." if selected_option else ""}
 
 RULES:
 1. For EXISTING capabilities/cards in the dependency subgraph, use their exact "id"
@@ -570,7 +588,7 @@ Respond with ONLY this JSON:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3a — Solution Options (legacy, kept for backward compatibility)
+# Phase 3a — Solution Options
 # ---------------------------------------------------------------------------
 
 
@@ -651,7 +669,119 @@ Respond with ONLY this JSON:
 
 
 # ---------------------------------------------------------------------------
-# Phase 3b — Architecture Generation (two-call pattern)
+# Phase 3b — Gap Analysis for Selected Option
+# ---------------------------------------------------------------------------
+
+
+def _build_option_context(selected_option: dict[str, Any]) -> str:
+    """Build a text block describing the selected solution option."""
+    impact = selected_option.get("impactPreview") or {}
+    impact_lines: list[str] = []
+    for comp in impact.get("newComponents") or []:
+        role = f" — {comp['role']}" if comp.get("role") else ""
+        impact_lines.append(
+            f"  + ADD: {comp.get('name', '?')} [{comp.get('cardTypeKey', 'Application')}]{role}"
+        )
+    for comp in impact.get("modifiedComponents") or []:
+        change = f" — {comp['change']}" if comp.get("change") else ""
+        impact_lines.append(
+            f"  ~ MODIFY: {comp.get('name', '?')} "
+            f"[{comp.get('cardTypeKey', 'Application')}]{change}"
+        )
+    for intg in impact.get("newIntegrations") or []:
+        proto = f" ({intg['protocol']})" if intg.get("protocol") else ""
+        impact_lines.append(
+            f"  > INTEGRATE: {intg.get('from', '?')} → {intg.get('to', '?')}{proto}"
+        )
+    for comp in impact.get("retiredComponents") or []:
+        impact_lines.append(f"  - RETIRE: {comp.get('name', '?')} [{comp.get('cardTypeKey', '')}]")
+    impact_block = "\n".join(impact_lines) if impact_lines else "  (no impact details)"
+
+    return f"""=== SELECTED SOLUTION APPROACH ===
+Title: {selected_option.get("title", "")}
+Approach: {selected_option.get("approach", "")}
+Summary: {selected_option.get("summary", "")}
+Estimated Cost: {selected_option.get("estimatedCost", "N/A")}
+Estimated Duration: {selected_option.get("estimatedDuration", "N/A")}
+
+ARCHITECTURAL IMPACT:
+{impact_block}"""
+
+
+async def phase3_gaps(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    selected_option: dict[str, Any],
+) -> dict[str, Any]:
+    """Generate gap analysis and product recommendations for a selected option."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
+    patterns = _detect_intent_patterns(requirement)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    option_ctx = _build_option_context(selected_option)
+
+    prompt = f"""You are a principal enterprise architect performing gap analysis.
+
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+
+{option_ctx}
+
+ALL REQUIREMENTS ({len(all_qa)} questions answered):
+{answers_text}
+
+{ctx}
+{metamodel_ctx}
+TASK: Analyse the selected solution approach and identify capability gaps that
+need to be filled. For each gap, provide 3-4 named product recommendations
+from the market.
+
+RULES:
+1. Focus on what is MISSING or NEEDS IMPROVEMENT to implement the selected approach.
+2. Consider the existing landscape — do NOT flag gaps for capabilities already covered.
+3. Each recommendation must name a REAL product/vendor with concrete pros/cons.
+4. Urgency reflects how critical the gap is for the selected approach to succeed.
+5. Include integration effort estimates for each recommendation.
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<1-2 sentence gap analysis overview for this approach>",
+  "gaps": [
+    {{
+      "capability": "<missing capability>",
+      "impact": "<what breaks or is limited without it>",
+      "urgency": "critical | high | medium",
+      "recommendations": [
+        {{
+          "name": "<product name>",
+          "vendor": "<vendor>",
+          "why": "<why this product fits>",
+          "pros": ["<advantage>"],
+          "cons": ["<disadvantage>"],
+          "estimatedCost": "<cost range>",
+          "integrationEffort": "low | medium | high",
+          "recommended": true
+        }}
+      ]
+    }}
+  ]
+}}"""  # noqa: E501
+
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 4000, persona)
+    parsed: dict[str, Any] = parse_json(result["text"])
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Phase 3c — Architecture Generation (two-call pattern, legacy)
 # ---------------------------------------------------------------------------
 
 

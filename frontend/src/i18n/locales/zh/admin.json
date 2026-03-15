@@ -1051,5 +1051,8 @@
   "archlens_architect_modified_components": "修改组件",
   "archlens_architect_new_integrations": "新增集成",
   "archlens_architect_retired_components": "淘汰组件",
-  "archlens_architect_choose_different": "选择其他方案"
+  "archlens_architect_choose_different": "选择其他方案",
+  "archlens_architect_gaps_intro": "以下是为所选方案识别的能力差距：",
+  "archlens_architect_generate_capability_map": "生成能力地图",
+  "archlens_architect_analyzing_gaps": "AI正在分析所选方案的差距..."
 }

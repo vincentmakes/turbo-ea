@@ -1374,9 +1374,13 @@ export interface CapabilityMappingResult {
   capabilities: CapabilityMapping[];
   proposedCards: ProposedCard[];
   proposedRelations: ProposedRelation[];
-  options?: ArchSolutionOption[];
   existingDependencies?: {
     nodes: { id: string; name: string; type: string; lifecycle?: Record<string, string>; attributes?: Record<string, unknown>; parent_id?: string | null; path?: string[] }[];
     edges: { source: string; target: string; type: string; label?: string; reverse_label?: string }[];
   };
+}
+
+export interface GapAnalysisResult {
+  summary?: string;
+  gaps: ArchGap[];
 }

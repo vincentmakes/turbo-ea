@@ -1051,5 +1051,8 @@
   "archlens_architect_modified_components": "Изменённые компоненты",
   "archlens_architect_new_integrations": "Новые интеграции",
   "archlens_architect_retired_components": "Выводимые компоненты",
-  "archlens_architect_choose_different": "Выбрать другой подход"
+  "archlens_architect_choose_different": "Выбрать другой подход",
+  "archlens_architect_gaps_intro": "Вот выявленные пробелы в возможностях для выбранного подхода:",
+  "archlens_architect_generate_capability_map": "Сгенерировать карту возможностей",
+  "archlens_architect_analyzing_gaps": "ИИ анализирует пробелы для выбранного подхода..."
 }

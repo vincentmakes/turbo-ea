@@ -1051,5 +1051,8 @@
   "archlens_architect_modified_components": "Composants modifiés",
   "archlens_architect_new_integrations": "Nouvelles intégrations",
   "archlens_architect_retired_components": "Composants retirés",
-  "archlens_architect_choose_different": "Choisir une autre approche"
+  "archlens_architect_choose_different": "Choisir une autre approche",
+  "archlens_architect_gaps_intro": "Voici les lacunes de capacités identifiées pour l'approche sélectionnée :",
+  "archlens_architect_generate_capability_map": "Générer la carte des capacités",
+  "archlens_architect_analyzing_gaps": "L'IA analyse les lacunes pour l'approche sélectionnée..."
 }

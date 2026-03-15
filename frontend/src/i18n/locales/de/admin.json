@@ -1051,5 +1051,8 @@
   "archlens_architect_modified_components": "Geänderte Komponenten",
   "archlens_architect_new_integrations": "Neue Integrationen",
   "archlens_architect_retired_components": "Stillgelegte Komponenten",
-  "archlens_architect_choose_different": "Anderen Ansatz wählen"
+  "archlens_architect_choose_different": "Anderen Ansatz wählen",
+  "archlens_architect_gaps_intro": "Hier sind die identifizierten Fähigkeitslücken für den gewählten Ansatz:",
+  "archlens_architect_generate_capability_map": "Fähigkeitskarte generieren",
+  "archlens_architect_analyzing_gaps": "KI analysiert Lücken für den gewählten Ansatz..."
 }

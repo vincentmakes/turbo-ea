@@ -1052,5 +1052,8 @@
   "archlens_architect_modified_components": "Modified Components",
   "archlens_architect_new_integrations": "New Integrations",
   "archlens_architect_retired_components": "Retired Components",
-  "archlens_architect_choose_different": "Choose Different Approach"
+  "archlens_architect_choose_different": "Choose Different Approach",
+  "archlens_architect_gaps_intro": "Here are the capability gaps identified for the selected approach:",
+  "archlens_architect_generate_capability_map": "Generate Capability Map",
+  "archlens_architect_analyzing_gaps": "AI is analyzing gaps for the selected approach..."
 }

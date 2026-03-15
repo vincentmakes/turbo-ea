@@ -1051,5 +1051,8 @@
   "archlens_architect_modified_components": "Componenti modificati",
   "archlens_architect_new_integrations": "Nuove integrazioni",
   "archlens_architect_retired_components": "Componenti ritirati",
-  "archlens_architect_choose_different": "Scegli un altro approccio"
+  "archlens_architect_choose_different": "Scegli un altro approccio",
+  "archlens_architect_gaps_intro": "Ecco le lacune di capacità identificate per l'approccio selezionato:",
+  "archlens_architect_generate_capability_map": "Genera mappa delle capacità",
+  "archlens_architect_analyzing_gaps": "L'IA sta analizzando le lacune per l'approccio selezionato..."
 }
