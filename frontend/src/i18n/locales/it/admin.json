@@ -1052,8 +1052,12 @@
   "archlens_architect_new_integrations": "Nuove integrazioni",
   "archlens_architect_retired_components": "Componenti ritirati",
   "archlens_architect_choose_different": "Scegli un altro approccio",
-  "archlens_architect_gaps_intro": "Ecco le lacune di capacità identificate per l'approccio selezionato:",
+  "archlens_architect_gaps_intro": "Seleziona il prodotto che desideri utilizzare per ogni lacuna di capacità:",
   "archlens_architect_generate_capability_map": "Genera mappa delle capacità",
   "archlens_architect_recs_selected": "{{count}} raccomandazione/i selezionata/e — saranno utilizzate nella mappa delle capacità.",
+  "archlens_architect_products_selected": "{{count}} prodotto/i selezionato/i — clicca sotto per analizzare le dipendenze necessarie.",
+  "archlens_architect_analyse_deps": "Analizza dipendenze",
+  "archlens_architect_deps_intro": "Queste sono le dipendenze di integrazione necessarie affinché i prodotti selezionati funzionino nel vostro ambiente:",
+  "archlens_architect_no_deps": "Nessuna dipendenza aggiuntiva necessaria — i prodotti selezionati possono integrarsi con il vostro panorama esistente.",
   "archlens_architect_analyzing_gaps": "L'IA sta analizzando le lacune per l'approccio selezionato..."
 }

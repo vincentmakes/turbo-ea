@@ -635,6 +635,30 @@ async def architect_phase3_gaps(
     return await phase3_gaps(db, body.requirement, qa_list, option)
 
 
+@router.post("/architect/phase3/deps")
+async def architect_phase3_deps(
+    body: ArchLensArchitectRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Phase 3c: dependency analysis for selected products."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    if not body.requirement or not body.all_qa:
+        raise HTTPException(400, "Requirement and allQA are required")
+    if not body.selected_option:
+        raise HTTPException(400, "selectedOption is required")
+    if not body.selected_products:
+        raise HTTPException(400, "selectedProducts is required")
+
+    from app.services.archlens_architect import phase3_deps
+
+    qa_list = body.all_qa if isinstance(body.all_qa, list) else []
+    option = body.selected_option if isinstance(body.selected_option, dict) else {}
+    products = body.selected_products if isinstance(body.selected_products, list) else []
+    return await phase3_deps(db, body.requirement, qa_list, option, products)
+
+
 @router.post("/architect/phase3")
 async def architect_phase3(
     body: ArchLensArchitectRequest,

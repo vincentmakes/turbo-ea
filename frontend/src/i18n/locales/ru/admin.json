@@ -1052,8 +1052,12 @@
   "archlens_architect_new_integrations": "Новые интеграции",
   "archlens_architect_retired_components": "Выводимые компоненты",
   "archlens_architect_choose_different": "Выбрать другой подход",
-  "archlens_architect_gaps_intro": "Вот выявленные пробелы в возможностях для выбранного подхода:",
+  "archlens_architect_gaps_intro": "Выберите продукт, который хотите использовать для каждого пробела в возможностях:",
   "archlens_architect_generate_capability_map": "Сгенерировать карту возможностей",
   "archlens_architect_recs_selected": "Выбрано {{count}} рекомендаций — они будут использованы в карте возможностей.",
+  "archlens_architect_products_selected": "Выбрано продуктов: {{count}} — нажмите ниже для анализа необходимых зависимостей.",
+  "archlens_architect_analyse_deps": "Анализировать зависимости",
+  "archlens_architect_deps_intro": "Вот интеграционные зависимости, необходимые для работы выбранных продуктов в вашей среде:",
+  "archlens_architect_no_deps": "Дополнительные зависимости не требуются — выбранные продукты могут интегрироваться с вашим существующим ландшафтом.",
   "archlens_architect_analyzing_gaps": "ИИ анализирует пробелы для выбранного подхода..."
 }

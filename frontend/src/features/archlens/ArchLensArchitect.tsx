@@ -21,6 +21,7 @@ import type {
   ArchGap,
   ArchSolutionOption,
   CapabilityMappingResult,
+  DependencyAnalysisResult,
   GapAnalysisResult,
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/c4Layout";
@@ -567,6 +568,7 @@ interface ArchSession {
   selectedOptionId: string | null;
   selectedObjectives: ObjectiveOption[];
   gapResult: GapAnalysisResult | null;
+  depsResult: DependencyAnalysisResult | null;
   capabilityMapping: CapabilityMappingResult | null;
 }
 
@@ -614,11 +616,16 @@ export default function ArchLensArchitect() {
   );
   const [objectiveOptions, setObjectiveOptions] = useState<ObjectiveOption[]>([]);
   const [objectiveLoading, setObjectiveLoading] = useState(false);
-  // Gap analysis state
+  // Gap analysis state (Phase 3b: product selection)
   const [gapResult, setGapResult] = useState<GapAnalysisResult | null>(
     saved?.gapResult ?? null,
   );
   const [selectedRecs, setSelectedRecs] = useState<Set<RecKey>>(new Set());
+  // Dependency analysis state (Phase 3c)
+  const [depsResult, setDepsResult] = useState<DependencyAnalysisResult | null>(
+    saved?.depsResult ?? null,
+  );
+  const [selectedDeps, setSelectedDeps] = useState<Set<RecKey>>(new Set());
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] =
     useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
@@ -633,6 +640,7 @@ export default function ArchLensArchitect() {
       selectedOptionId,
       selectedObjectives,
       gapResult,
+      depsResult,
       capabilityMapping,
     };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -645,6 +653,7 @@ export default function ArchLensArchitect() {
     selectedOptionId,
     selectedObjectives,
     gapResult,
+    depsResult,
     capabilityMapping,
   ]);
 
@@ -818,7 +827,51 @@ export default function ArchLensArchitect() {
         return;
       }
       if (phase === 4) {
-        // Phase 4: capability mapping with selected option
+        // Phase 4 (3c): dependency analysis for selected products
+        const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
+        payload.allQA = [
+          ...phase1Answers,
+          ...archQuestions.map((q) => ({
+            question: q.question,
+            answer: q.answer,
+          })),
+        ];
+        payload.selectedOption = selectedOpt ?? null;
+        // Build selected products from gap result
+        const products: { name: string; vendor?: string; capability: string }[] = [];
+        if (gapResult && selectedRecs.size > 0) {
+          gapResult.gaps.forEach((gap, gi) => {
+            (gap.recommendations ?? []).forEach((rec, ri) => {
+              if (selectedRecs.has(recKey(gi, ri))) {
+                products.push({
+                  capability: gap.capability,
+                  name: rec.name,
+                  vendor: rec.vendor,
+                });
+              }
+            });
+          });
+        }
+        payload.selectedProducts = products;
+        const result = await api.post<DependencyAnalysisResult>(
+          "/archlens/architect/phase3/deps",
+          payload,
+        );
+        setDepsResult(result);
+        // Pre-select recommended deps
+        const preselected = new Set<RecKey>();
+        (result.dependencies ?? []).forEach((dep, di) => {
+          (dep.options ?? []).forEach((opt, oi) => {
+            if (opt.recommended) preselected.add(recKey(di, oi));
+          });
+        });
+        setSelectedDeps(preselected);
+        setArchPhase(4);
+        setArchLoading(false);
+        return;
+      }
+      if (phase === 5) {
+        // Phase 5: capability mapping with all selections
         const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
         payload.allQA = [
           ...phase1Answers,
@@ -829,9 +882,9 @@ export default function ArchLensArchitect() {
         ];
         payload.selectedOption = selectedOpt ?? null;
         payload.objectiveIds = selectedObjectives.map((o) => o.id);
-        // Build selected recommendations from gap result
+        // Build selected recommendations: products from 3b + deps from 3c
+        const picks: { capability: string; recommendation: string; vendor?: string }[] = [];
         if (gapResult && selectedRecs.size > 0) {
-          const picks: { capability: string; recommendation: string; vendor?: string }[] = [];
           gapResult.gaps.forEach((gap, gi) => {
             (gap.recommendations ?? []).forEach((rec, ri) => {
               if (selectedRecs.has(recKey(gi, ri))) {
@@ -843,14 +896,27 @@ export default function ArchLensArchitect() {
               }
             });
           });
-          payload.selectedRecommendations = picks;
         }
+        if (depsResult && selectedDeps.size > 0) {
+          depsResult.dependencies.forEach((dep, di) => {
+            (dep.options ?? []).forEach((opt, oi) => {
+              if (selectedDeps.has(recKey(di, oi))) {
+                picks.push({
+                  capability: dep.need,
+                  recommendation: opt.name,
+                  vendor: opt.vendor,
+                });
+              }
+            });
+          });
+        }
+        payload.selectedRecommendations = picks;
         const result = await api.post<CapabilityMappingResult>(
           "/archlens/architect/phase3",
           payload,
         );
         setCapabilityMapping(result);
-        setArchPhase(4);
+        setArchPhase(5);
         setArchQuestions([]);
         setArchLoading(false);
         return;
@@ -925,6 +991,15 @@ export default function ArchLensArchitect() {
     });
   }, []);
 
+  const toggleDep = useCallback((key: RecKey) => {
+    setSelectedDeps((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
   const handleAnswerChange = (index: number, value: string) => {
     setArchQuestions((prev) =>
       prev.map((q, i) => (i === index ? { ...q, answer: value } : q)),
@@ -943,6 +1018,8 @@ export default function ArchLensArchitect() {
     setSelectedObjectives([]);
     setGapResult(null);
     setSelectedRecs(new Set());
+    setDepsResult(null);
+    setSelectedDeps(new Set());
     setCapabilityMapping(null);
     setError("");
     sessionStorage.removeItem(SESSION_KEY);
@@ -953,12 +1030,15 @@ export default function ArchLensArchitect() {
     setSelectedOptionId(null);
     setGapResult(null);
     setSelectedRecs(new Set());
+    setDepsResult(null);
+    setSelectedDeps(new Set());
     setCapabilityMapping(null);
   };
 
-  // Determine if we're in Phase 3b (gaps view)
+  // Determine if we're in Phase 3b (product selection) or 3c (deps view)
   const isGapsView =
     archPhase === 3 && selectedOptionId != null && gapResult != null;
+  const isDepsView = archPhase === 4 && depsResult != null;
   const selectedOpt = archOptions?.find((o) => o.id === selectedOptionId);
 
   return (
@@ -1373,7 +1453,7 @@ export default function ArchLensArchitect() {
 
             {selectedRecs.size > 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: "block" }}>
-                {t("archlens_architect_recs_selected", { count: selectedRecs.size })}
+                {t("archlens_architect_products_selected", { count: selectedRecs.size })}
               </Typography>
             )}
 
@@ -1382,7 +1462,253 @@ export default function ArchLensArchitect() {
                 variant="contained"
                 onClick={() => runPhase(4)}
                 disabled={archLoading || selectedRecs.size === 0}
-                startIcon={<MaterialSymbol icon="hub" size={18} />}
+                startIcon={
+                  archLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <MaterialSymbol icon="device_hub" size={18} />
+                  )
+                }
+              >
+                {t("archlens_architect_analyse_deps")}
+              </Button>
+              <Button variant="outlined" onClick={chooseDifferent}>
+                {t("archlens_architect_choose_different")}
+              </Button>
+              <Button variant="text" onClick={reset} color="inherit">
+                {t("archlens_architect_start_over")}
+              </Button>
+            </Stack>
+          </>
+        )}
+
+        {/* Phase 4 (3c): Dependencies for selected products */}
+        {isDepsView && !archLoading && (
+          <>
+            {/* Selected products summary */}
+            {selectedOpt && (
+              <Paper
+                variant="outlined"
+                sx={{ p: 2, mb: 2, borderLeft: 3, borderColor: "primary.main" }}
+              >
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+                  {selectedOpt.title}
+                </Typography>
+                {gapResult && selectedRecs.size > 0 && (
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    {gapResult.gaps.map((gap, gi) =>
+                      (gap.recommendations ?? []).map((rec, ri) =>
+                        selectedRecs.has(recKey(gi, ri)) ? (
+                          <Chip
+                            key={recKey(gi, ri)}
+                            label={rec.name}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ fontSize: 11 }}
+                          />
+                        ) : null,
+                      ),
+                    )}
+                  </Stack>
+                )}
+              </Paper>
+            )}
+
+            <Typography variant="subtitle2" sx={{ mb: 2 }}>
+              {t("archlens_architect_deps_intro")}
+            </Typography>
+
+            {depsResult.dependencies.length === 0 ? (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                {t("archlens_architect_no_deps")}
+              </Alert>
+            ) : (
+              <>
+                {depsResult.summary && (
+                  <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                      {depsResult.summary}
+                    </Typography>
+                  </Paper>
+                )}
+                <Stack spacing={3} sx={{ mb: 2 }}>
+                  {depsResult.dependencies.map((dep, di) => (
+                    <Paper
+                      key={di}
+                      variant="outlined"
+                      sx={{
+                        borderTop: 3,
+                        borderColor:
+                          dep.urgency === "critical"
+                            ? "error.main"
+                            : dep.urgency === "high"
+                              ? "warning.main"
+                              : "grey.400",
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          px: 2,
+                          py: 1.5,
+                          borderBottom: 1,
+                          borderColor: "divider",
+                        }}
+                      >
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Typography variant="subtitle2" fontWeight={700}>
+                            {dep.need}
+                          </Typography>
+                          {dep.urgency && (
+                            <Chip
+                              label={dep.urgency.toUpperCase()}
+                              size="small"
+                              color={urgencyColor(dep.urgency)}
+                              sx={{ fontSize: 10, fontWeight: 700, height: 20 }}
+                            />
+                          )}
+                        </Stack>
+                        {dep.reason && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block"
+                            sx={{ mt: 0.5 }}
+                          >
+                            {dep.reason}
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box sx={{ p: 2 }}>
+                        <Grid container spacing={1.5}>
+                          {(dep.options ?? []).map((opt, oi) => {
+                            const dk = recKey(di, oi);
+                            const isSelected = selectedDeps.has(dk);
+                            return (
+                              <Grid item key={oi} xs={12} sm={6} md={4}>
+                                <Paper
+                                  variant="outlined"
+                                  onClick={() => toggleDep(dk)}
+                                  sx={{
+                                    p: 2,
+                                    height: "100%",
+                                    bgcolor: isSelected
+                                      ? "action.selected"
+                                      : opt.recommended
+                                        ? "primary.50"
+                                        : undefined,
+                                    cursor: "pointer",
+                                    outline: isSelected ? "2px solid" : undefined,
+                                    outlineColor: isSelected ? "primary.main" : undefined,
+                                    transition: "outline 0.15s, background-color 0.15s",
+                                  }}
+                                >
+                                  <Checkbox
+                                    size="small"
+                                    checked={isSelected}
+                                    sx={{ float: "right", mt: -0.5, mr: -0.5 }}
+                                    tabIndex={-1}
+                                  />
+                                  <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    alignItems="center"
+                                    sx={{ mb: 0.5 }}
+                                  >
+                                    <Typography variant="body2" fontWeight={600}>
+                                      {opt.name}
+                                    </Typography>
+                                    {opt.recommended && (
+                                      <Chip
+                                        label={t("archlens_arch_top_pick")}
+                                        size="small"
+                                        color="primary"
+                                        sx={{ fontSize: 10, height: 18 }}
+                                      />
+                                    )}
+                                  </Stack>
+                                  {opt.vendor && (
+                                    <Typography variant="caption" color="primary">
+                                      {opt.vendor}
+                                    </Typography>
+                                  )}
+                                  {opt.why && (
+                                    <Typography
+                                      variant="caption"
+                                      display="block"
+                                      color="text.secondary"
+                                      sx={{ lineHeight: 1.5, my: 0.5 }}
+                                    >
+                                      {opt.why}
+                                    </Typography>
+                                  )}
+                                  {opt.pros?.map((p, i) => (
+                                    <Typography
+                                      key={`p${i}`}
+                                      variant="caption"
+                                      display="block"
+                                      sx={{ color: "success.main" }}
+                                    >
+                                      + {p}
+                                    </Typography>
+                                  ))}
+                                  {opt.cons?.map((c, i) => (
+                                    <Typography
+                                      key={`c${i}`}
+                                      variant="caption"
+                                      display="block"
+                                      color="text.secondary"
+                                    >
+                                      - {c}
+                                    </Typography>
+                                  ))}
+                                  <Stack
+                                    direction="row"
+                                    spacing={0.5}
+                                    sx={{ mt: 1 }}
+                                    flexWrap="wrap"
+                                  >
+                                    {opt.estimatedCost && (
+                                      <Chip
+                                        label={opt.estimatedCost}
+                                        size="small"
+                                        variant="outlined"
+                                        sx={{ fontSize: 10, height: 20 }}
+                                      />
+                                    )}
+                                    {opt.integrationEffort && (
+                                      <Chip
+                                        label={`${t("archlens_arch_effort")}: ${opt.integrationEffort}`}
+                                        size="small"
+                                        color={effortColor(opt.integrationEffort)}
+                                        sx={{ fontSize: 10, height: 20 }}
+                                      />
+                                    )}
+                                  </Stack>
+                                </Paper>
+                              </Grid>
+                            );
+                          })}
+                        </Grid>
+                      </Box>
+                    </Paper>
+                  ))}
+                </Stack>
+              </>
+            )}
+
+            <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+              <Button
+                variant="contained"
+                onClick={() => runPhase(5)}
+                disabled={archLoading}
+                startIcon={
+                  archLoading ? (
+                    <CircularProgress size={16} />
+                  ) : (
+                    <MaterialSymbol icon="hub" size={18} />
+                  )
+                }
               >
                 {t("archlens_architect_generate_capability_map")}
               </Button>
@@ -1396,8 +1722,8 @@ export default function ArchLensArchitect() {
           </>
         )}
 
-        {/* Phase 4: Capability mapping */}
-        {archPhase === 4 &&
+        {/* Phase 5: Capability mapping */}
+        {archPhase === 5 &&
           !archLoading &&
           capabilityMapping &&
           (() => {

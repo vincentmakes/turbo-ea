@@ -27,6 +27,7 @@ class ArchLensArchitectRequest(BaseModel):
     all_qa: dict | list | None = Field(None, alias="allQA")
     selected_option: dict | None = Field(None, alias="selectedOption")
     selected_recommendations: list[dict] | None = Field(None, alias="selectedRecommendations")
+    selected_products: list[dict] | None = Field(None, alias="selectedProducts")
     objective_ids: list[str] | None = Field(None, alias="objectiveIds")
 
 

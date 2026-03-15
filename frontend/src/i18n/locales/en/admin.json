@@ -1053,8 +1053,12 @@
   "archlens_architect_new_integrations": "New Integrations",
   "archlens_architect_retired_components": "Retired Components",
   "archlens_architect_choose_different": "Choose Different Approach",
-  "archlens_architect_gaps_intro": "Here are the capability gaps identified for the selected approach:",
+  "archlens_architect_gaps_intro": "Select the product you want to use for each capability gap:",
   "archlens_architect_generate_capability_map": "Generate Capability Map",
   "archlens_architect_recs_selected": "{{count}} recommendation(s) selected — these will be used in the capability mapping.",
+  "archlens_architect_products_selected": "{{count}} product(s) selected — click below to analyse what dependencies are needed.",
+  "archlens_architect_analyse_deps": "Analyse Dependencies",
+  "archlens_architect_deps_intro": "These are the integration dependencies required for your selected products to work in your environment:",
+  "archlens_architect_no_deps": "No additional dependencies needed — the selected products can integrate with your existing landscape.",
   "archlens_architect_analyzing_gaps": "AI is analyzing gaps for the selected approach..."
 }

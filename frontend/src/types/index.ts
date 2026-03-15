@@ -1384,3 +1384,26 @@ export interface GapAnalysisResult {
   summary?: string;
   gaps: ArchGap[];
 }
+
+export interface ArchDependencyOption {
+  name: string;
+  vendor?: string;
+  why?: string;
+  pros?: string[];
+  cons?: string[];
+  estimatedCost?: string;
+  integrationEffort?: string;
+  recommended?: boolean;
+}
+
+export interface ArchDependency {
+  need: string;
+  reason?: string;
+  urgency?: string;
+  options?: ArchDependencyOption[];
+}
+
+export interface DependencyAnalysisResult {
+  summary?: string;
+  dependencies: ArchDependency[];
+}

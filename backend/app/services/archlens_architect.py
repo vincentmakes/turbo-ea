@@ -744,7 +744,7 @@ async def phase3_gaps(
     all_qa: list[dict[str, Any]],
     selected_option: dict[str, Any],
 ) -> dict[str, Any]:
-    """Generate gap analysis and product recommendations for a selected option."""
+    """Phase 3b: identify capability gaps with competing products to choose from."""
     landscape = await load_landscape(db)
     ctx = _build_compact_context(landscape)
     metamodel_ctx = await _load_metamodel_types_context(db)
@@ -770,12 +770,13 @@ async def phase3_gaps(
     if primary_products:
         primary_ctx = (
             "\n=== PRIMARY PRODUCTS IN THIS APPROACH ===\n"
-            f"The user chose this approach specifically for: {', '.join(primary_products)}.\n"
-            "These are the MAIN products — they MUST appear as the top recommendation in\n"
-            "the first gap. They are the core of the solution, NOT sub-components.\n"
+            f"The selected approach centres on: {', '.join(primary_products)}.\n"
+            "These MUST appear as the top recommendation (marked recommended) in the\n"
+            "first gap. Include 2-3 direct competitors alongside them so the user can\n"
+            "compare and choose.\n"
         )
 
-    prompt = f"""You are a principal enterprise architect performing gap analysis.
+    prompt = f"""You are a principal enterprise architect performing product selection.
 
 REQUIREMENT: "{requirement}"
 PATTERNS: {", ".join(patterns)}
@@ -787,35 +788,35 @@ ALL REQUIREMENTS ({len(all_qa)} questions answered):
 
 {ctx}
 {metamodel_ctx}
-TASK: Analyse the selected solution approach and identify ONLY the gaps that
-must be filled for the main product(s) to work in this organisation's
-existing landscape.
+TASK: For the selected approach, identify the key capability gaps and provide
+competing product options for EACH gap so the user can pick one product per gap.
 
-The FIRST gap must be the primary capability the selected product addresses.
-After that, ONLY include gaps where there is a concrete integration or
-operational dependency — e.g. the main product requires a CRM but none exists,
-or it needs an API gateway that is missing. Do NOT pad with nice-to-haves.
+The FIRST gap must be the primary capability (e.g. "Sales Intelligence Platform"
+if the approach is Buy Apollo). Include the main product from the approach as the
+top recommendation, plus 2-3 direct market competitors.
+
+Additional gaps should cover ONLY capabilities that are genuinely missing from the
+existing landscape and needed for this approach. For each, provide 3-4 competing
+products. Check what already exists — skip capabilities that are covered.
 
 RULES:
-1. The FIRST gap is the primary capability. The main product(s) from the approach
+1. The FIRST gap is the primary capability. The product(s) from the approach
    ({", ".join(primary_products) if primary_products else option_title})
-   MUST appear as the top recommendation(s), marked "recommended": true.
-2. Additional gaps ONLY for hard dependencies: things the main product cannot
-   function without given the EXISTING landscape. Check what already exists —
-   if a capability is covered, skip it entirely.
-3. Aim for 2-4 total gaps (1 primary + 1-3 integration gaps). Fewer is better.
-4. Each recommendation must name a REAL product/vendor with concrete pros/cons.
-5. Urgency: "critical" = blocks go-live, "high" = degrades core value,
-   "medium" = needed within 6 months.
-6. Include integration effort estimates for each recommendation.
+   MUST be the top recommendation, marked "recommended": true. Add 2-3 direct
+   competitors in the same category.
+2. Aim for 1-3 total gaps. Only include additional gaps for capabilities that
+   are truly missing and required — not sub-components of the main product.
+3. Each recommendation must name a REAL product/vendor with concrete pros/cons.
+4. The user will pick ONE product per gap — present them as genuine alternatives.
+5. Include integration effort and cost estimates for each recommendation.
 
 Respond with ONLY this JSON:
 {{
-  "summary": "<1-2 sentence gap analysis overview for this approach>",
+  "summary": "<1-2 sentence overview of the product selection>",
   "gaps": [
     {{
-      "capability": "<missing capability>",
-      "impact": "<what breaks or is limited without it>",
+      "capability": "<capability to fill>",
+      "impact": "<why this capability is needed>",
       "urgency": "critical | high | medium",
       "recommendations": [
         {{
@@ -835,6 +836,99 @@ Respond with ONLY this JSON:
 
     persona = await _build_persona_with_principles(db)
     result = await call_ai(db, prompt, 4000, persona)
+    parsed: dict[str, Any] = parse_json(result["text"])
+    return parsed
+
+
+async def phase3_deps(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    selected_option: dict[str, Any],
+    selected_products: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Phase 3c: identify hard dependencies for the products picked in 3b."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    patterns = _detect_intent_patterns(requirement)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    option_ctx = _build_option_context(selected_option)
+
+    # Build the picked products context
+    picks_lines: list[str] = []
+    for sp in selected_products:
+        line = f"  - {sp.get('name', '?')}"
+        if sp.get("vendor"):
+            line += f" ({sp['vendor']})"
+        line += f" — for: {sp.get('capability', '?')}"
+        picks_lines.append(line)
+    picks_block = "\n".join(picks_lines) if picks_lines else "  (none)"
+
+    prompt = f"""You are a principal enterprise architect analysing integration dependencies.
+
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+
+{option_ctx}
+
+=== SELECTED PRODUCTS ===
+The user has chosen these specific products:
+{picks_block}
+
+ALL REQUIREMENTS ({len(all_qa)} questions answered):
+{answers_text}
+
+{ctx}
+TASK: For the selected products above, identify the hard dependencies —
+connectors, middleware, adapters, or infrastructure components — that are
+REQUIRED to make these products work in this organisation's existing landscape.
+
+Focus exclusively on what the selected products NEED to integrate and operate.
+For example: if the user picked Salesforce, they might need MuleSoft for API
+integration with their existing ERP — but only if no integration layer exists.
+
+RULES:
+1. ONLY include dependencies that are directly required by the selected products.
+2. Check the existing landscape — if a dependency is already covered (e.g. an
+   API gateway already exists), skip it entirely.
+3. Each dependency should name 2-3 REAL product options with pros/cons.
+4. Aim for 1-4 dependencies total. Zero is valid if no additional tooling is
+   needed. Fewer is better.
+5. Mark the best-fit product as "recommended": true.
+6. Explain WHY each dependency is needed (which selected product requires it
+   and what for).
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<1-2 sentence overview of the integration requirements>",
+  "dependencies": [
+    {{
+      "need": "<what is needed, e.g. API Integration Layer>",
+      "reason": "<which selected product needs this and why>",
+      "urgency": "critical | high | medium",
+      "options": [
+        {{
+          "name": "<product name>",
+          "vendor": "<vendor>",
+          "why": "<why this product fits>",
+          "pros": ["<advantage>"],
+          "cons": ["<disadvantage>"],
+          "estimatedCost": "<cost range>",
+          "integrationEffort": "low | medium | high",
+          "recommended": true
+        }}
+      ]
+    }}
+  ]
+}}"""  # noqa: E501
+
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 3000, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 

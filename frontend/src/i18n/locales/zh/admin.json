@@ -1052,8 +1052,12 @@
   "archlens_architect_new_integrations": "新增集成",
   "archlens_architect_retired_components": "淘汰组件",
   "archlens_architect_choose_different": "选择其他方案",
-  "archlens_architect_gaps_intro": "以下是为所选方案识别的能力差距：",
+  "archlens_architect_gaps_intro": "为每个能力缺口选择您要使用的产品：",
   "archlens_architect_generate_capability_map": "生成能力地图",
   "archlens_architect_recs_selected": "已选择 {{count}} 条建议——这些将用于能力地图。",
+  "archlens_architect_products_selected": "已选择 {{count}} 个产品——点击下方分析所需依赖项。",
+  "archlens_architect_analyse_deps": "分析依赖项",
+  "archlens_architect_deps_intro": "以下是所选产品在您的环境中正常运行所需的集成依赖项：",
+  "archlens_architect_no_deps": "无需额外依赖项——所选产品可以与您的现有环境集成。",
   "archlens_architect_analyzing_gaps": "AI正在分析所选方案的差距..."
 }

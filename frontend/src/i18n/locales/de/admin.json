@@ -1052,8 +1052,12 @@
   "archlens_architect_new_integrations": "Neue Integrationen",
   "archlens_architect_retired_components": "Stillgelegte Komponenten",
   "archlens_architect_choose_different": "Anderen Ansatz wählen",
-  "archlens_architect_gaps_intro": "Hier sind die identifizierten Fähigkeitslücken für den gewählten Ansatz:",
+  "archlens_architect_gaps_intro": "Wählen Sie das Produkt, das Sie für jede Fähigkeitslücke verwenden möchten:",
   "archlens_architect_generate_capability_map": "Fähigkeitskarte generieren",
   "archlens_architect_recs_selected": "{{count}} Empfehlung(en) ausgewählt — diese werden in der Fähigkeitskarte verwendet.",
+  "archlens_architect_products_selected": "{{count}} Produkt(e) ausgewählt — klicken Sie unten, um die benötigten Abhängigkeiten zu analysieren.",
+  "archlens_architect_analyse_deps": "Abhängigkeiten analysieren",
+  "archlens_architect_deps_intro": "Dies sind die Integrationsabhängigkeiten, die für Ihre ausgewählten Produkte in Ihrer Umgebung benötigt werden:",
+  "archlens_architect_no_deps": "Keine zusätzlichen Abhängigkeiten erforderlich — die ausgewählten Produkte können in Ihre bestehende Landschaft integriert werden.",
   "archlens_architect_analyzing_gaps": "KI analysiert Lücken für den gewählten Ansatz..."
 }

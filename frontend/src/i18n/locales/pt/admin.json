@@ -1052,8 +1052,12 @@
   "archlens_architect_new_integrations": "Novas integrações",
   "archlens_architect_retired_components": "Componentes aposentados",
   "archlens_architect_choose_different": "Escolher outra abordagem",
-  "archlens_architect_gaps_intro": "Estas são as lacunas de capacidade identificadas para a abordagem selecionada:",
+  "archlens_architect_gaps_intro": "Selecione o produto que deseja utilizar para cada lacuna de capacidade:",
   "archlens_architect_generate_capability_map": "Gerar mapa de capacidades",
   "archlens_architect_recs_selected": "{{count}} recomendação(ões) selecionada(s) — serão usadas no mapa de capacidades.",
+  "archlens_architect_products_selected": "{{count}} produto(s) selecionado(s) — clique abaixo para analisar as dependências necessárias.",
+  "archlens_architect_analyse_deps": "Analisar dependências",
+  "archlens_architect_deps_intro": "Estas são as dependências de integração necessárias para que os produtos selecionados funcionem no seu ambiente:",
+  "archlens_architect_no_deps": "Nenhuma dependência adicional necessária — os produtos selecionados podem se integrar ao seu cenário existente.",
   "archlens_architect_analyzing_gaps": "A IA está analisando as lacunas para a abordagem selecionada..."
 }
