@@ -763,7 +763,7 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+      <Box sx={{ flex: 1, minHeight: 500 }} className={hoveredNode ? "c4-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={rfNodes}

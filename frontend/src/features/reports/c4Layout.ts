@@ -631,8 +631,8 @@ export function buildC4Flow(
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
-    let bestSrc = e.flipped ? "t-3" : "b-3";
-    let bestTgt = e.flipped ? "b-3" : "t-3";
+    let bestSrc = e.flipped ? "ts-3" : "b-3";
+    let bestTgt = e.flipped ? "bt-3" : "t-3";
     let bestMinOffset = 0;
 
     if (sPos && tPos) {
