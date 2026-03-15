@@ -23,6 +23,7 @@ export interface GNode {
   attributes?: Record<string, unknown>;
   parent_id?: string | null;
   path?: string[];
+  proposed?: boolean;
 }
 
 export interface GEdge {
@@ -49,6 +50,7 @@ export interface C4NodeData {
   onLongPress?: (id: string) => void;
   dimmed?: boolean;
   usedHandles?: string[];
+  proposed?: boolean;
   [key: string]: unknown;
 }
 
@@ -320,6 +322,7 @@ export function buildC4Flow(
           typeLabel: typeLabel(nd.type, types),
           typeColor: typeColor(nd.type, types),
           category: gl.cat,
+          proposed: nd.proposed,
         } satisfies C4NodeData,
         style: { width: C4_NODE_W, height: C4_NODE_H },
         draggable: false,

@@ -1342,3 +1342,40 @@ export interface ArchOptionsResult {
   summary?: string;
   options: ArchSolutionOption[];
 }
+
+// --- Capability mapping (Phase 3a dependency-aware) ---
+
+export interface CapabilityMapping {
+  id: string;
+  name: string;
+  isNew: boolean;
+  existingCardId?: string;
+  rationale?: string;
+}
+
+export interface ProposedCard {
+  id: string;
+  name: string;
+  cardTypeKey: string;
+  subtype?: string;
+  isNew: boolean;
+  rationale?: string;
+}
+
+export interface ProposedRelation {
+  sourceId: string;
+  targetId: string;
+  relationType: string;
+  label?: string;
+}
+
+export interface CapabilityMappingResult {
+  summary?: string;
+  capabilities: CapabilityMapping[];
+  proposedCards: ProposedCard[];
+  proposedRelations: ProposedRelation[];
+  existingDependencies?: {
+    nodes: { id: string; name: string; type: string; lifecycle?: Record<string, string>; attributes?: Record<string, unknown>; parent_id?: string | null; path?: string[] }[];
+    edges: { source: string; target: string; type: string; label?: string; reverse_label?: string }[];
+  };
+}

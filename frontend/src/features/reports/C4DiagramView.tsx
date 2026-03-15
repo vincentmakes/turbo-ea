@@ -140,8 +140,8 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         width: C4_NODE_W,
         height: C4_NODE_H,
         borderRadius: "8px",
-        border: `1.5px solid ${color}`,
-        bgcolor: bg,
+        border: data.proposed ? `2px dashed ${color}` : `1.5px solid ${color}`,
+        bgcolor: data.proposed ? (isDark ? `rgba(${r},${g},${b},0.06)` : `rgba(${r},${g},${b},0.06)`) : bg,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -154,6 +154,18 @@ const C4Node = memo(({ data }: NodeProps<Node<C4NodeData>>) => {
         "&:hover": { boxShadow: 4 },
       }}
     >
+      {/* Proposed "NEW" badge */}
+      {data.proposed && (
+        <Box sx={{
+          position: "absolute", top: -8, left: 8,
+          bgcolor: "#4caf50", color: "#fff",
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          px: 0.7, py: 0.25, borderRadius: "4px",
+          textTransform: "uppercase", letterSpacing: 0.5,
+        }}>
+          NEW
+        </Box>
+      )}
       {/* Long-press radial progress ring */}
       {pressing && (
         <Box

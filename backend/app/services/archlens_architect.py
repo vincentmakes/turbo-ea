@@ -421,8 +421,156 @@ async def _load_metamodel_types_context(db: AsyncSession) -> str:
     return "\n".join(lines)
 
 
+async def _load_relation_types_context(db: AsyncSession) -> str:
+    """Load relation types and format for AI prompt context."""
+    result = await db.execute(select(RelationType).where(RelationType.is_hidden.is_(False)))
+    rtypes = result.scalars().all()
+    if not rtypes:
+        return ""
+
+    lines = [
+        "",
+        "=== METAMODEL RELATION TYPES ===",
+        "Use these exact keys for proposedRelations.relationType:",
+        "",
+    ]
+    for rt in rtypes:
+        lines.append(
+            f"- {rt.key}: {rt.source_type_key} → {rt.target_type_key} "
+            f'("{rt.label}" / "{rt.reverse_label}")'
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
 # ---------------------------------------------------------------------------
-# Phase 3a — Solution Options
+# Phase 3a — Capability Mapping (dependency-aware)
+# ---------------------------------------------------------------------------
+
+
+async def phase3_capability_mapping(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    objective_ids: list[str],
+    existing_dependencies: dict[str, Any],
+) -> dict[str, Any]:
+    """Analyse capability impact and propose new cards/relations for the architecture."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
+    rel_types_ctx = await _load_relation_types_context(db)
+    patterns = _detect_intent_patterns(requirement)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    # Format existing dependency subgraph for the prompt
+    dep_nodes = existing_dependencies.get("nodes", [])
+    dep_edges = existing_dependencies.get("edges", [])
+
+    dep_context_lines = ["=== EXISTING DEPENDENCY SUBGRAPH (from selected Objectives) ==="]
+    if dep_nodes:
+        by_type: dict[str, list[str]] = {}
+        for n in dep_nodes:
+            by_type.setdefault(n.get("type", "?"), []).append(n.get("name", "?"))
+        for t, names in by_type.items():
+            dep_context_lines.append(f"[{t}]: {', '.join(names[:15])}")
+
+        dep_context_lines.append("")
+        dep_context_lines.append("Existing relations:")
+        for e in dep_edges[:40]:
+            src_name = next((n["name"] for n in dep_nodes if n["id"] == e.get("source")), "?")
+            tgt_name = next((n["name"] for n in dep_nodes if n["id"] == e.get("target")), "?")
+            dep_context_lines.append(f"  {src_name} --[{e.get('type', '?')}]--> {tgt_name}")
+    else:
+        dep_context_lines.append("  (no existing dependencies found)")
+
+    dep_context = "\n".join(dep_context_lines)
+
+    # Build list of existing node IDs for the prompt
+    existing_id_map = "\n".join(
+        f'  "{n["id"]}": "{n["name"]}" ({n.get("type", "?")})' for n in dep_nodes
+    )
+
+    prompt = f"""You are analysing the capability impact of a new architecture requirement
+on an existing enterprise landscape.
+
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+
+ALL REQUIREMENTS ({len(all_qa)} questions answered):
+{answers_text}
+
+{dep_context}
+
+{ctx}
+{metamodel_ctx}
+{rel_types_ctx}
+EXISTING NODE IDs (use these exact IDs when referencing existing cards):
+{existing_id_map}
+
+TASK: Determine which Business Capabilities are relevant, propose new cards
+that the architecture introduces, and define relations between them.
+
+RULES:
+1. For EXISTING capabilities/cards in the dependency subgraph, use their exact "id"
+   from the node list above. Set "isNew": false and "existingCardId" to that UUID.
+2. For NEW capabilities/cards not in the landscape, generate a temporary id like
+   "new_cap_1", "new_app_1", etc. Set "isNew": true.
+3. Every proposed card MUST have a valid "cardTypeKey" from the metamodel.
+4. Every proposed relation MUST use a valid "relationType" key from the relation
+   types list. The source and target types must match the relation type definition.
+5. Include relations that connect proposed new cards to existing cards AND to each other.
+6. Be specific: name real products for recommended purchases, name existing systems for reuse.
+7. Provide a clear "rationale" for each new capability and card.
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<2-3 sentence analysis of capability impact>",
+  "capabilities": [
+    {{
+      "id": "<existing UUID or new_cap_N>",
+      "name": "<capability name>",
+      "isNew": false,
+      "existingCardId": "<UUID if existing, omit if new>",
+      "rationale": "<why this capability is relevant or needed>"
+    }}
+  ],
+  "proposedCards": [
+    {{
+      "id": "<new_app_N or new_itc_N etc>",
+      "name": "<card name>",
+      "cardTypeKey": "<metamodel type key>",
+      "subtype": "<optional subtype>",
+      "isNew": true,
+      "rationale": "<why this card is needed>"
+    }}
+  ],
+  "proposedRelations": [
+    {{
+      "sourceId": "<id from capabilities, proposedCards, or existing nodes>",
+      "targetId": "<id from capabilities, proposedCards, or existing nodes>",
+      "relationType": "<relation type key from metamodel>",
+      "label": "<relation label>"
+    }}
+  ]
+}}"""  # noqa: E501
+
+    persona = await _build_persona_with_principles(db)
+    result = await call_ai(db, prompt, 5000, persona)
+    parsed: dict[str, Any] = parse_json(result["text"])
+
+    # Attach existing dependency graph so frontend can merge
+    parsed["existingDependencies"] = existing_dependencies
+
+    return parsed
+
+
+# ---------------------------------------------------------------------------
+# Phase 3a — Solution Options (legacy, kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
 

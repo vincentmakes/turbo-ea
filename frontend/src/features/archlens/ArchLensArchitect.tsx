@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
@@ -24,7 +23,13 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { api, ApiError } from "@/api/client";
-import type { ArchitectureResult, ArchSolutionOption, CardType } from "@/types";
+import type {
+  ArchitectureResult,
+  ArchSolutionOption,
+  CapabilityMappingResult,
+  CardType,
+} from "@/types";
+import type { GNode, GEdge } from "@/features/reports/c4Layout";
 import {
   TYPE_COLORS,
   typeChipColor,
@@ -32,10 +37,10 @@ import {
   severityIcon,
   severityColor,
   effortColor,
-  approachColor,
   ARCHITECT_PHASES,
 } from "./utils";
 import ArchitectureDiagram from "./ArchitectureDiagram";
+import C4DiagramView from "@/features/reports/C4DiagramView";
 
 // --- TabPanel helper ---
 function TabPanel({ children, value, index }: { children: React.ReactNode; value: number; index: number }) {
@@ -308,159 +313,15 @@ function ArchitectureResultView({ arch, onReset, onChooseDifferent, types }: { a
   );
 }
 
-// --- Option card component ---
-
-function OptionCard({
-  option,
-  onSelect,
-  loading,
-}: {
-  option: ArchSolutionOption;
-  onSelect: () => void;
-  loading: boolean;
-}) {
-  const { t } = useTranslation("admin");
-  const { types } = useMetamodel();
-
-  const typeInfo = (key: string) => types.find(tp => tp.key === key);
-
-  const impact = option.impactPreview;
-  const hasImpact = impact && (
-    (impact.newComponents?.length ?? 0) > 0 ||
-    (impact.modifiedComponents?.length ?? 0) > 0 ||
-    (impact.newIntegrations?.length ?? 0) > 0 ||
-    (impact.retiredComponents?.length ?? 0) > 0
-  );
-
-  return (
-    <Card variant="outlined" sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <CardContent sx={{ flex: 1 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1 }}>
-          <Typography variant="subtitle1" fontWeight={700}>{option.title}</Typography>
-          <Chip
-            label={t(`archlens_architect_approach_${option.approach}`)}
-            size="small"
-            color={approachColor(option.approach)}
-            sx={{ fontWeight: 600, textTransform: "capitalize" }}
-          />
-        </Stack>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.6 }}>
-          {option.summary}
-        </Typography>
-
-        {/* Pros / Cons */}
-        <Stack spacing={0.3} sx={{ mb: 1.5 }}>
-          {option.pros?.map((p, i) => (
-            <Typography key={`p${i}`} variant="caption" sx={{ color: "success.main" }}>+ {p}</Typography>
-          ))}
-          {option.cons?.map((c, i) => (
-            <Typography key={`c${i}`} variant="caption" color="text.secondary">- {c}</Typography>
-          ))}
-        </Stack>
-
-        {/* Cost / Duration / Complexity */}
-        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
-          {option.estimatedCost && <Chip label={option.estimatedCost} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
-          {option.estimatedDuration && <Chip label={option.estimatedDuration} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
-          {option.estimatedComplexity && <Chip label={option.estimatedComplexity.replace("_", " ")} size="small" color={effortColor(option.estimatedComplexity === "very_high" ? "high" : option.estimatedComplexity)} variant="outlined" sx={{ fontSize: 10, height: 20 }} />}
-        </Stack>
-
-        {/* Impact Preview */}
-        {hasImpact && (
-          <Box sx={{ borderTop: 1, borderColor: "divider", pt: 1.5 }}>
-            <Typography variant="overline" color="text.secondary" sx={{ fontSize: 10, mb: 1, display: "block" }}>
-              {t("archlens_architect_impact_preview")}
-            </Typography>
-
-            {(impact.newComponents?.length ?? 0) > 0 && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" fontWeight={600} color="primary" sx={{ display: "block", mb: 0.3 }}>
-                  + {t("archlens_architect_new_components")}
-                </Typography>
-                {impact.newComponents.map((c, i) => {
-                  const ti = typeInfo(c.cardTypeKey);
-                  return (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
-                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
-                      <Typography variant="caption">{c.name}</Typography>
-                      {c.subtype && <Typography variant="caption" color="text.secondary">({c.subtype})</Typography>}
-                    </Stack>
-                  );
-                })}
-              </Box>
-            )}
-
-            {(impact.modifiedComponents?.length ?? 0) > 0 && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" fontWeight={600} color="warning.main" sx={{ display: "block", mb: 0.3 }}>
-                  ~ {t("archlens_architect_modified_components")}
-                </Typography>
-                {impact.modifiedComponents.map((c, i) => {
-                  const ti = typeInfo(c.cardTypeKey);
-                  return (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
-                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
-                      <Typography variant="caption">{c.name}</Typography>
-                      {c.change && <Typography variant="caption" color="text.secondary">— {c.change}</Typography>}
-                    </Stack>
-                  );
-                })}
-              </Box>
-            )}
-
-            {(impact.newIntegrations?.length ?? 0) > 0 && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 0.3, color: "#0f7eb5" }}>
-                  {t("archlens_architect_new_integrations")}
-                </Typography>
-                {impact.newIntegrations.map((intg, i) => (
-                  <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
-                    <Typography variant="caption">{intg.from}</Typography>
-                    <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
-                    <Typography variant="caption">{intg.to}</Typography>
-                    {intg.protocol && <Chip label={intg.protocol} size="small" variant="outlined" sx={{ fontSize: 9, height: 16, ml: 0.5 }} />}
-                  </Stack>
-                ))}
-              </Box>
-            )}
-
-            {(impact.retiredComponents?.length ?? 0) > 0 && (
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" fontWeight={600} color="error" sx={{ display: "block", mb: 0.3 }}>
-                  - {t("archlens_architect_retired_components")}
-                </Typography>
-                {impact.retiredComponents.map((c, i) => {
-                  const ti = typeInfo(c.cardTypeKey);
-                  return (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center" sx={{ ml: 1, mb: 0.3 }}>
-                      {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
-                      <Typography variant="caption" sx={{ textDecoration: "line-through" }}>{c.name}</Typography>
-                    </Stack>
-                  );
-                })}
-              </Box>
-            )}
-          </Box>
-        )}
-      </CardContent>
-      <Box sx={{ px: 2, pb: 2 }}>
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={onSelect}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} /> : <MaterialSymbol icon="check" size={18} />}
-        >
-          {t("archlens_architect_select_option")}
-        </Button>
-      </Box>
-    </Card>
-  );
-}
-
 // --- Session persistence ---
 const SESSION_KEY = "archlens-architect-session";
+
+interface ObjectiveOption {
+  id: string;
+  name: string;
+  description?: string;
+  subtype?: string;
+}
 
 interface ArchSession {
   archReq: string;
@@ -470,6 +331,8 @@ interface ArchSession {
   phase1Answers: { question: string; answer: string }[];
   archOptions: ArchSolutionOption[] | null;
   selectedOptionId: string | null;
+  selectedObjectives: ObjectiveOption[];
+  capabilityMapping: CapabilityMappingResult | null;
 }
 
 function loadSession(): ArchSession | null {
@@ -496,13 +359,120 @@ export default function ArchLensArchitect() {
   const [archOptions, setArchOptions] = useState<ArchSolutionOption[] | null>(saved?.archOptions ?? null);
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(saved?.selectedOptionId ?? null);
   const [error, setError] = useState("");
+  // Objective selection state
+  const [selectedObjectives, setSelectedObjectives] = useState<ObjectiveOption[]>(saved?.selectedObjectives ?? []);
+  const [objectiveSearch, setObjectiveSearch] = useState("");
+  const [objectiveOptions, setObjectiveOptions] = useState<ObjectiveOption[]>([]);
+  const [objectiveLoading, setObjectiveLoading] = useState(false);
+  const objSearchTimer = useRef<ReturnType<typeof setTimeout>>();
+  // Capability mapping state
+  const [capabilityMapping, setCapabilityMapping] = useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
 
   const saveSession = useCallback(() => {
-    const session: ArchSession = { archReq, archPhase, archResult, archQuestions, phase1Answers, archOptions, selectedOptionId };
+    const session: ArchSession = { archReq, archPhase, archResult, archQuestions, phase1Answers, archOptions, selectedOptionId, selectedObjectives, capabilityMapping };
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  }, [archReq, archPhase, archResult, archQuestions, phase1Answers, archOptions, selectedOptionId]);
+  }, [archReq, archPhase, archResult, archQuestions, phase1Answers, archOptions, selectedOptionId, selectedObjectives, capabilityMapping]);
 
   useEffect(() => { saveSession(); }, [saveSession]);
+
+  // Debounced objective search
+  useEffect(() => {
+    if (objectiveSearch.length < 2) { setObjectiveOptions([]); return; }
+    clearTimeout(objSearchTimer.current);
+    objSearchTimer.current = setTimeout(async () => {
+      setObjectiveLoading(true);
+      try {
+        const results = await api.get<ObjectiveOption[]>(`/archlens/architect/objectives?search=${encodeURIComponent(objectiveSearch)}`);
+        setObjectiveOptions(results);
+      } catch { setObjectiveOptions([]); }
+      finally { setObjectiveLoading(false); }
+    }, 300);
+    return () => clearTimeout(objSearchTimer.current);
+  }, [objectiveSearch]);
+
+  // Build merged dependency graph from existing + proposed
+  const buildMergedGraph = useCallback((): { nodes: GNode[]; edges: GEdge[] } => {
+    if (!capabilityMapping) return { nodes: [], edges: [] };
+    const existing = capabilityMapping.existingDependencies;
+    const nodeMap = new Map<string, GNode>();
+
+    // Add existing nodes
+    if (existing?.nodes) {
+      for (const n of existing.nodes) {
+        nodeMap.set(n.id, {
+          id: n.id,
+          name: n.name,
+          type: n.type,
+          lifecycle: n.lifecycle,
+          attributes: n.attributes,
+          parent_id: n.parent_id,
+          path: n.path,
+        });
+      }
+    }
+
+    // Add proposed cards as nodes with proposed=true
+    for (const card of capabilityMapping.proposedCards) {
+      if (!nodeMap.has(card.id)) {
+        nodeMap.set(card.id, {
+          id: card.id,
+          name: card.name,
+          type: card.cardTypeKey,
+          proposed: card.isNew,
+        });
+      }
+    }
+
+    // Add capabilities as nodes (new ones are proposed)
+    for (const cap of capabilityMapping.capabilities) {
+      const id = cap.existingCardId || cap.id;
+      if (!nodeMap.has(id)) {
+        nodeMap.set(id, {
+          id,
+          name: cap.name,
+          type: "BusinessCapability",
+          proposed: cap.isNew,
+        });
+      }
+    }
+
+    // Existing edges
+    const edges: GEdge[] = [];
+    if (existing?.edges) {
+      for (const e of existing.edges) {
+        edges.push({
+          source: e.source,
+          target: e.target,
+          type: e.type,
+          label: e.label,
+          reverse_label: e.reverse_label,
+        });
+      }
+    }
+
+    // Proposed relations as edges
+    for (const rel of capabilityMapping.proposedRelations) {
+      // Map sourceId/targetId: could reference capability ids or proposed card ids
+      const resolveId = (refId: string): string => {
+        // Check if it's a capability reference
+        const cap = capabilityMapping.capabilities.find(c => c.id === refId);
+        if (cap) return cap.existingCardId || cap.id;
+        return refId;
+      };
+      const sid = resolveId(rel.sourceId);
+      const tid = resolveId(rel.targetId);
+      if (nodeMap.has(sid) && nodeMap.has(tid)) {
+        edges.push({
+          source: sid,
+          target: tid,
+          type: rel.relationType,
+          label: rel.label,
+        });
+      }
+    }
+
+    return { nodes: Array.from(nodeMap.values()), edges };
+  }, [capabilityMapping]);
 
   const extractQuestions = (data: Record<string, unknown>): { question: string; why?: string; type?: string; options?: string[]; nfrCategory?: string }[] => {
     const raw = Array.isArray(data) ? data
@@ -533,12 +503,12 @@ export default function ArchLensArchitect() {
         setPhase1Answers(qa);
       }
       if (phase === 3) {
-        // Phase 3a: get options
+        // Phase 3a: capability mapping with objectives
         const phase2qa = archQuestions.map(q => ({ question: q.question, answer: q.answer }));
         payload.allQA = [...phase1Answers, ...phase2qa];
-        const result = await api.post<Record<string, unknown>>("/archlens/architect/phase3/options", payload);
-        const options = (result.options ?? result) as ArchSolutionOption[];
-        setArchOptions(Array.isArray(options) ? options : []);
+        payload.objectiveIds = selectedObjectives.map(o => o.id);
+        const result = await api.post<CapabilityMappingResult>("/archlens/architect/phase3/options", payload);
+        setCapabilityMapping(result);
         setArchPhase(3);
         setArchQuestions([]);
         setArchLoading(false);
@@ -573,11 +543,6 @@ export default function ArchLensArchitect() {
     setArchQuestions(prev => prev.map((q, i) => i === index ? { ...q, answer: value } : q));
   };
 
-  const selectOption = (optionId: string) => {
-    setSelectedOptionId(optionId);
-    runPhase(4);
-  };
-
   const allAnswered = archQuestions.length > 0 && archQuestions.every(q => q.answer.trim());
 
   const reset = () => {
@@ -587,6 +552,8 @@ export default function ArchLensArchitect() {
     setPhase1Answers([]);
     setArchOptions(null);
     setSelectedOptionId(null);
+    setSelectedObjectives([]);
+    setCapabilityMapping(null);
     setError("");
     sessionStorage.removeItem(SESSION_KEY);
   };
@@ -601,7 +568,7 @@ export default function ArchLensArchitect() {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="h6">{t("archlens_architect_title")}</Typography>
-        {(archPhase > 0 || archResult || archOptions) && (
+        {(archPhase > 0 || archResult || archOptions || capabilityMapping) && (
           <Button variant="outlined" size="small" startIcon={<MaterialSymbol icon="add" size={18} />} onClick={reset}>
             {t("archlens_architect_new_assessment")}
           </Button>
@@ -715,37 +682,192 @@ export default function ArchLensArchitect() {
                 );
               })}
             </Stack>
+            {archPhase === 2 && allAnswered && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 2, borderLeft: 3, borderColor: "secondary.main" }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                  {t("archlens_architect_select_objectives")}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                  {t("archlens_architect_objectives_hint")}
+                </Typography>
+                <Autocomplete
+                  multiple
+                  options={objectiveOptions}
+                  value={selectedObjectives}
+                  getOptionLabel={(o) => o.name}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  loading={objectiveLoading}
+                  onInputChange={(_, v) => setObjectiveSearch(v)}
+                  onChange={(_, v) => setSelectedObjectives(v)}
+                  filterSelectedOptions
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id}>
+                      <Box>
+                        <Typography variant="body2">{option.name}</Typography>
+                        {option.description && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block", maxWidth: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {option.description}
+                          </Typography>
+                        )}
+                      </Box>
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      placeholder={t("archlens_architect_search_objectives")}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {objectiveLoading && <CircularProgress size={16} />}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+              </Paper>
+            )}
+
             <Stack direction="row" spacing={2}>
-              <Button variant="contained" onClick={() => runPhase(archPhase + 1)} disabled={!allAnswered}>
-                {archPhase === 1 ? t("archlens_architect_submit_phase2") : t("archlens_architect_generate_architecture")}
-              </Button>
+              {archPhase === 1 ? (
+                <Button variant="contained" onClick={() => runPhase(2)} disabled={!allAnswered}>
+                  {t("archlens_architect_submit_phase2")}
+                </Button>
+              ) : (
+                <Button variant="contained" onClick={() => runPhase(3)} disabled={!allAnswered || selectedObjectives.length === 0}
+                  startIcon={<MaterialSymbol icon="hub" size={18} />}>
+                  {t("archlens_architect_analyze_capabilities")}
+                </Button>
+              )}
               <Button variant="text" onClick={reset} color="inherit">{t("archlens_architect_start_over")}</Button>
             </Stack>
           </>
         )}
 
-        {/* Phase 3: Solution options */}
-        {archPhase === 3 && !archLoading && archOptions && (
-          <>
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              {t("archlens_architect_options_intro")}
-            </Typography>
-            <Grid container spacing={2}>
-              {archOptions.map((option) => (
-                <Grid item xs={12} md={6} key={option.id}>
-                  <OptionCard
-                    option={option}
-                    onSelect={() => selectOption(option.id)}
-                    loading={archLoading}
-                  />
+        {/* Phase 3: Capability mapping + dependency diagram */}
+        {archPhase === 3 && !archLoading && capabilityMapping && (() => {
+          const merged = buildMergedGraph();
+          return (
+            <>
+              {capabilityMapping.summary && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>{capabilityMapping.summary}</Typography>
+                </Paper>
+              )}
+
+              {/* Objectives + Capabilities summary */}
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                {/* Capabilities */}
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                      <MaterialSymbol icon="account_tree" size={16} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+                      {t("archlens_architect_capabilities")}
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {capabilityMapping.capabilities.map((cap) => (
+                        <Stack key={cap.id} direction="row" spacing={1} alignItems="center">
+                          <Chip
+                            label={cap.isNew ? t("archlens_architect_new") : t("archlens_architect_existing")}
+                            size="small"
+                            color={cap.isNew ? "primary" : "success"}
+                            variant="outlined"
+                            sx={{ fontSize: 10, height: 20, minWidth: 55 }}
+                          />
+                          <Typography variant="body2">{cap.name}</Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </Paper>
                 </Grid>
-              ))}
-            </Grid>
-            <Box sx={{ mt: 2 }}>
-              <Button variant="text" onClick={reset} color="inherit">{t("archlens_architect_start_over")}</Button>
-            </Box>
-          </>
-        )}
+
+                {/* Proposed cards */}
+                <Grid item xs={12} md={6}>
+                  <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                      <MaterialSymbol icon="add_circle" size={16} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+                      {t("archlens_architect_proposed_cards")}
+                    </Typography>
+                    <Stack spacing={0.5}>
+                      {capabilityMapping.proposedCards.filter(c => c.isNew).map((card) => {
+                        const ti = types.find(tp => tp.key === card.cardTypeKey);
+                        return (
+                          <Stack key={card.id} direction="row" spacing={1} alignItems="center">
+                            {ti && <MaterialSymbol icon={ti.icon} size={14} color={ti.color} />}
+                            <Typography variant="body2">{card.name}</Typography>
+                            {card.subtype && <Typography variant="caption" color="text.secondary">({card.subtype})</Typography>}
+                          </Stack>
+                        );
+                      })}
+                      {capabilityMapping.proposedCards.filter(c => c.isNew).length === 0 && (
+                        <Typography variant="caption" color="text.secondary">{t("archlens_architect_no_new_cards")}</Typography>
+                      )}
+                    </Stack>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              {/* Proposed relations summary */}
+              {capabilityMapping.proposedRelations.length > 0 && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                    <MaterialSymbol icon="share" size={16} style={{ verticalAlign: "text-bottom", marginRight: 4 }} />
+                    {t("archlens_architect_proposed_relations")} ({capabilityMapping.proposedRelations.length})
+                  </Typography>
+                  <Stack spacing={0.3}>
+                    {capabilityMapping.proposedRelations.map((rel, i) => {
+                      const srcName = capabilityMapping.proposedCards.find(c => c.id === rel.sourceId)?.name
+                        || capabilityMapping.capabilities.find(c => c.id === rel.sourceId)?.name
+                        || rel.sourceId;
+                      const tgtName = capabilityMapping.proposedCards.find(c => c.id === rel.targetId)?.name
+                        || capabilityMapping.capabilities.find(c => c.id === rel.targetId)?.name
+                        || rel.targetId;
+                      return (
+                        <Stack key={i} direction="row" spacing={0.5} alignItems="center">
+                          <Typography variant="caption">{srcName}</Typography>
+                          <MaterialSymbol icon="arrow_forward" size={12} color="#999" />
+                          <Typography variant="caption">{tgtName}</Typography>
+                          {rel.label && <Chip label={rel.label} size="small" variant="outlined" sx={{ fontSize: 9, height: 16, ml: 0.5 }} />}
+                        </Stack>
+                      );
+                    })}
+                  </Stack>
+                </Paper>
+              )}
+
+              {/* C4 Dependency Diagram */}
+              {merged.nodes.length > 0 && (
+                <Paper variant="outlined" sx={{ mb: 2 }}>
+                  <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: "divider" }}>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      {t("archlens_architect_dependency_diagram")}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t("archlens_architect_dependency_diagram_hint")}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 600 }}>
+                    <C4DiagramView
+                      nodes={merged.nodes}
+                      edges={merged.edges}
+                      types={types}
+                      onNodeClick={() => {}}
+                      onHome={() => {}}
+                    />
+                  </Box>
+                </Paper>
+              )}
+
+              <Stack direction="row" spacing={2}>
+                <Button variant="text" onClick={reset} color="inherit">{t("archlens_architect_start_over")}</Button>
+              </Stack>
+            </>
+          );
+        })()}
 
         {/* Phase 4: Full architecture */}
         {archPhase === 4 && !archLoading && archResult && (
@@ -761,7 +883,7 @@ export default function ArchLensArchitect() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
             <CircularProgress size={24} />
             <Typography variant="body2" color="text.secondary">
-              {archPhase < 3 ? t("archlens_architect_loading") : t("archlens_architect_generating_options")}
+              {archPhase < 3 ? t("archlens_architect_loading") : t("archlens_architect_analyzing_capabilities")}
             </Typography>
           </Box>
         )}

@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.39.0] - 2026-03-15
+
+### Added
+- Architecture AI Phase 3a now asks users to select Business Objectives and uses AI to map capabilities, propose new cards, and visualize the dependency impact
+- Objective search autocomplete with debounced backend search for existing Objective cards
+- Capability mapping AI function that analyzes existing dependencies, identifies relevant Business Capabilities, and proposes new cards fitting the metamodel
+- Dependency diagram view using the C4DiagramView component to visualize existing and proposed architecture
+- Proposed components shown with dashed borders and green "NEW" badge in dependency diagrams
+- New backend endpoints: `GET /archlens/architect/objectives` and updated `POST /archlens/architect/phase3/options` with objective-based capability mapping
+- Full i18n support for capability mapping UI across all 8 locales
+
+### Changed
+- Architecture AI Phase 3a flow replaced option cards with objective-driven capability mapping and dependency visualization
+- Architecture diagram layout switched from dagre to deterministic grid for consistent cross-layer rendering
+
 ## [0.38.0] - 2026-03-14
 
 ### Added
