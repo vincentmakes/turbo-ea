@@ -174,6 +174,44 @@ The final step generates a comprehensive capability mapping:
 
 From this step, you can click **Choose Different** to go back and select a different solution option, or **Start Over** to begin a completely new assessment.
 
+!!! warning "AI-Assisted Assessment"
+    This assessment leverages AI to generate recommendations, solution options, and a target architecture. It should be performed by a qualified IT professional (Enterprise Architect, Solution Architect, IT Leader) in collaboration with business stakeholders. The generated output requires professional judgment and may contain inaccuracies. Use the results as a starting point for further discussion and refinement.
+
+### Save & Commit
+
+After reviewing the target architecture, you have two options:
+
+**Save Assessment** — Persists the assessment for later review via the Assessments tab. Saved assessments can be revisited by any user with `archlens.view` permission.
+
+**Commit & Create Initiative** — Converts the architecture proposal into real cards in your landscape:
+
+- **Initiative name** defaults to the selected solution option title (editable before creation)
+- **Start/end dates** for the initiative timeline
+- **Proposed New Cards** with toggle switches to include or exclude individual cards, and edit icons to rename cards before creation. This list includes new Business Capabilities identified during the assessment.
+- **Proposed Relations** with toggle switches to include or exclude
+- A progress indicator shows creation status (initiative → cards → relations → ADR)
+- On success, a link opens the new Initiative card
+
+### Architecture Guardrails
+
+The system automatically enforces architectural integrity:
+
+- Every new Application is linked to at least one Business Capability
+- Every new Business Capability is linked to the selected Business Objectives
+- Cards with no relations (orphans) are automatically removed from the proposal
+
+### Architecture Decision Record
+
+A draft ADR is automatically created alongside the initiative with:
+
+- **Context** from the capability mapping summary
+- **Decision** capturing the selected approach and products
+- **Alternatives considered** from non-selected solution options
+
+### Change Approach
+
+Click **Choose Different** to select a different solution option. The assessment is re-evaluated and re-saved with updated data, allowing you to compare approaches before committing.
+
 ## Analysis History
 
 All analysis runs are tracked in **ArchLens > History**, showing:

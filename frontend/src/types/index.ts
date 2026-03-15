@@ -1217,6 +1217,7 @@ export interface ArchLensAnalysisRun {
   status: string;
   started_at: string | null;
   completed_at: string | null;
+  results: Record<string, unknown> | null;
   error_message: string | null;
   created_at: string | null;
 }
@@ -1256,6 +1257,10 @@ export interface ArchGapRecommendation {
   name: string;
   vendor?: string;
   why?: string;
+  marketPosition?: string;
+  principleAlignment?: string;
+  deploymentModel?: string;
+  licenseModel?: string;
   pros?: string[];
   cons?: string[];
   estimatedCost?: string;
@@ -1360,6 +1365,7 @@ export interface ProposedCard {
   subtype?: string;
   isNew: boolean;
   rationale?: string;
+  disabled?: boolean;
 }
 
 export interface ProposedRelation {
@@ -1406,4 +1412,27 @@ export interface ArchDependency {
 export interface DependencyAnalysisResult {
   summary?: string;
   dependencies: ArchDependency[];
+}
+
+export interface ArchLensAssessment {
+  id: string;
+  title: string;
+  requirement: string;
+  status: "saved" | "committed";
+  session_data: Record<string, unknown> | null;
+  initiative_id: string | null;
+  initiative_name?: string;
+  created_by: string | null;
+  created_by_name?: string;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface ArchLensCommitProgress {
+  step: string;
+  current: number;
+  total: number;
+  initiative_id?: string;
+  adr_id?: string;
+  detail?: string;
 }

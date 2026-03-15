@@ -174,6 +174,44 @@ La dernière étape génère une cartographie complète des capacités :
 
 À partir de cette étape, vous pouvez cliquer sur **Choisir une autre option** pour revenir en arrière et sélectionner une option de solution différente, ou sur **Recommencer** pour démarrer une évaluation entièrement nouvelle.
 
+!!! warning "Évaluation assistée par IA"
+    Cette évaluation utilise l'IA pour générer des recommandations, des options de solution et une architecture cible. Elle doit être réalisée par un professionnel IT qualifié (architecte d'entreprise, architecte de solutions, responsable IT) en collaboration avec les parties prenantes métier. Les résultats générés nécessitent un jugement professionnel et peuvent contenir des inexactitudes. Utilisez les résultats comme point de départ pour des discussions et un approfondissement ultérieurs.
+
+### Sauvegarder et valider
+
+Après avoir examiné l'architecture cible, vous disposez de deux options :
+
+**Sauvegarder l'évaluation** — Enregistre l'évaluation pour une consultation ultérieure via l'onglet «Évaluations». Les évaluations sauvegardées sont accessibles à tout utilisateur disposant de la permission `archlens.view`.
+
+**Valider et créer une initiative** — Convertit la proposition d'architecture en cartes réelles dans votre paysage :
+
+- **Nom de l'initiative** est prérempli avec le titre de l'option de solution sélectionnée (modifiable avant la création)
+- **Dates de début/fin** pour le calendrier de l'initiative
+- **Nouvelles cartes proposées** avec des commutateurs pour inclure ou exclure des cartes individuelles, et des icônes d'édition pour renommer les cartes avant leur création. Cette liste inclut les nouvelles Business Capabilities identifiées lors de l'évaluation.
+- **Relations proposées** avec des commutateurs pour inclure ou exclure
+- Un indicateur de progression affiche l'état de création (initiative → cartes → relations → ADR)
+- En cas de succès, un lien ouvre la nouvelle carte Initiative
+
+### Garde-fous architecturaux
+
+Le système garantit automatiquement l'intégrité architecturale :
+
+- Chaque nouvelle application est liée à au moins une Business Capability
+- Chaque nouvelle Business Capability est liée aux objectifs métier sélectionnés
+- Les cartes sans relations (orphelines) sont automatiquement retirées de la proposition
+
+### Architecture Decision Record
+
+Un brouillon d'ADR est automatiquement créé avec l'initiative, comprenant :
+
+- **Contexte** issu du résumé du mapping des capabilities
+- **Décision** capturant l'approche et les produits sélectionnés
+- **Alternatives considérées** issues des options de solution non retenues
+
+### Changer d'approche
+
+Cliquez sur **Choisir une autre option** pour sélectionner une option de solution différente. L'évaluation est réévaluée et sauvegardée à nouveau avec les données mises à jour, vous permettant de comparer les approches avant de valider.
+
 ## Historique des analyses
 
 Toutes les exécutions d'analyse sont suivies dans **ArchLens > Historique**, affichant :

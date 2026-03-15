@@ -516,6 +516,197 @@ async def _load_existing_cards_context(db: AsyncSession) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Phase 3a — Post-processing guardrails
+# ---------------------------------------------------------------------------
+
+
+def _merge_new_capabilities_into_proposed(parsed: dict[str, Any]) -> None:
+    """Add new capabilities to proposedCards so they appear in the UI and get committed.
+
+    Also normalises relation IDs: if a proposed relation references a capability
+    by its temporary ``id`` (e.g. ``new_cap_1``), that same ID is used as the
+    card's ``id`` in proposedCards so edges resolve correctly in the diagram.
+    """
+    proposed_cards = parsed.setdefault("proposedCards", [])
+    proposed_ids = {c.get("id", "") for c in proposed_cards}
+    # Also track existingCardIds to avoid duplicates with existing cards
+    existing_card_ids = {
+        c.get("existingCardId", "") for c in proposed_cards if c.get("existingCardId")
+    }
+
+    for cap in parsed.get("capabilities", []):
+        if not cap.get("isNew"):
+            continue
+        cap_id = cap.get("id", "")
+        existing_id = cap.get("existingCardId", "")
+        # Skip if already in proposedCards (by either ID)
+        if cap_id in proposed_ids or (existing_id and existing_id in existing_card_ids):
+            continue
+        proposed_cards.append(
+            {
+                "id": cap_id,
+                "name": cap.get("name", ""),
+                "cardTypeKey": "BusinessCapability",
+                "isNew": True,
+                "rationale": cap.get("rationale", ""),
+            }
+        )
+        proposed_ids.add(cap_id)
+        logger.info(
+            "Guardrail: merged new capability %s into proposedCards",
+            cap.get("name"),
+        )
+
+
+def _enforce_mandatory_relations(
+    parsed: dict[str, Any],
+    selected_capabilities: list[dict[str, Any]],
+    objective_ids: list[str],
+    dep_nodes: list[dict[str, Any]],
+) -> None:
+    """Ensure every new Application links to a BusinessCapability, and
+    every new BusinessCapability links to the selected Objectives.
+
+    Modifies ``parsed`` in place.
+    """
+    relations = parsed.setdefault("proposedRelations", [])
+    capabilities = parsed.get("capabilities", [])
+    proposed_cards = parsed.get("proposedCards", [])
+
+    # Build sets for fast lookup
+    existing_rel_set: set[tuple[str, str, str]] = set()
+    for rel in relations:
+        existing_rel_set.add(
+            (rel.get("sourceId", ""), rel.get("targetId", ""), rel.get("relationType", ""))
+        )
+
+    # Collect all capability IDs (prefer existingCardId for linking)
+    cap_ids: list[str] = []
+    for cap in capabilities:
+        cap_ids.append(cap.get("existingCardId") or cap.get("id", ""))
+    # Also add capabilities from selected_capabilities (user selections from Phase 0)
+    user_cap_ids: list[str] = []
+    for sc in selected_capabilities:
+        cid = sc.get("existingCardId") or sc.get("id", "")
+        if cid:
+            user_cap_ids.append(cid)
+    # Default target capabilities: user-selected first, then all in output
+    target_cap_ids = user_cap_ids or cap_ids
+
+    # 1) Every new Application MUST have at least one relAppToBC
+    for card in proposed_cards:
+        if not card.get("isNew"):
+            continue
+        if card.get("cardTypeKey") != "Application":
+            continue
+        card_id = card.get("id", "")
+        # Check if already linked to any BusinessCapability
+        has_bc_rel = any(
+            (s, t, rt) in existing_rel_set
+            for s in [card_id]
+            for t in cap_ids
+            for rt in ["relAppToBC"]
+        ) or any(
+            (s, t, rt) in existing_rel_set
+            for t in [card_id]
+            for s in cap_ids
+            for rt in ["relAppToBC"]
+        )
+        if not has_bc_rel and target_cap_ids:
+            # Link to the first user-selected capability
+            relations.append(
+                {
+                    "sourceId": card_id,
+                    "targetId": target_cap_ids[0],
+                    "relationType": "relAppToBC",
+                    "label": "supports",
+                }
+            )
+            existing_rel_set.add((card_id, target_cap_ids[0], "relAppToBC"))
+            logger.info(
+                "Guardrail: added relAppToBC from %s to capability %s",
+                card.get("name"),
+                target_cap_ids[0],
+            )
+
+    # 2) Every new BusinessCapability MUST link to selected Objectives
+    for cap in capabilities:
+        if not cap.get("isNew"):
+            continue
+        cap_id = cap.get("existingCardId") or cap.get("id", "")
+        for oid in objective_ids:
+            if (oid, cap_id, "relObjectiveToBC") not in existing_rel_set:
+                relations.append(
+                    {
+                        "sourceId": oid,
+                        "targetId": cap_id,
+                        "relationType": "relObjectiveToBC",
+                        "label": "improves",
+                    }
+                )
+                existing_rel_set.add((oid, cap_id, "relObjectiveToBC"))
+                logger.info(
+                    "Guardrail: added relObjectiveToBC from objective %s to capability %s",
+                    oid,
+                    cap.get("name"),
+                )
+
+    # Also ensure Objective nodes are in dep_nodes or proposedCards so edges render
+    dep_node_ids = {n.get("id", "") for n in dep_nodes}
+    proposed_ids = {c.get("id", "") for c in proposed_cards}
+    for oid in objective_ids:
+        if oid not in dep_node_ids and oid not in proposed_ids:
+            # The objective should already be in the existing dependency graph,
+            # but if not, it will be resolved by the dangling reference handler
+            pass
+
+
+def _remove_orphan_nodes(parsed: dict[str, Any]) -> None:
+    """Remove proposedCards that have zero relations (orphan nodes).
+
+    Only removes NEW cards — existing cards are kept regardless since
+    they are part of the existing landscape context.
+    """
+    relations = parsed.get("proposedRelations", [])
+    capabilities = parsed.get("capabilities", [])
+
+    # Collect all IDs referenced in relations
+    connected_ids: set[str] = set()
+    for rel in relations:
+        connected_ids.add(rel.get("sourceId", ""))
+        connected_ids.add(rel.get("targetId", ""))
+    connected_ids.discard("")
+
+    # Also consider edges in existingDependencies
+    for edge in parsed.get("existingDependencies", {}).get("edges", []):
+        connected_ids.add(edge.get("source", ""))
+        connected_ids.add(edge.get("target", ""))
+
+    # Capability IDs are always connected (they're the core of the mapping)
+    for cap in capabilities:
+        connected_ids.add(cap.get("id", ""))
+        if cap.get("existingCardId"):
+            connected_ids.add(cap["existingCardId"])
+
+    # Filter out new orphan cards
+    original_cards = parsed.get("proposedCards", [])
+    filtered = []
+    for card in original_cards:
+        card_id = card.get("id", "")
+        existing_card_id = card.get("existingCardId", "")
+        is_connected = card_id in connected_ids or existing_card_id in connected_ids
+        if not card.get("isNew") or is_connected:
+            filtered.append(card)
+        else:
+            logger.info(
+                "Guardrail: removed orphan new card %s (%s)",
+                card.get("name"),
+                card.get("cardTypeKey"),
+            )
+    parsed["proposedCards"] = filtered
+
+
+# ---------------------------------------------------------------------------
 # Phase 3a — Capability Mapping (dependency-aware)
 # ---------------------------------------------------------------------------
 
@@ -821,6 +1012,23 @@ Respond with ONLY this JSON:
                     }
                 )
 
+    # ---- Post-processing: merge new capabilities into proposedCards ----
+    # New capabilities live in the separate "capabilities" array but must also
+    # appear in "proposedCards" so they (a) show in the UI cards list,
+    # (b) get committed as real cards, and (c) have consistent IDs for edges.
+    _merge_new_capabilities_into_proposed(parsed)
+
+    # ---- Post-processing: enforce mandatory relations ----
+    _enforce_mandatory_relations(
+        parsed,
+        selected_capabilities or [],
+        objective_ids,
+        dep_nodes,
+    )
+
+    # ---- Post-processing: remove orphan nodes ----
+    _remove_orphan_nodes(parsed)
+
     return parsed
 
 
@@ -1031,30 +1239,139 @@ ARCHITECTURAL IMPACT:
 {impact_block}"""
 
 
-async def phase3_gaps(
-    db: AsyncSession,
+def _build_principles_context(principles: list[dict[str, str]]) -> str:
+    """Format principles as inline prompt context for gap evaluation."""
+    if not principles:
+        return ""
+    lines = [
+        "",
+        "=== ORGANISATION EA PRINCIPLES (evaluate product alignment) ===",
+    ]
+    for i, p in enumerate(principles, 1):
+        title = p.get("title", "")
+        desc = p.get("description") or ""
+        impl = p.get("implications") or ""
+        lines.append(f"  P{i}. {title}")
+        if desc:
+            lines.append(f"      {desc}")
+        if impl:
+            lines.append(f"      Implications: {impl}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _build_buy_prompt(  # noqa: E501
     requirement: str,
-    all_qa: list[dict[str, Any]],
-    selected_option: dict[str, Any],
-    objective_ids: list[str] | None = None,
-    selected_capabilities: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    """Phase 3b: identify the products needed to achieve the business requirements."""
-    landscape = await load_landscape(db)
-    ctx = _build_compact_context(landscape)
-    metamodel_ctx = await _load_metamodel_types_context(db)
-    patterns = _detect_intent_patterns(requirement)
-    objectives_ctx = await _load_objectives_context(db, objective_ids)
-    caps_ctx = _build_capabilities_context(selected_capabilities)
+    patterns: list[str],
+    objectives_ctx: str,
+    caps_ctx: str,
+    option_ctx: str,
+    answers_text: str,
+    num_qa: int,
+    ctx: str,
+    metamodel_ctx: str,
+    principles_ctx: str,
+) -> str:
+    """Build a specialised prompt for the 'buy' approach with deep market research."""
+    return f"""You are a principal enterprise architect conducting a thorough market \
+evaluation to select the best products for a BUY solution approach.
 
-    answers_text = "\n\n".join(
-        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
-        for i, qa in enumerate(all_qa)
-    )
+REQUIREMENT: "{requirement}"
+PATTERNS: {", ".join(patterns)}
+{objectives_ctx}{caps_ctx}
+{option_ctx}
 
-    option_ctx = _build_option_context(selected_option)
+ALL REQUIREMENTS ({num_qa} questions answered):
+{answers_text}
 
-    prompt = f"""You are a principal enterprise architect identifying the products needed \
+{ctx}
+{metamodel_ctx}{principles_ctx}
+TASK: Conduct a rigorous product evaluation for each capability gap. You MUST \
+research deeply and present a well-structured shortlist so stakeholders can make \
+an informed buying decision.
+
+The chain is: Business Objective → Business Capability → Product/Solution.
+Each gap represents a business capability that is missing or inadequate. Your \
+job is to identify the best market products for each gap.
+
+EVALUATION METHODOLOGY — draw from multiple sources:
+1. ANALYST RESEARCH: Reference analyst positions where applicable — Gartner \
+Magic Quadrant (Leaders, Challengers, Visionaries, Niche Players), Forrester \
+Wave, IDC MarketScape. State the quadrant/position when known.
+2. TECHNICAL FIT: Match products against the stated technical requirements \
+from the Q&A (scale, security, integration patterns, deployment preferences).
+3. BUSINESS FIT: Evaluate alignment with the business objectives and the \
+selected capabilities.
+4. EA PRINCIPLE ALIGNMENT: If EA principles are provided above, explicitly \
+note how each product aligns with or conflicts with them. Products that \
+violate a principle should have this flagged under cons.
+5. EXISTING LANDSCAPE: Prefer products from vendors already in the landscape \
+when they are a genuine fit. Flag ecosystem synergies and conflicts.
+
+RULES:
+1. Each gap must name the BUSINESS CAPABILITY it addresses and explain which \
+business objective it supports.
+2. Provide 3-5 product recommendations per gap, ranked by overall fit. The \
+top recommendation should be marked "recommended": true.
+3. Each product MUST include:
+   - "marketPosition": a brief note on analyst positioning if known (e.g. \
+"Gartner MQ Leader 2025", "Forrester Wave Strong Performer", "Niche specialist") \
+or "Established player" / "Emerging vendor" if no analyst data.
+   - "principleAlignment": if EA principles exist, a one-line note on how \
+this product aligns (e.g. "Aligns: cloud-first, API-driven") or "N/A".
+   - "deploymentModel": "SaaS | PaaS | On-Premise | Hybrid | Open Source".
+   - "licenseModel": e.g. "Per-user subscription", "Usage-based", \
+"Enterprise license", "Open-source + support".
+4. Aim for 1-3 total gaps. Only include capabilities that are genuinely \
+missing and required — do not split a single product into multiple gaps.
+5. Each recommendation MUST name a REAL product and vendor. Do NOT invent \
+fictitious products. Use current product names.
+6. Include concrete cost estimates and integration effort for each.
+7. Pros and cons must be specific and grounded — not generic platitudes.
+
+Respond with ONLY this JSON:
+{{
+  "summary": "<2-3 sentences: which business capabilities are addressed, evaluation \
+approach, key finding>",
+  "gaps": [
+    {{
+      "capability": "<business capability to enable/improve>",
+      "impact": "<which business objective this supports and why>",
+      "urgency": "critical | high | medium",
+      "recommendations": [
+        {{
+          "name": "<product name>",
+          "vendor": "<vendor>",
+          "why": "<why this product fulfils the capability — reference technical + business fit>",
+          "marketPosition": "<analyst position or market standing>",
+          "principleAlignment": "<EA principle alignment note or N/A>",
+          "deploymentModel": "<SaaS | PaaS | On-Premise | Hybrid | Open Source>",
+          "licenseModel": "<licensing model>",
+          "pros": ["<specific advantage>"],
+          "cons": ["<specific disadvantage>"],
+          "estimatedCost": "<cost range>",
+          "integrationEffort": "low | medium | high",
+          "recommended": true
+        }}
+      ]
+    }}
+  ]
+}}"""
+
+
+def _build_generic_prompt(
+    requirement: str,
+    patterns: list[str],
+    objectives_ctx: str,
+    caps_ctx: str,
+    option_ctx: str,
+    answers_text: str,
+    num_qa: int,
+    ctx: str,
+    metamodel_ctx: str,
+) -> str:
+    """Build the standard prompt for build/extend/reuse approaches."""
+    return f"""You are a principal enterprise architect identifying the products needed \
 to achieve the business requirements.
 
 REQUIREMENT: "{requirement}"
@@ -1062,7 +1379,7 @@ PATTERNS: {", ".join(patterns)}
 {objectives_ctx}{caps_ctx}
 {option_ctx}
 
-ALL REQUIREMENTS ({len(all_qa)} questions answered):
+ALL REQUIREMENTS ({num_qa} questions answered):
 {answers_text}
 
 {ctx}
@@ -1113,10 +1430,65 @@ Respond with ONLY this JSON:
       ]
     }}
   ]
-}}"""  # noqa: E501
+}}"""
+
+
+async def phase3_gaps(
+    db: AsyncSession,
+    requirement: str,
+    all_qa: list[dict[str, Any]],
+    selected_option: dict[str, Any],
+    objective_ids: list[str] | None = None,
+    selected_capabilities: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Phase 3b: identify the products needed to achieve the business requirements."""
+    landscape = await load_landscape(db)
+    ctx = _build_compact_context(landscape)
+    metamodel_ctx = await _load_metamodel_types_context(db)
+    patterns = _detect_intent_patterns(requirement)
+    objectives_ctx = await _load_objectives_context(db, objective_ids)
+    caps_ctx = _build_capabilities_context(selected_capabilities)
+
+    answers_text = "\n\n".join(
+        f"Q{i + 1}: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+        for i, qa in enumerate(all_qa)
+    )
+
+    option_ctx = _build_option_context(selected_option)
+
+    approach = (selected_option.get("approach") or "").lower()
+    if approach == "buy":
+        principles = await load_active_principles(db)
+        principles_ctx = _build_principles_context(principles)
+        prompt = _build_buy_prompt(
+            requirement=requirement,
+            patterns=patterns,
+            objectives_ctx=objectives_ctx,
+            caps_ctx=caps_ctx,
+            option_ctx=option_ctx,
+            answers_text=answers_text,
+            num_qa=len(all_qa),
+            ctx=ctx,
+            metamodel_ctx=metamodel_ctx,
+            principles_ctx=principles_ctx,
+        )
+        max_tokens = 6000
+    else:
+        prompt = _build_generic_prompt(
+            requirement=requirement,
+            patterns=patterns,
+            objectives_ctx=objectives_ctx,
+            caps_ctx=caps_ctx,
+            option_ctx=option_ctx,
+            answers_text=answers_text,
+            num_qa=len(all_qa),
+            ctx=ctx,
+            metamodel_ctx=metamodel_ctx,
+        )
+        max_tokens = 4000
 
     persona = await _build_persona_with_principles(db)
-    result = await call_ai(db, prompt, 4000, persona)
+    result = await call_ai(db, prompt, max_tokens, persona)
     parsed: dict[str, Any] = parse_json(result["text"])
     return parsed
 

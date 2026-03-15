@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.40.0] - 2026-03-15
+
+### Added
+- ArchLens: Commit & Create Initiative from Phase 5 target architecture assessment — creates Initiative card, new component cards with AI-generated descriptions, relations, and a draft ADR in one action
+- ArchLens: Assessment persistence with save/commit workflow and read-only assessment history viewer
+- New Assessments tab in ArchLens navigation for browsing saved and committed architecture assessments
+- ArchLens: Phase 5 guardrails enforce Application → Business Capability and Business Capability → Objective relations automatically
+- ArchLens: Orphan cards with no relations are automatically removed from architecture proposals
+- ArchLens: Initiative name defaults to the selected solution option title
+- ArchLens: AI disclaimer banner on Architecture AI wizard informing users that output requires professional review
+
+### Fixed
+- ArchLens: ADR decision field now correctly captures selected products and recommendations instead of index references
+- ArchLens: Initiative description summarizes the full assessment context instead of generic AI-generated text
+- ArchLens: Cross-layer edges (e.g., Application → Business Capability) now render correctly in C4 diagrams
+- ArchLens: New Business Capabilities appear in the Proposed New Cards list for selection and renaming before commit
+- ArchLens: Changing approach properly re-saves the assessment with updated session data
+
 ## [0.39.1] - 2026-03-15
 
 ### Added

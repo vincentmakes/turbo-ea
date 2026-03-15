@@ -174,6 +174,44 @@ Der letzte Schritt generiert ein umfassendes Capability-Mapping:
 
 In diesem Schritt können Sie auf **Andere Auswahl** klicken, um zurückzugehen und eine andere Lösungsoption zu wählen, oder auf **Neu starten**, um eine völlig neue Bewertung zu beginnen.
 
+!!! warning "KI-gestützte Bewertung"
+    Diese Bewertung nutzt KI zur Generierung von Empfehlungen, Lösungsoptionen und einer Zielarchitektur. Sie sollte von einem qualifizierten IT-Experten (Enterprise Architect, Solution Architect, IT-Leiter) in Zusammenarbeit mit den Fachabteilungen durchgeführt werden. Die generierten Ergebnisse erfordern fachliche Beurteilung und können Ungenauigkeiten enthalten. Verwenden Sie die Ergebnisse als Ausgangspunkt für weitere Diskussionen und Verfeinerungen.
+
+### Speichern & Übernehmen
+
+Nach der Überprüfung der Zielarchitektur haben Sie zwei Optionen:
+
+**Bewertung speichern** — Speichert die Bewertung zur späteren Überprüfung im Reiter «Bewertungen». Gespeicherte Bewertungen können von jedem Benutzer mit der Berechtigung `archlens.view` eingesehen werden.
+
+**Übernehmen & Initiative erstellen** — Wandelt den Architekturvorschlag in echte Karten in Ihrer Landschaft um:
+
+- **Initiativname** wird standardmäßig mit dem Titel der gewählten Lösungsoption vorbelegt (vor der Erstellung bearbeitbar)
+- **Start-/Enddatum** für den Zeitrahmen der Initiative
+- **Vorgeschlagene neue Karten** mit Schaltern zum Ein-/Ausschließen einzelner Karten und Bearbeitungssymbolen zum Umbenennen vor der Erstellung. Diese Liste enthält auch neue Business Capabilities, die während der Bewertung identifiziert wurden.
+- **Vorgeschlagene Beziehungen** mit Schaltern zum Ein-/Ausschließen
+- Eine Fortschrittsanzeige zeigt den Erstellungsstatus (Initiative → Karten → Beziehungen → ADR)
+- Bei Erfolg öffnet ein Link die neue Initiativkarte
+
+### Architektur-Leitplanken
+
+Das System erzwingt automatisch die architektonische Integrität:
+
+- Jede neue Anwendung wird mit mindestens einer Business Capability verknüpft
+- Jede neue Business Capability wird mit den ausgewählten Geschäftszielen verknüpft
+- Karten ohne Beziehungen (verwaiste Karten) werden automatisch aus dem Vorschlag entfernt
+
+### Architecture Decision Record
+
+Ein ADR-Entwurf wird automatisch zusammen mit der Initiative erstellt mit:
+
+- **Kontext** aus der Zusammenfassung des Capability-Mappings
+- **Entscheidung** mit dem gewählten Ansatz und den Produkten
+- **Betrachtete Alternativen** aus den nicht gewählten Lösungsoptionen
+
+### Ansatz ändern
+
+Klicken Sie auf **Andere Auswahl**, um eine andere Lösungsoption zu wählen. Die Bewertung wird mit aktualisierten Daten neu bewertet und gespeichert, sodass Sie Ansätze vergleichen können, bevor Sie sich festlegen.
+
 ## Analyseverlauf
 
 Alle Analyseläufe werden unter **ArchLens > Verlauf** nachverfolgt und zeigen:

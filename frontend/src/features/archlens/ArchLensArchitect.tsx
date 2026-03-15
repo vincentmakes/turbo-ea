@@ -8,7 +8,11 @@ import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Switch from "@mui/material/Switch";
+import Tooltip from "@mui/material/Tooltip";
 import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -28,6 +32,7 @@ import type { GNode, GEdge } from "@/features/reports/c4Layout";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
+import CommitInitiativeDialog from "./CommitInitiativeDialog";
 import {
   urgencyColor,
   effortColor,
@@ -479,6 +484,45 @@ function GapsView({
                           {rec.vendor}
                         </Typography>
                       )}
+                      {rec.marketPosition && (
+                        <Typography
+                          variant="caption"
+                          display="block"
+                          sx={{ color: "info.main", fontStyle: "italic", mt: 0.3 }}
+                        >
+                          <MaterialSymbol
+                            icon="monitoring"
+                            size={11}
+                            style={{ verticalAlign: "text-bottom", marginRight: 2 }}
+                          />
+                          {rec.marketPosition}
+                        </Typography>
+                      )}
+                      {rec.principleAlignment &&
+                        rec.principleAlignment !== "N/A" && (
+                          <Typography
+                            variant="caption"
+                            display="block"
+                            sx={{
+                              color: rec.principleAlignment
+                                .toLowerCase()
+                                .includes("conflict")
+                                ? "warning.main"
+                                : "success.main",
+                              mt: 0.3,
+                            }}
+                          >
+                            <MaterialSymbol
+                              icon="policy"
+                              size={11}
+                              style={{
+                                verticalAlign: "text-bottom",
+                                marginRight: 2,
+                              }}
+                            />
+                            {rec.principleAlignment}
+                          </Typography>
+                        )}
                       {rec.why && (
                         <Typography
                           variant="caption"
@@ -514,6 +558,7 @@ function GapsView({
                         spacing={0.5}
                         sx={{ mt: 1 }}
                         flexWrap="wrap"
+                        useFlexGap
                       >
                         {rec.estimatedCost && (
                           <Chip
@@ -529,6 +574,28 @@ function GapsView({
                             size="small"
                             color={effortColor(rec.integrationEffort)}
                             variant="outlined"
+                            sx={{ fontSize: 10, height: 20 }}
+                          />
+                        )}
+                        {rec.deploymentModel && (
+                          <Chip
+                            label={rec.deploymentModel}
+                            size="small"
+                            variant="outlined"
+                            icon={
+                              <MaterialSymbol icon="cloud" size={12} />
+                            }
+                            sx={{ fontSize: 10, height: 20 }}
+                          />
+                        )}
+                        {rec.licenseModel && (
+                          <Chip
+                            label={rec.licenseModel}
+                            size="small"
+                            variant="outlined"
+                            icon={
+                              <MaterialSymbol icon="license" size={12} />
+                            }
                             sx={{ fontSize: 10, height: 20 }}
                           />
                         )}
@@ -596,7 +663,7 @@ function loadSession(): ArchSession | null {
 // --- Main page component ---
 export default function ArchLensArchitect() {
   const { t } = useTranslation("admin");
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const saved = loadSession();
   const [archReq, setArchReq] = useState(saved?.archReq ?? "");
   const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
@@ -648,6 +715,14 @@ export default function ArchLensArchitect() {
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] =
     useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
+  // Assessment save/commit state
+  const [assessmentId, setAssessmentId] = useState<string | null>(null);
+  const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [savingAssessment, setSavingAssessment] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [snackMsg, setSnackMsg] = useState("");
+  // Proposed card edit state: { cardId: editedName }
+  const [editingCard, setEditingCard] = useState<{ id: string; name: string } | null>(null);
 
   const saveSession = useCallback(() => {
     const session: ArchSession = {
@@ -734,8 +809,13 @@ export default function ArchLensArchitect() {
       }
     }
 
-    // Add proposed cards as nodes with proposed=true
+    // Add proposed cards as nodes with proposed=true (skip disabled)
+    const disabledIds = new Set<string>();
     for (const card of capabilityMapping.proposedCards) {
+      if (card.disabled) {
+        disabledIds.add(card.id);
+        continue;
+      }
       if (!nodeMap.has(card.id)) {
         nodeMap.set(card.id, {
           id: card.id,
@@ -773,27 +853,56 @@ export default function ArchLensArchitect() {
       }
     }
 
-    // Proposed relations as edges
+    // Proposed relations as edges — enforce metamodel source/target direction
     for (const rel of capabilityMapping.proposedRelations) {
+      // Skip relations involving disabled cards
+      if (disabledIds.has(rel.sourceId) || disabledIds.has(rel.targetId)) continue;
       const resolveId = (refId: string): string => {
-        const cap = capabilityMapping.capabilities.find((c) => c.id === refId);
+        // Check capabilities by id or existingCardId
+        const cap = capabilityMapping.capabilities.find(
+          (c) => c.id === refId || c.existingCardId === refId,
+        );
         if (cap) return cap.existingCardId || cap.id;
+        // If the ID is in the nodeMap already, use it directly
+        if (nodeMap.has(refId)) return refId;
         return refId;
       };
-      const sid = resolveId(rel.sourceId);
-      const tid = resolveId(rel.targetId);
-      if (nodeMap.has(sid) && nodeMap.has(tid)) {
-        edges.push({
-          source: sid,
-          target: tid,
-          type: rel.relationType,
-          label: rel.label,
-        });
+      let sid = resolveId(rel.sourceId);
+      let tid = resolveId(rel.targetId);
+      if (!nodeMap.has(sid) || !nodeMap.has(tid)) continue;
+
+      // Look up metamodel relation type to enforce correct direction
+      const rt = relationTypes.find((r) => r.key === rel.relationType);
+      if (rt) {
+        const sType = nodeMap.get(sid)?.type;
+        const tType = nodeMap.get(tid)?.type;
+        // If the AI reversed source/target relative to the metamodel, swap them
+        if (sType === rt.target_type_key && tType === rt.source_type_key) {
+          [sid, tid] = [tid, sid];
+        }
       }
+
+      edges.push({
+        source: sid,
+        target: tid,
+        type: rel.relationType,
+        label: rt?.label || rel.label,
+        reverse_label: rt?.reverse_label,
+      });
     }
 
-    return { nodes: Array.from(nodeMap.values()), edges };
-  }, [capabilityMapping]);
+    // Remove orphan nodes (nodes with zero edges) from the diagram
+    const connectedIds = new Set<string>();
+    for (const e of edges) {
+      connectedIds.add(e.source);
+      connectedIds.add(e.target);
+    }
+    const filteredNodes = Array.from(nodeMap.values()).filter(
+      (n) => connectedIds.has(n.id),
+    );
+
+    return { nodes: filteredNodes, edges };
+  }, [capabilityMapping, relationTypes]);
 
   const extractQuestions = (
     data: Record<string, unknown>,
@@ -1102,6 +1211,83 @@ export default function ArchLensArchitect() {
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
+    // Reset assessment so the updated session data gets saved on next commit
+    setAssessmentId(null);
+    setAssessmentSaved(false);
+  };
+
+  const handleSaveAssessment = async (): Promise<string | null> => {
+    if (assessmentId) return assessmentId;
+    setSavingAssessment(true);
+    try {
+      // Resolve selected recommendations from index keys to actual product data
+      const resolvedRecs: Record<string, unknown>[] = [];
+      if (gapResult) {
+        gapResult.gaps.forEach((gap, gi) => {
+          (gap.recommendations ?? []).forEach((rec, ri) => {
+            if (selectedRecs.has(recKey(gi, ri))) {
+              resolvedRecs.push({
+                name: rec.name,
+                vendor: rec.vendor,
+                capability: gap.capability,
+                role: "recommendation",
+              });
+            }
+          });
+        });
+      }
+      if (depsResult) {
+        depsResult.dependencies.forEach((dep, di) => {
+          (dep.options ?? []).forEach((opt, oi) => {
+            if (selectedDeps.has(recKey(di, oi))) {
+              resolvedRecs.push({
+                name: opt.name,
+                vendor: opt.vendor,
+                capability: dep.need,
+                role: "dependency",
+              });
+            }
+          });
+        });
+      }
+
+      const sessionData: Record<string, unknown> = {
+        requirement: archReq,
+        selectedObjectives,
+        selectedCapabilities,
+        phase1Questions: phase1Answers,
+        phase2Questions: archQuestions,
+        archOptions,
+        selectedOptionId,
+        gapResult,
+        selectedRecommendations: resolvedRecs,
+        depsResult,
+        selectedDependencies: Array.from(selectedDeps),
+        capabilityMapping,
+      };
+      const resp = await api.post<{ id: string }>("/archlens/assessments", {
+        title: archReq.slice(0, 200),
+        requirement: archReq,
+        sessionData: sessionData,
+      });
+      setAssessmentId(resp.id);
+      setAssessmentSaved(true);
+      setSnackMsg(t("archlens_assessment_saved"));
+      return resp.id;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      return null;
+    } finally {
+      setSavingAssessment(false);
+    }
+  };
+
+  const handleCommit = async () => {
+    const savedId = await handleSaveAssessment();
+    if (savedId) {
+      setCommitDialogOpen(true);
+    }
   };
 
   // Determine if we're in Phase 3b (product selection) or 3c (deps view)
@@ -1159,6 +1345,18 @@ export default function ArchLensArchitect() {
         {/* Phase 0: Business Requirements Input */}
         {archPhase === 0 && (
           <>
+            <Alert
+              severity="info"
+              icon={<MaterialSymbol icon="psychology" />}
+              sx={{ mb: 3 }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                {t("archlens_architect_disclaimer_title")}
+              </Typography>
+              <Typography variant="body2">
+                {t("archlens_architect_disclaimer_body")}
+              </Typography>
+            </Alert>
             <TextField
               label={t("archlens_architect_requirement")}
               value={archReq}
@@ -1944,23 +2142,190 @@ export default function ArchLensArchitect() {
                             const ti = types.find(
                               (tp) => tp.key === card.cardTypeKey,
                             );
+                            const isEditing = editingCard?.id === card.id;
                             return (
                               <Stack
                                 key={card.id}
                                 direction="row"
-                                spacing={1}
+                                spacing={0.5}
                                 alignItems="center"
+                                sx={{
+                                  opacity: card.disabled ? 0.45 : 1,
+                                  transition: "opacity 0.2s",
+                                }}
                               >
+                                <Tooltip
+                                  title={
+                                    card.disabled
+                                      ? t("archlens_architect_enable_card")
+                                      : t("archlens_architect_disable_card")
+                                  }
+                                  arrow
+                                >
+                                  <Switch
+                                    size="small"
+                                    checked={!card.disabled}
+                                    onChange={() => {
+                                      setCapabilityMapping((prev) => {
+                                        if (!prev) return prev;
+                                        return {
+                                          ...prev,
+                                          proposedCards:
+                                            prev.proposedCards.map((c) =>
+                                              c.id === card.id
+                                                ? {
+                                                    ...c,
+                                                    disabled: !c.disabled,
+                                                  }
+                                                : c,
+                                            ),
+                                        };
+                                      });
+                                    }}
+                                    sx={{ mr: 0.5 }}
+                                  />
+                                </Tooltip>
                                 {ti && (
                                   <MaterialSymbol
                                     icon={ti.icon}
                                     size={14}
-                                    color={ti.color}
+                                    color={
+                                      card.disabled
+                                        ? "inherit"
+                                        : ti.color
+                                    }
                                   />
                                 )}
-                                <Typography variant="body2">
-                                  {card.name}
-                                </Typography>
+                                {isEditing ? (
+                                  <>
+                                    <TextField
+                                      size="small"
+                                      variant="standard"
+                                      autoFocus
+                                      value={editingCard.name}
+                                      onChange={(e) =>
+                                        setEditingCard({
+                                          id: card.id,
+                                          name: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          setCapabilityMapping((prev) => {
+                                            if (!prev) return prev;
+                                            return {
+                                              ...prev,
+                                              proposedCards:
+                                                prev.proposedCards.map((c) =>
+                                                  c.id === card.id
+                                                    ? {
+                                                        ...c,
+                                                        name:
+                                                          editingCard.name,
+                                                      }
+                                                    : c,
+                                                ),
+                                            };
+                                          });
+                                          setEditingCard(null);
+                                        } else if (e.key === "Escape") {
+                                          setEditingCard(null);
+                                        }
+                                      }}
+                                      inputProps={{
+                                        style: {
+                                          fontSize: 14,
+                                          padding: 0,
+                                        },
+                                      }}
+                                      sx={{ flex: 1, minWidth: 120 }}
+                                    />
+                                    <Tooltip
+                                      title={t("common:actions.save")}
+                                      arrow
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        color="primary"
+                                        onClick={() => {
+                                          setCapabilityMapping((prev) => {
+                                            if (!prev) return prev;
+                                            return {
+                                              ...prev,
+                                              proposedCards:
+                                                prev.proposedCards.map((c) =>
+                                                  c.id === card.id
+                                                    ? {
+                                                        ...c,
+                                                        name:
+                                                          editingCard.name,
+                                                      }
+                                                    : c,
+                                                ),
+                                            };
+                                          });
+                                          setEditingCard(null);
+                                        }}
+                                      >
+                                        <MaterialSymbol
+                                          icon="check"
+                                          size={16}
+                                        />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip
+                                      title={t("common:actions.cancel")}
+                                      arrow
+                                    >
+                                      <IconButton
+                                        size="small"
+                                        onClick={() =>
+                                          setEditingCard(null)
+                                        }
+                                      >
+                                        <MaterialSymbol
+                                          icon="close"
+                                          size={16}
+                                        />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        flex: 1,
+                                        textDecoration: card.disabled
+                                          ? "line-through"
+                                          : undefined,
+                                      }}
+                                    >
+                                      {card.name}
+                                    </Typography>
+                                    {!card.disabled && (
+                                      <Tooltip
+                                        title={t("common:actions.edit")}
+                                        arrow
+                                      >
+                                        <IconButton
+                                          size="small"
+                                          onClick={() =>
+                                            setEditingCard({
+                                              id: card.id,
+                                              name: card.name,
+                                            })
+                                          }
+                                        >
+                                          <MaterialSymbol
+                                            icon="edit"
+                                            size={14}
+                                          />
+                                        </IconButton>
+                                      </Tooltip>
+                                    )}
+                                  </>
+                                )}
                                 {card.subtype && (
                                   <Typography
                                     variant="caption"
@@ -2004,28 +2369,44 @@ export default function ArchLensArchitect() {
                     </Typography>
                     <Stack spacing={0.3}>
                       {capabilityMapping.proposedRelations.map((rel, i) => {
+                        const srcCard = capabilityMapping.proposedCards.find(
+                          (c) => c.id === rel.sourceId,
+                        );
+                        const tgtCard = capabilityMapping.proposedCards.find(
+                          (c) => c.id === rel.targetId,
+                        );
                         const srcName =
-                          capabilityMapping.proposedCards.find(
-                            (c) => c.id === rel.sourceId,
-                          )?.name ||
+                          srcCard?.name ||
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.sourceId,
+                          )?.name ||
+                          capabilityMapping.existingDependencies?.nodes.find(
+                            (n) => n.id === rel.sourceId,
                           )?.name ||
                           rel.sourceId;
                         const tgtName =
-                          capabilityMapping.proposedCards.find(
-                            (c) => c.id === rel.targetId,
-                          )?.name ||
+                          tgtCard?.name ||
                           capabilityMapping.capabilities.find(
                             (c) => c.id === rel.targetId,
                           )?.name ||
+                          capabilityMapping.existingDependencies?.nodes.find(
+                            (n) => n.id === rel.targetId,
+                          )?.name ||
                           rel.targetId;
+                        const relDisabled =
+                          srcCard?.disabled || tgtCard?.disabled;
                         return (
                           <Stack
                             key={i}
                             direction="row"
                             spacing={0.5}
                             alignItems="center"
+                            sx={{
+                              opacity: relDisabled ? 0.4 : 1,
+                              textDecoration: relDisabled
+                                ? "line-through"
+                                : undefined,
+                            }}
                           >
                             <Typography variant="caption">
                               {srcName}
@@ -2055,7 +2436,10 @@ export default function ArchLensArchitect() {
 
                 {/* Dependency Diagram */}
                 {merged.nodes.length > 0 && (
-                  <Paper variant="outlined" sx={{ mb: 2 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ mb: 2, overflow: "hidden", position: "relative" }}
+                  >
                     <Box
                       sx={{
                         px: 2,
@@ -2071,7 +2455,7 @@ export default function ArchLensArchitect() {
                         {t("archlens_architect_dependency_diagram_hint")}
                       </Typography>
                     </Box>
-                    <Box sx={{ height: 600 }}>
+                    <Box sx={{ height: { xs: 400, md: 600 } }}>
                       <C4DiagramView
                         nodes={merged.nodes}
                         edges={merged.edges}
@@ -2083,7 +2467,25 @@ export default function ArchLensArchitect() {
                   </Paper>
                 )}
 
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  <Button
+                    variant="contained"
+                    onClick={handleCommit}
+                    disabled={savingAssessment}
+                    startIcon={<MaterialSymbol icon="rocket_launch" size={18} />}
+                  >
+                    {t("archlens_commit_initiative")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => handleSaveAssessment()}
+                    disabled={assessmentSaved || savingAssessment}
+                    startIcon={<MaterialSymbol icon="save" size={18} />}
+                  >
+                    {assessmentSaved
+                      ? t("archlens_assessment_saved")
+                      : t("archlens_save_assessment")}
+                  </Button>
                   <Button variant="outlined" onClick={chooseDifferent}>
                     {t("archlens_architect_choose_different")}
                   </Button>
@@ -2091,9 +2493,30 @@ export default function ArchLensArchitect() {
                     {t("archlens_architect_start_over")}
                   </Button>
                 </Stack>
+
+                {capabilityMapping && assessmentId && (
+                  <CommitInitiativeDialog
+                    open={commitDialogOpen}
+                    onClose={() => setCommitDialogOpen(false)}
+                    assessmentId={assessmentId}
+                    requirement={archReq}
+                    capabilityMapping={capabilityMapping}
+                    objectiveIds={selectedObjectives.map((o) => o.id)}
+                    selectedOption={archOptions?.find(
+                      (o) => o.id === selectedOptionId,
+                    )}
+                  />
+                )}
               </>
             );
           })()}
+
+        <Snackbar
+          open={!!snackMsg}
+          autoHideDuration={3000}
+          onClose={() => setSnackMsg("")}
+          message={snackMsg}
+        />
 
         {archLoading && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>

@@ -41,6 +41,35 @@ class ArchLensModernizeRequest(BaseModel):
     modernization_type: str = "general"
 
 
+class ArchLensAssessmentCreate(BaseModel):
+    """Save an architecture assessment session."""
+
+    model_config = {"populate_by_name": True}
+
+    title: str
+    requirement: str
+    session_data: dict = Field(..., alias="sessionData")
+
+
+class ArchLensCommitRequest(BaseModel):
+    """Commit an assessment: create initiative, cards, relations, ADR."""
+
+    model_config = {"populate_by_name": True}
+
+    assessment_id: str = Field(..., alias="assessmentId")
+    initiative_name: str = Field(..., alias="initiativeName")
+    start_date: str = Field(..., alias="startDate")
+    end_date: str = Field(..., alias="endDate")
+    selected_card_ids: list[str] = Field(..., alias="selectedCardIds")
+    selected_relation_indices: list[int] = Field(..., alias="selectedRelationIndices")
+    objective_ids: list[str] = Field(default_factory=list, alias="objectiveIds")
+    renamed_cards: dict[str, str] = Field(
+        default_factory=dict,
+        alias="renamedCards",
+        description="Map of card ID → new name for cards renamed by the user",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Responses
 # ---------------------------------------------------------------------------
@@ -154,6 +183,7 @@ class ArchLensAnalysisRunOut(BaseModel):
     status: str
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    results: dict | None = None
     error_message: str | None = None
     created_at: datetime | None = None
 
@@ -163,3 +193,24 @@ class ArchLensAnalysisRunOut(BaseModel):
     @classmethod
     def coerce_id(cls, v: str | uuid.UUID) -> str:
         return str(v)
+
+
+class ArchLensAssessmentOut(BaseModel):
+    id: str
+    title: str
+    requirement: str
+    status: str = "saved"
+    session_data: dict | None = None
+    initiative_id: str | None = None
+    initiative_name: str | None = None
+    created_by: str | None = None
+    created_by_name: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("id", "initiative_id", "created_by", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
+        return str(v) if v is not None else None

@@ -46,6 +46,7 @@ const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEdito
 const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
 const ArchLensPage = lazy(() => import("@/features/archlens/ArchLensPage"));
+const AssessmentViewer = lazy(() => import("@/features/archlens/AssessmentViewer"));
 
 function buildTheme(mode: "light" | "dark") {
   return createTheme({
@@ -154,6 +155,7 @@ function AppRoutes() {
                 <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
                 <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
                 <Route path="/archlens" element={<ArchLensPage />} />
+                <Route path="/archlens/assessments/:id" element={<AssessmentViewer />} />
                 <Route path="/admin/archlens" element={<Navigate to="/admin/settings?tab=archlens" />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>

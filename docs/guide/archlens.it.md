@@ -174,6 +174,44 @@ L'ultimo passaggio genera una mappatura completa delle capacità:
 
 Da questo passaggio, puoi fare clic su **Scegli un'alternativa** per tornare indietro e selezionare un'opzione di soluzione diversa, oppure su **Ricomincia** per avviare una valutazione completamente nuova.
 
+!!! warning "Valutazione assistita dall'IA"
+    Questa valutazione utilizza l'IA per generare raccomandazioni, opzioni di soluzione e un'architettura target. Deve essere eseguita da un professionista IT qualificato (Enterprise Architect, Solution Architect, responsabile IT) in collaborazione con gli stakeholder aziendali. I risultati generati richiedono giudizio professionale e possono contenere imprecisioni. Utilizzare i risultati come punto di partenza per ulteriori discussioni e perfezionamenti.
+
+### Salva e conferma
+
+Dopo aver esaminato l'architettura target, hai due opzioni:
+
+**Salva valutazione** — Salva la valutazione per una revisione successiva tramite la scheda «Valutazioni». Le valutazioni salvate possono essere consultate da qualsiasi utente con il permesso `archlens.view`.
+
+**Conferma e crea iniziativa** — Converte la proposta architetturale in card reali nel tuo panorama:
+
+- **Nome dell'iniziativa** è precompilato con il titolo dell'opzione di soluzione selezionata (modificabile prima della creazione)
+- **Date di inizio/fine** per la tempistica dell'iniziativa
+- **Nuove card proposte** con interruttori per includere o escludere singole card e icone di modifica per rinominare le card prima della creazione. Questo elenco include le nuove Business Capability identificate durante la valutazione.
+- **Relazioni proposte** con interruttori per includere o escludere
+- Un indicatore di avanzamento mostra lo stato di creazione (iniziativa → card → relazioni → ADR)
+- In caso di successo, un collegamento apre la nuova card Iniziativa
+
+### Guardrail architetturali
+
+Il sistema garantisce automaticamente l'integrità architetturale:
+
+- Ogni nuova applicazione è collegata ad almeno una Business Capability
+- Ogni nuova Business Capability è collegata agli obiettivi di business selezionati
+- Le card senza relazioni (orfane) vengono automaticamente rimosse dalla proposta
+
+### Architecture Decision Record
+
+Una bozza di ADR viene automaticamente creata insieme all'iniziativa con:
+
+- **Contesto** dal riepilogo della mappatura delle capacità
+- **Decisione** che cattura l'approccio e i prodotti selezionati
+- **Alternative considerate** dalle opzioni di soluzione non selezionate
+
+### Cambia approccio
+
+Fai clic su **Scegli un'alternativa** per selezionare un'opzione di soluzione diversa. I risultati vengono ricalcolati e salvati con dati aggiornati, permettendoti di confrontare gli approcci prima di confermare.
+
 ## Cronologia delle analisi
 
 Tutte le esecuzioni di analisi sono tracciate in **ArchLens > Cronologia**, con le seguenti informazioni:

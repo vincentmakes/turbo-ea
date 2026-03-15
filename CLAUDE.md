@@ -1216,7 +1216,8 @@ The Architecture AI follows a 5-step guided wizard:
    - **3a: Options** — AI generates solution option cards (buy/build/extend/reuse) with impact preview (new/modified/retired components, integrations), estimated cost, duration, and complexity.
    - **3b: Gap Analysis** — After selecting an option, AI identifies capability gaps with ranked market product recommendations (gold/silver/bronze). Users select products via checkboxes.
    - **3c: Dependencies** — After selecting products, AI identifies additional infrastructure/platform dependencies needed. Users select dependencies via checkboxes.
-5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel), proposed relations, and an interactive C4 dependency diagram rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge.
+5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel, including new BusinessCapabilities), proposed relations, and an interactive C4 dependency diagram rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge. Backend guardrails automatically enforce: every new Application links to a BusinessCapability, every new BusinessCapability links to selected Objectives, and orphan cards (no relations) are removed.
+6. **Commit** — Save assessment, then commit via `CommitInitiativeDialog`: creates Initiative card (name defaults to selected option title, editable), all selected new cards with AI-generated descriptions, relations, and a draft ADR capturing the decision context, selected products, and alternatives. Changing approach resets the assessment for re-saving.
 
 ### API Routes (`/archlens`)
 
@@ -1242,6 +1243,10 @@ The Architecture AI follows a 5-step guided wizard:
 | POST | `/architect/phase3/gaps` | `archlens.manage` | Gap analysis for selected option |
 | POST | `/architect/phase3/deps` | `archlens.manage` | Dependency analysis for selected products |
 | POST | `/architect/phase3` | `archlens.manage` | Capability mapping (full target architecture) |
+| POST | `/architect/commit` | `archlens.manage` | Commit initiative from assessment (creates cards + relations + ADR) |
+| POST | `/assessments` | `archlens.manage` | Save assessment |
+| GET | `/assessments` | `archlens.view` | List saved assessments |
+| GET | `/assessments/{id}` | `archlens.view` | Get assessment details |
 | GET | `/analysis-runs` | `archlens.view` | Analysis run history |
 | GET | `/analysis-runs/{run_id}` | `archlens.view` | Get specific run with results |
 
@@ -1262,6 +1267,10 @@ The Architecture AI follows a 5-step guided wizard:
 | Component | Purpose |
 |-----------|---------|
 | `ArchLensArchitect.tsx` | 5-step wizard: requirement input → Q&A → options → gaps → deps → capability mapping |
+| `CommitInitiativeDialog.tsx` | Initiative creation dialog with card/relation selection, renaming, and progress tracking |
+| `AssessmentViewer.tsx` | Read-only assessment viewer with C4 diagram |
+| `C4DiagramView.tsx` | React Flow-based C4 diagram with grouped swim lanes and mirrored handles for cross-layer edges |
+| `c4Layout.ts` | Automatic layout engine for C4 diagrams (node positioning, edge routing, handle allocation) |
 | `ArchitectureDiagram.tsx` | Mermaid diagram renderer for architecture visualizations |
 | `useAnalysisPolling.ts` | Custom hook: polls analysis runs every 3s until completion/failure |
 | `utils.ts` | Shared helpers: `formatCost()`, color mappers, `ARCHITECT_STEPS` stepper config |
