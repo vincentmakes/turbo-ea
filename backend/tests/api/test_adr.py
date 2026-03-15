@@ -254,7 +254,7 @@ class TestUpdateADR:
 
 
 class TestDeleteADR:
-    async def test_admin_can_delete(self, client, db, adr_env):
+    async def test_admin_can_delete_draft(self, client, db, adr_env):
         admin = adr_env["admin"]
         create_resp = await _create_adr(client, admin, title="Delete Me")
         adr_id = create_resp.json()["id"]
@@ -272,11 +272,24 @@ class TestDeleteADR:
         )
         assert get_resp.status_code == 404
 
-    async def test_member_cannot_delete(self, client, db, adr_env):
-        """Member lacks adr.delete permission."""
+    async def test_author_can_delete_own_draft(self, client, db, adr_env):
+        """Member who created the ADR can delete their own draft."""
+        member = adr_env["member"]
+        create_resp = await _create_adr(client, member, title="My Draft")
+        assert create_resp.status_code == 201
+        adr_id = create_resp.json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/adr/{adr_id}",
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 204
+
+    async def test_non_author_member_cannot_delete(self, client, db, adr_env):
+        """Member cannot delete a draft created by someone else."""
         admin = adr_env["admin"]
         member = adr_env["member"]
-        create_resp = await _create_adr(client, admin, title="Protected")
+        create_resp = await _create_adr(client, admin, title="Not Yours")
         adr_id = create_resp.json()["id"]
 
         resp = await client.delete(
@@ -285,7 +298,8 @@ class TestDeleteADR:
         )
         assert resp.status_code == 403
 
-    async def test_viewer_cannot_delete(self, client, db, adr_env):
+    async def test_viewer_cannot_delete_draft(self, client, db, adr_env):
+        """Viewer lacks adr.manage so cannot delete even own draft."""
         admin = adr_env["admin"]
         viewer = adr_env["viewer"]
         create_resp = await _create_adr(client, admin, title="Protected")
@@ -296,6 +310,74 @@ class TestDeleteADR:
             headers=auth_headers(viewer),
         )
         assert resp.status_code == 403
+
+    async def test_cannot_delete_signed_adr(self, client, db, adr_env):
+        """Signed ADRs cannot be deleted, even by admin."""
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+        create_resp = await _create_adr(client, admin, title="Signed")
+        adr_id = create_resp.json()["id"]
+        await _sign_adr(client, admin, [member], adr_id)
+
+        resp = await client.delete(
+            f"/api/v1/adr/{adr_id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_cannot_delete_in_review_adr(self, client, db, adr_env):
+        """ADRs in review cannot be deleted."""
+        admin = adr_env["admin"]
+        member = adr_env["member"]
+        create_resp = await _create_adr(client, admin, title="In Review")
+        adr_id = create_resp.json()["id"]
+
+        # Send for review (puts it in in_review status)
+        await client.post(
+            f"/api/v1/adr/{adr_id}/request-signatures",
+            json={"user_ids": [str(member.id)]},
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.delete(
+            f"/api/v1/adr/{adr_id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 400
+
+    async def test_ref_number_recycled_when_last(self, client, db, adr_env):
+        """Deleting the highest-numbered ADR recycles the reference."""
+        admin = adr_env["admin"]
+        r1 = await _create_adr(client, admin, title="First")
+        r2 = await _create_adr(client, admin, title="Second")
+        assert r1.json()["reference_number"] == "ADR-001"
+        assert r2.json()["reference_number"] == "ADR-002"
+
+        # Delete the last one
+        await client.delete(
+            f"/api/v1/adr/{r2.json()['id']}",
+            headers=auth_headers(admin),
+        )
+
+        # Next ADR should reuse ADR-002
+        r3 = await _create_adr(client, admin, title="Third")
+        assert r3.json()["reference_number"] == "ADR-002"
+
+    async def test_ref_number_not_recycled_when_not_last(self, client, db, adr_env):
+        """Deleting a non-last ADR leaves a gap in numbering."""
+        admin = adr_env["admin"]
+        r1 = await _create_adr(client, admin, title="First")
+        await _create_adr(client, admin, title="Second")
+
+        # Delete the first one
+        await client.delete(
+            f"/api/v1/adr/{r1.json()['id']}",
+            headers=auth_headers(admin),
+        )
+
+        # Next ADR should be ADR-003, not ADR-001
+        r3 = await _create_adr(client, admin, title="Third")
+        assert r3.json()["reference_number"] == "ADR-003"
 
 
 # -------------------------------------------------------------------

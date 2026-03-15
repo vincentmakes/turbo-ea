@@ -370,12 +370,14 @@ export default function AdrGrid({
           </ListItemIcon>
           <ListItemText>{t("adr.duplicate")}</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => handleMenuAction(onDelete)}>
-          <ListItemIcon>
-            <MaterialSymbol icon="delete" size={20} color="error" />
-          </ListItemIcon>
-          <ListItemText sx={{ color: "error.main" }}>{t("adr.delete")}</ListItemText>
-        </MenuItem>
+        {contextMenu?.adr.status === "draft" && (
+          <MenuItem onClick={() => handleMenuAction(onDelete)}>
+            <ListItemIcon>
+              <MaterialSymbol icon="delete" size={20} color="error" />
+            </ListItemIcon>
+            <ListItemText sx={{ color: "error.main" }}>{t("adr.delete")}</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
     </>
   );

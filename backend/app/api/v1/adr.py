@@ -331,8 +331,18 @@ async def delete_adr(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "adr.delete")
     adr = await _get_adr(db, adr_id)
+
+    if adr.status != "draft":
+        raise HTTPException(400, "Only draft decisions can be deleted")
+
+    # Admin (adr.delete) can delete any draft; author needs adr.manage
+    has_delete = await PermissionService.check_permission(db, user, "adr.delete")
+    if not has_delete:
+        if adr.created_by != user.id:
+            raise HTTPException(403, "Only the author or an admin can delete a draft decision")
+        await PermissionService.require_permission(db, user, "adr.manage")
+
     await db.delete(adr)
     await db.commit()
 
