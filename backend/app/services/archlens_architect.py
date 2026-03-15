@@ -579,17 +579,48 @@ async def phase3_capability_mapping(
 
     recs_ctx = ""
     if selected_recommendations:
-        recs_lines = ["=== USER-SELECTED RECOMMENDATIONS (from gap analysis) ==="]
-        for rec in selected_recommendations:
-            vendor = rec.get("vendor", "")
-            vendor_str = f" ({vendor})" if vendor else ""
-            recs_lines.append(
-                f'- For gap "{rec.get("capability", "?")}": '
-                f"{rec.get('recommendation', '?')}{vendor_str}"
-            )
+        primary = [r for r in selected_recommendations if r.get("role") != "dependency"]
+        deps = [r for r in selected_recommendations if r.get("role") == "dependency"]
+
+        recs_lines = [
+            "=== USER-SELECTED PRODUCTS & DEPENDENCIES (final decisions) ===",
+            "These are the products the user has chosen. The target architecture",
+            "MUST incorporate exactly these products — no substitutions, no additions.",
+            "",
+        ]
+        if primary:
+            recs_lines.append("PRIMARY PRODUCTS (selected in gap analysis):")
+            for rec in primary:
+                vendor = rec.get("vendor", "")
+                vendor_str = f" ({vendor})" if vendor else ""
+                recs_lines.append(
+                    f"  - {rec.get('recommendation', '?')}{vendor_str}"
+                    f" — for: {rec.get('capability', '?')}"
+                )
+                pros = rec.get("pros")
+                if pros and isinstance(pros, list):
+                    recs_lines.append(f"    Capabilities: {', '.join(pros)}")
+                cons = rec.get("cons")
+                if cons and isinstance(cons, list):
+                    recs_lines.append(f"    Limitations: {', '.join(cons)}")
+            recs_lines.append("")
+        if deps:
+            recs_lines.append("DEPENDENCY PRODUCTS (selected in dependency analysis):")
+            for rec in deps:
+                vendor = rec.get("vendor", "")
+                vendor_str = f" ({vendor})" if vendor else ""
+                recs_lines.append(
+                    f"  - {rec.get('recommendation', '?')}{vendor_str}"
+                    f" — for: {rec.get('capability', '?')}"
+                )
+            recs_lines.append("")
+
         recs_lines.append(
-            "\nIncorporate these specific products/tools into the capability mapping. "
-            "Propose cards for them and create appropriate relations."
+            "Build the target architecture using EXACTLY these products. "
+            "Create cards, providers, interfaces, and ITComponents for each. "
+            "Respect the product capabilities listed above — if a product has "
+            "native integration with an existing system, connect them directly "
+            "via an Interface, do NOT introduce additional middleware."
         )
         recs_ctx = "\n".join(recs_lines)
 

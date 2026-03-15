@@ -932,7 +932,14 @@ export default function ArchLensArchitect() {
         payload.selectedOption = selectedOpt ?? null;
         payload.objectiveIds = selectedObjectives.map((o) => o.id);
         // Build selected recommendations: products from 3b + deps from 3c
-        const picks: { capability: string; recommendation: string; vendor?: string }[] = [];
+        const picks: {
+          capability: string;
+          recommendation: string;
+          vendor?: string;
+          role: "primary" | "dependency";
+          pros?: string[];
+          cons?: string[];
+        }[] = [];
         if (gapResult && selectedRecs.size > 0) {
           gapResult.gaps.forEach((gap, gi) => {
             (gap.recommendations ?? []).forEach((rec, ri) => {
@@ -941,6 +948,9 @@ export default function ArchLensArchitect() {
                   capability: gap.capability,
                   recommendation: rec.name,
                   vendor: rec.vendor,
+                  role: "primary",
+                  pros: rec.pros,
+                  cons: rec.cons,
                 });
               }
             });
@@ -954,6 +964,9 @@ export default function ArchLensArchitect() {
                   capability: dep.need,
                   recommendation: opt.name,
                   vendor: opt.vendor,
+                  role: "dependency",
+                  pros: opt.pros,
+                  cons: opt.cons,
                 });
               }
             });
