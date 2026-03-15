@@ -2369,7 +2369,10 @@ export default function ArchLensArchitect() {
 
                 {/* Dependency Diagram */}
                 {merged.nodes.length > 0 && (
-                  <Paper variant="outlined" sx={{ mb: 2 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ mb: 2, overflow: "hidden", position: "relative" }}
+                  >
                     <Box
                       sx={{
                         px: 2,
@@ -2385,7 +2388,7 @@ export default function ArchLensArchitect() {
                         {t("archlens_architect_dependency_diagram_hint")}
                       </Typography>
                     </Box>
-                    <Box sx={{ height: 600 }}>
+                    <Box sx={{ height: { xs: 400, md: 600 } }}>
                       <C4DiagramView
                         nodes={merged.nodes}
                         edges={merged.edges}
