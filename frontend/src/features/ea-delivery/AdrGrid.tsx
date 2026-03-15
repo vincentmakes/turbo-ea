@@ -189,9 +189,22 @@ export default function AdrGrid({
         },
       },
       {
+        headerName: t("adr.grid.createdBy"),
+        field: "creator_name",
+        width: 150,
+        minWidth: 120,
+      },
+      {
         headerName: t("adr.grid.created"),
         field: "created_at",
         width: 130,
+        valueFormatter: (params: { value: string | null }) =>
+          params.value ? new Date(params.value).toLocaleDateString() : "",
+      },
+      {
+        headerName: t("adr.grid.lastModified"),
+        field: "updated_at",
+        width: 150,
         valueFormatter: (params: { value: string | null }) =>
           params.value ? new Date(params.value).toLocaleDateString() : "",
       },
