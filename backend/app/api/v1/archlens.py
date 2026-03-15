@@ -22,6 +22,7 @@ from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.archlens import (
     ArchLensAnalysisRun,
+    ArchLensAssessment,
     ArchLensDuplicateCluster,
     ArchLensModernization,
     ArchLensVendorAnalysis,
@@ -32,6 +33,8 @@ from app.models.user import User
 from app.schemas.archlens import (
     ArchLensAnalysisRunOut,
     ArchLensArchitectRequest,
+    ArchLensAssessmentCreate,
+    ArchLensCommitRequest,
     ArchLensDuplicateStatusUpdate,
     ArchLensModernizeRequest,
     ArchLensOverviewOut,
@@ -56,6 +59,7 @@ class AnalysisType(str, enum.Enum):
     DUPLICATE_DETECTION = "duplicate_detection"
     MODERNIZATION = "modernization"
     ARCHITECT = "architect"
+    ARCHITECT_COMMIT = "architect_commit"
 
 
 class AnalysisStatus(str, enum.Enum):
@@ -857,3 +861,135 @@ async def get_analysis_run(
         raise HTTPException(404, "Analysis run not found")
 
     return ArchLensAnalysisRunOut.model_validate(run, from_attributes=True)
+
+
+# ── Assessments ──────────────────────────────────────────────────────────
+
+
+async def _assessment_to_dict(
+    db: AsyncSession, a: ArchLensAssessment, *, full: bool = False
+) -> dict:
+    """Convert assessment model to response dict."""
+    creator_name = None
+    if a.created_by:
+        u = await db.get(User, a.created_by)
+        if u:
+            creator_name = u.display_name
+
+    initiative_name = None
+    if a.initiative_id:
+        card = await db.get(Card, a.initiative_id)
+        if card:
+            initiative_name = card.name
+
+    data: dict[str, Any] = {
+        "id": str(a.id),
+        "title": a.title,
+        "requirement": a.requirement,
+        "status": a.status,
+        "initiative_id": str(a.initiative_id) if a.initiative_id else None,
+        "initiative_name": initiative_name,
+        "created_by": str(a.created_by) if a.created_by else None,
+        "created_by_name": creator_name,
+        "created_at": a.created_at.isoformat() if a.created_at else None,
+        "updated_at": a.updated_at.isoformat() if a.updated_at else None,
+    }
+    if full:
+        data["session_data"] = a.session_data
+    else:
+        data["session_data"] = None
+    return data
+
+
+@router.post("/assessments")
+async def save_assessment(
+    body: ArchLensAssessmentCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Save an architecture assessment session."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    assessment = ArchLensAssessment(
+        id=uuid.uuid4(),
+        title=body.title,
+        requirement=body.requirement,
+        session_data=body.session_data,
+        status="saved",
+        created_by=user.id,
+    )
+    db.add(assessment)
+    await db.commit()
+    await db.refresh(assessment)
+    return await _assessment_to_dict(db, assessment, full=True)
+
+
+@router.get("/assessments")
+async def list_assessments(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """List all architecture assessments."""
+    await PermissionService.require_permission(db, user, "archlens.view")
+
+    result = await db.execute(
+        select(ArchLensAssessment).order_by(ArchLensAssessment.created_at.desc()).limit(100)
+    )
+    assessments = result.scalars().all()
+    return [await _assessment_to_dict(db, a) for a in assessments]
+
+
+@router.get("/assessments/{assessment_id}")
+async def get_assessment(
+    assessment_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Get a full assessment with session data."""
+    await PermissionService.require_permission(db, user, "archlens.view")
+
+    assessment = await db.get(ArchLensAssessment, uuid.UUID(assessment_id))
+    if not assessment:
+        raise HTTPException(404, "Assessment not found")
+    return await _assessment_to_dict(db, assessment, full=True)
+
+
+# ── Commit & Create Initiative ───────────────────────────────────────────
+
+
+@router.post("/architect/commit")
+async def architect_commit(
+    body: ArchLensCommitRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Commit an assessment: create Initiative, cards, relations, and ADR."""
+    await PermissionService.require_permission(db, user, "archlens.manage")
+
+    assessment = await db.get(ArchLensAssessment, uuid.UUID(body.assessment_id))
+    if not assessment:
+        raise HTTPException(404, "Assessment not found")
+    if assessment.status == "committed":
+        raise HTTPException(409, "Assessment already committed")
+
+    run = await _create_analysis_run(db, AnalysisType.ARCHITECT_COMMIT, user)
+
+    commit_data = {
+        "assessment_id": body.assessment_id,
+        "initiative_name": body.initiative_name,
+        "start_date": body.start_date,
+        "end_date": body.end_date,
+        "selected_card_ids": body.selected_card_ids,
+        "selected_relation_indices": body.selected_relation_indices,
+        "objective_ids": body.objective_ids,
+        "user_id": str(user.id),
+    }
+
+    async def _commit(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.archlens_commit import execute_commit
+
+        return await execute_commit(db_, str(run.id), commit_data)
+
+    background_tasks.add_task(_run_analysis, str(run.id), _commit, "ArchitectCommit")
+    return {"run_id": str(run.id), "status": "running"}

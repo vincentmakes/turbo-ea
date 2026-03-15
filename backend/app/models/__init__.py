@@ -3,6 +3,7 @@ from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.archlens import (
     ArchLensAnalysisRun,
+    ArchLensAssessment,
     ArchLensDuplicateCluster,
     ArchLensModernization,
     ArchLensVendorAnalysis,
@@ -55,6 +56,7 @@ from app.models.web_portal import WebPortal
 
 __all__ = [
     "ArchLensAnalysisRun",
+    "ArchLensAssessment",
     "ArchLensDuplicateCluster",
     "ArchLensModernization",
     "ArchLensVendorAnalysis",

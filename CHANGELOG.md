@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.40.0] - 2026-03-15
+
+### Added
+- ArchLens: Commit & Create Initiative from Phase 5 target architecture assessment — creates Initiative card, new component cards with AI-generated descriptions, relations, and a draft ADR in one action
+- ArchLens: Assessment persistence with save/commit workflow and read-only assessment history viewer
+- New Assessments tab in ArchLens navigation for browsing saved and committed architecture assessments
+
 ## [0.39.0] - 2026-03-15
 
 ### Added

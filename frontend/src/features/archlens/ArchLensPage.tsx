@@ -13,6 +13,7 @@ const ArchLensVendors = lazy(() => import("./ArchLensVendors"));
 const ArchLensResolution = lazy(() => import("./ArchLensResolution"));
 const ArchLensDuplicates = lazy(() => import("./ArchLensDuplicates"));
 const ArchLensArchitect = lazy(() => import("./ArchLensArchitect"));
+const ArchLensAssessments = lazy(() => import("./ArchLensAssessments"));
 const ArchLensHistory = lazy(() => import("./ArchLensHistory"));
 
 const TAB_KEYS = [
@@ -21,6 +22,7 @@ const TAB_KEYS = [
   "resolution",
   "duplicates",
   "architect",
+  "assessments",
   "history",
 ] as const;
 
@@ -32,6 +34,7 @@ const TAB_ICONS: Record<TabKey, string> = {
   resolution: "account_tree",
   duplicates: "content_copy",
   architect: "architecture",
+  assessments: "assignment",
   history: "history",
 };
 
@@ -67,6 +70,7 @@ export default function ArchLensPage() {
       resolution: t("archlens.resolution"),
       duplicates: t("archlens.duplicates"),
       architect: t("archlens.architect"),
+      assessments: t("archlens.assessments"),
       history: t("archlens.history"),
     }),
     [t],
@@ -101,6 +105,7 @@ export default function ArchLensPage() {
         {tab === "resolution" && <ArchLensResolution />}
         {tab === "duplicates" && <ArchLensDuplicates />}
         {tab === "architect" && <ArchLensArchitect />}
+        {tab === "assessments" && <ArchLensAssessments />}
         {tab === "history" && <ArchLensHistory />}
       </Suspense>
     </Box>

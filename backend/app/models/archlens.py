@@ -117,3 +117,24 @@ class ArchLensAnalysisRun(UUIDMixin, TimestampMixin, Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+
+
+class ArchLensAssessment(UUIDMixin, TimestampMixin, Base):
+    """Persisted architecture assessment capturing full phase 1-5 session data."""
+
+    __tablename__ = "archlens_assessments"
+
+    title: Mapped[str] = mapped_column(String(500))
+    requirement: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(50), default="saved")
+    session_data: Mapped[dict] = mapped_column(JSONB)
+    initiative_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )

@@ -9,6 +9,7 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
+import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -28,6 +29,7 @@ import type { GNode, GEdge } from "@/features/reports/c4Layout";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
+import CommitInitiativeDialog from "./CommitInitiativeDialog";
 import {
   urgencyColor,
   effortColor,
@@ -648,6 +650,12 @@ export default function ArchLensArchitect() {
   // Capability mapping state
   const [capabilityMapping, setCapabilityMapping] =
     useState<CapabilityMappingResult | null>(saved?.capabilityMapping ?? null);
+  // Assessment save/commit state
+  const [assessmentId, setAssessmentId] = useState<string | null>(null);
+  const [assessmentSaved, setAssessmentSaved] = useState(false);
+  const [savingAssessment, setSavingAssessment] = useState(false);
+  const [commitDialogOpen, setCommitDialogOpen] = useState(false);
+  const [snackMsg, setSnackMsg] = useState("");
 
   const saveSession = useCallback(() => {
     const session: ArchSession = {
@@ -1102,6 +1110,49 @@ export default function ArchLensArchitect() {
     setDepsResult(null);
     setSelectedDeps(new Set());
     setCapabilityMapping(null);
+  };
+
+  const handleSaveAssessment = async (): Promise<string | null> => {
+    if (assessmentId) return assessmentId;
+    setSavingAssessment(true);
+    try {
+      const sessionData: Record<string, unknown> = {
+        requirement: archReq,
+        selectedObjectives,
+        selectedCapabilities,
+        phase1Questions: phase1Answers,
+        phase2Questions: archQuestions,
+        archOptions,
+        selectedOptionId,
+        gapResult,
+        selectedRecommendations: Array.from(selectedRecs),
+        depsResult,
+        selectedDependencies: Array.from(selectedDeps),
+        capabilityMapping,
+      };
+      const resp = await api.post<{ id: string }>("/archlens/assessments", {
+        title: archReq.slice(0, 200),
+        requirement: archReq,
+        sessionData: sessionData,
+      });
+      setAssessmentId(resp.id);
+      setAssessmentSaved(true);
+      setSnackMsg(t("archlens_assessment_saved"));
+      return resp.id;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      return null;
+    } finally {
+      setSavingAssessment(false);
+    }
+  };
+
+  const handleCommit = async () => {
+    const savedId = await handleSaveAssessment();
+    if (savedId) {
+      setCommitDialogOpen(true);
+    }
   };
 
   // Determine if we're in Phase 3b (product selection) or 3c (deps view)
@@ -2083,7 +2134,25 @@ export default function ArchLensArchitect() {
                   </Paper>
                 )}
 
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} flexWrap="wrap">
+                  <Button
+                    variant="contained"
+                    onClick={handleCommit}
+                    disabled={savingAssessment}
+                    startIcon={<MaterialSymbol icon="rocket_launch" size={18} />}
+                  >
+                    {t("archlens_commit_initiative")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => handleSaveAssessment()}
+                    disabled={assessmentSaved || savingAssessment}
+                    startIcon={<MaterialSymbol icon="save" size={18} />}
+                  >
+                    {assessmentSaved
+                      ? t("archlens_assessment_saved")
+                      : t("archlens_save_assessment")}
+                  </Button>
                   <Button variant="outlined" onClick={chooseDifferent}>
                     {t("archlens_architect_choose_different")}
                   </Button>
@@ -2091,9 +2160,27 @@ export default function ArchLensArchitect() {
                     {t("archlens_architect_start_over")}
                   </Button>
                 </Stack>
+
+                {capabilityMapping && assessmentId && (
+                  <CommitInitiativeDialog
+                    open={commitDialogOpen}
+                    onClose={() => setCommitDialogOpen(false)}
+                    assessmentId={assessmentId}
+                    requirement={archReq}
+                    capabilityMapping={capabilityMapping}
+                    objectiveIds={selectedObjectives.map((o) => o.id)}
+                  />
+                )}
               </>
             );
           })()}
+
+        <Snackbar
+          open={!!snackMsg}
+          autoHideDuration={3000}
+          onClose={() => setSnackMsg("")}
+          message={snackMsg}
+        />
 
         {archLoading && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 2, py: 3 }}>
