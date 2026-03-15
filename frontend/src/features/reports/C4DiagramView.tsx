@@ -709,10 +709,6 @@ function C4DiagramInner({
       sx={{
         borderRadius: 2,
         overflow: "hidden",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        minHeight: 400,
       }}
     >
       {/* Navigation bar */}
@@ -726,7 +722,6 @@ function C4DiagramInner({
           borderBottom: "1px solid",
           borderColor: "divider",
           minHeight: 40,
-          flexShrink: 0,
         }}
       >
         <Tooltip title={t("dependency.home")} arrow>
@@ -763,7 +758,7 @@ function C4DiagramInner({
           {t("dependency.shiftClickHint")}
         </Typography>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 500 }} className={hoveredNode ? "c4-hover-active" : undefined}>
+      <Box sx={{ height: 600 }} className={hoveredNode ? "c4-hover-active" : undefined}>
         {hoverStyle && <style>{hoverStyle}</style>}
         <ReactFlow
           nodes={rfNodes}
