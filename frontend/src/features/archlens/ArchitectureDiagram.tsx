@@ -90,17 +90,25 @@ interface ArchEdgeData {
 // Custom Node
 // ---------------------------------------------------------------------------
 
+const TYPE_LABELS: Record<string, string> = {
+  existing: "Reuse",
+  new: "New",
+  recommended: "Buy",
+};
+
 const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === "dark";
-  // Use metamodel color when available, otherwise fall back to type-based color
+  const typeColor = TYPE_COLORS[data.compType] || "#999";
+  // Use metamodel color for the border when available, but keep type-based badge
   const metaColor = data.cardTypeColor;
-  const color = metaColor || TYPE_COLORS[data.compType] || "#999";
+  const borderColor = metaColor || typeColor;
   const bg = metaColor
     ? `${metaColor}${isDark ? "1F" : "14"}`
     : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
   const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
   const handleStyle = { width: 6, height: 6, border: "none" };
+  const badgeLabel = TYPE_LABELS[data.compType] || data.compType;
 
   return (
     <Box
@@ -108,7 +116,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
         width: NODE_W,
         height: NODE_H,
         borderRadius: "10px",
-        border: `2px solid ${color}`,
+        border: `2px solid ${borderColor}`,
         bgcolor: bg,
         display: "flex",
         flexDirection: "column",
@@ -119,13 +127,23 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
         boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.08)",
       }}
     >
-      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: color }} />
-      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: color }} />
+      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: borderColor }} />
+      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: borderColor }} />
       <Handle type="target" position={Position.Left} id="l" style={{ ...handleStyle, background: "transparent" }} />
       <Handle type="source" position={Position.Right} id="r" style={{ ...handleStyle, background: "transparent" }} />
+      {/* Type badge (Reuse / New / Buy) */}
+      <Box sx={{
+        position: "absolute", top: -8, left: 8,
+        bgcolor: typeColor, color: "#fff",
+        fontSize: 9, fontWeight: 700, lineHeight: 1,
+        px: 0.7, py: 0.25, borderRadius: "4px",
+        textTransform: "uppercase", letterSpacing: 0.5,
+      }}>
+        {badgeLabel}
+      </Box>
       {data.cardTypeIcon && (
         <Box sx={{ position: "absolute", top: 4, right: 6, opacity: 0.6 }}>
-          <MaterialSymbol icon={data.cardTypeIcon} size={14} color={color} />
+          <MaterialSymbol icon={data.cardTypeIcon} size={14} color={borderColor} />
         </Box>
       )}
       <Tooltip title={data.role || ""} arrow placement="top">
@@ -157,7 +175,7 @@ const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
       {data.category && (
         <Typography
           variant="caption"
-          sx={{ color, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
+          sx={{ color: borderColor, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
           noWrap
         >
           [{data.category}]
@@ -301,12 +319,24 @@ function buildArchFlow(
     }
   }
 
+  // Helper: fuzzy-resolve a component name to its id
+  const resolveCompId = (name: string): string | undefined => {
+    const lower = name.toLowerCase();
+    // Exact match first
+    if (compIdMap.has(lower)) return compIdMap.get(lower);
+    // Partial match: check if name starts with or contains a known component
+    for (const [key, id] of compIdMap) {
+      if (key.includes(lower) || lower.includes(key)) return id;
+    }
+    return undefined;
+  };
+
   // 2. Resolve integration edges
   const resolvedEdges: { sourceId: string; targetId: string; intg: ArchIntegration }[] = [];
   for (const intg of integrations) {
-    const srcId = compIdMap.get(intg.from.toLowerCase());
-    const tgtId = compIdMap.get(intg.to.toLowerCase());
-    if (srcId && tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
+    const srcId = resolveCompId(intg.from);
+    const tgtId = resolveCompId(intg.to);
+    if (srcId && tgtId && srcId !== tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
   }
 
   // 3. Build a SINGLE global dagre graph with ALL nodes and edges
@@ -426,15 +456,23 @@ function buildArchFlow(
     }
   }
 
-  // Second pass: build React Flow nodes with resolved positions
+  // Second pass: build React Flow nodes with resolved positions.
+  // Align all groups to the same horizontal span so they aren't staggered.
+  let globalMinX = Infinity, globalMaxX = -Infinity;
+  for (const gb of groupBounds) {
+    globalMinX = Math.min(globalMinX, gb.minX - GROUP_PAD_X);
+    globalMaxX = Math.max(globalMaxX, gb.maxX + GROUP_PAD_X);
+  }
+  const globalW = globalMaxX - globalMinX;
+
   const rfNodes: Node[] = [];
   for (const gb of groupBounds) {
     const groupId = `layer-${gb.li}`;
     const layerColor = LAYER_COLORS[gb.li % LAYER_COLORS.length];
 
-    const groupX = gb.minX - GROUP_PAD_X;
+    const groupX = globalMinX;
     const groupY = gb.minY - GROUP_PAD_TOP;
-    const groupW = gb.maxX - gb.minX + 2 * GROUP_PAD_X;
+    const groupW = globalW;
     const groupH = gb.maxY - gb.minY + GROUP_PAD_TOP + GROUP_PAD_BOTTOM;
 
     rfNodes.push({

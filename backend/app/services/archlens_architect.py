@@ -527,13 +527,45 @@ async def phase3_architecture(
     # Build selected option context if provided
     option_ctx = ""
     if selected_option:
+        impact = selected_option.get("impactPreview") or {}
+        impact_lines: list[str] = []
+        for comp in impact.get("newComponents") or []:
+            role = f" — {comp['role']}" if comp.get("role") else ""
+            impact_lines.append(
+                f"  + ADD: {comp.get('name', '?')} [{comp.get('cardTypeKey', 'Application')}]{role}"
+            )
+        for comp in impact.get("modifiedComponents") or []:
+            change = f" — {comp['change']}" if comp.get("change") else ""
+            impact_lines.append(
+                f"  ~ MODIFY: {comp.get('name', '?')} "
+                f"[{comp.get('cardTypeKey', 'Application')}]{change}"
+            )
+        for intg in impact.get("newIntegrations") or []:
+            proto = f" ({intg['protocol']})" if intg.get("protocol") else ""
+            impact_lines.append(
+                f"  > INTEGRATE: {intg.get('from', '?')} → {intg.get('to', '?')}{proto}"
+            )
+        for comp in impact.get("retiredComponents") or []:
+            impact_lines.append(
+                f"  - RETIRE: {comp.get('name', '?')} [{comp.get('cardTypeKey', '')}]"
+            )
+        impact_block = "\n".join(impact_lines) if impact_lines else "  (no impact details)"
+
         option_ctx = f"""
-SELECTED SOLUTION APPROACH:
+=== SELECTED SOLUTION APPROACH (from Phase 3a options) ===
 Title: {selected_option.get("title", "")}
 Approach: {selected_option.get("approach", "")}
 Summary: {selected_option.get("summary", "")}
+Estimated Cost: {selected_option.get("estimatedCost", "N/A")}
+Estimated Duration: {selected_option.get("estimatedDuration", "N/A")}
 
-Generate the full architecture specifically for this selected approach.
+ARCHITECTURAL IMPACT (you MUST implement this):
+{impact_block}
+
+CRITICAL: The architecture you generate MUST be based on this specific option.
+Include ALL components listed above. Do NOT generate a generic architecture.
+Every ADD component must appear in a layer, every INTEGRATE must appear in integrations.
+Every RETIRE should be noted. Reuse existing landscape systems where the option says so.
 """
 
     # ── Call 1: Structured architecture ──────────────────────────────────
