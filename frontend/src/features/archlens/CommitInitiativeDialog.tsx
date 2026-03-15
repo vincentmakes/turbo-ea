@@ -21,6 +21,7 @@ import { api } from "@/api/client";
 import type {
   ArchLensAnalysisRun,
   ArchLensCommitProgress,
+  ArchSolutionOption,
   CapabilityMappingResult,
   ProposedCard,
   ProposedRelation,
@@ -33,6 +34,19 @@ interface Props {
   requirement: string;
   capabilityMapping: CapabilityMappingResult;
   objectiveIds: string[];
+  selectedOption?: ArchSolutionOption;
+}
+
+/** Build a concise initiative name from the selected option title + requirement. */
+function buildInitiativeName(
+  requirement: string,
+  selectedOption?: ArchSolutionOption,
+): string {
+  if (selectedOption?.title) {
+    // Use option title — it's more specific than the raw requirement
+    return selectedOption.title.slice(0, 200);
+  }
+  return requirement.slice(0, 200);
 }
 
 export default function CommitInitiativeDialog({
@@ -42,11 +56,14 @@ export default function CommitInitiativeDialog({
   requirement,
   capabilityMapping,
   objectiveIds,
+  selectedOption,
 }: Props) {
   const { t } = useTranslation("admin");
   const { types } = useMetamodel();
 
-  const [name, setName] = useState(requirement.slice(0, 200));
+  const [name, setName] = useState(
+    buildInitiativeName(requirement, selectedOption),
+  );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set());

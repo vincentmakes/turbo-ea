@@ -1202,6 +1202,37 @@ export default function ArchLensArchitect() {
     if (assessmentId) return assessmentId;
     setSavingAssessment(true);
     try {
+      // Resolve selected recommendations from index keys to actual product data
+      const resolvedRecs: Record<string, unknown>[] = [];
+      if (gapResult) {
+        gapResult.gaps.forEach((gap, gi) => {
+          (gap.recommendations ?? []).forEach((rec, ri) => {
+            if (selectedRecs.has(recKey(gi, ri))) {
+              resolvedRecs.push({
+                name: rec.name,
+                vendor: rec.vendor,
+                capability: gap.capability,
+                role: "recommendation",
+              });
+            }
+          });
+        });
+      }
+      if (depsResult) {
+        depsResult.dependencies.forEach((dep, di) => {
+          (dep.options ?? []).forEach((opt, oi) => {
+            if (selectedDeps.has(recKey(di, oi))) {
+              resolvedRecs.push({
+                name: opt.name,
+                vendor: opt.vendor,
+                capability: dep.need,
+                role: "dependency",
+              });
+            }
+          });
+        });
+      }
+
       const sessionData: Record<string, unknown> = {
         requirement: archReq,
         selectedObjectives,
@@ -1211,7 +1242,7 @@ export default function ArchLensArchitect() {
         archOptions,
         selectedOptionId,
         gapResult,
-        selectedRecommendations: Array.from(selectedRecs),
+        selectedRecommendations: resolvedRecs,
         depsResult,
         selectedDependencies: Array.from(selectedDeps),
         capabilityMapping,
@@ -2441,6 +2472,9 @@ export default function ArchLensArchitect() {
                     requirement={archReq}
                     capabilityMapping={capabilityMapping}
                     objectiveIds={selectedObjectives.map((o) => o.id)}
+                    selectedOption={archOptions?.find(
+                      (o) => o.id === selectedOptionId,
+                    )}
                   />
                 )}
               </>

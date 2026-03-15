@@ -145,6 +145,48 @@ async def _validate_relation_type(db: AsyncSession, key: str) -> bool:
     return result.scalar_one_or_none() is not None
 
 
+def _build_initiative_description(session_data: dict[str, Any]) -> str:
+    """Build a rich initiative description from the assessment context."""
+    parts: list[str] = []
+
+    # Capability mapping summary (AI-generated analysis from Phase 5)
+    cap_mapping = session_data.get("capabilityMapping", {})
+    summary = cap_mapping.get("summary", "")
+    if summary:
+        parts.append(summary)
+
+    # Selected approach
+    arch_options = session_data.get("archOptions", [])
+    selected_option_id = session_data.get("selectedOptionId")
+    if arch_options and selected_option_id:
+        for opt in arch_options:
+            if isinstance(opt, dict) and opt.get("id") == selected_option_id:
+                if opt.get("summary"):
+                    parts.append(f"Approach: {opt['summary']}")
+                break
+
+    # Selected products/recommendations
+    selected_recs = session_data.get("selectedRecommendations", [])
+    if selected_recs:
+        product_names = []
+        for rec in selected_recs:
+            if isinstance(rec, dict):
+                name = rec.get("name", "")
+                vendor = rec.get("vendor", "")
+                if name:
+                    product_names.append(f"{name} ({vendor})" if vendor else name)
+        if product_names:
+            parts.append("Key components: " + ", ".join(product_names) + ".")
+
+    # Business requirement as context
+    requirement = session_data.get("requirement", "")
+    if requirement and not summary:
+        # Only add requirement if we don't have a summary (which already captures it)
+        parts.append(f"Business requirement: {requirement}")
+
+    return "\n\n".join(parts) if parts else ""
+
+
 async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) -> dict[str, Any]:
     """Execute the full commit process: Initiative + cards + relations + ADR."""
     assessment_id = data["assessment_id"]
@@ -203,7 +245,7 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         },
     )
 
-    initiative_desc = await _generate_description(db, initiative_name, "Initiative", "project")
+    initiative_desc = _build_initiative_description(session_data)
 
     initiative = Card(
         id=uuid.uuid4(),
@@ -385,10 +427,13 @@ async def execute_commit(db: AsyncSession, run_id: str, data: dict[str, Any]) ->
         decision_parts.append("\nSelected products/recommendations:")
         for rec in selected_recs:
             if isinstance(rec, dict):
-                decision_parts.append(
-                    f"- {rec.get('recommendation', rec.get('name', ''))}"
-                    f" ({rec.get('vendor', 'N/A')})"
-                )
+                name = rec.get("name", rec.get("recommendation", ""))
+                vendor = rec.get("vendor", "N/A")
+                capability = rec.get("capability", "")
+                role = rec.get("role", "")
+                suffix = f" for {capability}" if capability else ""
+                role_tag = f" [{role}]" if role == "dependency" else ""
+                decision_parts.append(f"- {name} ({vendor}){suffix}{role_tag}")
 
     alternatives_text = ""
     if alternatives:
