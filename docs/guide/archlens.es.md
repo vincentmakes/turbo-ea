@@ -1,110 +1,193 @@
-# ArchLens Inteligencia Artificial
+# Inteligencia AI de ArchLens
 
-El módulo **ArchLens** proporciona análisis impulsados por IA de su paisaje de arquitectura empresarial. Utiliza su proveedor de IA configurado para realizar análisis de proveedores, detección de duplicados, evaluación de modernización y recomendaciones de arquitectura.
+El módulo **ArchLens** proporciona análisis impulsado por IA de su paisaje de arquitectura empresarial. Utiliza el proveedor de IA configurado para realizar análisis de proveedores, detección de duplicados, evaluación de modernización y recomendaciones de arquitectura.
 
 !!! note
     ArchLens requiere un proveedor de IA comercial (Anthropic Claude, OpenAI, DeepSeek o Google Gemini) configurado en [Configuración de IA](../admin/ai.md). El módulo está disponible automáticamente cuando la IA está configurada.
 
-!!! info "Credits"
-    ArchLens se basa en el proyecto de código abierto [ArchLens](https://github.com/vinod-ea/archlens) de [Vinod](https://github.com/vinod-ea), publicado bajo la licencia MIT. La lógica de análisis ha sido portada de Node.js a Python e integrada nativamente en Turbo EA.
+!!! info "Créditos"
+    ArchLens está basado en el proyecto de código abierto [ArchLens](https://github.com/vinod-ea/archlens) de [Vinod](https://github.com/vinod-ea), publicado bajo la Licencia MIT. La lógica de análisis ha sido portada de Node.js a Python e integrada de forma nativa en Turbo EA.
 
-## Panel de control
+## Panel de Control
 
-El panel de control de ArchLens proporciona una visión general de su análisis de paisaje:
+El panel de control de ArchLens proporciona una visión general de un vistazo del análisis de su paisaje.
+
+![Panel de ArchLens](../assets/img/es/48_archlens_panel.png)
 
 | Indicador | Descripción |
 |-----------|-------------|
-| **Total de tarjetas** | Número de tarjetas activas en su portafolio |
-| **Calidad promedio** | Puntuación promedio de calidad de datos en todas las tarjetas |
-| **Proveedores** | Número de proveedores de tecnología analizados |
-| **Clústeres de duplicados** | Número de grupos de duplicados identificados |
+| **Total de Tarjetas** | Número de tarjetas activas en su portafolio |
+| **Calidad Promedio** | Puntuación media de calidad de datos en todas las tarjetas |
+| **Proveedores** | Número de proveedores tecnológicos analizados |
+| **Grupos de Duplicados** | Número de grupos de duplicados identificados |
 | **Modernizaciones** | Número de oportunidades de modernización encontradas |
+| **Coste Anual** | Coste anual total en todas las tarjetas |
 
-El panel de control también muestra tarjetas agrupadas por tipo y destaca los principales problemas de calidad.
+El panel de control también muestra:
 
-## Análisis de proveedores
+- **Tarjetas por tipo** — Desglose del recuento de tarjetas por tipo de tarjeta
+- **Distribución de calidad de datos** — Tarjetas agrupadas en niveles de calidad Bronce (<50%), Plata (50–80%) y Oro (>80%)
+- **Principales problemas de calidad** — Tarjetas con las puntuaciones de calidad de datos más bajas, con enlaces directos a cada tarjeta
 
-El análisis de proveedores utiliza IA para categorizar sus proveedores de tecnología en más de 45 categorías industriales (por ejemplo, CRM, ERP, infraestructura en la nube, seguridad).
+## Análisis de Proveedores
 
-**Cómo usarlo:**
+El análisis de proveedores utiliza IA para categorizar sus proveedores tecnológicos en más de 45 categorías del sector (p. ej., CRM, ERP, Infraestructura Cloud, Seguridad).
 
-1. Navegue a **ArchLens > Proveedores**
-2. Haga clic en **Ejecutar análisis**
+![Análisis de Proveedores](../assets/img/es/49_archlens_proveedores.png)
+
+**Cómo usar:**
+
+1. Navegue a **ArchLens > Vendors**
+2. Haga clic en **Run Analysis**
 3. La IA procesa su portafolio de proveedores en lotes, categorizando cada proveedor con razonamiento
 4. Los resultados muestran un desglose por categorías y una tabla detallada de proveedores
 
-Cada entrada de proveedor incluye la categoría, subcategoría, número de aplicaciones asociadas, costo anual total y el razonamiento de la IA para la categorización.
+Cada entrada de proveedor incluye la categoría, subcategoría, número de aplicaciones asociadas, coste anual total y el razonamiento de la IA para la categorización. Alterne entre las vistas de cuadrícula y tabla usando el selector de vista.
 
-## Resolución de proveedores
+## Resolución de Proveedores
 
 La resolución de proveedores construye una jerarquía canónica de proveedores resolviendo alias e identificando relaciones padre-hijo.
 
-**Cómo usarlo:**
+![Resolución de Proveedores](../assets/img/es/50_archlens_resolucion.png)
 
-1. Navegue a **ArchLens > Resolución**
-2. Haga clic en **Resolver proveedores**
-3. La IA identifica alias de proveedores (por ejemplo, «MSFT» = «Microsoft»), empresas matrices y agrupaciones de productos
+**Cómo usar:**
+
+1. Navegue a **ArchLens > Resolution**
+2. Haga clic en **Resolve Vendors**
+3. La IA identifica alias de proveedores (p. ej., «MSFT» = «Microsoft»), empresas matrices y agrupaciones de productos
 4. Los resultados muestran la jerarquía resuelta con puntuaciones de confianza
 
-## Detección de duplicados
+La jerarquía organiza los proveedores en cuatro niveles: proveedor, producto, plataforma y módulo. Cada entrada muestra el número de aplicaciones y componentes de TI vinculados, el coste total y un porcentaje de confianza.
 
-La detección de duplicados identifica solapamientos funcionales en su portafolio — tarjetas que cumplen el mismo o similar propósito de negocio.
+## Detección de Duplicados
 
-**Cómo usarlo:**
+La detección de duplicados identifica solapamientos funcionales en su portafolio — tarjetas que sirven el mismo propósito empresarial o uno similar.
 
-1. Navegue a **ArchLens > Duplicados**
-2. Haga clic en **Detectar duplicados**
-3. La IA analiza tarjetas de Application, IT Component e Interface en lotes
-4. Los resultados muestran clústeres de posibles duplicados con evidencias y recomendaciones
+![Detección de Duplicados](../assets/img/es/51_archlens_duplicados.png)
 
-Para cada clúster, puede:
+**Cómo usar:**
 
-- **Confirmar** — Marcar el duplicado como confirmado para seguimiento
-- **Investigar** — Marcar para investigación adicional
-- **Descartar** — Descartar si no es un duplicado real
+1. Navegue a **ArchLens > Duplicates**
+2. Haga clic en **Detect Duplicates**
+3. La IA analiza las tarjetas de Application, IT Component e Interface en lotes
+4. Los resultados muestran grupos de posibles duplicados con evidencias y recomendaciones
 
-## Evaluación de modernización
+Para cada grupo, puede:
 
-La evaluación de modernización evalúa tarjetas para oportunidades de actualización basándose en las tendencias tecnológicas actuales.
+- **Confirm** — Marcar el duplicado como confirmado para seguimiento
+- **Investigate** — Señalar para investigación adicional
+- **Dismiss** — Descartar si no es un duplicado real
 
-**Cómo usarlo:**
+## Evaluación de Modernización
 
-1. Navegue a **ArchLens > Duplicados** (sección Modernización)
-2. Seleccione un tipo de tarjeta objetivo (Application, IT Component o Interface)
-3. Haga clic en **Evaluar modernización**
-4. Los resultados muestran cada tarjeta con tipo de modernización, recomendación, nivel de esfuerzo y prioridad
+La evaluación de modernización evalúa las tarjetas en busca de oportunidades de actualización basadas en las tendencias tecnológicas actuales.
 
-## Architecture AI
+**Cómo usar:**
 
-La Architecture AI es un asistente conversacional de 3 fases que genera recomendaciones de arquitectura basándose en su paisaje existente.
+1. Navegue a **ArchLens > Duplicates** (pestaña Modernization)
+2. Seleccione un tipo de tarjeta de destino (Application, IT Component o Interface)
+3. Haga clic en **Assess Modernization**
+4. Los resultados muestran cada tarjeta con el tipo de modernización, recomendación, nivel de esfuerzo (bajo/medio/alto) y prioridad (baja/media/alta/crítica)
 
-**Cómo usarlo:**
+Los resultados se agrupan por prioridad para que pueda centrarse primero en las oportunidades de modernización de mayor impacto.
 
-1. Navegue a **ArchLens > Arquitecto**
-2. **Fase 1** — Describa su requisito de negocio (por ejemplo, «Necesitamos un portal de autoservicio para clientes»). La IA genera preguntas de clarificación de negocio.
-3. **Fase 2** — Responda las preguntas de la Fase 1. La IA genera preguntas técnicas de profundización.
-4. **Fase 3** — Responda las preguntas de la Fase 2. La IA genera una recomendación de arquitectura completa que incluye:
+## IA de Arquitectura
+
+La IA de Arquitectura es un asistente guiado de 5 pasos que genera recomendaciones de arquitectura basadas en su paisaje existente. Vincula sus objetivos empresariales y capacidades con propuestas de soluciones concretas, análisis de brechas, mapeo de dependencias y un diagrama de arquitectura objetivo.
+
+![IA de Arquitectura](../assets/img/es/52_archlens_arquitecto.png)
+
+Un indicador de progreso en la parte superior rastrea su avance a través de las cinco etapas: Requirements, Business Fit, Technical Fit, Solution y Target Architecture. Su progreso se guarda automáticamente en la sesión del navegador, por lo que puede navegar a otro lugar y regresar sin perder su trabajo. Haga clic en **New Assessment** para comenzar un análisis nuevo en cualquier momento.
+
+### Paso 1: Requirements
+
+Introduzca su requisito empresarial en lenguaje natural (p. ej., «Necesitamos un portal de autoservicio para clientes»). A continuación:
+
+- **Select Business Objectives** — Elija una o más tarjetas de Objective existentes en el menú desplegable de autocompletado. Esto fundamenta el análisis de la IA en sus objetivos estratégicos. Se requiere al menos un objetivo.
+- **Select Business Capabilities** (opcional) — Elija tarjetas de Business Capability existentes o escriba nuevos nombres de capacidades. Las nuevas capacidades aparecen como chips azules etiquetados como «NEW: nombre». Esto ayuda a la IA a centrarse en áreas de capacidad específicas.
+
+Haga clic en **Generate Questions** para continuar.
+
+### Paso 2: Business Fit (Fase 1)
+
+La IA genera preguntas de aclaración empresarial adaptadas a su requisito y objetivos seleccionados. Las preguntas son de diferentes tipos:
+
+- **Text** — Campos de respuesta de texto libre
+- **Single choice** — Haga clic en un chip de opción para seleccionar
+- **Multi choice** — Haga clic en varios chips de opción; también puede escribir una respuesta personalizada y pulsar Enter
+
+Cada pregunta puede incluir contexto que explica por qué la IA la formula (nota de «Impacto»). Responda todas las preguntas y haga clic en **Submit** para continuar a la Fase 2.
+
+### Paso 3: Technical Fit (Fase 2)
+
+La IA genera preguntas técnicas en profundidad basadas en sus respuestas de la Fase 1. Estas pueden incluir categorías NFR (requisito no funcional) como rendimiento, seguridad o escalabilidad. Responda todas las preguntas y haga clic en **Analyse Capabilities** para generar opciones de solución.
+
+### Paso 4: Solution (Fase 3)
+
+Este paso tiene tres subfases:
+
+#### 3a: Opciones de Solución
+
+La IA genera múltiples opciones de solución, cada una presentada como una tarjeta con:
+
+| Elemento | Descripción |
+|----------|-------------|
+| **Approach** | Buy, Build, Extend o Reuse — chip con código de colores |
+| **Summary** | Breve descripción del enfoque |
+| **Pros & Cons** | Principales ventajas y desventajas |
+| **Estimates** | Coste estimado, duración y complejidad |
+| **Impact Preview** | Nuevos componentes, componentes modificados, componentes retirados y nuevas integraciones que introduciría esta opción |
+
+Haga clic en **Select** en la opción que desea seguir.
+
+#### 3b: Análisis de Brechas
+
+Tras seleccionar una opción, la IA identifica brechas de capacidad en su paisaje actual. Cada brecha muestra:
+
+- **Nombre de la capacidad** con nivel de urgencia (crítico/alto/medio)
+- **Descripción del impacto** que explica por qué esta brecha es importante
+- **Recomendaciones de mercado** — Recomendaciones de productos clasificadas (oro n.º 1, plata n.º 2, bronce n.º 3) con proveedor, razonamiento, ventajas/desventajas, coste estimado y esfuerzo de integración
+
+Seleccione los productos que desea incluir haciendo clic en las tarjetas de recomendación (aparecen casillas de verificación). Haga clic en **Analyse Dependencies** para continuar.
+
+#### 3c: Análisis de Dependencias
+
+Tras seleccionar los productos, la IA identifica dependencias adicionales de infraestructura, plataforma o middleware requeridas por sus selecciones. Cada dependencia muestra:
+
+- **Necesidad** con nivel de urgencia
+- **Motivo** que explica por qué se requiere esta dependencia
+- **Opciones** — Productos alternativos para satisfacer la dependencia, con el mismo detalle que las recomendaciones de brechas
+
+Seleccione las dependencias y haga clic en **Generate Capability Map** para producir la arquitectura objetivo final.
+
+### Paso 5: Target Architecture
+
+El paso final genera un mapeo de capacidades completo:
 
 | Sección | Descripción |
 |---------|-------------|
-| **Diagrama de arquitectura** | Diagrama Mermaid interactivo con zoom, descarga SVG y copia de código |
-| **Capas de componentes** | Organizadas por capa de arquitectura con clasificación existente/nuevo/recomendado |
-| **Brechas y recomendaciones** | Brechas de capacidad con recomendaciones de productos del mercado clasificadas por ajuste |
-| **Integraciones** | Mapa de integración que muestra flujos de datos, protocolos y direcciones |
-| **Riesgos y próximos pasos** | Evaluación de riesgos con mitigaciones y pasos de implementación priorizados |
+| **Summary** | Narrativa de alto nivel de la arquitectura propuesta |
+| **Capabilities** | Lista de Business Capabilities coincidentes — las existentes (en verde) y las nuevas propuestas (en azul) |
+| **Proposed Cards** | Nuevas tarjetas que se crearán en su paisaje, mostradas con sus iconos de tipo de tarjeta y subtipos |
+| **Proposed Relations** | Conexiones entre las tarjetas propuestas y los elementos del paisaje existente |
+| **Dependency Diagram** | Diagrama C4 interactivo que muestra los nodos existentes junto con los nodos propuestos (bordes discontinuos con insignia verde «NEW»). Desplácese, amplíe y explore la arquitectura visualmente |
 
-## Historial de análisis
+Desde este paso, puede hacer clic en **Choose Different** para volver y seleccionar una opción de solución diferente, o en **Start Over** para comenzar una evaluación completamente nueva.
 
-Todas las ejecuciones de análisis se registran en **ArchLens > Historial**, mostrando:
+## Historial de Análisis
+
+Todas las ejecuciones de análisis se rastrean en **ArchLens > History**, mostrando:
+
+![Historial de Análisis](../assets/img/es/53_archlens_historial.png)
 
 - Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto)
 - Estado (en ejecución, completado, fallido)
 - Marcas de tiempo de inicio y finalización
-- Mensajes de error (si los hay)
+- Mensajes de error (si los hubiera)
 
 ## Permisos
 
 | Permiso | Descripción |
 |---------|-------------|
 | `archlens.view` | Ver resultados de análisis (otorgado a admin, bpm_admin, member) |
-| `archlens.manage` | Ejecutar análisis (otorgado a admin) |
+| `archlens.manage` | Activar análisis (otorgado a admin) |
