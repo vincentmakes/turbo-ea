@@ -255,7 +255,11 @@ async def list_adrs(
             creator_names[uid] = dname
 
     return [
-        _adr_to_summary(adr, cards_map.get(adr.id), creator_names.get(adr.created_by))
+        _adr_to_summary(
+            adr,
+            cards_map.get(adr.id),
+            creator_names.get(adr.created_by) if adr.created_by else None,
+        )
         for adr in rows
     ]
 
