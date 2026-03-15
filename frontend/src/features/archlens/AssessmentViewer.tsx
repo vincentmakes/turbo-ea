@@ -18,6 +18,7 @@ import type {
   ArchSolutionOption,
   CapabilityMappingResult,
   GapAnalysisResult,
+  RelationType,
 } from "@/types";
 import type { GNode, GEdge } from "@/features/reports/c4Layout";
 import C4DiagramView from "@/features/reports/C4DiagramView";
@@ -25,16 +26,17 @@ import { approachColor, urgencyColor } from "./utils";
 
 function buildMergedGraph(
   mapping: CapabilityMappingResult,
+  relationTypes: RelationType[],
 ): { nodes: GNode[]; edges: GEdge[] } {
   const nodes: GNode[] = [];
+  const nodeMap = new Map<string, GNode>();
   const edges: GEdge[] = [];
-  const seen = new Set<string>();
 
   // Existing nodes from dependency graph
   const existing = mapping.existingDependencies || { nodes: [], edges: [] };
   for (const n of existing.nodes as GNode[]) {
-    if (!seen.has(n.id)) {
-      seen.add(n.id);
+    if (!nodeMap.has(n.id)) {
+      nodeMap.set(n.id, n);
       nodes.push(n);
     }
   }
@@ -44,38 +46,51 @@ function buildMergedGraph(
 
   // Proposed cards
   for (const card of mapping.proposedCards) {
-    if (!seen.has(card.id)) {
-      seen.add(card.id);
-      nodes.push({
+    if (!nodeMap.has(card.id)) {
+      const node: GNode = {
         id: card.id,
         name: card.name,
         type: card.cardTypeKey,
         proposed: true,
-      } as GNode);
+      };
+      nodeMap.set(card.id, node);
+      nodes.push(node);
     }
   }
 
   // Capabilities
   for (const cap of mapping.capabilities) {
-    if (!seen.has(cap.id)) {
-      seen.add(cap.id);
-      nodes.push({
+    if (!nodeMap.has(cap.id)) {
+      const node: GNode = {
         id: cap.id,
         name: cap.name,
         type: "BusinessCapability",
         proposed: cap.isNew,
-      } as GNode);
+      };
+      nodeMap.set(cap.id, node);
+      nodes.push(node);
     }
   }
 
-  // Proposed relations
+  // Proposed relations — enforce metamodel source/target direction
   for (const rel of mapping.proposedRelations) {
+    let sid = rel.sourceId;
+    let tid = rel.targetId;
+    const rt = relationTypes.find((r) => r.key === rel.relationType);
+    if (rt) {
+      const sType = nodeMap.get(sid)?.type;
+      const tType = nodeMap.get(tid)?.type;
+      if (sType === rt.target_type_key && tType === rt.source_type_key) {
+        [sid, tid] = [tid, sid];
+      }
+    }
     edges.push({
-      source: rel.sourceId,
-      target: rel.targetId,
+      source: sid,
+      target: tid,
       type: rel.relationType || "",
-      label: rel.label || "",
-    } as GEdge);
+      label: rt?.label || rel.label || "",
+      reverse_label: rt?.reverse_label,
+    });
   }
 
   return { nodes, edges };
@@ -83,7 +98,7 @@ function buildMergedGraph(
 
 export default function AssessmentViewer() {
   const { t } = useTranslation("admin");
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const [assessment, setAssessment] = useState<ArchLensAssessment | null>(null);
@@ -117,8 +132,8 @@ export default function AssessmentViewer() {
 
   const merged = useMemo(() => {
     if (!capabilityMapping) return { nodes: [] as GNode[], edges: [] as GEdge[] };
-    return buildMergedGraph(capabilityMapping);
-  }, [capabilityMapping]);
+    return buildMergedGraph(capabilityMapping, relationTypes);
+  }, [capabilityMapping, relationTypes]);
 
   if (loading) {
     return (

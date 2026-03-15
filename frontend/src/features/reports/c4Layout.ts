@@ -388,32 +388,35 @@ export function buildC4Flow(
     dedupedEdges.push(e);
   }
 
-  // Orient edges top-to-bottom, choosing the correct directional label
+  // Keep metamodel source→target direction on edges.  The arrow (markerEnd)
+  // must always point from the relation's semantic source to its target so that
+  // it matches the metamodel definition.  We only choose the label that matches
+  // the original (un-flipped) direction and track a `flipped` flag so handle
+  // routing can use top→bottom or bottom→top handles as needed for the layout.
   interface OrientedEdge {
     source: string;
     target: string;
     relLabel: string;
     description?: string;
+    /** true when the target is visually above the source (arrow goes upward) */
+    flipped: boolean;
   }
   const oriented: OrientedEdge[] = dedupedEdges.map((e) => {
     const [lo, hi] = e.source < e.target ? [e.source, e.target] : [e.target, e.source];
     const merged = edgePairMap.get(`${lo}||${hi}`)!;
     const sP = absPos.get(e.source);
     const tP = absPos.get(e.target);
-    let source = e.source;
-    let target = e.target;
-    if (sP && tP && tP.y < sP.y) {
-      source = e.target;
-      target = e.source;
-    }
-    // Pick labels matching the final arrow direction (source→target)
-    const finalIsNormalized = source < target;
-    const labels = finalIsNormalized ? merged.fwdLabels : merged.revLabels;
+    // Source→target preserved; flipped when target is above source visually
+    const flipped = !!(sP && tP && tP.y < sP.y);
+    // Labels always match the original metamodel direction (source→target)
+    const isNormalized = e.source < e.target;
+    const labels = isNormalized ? merged.fwdLabels : merged.revLabels;
     return {
-      source,
-      target,
+      source: e.source,
+      target: e.target,
       relLabel: labels.join(" / "),
       description: merged.description,
+      flipped,
     };
   });
 
@@ -611,13 +614,22 @@ export function buildC4Flow(
     }
   }
 
+  // Helper: for flipped edges (target above source) we swap handle sides so
+  // the arrow exits from the top of the source node and enters the bottom of
+  // the target node while preserving the metamodel arrow direction.
+  function flipHandle(h: string): string {
+    if (h.startsWith("b-")) return "t-" + h.slice(2);
+    if (h.startsWith("t-")) return "b-" + h.slice(2);
+    return h; // side handles stay unchanged
+  }
+
   // First pass: pick handles for each edge, tracking obstruction clearance
   const edgeHandles: { src: string; tgt: string; minOffset: number }[] = oriented.map((e) => {
     const sPos = absPos.get(e.source);
     const tPos = absPos.get(e.target);
 
-    let bestSrc = "b-3";
-    let bestTgt = "t-3";
+    let bestSrc = e.flipped ? "t-3" : "b-3";
+    let bestTgt = e.flipped ? "b-3" : "t-3";
     let bestMinOffset = 0;
 
     if (sPos && tPos) {
@@ -626,10 +638,13 @@ export function buildC4Flow(
       const usedT = usedTgtHandles.get(e.target) ?? new Set();
 
       for (const pair of HANDLE_PAIRS) {
-        let penalty = (usedS.has(pair.src) ? 200 : 0) + (usedT.has(pair.tgt) ? 200 : 0);
+        // For flipped edges, swap b↔t handles so arrows route upward
+        const srcH = e.flipped ? flipHandle(pair.src) : pair.src;
+        const tgtH = e.flipped ? flipHandle(pair.tgt) : pair.tgt;
+        let penalty = (usedS.has(srcH) ? 200 : 0) + (usedT.has(tgtH) ? 200 : 0);
 
-        const sOff = handleOffset(pair.src);
-        const tOff = handleOffset(pair.tgt);
+        const sOff = handleOffset(srcH);
+        const tOff = handleOffset(tgtH);
         const sx = sPos.x + sOff.dx;
         const sy = sPos.y + sOff.dy;
         const tx = tPos.x + tOff.dx;
@@ -645,8 +660,8 @@ export function buildC4Flow(
 
         if (dist < bestDist) {
           bestDist = dist;
-          bestSrc = pair.src;
-          bestTgt = pair.tgt;
+          bestSrc = srcH;
+          bestTgt = tgtH;
           bestMinOffset = clearance;
         }
       }

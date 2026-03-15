@@ -598,7 +598,7 @@ function loadSession(): ArchSession | null {
 // --- Main page component ---
 export default function ArchLensArchitect() {
   const { t } = useTranslation("admin");
-  const { types } = useMetamodel();
+  const { types, relationTypes } = useMetamodel();
   const saved = loadSession();
   const [archReq, setArchReq] = useState(saved?.archReq ?? "");
   const [archPhase, setArchPhase] = useState(saved?.archPhase ?? 0);
@@ -781,27 +781,39 @@ export default function ArchLensArchitect() {
       }
     }
 
-    // Proposed relations as edges
+    // Proposed relations as edges — enforce metamodel source/target direction
     for (const rel of capabilityMapping.proposedRelations) {
       const resolveId = (refId: string): string => {
         const cap = capabilityMapping.capabilities.find((c) => c.id === refId);
         if (cap) return cap.existingCardId || cap.id;
         return refId;
       };
-      const sid = resolveId(rel.sourceId);
-      const tid = resolveId(rel.targetId);
-      if (nodeMap.has(sid) && nodeMap.has(tid)) {
-        edges.push({
-          source: sid,
-          target: tid,
-          type: rel.relationType,
-          label: rel.label,
-        });
+      let sid = resolveId(rel.sourceId);
+      let tid = resolveId(rel.targetId);
+      if (!nodeMap.has(sid) || !nodeMap.has(tid)) continue;
+
+      // Look up metamodel relation type to enforce correct direction
+      const rt = relationTypes.find((r) => r.key === rel.relationType);
+      if (rt) {
+        const sType = nodeMap.get(sid)?.type;
+        const tType = nodeMap.get(tid)?.type;
+        // If the AI reversed source/target relative to the metamodel, swap them
+        if (sType === rt.target_type_key && tType === rt.source_type_key) {
+          [sid, tid] = [tid, sid];
+        }
       }
+
+      edges.push({
+        source: sid,
+        target: tid,
+        type: rel.relationType,
+        label: rt?.label || rel.label,
+        reverse_label: rt?.reverse_label,
+      });
     }
 
     return { nodes: Array.from(nodeMap.values()), edges };
-  }, [capabilityMapping]);
+  }, [capabilityMapping, relationTypes]);
 
   const extractQuestions = (
     data: Record<string, unknown>,
@@ -2009,9 +2021,30 @@ export default function ArchLensArchitect() {
                                     color={ti.color}
                                   />
                                 )}
-                                <Typography variant="body2">
-                                  {card.name}
-                                </Typography>
+                                <TextField
+                                  size="small"
+                                  variant="standard"
+                                  value={card.name}
+                                  onChange={(e) => {
+                                    const newName = e.target.value;
+                                    setCapabilityMapping((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        ...prev,
+                                        proposedCards: prev.proposedCards.map(
+                                          (c) =>
+                                            c.id === card.id
+                                              ? { ...c, name: newName }
+                                              : c,
+                                        ),
+                                      };
+                                    });
+                                  }}
+                                  inputProps={{
+                                    style: { fontSize: 14, padding: 0 },
+                                  }}
+                                  sx={{ flex: 1, minWidth: 120 }}
+                                />
                                 {card.subtype && (
                                   <Typography
                                     variant="caption"
