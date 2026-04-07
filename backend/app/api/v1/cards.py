@@ -882,7 +882,7 @@ async def export_json(
     include_relations: bool = Query(False),
     include_stakeholders: bool = Query(False),
 ):
-    """Bulk export cards as JSON for integration consumers (e.g. ArchLens MCP).
+    """Bulk export cards as JSON for integration consumers (e.g. TurboLens MCP).
 
     Returns all active cards of the given types with optional pre-joined
     provider relation names and stakeholder owner info.

@@ -1,14 +1,6 @@
 from app.models.app_settings import AppSettings
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
-from app.models.archlens import (
-    ArchLensAnalysisRun,
-    ArchLensAssessment,
-    ArchLensDuplicateCluster,
-    ArchLensModernization,
-    ArchLensVendorAnalysis,
-    ArchLensVendorHierarchy,
-)
 from app.models.base import Base
 from app.models.bookmark import Bookmark
 from app.models.calculation import Calculation
@@ -50,17 +42,25 @@ from app.models.stakeholder_role_definition import StakeholderRoleDefinition
 from app.models.survey import Survey, SurveyResponse
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.todo import Todo
+from app.models.turbolens import (
+    TurboLensAnalysisRun,
+    TurboLensAssessment,
+    TurboLensDuplicateCluster,
+    TurboLensModernization,
+    TurboLensVendorAnalysis,
+    TurboLensVendorHierarchy,
+)
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.models.web_portal import WebPortal
 
 __all__ = [
-    "ArchLensAnalysisRun",
-    "ArchLensAssessment",
-    "ArchLensDuplicateCluster",
-    "ArchLensModernization",
-    "ArchLensVendorAnalysis",
-    "ArchLensVendorHierarchy",
+    "TurboLensAnalysisRun",
+    "TurboLensAssessment",
+    "TurboLensDuplicateCluster",
+    "TurboLensModernization",
+    "TurboLensVendorAnalysis",
+    "TurboLensVendorHierarchy",
     "ArchitectureDecision",
     "ArchitectureDecisionCard",
     "Base",

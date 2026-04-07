@@ -34,12 +34,12 @@
   "search.hint": "输入以搜索卡片...",
   "createCard": "创建卡片",
   "create": "创建",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "仪表板",
-  "archlens.vendors": "供应商",
-  "archlens.resolution": "解析",
-  "archlens.duplicates": "重复项",
-  "archlens.architect": "架构师",
-  "archlens.assessments": "评估记录",
-  "archlens.history": "历史记录"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "仪表板",
+  "turbolens.vendors": "供应商",
+  "turbolens.resolution": "解析",
+  "turbolens.duplicates": "重复项",
+  "turbolens.architect": "架构师",
+  "turbolens.assessments": "评估记录",
+  "turbolens.history": "历史记录"
 }

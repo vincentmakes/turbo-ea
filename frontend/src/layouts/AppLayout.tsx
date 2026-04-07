@@ -26,7 +26,7 @@ import { api } from "@/api/client";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
-import { useArchLensReady } from "@/hooks/useArchLensReady";
+import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
@@ -79,7 +79,7 @@ const ADMIN_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "admin.metamodel", icon: "settings_suggest", path: "/admin/metamodel", permission: "admin.metamodel" },
   { labelKey: "admin.usersAndRoles", icon: "group", path: "/admin/users", permission: "admin.users" },
   { labelKey: "admin.surveys", icon: "assignment", path: "/admin/surveys", permission: "surveys.manage" },
-  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage", "archlens.manage"] },
+  { labelKey: "admin.settings", icon: "settings", path: "/admin/settings", permission: ["admin.settings", "eol.manage", "web_portals.manage", "servicenow.manage", "turbolens.manage"] },
 ];
 
 interface PermissionMap {
@@ -101,7 +101,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const isCondensed = useMediaQuery("(max-width:1279px)");
   const { bpmEnabled } = useBpmEnabled();
   const { ppmEnabled } = usePpmEnabled();
-  const { archLensReady } = useArchLensReady();
+  const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
 
@@ -116,21 +116,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     [user.permissions]
   );
 
-  // Resolve nav item labels via i18n and filter based on BPM/PPM/ArchLens/permissions
+  // Resolve nav item labels via i18n and filter based on BPM/PPM/TurboLens/permissions
   const navItems = useMemo(() => {
     let items = NAV_ITEM_DEFS as NavItemDef[];
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
 
-    // Append single ArchLens entry to Reports dropdown when AI is configured
-    if (archLensReady && can("archlens.view")) {
+    // Append single TurboLens entry to Reports dropdown when AI is configured
+    if (turboLensReady && can("turbolens.view")) {
       items = items.map((item) =>
         item.labelKey === "reports"
           ? {
               ...item,
               children: [
                 ...(item.children || []),
-                { labelKey: "archlens", icon: "psychology", path: "/archlens" },
+                { labelKey: "turbolens", icon: "psychology", path: "/turbolens" },
               ],
             }
           : item,
@@ -150,7 +150,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
         return can(item.permission);
       })
       .map(resolve);
-  }, [bpmEnabled, ppmEnabled, archLensReady, can, t]);
+  }, [bpmEnabled, ppmEnabled, turboLensReady, can, t]);
 
   // Resolve admin item labels via i18n and filter based on permissions
   const adminItems = useMemo(() => {
@@ -564,7 +564,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           >
             {navItems.find((n) => n.children)?.children?.map((child, idx) => {
               const needsDivider =
-                child.path === "/reports/saved" || child.path === "/archlens";
+                child.path === "/reports/saved" || child.path === "/turbolens";
               return (
                 <Box key={child.path}>
                   {needsDivider && idx > 0 && <Divider sx={{ my: 0.5 }} />}

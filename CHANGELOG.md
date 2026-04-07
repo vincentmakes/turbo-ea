@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.42.5] - 2026-04-07
+
+### Changed
+- Renamed ArchLens to TurboLens across the entire codebase (routes, components, database tables, permissions, translations, documentation)
+
 ## [0.42.4] - 2026-03-26
 
 ### Added
@@ -18,16 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.42.2] - 2026-03-17
 
 ### Added
-- Docs: Embedded YouTube overview video in the Architecture AI section of the ArchLens guide (all 8 locales)
+- Docs: Embedded YouTube overview video in the Architecture AI section of the TurboLens guide (all 8 locales)
 
 ## [0.42.1] - 2026-03-17
 
 ### Fixed
-- ArchLens: Previously selected solution option is now visually highlighted with a border and "Selected" badge when navigating back to the Solution Options step
-- ArchLens: Pointer cursor now correctly appears on all reachable stepper steps, including forward steps when navigating back
+- TurboLens: Previously selected solution option is now visually highlighted with a border and "Selected" badge when navigating back to the Solution Options step
+- TurboLens: Pointer cursor now correctly appears on all reachable stepper steps, including forward steps when navigating back
 
 ### Changed
-- Docs: Remove screenshot placeholders from the ArchLens guide pages (all 8 locales) and the screenshot automation script
+- Docs: Remove screenshot placeholders from the TurboLens guide pages (all 8 locales) and the screenshot automation script
 - Docs: Document clickable stepper navigation and selected option highlighting in the Architecture AI section
 
 ## [0.42.0] - 2026-03-16
@@ -37,42 +42,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Inventory: Metadata columns (Created, Modified, Created by, Modified by) available as optional grid columns
 - Inventory: When multiple card types are selected, common fields across all types are offered as column options
 - Inventory: Column search and select-all/clear-all controls for efficient column management
-- ArchLens: Navigate between phases in the Architecture AI wizard by clicking any previously-reached stepper step — viewing previous answers preserves all downstream progress; data is only cleared when re-submitting a phase
+- TurboLens: Navigate between phases in the Architecture AI wizard by clicking any previously-reached stepper step — viewing previous answers preserves all downstream progress; data is only cleared when re-submitting a phase
 
 ## [0.41.0] - 2026-03-16
 
 ### Added
-- ArchLens: Resume saved assessments — non-committed assessments can be reopened into the interactive Architecture AI wizard with full state restored (answers, selections, options, gap analysis)
-- ArchLens: Resume button on the Assessments list and the read-only Assessment Viewer for quick access
-- ArchLens: Re-save assessments after changing approach — PATCH updates the existing assessment instead of creating a new one
+- TurboLens: Resume saved assessments — non-committed assessments can be reopened into the interactive Architecture AI wizard with full state restored (answers, selections, options, gap analysis)
+- TurboLens: Resume button on the Assessments list and the read-only Assessment Viewer for quick access
+- TurboLens: Re-save assessments after changing approach — PATCH updates the existing assessment instead of creating a new one
 
 ### Fixed
-- ArchLens: Phase transition from Technical Fit to Solution no longer shows stale gap analysis data from a previous assessment stored in the browser session
+- TurboLens: Phase transition from Technical Fit to Solution no longer shows stale gap analysis data from a previous assessment stored in the browser session
 
 ## [0.40.0] - 2026-03-15
 
 ### Added
-- ArchLens: Commit & Create Initiative from Phase 5 target architecture assessment — creates Initiative card, new component cards with AI-generated descriptions, relations, and a draft ADR in one action
-- ArchLens: Assessment persistence with save/commit workflow and read-only assessment history viewer
-- New Assessments tab in ArchLens navigation for browsing saved and committed architecture assessments
-- ArchLens: Phase 5 guardrails enforce Application → Business Capability and Business Capability → Objective relations automatically
-- ArchLens: Orphan cards with no relations are automatically removed from architecture proposals
-- ArchLens: Initiative name defaults to the selected solution option title
-- ArchLens: AI disclaimer banner on Architecture AI wizard informing users that output requires professional review
+- TurboLens: Commit & Create Initiative from Phase 5 target architecture assessment — creates Initiative card, new component cards with AI-generated descriptions, relations, and a draft ADR in one action
+- TurboLens: Assessment persistence with save/commit workflow and read-only assessment history viewer
+- New Assessments tab in TurboLens navigation for browsing saved and committed architecture assessments
+- TurboLens: Phase 5 guardrails enforce Application → Business Capability and Business Capability → Objective relations automatically
+- TurboLens: Orphan cards with no relations are automatically removed from architecture proposals
+- TurboLens: Initiative name defaults to the selected solution option title
+- TurboLens: AI disclaimer banner on Architecture AI wizard informing users that output requires professional review
 
 ### Fixed
-- ArchLens: ADR decision field now correctly captures selected products and recommendations instead of index references
-- ArchLens: Initiative description summarizes the full assessment context instead of generic AI-generated text
-- ArchLens: Cross-layer edges (e.g., Application → Business Capability) now render correctly in C4 diagrams
-- ArchLens: New Business Capabilities appear in the Proposed New Cards list for selection and renaming before commit
-- ArchLens: Changing approach properly re-saves the assessment with updated session data
+- TurboLens: ADR decision field now correctly captures selected products and recommendations instead of index references
+- TurboLens: Initiative description summarizes the full assessment context instead of generic AI-generated text
+- TurboLens: Cross-layer edges (e.g., Application → Business Capability) now render correctly in C4 diagrams
+- TurboLens: New Business Capabilities appear in the Proposed New Cards list for selection and renaming before commit
+- TurboLens: Changing approach properly re-saves the assessment with updated session data
 
 ## [0.39.1] - 2026-03-15
 
 ### Added
-- Comprehensive user documentation for the ArchLens AI Intelligence module covering all features: dashboard, vendor analysis, vendor resolution, duplicate detection, modernization assessment, and the 5-step Architecture AI wizard — in all 8 supported locales
-- Expanded CLAUDE.md ArchLens section with full API route table, Architecture AI flow description, and frontend component reference
-- Automated screenshot entries for all 6 ArchLens pages in all 8 locales
+- Comprehensive user documentation for the TurboLens AI Intelligence module covering all features: dashboard, vendor analysis, vendor resolution, duplicate detection, modernization assessment, and the 5-step Architecture AI wizard — in all 8 supported locales
+- Expanded CLAUDE.md TurboLens section with full API route table, Architecture AI flow description, and frontend component reference
+- Automated screenshot entries for all 6 TurboLens pages in all 8 locales
 
 ## [0.39.0] - 2026-03-15
 
@@ -82,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Capability mapping AI function that analyzes existing dependencies, identifies relevant Business Capabilities, and proposes new cards fitting the metamodel
 - Dependency diagram view using the C4DiagramView component to visualize existing and proposed architecture
 - Proposed components shown with dashed borders and green "NEW" badge in dependency diagrams
-- New backend endpoints: `GET /archlens/architect/objectives` and updated `POST /archlens/architect/phase3/options` with objective-based capability mapping
+- New backend endpoints: `GET /turbolens/architect/objectives` and updated `POST /turbolens/architect/phase3/options` with objective-based capability mapping
 - Full i18n support for capability mapping UI across all 8 locales
 
 ### Changed
@@ -92,19 +97,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.38.0] - 2026-03-14
 
 ### Added
-- ArchLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
+- TurboLens AI Intelligence module — AI-powered vendor analysis, duplicate detection, modernization assessment, and 3-phase architecture AI, ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)) and integrated natively into Turbo EA
 - Vendor categorisation across 45+ industry categories with AI-driven sub-category and reasoning
 - Vendor resolution that groups aliases and product variants into a canonical vendor hierarchy
 - Duplicate detection using union-find clustering to identify functionally overlapping cards
 - Modernization assessment that evaluates effort, priority, and recommendations per card type
 - 3-phase Architecture AI: business clarification, technical deep-dive, and full architecture generation with Mermaid diagrams and landscape cross-referencing
-- Multi-page ArchLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
-- ArchLens navigation section with sub-items (visible when AI is configured)
-- New permissions: `archlens.view` (granted to admin, bpm_admin, member) and `archlens.manage` (admin only)
+- Multi-page TurboLens UI: Dashboard, Vendors, Resolution, Duplicates, Architect, and History pages
+- TurboLens navigation section with sub-items (visible when AI is configured)
+- New permissions: `turbolens.view` (granted to admin, bpm_admin, member) and `turbolens.manage` (admin only)
 - Background task execution with polling for long-running AI analyses
-- Five new database tables: `archlens_vendor_analysis`, `archlens_vendor_hierarchy`, `archlens_duplicate_clusters`, `archlens_modernization_assessments`, `archlens_analysis_runs`
-- Full i18n support for ArchLens UI across all 8 supported locales
-- User documentation for ArchLens module in all 8 supported locales
+- Five new database tables: `turbolens_vendor_analysis`, `turbolens_vendor_hierarchy`, `turbolens_duplicate_clusters`, `turbolens_modernization_assessments`, `turbolens_analysis_runs`
+- Full i18n support for TurboLens UI across all 8 supported locales
+- User documentation for TurboLens module in all 8 supported locales
 
 ## [0.37.2] - 2026-03-13
 

@@ -34,12 +34,12 @@
   "search.hint": "Введите для поиска карточек...",
   "createCard": "Создать карточку",
   "create": "Создать",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "Панель",
-  "archlens.vendors": "Поставщики",
-  "archlens.resolution": "Разрешение",
-  "archlens.duplicates": "Дубликаты",
-  "archlens.architect": "Архитектор",
-  "archlens.assessments": "Оценки",
-  "archlens.history": "История"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "Панель",
+  "turbolens.vendors": "Поставщики",
+  "turbolens.resolution": "Разрешение",
+  "turbolens.duplicates": "Дубликаты",
+  "turbolens.architect": "Архитектор",
+  "turbolens.assessments": "Оценки",
+  "turbolens.history": "История"
 }

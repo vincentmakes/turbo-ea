@@ -6,16 +6,16 @@ Currently objectives are selected at the end of Phase 2. Move them to Phase 0 al
 
 ### Backend Changes
 
-**New endpoint: `GET /archlens/architect/capabilities`** in `backend/app/api/v1/archlens.py`
+**New endpoint: `GET /turbolens/architect/capabilities`** in `backend/app/api/v1/turbolens.py`
 - Searches `BusinessCapability` cards (type = "BusinessCapability", not archived)
 - Returns `{id, name, description}` like the objectives endpoint
 - Accepts optional `?search=` query parameter
 
-**Update `ArchLensArchitectRequest`** in `backend/app/schemas/archlens.py`
+**Update `TurboLensArchitectRequest`** in `backend/app/schemas/turbolens.py`
 - Add `selected_capabilities: list[dict] | None = Field(None, alias="selectedCapabilities")`
 - Each capability dict: `{id: str, name: str, isNew: bool}`
 
-**Update Phase 1 prompt** in `archlens_architect.py`
+**Update Phase 1 prompt** in `turbolens_architect.py`
 - Accept `objective_ids` and `selected_capabilities` parameters
 - Load objective context + format capabilities context
 - Include in Phase 1 prompt so AI tailors questions around these
@@ -24,7 +24,7 @@ Currently objectives are selected at the end of Phase 2. Move them to Phase 0 al
 - Pass `selected_capabilities` to Phase 2, 3a, 3b, Phase 5
 - Phase 5 already receives objectives; now also gets the user-selected capabilities so it knows which ones are existing vs new
 
-### Frontend Changes (`ArchLensArchitect.tsx`)
+### Frontend Changes (`TurboLensArchitect.tsx`)
 
 **Phase 0 UI expansion** — after the requirement TextField:
 1. Objective selection Autocomplete (moved from Phase 2)
@@ -52,7 +52,7 @@ The compact landscape context only lists card names (up to 10 per type). The AI 
 
 ### Fix: Expand the context + add naming rules
 
-**In `phase3_capability_mapping`** (`archlens_architect.py`):
+**In `phase3_capability_mapping`** (`turbolens_architect.py`):
 
 1. **Load ALL existing cards** (not just the dependency subgraph) for the relevant types. Add a helper `_load_existing_cards_context()` that queries all non-archived cards of types Application, DataObject, Interface, ITComponent, BusinessCapability and formats them as a lookup list:
    ```
@@ -109,15 +109,15 @@ export const ARCHITECT_STEPS = [
 ### i18n Keys (all 8 locales)
 
 Add new keys to `admin.json`:
-- `archlens_architect_step_requirements`: "Business Requirements"
-- `archlens_architect_step_business_fit`: "Business Fit"
-- `archlens_architect_step_technical_fit`: "Technical Fit"
-- `archlens_architect_step_solution`: "Solution Architecture"
-- `archlens_architect_step_target`: "Target Architecture"
-- `archlens_architect_select_capabilities`: "Which business capabilities are we improving or introducing?"
-- `archlens_architect_capabilities_hint`: "Search existing capabilities or type new ones..."
-- `archlens_architect_search_capabilities`: "Search capabilities..."
-- `archlens_architect_new_capability`: "New: {{name}}"
+- `turbolens_architect_step_requirements`: "Business Requirements"
+- `turbolens_architect_step_business_fit`: "Business Fit"
+- `turbolens_architect_step_technical_fit`: "Technical Fit"
+- `turbolens_architect_step_solution`: "Solution Architecture"
+- `turbolens_architect_step_target`: "Target Architecture"
+- `turbolens_architect_select_capabilities`: "Which business capabilities are we improving or introducing?"
+- `turbolens_architect_capabilities_hint`: "Search existing capabilities or type new ones..."
+- `turbolens_architect_search_capabilities`: "Search capabilities..."
+- `turbolens_architect_new_capability`: "New: {{name}}"
 
 Translate all into de, fr, es, it, pt, zh, ru.
 
@@ -126,13 +126,13 @@ Translate all into de, fr, es, it, pt, zh, ru.
 ## Files Changed
 
 ### Backend
-- `backend/app/schemas/archlens.py` — add `selected_capabilities` field
-- `backend/app/api/v1/archlens.py` — add capabilities endpoint, thread params through phase endpoints
-- `backend/app/services/archlens_architect.py` — add cards context loader, update Phase 1/5 prompts, add naming rules, thread capabilities
+- `backend/app/schemas/turbolens.py` — add `selected_capabilities` field
+- `backend/app/api/v1/turbolens.py` — add capabilities endpoint, thread params through phase endpoints
+- `backend/app/services/turbolens_architect.py` — add cards context loader, update Phase 1/5 prompts, add naming rules, thread capabilities
 
 ### Frontend
-- `frontend/src/features/archlens/ArchLensArchitect.tsx` — move objectives to Phase 0, add capabilities, new stepper UI
-- `frontend/src/features/archlens/utils.ts` — replace ARCHITECT_PHASES with ARCHITECT_STEPS
+- `frontend/src/features/turbolens/TurboLensArchitect.tsx` — move objectives to Phase 0, add capabilities, new stepper UI
+- `frontend/src/features/turbolens/utils.ts` — replace ARCHITECT_PHASES with ARCHITECT_STEPS
 - `frontend/src/i18n/locales/{en,de,fr,es,it,pt,zh,ru}/admin.json` — new keys
 
 ### No migrations, no model changes, no new files.

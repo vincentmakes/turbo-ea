@@ -29,9 +29,9 @@ const EolAdmin = lazy(() => import("./EolAdmin"));
 const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
-const ArchLensAdmin = lazy(() => import("./ArchLensAdmin"));
+const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 
-const TAB_KEYS = ["general", "authentication", "ai", "eol", "web-portals", "servicenow", "archlens"];
+const TAB_KEYS = ["general", "authentication", "ai", "eol", "web-portals", "servicenow", "turbolens"];
 
 function TabLoader() {
   return (
@@ -927,7 +927,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.eol"),
     t("settings.tabs.webPortals"),
     t("settings.tabs.servicenow"),
-    t("settings.tabs.archlens"),
+    t("settings.tabs.turbolens"),
   ];
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
@@ -988,7 +988,7 @@ export default function SettingsAdmin() {
       )}
       {tabIndex === 6 && (
         <Suspense fallback={<TabLoader />}>
-          <ArchLensAdmin />
+          <TurboLensAdmin />
         </Suspense>
       )}
     </Box>

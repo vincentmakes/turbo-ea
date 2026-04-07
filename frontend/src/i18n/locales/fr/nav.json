@@ -34,12 +34,12 @@
   "search.hint": "Tapez pour rechercher des fiches…",
   "createCard": "Créer une fiche",
   "create": "Créer",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "Tableau de bord",
-  "archlens.vendors": "Fournisseurs",
-  "archlens.resolution": "Résolution",
-  "archlens.duplicates": "Doublons",
-  "archlens.architect": "Architecte",
-  "archlens.assessments": "Évaluations",
-  "archlens.history": "Historique"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "Tableau de bord",
+  "turbolens.vendors": "Fournisseurs",
+  "turbolens.resolution": "Résolution",
+  "turbolens.duplicates": "Doublons",
+  "turbolens.architect": "Architecte",
+  "turbolens.assessments": "Évaluations",
+  "turbolens.history": "Historique"
 }

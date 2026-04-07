@@ -80,7 +80,7 @@ The demo comes pre-populated with the NexaTech Industries dataset — 150+ cards
 
 - **AI Description Suggestions** — Generate card descriptions with a single click using a two-step pipeline: web search (DuckDuckGo, Google Custom Search, or SearXNG) followed by LLM extraction. Supports self-hosted Ollama (optionally bundled via Docker Compose `--profile ai`) and commercial providers (OpenAI, Google Gemini, Azure OpenAI, OpenRouter, Anthropic Claude) with encrypted API key storage. Suggestions are type-aware — the prompt contextualizes each card based on its type (e.g., "software application", "technology vendor", "business process"). Results include a confidence score, editable text, and clickable source links. Admins control which card types get suggestions, the search provider, and the LLM model.
 
-### ArchLens AI Intelligence
+### TurboLens AI Intelligence
 
 AI-powered EA analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea) (MIT License). Runs natively in Turbo EA using the same AI provider configuration.
 
@@ -566,7 +566,7 @@ turbo-ea/
 
 ## Credits
 
-- **ArchLens AI Intelligence** — The AI-powered vendor analysis, duplicate detection, and architecture recommendation features are based on [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea), originally released under the MIT License. The analysis logic has been ported from Node.js/Express/SQLite to Python/FastAPI/PostgreSQL and integrated natively into Turbo EA.
+- **TurboLens AI Intelligence** — The AI-powered vendor analysis, duplicate detection, and architecture recommendation features are based on [ArchLens](https://github.com/vinod-ea/archlens) by [Vinod](https://github.com/vinod-ea), originally released under the MIT License. The analysis logic has been ported from Node.js/Express/SQLite to Python/FastAPI/PostgreSQL and integrated natively into Turbo EA.
 
 ---
 

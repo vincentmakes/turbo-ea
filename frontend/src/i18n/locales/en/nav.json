@@ -34,12 +34,12 @@
   "search.hint": "Type to search cards...",
   "createCard": "Create Card",
   "create": "Create",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "Dashboard",
-  "archlens.vendors": "Vendors",
-  "archlens.resolution": "Resolution",
-  "archlens.duplicates": "Duplicates",
-  "archlens.architect": "Architect",
-  "archlens.assessments": "Assessments",
-  "archlens.history": "History"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "Dashboard",
+  "turbolens.vendors": "Vendors",
+  "turbolens.resolution": "Resolution",
+  "turbolens.duplicates": "Duplicates",
+  "turbolens.architect": "Architect",
+  "turbolens.assessments": "Assessments",
+  "turbolens.history": "History"
 }
