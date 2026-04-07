@@ -1,0 +1,630 @@
+/**
+ * ArchitectureDiagram — React Flow visualization for TurboLens Architect results.
+ *
+ * Converts the structured ArchitectureResult (layers + components + integrations)
+ * into an interactive C4-style diagram using @xyflow/react and dagre layout.
+ */
+
+import { useMemo, memo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
+import MaterialSymbol from "@/components/MaterialSymbol";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  Handle,
+  Position,
+  BaseEdge,
+  EdgeLabelRenderer,
+  ReactFlowProvider,
+  getSmoothStepPath,
+  type NodeProps,
+  type EdgeProps,
+  type Node,
+  type Edge,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import type { ArchitectureResult, ArchComponent, ArchIntegration, CardType } from "@/types";
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const NODE_W = 200;
+const NODE_H = 80;
+const GROUP_PAD_X = 40;
+const GROUP_PAD_TOP = 44;
+const GROUP_PAD_BOTTOM = 28;
+
+const TYPE_COLORS: Record<string, string> = {
+  existing: "#4caf50",
+  new: "#1976d2",
+  recommended: "#ff9800",
+};
+
+const TYPE_BG: Record<string, { light: string; dark: string }> = {
+  existing: { light: "rgba(76,175,80,0.08)", dark: "rgba(76,175,80,0.12)" },
+  new: { light: "rgba(25,118,210,0.08)", dark: "rgba(25,118,210,0.12)" },
+  recommended: { light: "rgba(255,152,0,0.08)", dark: "rgba(255,152,0,0.12)" },
+};
+
+// ---------------------------------------------------------------------------
+// Node data types
+// ---------------------------------------------------------------------------
+
+interface ArchNodeData {
+  name: string;
+  compType: string; // existing | new | recommended
+  category?: string;
+  role?: string;
+  product?: string;
+  cardTypeKey?: string;
+  cardTypeColor?: string;
+  cardTypeIcon?: string;
+  [key: string]: unknown;
+}
+
+interface ArchGroupData {
+  label: string;
+  color: string;
+  [key: string]: unknown;
+}
+
+interface ArchEdgeData {
+  label: string;
+  protocol?: string;
+  direction?: string;
+  isHovered?: boolean;
+  connectedToHovered?: boolean;
+  [key: string]: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Custom Node
+// ---------------------------------------------------------------------------
+
+const TYPE_LABELS: Record<string, string> = {
+  existing: "Reuse",
+  new: "New",
+  recommended: "Buy",
+};
+
+const ArchNode = memo(({ data }: NodeProps<Node<ArchNodeData>>) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+  const typeColor = TYPE_COLORS[data.compType] || "#999";
+  // Use metamodel color for the border when available, but keep type-based badge
+  const metaColor = data.cardTypeColor;
+  const borderColor = metaColor || typeColor;
+  const bg = metaColor
+    ? `${metaColor}${isDark ? "1F" : "14"}`
+    : TYPE_BG[data.compType]?.[isDark ? "dark" : "light"] ?? "rgba(0,0,0,0.04)";
+  const name = data.name.length > 26 ? data.name.slice(0, 25) + "\u2026" : data.name;
+  const handleStyle = { width: 6, height: 6, border: "none" };
+  const badgeLabel = TYPE_LABELS[data.compType] || data.compType;
+
+  return (
+    <Box
+      sx={{
+        width: NODE_W,
+        height: NODE_H,
+        borderRadius: "10px",
+        border: `2px solid ${borderColor}`,
+        bgcolor: bg,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        px: 1.2,
+        position: "relative",
+        boxShadow: isDark ? "0 2px 8px rgba(0,0,0,0.4)" : "0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      <Handle type="target" position={Position.Top} id="t" style={{ ...handleStyle, background: borderColor }} />
+      <Handle type="source" position={Position.Bottom} id="b" style={{ ...handleStyle, background: borderColor }} />
+      <Handle type="target" position={Position.Left} id="l" style={{ ...handleStyle, background: "transparent" }} />
+      <Handle type="source" position={Position.Right} id="r" style={{ ...handleStyle, background: "transparent" }} />
+      {/* Type badge (Reuse / New / Buy) */}
+      <Box sx={{
+        position: "absolute", top: -8, left: 8,
+        bgcolor: typeColor, color: "#fff",
+        fontSize: 9, fontWeight: 700, lineHeight: 1,
+        px: 0.7, py: 0.25, borderRadius: "4px",
+        textTransform: "uppercase", letterSpacing: 0.5,
+      }}>
+        {badgeLabel}
+      </Box>
+      {data.cardTypeIcon && (
+        <Box sx={{ position: "absolute", top: 4, right: 6, opacity: 0.6 }}>
+          <MaterialSymbol icon={data.cardTypeIcon} size={14} color={borderColor} />
+        </Box>
+      )}
+      <Tooltip title={data.role || ""} arrow placement="top">
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 700,
+            lineHeight: 1.2,
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            width: "100%",
+            fontSize: 12.5,
+          }}
+        >
+          {name}
+        </Typography>
+      </Tooltip>
+      {data.product && data.product !== data.name && (
+        <Typography
+          variant="caption"
+          sx={{ color: "text.secondary", lineHeight: 1.15, fontSize: 10, mt: 0.3, textAlign: "center" }}
+          noWrap
+        >
+          {data.product}
+        </Typography>
+      )}
+      {data.category && (
+        <Typography
+          variant="caption"
+          sx={{ color: borderColor, fontStyle: "italic", lineHeight: 1.15, fontSize: 10, mt: 0.2 }}
+          noWrap
+        >
+          [{data.category}]
+        </Typography>
+      )}
+    </Box>
+  );
+});
+ArchNode.displayName = "ArchNode";
+
+// ---------------------------------------------------------------------------
+// Custom Group
+// ---------------------------------------------------------------------------
+
+const ArchGroup = memo(({ data }: NodeProps<Node<ArchGroupData>>) => {
+  const theme = useTheme();
+  const isDark = theme.palette.mode === "dark";
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        height: "100%",
+        border: `1.5px dashed ${data.color}`,
+        borderRadius: "12px",
+        bgcolor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.012)",
+        position: "relative",
+      }}
+    >
+      <Typography
+        variant="subtitle2"
+        sx={{
+          position: "absolute",
+          top: 8,
+          left: 14,
+          fontWeight: 700,
+          color: data.color,
+          fontSize: "0.78rem",
+        }}
+      >
+        {data.label}
+      </Typography>
+    </Box>
+  );
+});
+ArchGroup.displayName = "ArchGroup";
+
+// ---------------------------------------------------------------------------
+// Custom Edge
+// ---------------------------------------------------------------------------
+
+const ArchEdge = ({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd }: EdgeProps) => {
+  const theme = useTheme();
+  const edgeData = data as ArchEdgeData | undefined;
+  const active = edgeData?.isHovered || edgeData?.connectedToHovered;
+  const isDark = theme.palette.mode === "dark";
+  const baseColor = isDark ? "#aaa" : "#777";
+  const hoverColor = isDark ? "#4fc3f7" : "#1976d2";
+  const color = active ? hoverColor : baseColor;
+
+  const [path, lx, ly] = getSmoothStepPath({
+    sourceX, sourceY, targetX, targetY,
+    sourcePosition, targetPosition,
+    borderRadius: 8,
+    offset: 24,
+  });
+
+  const label = edgeData?.label || "";
+  const labelBg = isDark ? "#121212" : "#ffffff";
+
+  return (
+    <>
+      <path d={path} fill="none" stroke="transparent" strokeWidth={14} style={{ cursor: "pointer", pointerEvents: "stroke" }} />
+      <BaseEdge
+        id={id}
+        path={path}
+        markerEnd={markerEnd}
+        style={{
+          stroke: color,
+          strokeWidth: active ? 2 : 1.2,
+          strokeDasharray: active ? "none" : "5 3",
+          transition: "stroke 0.15s, stroke-width 0.15s",
+        }}
+      />
+      {label && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: "absolute",
+              transform: `translate(-50%, -50%) translate(${lx}px, ${ly}px)`,
+              pointerEvents: "none",
+              fontSize: 10,
+              fontFamily: "inherit",
+              color: active ? hoverColor : (isDark ? "#aaa" : "#666"),
+              background: labelBg,
+              border: `1px solid ${isDark ? "#444" : "#ccc"}`,
+              borderRadius: 4,
+              padding: "2px 6px",
+              whiteSpace: "nowrap",
+              lineHeight: "14px",
+            }}
+          >
+            {label}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Node/Edge type registries
+// ---------------------------------------------------------------------------
+
+const nodeTypes = { archNode: ArchNode, archGroup: ArchGroup };
+const edgeTypes = { archEdge: ArchEdge };
+
+// ---------------------------------------------------------------------------
+// Layout engine — single global dagre graph for proper cross-layer spreading
+// ---------------------------------------------------------------------------
+
+function buildArchFlow(
+  arch: ArchitectureResult,
+  typeMap?: Map<string, { color: string; icon: string }>,
+): { nodes: Node[]; edges: Edge[] } {
+  const layers = arch.layers ?? [];
+  const integrations = arch.integrations ?? [];
+
+  if (layers.length === 0) return { nodes: [], edges: [] };
+
+  // 1. Assign unique IDs to all components
+  const compIdMap = new Map<string, string>(); // lowercase name → id
+  let idCounter = 0;
+  const allComps: { comp: ArchComponent; layerIdx: number; layerName: string; id: string }[] = [];
+
+  for (let li = 0; li < layers.length; li++) {
+    for (const comp of layers[li].components ?? []) {
+      const id = `arch-${idCounter++}`;
+      compIdMap.set(comp.name.toLowerCase(), id);
+      allComps.push({ comp, layerIdx: li, layerName: layers[li].name, id });
+    }
+  }
+
+  // Helper: fuzzy-resolve a component name to its id
+  const resolveCompId = (name: string): string | undefined => {
+    const lower = name.toLowerCase().trim();
+    // 1. Exact match
+    if (compIdMap.has(lower)) return compIdMap.get(lower);
+    // 2. Contains match (either direction)
+    for (const [key, id] of compIdMap) {
+      if (key.includes(lower) || lower.includes(key)) return id;
+    }
+    // 3. First-word match (e.g. "HubSpot" matches "HubSpot CRM")
+    const firstWord = lower.split(/\s+/)[0];
+    if (firstWord && firstWord.length >= 4) {
+      const matches: [string, string][] = [];
+      for (const [key, id] of compIdMap) {
+        if (key.startsWith(firstWord) || key.split(/\s+/)[0] === firstWord) {
+          matches.push([key, id]);
+        }
+      }
+      if (matches.length === 1) return matches[0][1];
+    }
+    return undefined;
+  };
+
+  // 2. Resolve integration edges
+  const resolvedEdges: { sourceId: string; targetId: string; intg: ArchIntegration }[] = [];
+  for (const intg of integrations) {
+    const srcId = resolveCompId(intg.from);
+    const tgtId = resolveCompId(intg.to);
+    if (srcId && tgtId && srcId !== tgtId) resolvedEdges.push({ sourceId: srcId, targetId: tgtId, intg });
+  }
+
+  // 3. Lay out nodes in a fixed grid — one row per layer, all left-aligned.
+  //    Dagre is used only for edge routing hints but not for node positions,
+  //    because dagre scatters same-layer nodes across ranks when cross-layer
+  //    edges pull them, causing staggered groups.
+  const NODESEP = 60;
+  const LAYER_GAP = 48;
+  const LAYER_COLORS = [
+    "#1976d2", "#33cc58", "#8e24aa", "#d29270", "#0f7eb5", "#ffa31f", "#f44336",
+  ];
+
+  // Determine the widest row so all groups share the same width
+  let maxRowW = 0;
+  for (let li = 0; li < layers.length; li++) {
+    const count = allComps.filter(c => c.layerIdx === li).length;
+    if (count > 0) {
+      const rowW = count * NODE_W + (count - 1) * NODESEP;
+      maxRowW = Math.max(maxRowW, rowW);
+    }
+  }
+  const groupW = maxRowW + 2 * GROUP_PAD_X;
+
+  // Position nodes: each layer is a horizontal row, all left-aligned
+  const nodeAbsPos = new Map<string, { x: number; y: number }>();
+  let currentY = 0;
+
+  interface LayerBounds {
+    li: number;
+    groupX: number;
+    groupY: number;
+    groupW: number;
+    groupH: number;
+  }
+  const layerBoundsList: LayerBounds[] = [];
+
+  for (let li = 0; li < layers.length; li++) {
+    const entries = allComps.filter(c => c.layerIdx === li);
+    if (entries.length === 0) continue;
+
+    const groupY = currentY;
+    const nodesStartX = GROUP_PAD_X;
+    const nodesStartY = GROUP_PAD_TOP;
+
+    for (let ni = 0; ni < entries.length; ni++) {
+      const x = nodesStartX + ni * (NODE_W + NODESEP);
+      const y = nodesStartY;
+      // Store absolute position (group origin + offset)
+      nodeAbsPos.set(entries[ni].id, { x: groupY === 0 ? x : x, y: groupY + y });
+    }
+
+    const groupH = GROUP_PAD_TOP + NODE_H + GROUP_PAD_BOTTOM;
+    layerBoundsList.push({ li, groupX: 0, groupY, groupW, groupH });
+    currentY += groupH + LAYER_GAP;
+  }
+
+  // Build React Flow nodes — groups are independent background nodes (no parentId).
+  // Component nodes are placed at absolute positions so edges can freely cross groups.
+  const rfNodes: Node[] = [];
+
+  for (const lb of layerBoundsList) {
+    const groupId = `layer-${lb.li}`;
+    const layerColor = LAYER_COLORS[lb.li % LAYER_COLORS.length];
+
+    rfNodes.push({
+      id: groupId,
+      type: "archGroup",
+      position: { x: lb.groupX, y: lb.groupY },
+      data: { label: layers[lb.li].name, color: layerColor } satisfies ArchGroupData,
+      style: { width: lb.groupW, height: lb.groupH, zIndex: -1 },
+      selectable: false,
+      draggable: false,
+      zIndex: -1,
+    });
+  }
+
+  for (const entry of allComps) {
+    const absP = nodeAbsPos.get(entry.id);
+    if (!absP) continue;
+    const ctk = entry.comp.cardTypeKey;
+    const meta = ctk && typeMap ? typeMap.get(ctk) : undefined;
+    rfNodes.push({
+      id: entry.id,
+      type: "archNode",
+      position: { x: absP.x, y: absP.y },
+      data: {
+        name: entry.comp.name,
+        compType: entry.comp.type || "new",
+        category: entry.comp.category,
+        role: entry.comp.role,
+        product: entry.comp.product,
+        cardTypeKey: ctk,
+        cardTypeColor: meta?.color,
+        cardTypeIcon: meta?.icon,
+      } satisfies ArchNodeData,
+      style: { width: NODE_W, height: NODE_H },
+      draggable: false,
+      zIndex: 1,
+    });
+  }
+
+  // 4. Build edges with smart handle selection
+  const nodeLayerIdx = new Map(allComps.map(c => [c.id, c.layerIdx]));
+  const rfEdges: Edge[] = resolvedEdges.map((re, i) => {
+    const sPos = nodeAbsPos.get(re.sourceId);
+    const tPos = nodeAbsPos.get(re.targetId);
+    const sLayer = nodeLayerIdx.get(re.sourceId) ?? 0;
+    const tLayer = nodeLayerIdx.get(re.targetId) ?? 0;
+
+    let source = re.sourceId;
+    let target = re.targetId;
+    let srcHandle = "b";
+    let tgtHandle = "t";
+
+    if (sLayer === tLayer && sPos && tPos) {
+      // Same layer → use left/right handles
+      if (sPos.x <= tPos.x) {
+        srcHandle = "r";
+        tgtHandle = "l";
+      } else {
+        srcHandle = "l";
+        tgtHandle = "r";
+        [source, target] = [target, source];
+      }
+    } else if (sPos && tPos) {
+      // Cross-layer → use top/bottom, ensure top-to-bottom direction
+      if (sPos.y > tPos.y) {
+        [source, target] = [target, source];
+      }
+    }
+
+    const labelParts: string[] = [];
+    if (re.intg.protocol) labelParts.push(re.intg.protocol);
+    if (re.intg.direction && re.intg.direction !== "sync") labelParts.push(re.intg.direction);
+    const edgeLabel = labelParts.join(", ") || "";
+
+    return {
+      id: `arch-e-${i}`,
+      source,
+      target,
+      sourceHandle: srcHandle,
+      targetHandle: tgtHandle,
+      type: "archEdge",
+      data: {
+        label: edgeLabel,
+        protocol: re.intg.protocol,
+        direction: re.intg.direction,
+      } satisfies ArchEdgeData,
+      animated: false,
+      markerEnd: { type: "arrowclosed" as const, color: "#888" },
+      zIndex: 2,
+    };
+  });
+
+  return { nodes: rfNodes, edges: rfEdges };
+}
+
+// ---------------------------------------------------------------------------
+// Inner component
+// ---------------------------------------------------------------------------
+
+function ArchitectureDiagramInner({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
+  const { t } = useTranslation("admin");
+  const theme = useTheme();
+
+  const typeMap = useMemo(() => {
+    if (!types?.length) return undefined;
+    const m = new Map<string, { color: string; icon: string }>();
+    for (const ct of types) m.set(ct.key, { color: ct.color, icon: ct.icon });
+    return m;
+  }, [types]);
+
+  const { nodes, edges } = useMemo(() => buildArchFlow(arch, typeMap), [arch, typeMap]);
+
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+
+  const hoveredNeighbors = useMemo(() => {
+    if (!hoveredNode) return null;
+    const s = new Set<string>([hoveredNode]);
+    for (const e of edges) {
+      if (e.source === hoveredNode) s.add(e.target);
+      if (e.target === hoveredNode) s.add(e.source);
+    }
+    return s;
+  }, [hoveredNode, edges]);
+
+  const handleNodeMouseEnter = useCallback((_: React.MouseEvent, node: Node) => {
+    if (node.type === "archNode") setHoveredNode(node.id);
+  }, []);
+  const handleNodeMouseLeave = useCallback(() => setHoveredNode(null), []);
+
+  const decoratedEdges = useMemo(() =>
+    edges.map(e => ({
+      ...e,
+      data: {
+        ...e.data,
+        connectedToHovered: hoveredNode ? e.source === hoveredNode || e.target === hoveredNode : false,
+      },
+    })),
+    [edges, hoveredNode],
+  );
+
+  const hoverStyle = useMemo(() => {
+    if (!hoveredNeighbors) return "";
+    const keep = [...hoveredNeighbors].map(id => `.react-flow__node[data-id="${id}"]`).join(",");
+    return [
+      `.arch-hover-active .react-flow__node-archNode { opacity: 0.35; transition: opacity 0.15s; }`,
+      `${keep} { opacity: 1 !important; }`,
+    ].join("\n");
+  }, [hoveredNeighbors]);
+
+  const allComps = (arch.layers ?? []).flatMap(l => l.components ?? []);
+  const existingCnt = allComps.filter(c => c.existsInLandscape || c.type === "existing").length;
+  const newCnt = allComps.filter(c => c.type === "new").length;
+  const recommendedCnt = allComps.filter(c => c.type === "recommended").length;
+
+  if (nodes.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography color="text.secondary">{t("turbolens_arch_no_diagram")}</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider", alignItems: "center" }}>
+        {existingCnt > 0 && (
+          <Chip size="small" label={`${existingCnt} ${t("turbolens_arch_existing_reused")}`}
+            sx={{ bgcolor: TYPE_COLORS.existing + "18", color: TYPE_COLORS.existing, border: `1px solid ${TYPE_COLORS.existing}44`, fontWeight: 600, fontSize: 11 }} />
+        )}
+        {newCnt > 0 && (
+          <Chip size="small" label={`${newCnt} ${t("turbolens_arch_new_components")}`}
+            sx={{ bgcolor: TYPE_COLORS.new + "18", color: TYPE_COLORS.new, border: `1px solid ${TYPE_COLORS.new}44`, fontWeight: 600, fontSize: 11 }} />
+        )}
+        {recommendedCnt > 0 && (
+          <Chip size="small" label={`${recommendedCnt} ${t("turbolens_arch_legend_recommended")}`}
+            sx={{ bgcolor: TYPE_COLORS.recommended + "18", color: TYPE_COLORS.recommended, border: `1px solid ${TYPE_COLORS.recommended}44`, fontWeight: 600, fontSize: 11 }} />
+        )}
+        <Box sx={{ flex: 1 }} />
+        <Chip size="small" label={`${allComps.length} components \u00b7 ${(arch.integrations ?? []).length} integrations`} variant="outlined" />
+      </Stack>
+      <Box sx={{ height: 600 }} className={hoveredNode ? "arch-hover-active" : undefined}>
+        {hoverStyle && <style>{hoverStyle}</style>}
+        <ReactFlow
+          nodes={nodes}
+          edges={decoratedEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeMouseEnter={handleNodeMouseEnter}
+          onNodeMouseLeave={handleNodeMouseLeave}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          edgesReconnectable={false}
+          elementsSelectable={false}
+          colorMode={theme.palette.mode}
+        >
+          <Background gap={16} size={1} />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </Box>
+    </Box>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exported wrapper
+// ---------------------------------------------------------------------------
+
+export default function ArchitectureDiagram({ arch, types }: { arch: ArchitectureResult; types?: CardType[] }) {
+  return (
+    <ReactFlowProvider>
+      <ArchitectureDiagramInner arch={arch} types={types} />
+    </ReactFlowProvider>
+  );
+}

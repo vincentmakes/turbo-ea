@@ -1156,10 +1156,10 @@ export interface PpmDashboardData {
 }
 
 // ---------------------------------------------------------------------------
-// ArchLens Integration
+// TurboLens Integration
 // ---------------------------------------------------------------------------
 
-export interface ArchLensVendor {
+export interface TurboLensVendor {
   id: string;
   vendor_name: string;
   category: string;
@@ -1171,7 +1171,7 @@ export interface ArchLensVendor {
   analysed_at: string | null;
 }
 
-export interface ArchLensVendorHierarchy {
+export interface TurboLensVendorHierarchy {
   id: string;
   canonical_name: string;
   vendor_type: string;
@@ -1186,7 +1186,7 @@ export interface ArchLensVendorHierarchy {
   analysed_at: string | null;
 }
 
-export interface ArchLensDuplicateCluster {
+export interface TurboLensDuplicateCluster {
   id: string;
   cluster_name: string;
   card_type: string;
@@ -1199,7 +1199,7 @@ export interface ArchLensDuplicateCluster {
   analysed_at: string | null;
 }
 
-export interface ArchLensModernization {
+export interface TurboLensModernization {
   id: string;
   target_type: string;
   card_name: string | null;
@@ -1211,7 +1211,7 @@ export interface ArchLensModernization {
   status: string;
 }
 
-export interface ArchLensAnalysisRun {
+export interface TurboLensAnalysisRun {
   id: string;
   analysis_type: string;
   status: string;
@@ -1222,7 +1222,7 @@ export interface ArchLensAnalysisRun {
   created_at: string | null;
 }
 
-export interface ArchLensOverview {
+export interface TurboLensOverview {
   total_cards: number;
   cards_by_type: Record<string, number>;
   quality_avg: number;
@@ -1415,7 +1415,7 @@ export interface DependencyAnalysisResult {
   dependencies: ArchDependency[];
 }
 
-export interface ArchLensAssessment {
+export interface TurboLensAssessment {
   id: string;
   title: string;
   requirement: string;
@@ -1429,7 +1429,7 @@ export interface ArchLensAssessment {
   updated_at: string | null;
 }
 
-export interface ArchLensCommitProgress {
+export interface TurboLensCommitProgress {
   step: string;
   current: number;
   total: number;

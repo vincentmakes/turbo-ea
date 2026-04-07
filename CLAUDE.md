@@ -1175,14 +1175,14 @@ Optional module (toggled via admin settings) for managing Initiative cards as fu
 
 ---
 
-## ArchLens (AI-Powered EA Intelligence)
+## TurboLens (AI-Powered EA Intelligence)
 
 Native AI analysis module — originally ported from [ArchLens](https://github.com/vinod-ea/archlens) (MIT License, by [Vinod](https://github.com/vinod-ea)). Provides vendor analysis, duplicate detection, modernization assessment, and architecture AI recommendations using data directly from the `cards` table.
 
 ### Architecture
 - **No separate container**: All logic runs natively in Turbo EA (FastAPI + PostgreSQL). No proxy layer, no SQLite.
 - **AI infrastructure reuse**: Uses the same AI provider config from `app_settings.general_settings.ai` (supports Claude, OpenAI, DeepSeek, Gemini).
-- **Background tasks + polling**: Long-running AI operations use FastAPI `BackgroundTasks` + `ArchLensAnalysisRun` status polling.
+- **Background tasks + polling**: Long-running AI operations use FastAPI `BackgroundTasks` + `TurboLensAnalysisRun` status polling.
 - **Direct data access**: Queries `cards`, `relations`, and `relation_types` tables via SQLAlchemy — no data copy or intermediate storage.
 - **Session persistence**: The Architecture AI wizard saves progress to `sessionStorage` so users can navigate away and return without losing their place.
 
@@ -1190,20 +1190,20 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `archlens_vendor_analysis` | `ArchLensVendorAnalysis` | AI-categorized vendors with category, sub-category, app counts, costs |
-| `archlens_vendor_hierarchy` | `ArchLensVendorHierarchy` | Resolved canonical vendor tree (parent-child, aliases, confidence) |
-| `archlens_duplicate_clusters` | `ArchLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
-| `archlens_modernization_assessments` | `ArchLensModernization` | Modernization opportunities with effort, priority, current tech |
-| `archlens_analysis_runs` | `ArchLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors) |
+| `turbolens_vendor_analysis` | `TurboLensVendorAnalysis` | AI-categorized vendors with category, sub-category, app counts, costs |
+| `turbolens_vendor_hierarchy` | `TurboLensVendorHierarchy` | Resolved canonical vendor tree (parent-child, aliases, confidence) |
+| `turbolens_duplicate_clusters` | `TurboLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
+| `turbolens_modernization_assessments` | `TurboLensModernization` | Modernization opportunities with effort, priority, current tech |
+| `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors) |
 
 ### Backend Services
 
 | File | Purpose |
 |------|---------|
-| `services/archlens_ai.py` | Shared AI caller + JSON repair (truncation recovery, bracket balancing) |
-| `services/archlens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
-| `services/archlens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
-| `services/archlens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture with C4 diagram visualization |
+| `services/turbolens_ai.py` | Shared AI caller + JSON repair (truncation recovery, bracket balancing) |
+| `services/turbolens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
+| `services/turbolens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
+| `services/turbolens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture with C4 diagram visualization |
 
 ### Architecture AI Flow
 
@@ -1219,54 +1219,54 @@ The Architecture AI follows a 5-step guided wizard:
 5. **Target Architecture** (Phase 5) — Capability mapping with matched capabilities (existing vs new), proposed new cards (typed per metamodel, including new BusinessCapabilities), proposed relations, and an interactive C4 dependency diagram rendered via `C4DiagramView` (React Flow). Proposed nodes appear with dashed borders and a green "NEW" badge. Backend guardrails automatically enforce: every new Application links to a BusinessCapability, every new BusinessCapability links to selected Objectives, and orphan cards (no relations) are removed.
 6. **Commit** — Save assessment, then commit via `CommitInitiativeDialog`: creates Initiative card (name defaults to selected option title, editable), all selected new cards with AI-generated descriptions, relations, and a draft ADR capturing the decision context, selected products, and alternatives. Changing approach resets the assessment for re-saving.
 
-### API Routes (`/archlens`)
+### API Routes (`/turbolens`)
 
 | Method | Path | Permission | Description |
 |--------|------|------------|-------------|
 | GET | `/status` | authenticated | AI config status |
-| GET | `/overview` | `archlens.view` | Dashboard KPIs |
-| POST | `/vendors/analyse` | `archlens.manage` | Trigger vendor categorization (background) |
-| GET | `/vendors` | `archlens.view` | Get vendor analysis results |
-| POST | `/vendors/resolve` | `archlens.manage` | Trigger vendor resolution (background) |
-| GET | `/vendors/hierarchy` | `archlens.view` | Get vendor hierarchy |
-| POST | `/duplicates/analyse` | `archlens.manage` | Trigger duplicate detection (background) |
-| GET | `/duplicates` | `archlens.view` | Get duplicate clusters |
-| PATCH | `/duplicates/{id}/status` | `archlens.manage` | Update cluster status |
-| POST | `/duplicates/modernize` | `archlens.manage` | Trigger modernization assessment (background) |
-| GET | `/duplicates/modernizations` | `archlens.view` | Get modernization results |
-| GET | `/architect/objectives` | `archlens.manage` | Search Objective cards for autocomplete |
-| GET | `/architect/capabilities` | `archlens.manage` | Search BusinessCapability cards |
-| GET | `/architect/objective-dependencies` | `archlens.manage` | BFS depth-1 dependency subgraph for objectives |
-| POST | `/architect/phase1` | `archlens.manage` | Business clarification questions |
-| POST | `/architect/phase2` | `archlens.manage` | Technical deep-dive questions |
-| POST | `/architect/phase3/options` | `archlens.manage` | Generate solution options |
-| POST | `/architect/phase3/gaps` | `archlens.manage` | Gap analysis for selected option |
-| POST | `/architect/phase3/deps` | `archlens.manage` | Dependency analysis for selected products |
-| POST | `/architect/phase3` | `archlens.manage` | Capability mapping (full target architecture) |
-| POST | `/architect/commit` | `archlens.manage` | Commit initiative from assessment (creates cards + relations + ADR) |
-| POST | `/assessments` | `archlens.manage` | Save assessment |
-| GET | `/assessments` | `archlens.view` | List saved assessments |
-| GET | `/assessments/{id}` | `archlens.view` | Get assessment details |
-| GET | `/analysis-runs` | `archlens.view` | Analysis run history |
-| GET | `/analysis-runs/{run_id}` | `archlens.view` | Get specific run with results |
+| GET | `/overview` | `turbolens.view` | Dashboard KPIs |
+| POST | `/vendors/analyse` | `turbolens.manage` | Trigger vendor categorization (background) |
+| GET | `/vendors` | `turbolens.view` | Get vendor analysis results |
+| POST | `/vendors/resolve` | `turbolens.manage` | Trigger vendor resolution (background) |
+| GET | `/vendors/hierarchy` | `turbolens.view` | Get vendor hierarchy |
+| POST | `/duplicates/analyse` | `turbolens.manage` | Trigger duplicate detection (background) |
+| GET | `/duplicates` | `turbolens.view` | Get duplicate clusters |
+| PATCH | `/duplicates/{id}/status` | `turbolens.manage` | Update cluster status |
+| POST | `/duplicates/modernize` | `turbolens.manage` | Trigger modernization assessment (background) |
+| GET | `/duplicates/modernizations` | `turbolens.view` | Get modernization results |
+| GET | `/architect/objectives` | `turbolens.manage` | Search Objective cards for autocomplete |
+| GET | `/architect/capabilities` | `turbolens.manage` | Search BusinessCapability cards |
+| GET | `/architect/objective-dependencies` | `turbolens.manage` | BFS depth-1 dependency subgraph for objectives |
+| POST | `/architect/phase1` | `turbolens.manage` | Business clarification questions |
+| POST | `/architect/phase2` | `turbolens.manage` | Technical deep-dive questions |
+| POST | `/architect/phase3/options` | `turbolens.manage` | Generate solution options |
+| POST | `/architect/phase3/gaps` | `turbolens.manage` | Gap analysis for selected option |
+| POST | `/architect/phase3/deps` | `turbolens.manage` | Dependency analysis for selected products |
+| POST | `/architect/phase3` | `turbolens.manage` | Capability mapping (full target architecture) |
+| POST | `/architect/commit` | `turbolens.manage` | Commit initiative from assessment (creates cards + relations + ADR) |
+| POST | `/assessments` | `turbolens.manage` | Save assessment |
+| GET | `/assessments` | `turbolens.view` | List saved assessments |
+| GET | `/assessments/{id}` | `turbolens.view` | Get assessment details |
+| GET | `/analysis-runs` | `turbolens.view` | Analysis run history |
+| GET | `/analysis-runs/{run_id}` | `turbolens.view` | Get specific run with results |
 
 ### Frontend Pages
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/archlens` | `ArchLensPage` | Tab container: Dashboard, Vendors, Resolution, Duplicates, Architect, History |
-| `/archlens` (Dashboard tab) | `ArchLensDashboard` | KPI tiles, cards by type, quality tiers (Bronze/Silver/Gold), top issues |
-| `/archlens` (Vendors tab) | `ArchLensVendors` | Vendor analysis with category breakdown, grid/table toggle |
-| `/archlens` (Resolution tab) | `ArchLensResolution` | Canonical vendor hierarchy with confidence scores |
-| `/archlens` (Duplicates tab) | `ArchLensDuplicates` | Duplicate clusters + modernization assessment (sub-tabs) |
-| `/archlens` (Architect tab) | `ArchLensArchitect` | 5-step architecture AI wizard with C4 diagram visualization |
-| `/archlens` (History tab) | `ArchLensHistory` | Analysis run history table |
+| `/turbolens` | `TurboLensPage` | Tab container: Dashboard, Vendors, Resolution, Duplicates, Architect, History |
+| `/turbolens` (Dashboard tab) | `TurboLensDashboard` | KPI tiles, cards by type, quality tiers (Bronze/Silver/Gold), top issues |
+| `/turbolens` (Vendors tab) | `TurboLensVendors` | Vendor analysis with category breakdown, grid/table toggle |
+| `/turbolens` (Resolution tab) | `TurboLensResolution` | Canonical vendor hierarchy with confidence scores |
+| `/turbolens` (Duplicates tab) | `TurboLensDuplicates` | Duplicate clusters + modernization assessment (sub-tabs) |
+| `/turbolens` (Architect tab) | `TurboLensArchitect` | 5-step architecture AI wizard with C4 diagram visualization |
+| `/turbolens` (History tab) | `TurboLensHistory` | Analysis run history table |
 
 ### Key Frontend Components
 
 | Component | Purpose |
 |-----------|---------|
-| `ArchLensArchitect.tsx` | 5-step wizard: requirement input → Q&A → options → gaps → deps → capability mapping |
+| `TurboLensArchitect.tsx` | 5-step wizard: requirement input → Q&A → options → gaps → deps → capability mapping |
 | `CommitInitiativeDialog.tsx` | Initiative creation dialog with card/relation selection, renaming, and progress tracking |
 | `AssessmentViewer.tsx` | Read-only assessment viewer with C4 diagram |
 | `C4DiagramView.tsx` | React Flow-based C4 diagram with grouped swim lanes and mirrored handles for cross-layer edges |
@@ -1276,11 +1276,11 @@ The Architecture AI follows a 5-step guided wizard:
 | `utils.ts` | Shared helpers: `formatCost()`, color mappers, `ARCHITECT_STEPS` stepper config |
 
 ### Permissions
-- **`archlens.view`**: View analysis results. Granted to admin, bpm_admin, member roles.
-- **`archlens.manage`**: Trigger analyses. Granted to admin role.
+- **`turbolens.view`**: View analysis results. Granted to admin, bpm_admin, member roles.
+- **`turbolens.manage`**: Trigger analyses. Granted to admin role.
 
 ### Credits
-ArchLens was originally created by [Vinod](https://github.com/vinod-ea/archlens) under the MIT License. The AI analysis logic has been ported to Python and integrated natively into Turbo EA.
+TurboLens was originally created by [Vinod](https://github.com/vinod-ea/archlens) under the MIT License. The AI analysis logic has been ported to Python and integrated natively into Turbo EA.
 
 ---
 

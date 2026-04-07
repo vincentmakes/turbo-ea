@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from app.api.v1 import (
     adr,
     ai_suggest,
-    archlens,
     auth,
     bookmarks,
     bpm,
@@ -35,6 +34,7 @@ from app.api.v1 import (
     surveys,
     tags,
     todos,
+    turbolens,
     users,
     web_portals,
 )
@@ -69,7 +69,7 @@ api_router.include_router(roles.router)
 api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
-api_router.include_router(archlens.router)
+api_router.include_router(turbolens.router)
 api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)

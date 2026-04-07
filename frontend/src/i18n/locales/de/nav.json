@@ -34,12 +34,12 @@
   "search.hint": "Eingeben, um Karten zu suchen...",
   "createCard": "Karte erstellen",
   "create": "Erstellen",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "Dashboard",
-  "archlens.vendors": "Anbieter",
-  "archlens.resolution": "Auflösung",
-  "archlens.duplicates": "Duplikate",
-  "archlens.architect": "Architekt",
-  "archlens.assessments": "Bewertungen",
-  "archlens.history": "Verlauf"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "Dashboard",
+  "turbolens.vendors": "Anbieter",
+  "turbolens.resolution": "Auflösung",
+  "turbolens.duplicates": "Duplikate",
+  "turbolens.architect": "Architekt",
+  "turbolens.assessments": "Bewertungen",
+  "turbolens.history": "Verlauf"
 }

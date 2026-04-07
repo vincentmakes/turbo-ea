@@ -34,12 +34,12 @@
   "search.hint": "Digite para pesquisar fichas...",
   "createCard": "Criar ficha",
   "create": "Criar",
-  "archlens": "ArchLens",
-  "archlens.dashboard": "Painel",
-  "archlens.vendors": "Fornecedores",
-  "archlens.resolution": "Resolução",
-  "archlens.duplicates": "Duplicados",
-  "archlens.architect": "Arquiteto",
-  "archlens.assessments": "Avaliações",
-  "archlens.history": "Histórico"
+  "turbolens": "TurboLens",
+  "turbolens.dashboard": "Painel",
+  "turbolens.vendors": "Fornecedores",
+  "turbolens.resolution": "Resolução",
+  "turbolens.duplicates": "Duplicados",
+  "turbolens.architect": "Arquiteto",
+  "turbolens.assessments": "Avaliações",
+  "turbolens.history": "Histórico"
 }

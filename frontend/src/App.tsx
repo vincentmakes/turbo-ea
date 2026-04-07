@@ -45,8 +45,8 @@ const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
 const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
-const ArchLensPage = lazy(() => import("@/features/archlens/ArchLensPage"));
-const AssessmentViewer = lazy(() => import("@/features/archlens/AssessmentViewer"));
+const TurboLensPage = lazy(() => import("@/features/turbolens/TurboLensPage"));
+const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewer"));
 
 function buildTheme(mode: "light" | "dark") {
   return createTheme({
@@ -154,9 +154,9 @@ function AppRoutes() {
                 <Route path="/admin/surveys/new" element={<SurveyBuilder />} />
                 <Route path="/admin/surveys/:id/results" element={<SurveyResults />} />
                 <Route path="/admin/surveys/:id" element={<SurveyBuilder />} />
-                <Route path="/archlens" element={<ArchLensPage />} />
-                <Route path="/archlens/assessments/:id" element={<AssessmentViewer />} />
-                <Route path="/admin/archlens" element={<Navigate to="/admin/settings?tab=archlens" />} />
+                <Route path="/turbolens" element={<TurboLensPage />} />
+                <Route path="/turbolens/assessments/:id" element={<AssessmentViewer />} />
+                <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

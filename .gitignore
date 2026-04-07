@@ -82,5 +82,5 @@ site/
 #Archived Plans
 archive/
 
-# ArchLens fork (built from GitHub URL in docker-compose)
-/archlens/
+# TurboLens fork (built from GitHub URL in docker-compose)
+/turbolens/
