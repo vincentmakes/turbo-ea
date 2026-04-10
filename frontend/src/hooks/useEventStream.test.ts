@@ -13,7 +13,7 @@ let mockInstance: {
   close: ReturnType<typeof vi.fn>;
 };
 
-const MockEventSource = vi.fn().mockImplementation(() => {
+const MockEventSource = vi.fn(function MockEventSource(this: unknown) {
   mockInstance = {
     onmessage: null,
     onerror: null,
