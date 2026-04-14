@@ -120,6 +120,12 @@
   "dashboard.recentActivity": "Recent Activity",
   "dashboard.noCardsYet": "No cards yet",
   "dashboard.noRecentActivity": "No recent activity",
+  "dashboard.trend.vsDays_one": "vs last {{count}} day",
+  "dashboard.trend.vsDays_other": "vs last {{count}} days",
+  "dashboard.trend.flat": "No change",
+  "dashboard.trend.collecting": "Collecting trend data…",
+  "dashboard.trend.points": "pts",
+  "dashboard.trend.caption": "Trend indicators are based on the last 30 days",
 
   "colorPicker.pickColor": "Pick color",
   "colorPicker.recent": "Recent",

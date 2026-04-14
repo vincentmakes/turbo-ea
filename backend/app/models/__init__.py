@@ -12,6 +12,7 @@ from app.models.document import Document
 from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
+from app.models.kpi_snapshot import KpiSnapshot
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_risk import PpmRisk
@@ -86,6 +87,7 @@ __all__ = [
     "Calculation",
     "Diagram",
     "SoAW",
+    "KpiSnapshot",
     "Notification",
     "PpmBudgetLine",
     "PpmCostLine",
