@@ -79,15 +79,15 @@ async def get_comparison_snapshot(
     db: AsyncSession,
     *,
     days_ago: int = 30,
-    min_days: int = 1,
+    min_days: int = 0,
     max_days: int = 365,
 ) -> KpiSnapshot | None:
     """Return the snapshot closest to (today - days_ago) within [min_days, max_days].
 
-    Falls back to the oldest available snapshot in the search window when none
-    is close to the target, so fresh installs still see useful trends after a
-    day or two instead of waiting a full 30 days. The caller should treat the
-    returned snapshot's actual age as the comparison window.
+    ``min_days=0`` means today's startup baseline is a valid comparison point
+    on day one (delta measures "change since startup"); after the daily 02:00
+    UTC loop starts rolling, prior days' snapshots are preferred. Falls back
+    to whatever snapshot is closest to the target when no exact match exists.
     """
     today = datetime.now(timezone.utc).date()
     earliest = today - timedelta(days=max_days)

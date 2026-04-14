@@ -23,61 +23,43 @@ const renderWith = (props: Parameters<typeof TrendIndicator>[0]) =>
   );
 
 describe("TrendIndicator", () => {
-  it("renders a 'collecting data' placeholder when snapshot is unavailable", () => {
-    renderWith({
-      deltaPct: null,
-      goodDirection: "up",
-      comparisonDays: 30,
-      snapshotAvailable: false,
-    });
-    expect(screen.getByText(/collecting/i)).toBeInTheDocument();
+  it("renders a muted 0.0% (+0) baseline when deltas are null", () => {
+    renderWith({ deltaPct: null, deltaAbs: null, goodDirection: "up" });
+    expect(screen.getByText("trending_flat")).toBeInTheDocument();
+    expect(screen.getByText("+0.0%")).toBeInTheDocument();
+    expect(screen.getByText("(+0)")).toBeInTheDocument();
+    // theme.palette.text.secondary is rgba(0, 0, 0, 0.6) — not the colored
+    // success/error palette. Just assert it doesn't use the coloured variants.
+    const color = screen.getByText("trending_flat").style.color;
+    expect(color).not.toBe(hexToRgb(theme.palette.success.main));
+    expect(color).not.toBe(hexToRgb(theme.palette.error.main));
   });
 
-  it("renders a 'collecting data' placeholder when deltaPct is null even if available", () => {
-    renderWith({
-      deltaPct: null,
-      goodDirection: "up",
-      comparisonDays: 30,
-      snapshotAvailable: true,
-    });
-    expect(screen.getByText(/collecting/i)).toBeInTheDocument();
+  it("renders a muted 0.0% (+0) baseline when values haven't moved", () => {
+    renderWith({ deltaPct: 0, deltaAbs: 0, goodDirection: "up" });
+    expect(screen.getByText("trending_flat")).toBeInTheDocument();
+    expect(screen.getByText("+0.0%")).toBeInTheDocument();
   });
 
-  it("renders green up arrow, signed %, absolute count and window label", () => {
-    renderWith({
-      deltaPct: 12.3,
-      deltaAbs: 5,
-      goodDirection: "up",
-      comparisonDays: 30,
-    });
+  it("renders green up arrow with signed % and absolute count", () => {
+    renderWith({ deltaPct: 12.3, deltaAbs: 5, goodDirection: "up" });
     expect(screen.getByText("trending_up")).toBeInTheDocument();
     expect(screen.getByText("+12.3%")).toBeInTheDocument();
     expect(screen.getByText("(+5)")).toBeInTheDocument();
-    expect(screen.getByText(/vs last 30 days/i)).toBeInTheDocument();
     expect(screen.getByText("trending_up").style.color).toBe(
       hexToRgb(theme.palette.success.main),
     );
   });
 
   it("renders a red up arrow for a regressing 'down is good' KPI", () => {
-    renderWith({
-      deltaPct: 8.0,
-      deltaAbs: 3,
-      goodDirection: "down",
-      comparisonDays: 30,
-    });
+    renderWith({ deltaPct: 8.0, deltaAbs: 3, goodDirection: "down" });
     const arrow = screen.getByText("trending_up");
     expect(arrow.style.color).toBe(hexToRgb(theme.palette.error.main));
     expect(screen.getByText("(+3)")).toBeInTheDocument();
   });
 
   it("renders a green down arrow when 'down is good' and value drops", () => {
-    renderWith({
-      deltaPct: -10,
-      deltaAbs: -2,
-      goodDirection: "down",
-      comparisonDays: 30,
-    });
+    renderWith({ deltaPct: -10, deltaAbs: -2, goodDirection: "down" });
     expect(screen.getByText("trending_down").style.color).toBe(
       hexToRgb(theme.palette.success.main),
     );
@@ -85,17 +67,10 @@ describe("TrendIndicator", () => {
     expect(screen.getByText("(-2)")).toBeInTheDocument();
   });
 
-  it("renders trending_flat in muted color when |delta| < 0.5 and hides abs", () => {
-    renderWith({
-      deltaPct: 0.2,
-      deltaAbs: 1,
-      goodDirection: "up",
-      comparisonDays: 30,
-    });
+  it("renders trending_flat in muted color when |delta| < 0.5", () => {
+    renderWith({ deltaPct: 0.2, deltaAbs: 1, goodDirection: "up" });
     expect(screen.getByText("trending_flat")).toBeInTheDocument();
-    expect(screen.getByText(/no change/i)).toBeInTheDocument();
-    // Absolute delta is suppressed on flat to avoid visual noise.
-    expect(screen.queryByText("(+1)")).toBeNull();
+    expect(screen.getByText("+0.2%")).toBeInTheDocument();
   });
 
   it("uses custom formatAbs for percentage KPIs (e.g. avg data quality)", () => {
@@ -104,24 +79,13 @@ describe("TrendIndicator", () => {
       deltaAbs: 7.5,
       formatAbs: (v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} pts`,
       goodDirection: "up",
-      comparisonDays: 30,
     });
     expect(screen.getByText("(+7.5 pts)")).toBeInTheDocument();
   });
 
-  it("reflects the actual snapshot age in the window label", () => {
-    renderWith({
-      deltaPct: 5,
-      deltaAbs: 1,
-      goodDirection: "up",
-      comparisonDays: 7,
-    });
-    expect(screen.getByText(/vs last 7 days/i)).toBeInTheDocument();
-  });
-
-  it("omits the abs label when deltaAbs is not provided", () => {
-    renderWith({ deltaPct: 5, goodDirection: "up", comparisonDays: 30 });
-    expect(screen.getByText("+5.0%")).toBeInTheDocument();
-    expect(screen.queryByText(/\(\+\d/)).toBeNull();
+  it("does not include a per-tile window label (that's rendered once on the Dashboard)", () => {
+    renderWith({ deltaPct: 5, deltaAbs: 1, goodDirection: "up" });
+    expect(screen.queryByText(/vs last/i)).toBeNull();
+    expect(screen.queryByText(/collecting/i)).toBeNull();
   });
 });

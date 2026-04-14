@@ -97,12 +97,18 @@ async def test_get_comparison_snapshot_picks_closest(db):
     assert snap.snapshot_date == today - timedelta(days=29)
 
 
-async def test_get_comparison_snapshot_returns_none_when_outside_window(db):
-    """Same-day snapshots don't count (min_days=1)."""
+async def test_get_comparison_snapshot_returns_none_when_empty(db):
+    """Empty table → no comparison snapshot."""
+    snap = await get_comparison_snapshot(db, days_ago=30)
+    assert snap is None
+
+
+async def test_get_comparison_snapshot_includes_today(db):
+    """Today's startup baseline is a valid comparison (min_days=0)."""
     today = datetime.now(timezone.utc).date()
     db.add(
         KpiSnapshot(
-            snapshot_date=today,  # today — excluded by min_days=1
+            snapshot_date=today,
             total_cards=10,
             avg_data_quality=50.0,
             approved_count=2,
@@ -112,7 +118,8 @@ async def test_get_comparison_snapshot_returns_none_when_outside_window(db):
     await db.commit()
 
     snap = await get_comparison_snapshot(db, days_ago=30)
-    assert snap is None
+    assert snap is not None
+    assert snap.snapshot_date == today
 
 
 async def test_get_comparison_snapshot_falls_back_to_oldest_available(db):

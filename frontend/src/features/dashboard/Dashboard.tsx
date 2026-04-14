@@ -144,8 +144,6 @@ export default function Dashboard() {
                   deltaPct={data.trends.total_cards.delta_pct}
                   deltaAbs={data.trends.total_cards.delta_abs}
                   goodDirection="up"
-                  comparisonDays={data.trends.comparison_days}
-                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -165,8 +163,6 @@ export default function Dashboard() {
                   deltaAbs={data.trends.avg_data_quality.delta_abs}
                   formatAbs={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} ${t("dashboard.trend.points")}`}
                   goodDirection="up"
-                  comparisonDays={data.trends.comparison_days}
-                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -185,8 +181,6 @@ export default function Dashboard() {
                   deltaPct={data.trends.approved_count.delta_pct}
                   deltaAbs={data.trends.approved_count.delta_abs}
                   goodDirection="up"
-                  comparisonDays={data.trends.comparison_days}
-                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -205,14 +199,24 @@ export default function Dashboard() {
                   deltaPct={data.trends.broken_count.delta_pct}
                   deltaAbs={data.trends.broken_count.delta_abs}
                   goodDirection="down"
-                  comparisonDays={data.trends.comparison_days}
-                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      {data.trends && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ display: "block", mt: -2, mb: 3, textAlign: "right" }}
+        >
+          {data.trends.snapshot_available
+            ? t("dashboard.trend.vsDays", { count: data.trends.comparison_days })
+            : t("dashboard.trend.collecting")}
+        </Typography>
+      )}
 
       {/* -------- Row 2: Type bar chart + Approval status donut -------- */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
