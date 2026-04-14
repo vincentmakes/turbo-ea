@@ -116,6 +116,7 @@
   "dashboard.trend.flat": "Keine Änderung",
   "dashboard.trend.collecting": "Trenddaten werden erfasst…",
   "dashboard.trend.points": "Pkt.",
+  "dashboard.trend.caption": "Trendindikatoren basieren auf den letzten 30 Tagen",
   "colorPicker.pickColor": "Farbe wählen",
   "colorPicker.recent": "Zuletzt verwendet",
   "timelineSlider.timeTravel": "Zeitreise",

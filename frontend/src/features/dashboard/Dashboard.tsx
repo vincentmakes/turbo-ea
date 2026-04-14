@@ -130,77 +130,85 @@ export default function Dashboard() {
       </Typography>
 
       {/* -------- KPI summary cards -------- */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 1 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
-                <Typography variant="subtitle2" color="text.secondary">{t("dashboard.totalCards")}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                  <MaterialSymbol icon="inventory_2" size={24} color="#1976d2" />
+                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.totalCards")}</Typography>
+                </Box>
+                {data.trends && (
+                  <TrendIndicator
+                    deltaPct={data.trends.total_cards.delta_pct}
+                    deltaAbs={data.trends.total_cards.delta_abs}
+                    goodDirection="up"
+                  />
+                )}
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.total_cards}</Typography>
-              {data.trends && (
-                <TrendIndicator
-                  deltaPct={data.trends.total_cards.delta_pct}
-                  deltaAbs={data.trends.total_cards.delta_abs}
-                  goodDirection="up"
-                />
-              )}
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
-                <Typography variant="subtitle2" color="text.secondary">{t("dashboard.avgCompletion")}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                  <MaterialSymbol icon="pie_chart" size={24} color="#4caf50" />
+                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("dashboard.avgCompletion")}</Typography>
+                </Box>
+                {data.trends && (
+                  <TrendIndicator
+                    deltaPct={data.trends.avg_data_quality.delta_pct}
+                    deltaAbs={data.trends.avg_data_quality.delta_abs}
+                    formatAbs={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)} ${t("dashboard.trend.points")}`}
+                    goodDirection="up"
+                  />
+                )}
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.avg_data_quality}%</Typography>
-              {data.trends && (
-                <TrendIndicator
-                  deltaPct={data.trends.avg_data_quality.delta_pct}
-                  deltaAbs={data.trends.avg_data_quality.delta_abs}
-                  formatAbs={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} ${t("dashboard.trend.points")}`}
-                  goodDirection="up"
-                />
-              )}
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
-                <Typography variant="subtitle2" color="text.secondary">{t("status.approved")}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                  <MaterialSymbol icon="verified" size={24} color="#2e7d32" />
+                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.approved")}</Typography>
+                </Box>
+                {data.trends && (
+                  <TrendIndicator
+                    deltaPct={data.trends.approved_count.delta_pct}
+                    deltaAbs={data.trends.approved_count.delta_abs}
+                    goodDirection="up"
+                  />
+                )}
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
-              {data.trends && (
-                <TrendIndicator
-                  deltaPct={data.trends.approved_count.delta_pct}
-                  deltaAbs={data.trends.approved_count.delta_abs}
-                  goodDirection="up"
-                />
-              )}
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                <MaterialSymbol icon="warning" size={24} color="#f57c00" />
-                <Typography variant="subtitle2" color="text.secondary">{t("status.broken")}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1, gap: 1 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+                  <MaterialSymbol icon="warning" size={24} color="#f57c00" />
+                  <Typography variant="subtitle2" color="text.secondary" noWrap>{t("status.broken")}</Typography>
+                </Box>
+                {data.trends && (
+                  <TrendIndicator
+                    deltaPct={data.trends.broken_count.delta_pct}
+                    deltaAbs={data.trends.broken_count.delta_abs}
+                    goodDirection="down"
+                  />
+                )}
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
-              {data.trends && (
-                <TrendIndicator
-                  deltaPct={data.trends.broken_count.delta_pct}
-                  deltaAbs={data.trends.broken_count.delta_abs}
-                  goodDirection="down"
-                />
-              )}
             </CardContent>
           </Card>
         </Grid>
@@ -210,11 +218,9 @@ export default function Dashboard() {
         <Typography
           variant="caption"
           color="text.secondary"
-          sx={{ display: "block", mt: -2, mb: 3, textAlign: "right" }}
+          sx={{ display: "block", mb: 3, textAlign: "left" }}
         >
-          {data.trends.snapshot_available
-            ? t("dashboard.trend.vsDays", { count: data.trends.comparison_days })
-            : t("dashboard.trend.collecting")}
+          {t("dashboard.trend.caption")}
         </Typography>
       )}
 

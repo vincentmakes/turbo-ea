@@ -116,6 +116,7 @@
   "dashboard.trend.flat": "Без изменений",
   "dashboard.trend.collecting": "Сбор данных тренда…",
   "dashboard.trend.points": "п.",
+  "dashboard.trend.caption": "Индикаторы тренда основаны на последних 30 днях",
   "colorPicker.pickColor": "Выбрать цвет",
   "colorPicker.recent": "Недавние",
   "timelineSlider.timeTravel": "Путешествие во времени",

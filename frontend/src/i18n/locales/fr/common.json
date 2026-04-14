@@ -125,6 +125,7 @@
   "dashboard.trend.flat": "Aucun changement",
   "dashboard.trend.collecting": "Collecte des tendances…",
   "dashboard.trend.points": "pts",
+  "dashboard.trend.caption": "Les indicateurs de tendance portent sur les 30 derniers jours",
 
   "colorPicker.pickColor": "Choisir une couleur",
   "colorPicker.recent": "R\u00e9centes",

@@ -116,6 +116,7 @@
   "dashboard.trend.flat": "无变化",
   "dashboard.trend.collecting": "正在收集趋势数据…",
   "dashboard.trend.points": "分",
+  "dashboard.trend.caption": "趋势指标基于近 30 天的数据",
   "colorPicker.pickColor": "选择颜色",
   "colorPicker.recent": "最近使用",
   "timelineSlider.timeTravel": "时间穿梭",

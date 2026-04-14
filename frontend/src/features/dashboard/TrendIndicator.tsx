@@ -66,7 +66,7 @@ export default function TrendIndicator({
   const absLabel = formatAbs(abs);
 
   return (
-    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
+    <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
       <MaterialSymbol icon={icon} size={16} color={color} />
       <Typography variant="caption" sx={{ color, fontWeight: 600 }}>
         {pctLabel}
