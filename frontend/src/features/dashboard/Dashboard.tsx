@@ -162,8 +162,6 @@ export default function Dashboard() {
                 {data.trends && (
                   <TrendIndicator
                     deltaPct={data.trends.avg_data_quality.delta_pct}
-                    deltaAbs={data.trends.avg_data_quality.delta_abs}
-                    formatAbs={(v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)} ${t("dashboard.trend.points")}`}
                     goodDirection="up"
                   />
                 )}

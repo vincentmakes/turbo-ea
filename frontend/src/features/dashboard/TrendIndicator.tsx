@@ -6,7 +6,12 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 interface Props {
   /** Signed % change vs the comparison snapshot, or null when no baseline exists. */
   deltaPct: number | null;
-  /** Signed absolute change (e.g. +5 new cards). Null when no baseline exists. */
+  /**
+   * Signed absolute change (e.g. +5 new cards). Omit (or pass undefined) to
+   * hide the parenthesised "(+N)" suffix — useful for percentage KPIs where
+   * the point-change isn't a meaningful additional signal. Null is treated
+   * the same as undefined (no baseline yet).
+   */
   deltaAbs?: number | null;
   /**
    * Formatter for the absolute delta. Defaults to signed integer / 1-decimal
@@ -17,8 +22,6 @@ interface Props {
   goodDirection: "up" | "down";
 }
 
-const FLAT_THRESHOLD = 0.5;
-
 const defaultFormatAbs = (value: number): string => {
   // Prefix non-negative values with "+" so the baseline reads "+0" and
   // deltas read consistently ("+5", "-3") regardless of sign.
@@ -28,42 +31,46 @@ const defaultFormatAbs = (value: number): string => {
 };
 
 /**
- * Small inline delta indicator rendered under a Dashboard KPI value. Follows
- * the dashboard-metric convention of always showing a value (0 % / +0 when
- * no change, coloured arrow when the metric is moving) instead of disappearing
- * or rendering a "collecting data" placeholder per tile.
+ * Small inline delta indicator rendered in the top-right of a Dashboard KPI
+ * tile. Always renders a concrete value — "+0.0%" in a muted colour on a
+ * fresh install with no baseline, and a coloured up/down arrow whenever any
+ * movement has occurred (including small counts like +1 that produce <1 %
+ * change on a large base).
  */
 export default function TrendIndicator({
   deltaPct,
-  deltaAbs = null,
+  deltaAbs,
   formatAbs = defaultFormatAbs,
   goodDirection,
 }: Props) {
   const theme = useTheme();
 
-  // Treat missing data as zero so the indicator always renders a concrete
-  // value — visually consistent across tiles whether the metric is stable,
-  // moving, or we don't yet have a historical baseline.
   const pct = deltaPct ?? 0;
   const abs = deltaAbs ?? 0;
-  const isFlat = Math.abs(pct) < FLAT_THRESHOLD;
+  const showAbs = deltaAbs !== undefined && deltaAbs !== null;
+
+  // Flat only when nothing has actually moved. Direction is driven by abs
+  // first (integer count is ground truth), falling back to pct for
+  // percentage-only KPIs like avg_data_quality.
+  const isFlat = abs === 0 && pct === 0;
+  const signFromAbs = abs !== 0 ? Math.sign(abs) : 0;
+  const signFromPct = pct !== 0 ? Math.sign(pct) : 0;
+  const direction = signFromAbs !== 0 ? signFromAbs : signFromPct;
 
   let icon: string;
   let color: string;
-  if (isFlat) {
+  if (isFlat || direction === 0) {
     icon = "trending_flat";
     color = theme.palette.text.secondary;
   } else {
-    const isUp = pct > 0;
+    const isUp = direction > 0;
     icon = isUp ? "trending_up" : "trending_down";
     const isImprovement = (isUp && goodDirection === "up") || (!isUp && goodDirection === "down");
     color = isImprovement ? theme.palette.success.main : theme.palette.error.main;
   }
 
-  // Non-negative values get a "+" prefix so the baseline reads "+0.0%".
   const pctSign = pct >= 0 ? "+" : "";
   const pctLabel = `${pctSign}${pct.toFixed(1)}%`;
-  const absLabel = formatAbs(abs);
 
   return (
     <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
@@ -71,9 +78,11 @@ export default function TrendIndicator({
       <Typography variant="caption" sx={{ color, fontWeight: 600 }}>
         {pctLabel}
       </Typography>
-      <Typography variant="caption" sx={{ color, fontWeight: 500 }}>
-        ({absLabel})
-      </Typography>
+      {showAbs && (
+        <Typography variant="caption" sx={{ color, fontWeight: 500 }}>
+          ({formatAbs(abs)})
+        </Typography>
+      )}
     </Box>
   );
 }

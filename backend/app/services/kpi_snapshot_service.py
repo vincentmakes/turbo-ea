@@ -50,7 +50,9 @@ async def capture_snapshot(db: AsyncSession, snapshot_date: date | None = None) 
     """Capture today's KPI values into kpi_snapshots (idempotent UPSERT).
 
     If a snapshot for the given date already exists, it is updated in place so
-    re-running the daily task is safe.
+    re-running the daily task is safe. The caller owns the transaction — this
+    function flushes but does not commit, which keeps the nested-savepoint
+    rollback pattern in tests behaving correctly.
     """
     target_date = snapshot_date or datetime.now(timezone.utc).date()
     kpis = await compute_current_kpis(db)
@@ -69,7 +71,7 @@ async def capture_snapshot(db: AsyncSession, snapshot_date: date | None = None) 
         )
     )
     await db.execute(stmt)
-    await db.commit()
+    await db.flush()
 
     result = await db.execute(select(KpiSnapshot).where(KpiSnapshot.snapshot_date == target_date))
     return result.scalar_one()

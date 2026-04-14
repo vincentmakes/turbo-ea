@@ -118,6 +118,7 @@ async def _kpi_snapshot_loop() -> None:
 
             async with async_session() as db:
                 snap = await capture_snapshot(db)
+                await db.commit()
                 logger.info(
                     "Captured KPI snapshot for %s (total=%d, dq=%.1f, approved=%d, broken=%d)",
                     snap.snapshot_date.isoformat(),
@@ -152,6 +153,7 @@ async def _ensure_initial_kpi_snapshot() -> None:
             if existing.scalar_one_or_none() is not None:
                 return
             await capture_snapshot(db)
+            await db.commit()
             logger.info("Captured initial KPI snapshot baseline")
     except Exception:
         logger.exception("Failed to capture initial KPI snapshot")
