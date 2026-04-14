@@ -120,6 +120,9 @@
   "dashboard.recentActivity": "Atividade recente",
   "dashboard.noCardsYet": "Nenhuma ficha ainda",
   "dashboard.noRecentActivity": "Nenhuma atividade recente",
+  "dashboard.trend.vsDays_one": "vs último {{count}} dia",
+  "dashboard.trend.vsDays_other": "vs últimos {{count}} dias",
+  "dashboard.trend.flat": "Sem alteração",
 
   "colorPicker.pickColor": "Escolher cor",
   "colorPicker.recent": "Recentes",

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.43.0] - 2026-04-14
+
+### Added
+- Dashboard KPI tiles (Total Cards, Avg Completion, Approved, Broken) now show a coloured trend indicator comparing the current value to a snapshot from ~30 days ago, backed by a new daily `kpi_snapshots` capture (vincentmakes/turbo-ea#418)
+
 ## [0.42.5] - 2026-04-07
 
 ### Changed

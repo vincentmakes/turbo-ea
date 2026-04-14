@@ -30,6 +30,7 @@ import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { DashboardData } from "@/types";
+import TrendIndicator from "./TrendIndicator";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -138,6 +139,13 @@ export default function Dashboard() {
                 <Typography variant="subtitle2" color="text.secondary">{t("dashboard.totalCards")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.total_cards}</Typography>
+              {data.trends && (
+                <TrendIndicator
+                  deltaPct={data.trends.total_cards.delta_pct}
+                  goodDirection="up"
+                  comparisonDays={data.trends.comparison_days}
+                />
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -149,6 +157,13 @@ export default function Dashboard() {
                 <Typography variant="subtitle2" color="text.secondary">{t("dashboard.avgCompletion")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.avg_data_quality}%</Typography>
+              {data.trends && (
+                <TrendIndicator
+                  deltaPct={data.trends.avg_data_quality.delta_pct}
+                  goodDirection="up"
+                  comparisonDays={data.trends.comparison_days}
+                />
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -160,6 +175,13 @@ export default function Dashboard() {
                 <Typography variant="subtitle2" color="text.secondary">{t("status.approved")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["APPROVED"] || 0}</Typography>
+              {data.trends && (
+                <TrendIndicator
+                  deltaPct={data.trends.approved_count.delta_pct}
+                  goodDirection="up"
+                  comparisonDays={data.trends.comparison_days}
+                />
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -171,6 +193,13 @@ export default function Dashboard() {
                 <Typography variant="subtitle2" color="text.secondary">{t("status.broken")}</Typography>
               </Box>
               <Typography variant="h4" fontWeight={700}>{data.approval_statuses["BROKEN"] || 0}</Typography>
+              {data.trends && (
+                <TrendIndicator
+                  deltaPct={data.trends.broken_count.delta_pct}
+                  goodDirection="down"
+                  comparisonDays={data.trends.comparison_days}
+                />
+              )}
             </CardContent>
           </Card>
         </Grid>

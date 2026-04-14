@@ -120,6 +120,9 @@
   "dashboard.recentActivity": "Activit\u00e9 r\u00e9cente",
   "dashboard.noCardsYet": "Aucune fiche pour le moment",
   "dashboard.noRecentActivity": "Aucune activit\u00e9 r\u00e9cente",
+  "dashboard.trend.vsDays_one": "vs {{count}} dernier jour",
+  "dashboard.trend.vsDays_other": "vs {{count}} derniers jours",
+  "dashboard.trend.flat": "Aucun changement",
 
   "colorPicker.pickColor": "Choisir une couleur",
   "colorPicker.recent": "R\u00e9centes",

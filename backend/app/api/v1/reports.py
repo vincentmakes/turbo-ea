@@ -20,6 +20,10 @@ from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.user import User
+from app.services.kpi_snapshot_service import (
+    compute_trend_block,
+    get_comparison_snapshot,
+)
 from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -128,14 +132,27 @@ async def dashboard(db: AsyncSession = Depends(get_db), user: User = Depends(get
         for e in events_result.scalars().all()
     ]
 
+    # Trend indicators vs ~30 days ago (cold-start safe — returns nulls when
+    # no comparable snapshot exists).
+    avg_dq_rounded = round(avg_data_quality, 1)
+    current_kpis = {
+        "total_cards": total,
+        "avg_data_quality": avg_dq_rounded,
+        "approved_count": statuses.get("APPROVED", 0),
+        "broken_count": statuses.get("BROKEN", 0),
+    }
+    previous_snapshot = await get_comparison_snapshot(db, days_ago=30)
+    trends = compute_trend_block(current=current_kpis, previous=previous_snapshot)
+
     return {
         "total_cards": total,
         "by_type": by_type,
-        "avg_data_quality": round(avg_data_quality, 1),
+        "avg_data_quality": avg_dq_rounded,
         "approval_statuses": statuses,
         "data_quality_distribution": data_quality_dist,
         "lifecycle_distribution": lifecycle_dist,
         "recent_events": recent_events,
+        "trends": trends,
     }
 
 

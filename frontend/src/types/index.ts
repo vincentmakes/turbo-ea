@@ -403,6 +403,22 @@ export interface EventEntry {
   created_at?: string;
 }
 
+export interface KpiTrend {
+  current: number;
+  previous: number | null;
+  delta_pct: number | null;
+}
+
+export interface DashboardTrends {
+  comparison_days: number;
+  snapshot_available: boolean;
+  snapshot_date: string | null;
+  total_cards: KpiTrend;
+  avg_data_quality: KpiTrend;
+  approved_count: KpiTrend;
+  broken_count: KpiTrend;
+}
+
 export interface DashboardData {
   total_cards: number;
   by_type: Record<string, number>;
@@ -411,6 +427,7 @@ export interface DashboardData {
   data_quality_distribution: Record<string, number>;
   lifecycle_distribution: Record<string, number>;
   recent_events: EventEntry[];
+  trends?: DashboardTrends;
 }
 
 // ---------------------------------------------------------------------------

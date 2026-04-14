@@ -39,6 +39,7 @@ def _alembic_upgrade_sync(sync_connection, alembic_cfg):
 _PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
 _PURGE_RETENTION_DAYS = 30
 _OLLAMA_PULL_TIMEOUT = 600  # 10 minutes max for model pull
+_KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
 
 
 async def _purge_archived_cards_loop() -> None:
@@ -93,6 +94,67 @@ async def _purge_archived_cards_loop() -> None:
             raise
         except Exception:
             logger.exception("Error in archived card purge loop")
+
+
+async def _kpi_snapshot_loop() -> None:
+    """Background loop that captures one KPI snapshot per day at 02:00 UTC.
+
+    The dashboard endpoint reads these rows to compute "vs previous 30 days"
+    trend indicators. The capture is idempotent on snapshot_date, so a
+    transient restart that triggers a second run on the same day is safe.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.database import async_session
+    from app.services.kpi_snapshot_service import capture_snapshot
+
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            next_run = now.replace(hour=_KPI_SNAPSHOT_HOUR_UTC, minute=0, second=0, microsecond=0)
+            if next_run <= now:
+                next_run += timedelta(days=1)
+            await asyncio.sleep((next_run - now).total_seconds())
+
+            async with async_session() as db:
+                snap = await capture_snapshot(db)
+                logger.info(
+                    "Captured KPI snapshot for %s (total=%d, dq=%.1f, approved=%d, broken=%d)",
+                    snap.snapshot_date.isoformat(),
+                    snap.total_cards,
+                    snap.avg_data_quality,
+                    snap.approved_count,
+                    snap.broken_count,
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in KPI snapshot loop")
+            # Avoid tight retry loop if something is broken.
+            await asyncio.sleep(3600)
+
+
+async def _ensure_initial_kpi_snapshot() -> None:
+    """Capture an immediate snapshot on startup if the table is empty.
+
+    Without this, fresh installs would have to wait until the first 02:00 UTC
+    tick to record any baseline.
+    """
+    from sqlalchemy import select as _sel
+
+    from app.database import async_session
+    from app.models.kpi_snapshot import KpiSnapshot
+    from app.services.kpi_snapshot_service import capture_snapshot
+
+    try:
+        async with async_session() as db:
+            existing = await db.execute(_sel(KpiSnapshot.id).limit(1))
+            if existing.scalar_one_or_none() is not None:
+                return
+            await capture_snapshot(db)
+            logger.info("Captured initial KPI snapshot baseline")
+    except Exception:
+        logger.exception("Failed to capture initial KPI snapshot")
 
 
 async def _auto_configure_ai() -> None:
@@ -419,12 +481,22 @@ async def lifespan(app: FastAPI):
     # Start background task for auto-purging archived cards after 30 days
     purge_task = asyncio.create_task(_purge_archived_cards_loop())
 
+    # Capture an initial KPI baseline (no-op if table already has rows) and
+    # start the daily snapshot loop that powers dashboard trend indicators.
+    await _ensure_initial_kpi_snapshot()
+    kpi_task = asyncio.create_task(_kpi_snapshot_loop())
+
     yield
 
     # Cancel background tasks on shutdown
     purge_task.cancel()
     try:
         await purge_task
+    except asyncio.CancelledError:
+        pass
+    kpi_task.cancel()
+    try:
+        await kpi_task
     except asyncio.CancelledError:
         pass
     if ollama_task and not ollama_task.done():
