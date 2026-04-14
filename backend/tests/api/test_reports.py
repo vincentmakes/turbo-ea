@@ -175,6 +175,7 @@ class TestDashboard:
         for key in ("total_cards", "avg_data_quality", "approved_count", "broken_count"):
             assert trends[key]["previous"] is None
             assert trends[key]["delta_pct"] is None
+            assert trends[key]["delta_abs"] is None
             assert trends[key]["current"] is not None
 
     async def test_dashboard_trends_with_snapshot(self, client, db, reports_env):
@@ -221,12 +222,14 @@ class TestDashboard:
         assert trends["snapshot_available"] is True
         assert trends["snapshot_date"] == baseline_date.isoformat()
         assert trends["comparison_days"] == 30
-        # 1 -> 2 cards is +100 %.
+        # 1 -> 2 cards is +100 %, +1 absolute.
         assert trends["total_cards"]["current"] == 2
         assert trends["total_cards"]["previous"] == 1
         assert trends["total_cards"]["delta_pct"] == 100.0
-        # 50 -> 60 % avg dq is +20 %.
+        assert trends["total_cards"]["delta_abs"] == 1
+        # 50 -> 60 % avg dq is +20 %, +10.0 abs points.
         assert trends["avg_data_quality"]["delta_pct"] == 20.0
+        assert trends["avg_data_quality"]["delta_abs"] == 10.0
 
     async def test_dashboard_trends_zero_previous(self, client, db, reports_env):
         """When previous == 0 and current > 0 we return delta_pct=None to avoid div-by-zero."""
@@ -264,3 +267,5 @@ class TestDashboard:
         assert trends["approved_count"]["current"] == 1
         assert trends["approved_count"]["previous"] == 0
         assert trends["approved_count"]["delta_pct"] is None
+        # Absolute delta is still meaningful even when previous == 0.
+        assert trends["approved_count"]["delta_abs"] == 1

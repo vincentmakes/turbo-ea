@@ -406,6 +406,7 @@ export interface EventEntry {
 export interface KpiTrend {
   current: number;
   previous: number | null;
+  delta_abs: number | null;
   delta_pct: number | null;
 }
 

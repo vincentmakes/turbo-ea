@@ -79,18 +79,20 @@ async def get_comparison_snapshot(
     db: AsyncSession,
     *,
     days_ago: int = 30,
-    tolerance_days: int = 7,
+    min_days: int = 1,
+    max_days: int = 365,
 ) -> KpiSnapshot | None:
-    """Return the snapshot closest to (today - days_ago) within +/- tolerance.
+    """Return the snapshot closest to (today - days_ago) within [min_days, max_days].
 
-    If no snapshot in the window exists (e.g. fresh install, fewer than
-    ``days_ago - tolerance`` days of history), returns None and the dashboard
-    endpoint omits the trend.
+    Falls back to the oldest available snapshot in the search window when none
+    is close to the target, so fresh installs still see useful trends after a
+    day or two instead of waiting a full 30 days. The caller should treat the
+    returned snapshot's actual age as the comparison window.
     """
     today = datetime.now(timezone.utc).date()
+    earliest = today - timedelta(days=max_days)
+    latest = today - timedelta(days=min_days)
     target = today - timedelta(days=days_ago)
-    earliest = today - timedelta(days=days_ago + tolerance_days)
-    latest = today - timedelta(days=max(days_ago - tolerance_days, 1))
 
     result = await db.execute(
         select(KpiSnapshot)
@@ -107,14 +109,34 @@ def compute_trend_block(
     *,
     current: dict,
     previous: KpiSnapshot | None,
-    comparison_days: int = 30,
+    preferred_days: int = 30,
 ) -> dict:
-    """Build the ``trends`` block returned by /reports/dashboard."""
+    """Build the ``trends`` block returned by /reports/dashboard.
 
-    def _delta(curr: float, prev: float | None) -> float | None:
+    ``comparison_days`` reflects the actual age of the snapshot used, which may
+    differ from ``preferred_days`` when the dataset is new (fallback to
+    whatever snapshot is available).
+    """
+
+    def _delta_pct(curr: float, prev: float | None) -> float | None:
         if prev is None or prev == 0:
             return None
         return round(((curr - prev) / prev) * 100, 1)
+
+    def _delta_abs(curr: float, prev: float | None) -> float | None:
+        if prev is None:
+            return None
+        diff = curr - prev
+        # Preserve int for count KPIs; round the float KPI (avg_data_quality).
+        if isinstance(curr, int) and isinstance(prev, int):
+            return int(diff)
+        return round(diff, 1)
+
+    if previous is not None:
+        today = datetime.now(timezone.utc).date()
+        comparison_days = max((today - previous.snapshot_date).days, 1)
+    else:
+        comparison_days = preferred_days
 
     fields = ("total_cards", "avg_data_quality", "approved_count", "broken_count")
     trends: dict = {
@@ -128,6 +150,7 @@ def compute_trend_block(
         trends[field] = {
             "current": curr_val,
             "previous": prev_val,
-            "delta_pct": _delta(curr_val, prev_val),
+            "delta_abs": _delta_abs(curr_val, prev_val),
+            "delta_pct": _delta_pct(curr_val, prev_val),
         }
     return trends

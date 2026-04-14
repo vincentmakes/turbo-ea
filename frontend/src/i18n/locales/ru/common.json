@@ -114,6 +114,8 @@
   "dashboard.trend.vsDays_one": "за последний {{count}} день",
   "dashboard.trend.vsDays_other": "за последние {{count}} дней",
   "dashboard.trend.flat": "Без изменений",
+  "dashboard.trend.collecting": "Сбор данных тренда…",
+  "dashboard.trend.points": "п.",
   "colorPicker.pickColor": "Выбрать цвет",
   "colorPicker.recent": "Недавние",
   "timelineSlider.timeTravel": "Путешествие во времени",

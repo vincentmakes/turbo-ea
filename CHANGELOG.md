@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.43.0] - 2026-04-14
 
 ### Added
-- Dashboard KPI tiles (Total Cards, Avg Completion, Approved, Broken) now show a coloured trend indicator comparing the current value to a snapshot from ~30 days ago, backed by a new daily `kpi_snapshots` capture (vincentmakes/turbo-ea#418)
+- Dashboard KPI tiles (Total Cards, Avg Completion, Approved, Broken) now show a coloured trend indicator comparing the current value to a snapshot from up to ~30 days ago, including the absolute change (e.g. "+5") and the comparison window ("vs last 30 days"). Backed by a new daily `kpi_snapshots` capture. On fresh installs the indicator falls back to the oldest available snapshot so trends appear from day 2 instead of waiting a full 30 days, and displays a muted "Collecting trend data…" placeholder until the first prior snapshot is recorded (vincentmakes/turbo-ea#418)
 
 ## [0.42.5] - 2026-04-07
 

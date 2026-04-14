@@ -98,10 +98,11 @@ async def test_get_comparison_snapshot_picks_closest(db):
 
 
 async def test_get_comparison_snapshot_returns_none_when_outside_window(db):
+    """Same-day snapshots don't count (min_days=1)."""
     today = datetime.now(timezone.utc).date()
     db.add(
         KpiSnapshot(
-            snapshot_date=today - timedelta(days=2),  # too recent
+            snapshot_date=today,  # today — excluded by min_days=1
             total_cards=10,
             avg_data_quality=50.0,
             approved_count=2,
@@ -112,6 +113,25 @@ async def test_get_comparison_snapshot_returns_none_when_outside_window(db):
 
     snap = await get_comparison_snapshot(db, days_ago=30)
     assert snap is None
+
+
+async def test_get_comparison_snapshot_falls_back_to_oldest_available(db):
+    """On a fresh install with only recent snapshots, return the oldest one."""
+    today = datetime.now(timezone.utc).date()
+    db.add(
+        KpiSnapshot(
+            snapshot_date=today - timedelta(days=3),
+            total_cards=10,
+            avg_data_quality=50.0,
+            approved_count=2,
+            broken_count=1,
+        )
+    )
+    await db.commit()
+
+    snap = await get_comparison_snapshot(db, days_ago=30)
+    assert snap is not None
+    assert snap.snapshot_date == today - timedelta(days=3)
 
 
 def test_compute_trend_block_no_previous():
@@ -128,6 +148,7 @@ def test_compute_trend_block_no_previous():
     for key in current:
         assert block[key]["current"] == current[key]
         assert block[key]["previous"] is None
+        assert block[key]["delta_abs"] is None
         assert block[key]["delta_pct"] is None
 
 
@@ -147,10 +168,13 @@ def test_compute_trend_block_handles_zero_previous():
     )
     block = compute_trend_block(current=current, previous=snapshot)
     assert block["snapshot_available"] is True
-    # All previous values are 0 → delta_pct is None across the board.
+    # Percentage change is undefined against a zero baseline, but absolute
+    # delta is still meaningful.
     for key in current:
         assert block[key]["delta_pct"] is None
         assert block[key]["previous"] == 0
+    assert block["total_cards"]["delta_abs"] == 5
+    assert block["avg_data_quality"]["delta_abs"] == 70.0
 
 
 def test_compute_trend_block_calculates_signed_delta():
@@ -168,7 +192,32 @@ def test_compute_trend_block_calculates_signed_delta():
         broken_count=2,
     )
     block = compute_trend_block(current=current, previous=snapshot)
+    assert block["comparison_days"] == 30
     assert block["total_cards"]["delta_pct"] == 20.0
+    assert block["total_cards"]["delta_abs"] == 2
     assert block["avg_data_quality"]["delta_pct"] == 50.0
+    assert block["avg_data_quality"]["delta_abs"] == 30.0
     assert block["approved_count"]["delta_pct"] == -25.0
+    assert block["approved_count"]["delta_abs"] == -1
     assert block["broken_count"]["delta_pct"] == -50.0
+    assert block["broken_count"]["delta_abs"] == -1
+
+
+def test_compute_trend_block_uses_actual_snapshot_age():
+    """When fallback picks a younger snapshot, comparison_days reflects that."""
+    current = {
+        "total_cards": 10,
+        "avg_data_quality": 70.0,
+        "approved_count": 3,
+        "broken_count": 1,
+    }
+    snapshot = KpiSnapshot(
+        snapshot_date=datetime.now(timezone.utc).date() - timedelta(days=5),
+        total_cards=8,
+        avg_data_quality=65.0,
+        approved_count=2,
+        broken_count=1,
+    )
+    block = compute_trend_block(current=current, previous=snapshot)
+    assert block["comparison_days"] == 5
+    assert block["total_cards"]["delta_abs"] == 2

@@ -142,8 +142,10 @@ export default function Dashboard() {
               {data.trends && (
                 <TrendIndicator
                   deltaPct={data.trends.total_cards.delta_pct}
+                  deltaAbs={data.trends.total_cards.delta_abs}
                   goodDirection="up"
                   comparisonDays={data.trends.comparison_days}
+                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -160,8 +162,11 @@ export default function Dashboard() {
               {data.trends && (
                 <TrendIndicator
                   deltaPct={data.trends.avg_data_quality.delta_pct}
+                  deltaAbs={data.trends.avg_data_quality.delta_abs}
+                  formatAbs={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} ${t("dashboard.trend.points")}`}
                   goodDirection="up"
                   comparisonDays={data.trends.comparison_days}
+                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -178,8 +183,10 @@ export default function Dashboard() {
               {data.trends && (
                 <TrendIndicator
                   deltaPct={data.trends.approved_count.delta_pct}
+                  deltaAbs={data.trends.approved_count.delta_abs}
                   goodDirection="up"
                   comparisonDays={data.trends.comparison_days}
+                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>
@@ -196,8 +203,10 @@ export default function Dashboard() {
               {data.trends && (
                 <TrendIndicator
                   deltaPct={data.trends.broken_count.delta_pct}
+                  deltaAbs={data.trends.broken_count.delta_abs}
                   goodDirection="down"
                   comparisonDays={data.trends.comparison_days}
+                  snapshotAvailable={data.trends.snapshot_available}
                 />
               )}
             </CardContent>

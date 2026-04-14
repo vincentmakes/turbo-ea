@@ -114,6 +114,8 @@
   "dashboard.trend.vsDays_one": "ggü. letztem {{count}} Tag",
   "dashboard.trend.vsDays_other": "ggü. letzten {{count}} Tagen",
   "dashboard.trend.flat": "Keine Änderung",
+  "dashboard.trend.collecting": "Trenddaten werden erfasst…",
+  "dashboard.trend.points": "Pkt.",
   "colorPicker.pickColor": "Farbe wählen",
   "colorPicker.recent": "Zuletzt verwendet",
   "timelineSlider.timeTravel": "Zeitreise",

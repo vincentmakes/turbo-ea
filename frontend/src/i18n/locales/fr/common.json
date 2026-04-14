@@ -123,6 +123,8 @@
   "dashboard.trend.vsDays_one": "vs {{count}} dernier jour",
   "dashboard.trend.vsDays_other": "vs {{count}} derniers jours",
   "dashboard.trend.flat": "Aucun changement",
+  "dashboard.trend.collecting": "Collecte des tendances…",
+  "dashboard.trend.points": "pts",
 
   "colorPicker.pickColor": "Choisir une couleur",
   "colorPicker.recent": "R\u00e9centes",
