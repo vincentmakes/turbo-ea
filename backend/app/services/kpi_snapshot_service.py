@@ -73,7 +73,15 @@ async def capture_snapshot(db: AsyncSession, snapshot_date: date | None = None) 
     await db.execute(stmt)
     await db.flush()
 
-    result = await db.execute(select(KpiSnapshot).where(KpiSnapshot.snapshot_date == target_date))
+    # populate_existing forces re-hydration from the DB: the Core-level UPSERT
+    # above is invisible to the ORM's identity map, so a plain SELECT would
+    # return the previous (stale) row if one was already loaded in the same
+    # session.
+    result = await db.execute(
+        select(KpiSnapshot)
+        .where(KpiSnapshot.snapshot_date == target_date)
+        .execution_options(populate_existing=True)
+    )
     return result.scalar_one()
 
 
