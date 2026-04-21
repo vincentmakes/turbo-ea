@@ -524,5 +524,13 @@
   "risks.filter.activeCount_one": "{{count}} filter",
   "risks.filter.activeCount_other": "{{count}} filters",
   "risks.grid.empty": "No risks match the current filters.",
-  "risks.grid.rowsPerPage": "Rows per page"
+  "risks.grid.rowsPerPage": "Rows per page",
+  "risks.filter.panelTitle": "Filters",
+  "risks.filter.searchPlaceholder": "Reference, title, description...",
+  "risks.filter.ownerSearchPlaceholder": "Search users...",
+  "risks.filter.noOwners": "No users available.",
+  "risks.filter.source": "Source",
+  "risks.filter.target": "Target date",
+  "risks.filter.from": "From",
+  "risks.filter.to": "To"
 }

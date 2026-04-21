@@ -427,7 +427,7 @@
   "risks.filter.status": "Status",
   "risks.filter.category": "Category",
   "risks.filter.level": "Level",
-  "risks.filter.owner": "Owner",
+  "risks.filter.owner": "Verantwortlich",
   "risks.filter.all": "All",
   "risks.filter.overdueOnly": "Show overdue only",
   "risks.matrix.initial": "Initial",
@@ -524,5 +524,13 @@
   "risks.filter.activeCount_one": "{{count}} Filter",
   "risks.filter.activeCount_other": "{{count}} Filter",
   "risks.grid.empty": "Keine Risiken entsprechen den aktiven Filtern.",
-  "risks.grid.rowsPerPage": "Zeilen pro Seite"
+  "risks.grid.rowsPerPage": "Zeilen pro Seite",
+  "risks.filter.panelTitle": "Filter",
+  "risks.filter.searchPlaceholder": "Referenz, Titel, Beschreibung...",
+  "risks.filter.ownerSearchPlaceholder": "Benutzer suchen...",
+  "risks.filter.noOwners": "Keine Benutzer verfügbar.",
+  "risks.filter.source": "Quelle",
+  "risks.filter.target": "Zieldatum",
+  "risks.filter.from": "Von",
+  "risks.filter.to": "Bis"
 }

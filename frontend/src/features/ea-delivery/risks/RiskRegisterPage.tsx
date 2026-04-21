@@ -1,10 +1,12 @@
 /**
  * RiskRegisterPage — TOGAF-aligned risk register list view.
  *
- * Top: five KPI tiles + an Initial/Residual 4×4 matrix with click-to-filter.
- * Bottom: filter bar + paginated risk table. Clicking a row navigates to
- * the risk detail page; clicking a matrix cell filters the table by that
- * probability × impact bucket.
+ * Layout mirrors the ADR tab: KPIs + matrix on top, then a flex row
+ * with the ``RiskFilterSidebar`` on the left and the AG Grid on the
+ * right. Filters live in the sidebar (search, status, category, level,
+ * owner, source, target-date range, overdue-only) and flow through the
+ * same ``/risks`` + ``/risks/metrics`` endpoints so the matrix + KPI
+ * tiles follow the active view.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,59 +24,35 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Checkbox from "@mui/material/Checkbox";
 import CircularProgress from "@mui/material/CircularProgress";
-import FormControl from "@mui/material/FormControl";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Grid from "@mui/material/Grid";
-import InputAdornment from "@mui/material/InputAdornment";
-import InputLabel from "@mui/material/InputLabel";
-import ListItemText from "@mui/material/ListItemText";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
-import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
-import { useThemeMode } from "@/hooks/useThemeMode";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
 import type {
   Risk,
-  RiskCategory,
   RiskLevel,
   RiskListPage,
   RiskMetrics,
-  RiskStatus,
 } from "@/types";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import CreateRiskDialog from "./CreateRiskDialog";
+import RiskFilterSidebar, {
+  EMPTY_RISK_FILTERS,
+  OwnerOption,
+  RiskFilters,
+} from "./RiskFilterSidebar";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
 
-const STATUSES: RiskStatus[] = [
-  "identified",
-  "analysed",
-  "mitigation_planned",
-  "in_progress",
-  "mitigated",
-  "monitoring",
-  "accepted",
-  "closed",
-];
-const CATEGORIES: RiskCategory[] = [
-  "security",
-  "compliance",
-  "operational",
-  "technology",
-  "financial",
-  "reputational",
-  "strategic",
-];
-const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function RiskRegisterPage() {
   const { t } = useTranslation("delivery");
@@ -84,47 +62,50 @@ export default function RiskRegisterPage() {
 
   const [rows, setRows] = useState<Risk[]>([]);
   const [loading, setLoading] = useState(true);
-  // Quick-filter is grid-local only (client-side, composed with the
-  // server-side ``search`` so the two narrow independently).
-  const [quickFilter, setQuickFilter] = useState("");
-
   const [metrics, setMetrics] = useState<RiskMetrics | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [filters, setFilters] = useState<RiskFilters>({ ...EMPTY_RISK_FILTERS });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
+
   const [matrixView, setMatrixView] = useState<"initial" | "residual">("initial");
   const [matrixSelection, setMatrixSelection] = useState<RiskMatrixSelection | null>(
     null,
   );
 
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<RiskStatus[]>([]);
-  const [category, setCategory] = useState<RiskCategory[]>([]);
-  const [level, setLevel] = useState<RiskLevel[]>([]);
-  const [overdueOnly, setOverdueOnly] = useState(false);
-
   const [dialogSeed, setDialogSeed] = useState<RiskDialogSeed | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [availableOwners, setAvailableOwners] = useState<OwnerOption[]>([]);
 
-  // Shared filter → URLSearchParams builder. Multi-selects are sent as
-  // repeat keys (``?status=identified&status=analysed``) — the backend's
-  // ``list[str] | None = Query(None)`` parser picks them up natively.
+  // ── Fetch users once for the Owner picker in the sidebar. ──────
+  useEffect(() => {
+    api
+      .get<OwnerOption[]>("/users")
+      .then(setAvailableOwners)
+      .catch(() => setAvailableOwners([]));
+  }, []);
+
+  // ── Shared URLSearchParams builder. Multi-valued filters ride as
+  //    repeat keys (``?status=identified&status=analysed``) — both the
+  //    list and metrics endpoints accept them. ─────────────────────
   const buildFilterParams = useCallback(
     (base: Record<string, string> = {}) => {
       const params = new URLSearchParams(base);
-      if (search) params.set("search", search);
-      status.forEach((s) => params.append("status", s));
-      category.forEach((c) => params.append("category", c));
-      level.forEach((l) => params.append("level", l));
-      if (overdueOnly) params.set("overdue", "true");
+      if (filters.search.trim()) params.set("search", filters.search.trim());
+      filters.statuses.forEach((s) => params.append("status", s));
+      filters.categories.forEach((c) => params.append("category", c));
+      filters.levels.forEach((l) => params.append("level", l));
+      filters.sources.forEach((s) => params.append("source_type", s));
+      filters.owners.forEach((o) => params.append("owner_id", o));
+      if (filters.overdueOnly) params.set("overdue", "true");
       return params;
     },
-    [search, status, category, level, overdueOnly],
+    [filters],
   );
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      // Pull the full filtered set in one request (cap 1000) so AG Grid
-      // can handle sort / column filters / pagination client-side without
-      // round-tripping.
       const params = buildFilterParams({ page: "1", page_size: "1000" });
       const data = await api.get<RiskListPage>(`/risks?${params}`);
       setRows(data.items);
@@ -152,24 +133,24 @@ export default function RiskRegisterPage() {
     reload();
   }, [reload]);
   useEffect(() => {
-    // Matrix + KPI tiles follow the active filter set.
     reloadMetrics();
   }, [reloadMetrics]);
 
-  // Filter rows by the matrix selection client-side (no server param — the
-  // matrix is landscape-wide, and filtering locally keeps the flow snappy).
+  // ── Matrix cell → further narrows the already-filtered rows by the
+  //    selected probability × impact bucket. Also drives the grid's
+  //    visible rows via filteredRows. ────────────────────────────
   const filteredRows = useMemo(() => {
     if (!matrixSelection) return rows;
     return rows.filter((r) => {
       if (matrixView === "initial") {
         return (
-          r.initial_probability === matrixSelection.probability &&
-          r.initial_impact === matrixSelection.impact
+          r.initial_probability === matrixSelection.probability
+          && r.initial_impact === matrixSelection.impact
         );
       }
       return (
-        r.residual_probability === matrixSelection.probability &&
-        r.residual_impact === matrixSelection.impact
+        r.residual_probability === matrixSelection.probability
+        && r.residual_impact === matrixSelection.impact
       );
     });
   }, [rows, matrixSelection, matrixView]);
@@ -308,8 +289,11 @@ export default function RiskRegisterPage() {
           const d = p.data.target_resolution_date;
           if (!d) return null;
           const overdue =
-            d < today && !["closed", "accepted", "mitigated"].includes(p.data.status);
-          return overdue ? { color: "var(--mui-palette-error-main, #d32f2f)", fontWeight: 600 } : null;
+            d < today
+            && !["closed", "accepted", "mitigated"].includes(p.data.status);
+          return overdue
+            ? { color: "var(--mui-palette-error-main, #d32f2f)", fontWeight: 600 }
+            : null;
         },
       },
       {
@@ -332,26 +316,8 @@ export default function RiskRegisterPage() {
     [t, today, levelWeight],
   );
 
-  // ── Clear-filters affordance ──────────────────────────────────────
-  const activeCount =
-    (search.trim() ? 1 : 0)
-    + (status.length > 0 ? 1 : 0)
-    + (category.length > 0 ? 1 : 0)
-    + (level.length > 0 ? 1 : 0)
-    + (overdueOnly ? 1 : 0)
-    + (matrixSelection ? 1 : 0)
-    + (quickFilter.trim() ? 1 : 0);
-
-  const clearAll = useCallback(() => {
-    setSearch("");
-    setStatus([]);
-    setCategory([]);
-    setLevel([]);
-    setOverdueOnly(false);
-    setMatrixSelection(null);
-    setQuickFilter("");
-    gridRef.current?.api?.setFilterModel(null);
-  }, []);
+  // ── KPI helpers ──────────────────────────────────────────────────
+  const topLvl = topLevel(metrics?.by_level);
 
   return (
     <Box>
@@ -424,7 +390,7 @@ export default function RiskRegisterPage() {
         <Grid item xs={6} md={2.4}>
           <MetricCard
             label={t("risks.kpi.avgLevel")}
-            value={topLevel(metrics?.by_level) ?? "—"}
+            value={topLvl ?? "—"}
             icon="assessment"
             color="#6a1b9a"
             iconColor="#6a1b9a"
@@ -454,7 +420,9 @@ export default function RiskRegisterPage() {
             }}
           >
             <ToggleButton value="initial">{t("risks.matrix.initial")}</ToggleButton>
-            <ToggleButton value="residual">{t("risks.matrix.residual")}</ToggleButton>
+            <ToggleButton value="residual">
+              {t("risks.matrix.residual")}
+            </ToggleButton>
           </ToggleButtonGroup>
         </Stack>
         <Typography variant="caption" color="text.secondary">
@@ -483,113 +451,64 @@ export default function RiskRegisterPage() {
         )}
       </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
-          <TextField
-            label={t("risks.filter.search")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            size="small"
-            sx={{ minWidth: 220 }}
-          />
-          <MultiSelectFilter
-            label={t("risks.filter.status")}
-            value={status}
-            options={STATUSES}
-            allLabel={t("risks.filter.all")}
-            translateOption={(s) => t(`risks.status.${s}`)}
-            onChange={setStatus}
-          />
-          <MultiSelectFilter
-            label={t("risks.filter.category")}
-            value={category}
-            options={CATEGORIES}
-            allLabel={t("risks.filter.all")}
-            translateOption={(c) => t(`risks.category.${c}`)}
-            onChange={setCategory}
-          />
-          <MultiSelectFilter
-            label={t("risks.filter.level")}
-            value={level}
-            options={LEVELS}
-            allLabel={t("risks.filter.all")}
-            translateOption={(l) => t(`risks.level.${l}`)}
-            onChange={setLevel}
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={overdueOnly}
-                onChange={(e) => setOverdueOnly(e.target.checked)}
-              />
-            }
-            label={t("risks.filter.overdueOnly")}
-          />
-          <TextField
-            size="small"
-            placeholder={t("risks.filter.quickSearch")}
-            value={quickFilter}
-            onChange={(e) => setQuickFilter(e.target.value)}
-            sx={{ minWidth: 200 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <MaterialSymbol icon="search" size={18} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Box sx={{ flex: 1 }} />
-          {activeCount > 0 && (
-            <Button
-              size="small"
-              startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
-              onClick={clearAll}
-              sx={{ textTransform: "none" }}
-            >
-              {t("risks.filter.clearAll")} ·{" "}
-              {t("risks.filter.activeCount", { count: activeCount })}
-            </Button>
-          )}
-        </Stack>
-      </Paper>
+      {/* Sidebar + grid — flex row with a shared bordered container,
+          matching the ADR decisions tab layout. */}
+      <Box
+        sx={{
+          display: "flex",
+          border: 1,
+          borderColor: "divider",
+          borderRadius: 1,
+          overflow: "hidden",
+          height: 640,
+        }}
+      >
+        <RiskFilterSidebar
+          filters={filters}
+          onFiltersChange={setFilters}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          availableOwners={availableOwners}
+        />
 
-      <Paper variant="outlined" sx={{ p: 0 }}>
-        {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box
-            className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
-            sx={{ width: "100%", height: 560 }}
-          >
-            <AgGridReact<Risk>
-              ref={gridRef}
-              rowData={filteredRows}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              rowHeight={44}
-              headerHeight={44}
-              animateRows
-              pagination
-              paginationPageSize={25}
-              paginationPageSizeSelector={[25, 50, 100, 200]}
-              quickFilterText={quickFilter}
-              overlayNoRowsTemplate={`<span style="padding: 24px; color: var(--ag-secondary-foreground-color);">${t(
-                "risks.grid.empty",
-              )}</span>`}
-              suppressCellFocus
-              onRowClicked={(e: RowClickedEvent<Risk>) => {
-                if (e.data) navigate(`/ea-delivery/risks/${e.data.id}`);
-              }}
-              onGridReady={(e: GridReadyEvent<Risk>) => {
-                e.api.sizeColumnsToFit();
-              }}
-            />
-          </Box>
-        )}
-      </Paper>
+        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", py: 6, flex: 1 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Box
+              className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
+              sx={{ width: "100%", flex: 1 }}
+            >
+              <AgGridReact<Risk>
+                ref={gridRef}
+                rowData={filteredRows}
+                columnDefs={columnDefs}
+                defaultColDef={defaultColDef}
+                rowHeight={44}
+                headerHeight={44}
+                animateRows
+                pagination
+                paginationPageSize={25}
+                paginationPageSizeSelector={[25, 50, 100, 200]}
+                overlayNoRowsTemplate={`<span style="padding: 24px; color: var(--ag-secondary-foreground-color);">${t(
+                  "risks.grid.empty",
+                )}</span>`}
+                suppressCellFocus
+                onRowClicked={(e: RowClickedEvent<Risk>) => {
+                  if (e.data) navigate(`/ea-delivery/risks/${e.data.id}`);
+                }}
+                onGridReady={(e: GridReadyEvent<Risk>) => {
+                  e.api.sizeColumnsToFit();
+                }}
+              />
+            </Box>
+          )}
+        </Box>
+      </Box>
 
       <CreateRiskDialog
         open={Boolean(dialogSeed)}
@@ -608,54 +527,4 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
     if ((byLevel[lvl] ?? 0) > 0) return lvl;
   }
   return null;
-}
-
-/**
- * Typed multi-select filter dropdown. Empty array means "no filter" (all
- * rows). Checkbox menu items mirror the de-facto MUI pattern so users can
- * click multiple options without closing the menu.
- */
-function MultiSelectFilter<T extends string>({
-  label,
-  value,
-  options,
-  allLabel,
-  translateOption,
-  onChange,
-}: {
-  label: string;
-  value: T[];
-  options: readonly T[];
-  allLabel: string;
-  translateOption: (option: T) => string;
-  onChange: (value: T[]) => void;
-}) {
-  return (
-    <FormControl size="small" sx={{ minWidth: 180 }}>
-      <InputLabel>{label}</InputLabel>
-      <Select
-        multiple
-        value={value}
-        label={label}
-        onChange={(e) => {
-          const raw = e.target.value;
-          const next = Array.isArray(raw) ? (raw as T[]) : [raw as T];
-          onChange(next);
-        }}
-        renderValue={(selected) => {
-          const arr = selected as T[];
-          if (arr.length === 0) return allLabel;
-          if (arr.length === 1) return translateOption(arr[0]);
-          return `${arr.length} selected`;
-        }}
-      >
-        {options.map((opt) => (
-          <MenuItem key={opt} value={opt}>
-            <Checkbox size="small" checked={value.includes(opt)} />
-            <ListItemText primary={translateOption(opt)} />
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  );
 }
