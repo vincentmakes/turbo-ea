@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -48,6 +49,12 @@ const CATEGORIES: RiskCategory[] = [
 const PROBABILITIES: RiskProbability[] = ["very_high", "high", "medium", "low"];
 const IMPACTS: RiskImpact[] = ["critical", "high", "medium", "low"];
 
+interface UserOption {
+  id: string;
+  display_name: string;
+  email: string;
+}
+
 interface Props {
   open: boolean;
   seed: RiskDialogSeed | null;
@@ -66,8 +73,20 @@ export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Pro
   const [impact, setImpact] = useState<RiskImpact>("medium");
   const [mitigation, setMitigation] = useState("");
   const [target, setTarget] = useState<string>("");
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // GET /users is open to any authenticated user, so we can safely
+    // prefetch once for the owner picker. Silent failure is fine —
+    // the picker just renders empty and the user can skip it.
+    api
+      .get<UserOption[]>("/users")
+      .then(setUsers)
+      .catch(() => setUsers([]));
+  }, []);
 
   useEffect(() => {
     if (!open || !seed) return;
@@ -78,6 +97,7 @@ export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Pro
     setImpact(seed.initial_impact);
     setMitigation(seed.mitigation);
     setTarget("");
+    setOwnerId(null);
     setError(null);
   }, [open, seed]);
 
@@ -104,6 +124,7 @@ export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Pro
         initial_impact: impact,
         mitigation: mitigation || null,
         target_resolution_date: target || null,
+        owner_id: ownerId || null,
       };
       if (mode === "cve" && seed?.findingId) {
         created = await api.post<Risk>(
@@ -232,6 +253,19 @@ export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Pro
             multiline
             minRows={2}
             fullWidth
+          />
+
+          <Autocomplete
+            size="small"
+            options={users}
+            getOptionLabel={(u) => `${u.display_name} (${u.email})`}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={users.find((u) => u.id === ownerId) ?? null}
+            onChange={(_, value) => setOwnerId(value?.id ?? null)}
+            disabled={submitting}
+            renderInput={(params) => (
+              <TextField {...params} label={t("risks.field.owner")} />
+            )}
           />
 
           {seed?.cardIds && seed.cardIds.length > 0 && (

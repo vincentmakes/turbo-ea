@@ -134,8 +134,11 @@ async def sync_owner_todo(
             )
         )
 
-    # Notification — only when the owner actually changes (not on unrelated patches).
-    if risk.owner_id != previous_owner and risk.owner_id != actor_id:
+    # Notification — fires whenever the owner actually changes, including
+    # self-assignment, so the bell mirrors the expectation set by other
+    # assignment flows. notification_service whitelists "risk_assigned"
+    # for the self-notify case.
+    if risk.owner_id != previous_owner:
         try:
             await notification_service.create_notification(
                 db,
