@@ -14,8 +14,10 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import ListItemText from "@mui/material/ListItemText";
 import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -89,26 +91,37 @@ export default function RiskRegisterPage() {
   );
 
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"__all__" | RiskStatus>("__all__");
-  const [category, setCategory] = useState<"__all__" | RiskCategory>("__all__");
-  const [level, setLevel] = useState<"__all__" | RiskLevel>("__all__");
+  const [status, setStatus] = useState<RiskStatus[]>([]);
+  const [category, setCategory] = useState<RiskCategory[]>([]);
+  const [level, setLevel] = useState<RiskLevel[]>([]);
   const [overdueOnly, setOverdueOnly] = useState(false);
 
   const [dialogSeed, setDialogSeed] = useState<RiskDialogSeed | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Shared filter → URLSearchParams builder. Multi-selects are sent as
+  // repeat keys (``?status=identified&status=analysed``) — the backend's
+  // ``list[str] | None = Query(None)`` parser picks them up natively.
+  const buildFilterParams = useCallback(
+    (base: Record<string, string> = {}) => {
+      const params = new URLSearchParams(base);
+      if (search) params.set("search", search);
+      status.forEach((s) => params.append("status", s));
+      category.forEach((c) => params.append("category", c));
+      level.forEach((l) => params.append("level", l));
+      if (overdueOnly) params.set("overdue", "true");
+      return params;
+    },
+    [search, status, category, level, overdueOnly],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
+      const params = buildFilterParams({
         page: String(page + 1),
         page_size: String(pageSize),
       });
-      if (search) params.set("search", search);
-      if (status !== "__all__") params.set("status", status);
-      if (category !== "__all__") params.set("category", category);
-      if (level !== "__all__") params.set("level", level);
-      if (overdueOnly) params.set("overdue", "true");
       const data = await api.get<RiskListPage>(`/risks?${params}`);
       setRows(data.items);
       setTotal(data.total);
@@ -117,21 +130,26 @@ export default function RiskRegisterPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, search, status, category, level, overdueOnly]);
+  }, [buildFilterParams, page, pageSize]);
 
   const reloadMetrics = useCallback(async () => {
     try {
-      const m = await api.get<RiskMetrics>("/risks/metrics");
+      const params = buildFilterParams();
+      const qs = params.toString();
+      const m = await api.get<RiskMetrics>(
+        qs ? `/risks/metrics?${qs}` : "/risks/metrics",
+      );
       setMetrics(m);
     } catch {
       setMetrics(null);
     }
-  }, []);
+  }, [buildFilterParams]);
 
   useEffect(() => {
     reload();
   }, [reload]);
   useEffect(() => {
+    // Matrix + KPI tiles follow the active filter set.
     reloadMetrics();
   }, [reloadMetrics]);
 
@@ -307,51 +325,30 @@ export default function RiskRegisterPage() {
             size="small"
             sx={{ minWidth: 220 }}
           />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>{t("risks.filter.status")}</InputLabel>
-            <Select
-              value={status}
-              label={t("risks.filter.status")}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
-            >
-              <MenuItem value="__all__">{t("risks.filter.all")}</MenuItem>
-              {STATUSES.map((s) => (
-                <MenuItem key={s} value={s}>
-                  {t(`risks.status.${s}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>{t("risks.filter.category")}</InputLabel>
-            <Select
-              value={category}
-              label={t("risks.filter.category")}
-              onChange={(e) => setCategory(e.target.value as typeof category)}
-            >
-              <MenuItem value="__all__">{t("risks.filter.all")}</MenuItem>
-              {CATEGORIES.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {t(`risks.category.${c}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 130 }}>
-            <InputLabel>{t("risks.filter.level")}</InputLabel>
-            <Select
-              value={level}
-              label={t("risks.filter.level")}
-              onChange={(e) => setLevel(e.target.value as typeof level)}
-            >
-              <MenuItem value="__all__">{t("risks.filter.all")}</MenuItem>
-              {LEVELS.map((l) => (
-                <MenuItem key={l} value={l}>
-                  {t(`risks.level.${l}`)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <MultiSelectFilter
+            label={t("risks.filter.status")}
+            value={status}
+            options={STATUSES}
+            allLabel={t("risks.filter.all")}
+            translateOption={(s) => t(`risks.status.${s}`)}
+            onChange={setStatus}
+          />
+          <MultiSelectFilter
+            label={t("risks.filter.category")}
+            value={category}
+            options={CATEGORIES}
+            allLabel={t("risks.filter.all")}
+            translateOption={(c) => t(`risks.category.${c}`)}
+            onChange={setCategory}
+          />
+          <MultiSelectFilter
+            label={t("risks.filter.level")}
+            value={level}
+            options={LEVELS}
+            allLabel={t("risks.filter.all")}
+            translateOption={(l) => t(`risks.level.${l}`)}
+            onChange={setLevel}
+          />
           <FormControlLabel
             control={
               <Switch
@@ -499,4 +496,54 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
     if ((byLevel[lvl] ?? 0) > 0) return lvl;
   }
   return null;
+}
+
+/**
+ * Typed multi-select filter dropdown. Empty array means "no filter" (all
+ * rows). Checkbox menu items mirror the de-facto MUI pattern so users can
+ * click multiple options without closing the menu.
+ */
+function MultiSelectFilter<T extends string>({
+  label,
+  value,
+  options,
+  allLabel,
+  translateOption,
+  onChange,
+}: {
+  label: string;
+  value: T[];
+  options: readonly T[];
+  allLabel: string;
+  translateOption: (option: T) => string;
+  onChange: (value: T[]) => void;
+}) {
+  return (
+    <FormControl size="small" sx={{ minWidth: 180 }}>
+      <InputLabel>{label}</InputLabel>
+      <Select
+        multiple
+        value={value}
+        label={label}
+        onChange={(e) => {
+          const raw = e.target.value;
+          const next = Array.isArray(raw) ? (raw as T[]) : [raw as T];
+          onChange(next);
+        }}
+        renderValue={(selected) => {
+          const arr = selected as T[];
+          if (arr.length === 0) return allLabel;
+          if (arr.length === 1) return translateOption(arr[0]);
+          return `${arr.length} selected`;
+        }}
+      >
+        {options.map((opt) => (
+          <MenuItem key={opt} value={opt}>
+            <Checkbox size="small" checked={value.includes(opt)} />
+            <ListItemText primary={translateOption(opt)} />
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  );
 }

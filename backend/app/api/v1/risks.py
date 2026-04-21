@@ -163,37 +163,41 @@ async def sync_owner_todo(
 # ---------------------------------------------------------------------------
 
 
-@router.get("", response_model=RiskListPage)
-async def list_risks(
-    status: str | None = None,
-    category: str | None = None,
-    level: str | None = None,
-    owner_id: str | None = None,
-    card_id: str | None = None,
-    source_type: str | None = None,
-    search: str | None = None,
-    overdue: bool = False,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
-    sort_by: str = "updated_at",
-    sort_dir: str = "desc",
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
-) -> RiskListPage:
-    """Paginated, filterable risk list."""
-    await PermissionService.require_permission(db, user, "risks.view")
+_LEVEL_WEIGHT = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
+
+def _level_weight(level: str | None) -> int:
+    return _LEVEL_WEIGHT.get(level or "", 9)
+
+
+async def _load_filtered_risks(
+    db: AsyncSession,
+    *,
+    status: list[str] | None,
+    category: list[str] | None,
+    level: list[str] | None,
+    owner_id: str | None,
+    card_id: str | None,
+    source_type: list[str] | None,
+    search: str | None,
+    overdue: bool,
+) -> list[Risk]:
+    """Shared filter pipeline used by both ``GET /risks`` and
+    ``GET /risks/metrics`` so the KPI tiles + matrix always reflect
+    whatever the user has filtered to.
+    """
     stmt = select(Risk)
     if status:
-        stmt = stmt.where(Risk.status == status)
+        stmt = stmt.where(Risk.status.in_(status))
     if category:
-        stmt = stmt.where(Risk.category == category)
+        stmt = stmt.where(Risk.category.in_(category))
     if level:
-        # Match on whichever level is current: residual if set, otherwise initial.
+        # A risk's current level is its residual_level when set, otherwise
+        # initial_level. The multi-select OR expands across both.
         stmt = stmt.where(
             or_(
-                Risk.residual_level == level,
-                (Risk.residual_level.is_(None)) & (Risk.initial_level == level),
+                Risk.residual_level.in_(level),
+                (Risk.residual_level.is_(None)) & (Risk.initial_level.in_(level)),
             )
         )
     if owner_id:
@@ -202,7 +206,7 @@ async def list_risks(
         except ValueError as exc:
             raise HTTPException(400, "Invalid owner_id") from exc
     if source_type:
-        stmt = stmt.where(Risk.source_type == source_type)
+        stmt = stmt.where(Risk.source_type.in_(source_type))
     if search:
         needle = f"%{search.lower()}%"
         stmt = stmt.where(
@@ -219,8 +223,7 @@ async def list_risks(
             raise HTTPException(400, "Invalid card_id") from exc
         stmt = stmt.where(Risk.id.in_(select(RiskCard.risk_id).where(RiskCard.card_id == cid)))
 
-    rows_res = await db.execute(stmt)
-    rows = list(rows_res.scalars().all())
+    rows = list((await db.execute(stmt)).scalars().all())
 
     if overdue:
         today = datetime.now(timezone.utc).date()
@@ -231,6 +234,43 @@ async def list_risks(
             and r.target_resolution_date < today
             and r.status not in ("closed", "accepted", "mitigated")
         ]
+    return rows
+
+
+@router.get("", response_model=RiskListPage)
+async def list_risks(
+    status: list[str] | None = Query(None),
+    category: list[str] | None = Query(None),
+    level: list[str] | None = Query(None),
+    owner_id: str | None = None,
+    card_id: str | None = None,
+    source_type: list[str] | None = Query(None),
+    search: str | None = None,
+    overdue: bool = False,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    sort_by: str = "updated_at",
+    sort_dir: str = "desc",
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskListPage:
+    """Paginated, filterable risk list. ``status`` / ``category`` /
+    ``level`` / ``source_type`` are repeatable query params (e.g.
+    ``?status=identified&status=analysed``).
+    """
+    await PermissionService.require_permission(db, user, "risks.view")
+
+    rows = await _load_filtered_risks(
+        db,
+        status=status,
+        category=category,
+        level=level,
+        owner_id=owner_id,
+        card_id=card_id,
+        source_type=source_type,
+        search=search,
+        overdue=overdue,
+    )
 
     # Sort server-side for consistent pagination.
     sort_key = {
@@ -248,20 +288,34 @@ async def list_risks(
     return RiskListPage(items=items, total=total, page=page, page_size=page_size)
 
 
-_LEVEL_WEIGHT = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
-
-def _level_weight(level: str | None) -> int:
-    return _LEVEL_WEIGHT.get(level or "", 9)
-
-
 @router.get("/metrics", response_model=RiskMetricsOut)
 async def risk_metrics(
+    status: list[str] | None = Query(None),
+    category: list[str] | None = Query(None),
+    level: list[str] | None = Query(None),
+    owner_id: str | None = None,
+    card_id: str | None = None,
+    source_type: list[str] | None = Query(None),
+    search: str | None = None,
+    overdue: bool = False,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RiskMetricsOut:
+    """KPI payload. Accepts the same filters as ``GET /risks`` so the
+    matrix + tiles follow the user's selected view.
+    """
     await PermissionService.require_permission(db, user, "risks.view")
-    rows = list((await db.execute(select(Risk))).scalars().all())
+    rows = await _load_filtered_risks(
+        db,
+        status=status,
+        category=category,
+        level=level,
+        owner_id=owner_id,
+        card_id=card_id,
+        source_type=source_type,
+        search=search,
+        overdue=overdue,
+    )
     return RiskMetricsOut.model_validate(compute_metrics(rows))
 
 
