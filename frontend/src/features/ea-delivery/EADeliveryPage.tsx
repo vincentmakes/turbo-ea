@@ -28,12 +28,13 @@ import CreateAdrDialog from "./CreateAdrDialog";
 import AdrGrid from "./AdrGrid";
 import AdrFilterSidebar, { type AdrFilters, EMPTY_ADR_FILTERS } from "./AdrFilterSidebar";
 import { InitiativesTab } from "./initiatives";
+import RiskRegisterPage from "./risks/RiskRegisterPage";
 import type { SoAW, DiagramSummary, EAPrinciple, ArchitectureDecision } from "@/types";
 import type { useInitiativeData } from "./initiatives";
 
 // ─── types ──────────────────────────────────────────────────────────────────
 
-type PageTab = "initiatives" | "principles" | "decisions";
+type PageTab = "initiatives" | "principles" | "decisions" | "risks";
 
 // ─── component ──────────────────────────────────────────────────────────────
 
@@ -46,7 +47,11 @@ export default function EADeliveryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab");
   const pageTab: PageTab =
-    rawTab === "principles" || rawTab === "decisions" ? rawTab : "initiatives";
+    rawTab === "principles" ||
+    rawTab === "decisions" ||
+    rawTab === "risks"
+      ? rawTab
+      : "initiatives";
   const setPageTab = useCallback(
     (tab: PageTab) => setSearchParams({ tab }, { replace: true }),
     [setSearchParams],
@@ -651,6 +656,13 @@ export default function EADeliveryPage() {
           label={t("tabs.decisions")}
           sx={{ textTransform: "none", minHeight: 48 }}
         />
+        <Tab
+          value="risks"
+          icon={<MaterialSymbol icon="policy" size={18} />}
+          iconPosition="start"
+          label={t("tabs.risks")}
+          sx={{ textTransform: "none", minHeight: 48 }}
+        />
       </Tabs>
 
       {error && (
@@ -664,6 +676,9 @@ export default function EADeliveryPage() {
 
       {/* Decisions tab */}
       {pageTab === "decisions" && renderDecisionsTab()}
+
+      {/* Risks tab */}
+      {pageTab === "risks" && <RiskRegisterPage />}
 
       {/* Initiatives tab */}
       {pageTab === "initiatives" && (

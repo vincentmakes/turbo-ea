@@ -268,6 +268,7 @@
   "principles.rationale": "Motivazione",
   "principles.implications": "Implicazioni",
   "tabs.decisions": "Decisioni architetturali",
+  "tabs.risks": "Rischi",
   "adr.new": "Nuova decisione architetturale",
   "adr.create": "Crea",
   "adr.duplicate": "Duplica",
@@ -506,5 +507,12 @@
   "risks.cardTab.title": "Risks",
   "risks.cardTab.empty": "No risks linked to this card.",
   "risks.cardTab.linkExisting": "Link existing risk",
-  "risks.cardTab.createNew": "Create new risk"
+  "risks.cardTab.createNew": "Create new risk",
+  "risks.action.moveTo": "Move to:",
+  "risks.action.analyse": "Start analysis",
+  "risks.action.plan_mitigation": "Plan mitigation",
+  "risks.action.start_mitigation": "Start mitigation",
+  "risks.action.mark_mitigated": "Mark mitigated",
+  "risks.action.start_monitoring": "Start monitoring",
+  "risks.action.noTransitions": "No further transitions available."
 }

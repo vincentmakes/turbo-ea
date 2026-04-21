@@ -83,7 +83,7 @@ export default function RisksTab({ cardId }: Props) {
           <Button
             size="small"
             variant="outlined"
-            onClick={() => navigate("/ea-delivery/risks")}
+            onClick={() => navigate("/ea-delivery?tab=risks")}
           >
             {t("risks.title")}
           </Button>

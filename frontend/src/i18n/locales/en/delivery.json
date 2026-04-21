@@ -265,6 +265,7 @@
   "tabs.initiatives": "Initiatives",
   "tabs.principles": "EA Principles",
   "tabs.decisions": "Architecture Decisions",
+  "tabs.risks": "Risks",
   "principles.empty": "No active EA principles defined yet. Principles can be configured in the Admin > Metamodel area.",
   "principles.rationale": "Rationale",
   "principles.implications": "Implications",
@@ -506,5 +507,12 @@
   "risks.cardTab.title": "Risks",
   "risks.cardTab.empty": "No risks linked to this card.",
   "risks.cardTab.linkExisting": "Link existing risk",
-  "risks.cardTab.createNew": "Create new risk"
+  "risks.cardTab.createNew": "Create new risk",
+  "risks.action.moveTo": "Move to:",
+  "risks.action.analyse": "Start analysis",
+  "risks.action.plan_mitigation": "Plan mitigation",
+  "risks.action.start_mitigation": "Start mitigation",
+  "risks.action.mark_mitigated": "Mark mitigated",
+  "risks.action.start_monitoring": "Start monitoring",
+  "risks.action.noTransitions": "No further transitions available."
 }

@@ -268,6 +268,7 @@
   "principles.rationale": "理由",
   "principles.implications": "影响",
   "tabs.decisions": "架构决策",
+  "tabs.risks": "风险",
   "adr.new": "新建架构决策",
   "adr.create": "创建",
   "adr.duplicate": "复制",
@@ -506,5 +507,12 @@
   "risks.cardTab.title": "Risks",
   "risks.cardTab.empty": "No risks linked to this card.",
   "risks.cardTab.linkExisting": "Link existing risk",
-  "risks.cardTab.createNew": "Create new risk"
+  "risks.cardTab.createNew": "Create new risk",
+  "risks.action.moveTo": "Move to:",
+  "risks.action.analyse": "Start analysis",
+  "risks.action.plan_mitigation": "Plan mitigation",
+  "risks.action.start_mitigation": "Start mitigation",
+  "risks.action.mark_mitigated": "Mark mitigated",
+  "risks.action.start_monitoring": "Start monitoring",
+  "risks.action.noTransitions": "No further transitions available."
 }

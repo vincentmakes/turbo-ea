@@ -31,7 +31,6 @@ import Step from "@mui/material/Step";
 import StepButton from "@mui/material/StepButton";
 import Stepper from "@mui/material/Stepper";
 import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
@@ -83,6 +82,24 @@ interface CardOption {
   type: string;
 }
 
+interface UserOption {
+  id: string;
+  display_name: string;
+  email: string;
+}
+
+/** Human-readable description of each status transition, keyed by target. */
+const NEXT_STEP_HINTS: Record<RiskStatus, string> = {
+  identified: "reopen",
+  analysed: "analyse",
+  mitigation_planned: "plan_mitigation",
+  in_progress: "start_mitigation",
+  mitigated: "mark_mitigated",
+  monitoring: "start_monitoring",
+  accepted: "accept",
+  closed: "close",
+};
+
 export default function RiskDetailPage() {
   const { t } = useTranslation("delivery");
   const { t: tCommon } = useTranslation("common");
@@ -100,6 +117,15 @@ export default function RiskDetailPage() {
 
   const [cardQuery, setCardQuery] = useState("");
   const [cardOptions, setCardOptions] = useState<CardOption[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
+
+  useEffect(() => {
+    // Users are read by any authenticated user (GET /users has no perm check).
+    api
+      .get<UserOption[]>("/users")
+      .then(setUsers)
+      .catch(() => setUsers([]));
+  }, []);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -189,7 +215,7 @@ export default function RiskDetailPage() {
     if (!window.confirm(confirmMsg)) return;
     try {
       await api.delete(`/risks/${risk.id}`);
-      navigate("/ea-delivery/risks");
+      navigate("/ea-delivery?tab=risks");
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
     }
@@ -258,7 +284,7 @@ export default function RiskDetailPage() {
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Button
           size="small"
-          onClick={() => navigate("/ea-delivery/risks")}
+          onClick={() => navigate("/ea-delivery?tab=risks")}
           startIcon={<MaterialSymbol icon="arrow_back" size={16} />}
         >
           {t("risks.backToRegister")}
@@ -377,6 +403,20 @@ export default function RiskDetailPage() {
                 sx={{ flex: 1 }}
               />
             </Stack>
+
+            <Autocomplete
+              size="small"
+              options={users}
+              getOptionLabel={(u) => `${u.display_name} (${u.email})`}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              value={users.find((u) => u.id === risk.owner_id) ?? null}
+              onChange={(_, value) => patch({ owner_id: value?.id ?? null })}
+              disabled={saving}
+              renderInput={(params) => (
+                <TextField {...params} label={t("risks.field.owner")} />
+              )}
+              sx={{ maxWidth: 420 }}
+            />
           </Stack>
         </Paper>
 
@@ -594,30 +634,48 @@ export default function RiskDetailPage() {
 
           <Divider sx={{ my: 1 }} />
 
-          <Stack direction="row" spacing={1} alignItems="center">
-            {risk.status === "accepted" ? (
-              <Tooltip
-                title={
-                  risk.acceptance_rationale ??
-                  t("risks.action.acceptRationale")
+          {/* Quick-action buttons for every valid next status. The stepper
+              above shows the full graph; these make the next move obvious. */}
+          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+              {t("risks.action.moveTo")}
+            </Typography>
+            {Array.from(
+              ALLOWED_TRANSITIONS[risk.status as RiskStatus] ?? new Set<RiskStatus>(),
+            ).map((target) => (
+              <Button
+                key={target}
+                size="small"
+                variant={target === "accepted" ? "outlined" : "contained"}
+                color={
+                  target === "accepted"
+                    ? "warning"
+                    : target === "closed"
+                      ? "success"
+                      : "primary"
+                }
+                onClick={() => tryTransition(target)}
+                disabled={saving}
+                startIcon={
+                  <MaterialSymbol
+                    icon={
+                      target === "accepted"
+                        ? "verified"
+                        : target === "closed"
+                          ? "task_alt"
+                          : "arrow_forward"
+                    }
+                    size={16}
+                  />
                 }
               >
-                <Chip
-                  color="warning"
-                  label={t("risks.status.accepted")}
-                  icon={<MaterialSymbol icon="verified" size={14} />}
-                />
-              </Tooltip>
-            ) : (
-              <Button
-                size="small"
-                variant="outlined"
-                color="warning"
-                onClick={() => tryTransition("accepted")}
-                disabled={saving}
-              >
-                {t("risks.action.accept")}
+                {t(`risks.action.${NEXT_STEP_HINTS[target]}`)}
               </Button>
+            ))}
+            {!ALLOWED_TRANSITIONS[risk.status as RiskStatus]?.size && (
+              <Typography variant="caption" color="text.secondary">
+                {t("risks.action.noTransitions")}
+              </Typography>
             )}
           </Stack>
 
