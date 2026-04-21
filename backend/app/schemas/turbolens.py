@@ -308,12 +308,24 @@ class ComplianceFindingOut(BaseModel):
         return str(v) if v is not None else None
 
 
+class SecurityScanRunOut(BaseModel):
+    """Summary of the latest run for a given scan type (cve / compliance)."""
+
+    run_id: str | None = None
+    status: str | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
+    progress: dict[str, object] | None = None
+    summary: dict[str, object] | None = None
+
+
 class SecurityOverviewOut(BaseModel):
-    last_run_id: str | None = None
-    last_run_status: str | None = None
-    last_run_started_at: datetime | None = None
-    last_run_completed_at: datetime | None = None
-    last_run_error: str | None = None
+    # Per-scan-type latest runs — each one reports its own progress so the
+    # UI can render independent progress bars for CVE vs compliance.
+    cve_run: SecurityScanRunOut = Field(default_factory=SecurityScanRunOut)
+    compliance_run: SecurityScanRunOut = Field(default_factory=SecurityScanRunOut)
+
     total_findings: int = 0
     by_severity: dict[str, int] = Field(default_factory=dict)
     by_status: dict[str, int] = Field(default_factory=dict)

@@ -228,7 +228,14 @@ The **Security & Compliance** tab runs an on-demand scan against the live landsc
 
 ### Running a scan
 
-Only users with `security_compliance.manage` can trigger scans (admin by default). Click **Run Security & Compliance Scan** from the tab header. The scan runs in the background; a status banner shows progress and the page refreshes automatically when it completes. Only one scan at a time is allowed per workspace.
+Only users with `security_compliance.manage` can trigger scans (admin by default). The Overview tab shows **two independent scan cards**:
+
+- **CVE scan** — queries NVD + AI prioritisation. Safe to re-run often; leaves compliance findings untouched.
+- **Compliance scan** — AI gap analysis against the regulations you tick. Replaces compliance findings for the regulations you scoped in this run.
+
+Each scan reports its own phase-aware progress bar (loading cards → querying NVD → AI prioritisation → saving, or loading cards → semantic AI detection → per-regulation check). The two can run concurrently.
+
+Refreshing the page **does not interrupt a running scan** — the background task keeps going server-side, and the UI automatically reattaches the progress poll on reload.
 
 ### Risk report structure
 

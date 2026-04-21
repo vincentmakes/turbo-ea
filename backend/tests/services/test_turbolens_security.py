@@ -183,6 +183,20 @@ def test_finding_to_dict_includes_card_name_and_serialises_dates():
     assert d["created_at"].endswith("+00:00") or "T" in d["created_at"]
 
 
+def test_service_exposes_split_scan_entry_points():
+    """Smoke test: both scan halves should be importable under their new names.
+
+    Guards against accidental removal / rename of the split entry points —
+    a breaking change would fail here immediately rather than at runtime.
+    """
+    from app.services import turbolens_security as svc
+
+    assert hasattr(svc, "run_cve_scan")
+    assert hasattr(svc, "run_compliance_scan")
+    # The old combined entry point must be gone to keep the API layer clean.
+    assert not hasattr(svc, "run_security_scan")
+
+
 def test_compliance_to_dict_handles_landscape_scope():
     row = SimpleNamespace(
         id=uuid.uuid4(),

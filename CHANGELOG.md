@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - EU AI Act semantic AI detection — cards that embed AI (LLMs, recommendation engines, fraud / credit scoring, chatbots, predictive analytics) are flagged even when their subtype is not `AI Agent` / `AI Model`, with an "AI-detected" badge on the resulting findings
 - Optional `NVD_API_KEY` environment variable to raise NVD rate limits from 5 req/30 s to 50 req/30 s
 
+### Changed
+- TurboLens Security & Compliance — the single "Run scan" button is split into **two independent scans**: CVE scan and Compliance scan. Each has its own background task, progress bar (phase + current/total), and status card on the Overview tab. The compliance scan lets the user pick which regulations to include via checkboxes, and never wipes CVE findings (and vice versa).
+- Security scan progress now streams into the analysis-run row, so the UI shows a phase-aware progress bar (loading cards → querying NVD → AI prioritisation → saving findings, or loading cards → semantic AI detection → per-regulation check). A page refresh no longer interrupts the scan: on mount the tab queries `/turbolens/security/active-runs` and reattaches the poll loop to any scan still in progress.
+
 ### Security
 - New `security_compliance.view` and `security_compliance.manage` permissions; granted to admin by default (view also granted to bpm_admin, member and viewer)
 

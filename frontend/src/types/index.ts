@@ -1341,12 +1341,27 @@ export interface TurboLensComplianceBundle {
   findings: TurboLensComplianceFinding[];
 }
 
+export interface ScanProgress {
+  phase: string;
+  current: number;
+  total: number;
+  note?: string;
+  updated_at?: string;
+}
+
+export interface SecurityScanRun {
+  run_id: string | null;
+  status: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: string | null;
+  progress: ScanProgress | null;
+  summary: Record<string, unknown> | null;
+}
+
 export interface TurboLensSecurityOverview {
-  last_run_id: string | null;
-  last_run_status: string | null;
-  last_run_started_at: string | null;
-  last_run_completed_at: string | null;
-  last_run_error: string | null;
+  cve_run: SecurityScanRun;
+  compliance_run: SecurityScanRun;
   total_findings: number;
   by_severity: Record<string, number>;
   by_status: Record<string, number>;
@@ -1355,6 +1370,11 @@ export interface TurboLensSecurityOverview {
   compliance_scores: Record<string, number>;
   compliance_by_status: Record<string, Record<string, number>>;
   top_critical: TurboLensCveFinding[];
+}
+
+export interface SecurityActiveRuns {
+  cve: TurboLensAnalysisRun | null;
+  compliance: TurboLensAnalysisRun | null;
 }
 
 export interface CveFindingsPage {

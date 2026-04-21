@@ -70,7 +70,11 @@ class AnalysisType(str, enum.Enum):
     MODERNIZATION = "modernization"
     ARCHITECT = "architect"
     ARCHITECT_COMMIT = "architect_commit"
+    SECURITY_CVE = "security_cve"
     SECURITY_COMPLIANCE = "security_compliance"
+
+
+SECURITY_SCAN_TYPES = (AnalysisType.SECURITY_CVE, AnalysisType.SECURITY_COMPLIANCE)
 
 
 class AnalysisStatus(str, enum.Enum):
@@ -848,35 +852,83 @@ async def _load_card_names(db: AsyncSession, card_ids: set[uuid.UUID]) -> dict[s
     return {str(cid): name for cid, name in result.all()}
 
 
-@router.post("/security/scan")
-async def trigger_security_scan(
+@router.post("/security/cve-scan")
+async def trigger_cve_scan(
     body: SecurityScanRequest | None,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Trigger an on-demand CVE + compliance scan (background task)."""
+    """Trigger the CVE (NVD + AI prioritisation) pipeline only."""
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
-    run = await _create_analysis_run(db, AnalysisType.SECURITY_COMPLIANCE, user)
-
-    regulations = (body.regulations if body else None) or list(SUPPORTED_REGULATIONS)
+    run = await _create_analysis_run(db, AnalysisType.SECURITY_CVE, user)
     include_itc = body.include_itc if body else True
     user_id = str(user.id)
 
     async def _service(db_: AsyncSession) -> dict[str, Any]:
-        from app.services.turbolens_security import run_security_scan
+        from app.services.turbolens_security import run_cve_scan
 
-        return await run_security_scan(
-            db_,
-            run.id,
-            user_id,
-            regulations=regulations,
-            include_itc=include_itc,
-        )
+        return await run_cve_scan(db_, run.id, user_id, include_itc=include_itc)
 
-    background_tasks.add_task(_run_analysis, str(run.id), _service, "Security scan")
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "CVE scan")
     return {"run_id": str(run.id), "status": "running"}
+
+
+@router.post("/security/compliance-scan")
+async def trigger_compliance_scan(
+    body: SecurityScanRequest | None,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Trigger the compliance (per-regulation AI gap analysis) pipeline only."""
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    run = await _create_analysis_run(db, AnalysisType.SECURITY_COMPLIANCE, user)
+    regulations = (body.regulations if body else None) or list(SUPPORTED_REGULATIONS)
+    user_id = str(user.id)
+
+    async def _service(db_: AsyncSession) -> dict[str, Any]:
+        from app.services.turbolens_security import run_compliance_scan
+
+        return await run_compliance_scan(db_, run.id, user_id, regulations=regulations)
+
+    background_tasks.add_task(_run_analysis, str(run.id), _service, "Compliance scan")
+    return {"run_id": str(run.id), "status": "running"}
+
+
+@router.get("/security/active-runs")
+async def security_active_runs(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, TurboLensAnalysisRunOut | None]:
+    """Return the latest running CVE + compliance scans.
+
+    Used by the UI on mount to reattach polling and show progress even
+    after a page refresh. Either key is ``null`` when no scan of that
+    type is currently running.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.view")
+
+    out: dict[str, TurboLensAnalysisRunOut | None] = {"cve": None, "compliance": None}
+    for key, scan_type in (
+        ("cve", AnalysisType.SECURITY_CVE),
+        ("compliance", AnalysisType.SECURITY_COMPLIANCE),
+    ):
+        result = await db.execute(
+            select(TurboLensAnalysisRun)
+            .where(
+                TurboLensAnalysisRun.analysis_type == scan_type,
+                TurboLensAnalysisRun.status == AnalysisStatus.RUNNING,
+            )
+            .order_by(TurboLensAnalysisRun.started_at.desc())
+            .limit(1)
+        )
+        run = result.scalar_one_or_none()
+        if run:
+            out[key] = TurboLensAnalysisRunOut.model_validate(run, from_attributes=True)
+    return out
 
 
 @router.get("/security/overview")
@@ -887,19 +939,44 @@ async def security_overview(
     """KPIs + risk matrix + top critical findings for the dashboard."""
     await PermissionService.require_permission(db, user, "security_compliance.view")
 
+    from app.schemas.turbolens import SecurityScanRunOut
     from app.services.turbolens_security import (
         build_risk_matrix,
         compliance_score,
         finding_to_dict,
     )
 
-    run_res = await db.execute(
-        select(TurboLensAnalysisRun)
-        .where(TurboLensAnalysisRun.analysis_type == AnalysisType.SECURITY_COMPLIANCE)
-        .order_by(TurboLensAnalysisRun.started_at.desc())
-        .limit(1)
-    )
-    run = run_res.scalar_one_or_none()
+    async def _latest(scan_type: AnalysisType) -> SecurityScanRunOut:
+        result = await db.execute(
+            select(TurboLensAnalysisRun)
+            .where(TurboLensAnalysisRun.analysis_type == scan_type)
+            .order_by(TurboLensAnalysisRun.started_at.desc())
+            .limit(1)
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return SecurityScanRunOut()
+        # While the scan is running, results holds the progress dict.
+        # Once complete, it holds the final summary. Split them apart.
+        progress = None
+        summary = None
+        if isinstance(row.results, dict):
+            if row.status == AnalysisStatus.RUNNING:
+                progress = row.results.get("progress") or None
+            else:
+                summary = row.results
+        return SecurityScanRunOut(
+            run_id=str(row.id),
+            status=row.status,
+            started_at=row.started_at,
+            completed_at=row.completed_at,
+            error=row.error_message,
+            progress=progress,
+            summary=summary,
+        )
+
+    cve_run = await _latest(AnalysisType.SECURITY_CVE)
+    compliance_run = await _latest(AnalysisType.SECURITY_COMPLIANCE)
 
     cve_res = await db.execute(select(TurboLensCveFinding))
     cve_rows = list(cve_res.scalars().all())
@@ -939,11 +1016,8 @@ async def security_overview(
     ]
 
     return SecurityOverviewOut(
-        last_run_id=str(run.id) if run else None,
-        last_run_status=run.status if run else None,
-        last_run_started_at=run.started_at if run else None,
-        last_run_completed_at=run.completed_at if run else None,
-        last_run_error=run.error_message if run else None,
+        cve_run=cve_run,
+        compliance_run=compliance_run,
         total_findings=len(cve_rows),
         by_severity=by_severity,
         by_status=by_status,

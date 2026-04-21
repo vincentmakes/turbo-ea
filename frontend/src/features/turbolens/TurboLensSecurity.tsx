@@ -12,9 +12,12 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import FormControl from "@mui/material/FormControl";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormGroup from "@mui/material/FormGroup";
 import Grid from "@mui/material/Grid";
 import InputLabel from "@mui/material/InputLabel";
 import MenuItem from "@mui/material/MenuItem";
@@ -40,12 +43,15 @@ import type {
   CveStatus,
   CveFindingsPage,
   RegulationKey,
+  SecurityActiveRuns,
+  SecurityScanRun,
   TurboLensComplianceBundle,
   TurboLensCveFinding,
   TurboLensSecurityOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
 import SecurityFindingDrawer from "./SecurityFindingDrawer";
+import SecurityScanCard from "./SecurityScanCard";
 import { useAnalysisPolling } from "./useAnalysisPolling";
 import {
   complianceStatusColor,
@@ -88,6 +94,14 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
+  const phaseLabel = useCallback(
+    (phase: string) => {
+      const key = `turbolens_security_phase_${phase}`;
+      const translated = t(key);
+      return translated === key ? phase.replace(/_/g, " ") : translated;
+    },
+    [t],
+  );
 
   // ── View state ─────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(0);
@@ -120,7 +134,11 @@ export default function TurboLensSecurity() {
   // ── Shared messaging ───────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
+
+  // ── Compliance regulation picker ──────────────────────────────────
+  const [selectedRegs, setSelectedRegs] = useState<Set<RegulationKey>>(
+    new Set(REGULATIONS),
+  );
 
   // ── Loaders ────────────────────────────────────────────────────────
   const loadOverview = useCallback(async () => {
@@ -185,33 +203,91 @@ export default function TurboLensSecurity() {
     loadFindings();
   }, [loadFindings]);
 
-  // ── Scan trigger + polling ─────────────────────────────────────────
-  const { startPolling, polling } = useAnalysisPolling(
+  // ── Scan triggers + polling (one pair per scan type) ──────────────
+  const { startPolling: startCvePoll, polling: cvePolling } = useAnalysisPolling(
     () => {
-      setScanning(false);
-      setInfo(t("turbolens_security_scan_complete"));
+      setInfo(t("turbolens_security_cve_scan_complete"));
       reloadAll();
     },
-    (msg) => {
-      setScanning(false);
-      setError(msg);
+    (msg) => setError(msg),
+  );
+  const { startPolling: startCompliancePoll, polling: compliancePolling } = useAnalysisPolling(
+    () => {
+      setInfo(t("turbolens_security_compliance_scan_complete"));
+      reloadAll();
     },
+    (msg) => setError(msg),
   );
 
-  const handleScan = async () => {
+  // Resume polling after a full page refresh — the backend task keeps
+  // running server-side, so if a run is still in progress we should
+  // reattach the poll loop and keep showing progress.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const active = await api.get<SecurityActiveRuns>(
+          "/turbolens/security/active-runs",
+        );
+        if (cancelled) return;
+        if (active.cve?.id) startCvePoll(active.cve.id);
+        if (active.compliance?.id) startCompliancePoll(active.compliance.id);
+      } catch {
+        // Non-fatal: we'll just miss the resume. User can re-trigger.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // startCvePoll / startCompliancePoll are stable between renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCveScan = async () => {
     setError(null);
     setInfo(null);
-    setScanning(true);
     try {
-      const res = await api.post<{ run_id: string }>("/turbolens/security/scan", {});
-      setInfo(t("turbolens_security_scan_started"));
-      startPolling(res.run_id);
+      const res = await api.post<{ run_id: string }>(
+        "/turbolens/security/cve-scan",
+        {},
+      );
+      setInfo(t("turbolens_security_cve_scan_started"));
+      startCvePoll(res.run_id);
+      loadOverview();
     } catch (e) {
-      setScanning(false);
       if (e instanceof ApiError) setError(e.message);
       else setError(String(e));
     }
   };
+
+  const handleComplianceScan = async () => {
+    setError(null);
+    setInfo(null);
+    if (selectedRegs.size === 0) {
+      setError(t("turbolens_security_pick_regulation"));
+      return;
+    }
+    try {
+      const res = await api.post<{ run_id: string }>(
+        "/turbolens/security/compliance-scan",
+        { regulations: Array.from(selectedRegs) },
+      );
+      setInfo(t("turbolens_security_compliance_scan_started"));
+      startCompliancePoll(res.run_id);
+      loadOverview();
+    } catch (e) {
+      if (e instanceof ApiError) setError(e.message);
+      else setError(String(e));
+    }
+  };
+
+  // Poll the overview while a scan is running so the progress bar advances
+  // without needing extra WebSocket / SSE plumbing.
+  useEffect(() => {
+    if (!cvePolling && !compliancePolling) return;
+    const id = setInterval(loadOverview, 3000);
+    return () => clearInterval(id);
+  }, [cvePolling, compliancePolling, loadOverview]);
 
   const handleExportCsv = async () => {
     try {
@@ -294,22 +370,6 @@ export default function TurboLensSecurity() {
           >
             {t("turbolens_security_export_csv")}
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleScan}
-            disabled={scanning || polling}
-            startIcon={
-              scanning || polling ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <MaterialSymbol icon="shield" size={18} />
-              )
-            }
-          >
-            {scanning || polling
-              ? t("turbolens_security_scanning")
-              : t("turbolens_security_run_scan")}
-          </Button>
         </Stack>
       </Stack>
 
@@ -321,11 +381,6 @@ export default function TurboLensSecurity() {
       {info && (
         <Alert severity="info" sx={{ mb: 2 }} onClose={() => setInfo(null)}>
           {info}
-        </Alert>
-      )}
-      {polling && (
-        <Alert severity="info" icon={<CircularProgress size={18} />} sx={{ mb: 2 }}>
-          {t("turbolens_security_running")}
         </Alert>
       )}
 
@@ -356,26 +411,122 @@ export default function TurboLensSecurity() {
   // Overview tab
   // -----------------------------------------------------------------
   function renderOverview() {
-    if (overviewLoading) {
+    if (overviewLoading && !overview) {
       return (
         <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
           <CircularProgress />
         </Box>
       );
     }
-    if (!overview || !overview.last_run_id) {
-      return (
-        <Alert severity="info">{t("turbolens_security_never_scanned")}</Alert>
-      );
-    }
+    const cveRun: SecurityScanRun = overview?.cve_run ?? {
+      run_id: null,
+      status: null,
+      started_at: null,
+      completed_at: null,
+      error: null,
+      progress: null,
+      summary: null,
+    };
+    const complianceRun: SecurityScanRun = overview?.compliance_run ?? {
+      run_id: null,
+      status: null,
+      started_at: null,
+      completed_at: null,
+      error: null,
+      progress: null,
+      summary: null,
+    };
+
+    const hasEver = Boolean(cveRun.run_id || complianceRun.run_id);
+    const complianceScoresVals = Object.values(overview?.compliance_scores || {});
     const avgCompliance =
-      Object.values(overview.compliance_scores || {}).length === 0
+      complianceScoresVals.length === 0
         ? 100
         : Math.round(
-            Object.values(overview.compliance_scores).reduce((a, b) => a + b, 0) /
-              Object.values(overview.compliance_scores).length,
+            complianceScoresVals.reduce((a, b) => a + b, 0) /
+              complianceScoresVals.length,
           );
 
+    return (
+      <Stack spacing={3}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}>
+            <SecurityScanCard
+              title={t("turbolens_security_cve_scan_title")}
+              description={t("turbolens_security_cve_scan_description")}
+              icon="shield"
+              run={cveRun}
+              running={cvePolling}
+              onRun={handleCveScan}
+              buttonLabel={t("turbolens_security_run_cve_scan")}
+              runningLabel={t("turbolens_security_scanning")}
+              neverScannedLabel={t("turbolens_security_never_scanned")}
+              phaseLabel={phaseLabel}
+              summaryLabel={(s) =>
+                t("turbolens_security_cve_summary", {
+                  count: (s.cve_findings as number) ?? 0,
+                  scanned: (s.cards_scanned as number) ?? 0,
+                })
+              }
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <SecurityScanCard
+              title={t("turbolens_security_compliance_scan_title")}
+              description={t("turbolens_security_compliance_scan_description")}
+              icon="verified"
+              run={complianceRun}
+              running={compliancePolling}
+              onRun={handleComplianceScan}
+              buttonLabel={t("turbolens_security_run_compliance_scan")}
+              runningLabel={t("turbolens_security_scanning")}
+              neverScannedLabel={t("turbolens_security_never_scanned")}
+              phaseLabel={phaseLabel}
+              summaryLabel={(s) =>
+                t("turbolens_security_compliance_summary_label", {
+                  count: (s.compliance_findings as number) ?? 0,
+                  regs: Array.isArray(s.regulations) ? s.regulations.length : 0,
+                })
+              }
+              disabled={selectedRegs.size === 0}
+            >
+              <FormGroup row sx={{ gap: 1 }}>
+                {REGULATIONS.map((reg) => (
+                  <FormControlLabel
+                    key={reg}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={selectedRegs.has(reg)}
+                        onChange={(e) => {
+                          const next = new Set(selectedRegs);
+                          if (e.target.checked) next.add(reg);
+                          else next.delete(reg);
+                          setSelectedRegs(next);
+                        }}
+                      />
+                    }
+                    label={t(`turbolens_security_regulation_${reg}`)}
+                  />
+                ))}
+              </FormGroup>
+            </SecurityScanCard>
+          </Grid>
+        </Grid>
+
+        {!hasEver && (
+          <Alert severity="info">{t("turbolens_security_never_scanned")}</Alert>
+        )}
+
+        {overview && renderKpisAndCharts(overview, avgCompliance)}
+      </Stack>
+    );
+  }
+
+  function renderKpisAndCharts(
+    overview: TurboLensSecurityOverview,
+    avgCompliance: number,
+  ) {
     return (
       <Stack spacing={3}>
         <Grid container spacing={2}>

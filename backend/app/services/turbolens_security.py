@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid as uuid_mod
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Any
@@ -62,6 +63,48 @@ AI_SUBTYPES = {"AI Agent", "AI Model", "MCP Server"}
 CVE_PER_CARD_LIMIT = 20
 AI_BATCH_SIZE = 25
 COMPLIANCE_BATCH_SIZE = 60
+
+
+# A progress callback receives a ``phase`` label + a ``{current, total, note}``
+# triple. It is invoked from inside the scan pipeline so the orchestrator can
+# mirror the state into ``TurboLensAnalysisRun.results["progress"]``.
+ProgressCallback = Callable[[str, int, int, str], Awaitable[None]]
+
+
+async def _write_progress(
+    db: AsyncSession,
+    run_id: uuid_mod.UUID,
+    phase: str,
+    current: int,
+    total: int,
+    note: str = "",
+) -> None:
+    """Persist progress to the analysis run so polls can pick it up.
+
+    We commit here so the UI sees progress updates without waiting for the
+    scan to complete. Any findings added before this call are also flushed
+    (incremental visibility is a feature).
+    """
+    run = await db.get(TurboLensAnalysisRun, run_id)
+    if run is None:
+        return
+    run.results = {
+        "progress": {
+            "phase": phase,
+            "current": current,
+            "total": total,
+            "note": note,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+    }
+    await db.commit()
+
+
+def _progress_cb(db: AsyncSession, run_id: uuid_mod.UUID) -> ProgressCallback:
+    async def _cb(phase: str, current: int, total: int, note: str = "") -> None:
+        await _write_progress(db, run_id, phase, current, total, note)
+
+    return _cb
 
 
 # ---------------------------------------------------------------------------
@@ -179,6 +222,7 @@ def _priority_from_cvss_and_criticality(cvss: float | None, criticality: str | N
 
 async def _fetch_raw_cves(
     cards: list[ScanCard],
+    progress_cb: ProgressCallback | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Query NVD per card and return a list of base-finding dicts.
 
@@ -188,8 +232,11 @@ async def _fetch_raw_cves(
     findings: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     skipped: list[str] = []
+    total = len(cards)
 
-    for card in cards:
+    for idx, card in enumerate(cards, 1):
+        if progress_cb:
+            await progress_cb("cve_nvd", idx, total, card.name)
         if not card.vendor and not card.product:
             skipped.append(card.id)
             continue
@@ -223,6 +270,7 @@ async def enrich_with_ai(
     db: AsyncSession,
     cards_by_id: dict[str, ScanCard],
     findings: list[dict[str, Any]],
+    progress_cb: ProgressCallback | None = None,
 ) -> None:
     """Mutate findings in-place, filling ``business_impact``,
     ``remediation``, and refining ``priority`` / ``probability`` using
@@ -235,8 +283,17 @@ async def enrich_with_ai(
         return
 
     findings.sort(key=_cvss_sort_key, reverse=True)
+    total_batches = max(1, (len(findings) + AI_BATCH_SIZE - 1) // AI_BATCH_SIZE)
 
     for start in range(0, len(findings), AI_BATCH_SIZE):
+        batch_index = start // AI_BATCH_SIZE + 1
+        if progress_cb:
+            await progress_cb(
+                "cve_ai_enrichment",
+                batch_index,
+                total_batches,
+                f"{len(findings)} finding(s)",
+            )
         batch = findings[start : start + AI_BATCH_SIZE]
         payload = []
         for f in batch:
@@ -320,6 +377,7 @@ async def enrich_with_ai(
 async def detect_ai_bearing_cards(
     db: AsyncSession,
     cards: list[ScanCard],
+    progress_cb: ProgressCallback | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Return {card_id: {role, confidence, subtype_match}}.
 
@@ -342,7 +400,11 @@ async def detect_ai_bearing_cards(
     if not is_ai_configured(ai_config):
         return scoped
 
+    total_batches = max(1, (len(cards) + COMPLIANCE_BATCH_SIZE - 1) // COMPLIANCE_BATCH_SIZE)
     for start in range(0, len(cards), COMPLIANCE_BATCH_SIZE):
+        batch_index = start // COMPLIANCE_BATCH_SIZE + 1
+        if progress_cb:
+            await progress_cb("ai_detection", batch_index, total_batches, "")
         batch = cards[start : start + COMPLIANCE_BATCH_SIZE]
         payload = [
             {
@@ -661,37 +723,34 @@ async def assess_regulation(
 # ---------------------------------------------------------------------------
 
 
-async def run_security_scan(
+async def run_cve_scan(
     db: AsyncSession,
     run_id: uuid_mod.UUID | str,
     user_id: uuid_mod.UUID | str | None,
     *,
-    regulations: list[str] | None = None,
     include_itc: bool = True,
 ) -> dict[str, Any]:
-    """Entry point for the background task.
+    """CVE pipeline only: query NVD + AI prioritisation.
 
-    All writes happen in the session provided by ``_run_analysis`` —
-    findings are added and the final ``db.commit()`` happens in the
-    caller once the summary dict is returned.
+    Replaces any existing CVE findings in-place (compliance findings are
+    left untouched). Reports progress via ``run.results["progress"]``
+    so the UI can render a phase-aware progress bar.
     """
     run_uuid = uuid_mod.UUID(str(run_id))
-    regs = [r for r in (regulations or list(SUPPORTED_REGULATIONS)) if r in SUPPORTED_REGULATIONS]
-    if not regs:
-        regs = list(SUPPORTED_REGULATIONS)
+    progress_cb = _progress_cb(db, run_uuid)
 
-    # Clear previous findings for a fresh snapshot.
-    await db.execute(delete(TurboLensCveFinding))
-    await db.execute(delete(TurboLensComplianceFinding))
-    await db.flush()
-
+    await progress_cb("loading_cards", 0, 0, "")
     cards = await load_scan_targets(db, include_itc=include_itc)
     cards_by_id = {c.id: c for c in cards}
 
-    # ── CVEs ──────────────────────────────────────────────────────────
-    raw_findings, skipped = await _fetch_raw_cves(cards)
-    await enrich_with_ai(db, cards_by_id, raw_findings)
+    # Clear previous CVE findings for a fresh snapshot.
+    await db.execute(delete(TurboLensCveFinding))
+    await db.flush()
 
+    raw_findings, skipped = await _fetch_raw_cves(cards, progress_cb=progress_cb)
+    await enrich_with_ai(db, cards_by_id, raw_findings, progress_cb=progress_cb)
+
+    await progress_cb("persisting_cve_findings", 0, len(raw_findings), "")
     for f in raw_findings:
         db.add(
             TurboLensCveFinding(
@@ -721,15 +780,79 @@ async def run_security_scan(
                 status="open",
             )
         )
+    await db.flush()
 
-    # ── Compliance ────────────────────────────────────────────────────
-    ai_scope = await detect_ai_bearing_cards(db, cards) if "eu_ai_act" in regs else {}
+    if user_id:
+        try:
+            await notification_service.create_notification(
+                db,
+                user_id=uuid_mod.UUID(str(user_id)),
+                notif_type="security_scan_complete",
+                title="CVE scan finished",
+                message=(
+                    f"{len(raw_findings)} CVE finding(s) across "
+                    f"{len(cards) - len(skipped)} scanned card(s)."
+                ),
+                link="/turbolens?tab=security",
+                data={"cve_count": len(raw_findings), "scan": "cve"},
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("CVE scan notification failed: %s", exc)
+
+    summary = {
+        "scan": "cve",
+        "cve_findings": len(raw_findings),
+        "cards_scanned": len(cards),
+        "cards_skipped": len(skipped),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    run = await db.get(TurboLensAnalysisRun, run_uuid)
+    if run is not None:
+        run.results = summary
+    return summary
+
+
+async def run_compliance_scan(
+    db: AsyncSession,
+    run_id: uuid_mod.UUID | str,
+    user_id: uuid_mod.UUID | str | None,
+    *,
+    regulations: list[str] | None = None,
+) -> dict[str, Any]:
+    """Compliance pipeline only: per-regulation AI gap analysis.
+
+    Replaces any existing compliance findings for the scanned
+    regulations; findings for unscoped regulations (e.g. the user
+    un-ticked DORA this time) are also cleared so the dashboard never
+    shows stale data from a previous pass.
+    """
+    run_uuid = uuid_mod.UUID(str(run_id))
+    progress_cb = _progress_cb(db, run_uuid)
+
+    regs = [r for r in (regulations or list(SUPPORTED_REGULATIONS)) if r in SUPPORTED_REGULATIONS]
+    if not regs:
+        regs = list(SUPPORTED_REGULATIONS)
+
+    await progress_cb("loading_cards", 0, 0, "")
+    cards = await load_scan_targets(db, include_itc=True)
+
+    # Clear all previous compliance findings — a compliance scan is a
+    # full refresh of the selected regulations; anything not in scope
+    # this run shouldn't linger.
+    await db.execute(delete(TurboLensComplianceFinding))
+    await db.flush()
+
+    ai_scope: dict[str, dict[str, Any]] = {}
+    if "eu_ai_act" in regs:
+        ai_scope = await detect_ai_bearing_cards(db, cards, progress_cb=progress_cb)
 
     compliance_rows: list[dict[str, Any]] = []
-    for reg in regs:
+    for idx, reg in enumerate(regs, 1):
+        await progress_cb("regulation", idx, len(regs), reg)
         reg_findings = await assess_regulation(db, reg, cards, ai_scope)
         compliance_rows.extend(reg_findings)
 
+    await progress_cb("persisting_compliance_findings", 0, len(compliance_rows), "")
     for f in compliance_rows:
         db.add(
             TurboLensComplianceFinding(
@@ -749,44 +872,37 @@ async def run_security_scan(
                 ai_detected=bool(f.get("ai_detected")),
             )
         )
-
     await db.flush()
 
-    # ── Notification ──────────────────────────────────────────────────
     if user_id:
         try:
             await notification_service.create_notification(
                 db,
                 user_id=uuid_mod.UUID(str(user_id)),
                 notif_type="security_scan_complete",
-                title="Security & Compliance scan finished",
+                title="Compliance scan finished",
                 message=(
-                    f"{len(raw_findings)} CVE finding(s) and "
                     f"{len(compliance_rows)} compliance finding(s) across "
                     f"{len(regs)} regulation(s)."
                 ),
                 link="/turbolens?tab=security",
                 data={
-                    "cve_count": len(raw_findings),
                     "compliance_count": len(compliance_rows),
                     "regulations": regs,
+                    "scan": "compliance",
                 },
             )
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Security scan notification failed: %s", exc)
+            logger.warning("Compliance scan notification failed: %s", exc)
 
     summary = {
-        "cve_findings": len(raw_findings),
+        "scan": "compliance",
         "compliance_findings": len(compliance_rows),
         "regulations": regs,
         "cards_scanned": len(cards),
-        "cards_skipped": len(skipped),
         "ai_bearing_cards": len(ai_scope),
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
-
-    # Persist the run summary in-place for consumers that still read
-    # ``results`` from the analysis-runs row.
     run = await db.get(TurboLensAnalysisRun, run_uuid)
     if run is not None:
         run.results = summary
