@@ -272,11 +272,13 @@ class CveFindingOut(BaseModel):
     business_impact: str | None = None
     remediation: str | None = None
     status: str = "open"
+    risk_id: str | None = None
+    risk_reference: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
-    @field_validator("id", "run_id", "card_id", mode="before")
+    @field_validator("id", "run_id", "card_id", "risk_id", mode="before")
     @classmethod
     def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
         return str(v) if v is not None else None
@@ -298,11 +300,13 @@ class ComplianceFindingOut(BaseModel):
     evidence: str | None = None
     remediation: str | None = None
     ai_detected: bool = False
+    risk_id: str | None = None
+    risk_reference: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
-    @field_validator("id", "run_id", "card_id", mode="before")
+    @field_validator("id", "run_id", "card_id", "risk_id", mode="before")
     @classmethod
     def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
         return str(v) if v is not None else None

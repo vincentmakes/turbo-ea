@@ -1005,13 +1005,22 @@ async def security_overview(
         compliance_by_status[reg] = status_counts
 
     # Top 5 criticals, joined with card names.
+    from app.services.turbolens_security import load_risk_references
+
     criticals = sorted(
         (r for r in cve_rows if r.severity in ("critical", "high")),
         key=lambda r: (r.severity != "critical", -(r.cvss_score or 0.0)),
     )[:5]
     name_map = await _load_card_names(db, {r.card_id for r in criticals})
+    risk_refs = await load_risk_references(db, {r.risk_id for r in criticals if r.risk_id})
     top_critical = [
-        CveFindingOut.model_validate(finding_to_dict(r, name_map.get(str(r.card_id))))
+        CveFindingOut.model_validate(
+            finding_to_dict(
+                r,
+                name_map.get(str(r.card_id)),
+                risk_reference=risk_refs.get(str(r.risk_id)) if r.risk_id else None,
+            )
+        )
         for r in criticals
     ]
 
@@ -1036,6 +1045,7 @@ _PRIORITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 @router.get("/security/findings")
 async def list_cve_findings(
     severity: str | None = None,
+    probability: str | None = None,
     status: str | None = None,
     card_id: str | None = None,
     card_type: str | None = None,
@@ -1044,14 +1054,18 @@ async def list_cve_findings(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Paginated CVE findings list."""
+    """Paginated CVE findings list. ``probability`` + ``severity`` together
+    drive the risk-matrix drill-through from the Security Overview.
+    """
     await PermissionService.require_permission(db, user, "security_compliance.view")
 
-    from app.services.turbolens_security import finding_to_dict
+    from app.services.turbolens_security import finding_to_dict, load_risk_references
 
     stmt = select(TurboLensCveFinding)
     if severity:
         stmt = stmt.where(TurboLensCveFinding.severity == severity)
+    if probability:
+        stmt = stmt.where(TurboLensCveFinding.probability == probability)
     if status:
         stmt = stmt.where(TurboLensCveFinding.status == status)
     if card_type:
@@ -1078,8 +1092,15 @@ async def list_cve_findings(
     start = (page - 1) * page_size
     page_rows = rows[start : start + page_size]
     name_map = await _load_card_names(db, {r.card_id for r in page_rows})
+    risk_refs = await load_risk_references(db, {r.risk_id for r in page_rows if r.risk_id})
     items = [
-        CveFindingOut.model_validate(finding_to_dict(r, name_map.get(str(r.card_id))))
+        CveFindingOut.model_validate(
+            finding_to_dict(
+                r,
+                name_map.get(str(r.card_id)),
+                risk_reference=risk_refs.get(str(r.risk_id)) if r.risk_id else None,
+            )
+        )
         for r in page_rows
     ]
     return {
@@ -1090,6 +1111,23 @@ async def list_cve_findings(
     }
 
 
+async def _one_cve_out(db: AsyncSession, row: TurboLensCveFinding) -> "CveFindingOut":
+    """Shared serialiser for /findings/{id} get + patch — resolves the
+    card name and the promoted risk reference in a single round-trip.
+    """
+    from app.services.turbolens_security import finding_to_dict, load_risk_references
+
+    name_map = await _load_card_names(db, {row.card_id})
+    risk_refs = await load_risk_references(db, {row.risk_id} if row.risk_id else set())
+    return CveFindingOut.model_validate(
+        finding_to_dict(
+            row,
+            name_map.get(str(row.card_id)),
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+        )
+    )
+
+
 @router.get("/security/findings/{finding_id}")
 async def get_cve_finding(
     finding_id: str,
@@ -1097,13 +1135,10 @@ async def get_cve_finding(
     user: User = Depends(get_current_user),
 ) -> CveFindingOut:
     await PermissionService.require_permission(db, user, "security_compliance.view")
-    from app.services.turbolens_security import finding_to_dict
-
     row = await db.get(TurboLensCveFinding, uuid.UUID(finding_id))
     if not row:
         raise HTTPException(404, "Finding not found")
-    name_map = await _load_card_names(db, {row.card_id})
-    return CveFindingOut.model_validate(finding_to_dict(row, name_map.get(str(row.card_id))))
+    return await _one_cve_out(db, row)
 
 
 @router.patch("/security/findings/{finding_id}")
@@ -1114,16 +1149,13 @@ async def update_cve_finding_status(
     user: User = Depends(get_current_user),
 ) -> CveFindingOut:
     await PermissionService.require_permission(db, user, "security_compliance.manage")
-    from app.services.turbolens_security import finding_to_dict
-
     row = await db.get(TurboLensCveFinding, uuid.UUID(finding_id))
     if not row:
         raise HTTPException(404, "Finding not found")
     row.status = body.status
     await db.commit()
     await db.refresh(row)
-    name_map = await _load_card_names(db, {row.card_id})
-    return CveFindingOut.model_validate(finding_to_dict(row, name_map.get(str(row.card_id))))
+    return await _one_cve_out(db, row)
 
 
 @router.get("/security/compliance")
@@ -1135,7 +1167,11 @@ async def list_compliance(
 ) -> list[ComplianceBundleOut]:
     await PermissionService.require_permission(db, user, "security_compliance.view")
 
-    from app.services.turbolens_security import compliance_score, compliance_to_dict
+    from app.services.turbolens_security import (
+        compliance_score,
+        compliance_to_dict,
+        load_risk_references,
+    )
 
     stmt = select(TurboLensComplianceFinding)
     if regulation:
@@ -1148,6 +1184,7 @@ async def list_compliance(
 
     card_ids = {r.card_id for r in rows if r.card_id}
     name_map = await _load_card_names(db, card_ids)
+    risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
 
     grouped: dict[str, list[TurboLensComplianceFinding]] = {}
     for row in rows:
@@ -1159,7 +1196,11 @@ async def list_compliance(
         reg_rows = grouped.get(reg, [])
         items = [
             ComplianceFindingOut.model_validate(
-                compliance_to_dict(row, name_map.get(str(row.card_id)) if row.card_id else None)
+                compliance_to_dict(
+                    row,
+                    name_map.get(str(row.card_id)) if row.card_id else None,
+                    risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+                )
             )
             for row in reg_rows
         ]

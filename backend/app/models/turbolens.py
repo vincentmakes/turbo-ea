@@ -164,6 +164,13 @@ class TurboLensCveFinding(UUIDMixin, TimestampMixin, Base):
     business_impact: Mapped[str | None] = mapped_column(Text, nullable=True)
     remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="open")
+    # Back-link to a promoted Risk. Null until the user clicks
+    # "Create risk" on this finding.
+    risk_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("risks.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("ix_turbolens_cve_findings_card_id_severity", "card_id", "severity"),
@@ -172,6 +179,7 @@ class TurboLensCveFinding(UUIDMixin, TimestampMixin, Base):
         Index("ix_turbolens_cve_findings_cve_id", "cve_id"),
         Index("ix_turbolens_cve_findings_severity", "severity"),
         Index("ix_turbolens_cve_findings_priority", "priority"),
+        Index("ix_turbolens_cve_findings_risk_id", "risk_id"),
     )
 
 
@@ -200,6 +208,11 @@ class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
     evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
     remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
     ai_detected: Mapped[bool] = mapped_column(Boolean, default=False)
+    risk_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("risks.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index(
@@ -209,6 +222,7 @@ class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
         ),
         Index("ix_turbolens_compliance_findings_card_id", "card_id"),
         Index("ix_turbolens_compliance_findings_run_id", "run_id"),
+        Index("ix_turbolens_compliance_findings_risk_id", "risk_id"),
     )
 
 

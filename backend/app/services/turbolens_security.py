@@ -954,8 +954,13 @@ def compliance_score(rows: list[TurboLensComplianceFinding]) -> int:
     return int(round((total / len(rows)) * 100))
 
 
-def finding_to_dict(row: TurboLensCveFinding, card_name: str | None) -> dict[str, Any]:
-    """Flatten a CVE row + joined card name into an output dict."""
+def finding_to_dict(
+    row: TurboLensCveFinding,
+    card_name: str | None,
+    *,
+    risk_reference: str | None = None,
+) -> dict[str, Any]:
+    """Flatten a CVE row + joined card name + (optional) promoted risk ref."""
     return {
         "id": str(row.id),
         "run_id": str(row.run_id),
@@ -982,6 +987,8 @@ def finding_to_dict(row: TurboLensCveFinding, card_name: str | None) -> dict[str
         "business_impact": row.business_impact,
         "remediation": row.remediation,
         "status": row.status,
+        "risk_id": str(row.risk_id) if row.risk_id else None,
+        "risk_reference": risk_reference,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -990,7 +997,12 @@ def _date_or_none(value: date | None) -> str | None:
     return value.isoformat() if value else None
 
 
-def compliance_to_dict(row: TurboLensComplianceFinding, card_name: str | None) -> dict[str, Any]:
+def compliance_to_dict(
+    row: TurboLensComplianceFinding,
+    card_name: str | None,
+    *,
+    risk_reference: str | None = None,
+) -> dict[str, Any]:
     return {
         "id": str(row.id),
         "run_id": str(row.run_id),
@@ -1007,5 +1019,17 @@ def compliance_to_dict(row: TurboLensComplianceFinding, card_name: str | None) -
         "evidence": row.evidence,
         "remediation": row.remediation,
         "ai_detected": row.ai_detected,
+        "risk_id": str(row.risk_id) if row.risk_id else None,
+        "risk_reference": risk_reference,
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
+
+
+async def load_risk_references(db: AsyncSession, risk_ids: set[uuid_mod.UUID]) -> dict[str, str]:
+    """Resolve risk id → reference for N findings. Cheap bulk lookup."""
+    if not risk_ids:
+        return {}
+    from app.models.risk import Risk
+
+    result = await db.execute(select(Risk.id, Risk.reference).where(Risk.id.in_(risk_ids)))
+    return {str(rid): ref for rid, ref in result.all()}

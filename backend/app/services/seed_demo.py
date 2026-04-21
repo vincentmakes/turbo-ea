@@ -5643,6 +5643,14 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         db.add(SoAW(**soaw_data))
     await db.flush()
 
+    # --- Demo risks --------------------------------------------------
+    # A handful of risks in different lifecycle stages so the Risk
+    # Register + Card Detail Risks tab have content on a fresh install.
+    try:
+        risk_count = await _seed_demo_risks(db, admin_id, uuid_to_ref)
+    except Exception:  # noqa: BLE001
+        risk_count = 0
+
     await db.commit()
     return {
         "cards": len(all_fs),
@@ -5650,7 +5658,148 @@ async def seed_demo_data(db: AsyncSession) -> dict:
         "tag_groups": len(TAG_GROUPS),
         "adrs": len(DEMO_ADRS) + len(DEMO_ADRS_EXTRA),
         "soaws": len(DEMO_SOAWS),
+        "risks": risk_count,
     }
+
+
+async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
+    """Create 5 demo risks spanning the TOGAF lifecycle, linked to cards.
+
+    Skipped silently if the risk model/table isn't available yet (e.g.
+    when seed_demo runs before migration 064 on an old snapshot).
+    """
+    try:
+        from app.models.risk import Risk, RiskCard
+        from app.services.risk_service import derive_level
+    except ImportError:
+        return 0
+
+    # Map ref name → card_id using the reverse lookup we already built.
+    ref_to_uuid = {ref: uid for uid, ref in uuid_to_ref.items()}
+
+    def card(ref: str):
+        return ref_to_uuid.get(ref)
+
+    demo = [
+        {
+            "title": "CVE-2024-45678 on legacy Apache HTTP Server",
+            "description": (
+                "Remote code execution in Apache HTTP Server 2.4.58. The "
+                "perimeter-facing deployment is reachable from the public "
+                "internet and fronts customer orders."
+            ),
+            "category": "security",
+            "source_type": "security_cve",
+            "source_ref": "CVE-2024-45678",
+            "initial_probability": "very_high",
+            "initial_impact": "critical",
+            "status": "identified",
+            "mitigation": None,
+            "cards": ["app_nexacore_erp"],
+        },
+        {
+            "title": "EU AI Act: high-risk AI registry missing",
+            "description": (
+                "Multiple AI-bearing applications (credit scoring, fraud "
+                "analytics) are deployed without a documented high-risk AI "
+                "registry per EU AI Act Art. 60."
+            ),
+            "category": "compliance",
+            "source_type": "security_compliance",
+            "source_ref": "eu_ai_act",
+            "initial_probability": "high",
+            "initial_impact": "high",
+            "status": "analysed",
+            "mitigation": (
+                "Publish the registry and assign a Human Oversight owner per classified system."
+            ),
+            "cards": [],
+        },
+        {
+            "title": "Single-vendor concentration — payments platform",
+            "description": (
+                "All card-processing flows run on a single PSP. A vendor outage would stop revenue."
+            ),
+            "category": "operational",
+            "source_type": "manual",
+            "source_ref": None,
+            "initial_probability": "medium",
+            "initial_impact": "critical",
+            "status": "in_progress",
+            "mitigation": "Onboard secondary PSP for fail-over by Q3.",
+            "residual_probability": "low",
+            "residual_impact": "critical",
+            "cards": [],
+        },
+        {
+            "title": "Legacy batch ETL nearing end-of-support",
+            "description": "Informatica PowerCenter 10.4 loses support in 2026.",
+            "category": "technology",
+            "source_type": "manual",
+            "source_ref": None,
+            "initial_probability": "high",
+            "initial_impact": "medium",
+            "status": "mitigated",
+            "mitigation": "Migrated key jobs to dbt Cloud; decommission 2025.",
+            "residual_probability": "low",
+            "residual_impact": "low",
+            "cards": [],
+        },
+        {
+            "title": "Accepted: Niche reporting tool on end-of-life OS",
+            "description": (
+                "Low-usage reporting server still runs Windows Server 2012. "
+                "Planned decommission in Q4."
+            ),
+            "category": "technology",
+            "source_type": "manual",
+            "source_ref": None,
+            "initial_probability": "medium",
+            "initial_impact": "medium",
+            "status": "accepted",
+            "mitigation": "Network-isolated; decommissioning scheduled Q4.",
+            "acceptance_rationale": (
+                "Replacement already funded; network isolation limits blast radius."
+            ),
+            "cards": [],
+        },
+    ]
+
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    count = 0
+    for idx, r in enumerate(demo, 1):
+        risk = Risk(
+            id=__import__("uuid").uuid4(),
+            reference=f"R-{idx:06d}",
+            title=r["title"],
+            description=r["description"],
+            category=r["category"],
+            source_type=r["source_type"],
+            source_ref=r["source_ref"],
+            initial_probability=r["initial_probability"],
+            initial_impact=r["initial_impact"],
+            initial_level=derive_level(r["initial_probability"], r["initial_impact"]) or "medium",
+            mitigation=r.get("mitigation"),
+            residual_probability=r.get("residual_probability"),
+            residual_impact=r.get("residual_impact"),
+            residual_level=derive_level(r.get("residual_probability"), r.get("residual_impact")),
+            status=r["status"],
+            acceptance_rationale=r.get("acceptance_rationale"),
+            accepted_by=admin_id if r["status"] == "accepted" else None,
+            accepted_at=now if r["status"] == "accepted" else None,
+            created_by=admin_id,
+        )
+        db.add(risk)
+        await db.flush()
+        for ref in r["cards"]:
+            cid = card(ref)
+            if cid:
+                db.add(RiskCard(risk_id=risk.id, card_id=cid))
+        count += 1
+    await db.flush()
+    return count
 
 
 # ===================================================================

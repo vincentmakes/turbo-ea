@@ -33,6 +33,12 @@ const SoAWEditor = lazy(() => import("@/features/ea-delivery/SoAWEditor"));
 const SoAWPreview = lazy(() => import("@/features/ea-delivery/SoAWPreview"));
 const ADREditor = lazy(() => import("@/features/ea-delivery/ADREditor"));
 const ADRPreview = lazy(() => import("@/features/ea-delivery/ADRPreview"));
+const RiskRegisterPage = lazy(
+  () => import("@/features/ea-delivery/risks/RiskRegisterPage"),
+);
+const RiskDetailPage = lazy(
+  () => import("@/features/ea-delivery/risks/RiskDetailPage"),
+);
 const MetamodelAdmin = lazy(() => import("@/features/admin/MetamodelAdmin"));
 const UsersAdmin = lazy(() => import("@/features/admin/UsersAdmin"));
 const SettingsAdmin = lazy(() => import("@/features/admin/SettingsAdmin"));
@@ -141,6 +147,8 @@ function AppRoutes() {
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
+                <Route path="/ea-delivery/risks" element={<RiskRegisterPage />} />
+                <Route path="/ea-delivery/risks/:id" element={<RiskDetailPage />} />
                 <Route path="/todos" element={<TodosPage />} />
                 <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
                 <Route path="/surveys/:surveyId/respond/:cardId" element={<SurveyRespond />} />

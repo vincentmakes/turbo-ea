@@ -20,6 +20,8 @@ interface Props {
   finding: TurboLensCveFinding | null;
   onClose: () => void;
   onUpdateStatus: (id: string, status: CveStatus) => Promise<void> | void;
+  onPromoteToRisk?: (finding: TurboLensCveFinding) => void;
+  onOpenRisk?: (riskId: string) => void;
   updating?: boolean;
 }
 
@@ -69,9 +71,12 @@ export default function SecurityFindingDrawer({
   finding,
   onClose,
   onUpdateStatus,
+  onPromoteToRisk,
+  onOpenRisk,
   updating,
 }: Props) {
   const { t } = useTranslation("admin");
+  const { t: tDelivery } = useTranslation("delivery");
 
   return (
     <Drawer
@@ -209,6 +214,31 @@ export default function SecurityFindingDrawer({
 
           <Divider />
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {finding.risk_id ? (
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
+                onClick={() => onOpenRisk?.(finding.risk_id!)}
+              >
+                {tDelivery("risks.openRisk", {
+                  reference: finding.risk_reference ?? finding.risk_id,
+                })}
+              </Button>
+            ) : (
+              onPromoteToRisk && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<MaterialSymbol icon="policy" size={16} />}
+                  onClick={() => onPromoteToRisk(finding)}
+                >
+                  {tDelivery("risks.createRisk")}
+                </Button>
+              )
+            )}
             {STATUS_ACTIONS.filter((action) =>
               action.visibleFrom.includes(finding.status),
             ).map((action) => (

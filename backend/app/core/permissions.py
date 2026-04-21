@@ -167,6 +167,13 @@ APP_PERMISSIONS: dict[str, dict] = {
             "security_compliance.manage": "Trigger security scans and update finding status",
         },
     },
+    "risks": {
+        "label": "Risks",
+        "permissions": {
+            "risks.view": "View the risk register and risks on cards",
+            "risks.manage": "Create, edit, promote, and resolve risks",
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -302,6 +309,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "turbolens.manage": False,
     "security_compliance.view": True,
     "security_compliance.manage": False,
+    "risks.view": True,
+    "risks.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -368,6 +377,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "turbolens.manage": False,
     "security_compliance.view": True,
     "security_compliance.manage": False,
+    "risks.view": True,
+    "risks.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -434,6 +445,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "turbolens.manage": False,
     "security_compliance.view": True,
     "security_compliance.manage": False,
+    "risks.view": True,
+    "risks.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "notifications.manage": True,

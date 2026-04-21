@@ -46,7 +46,6 @@
   "hierarchy.errors.setParent": "设置父级失败",
   "hierarchy.errors.addChild": "添加子级失败",
   "hierarchy.errors.create": "创建失败",
-
   "successors.title": "谱系",
   "successors.predecessors": "前任",
   "successors.successorsList": "继承者",
@@ -63,7 +62,6 @@
   "successors.backToSearch": "返回搜索",
   "successors.errors.add": "添加关系失败",
   "successors.errors.create": "创建卡片失败",
-
   "relations.title": "关系",
   "relations.add": "添加关系",
   "relations.empty": "暂无关系。",
@@ -92,7 +90,7 @@
   "todos.empty": "暂无待办事项。",
   "todos.assignTo": "指派给",
   "todos.dueDate": "截止日期",
-  "todos.adding": "正在添加\u2026",
+  "todos.adding": "正在添加…",
   "history.empty": "暂无历史记录。",
   "history.by": "由 {{user}}",
   "history.events.created": "已创建",
@@ -155,6 +153,7 @@
   "tabs.todos": "待办事项",
   "tabs.stakeholders": "利益相关者",
   "tabs.resources": "资源",
+  "tabs.risks": "风险",
   "resources.architectureDecisions": "架构决策",
   "resources.fileAttachments": "文件附件",
   "resources.documentLinks": "文档链接",

@@ -50,6 +50,14 @@ import type {
   TurboLensSecurityOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
+import CreateRiskDialog from "@/features/ea-delivery/risks/CreateRiskDialog";
+import {
+  RiskDialogSeed,
+  seedFromCompliance,
+  seedFromCve,
+} from "@/features/ea-delivery/risks/riskDefaults";
+import { useNavigate } from "react-router-dom";
+import type { Risk } from "@/types";
 import SecurityFindingDrawer from "./SecurityFindingDrawer";
 import SecurityScanCard from "./SecurityScanCard";
 import { useAnalysisPolling } from "./useAnalysisPolling";
@@ -94,6 +102,8 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
+  const { t: tDelivery } = useTranslation("delivery");
+  const navigate = useNavigate();
   const phaseLabel = useCallback(
     (phase: string) => {
       const key = `turbolens_security_phase_${phase}`;
@@ -119,6 +129,7 @@ export default function TurboLensSecurity() {
   const [severityFilter, setSeverityFilter] = useState<string>("__all__");
   const [statusFilter, setStatusFilter] = useState<string>("__all__");
   const [typeFilter, setTypeFilter] = useState<string>("__all__");
+  const [probabilityFilter, setProbabilityFilter] = useState<string>("__all__");
 
   // ── Compliance filter ──────────────────────────────────────────────
   const [activeRegulation, setActiveRegulation] = useState<RegulationKey>("eu_ai_act");
@@ -130,6 +141,13 @@ export default function TurboLensSecurity() {
   // ── Drawer ─────────────────────────────────────────────────────────
   const [selected, setSelected] = useState<TurboLensCveFinding | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  // Risk promotion dialog (used from CVE drawer, CVE rows, compliance cards).
+  const [riskSeed, setRiskSeed] = useState<RiskDialogSeed | null>(null);
+  const openRisk = useCallback(
+    (riskId: string) => navigate(`/ea-delivery/risks/${riskId}`),
+    [navigate],
+  );
 
   // ── Shared messaging ───────────────────────────────────────────────
   const [error, setError] = useState<string | null>(null);
@@ -162,6 +180,7 @@ export default function TurboLensSecurity() {
         page_size: String(pageSize),
       });
       if (severityFilter !== "__all__") params.set("severity", severityFilter);
+      if (probabilityFilter !== "__all__") params.set("probability", probabilityFilter);
       if (statusFilter !== "__all__") params.set("status", statusFilter);
       if (typeFilter !== "__all__") params.set("card_type", typeFilter);
       const data = await api.get<CveFindingsPage>(`/turbolens/security/findings?${params}`);
@@ -173,7 +192,7 @@ export default function TurboLensSecurity() {
     } finally {
       setFindingsLoading(false);
     }
-  }, [page, pageSize, severityFilter, statusFilter, typeFilter]);
+  }, [page, pageSize, severityFilter, probabilityFilter, statusFilter, typeFilter]);
 
   const loadCompliance = useCallback(async () => {
     setComplianceLoading(true);
@@ -402,7 +421,31 @@ export default function TurboLensSecurity() {
         finding={selected}
         onClose={() => setSelected(null)}
         onUpdateStatus={updateStatus}
+        onPromoteToRisk={(f) => setRiskSeed(seedFromCve(f))}
+        onOpenRisk={openRisk}
         updating={updating}
+      />
+
+      <CreateRiskDialog
+        open={Boolean(riskSeed)}
+        seed={riskSeed}
+        onClose={() => setRiskSeed(null)}
+        onCreated={(risk: Risk) => {
+          setRiskSeed(null);
+          // Keep the drawer in sync: refresh findings + the selected row so
+          // the button flips to "Open risk R-xxxxxx" without a reload.
+          loadFindings();
+          loadOverview();
+          loadCompliance();
+          if (selected) {
+            setSelected({
+              ...selected,
+              risk_id: risk.id,
+              risk_reference: risk.reference,
+            });
+          }
+          navigate(`/ea-delivery/risks/${risk.id}`);
+        }}
       />
     </Box>
   );
@@ -588,7 +631,22 @@ export default function TurboLensSecurity() {
           <Typography variant="caption" color="text.secondary">
             {t("turbolens_security_risk_matrix_hint")}
           </Typography>
-          <RiskMatrix matrix={overview.risk_matrix || []} />
+          <RiskMatrix
+            matrix={overview.risk_matrix || []}
+            onSelect={(prob, sev) => {
+              setProbabilityFilter(prob ?? "__all__");
+              setSeverityFilter(sev ?? "__all__");
+              setStatusFilter("__all__");
+              setTypeFilter("__all__");
+              setActiveTab(1);
+              setPage(0);
+            }}
+            highlight={
+              probabilityFilter !== "__all__" && severityFilter !== "__all__"
+                ? { probability: probabilityFilter, severity: severityFilter }
+                : null
+            }
+          />
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -650,13 +708,19 @@ export default function TurboLensSecurity() {
   // CVE findings tab
   // -----------------------------------------------------------------
   function renderFindings() {
+    const matrixActive =
+      probabilityFilter !== "__all__" && severityFilter !== "__all__";
     return (
       <Stack spacing={2}>
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
           <FilterSelect
             label={t("turbolens_security_filter_severity")}
             value={severityFilter}
-            onChange={setSeverityFilter}
+            onChange={(v) => {
+              setSeverityFilter(v);
+              // Clear matrix highlight when severity diverges.
+              if (v !== severityFilter) setProbabilityFilter("__all__");
+            }}
             options={SEVERITIES.map((s) => ({
               value: s,
               label: t(`turbolens_security_severity_${s}`),
@@ -677,6 +741,19 @@ export default function TurboLensSecurity() {
             onChange={setTypeFilter}
             options={CARD_TYPES.map((c) => ({ value: c, label: c }))}
           />
+          {matrixActive && (
+            <Chip
+              color="primary"
+              size="small"
+              label={`${t(`turbolens_security_probability_${probabilityFilter}`)} × ${t(
+                `turbolens_security_severity_${severityFilter}`,
+              )}`}
+              onDelete={() => {
+                setProbabilityFilter("__all__");
+                setSeverityFilter("__all__");
+              }}
+            />
+          )}
         </Stack>
 
         {findingsLoading ? (
@@ -920,6 +997,32 @@ export default function TurboLensSecurity() {
                     {t("turbolens_security_compliance_evidence")}: {f.evidence}
                   </Typography>
                 )}
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  {f.risk_id ? (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<MaterialSymbol icon="open_in_new" size={14} />}
+                      onClick={() => openRisk(f.risk_id!)}
+                    >
+                      {tDelivery("risks.openRisk", {
+                        reference: f.risk_reference ?? f.risk_id,
+                      })}
+                    </Button>
+                  ) : (
+                    f.status !== "compliant" &&
+                    f.status !== "not_applicable" && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<MaterialSymbol icon="policy" size={14} />}
+                        onClick={() => setRiskSeed(seedFromCompliance(f))}
+                      >
+                        {tDelivery("risks.createRisk")}
+                      </Button>
+                    )
+                  )}
+                </Stack>
               </Paper>
             ))}
           </Stack>
@@ -964,7 +1067,15 @@ function FilterSelect({
   );
 }
 
-function RiskMatrix({ matrix }: { matrix: number[][] }) {
+function RiskMatrix({
+  matrix,
+  onSelect,
+  highlight,
+}: {
+  matrix: number[][];
+  onSelect?: (probability: string | null, severity: string | null) => void;
+  highlight?: { probability: string; severity: string } | null;
+}) {
   const { t } = useTranslation("admin");
   if (matrix.length === 0) return null;
   return (
@@ -992,18 +1103,55 @@ function RiskMatrix({ matrix }: { matrix: number[][] }) {
           >
             {t(`turbolens_security_probability_${probKey}`)}
           </Typography>
-          {SEVERITY_LABELS.map((_, sevIdx) => {
+          {SEVERITY_LABELS.map((sevKey, sevIdx) => {
             const count = matrix[probIdx]?.[sevIdx] ?? 0;
+            const isActive =
+              highlight &&
+              highlight.probability === probKey &&
+              highlight.severity === sevKey;
+            const clickable = Boolean(onSelect) && count > 0;
             return (
               <Box
                 key={sevIdx}
+                role={clickable ? "button" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onClick={
+                  clickable
+                    ? () =>
+                        onSelect?.(
+                          isActive ? null : probKey,
+                          isActive ? null : sevKey,
+                        )
+                    : undefined
+                }
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelect?.(
+                            isActive ? null : probKey,
+                            isActive ? null : sevKey,
+                          );
+                        }
+                      }
+                    : undefined
+                }
                 sx={{
                   py: 1.5,
                   textAlign: "center",
                   borderRadius: 1,
+                  cursor: clickable ? "pointer" : "default",
                   bgcolor: riskMatrixColor(probIdx, sevIdx),
+                  outline: isActive ? "2px solid" : "none",
+                  outlineColor: "primary.main",
                   fontWeight: count ? 700 : 400,
                   fontSize: 14,
+                  "&:hover": clickable ? { filter: "brightness(1.05)" } : undefined,
+                  "&:focus-visible": {
+                    outline: "2px solid",
+                    outlineColor: "primary.main",
+                  },
                 }}
               >
                 {count || "—"}

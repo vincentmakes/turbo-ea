@@ -1,0 +1,499 @@
+"""Risk register API — CRUD + promote-from-finding + card-linking.
+
+All routes live under ``/api/v1/risks`` except ``GET /cards/{id}/risks``
+which is co-located on the cards namespace for intuitive discoverability.
+
+TOGAF Phase G reference: ``status`` is the risk-register lifecycle;
+``initial_*`` and ``residual_*`` pairs are the before/after assessment;
+``acceptance_rationale`` is required to move to ``accepted``.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from sqlalchemy import delete, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_current_user
+from app.database import get_db
+from app.models.risk import Risk, RiskCard
+from app.models.user import User
+from app.schemas.risk import (
+    RiskCardLinkRequest,
+    RiskCreate,
+    RiskListPage,
+    RiskMetricsOut,
+    RiskOut,
+    RiskPromoteRequest,
+    RiskUpdate,
+)
+from app.services import notification_service
+from app.services.permission_service import PermissionService
+from app.services.risk_service import (
+    STATUS_VALUES,
+    compute_metrics,
+    derive_level,
+    link_cards,
+    next_reference,
+    promote_compliance_finding,
+    promote_cve_finding,
+    risk_to_dict,
+    validate_status_transition,
+)
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/risks", tags=["Risks"])
+
+# Cards sub-route — mounted separately via the main router, see
+# `cards_risks_router` at the bottom of this file.
+cards_risks_router = APIRouter(prefix="/cards", tags=["Risks"])
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+async def _load_risk(db: AsyncSession, risk_id: str) -> Risk:
+    try:
+        uid = uuid.UUID(risk_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid risk id") from exc
+    risk = await db.get(Risk, uid)
+    if risk is None:
+        raise HTTPException(404, "Risk not found")
+    return risk
+
+
+def _parse_card_ids(raw: list[str]) -> list[uuid.UUID]:
+    out: list[uuid.UUID] = []
+    for cid in raw:
+        try:
+            out.append(uuid.UUID(cid))
+        except ValueError:
+            # Silently skip — the UI can send stale ids after a refresh.
+            continue
+    return out
+
+
+# ---------------------------------------------------------------------------
+# List + metrics
+# ---------------------------------------------------------------------------
+
+
+@router.get("", response_model=RiskListPage)
+async def list_risks(
+    status: str | None = None,
+    category: str | None = None,
+    level: str | None = None,
+    owner_id: str | None = None,
+    card_id: str | None = None,
+    source_type: str | None = None,
+    search: str | None = None,
+    overdue: bool = False,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    sort_by: str = "updated_at",
+    sort_dir: str = "desc",
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskListPage:
+    """Paginated, filterable risk list."""
+    await PermissionService.require_permission(db, user, "risks.view")
+
+    stmt = select(Risk)
+    if status:
+        stmt = stmt.where(Risk.status == status)
+    if category:
+        stmt = stmt.where(Risk.category == category)
+    if level:
+        # Match on whichever level is current: residual if set, otherwise initial.
+        stmt = stmt.where(
+            or_(
+                Risk.residual_level == level,
+                (Risk.residual_level.is_(None)) & (Risk.initial_level == level),
+            )
+        )
+    if owner_id:
+        try:
+            stmt = stmt.where(Risk.owner_id == uuid.UUID(owner_id))
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid owner_id") from exc
+    if source_type:
+        stmt = stmt.where(Risk.source_type == source_type)
+    if search:
+        needle = f"%{search.lower()}%"
+        stmt = stmt.where(
+            or_(
+                Risk.title.ilike(needle),
+                Risk.description.ilike(needle),
+                Risk.reference.ilike(needle),
+            )
+        )
+    if card_id:
+        try:
+            cid = uuid.UUID(card_id)
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid card_id") from exc
+        stmt = stmt.where(Risk.id.in_(select(RiskCard.risk_id).where(RiskCard.card_id == cid)))
+
+    rows_res = await db.execute(stmt)
+    rows = list(rows_res.scalars().all())
+
+    if overdue:
+        today = datetime.now(timezone.utc).date()
+        rows = [
+            r
+            for r in rows
+            if r.target_resolution_date
+            and r.target_resolution_date < today
+            and r.status not in ("closed", "accepted", "mitigated")
+        ]
+
+    # Sort server-side for consistent pagination.
+    sort_key = {
+        "updated_at": lambda r: r.updated_at or datetime.min.replace(tzinfo=timezone.utc),
+        "target_resolution_date": lambda r: r.target_resolution_date or datetime.max.date(),
+        "level": lambda r: _level_weight(r.residual_level or r.initial_level),
+        "reference": lambda r: r.reference,
+    }.get(sort_by, lambda r: r.updated_at or datetime.min.replace(tzinfo=timezone.utc))
+    rows.sort(key=sort_key, reverse=(sort_dir == "desc"))
+
+    total = len(rows)
+    start = (page - 1) * page_size
+    page_rows = rows[start : start + page_size]
+    items = [RiskOut.model_validate(await risk_to_dict(db, r)) for r in page_rows]
+    return RiskListPage(items=items, total=total, page=page, page_size=page_size)
+
+
+_LEVEL_WEIGHT = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+
+def _level_weight(level: str | None) -> int:
+    return _LEVEL_WEIGHT.get(level or "", 9)
+
+
+@router.get("/metrics", response_model=RiskMetricsOut)
+async def risk_metrics(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskMetricsOut:
+    await PermissionService.require_permission(db, user, "risks.view")
+    rows = list((await db.execute(select(Risk))).scalars().all())
+    return RiskMetricsOut.model_validate(compute_metrics(rows))
+
+
+# ---------------------------------------------------------------------------
+# CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{risk_id}", response_model=RiskOut)
+async def get_risk(
+    risk_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.view")
+    risk = await _load_risk(db, risk_id)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+@router.post("", response_model=RiskOut)
+async def create_risk(
+    body: RiskCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+
+    owner_uid: uuid.UUID | None = None
+    if body.owner_id:
+        try:
+            owner_uid = uuid.UUID(body.owner_id)
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid owner_id") from exc
+
+    risk = Risk(
+        id=uuid.uuid4(),
+        reference=await next_reference(db),
+        title=body.title,
+        description=body.description or "",
+        category=body.category,
+        source_type="manual",
+        source_ref=None,
+        initial_probability=body.initial_probability,
+        initial_impact=body.initial_impact,
+        initial_level=derive_level(body.initial_probability, body.initial_impact) or "medium",
+        mitigation=body.mitigation,
+        owner_id=owner_uid,
+        target_resolution_date=body.target_resolution_date,
+        status="identified",
+        created_by=user.id,
+    )
+    db.add(risk)
+    await db.flush()
+
+    if body.card_ids:
+        await link_cards(db, risk.id, _parse_card_ids(body.card_ids))
+
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+@router.patch("/{risk_id}", response_model=RiskOut)
+async def update_risk(
+    risk_id: str,
+    body: RiskUpdate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    risk = await _load_risk(db, risk_id)
+
+    data = body.model_dump(exclude_unset=True)
+
+    # Scalar field updates.
+    for key in (
+        "title",
+        "description",
+        "category",
+        "initial_probability",
+        "initial_impact",
+        "mitigation",
+        "residual_probability",
+        "residual_impact",
+        "target_resolution_date",
+        "acceptance_rationale",
+    ):
+        if key in data:
+            setattr(risk, key, data[key])
+
+    if "owner_id" in data:
+        value = data["owner_id"]
+        if value is None:
+            risk.owner_id = None
+        else:
+            try:
+                risk.owner_id = uuid.UUID(value)
+            except ValueError as exc:
+                raise HTTPException(400, "Invalid owner_id") from exc
+
+    # Recompute derived levels from possibly-updated probability / impact.
+    risk.initial_level = derive_level(risk.initial_probability, risk.initial_impact) or "medium"
+    risk.residual_level = derive_level(risk.residual_probability, risk.residual_impact)
+
+    if "status" in data:
+        new_status = data["status"]
+        try:
+            validate_status_transition(risk.status, new_status)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if new_status == "accepted":
+            if not (risk.acceptance_rationale or "").strip():
+                raise HTTPException(400, "acceptance_rationale is required to accept a risk")
+            risk.accepted_by = user.id
+            risk.accepted_at = datetime.now(timezone.utc)
+        elif new_status != "accepted" and risk.status == "accepted":
+            # Reopening an accepted risk — clear acceptance attribution.
+            risk.accepted_by = None
+            risk.accepted_at = None
+        risk.status = new_status
+
+        # Notify the owner on meaningful state changes.
+        if risk.owner_id and risk.owner_id != user.id:
+            background_tasks.add_task(
+                _notify_status_change,
+                str(risk.owner_id),
+                str(risk.id),
+                risk.reference,
+                risk.title,
+                new_status,
+                str(user.id),
+            )
+
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+async def _notify_status_change(
+    user_id: str,
+    risk_id: str,
+    reference: str,
+    title: str,
+    new_status: str,
+    actor_id: str,
+) -> None:
+    """Fire a notification out-of-band from the request lifecycle."""
+    from app.database import async_session
+
+    async with async_session() as db:
+        try:
+            await notification_service.create_notification(
+                db,
+                user_id=uuid.UUID(user_id),
+                notif_type="risk_status_changed",
+                title=f"Risk {reference} moved to {new_status.replace('_', ' ')}",
+                message=title,
+                link=f"/ea-delivery/risks/{risk_id}",
+                data={"risk_id": risk_id, "status": new_status},
+                actor_id=uuid.UUID(actor_id),
+            )
+            await db.commit()
+        except Exception:  # noqa: BLE001
+            logger.exception("Risk status-change notification failed")
+
+
+@router.delete("/{risk_id}")
+async def delete_risk(
+    risk_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, bool]:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    risk = await _load_risk(db, risk_id)
+    await db.delete(risk)
+    await db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Card linking
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{risk_id}/cards", response_model=RiskOut)
+async def link_risk_cards(
+    risk_id: str,
+    body: RiskCardLinkRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    risk = await _load_risk(db, risk_id)
+    await link_cards(db, risk.id, _parse_card_ids(body.card_ids), body.role)
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+@router.delete("/{risk_id}/cards/{card_id}", response_model=RiskOut)
+async def unlink_risk_card(
+    risk_id: str,
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    risk = await _load_risk(db, risk_id)
+    try:
+        cid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card_id") from exc
+    await db.execute(delete(RiskCard).where(RiskCard.risk_id == risk.id, RiskCard.card_id == cid))
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+# ---------------------------------------------------------------------------
+# Promote from TurboLens findings
+# ---------------------------------------------------------------------------
+
+
+def _overrides_from_promote(body: RiskPromoteRequest | None) -> dict | None:
+    if body is None:
+        return None
+    data = body.model_dump(exclude_unset=True, exclude_none=True)
+    if "owner_id" in data:
+        try:
+            data["owner_id"] = uuid.UUID(data["owner_id"])
+        except ValueError as exc:
+            raise HTTPException(400, "Invalid owner_id") from exc
+    return data
+
+
+@router.post("/promote/cve/{finding_id}", response_model=RiskOut)
+async def promote_cve(
+    finding_id: str,
+    body: RiskPromoteRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    await PermissionService.require_permission(db, user, "security_compliance.view")
+    try:
+        fid = uuid.UUID(finding_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid finding id") from exc
+    try:
+        risk = await promote_cve_finding(db, fid, user.id, overrides=_overrides_from_promote(body))
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+@router.post("/promote/compliance/{finding_id}", response_model=RiskOut)
+async def promote_compliance(
+    finding_id: str,
+    body: RiskPromoteRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> RiskOut:
+    await PermissionService.require_permission(db, user, "risks.manage")
+    await PermissionService.require_permission(db, user, "security_compliance.view")
+    try:
+        fid = uuid.UUID(finding_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid finding id") from exc
+    try:
+        risk = await promote_compliance_finding(
+            db, fid, user.id, overrides=_overrides_from_promote(body)
+        )
+    except LookupError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    await db.commit()
+    await db.refresh(risk)
+    return RiskOut.model_validate(await risk_to_dict(db, risk))
+
+
+# ---------------------------------------------------------------------------
+# Cards → risks sub-route
+# ---------------------------------------------------------------------------
+
+
+@cards_risks_router.get("/{card_id}/risks", response_model=list[RiskOut])
+async def risks_for_card(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[RiskOut]:
+    """All risks linked to a given card (used by the CardDetail → Risks tab)."""
+    await PermissionService.require_permission(db, user, "risks.view")
+    try:
+        cid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card id") from exc
+    result = await db.execute(
+        select(Risk)
+        .join(RiskCard, RiskCard.risk_id == Risk.id)
+        .where(RiskCard.card_id == cid)
+        .order_by(Risk.updated_at.desc())
+    )
+    risks = list(result.scalars().all())
+    return [RiskOut.model_validate(await risk_to_dict(db, r)) for r in risks]
+
+
+# Explicit re-exports to keep ruff happy on module-level imports that
+# are only used for side-effects (status vocabulary list).
+__all__ = ["router", "cards_risks_router", "STATUS_VALUES"]

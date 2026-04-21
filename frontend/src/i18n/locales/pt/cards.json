@@ -13,22 +13,16 @@
   "detail.dialogs.delete.confirm": "Tem certeza de que deseja excluir permanentemente <strong>{{name}}</strong>?",
   "detail.dialogs.delete.description": "Esta ação não pode ser desfeita. A ficha e todas as suas relações serão removidas.",
   "detail.dialogs.delete.submit": "Excluir permanentemente",
-
   "create.title": "Criar ficha",
   "create.failed": "Falha ao criar ficha",
-
   "utils.dataQuality": "{{value}}% completo",
   "utils.unknownOption": "Chave de opção desconhecida: {{key}}",
   "utils.urlError": "Deve usar o esquema http://, https:// ou mailto:",
-
   "description.title": "Descrição",
   "description.noDescription": "Nenhuma descrição fornecida.",
-
   "lifecycle.title": "Ciclo de vida",
-
   "attributes.calculated": "calculado",
   "attributes.auto": "auto",
-
   "hierarchy.title": "Hierarquia",
   "hierarchy.level": "Nível {{level}}",
   "hierarchy.path": "Caminho",
@@ -52,7 +46,6 @@
   "hierarchy.errors.setParent": "Falha ao definir pai",
   "hierarchy.errors.addChild": "Falha ao adicionar filho",
   "hierarchy.errors.create": "Falha ao criar",
-
   "successors.title": "Linhagem",
   "successors.predecessors": "Predecessores",
   "successors.successorsList": "Sucessores",
@@ -69,7 +62,6 @@
   "successors.backToSearch": "Voltar à pesquisa",
   "successors.errors.add": "Falha ao adicionar relação",
   "successors.errors.create": "Falha ao criar cartão",
-
   "relations.title": "Relações",
   "relations.add": "Adicionar relação",
   "relations.empty": "Nenhuma relação ainda.",
@@ -87,22 +79,18 @@
   "relations.createAndAdd": "Criar e Adicionar",
   "relations.errors.create": "Falha ao criar relação",
   "relations.errors.createCard": "Falha ao criar ficha",
-
   "stakeholders.add": "Adicionar parte interessada",
   "stakeholders.role": "Papel",
   "stakeholders.user": "Usuário",
   "stakeholders.noneAssigned": "Nenhum {{role}} atribuído",
-
   "comments.placeholder": "Escreva um comentário...",
   "comments.post": "Publicar",
   "comments.empty": "Nenhum comentário ainda.",
-
   "todos.add": "Adicionar tarefa",
   "todos.empty": "Nenhuma tarefa ainda.",
   "todos.assignTo": "Atribuir a",
   "todos.dueDate": "Prazo",
-  "todos.adding": "Adicionando\u2026",
-
+  "todos.adding": "Adicionando…",
   "history.empty": "Nenhum histórico ainda.",
   "history.by": "por {{user}}",
   "history.events.created": "Criado",
@@ -117,7 +105,6 @@
   "history.fields.alias": "Alias",
   "history.fields.externalId": "ID externo",
   "history.fields.approvalStatus": "Status de aprovação",
-
   "eol.title": "Fim de vida",
   "eol.tracking": "Rastreamento de fim de vida",
   "eol.manualSearch": "Pesquisa manual",
@@ -151,7 +138,6 @@
   "eol.status.supported": "Suportado",
   "eol.status.yesEol": "Sim (EOL)",
   "eol.status.unknown": "Desconhecido",
-
   "vendor.label": "Fornecedor",
   "vendor.searchPlaceholder": "Pesquise fornecedores existentes ou digite um novo nome...",
   "vendor.createProvider": "Criar fornecedor \"{{name}}\"",
@@ -159,7 +145,6 @@
   "vendor.createNew.description": "Nenhum fornecedor existente corresponde a \"{{name}}\". Criar uma nova ficha de fornecedor e vinculá-la?",
   "vendor.createNew.creating": "Criando...",
   "vendor.createNew.submit": "Criar e vincular",
-
   "tabs.card": "Ficha",
   "tabs.processFlow": "Fluxo de processo",
   "tabs.assessments": "Avaliações",
@@ -168,7 +153,8 @@
   "tabs.todos": "Tarefas",
   "tabs.stakeholders": "Partes interessadas",
   "tabs.resources": "Recursos",
-  "resources.architectureDecisions": "Decis\u00f5es de arquitetura",
+  "tabs.risks": "Riscos",
+  "resources.architectureDecisions": "Decisões de arquitetura",
   "resources.fileAttachments": "Anexos de arquivo",
   "resources.documentLinks": "Links de documentos",
   "resources.createAdr": "Criar ADR",
@@ -179,19 +165,19 @@
   "resources.deleteFile": "Excluir",
   "resources.addLink": "Adicionar link",
   "resources.deleteLink": "Excluir",
-  "resources.maxSize": "Tamanho m\u00e1ximo do arquivo: {{size}} MB",
-  "resources.invalidType": "Tipo de arquivo n\u00e3o permitido",
-  "resources.fileTooLarge": "O arquivo excede o tamanho m\u00e1ximo de {{size}} MB",
-  "resources.emptyAdr": "Nenhuma decis\u00e3o de arquitetura vinculada a esta ficha.",
+  "resources.maxSize": "Tamanho máximo do arquivo: {{size}} MB",
+  "resources.invalidType": "Tipo de arquivo não permitido",
+  "resources.fileTooLarge": "O arquivo excede o tamanho máximo de {{size}} MB",
+  "resources.emptyAdr": "Nenhuma decisão de arquitetura vinculada a esta ficha.",
   "resources.emptyFiles": "Nenhum anexo de arquivo.",
   "resources.emptyLinks": "Nenhum link de documento.",
   "resources.confirmDeleteFile": "Excluir este anexo de arquivo?",
   "resources.confirmDeleteLink": "Excluir este link de documento?",
-  "resources.confirmUnlinkAdr": "Desvincular esta decis\u00e3o de arquitetura?",
-  "resources.linkAdrDialog.title": "Vincular decis\u00e3o de arquitetura",
-  "resources.linkAdrDialog.search": "Pesquisar decis\u00f5es...",
-  "resources.linkAdrDialog.empty": "Nenhuma decis\u00e3o de arquitetura dispon\u00edvel para vincular.",
-  "resources.linkAdrDialog.alreadyLinked": "J\u00e1 vinculada",
+  "resources.confirmUnlinkAdr": "Desvincular esta decisão de arquitetura?",
+  "resources.linkAdrDialog.title": "Vincular decisão de arquitetura",
+  "resources.linkAdrDialog.search": "Pesquisar decisões...",
+  "resources.linkAdrDialog.empty": "Nenhuma decisão de arquitetura disponível para vincular.",
+  "resources.linkAdrDialog.alreadyLinked": "Já vinculada",
   "resources.createAdrDialog.title": "Criar decisão de arquitetura",
   "resources.createAdrDialog.titleLabel": "Título",
   "resources.addLinkDialog.title": "Adicionar link de documento",
@@ -230,7 +216,6 @@
   "resources.linkDiagramDialog.search": "Pesquisar diagramas...",
   "resources.linkDiagramDialog.empty": "Nenhum diagrama disponível para vincular.",
   "tabs.history": "Histórico",
-
   "sidePanel.openFullPage": "Abrir página completa",
   "dependencies.title": "Dependências",
   "dependencies.empty": "Nenhuma dependência encontrada para este cartão.",

@@ -28,6 +28,7 @@ import {
   StakeholdersTab,
   ResourcesTab,
   HistoryTab,
+  RisksTab,
 } from "@/features/cards/sections";
 import type { Card, CardEffectivePermissions } from "@/types";
 
@@ -277,7 +278,8 @@ export default function CardDetailContent({
   const todosIdx = 2 + bpmOffset;
   const stakeholdersIdx = 3 + bpmOffset;
   const resourcesIdx = 4 + bpmOffset;
-  const historyIdx = 5 + bpmOffset;
+  const risksIdx = 5 + bpmOffset;
+  const historyIdx = 6 + bpmOffset;
   const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
 
   return (
@@ -305,6 +307,7 @@ export default function CardDetailContent({
         <Tab label={t("tabs.todos")} />
         <Tab label={t("tabs.stakeholders")} />
         <Tab label={t("tabs.resources")} />
+        <Tab label={t("tabs.risks")} />
         <Tab label={t("tabs.history")} />
         {isPpm && <Tab label={t("tabs.ppm")} />}
       </Tabs>
@@ -390,6 +393,15 @@ export default function CardDetailContent({
                 canManageAdrLinks={perms.can_manage_adr_links}
                 canManageDiagramLinks={perms.can_manage_diagram_links}
               />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {tab === risksIdx && (
+        <ErrorBoundary label="Risks">
+          <MuiCard>
+            <CardContent>
+              <RisksTab cardId={card.id} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>

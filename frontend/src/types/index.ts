@@ -1313,6 +1313,8 @@ export interface TurboLensCveFinding {
   business_impact: string | null;
   remediation: string | null;
   status: CveStatus;
+  risk_id: string | null;
+  risk_reference: string | null;
   created_at: string | null;
 }
 
@@ -1332,7 +1334,103 @@ export interface TurboLensComplianceFinding {
   evidence: string | null;
   remediation: string | null;
   ai_detected: boolean;
+  risk_id: string | null;
+  risk_reference: string | null;
   created_at: string | null;
+}
+
+// ── Risk Register ──────────────────────────────────────────────────────
+
+export type RiskCategory =
+  | "security"
+  | "compliance"
+  | "operational"
+  | "technology"
+  | "financial"
+  | "reputational"
+  | "strategic";
+
+export type RiskSourceType =
+  | "manual"
+  | "security_cve"
+  | "security_compliance"
+  | "architect";
+
+export type RiskLevel = "critical" | "high" | "medium" | "low";
+
+export type RiskProbability = "very_high" | "high" | "medium" | "low";
+
+export type RiskImpact = "critical" | "high" | "medium" | "low";
+
+export type RiskStatus =
+  | "identified"
+  | "analysed"
+  | "mitigation_planned"
+  | "in_progress"
+  | "mitigated"
+  | "monitoring"
+  | "accepted"
+  | "closed";
+
+export type RiskLinkRole = "affected" | "contributing" | "owner_of_control";
+
+export interface RiskCardLink {
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  role: RiskLinkRole;
+}
+
+export interface Risk {
+  id: string;
+  reference: string;
+  title: string;
+  description: string;
+  category: RiskCategory;
+  source_type: RiskSourceType;
+  source_ref: string | null;
+
+  initial_probability: RiskProbability;
+  initial_impact: RiskImpact;
+  initial_level: RiskLevel;
+
+  mitigation: string | null;
+  residual_probability: RiskProbability | null;
+  residual_impact: RiskImpact | null;
+  residual_level: RiskLevel | null;
+
+  owner_id: string | null;
+  owner_name: string | null;
+  target_resolution_date: string | null;
+
+  status: RiskStatus;
+  acceptance_rationale: string | null;
+  accepted_by: string | null;
+  accepted_at: string | null;
+
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+
+  cards: RiskCardLink[];
+}
+
+export interface RiskListPage {
+  items: Risk[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface RiskMetrics {
+  total: number;
+  by_status: Record<string, number>;
+  by_level: Record<string, number>;
+  by_category: Record<string, number>;
+  overdue: number;
+  created_this_month: number;
+  initial_matrix: number[][];
+  residual_matrix: number[][];
 }
 
 export interface TurboLensComplianceBundle {
