@@ -6,36 +6,40 @@
  * the risk detail page; clicking a matrix cell filters the table by that
  * probability × impact bucket.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { AgGridReact } from "ag-grid-react";
+import type {
+  ColDef,
+  GridReadyEvent,
+  ICellRendererParams,
+  RowClickedEvent,
+} from "ag-grid-community";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-quartz.css";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
 import Checkbox from "@mui/material/Checkbox";
+import CircularProgress from "@mui/material/CircularProgress";
 import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import ListItemText from "@mui/material/ListItemText";
 import Grid from "@mui/material/Grid";
+import InputAdornment from "@mui/material/InputAdornment";
 import InputLabel from "@mui/material/InputLabel";
+import ListItemText from "@mui/material/ListItemText";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
@@ -50,8 +54,6 @@ import type {
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskMatrix, { RiskMatrixSelection } from "./RiskMatrix";
 import { emptySeed, RiskDialogSeed, riskLevelChipColor } from "./riskDefaults";
-
-const PAGE_SIZES = [25, 50, 100];
 
 const STATUSES: RiskStatus[] = [
   "identified",
@@ -77,12 +79,14 @@ const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
 export default function RiskRegisterPage() {
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
+  const { mode } = useThemeMode();
+  const gridRef = useRef<AgGridReact<Risk> | null>(null);
 
   const [rows, setRows] = useState<Risk[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
+  // Quick-filter is grid-local only (client-side, composed with the
+  // server-side ``search`` so the two narrow independently).
+  const [quickFilter, setQuickFilter] = useState("");
 
   const [metrics, setMetrics] = useState<RiskMetrics | null>(null);
   const [matrixView, setMatrixView] = useState<"initial" | "residual">("initial");
@@ -118,19 +122,18 @@ export default function RiskRegisterPage() {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const params = buildFilterParams({
-        page: String(page + 1),
-        page_size: String(pageSize),
-      });
+      // Pull the full filtered set in one request (cap 1000) so AG Grid
+      // can handle sort / column filters / pagination client-side without
+      // round-tripping.
+      const params = buildFilterParams({ page: "1", page_size: "1000" });
       const data = await api.get<RiskListPage>(`/risks?${params}`);
       setRows(data.items);
-      setTotal(data.total);
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [buildFilterParams, page, pageSize]);
+  }, [buildFilterParams]);
 
   const reloadMetrics = useCallback(async () => {
     try {
@@ -185,6 +188,170 @@ export default function RiskRegisterPage() {
   };
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  // ── AG Grid wiring ───────────────────────────────────────────────
+  const levelWeight: Record<RiskLevel, number> = useMemo(
+    () => ({ critical: 0, high: 1, medium: 2, low: 3 }),
+    [],
+  );
+
+  const defaultColDef: ColDef = useMemo(
+    () => ({
+      resizable: true,
+      sortable: true,
+      filter: true,
+      suppressHeaderMenuButton: false,
+    }),
+    [],
+  );
+
+  const columnDefs: ColDef<Risk>[] = useMemo(
+    () => [
+      {
+        field: "reference",
+        headerName: t("risks.col.reference"),
+        width: 120,
+        filter: "agTextColumnFilter",
+      },
+      {
+        field: "title",
+        headerName: t("risks.col.title"),
+        flex: 2,
+        minWidth: 260,
+        filter: "agTextColumnFilter",
+      },
+      {
+        field: "category",
+        headerName: t("risks.col.category"),
+        width: 140,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`risks.category.${p.value}`) : ""),
+        cellRenderer: (p: ICellRendererParams<Risk, string>) =>
+          p.value ? (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={t(`risks.category.${p.value}`)}
+            />
+          ) : null,
+      },
+      {
+        field: "initial_level",
+        headerName: t("risks.col.initialLevel"),
+        width: 130,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`risks.level.${p.value}`) : ""),
+        comparator: (a: string, b: string) =>
+          (levelWeight[a as RiskLevel] ?? 9) - (levelWeight[b as RiskLevel] ?? 9),
+        cellRenderer: (p: ICellRendererParams<Risk, RiskLevel>) =>
+          p.value ? (
+            <Chip
+              size="small"
+              color={riskLevelChipColor(p.value)}
+              label={t(`risks.level.${p.value}`)}
+            />
+          ) : null,
+      },
+      {
+        field: "residual_level",
+        headerName: t("risks.col.residualLevel"),
+        width: 130,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`risks.level.${p.value}`) : "—"),
+        comparator: (a: string | null, b: string | null) =>
+          (a ? (levelWeight[a as RiskLevel] ?? 9) : 99)
+          - (b ? (levelWeight[b as RiskLevel] ?? 9) : 99),
+        cellRenderer: (p: ICellRendererParams<Risk, RiskLevel | null>) =>
+          p.value ? (
+            <Chip
+              size="small"
+              color={riskLevelChipColor(p.value)}
+              label={t(`risks.level.${p.value}`)}
+            />
+          ) : (
+            <Typography component="span" variant="body2" color="text.secondary">
+              —
+            </Typography>
+          ),
+      },
+      {
+        field: "status",
+        headerName: t("risks.col.status"),
+        width: 160,
+        filter: "agSetColumnFilter",
+        valueFormatter: (p) => (p.value ? t(`risks.status.${p.value}`) : ""),
+        cellRenderer: (p: ICellRendererParams<Risk, string>) =>
+          p.value ? (
+            <Chip
+              size="small"
+              variant="outlined"
+              label={t(`risks.status.${p.value}`)}
+            />
+          ) : null,
+      },
+      {
+        field: "owner_name",
+        headerName: t("risks.col.owner"),
+        width: 180,
+        filter: "agTextColumnFilter",
+        valueFormatter: (p) => p.value ?? "—",
+      },
+      {
+        field: "target_resolution_date",
+        headerName: t("risks.col.target"),
+        width: 140,
+        filter: "agDateColumnFilter",
+        valueFormatter: (p) =>
+          p.value ? new Date(p.value as string).toLocaleDateString() : "—",
+        cellStyle: (p) => {
+          if (!p.data) return null;
+          const d = p.data.target_resolution_date;
+          if (!d) return null;
+          const overdue =
+            d < today && !["closed", "accepted", "mitigated"].includes(p.data.status);
+          return overdue ? { color: "var(--mui-palette-error-main, #d32f2f)", fontWeight: 600 } : null;
+        },
+      },
+      {
+        headerName: t("risks.col.cards"),
+        width: 100,
+        type: "rightAligned",
+        filter: "agNumberColumnFilter",
+        valueGetter: (p) => p.data?.cards.length ?? 0,
+      },
+      {
+        field: "updated_at",
+        headerName: t("risks.col.updatedAt"),
+        width: 150,
+        filter: "agDateColumnFilter",
+        sort: "desc",
+        valueFormatter: (p) =>
+          p.value ? new Date(p.value as string).toLocaleDateString() : "",
+      },
+    ],
+    [t, today, levelWeight],
+  );
+
+  // ── Clear-filters affordance ──────────────────────────────────────
+  const activeCount =
+    (search.trim() ? 1 : 0)
+    + (status.length > 0 ? 1 : 0)
+    + (category.length > 0 ? 1 : 0)
+    + (level.length > 0 ? 1 : 0)
+    + (overdueOnly ? 1 : 0)
+    + (matrixSelection ? 1 : 0)
+    + (quickFilter.trim() ? 1 : 0);
+
+  const clearAll = useCallback(() => {
+    setSearch("");
+    setStatus([]);
+    setCategory([]);
+    setLevel([]);
+    setOverdueOnly(false);
+    setMatrixSelection(null);
+    setQuickFilter("");
+    gridRef.current?.api?.setFilterModel(null);
+  }, []);
 
   return (
     <Box>
@@ -358,124 +525,69 @@ export default function RiskRegisterPage() {
             }
             label={t("risks.filter.overdueOnly")}
           />
+          <TextField
+            size="small"
+            placeholder={t("risks.filter.quickSearch")}
+            value={quickFilter}
+            onChange={(e) => setQuickFilter(e.target.value)}
+            sx={{ minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <MaterialSymbol icon="search" size={18} />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Box sx={{ flex: 1 }} />
+          {activeCount > 0 && (
+            <Button
+              size="small"
+              startIcon={<MaterialSymbol icon="filter_alt_off" size={16} />}
+              onClick={clearAll}
+              sx={{ textTransform: "none" }}
+            >
+              {t("risks.filter.clearAll")} ·{" "}
+              {t("risks.filter.activeCount", { count: activeCount })}
+            </Button>
+          )}
         </Stack>
       </Paper>
 
-      <Paper variant="outlined">
+      <Paper variant="outlined" sx={{ p: 0 }}>
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
             <CircularProgress />
           </Box>
-        ) : filteredRows.length === 0 ? (
-          <Box sx={{ p: 4 }}>
-            <Typography variant="body2" color="text.secondary">
-              {t("risks.emptyState")}
-            </Typography>
-          </Box>
         ) : (
-          <>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t("risks.col.reference")}</TableCell>
-                  <TableCell>{t("risks.col.title")}</TableCell>
-                  <TableCell>{t("risks.col.category")}</TableCell>
-                  <TableCell>{t("risks.col.initialLevel")}</TableCell>
-                  <TableCell>{t("risks.col.residualLevel")}</TableCell>
-                  <TableCell>{t("risks.col.status")}</TableCell>
-                  <TableCell>{t("risks.col.owner")}</TableCell>
-                  <TableCell>{t("risks.col.target")}</TableCell>
-                  <TableCell align="right">{t("risks.col.cards")}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredRows.map((r) => {
-                  const overdue =
-                    r.target_resolution_date &&
-                    r.target_resolution_date < today &&
-                    !["closed", "accepted", "mitigated"].includes(r.status);
-                  return (
-                    <TableRow
-                      key={r.id}
-                      hover
-                      onClick={() => navigate(`/ea-delivery/risks/${r.id}`)}
-                      sx={{ cursor: "pointer" }}
-                    >
-                      <TableCell>{r.reference}</TableCell>
-                      <TableCell sx={{ maxWidth: 320 }}>
-                        <Typography variant="body2" noWrap>
-                          {r.title}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={t(`risks.category.${r.category}`)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          color={riskLevelChipColor(r.initial_level)}
-                          label={t(`risks.level.${r.initial_level}`)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {r.residual_level ? (
-                          <Chip
-                            size="small"
-                            color={riskLevelChipColor(r.residual_level)}
-                            label={t(`risks.level.${r.residual_level}`)}
-                          />
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          variant="outlined"
-                          label={t(`risks.status.${r.status}`)}
-                        />
-                      </TableCell>
-                      <TableCell>{r.owner_name || "—"}</TableCell>
-                      <TableCell>
-                        {overdue ? (
-                          <Tooltip
-                            title={t("risks.overdueTooltip", {
-                              date: r.target_resolution_date,
-                            })}
-                          >
-                            <Chip
-                              size="small"
-                              color="error"
-                              label={r.target_resolution_date}
-                            />
-                          </Tooltip>
-                        ) : (
-                          r.target_resolution_date || "—"
-                        )}
-                      </TableCell>
-                      <TableCell align="right">{r.cards.length}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={total}
-              page={page}
-              onPageChange={(_, p) => setPage(p)}
-              rowsPerPage={pageSize}
-              onRowsPerPageChange={(e) => {
-                setPageSize(parseInt(e.target.value, 10));
-                setPage(0);
+          <Box
+            className={mode === "dark" ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
+            sx={{ width: "100%", height: 560 }}
+          >
+            <AgGridReact<Risk>
+              ref={gridRef}
+              rowData={filteredRows}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              rowHeight={44}
+              headerHeight={44}
+              animateRows
+              pagination
+              paginationPageSize={25}
+              paginationPageSizeSelector={[25, 50, 100, 200]}
+              quickFilterText={quickFilter}
+              overlayNoRowsTemplate={`<span style="padding: 24px; color: var(--ag-secondary-foreground-color);">${t(
+                "risks.grid.empty",
+              )}</span>`}
+              suppressCellFocus
+              onRowClicked={(e: RowClickedEvent<Risk>) => {
+                if (e.data) navigate(`/ea-delivery/risks/${e.data.id}`);
               }}
-              rowsPerPageOptions={PAGE_SIZES}
+              onGridReady={(e: GridReadyEvent<Risk>) => {
+                e.api.sizeColumnsToFit();
+              }}
             />
-          </>
+          </Box>
         )}
       </Paper>
 

@@ -518,5 +518,11 @@
   "risks.action.nextStep": "Nächster Schritt:",
   "risks.action.otherActions": "Weitere Aktionen:",
   "risks.action.resume_mitigation": "Maßnahmen fortsetzen",
-  "risks.action.close_now": "Ohne Überwachung schließen"
+  "risks.action.close_now": "Ohne Überwachung schließen",
+  "risks.filter.clearAll": "Filter zurücksetzen",
+  "risks.filter.quickSearch": "Schnellsuche",
+  "risks.filter.activeCount_one": "{{count}} Filter",
+  "risks.filter.activeCount_other": "{{count}} Filter",
+  "risks.grid.empty": "Keine Risiken entsprechen den aktiven Filtern.",
+  "risks.grid.rowsPerPage": "Zeilen pro Seite"
 }

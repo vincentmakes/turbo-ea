@@ -248,7 +248,7 @@ async def list_risks(
     search: str | None = None,
     overdue: bool = False,
     page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
+    page_size: int = Query(50, ge=1, le=1000),
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
     db: AsyncSession = Depends(get_db),

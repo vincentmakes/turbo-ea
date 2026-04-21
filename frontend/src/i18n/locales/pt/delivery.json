@@ -518,5 +518,11 @@
   "risks.action.nextStep": "Next step:",
   "risks.action.otherActions": "Other actions:",
   "risks.action.resume_mitigation": "Resume mitigation",
-  "risks.action.close_now": "Close without monitoring"
+  "risks.action.close_now": "Close without monitoring",
+  "risks.filter.clearAll": "Clear filters",
+  "risks.filter.quickSearch": "Quick search",
+  "risks.filter.activeCount_one": "{{count}} filter",
+  "risks.filter.activeCount_other": "{{count}} filters",
+  "risks.grid.empty": "No risks match the current filters.",
+  "risks.grid.rowsPerPage": "Rows per page"
 }
