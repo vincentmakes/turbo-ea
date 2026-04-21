@@ -330,7 +330,7 @@ export default function CardDetail() {
         <DialogTitle>{t("detail.dialogs.archive.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            {t("detail.dialogs.archive.confirm", { name: card.name })}
+            <span dangerouslySetInnerHTML={{ __html: t("detail.dialogs.archive.confirm", { name: card.name }) }} />
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {t("detail.dialogs.archive.description")}
@@ -347,7 +347,7 @@ export default function CardDetail() {
         <DialogTitle>{t("detail.dialogs.delete.title")}</DialogTitle>
         <DialogContent>
           <Typography>
-            {t("detail.dialogs.delete.confirm", { name: card.name })}
+            <span dangerouslySetInnerHTML={{ __html: t("detail.dialogs.delete.confirm", { name: card.name }) }} />
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 1 }}>
             {t("detail.dialogs.delete.description")}
