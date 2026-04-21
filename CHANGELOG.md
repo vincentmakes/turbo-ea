@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.43.1] - 2026-04-21
+
+### Fixed
+- Card archive and delete confirmation dialogs now correctly render the card name in bold instead of showing literal `<strong>` tags
+
 ## [0.43.0] - 2026-04-14
 
 ### Added
