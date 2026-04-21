@@ -88,16 +88,84 @@ interface UserOption {
   email: string;
 }
 
-/** Human-readable description of each status transition, keyed by target. */
-const NEXT_STEP_HINTS: Record<RiskStatus, string> = {
-  identified: "reopen",
-  analysed: "analyse",
-  mitigation_planned: "plan_mitigation",
-  in_progress: "start_mitigation",
-  mitigated: "mark_mitigated",
-  monitoring: "start_monitoring",
-  accepted: "accept",
-  closed: "close",
+/** Primary sequential next step for each lifecycle state.
+ *
+ * Best-practice sequence (ISO 31000 / TOGAF Phase G):
+ *   identified → analysed → mitigation_planned → in_progress
+ *              → mitigated → monitoring → closed
+ * Accepted and reopen are escape hatches — treated as side actions.
+ */
+interface WorkflowStep {
+  target: RiskStatus;
+  /** i18n key under ``risks.action`` for the primary button label. */
+  labelKey: string;
+  /** Material Symbols icon for the button. */
+  icon: string;
+}
+
+const PRIMARY_STEP: Partial<Record<RiskStatus, WorkflowStep>> = {
+  identified: { target: "analysed", labelKey: "analyse", icon: "search" },
+  analysed: {
+    target: "mitigation_planned",
+    labelKey: "plan_mitigation",
+    icon: "task_alt",
+  },
+  mitigation_planned: {
+    target: "in_progress",
+    labelKey: "start_mitigation",
+    icon: "play_arrow",
+  },
+  in_progress: {
+    target: "mitigated",
+    labelKey: "mark_mitigated",
+    icon: "check_circle",
+  },
+  mitigated: {
+    target: "monitoring",
+    labelKey: "start_monitoring",
+    icon: "monitoring",
+  },
+  monitoring: { target: "closed", labelKey: "close", icon: "lock" },
+  // No primary next for closed or accepted — surfaced as "Reopen" side action.
+};
+
+/** Side / escape-hatch actions available at each lifecycle state. */
+interface SideAction {
+  target: RiskStatus;
+  labelKey: string;
+  icon: string;
+  color: "warning" | "success" | "primary" | "inherit";
+  variant?: "contained" | "outlined";
+}
+
+const SIDE_ACTIONS: Record<RiskStatus, SideAction[]> = {
+  identified: [
+    { target: "accepted", labelKey: "accept", icon: "verified", color: "warning" },
+  ],
+  analysed: [
+    { target: "accepted", labelKey: "accept", icon: "verified", color: "warning" },
+  ],
+  mitigation_planned: [
+    { target: "accepted", labelKey: "accept", icon: "verified", color: "warning" },
+  ],
+  in_progress: [
+    { target: "accepted", labelKey: "accept", icon: "verified", color: "warning" },
+  ],
+  mitigated: [
+    { target: "in_progress", labelKey: "resume_mitigation", icon: "replay", color: "inherit" },
+    { target: "closed", labelKey: "close_now", icon: "lock", color: "success" },
+  ],
+  monitoring: [
+    { target: "in_progress", labelKey: "resume_mitigation", icon: "replay", color: "inherit" },
+    { target: "accepted", labelKey: "accept", icon: "verified", color: "warning" },
+  ],
+  accepted: [
+    { target: "in_progress", labelKey: "reopen", icon: "replay", color: "primary", variant: "contained" },
+    { target: "closed", labelKey: "close", icon: "lock", color: "success" },
+  ],
+  closed: [
+    { target: "in_progress", labelKey: "reopen", icon: "replay", color: "primary", variant: "contained" },
+  ],
 };
 
 export default function RiskDetailPage() {
@@ -634,50 +702,56 @@ export default function RiskDetailPage() {
 
           <Divider sx={{ my: 1 }} />
 
-          {/* Quick-action buttons for every valid next status. The stepper
-              above shows the full graph; these make the next move obvious. */}
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-              {t("risks.action.moveTo")}
-            </Typography>
-            {Array.from(
-              ALLOWED_TRANSITIONS[risk.status as RiskStatus] ?? new Set<RiskStatus>(),
-            ).map((target) => (
-              <Button
-                key={target}
-                size="small"
-                variant={target === "accepted" ? "outlined" : "contained"}
-                color={
-                  target === "accepted"
-                    ? "warning"
-                    : target === "closed"
-                      ? "success"
-                      : "primary"
-                }
-                onClick={() => tryTransition(target)}
-                disabled={saving}
-                startIcon={
-                  <MaterialSymbol
-                    icon={
-                      target === "accepted"
-                        ? "verified"
-                        : target === "closed"
-                          ? "task_alt"
-                          : "arrow_forward"
-                    }
-                    size={16}
-                  />
-                }
-              >
-                {t(`risks.action.${NEXT_STEP_HINTS[target]}`)}
-              </Button>
-            ))}
-            {!ALLOWED_TRANSITIONS[risk.status as RiskStatus]?.size && (
+          {/* Primary sequential next step — the one big button a user
+              reaches for. Accepted / closed states have no primary step
+              and surface "Reopen" from the side actions below instead. */}
+          {PRIMARY_STEP[risk.status as RiskStatus] && (
+            <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1.5 }}>
               <Typography variant="caption" color="text.secondary">
-                {t("risks.action.noTransitions")}
+                {t("risks.action.nextStep")}
               </Typography>
-            )}
-          </Stack>
+              {(() => {
+                const step = PRIMARY_STEP[risk.status as RiskStatus]!;
+                return (
+                  <Button
+                    size="medium"
+                    variant="contained"
+                    color="primary"
+                    onClick={() => tryTransition(step.target)}
+                    disabled={saving}
+                    startIcon={<MaterialSymbol icon={step.icon} size={18} />}
+                    endIcon={<MaterialSymbol icon="arrow_forward" size={16} />}
+                  >
+                    {t(`risks.action.${step.labelKey}`)}
+                  </Button>
+                );
+              })()}
+            </Stack>
+          )}
+
+          {/* Side actions — accept / reopen / close-early. Rendered as
+              smaller outlined buttons so they stay out of the user's way
+              unless they're deliberately chosen. */}
+          {SIDE_ACTIONS[risk.status as RiskStatus].length > 0 && (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+              <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+                {t("risks.action.otherActions")}
+              </Typography>
+              {SIDE_ACTIONS[risk.status as RiskStatus].map((side) => (
+                <Button
+                  key={side.target + side.labelKey}
+                  size="small"
+                  variant={side.variant ?? "outlined"}
+                  color={side.color}
+                  onClick={() => tryTransition(side.target)}
+                  disabled={saving}
+                  startIcon={<MaterialSymbol icon={side.icon} size={16} />}
+                >
+                  {t(`risks.action.${side.labelKey}`)}
+                </Button>
+              ))}
+            </Stack>
+          )}
 
           {risk.status === "accepted" && risk.acceptance_rationale && (
             <Alert severity="warning" sx={{ mt: 1 }}>

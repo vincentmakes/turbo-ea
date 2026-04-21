@@ -514,5 +514,9 @@
   "risks.action.start_mitigation": "Start mitigation",
   "risks.action.mark_mitigated": "Mark mitigated",
   "risks.action.start_monitoring": "Start monitoring",
-  "risks.action.noTransitions": "No further transitions available."
+  "risks.action.noTransitions": "No further transitions available.",
+  "risks.action.nextStep": "Next step:",
+  "risks.action.otherActions": "Other actions:",
+  "risks.action.resume_mitigation": "Resume mitigation",
+  "risks.action.close_now": "Close without monitoring"
 }

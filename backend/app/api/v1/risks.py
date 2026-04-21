@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_user
 from app.database import get_db
 from app.models.risk import Risk, RiskCard
+from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.risk import (
     RiskCardLinkRequest,
@@ -79,6 +80,79 @@ def _parse_card_ids(raw: list[str]) -> list[uuid.UUID]:
             # Silently skip — the UI can send stale ids after a refresh.
             continue
     return out
+
+
+def _risk_link(risk: Risk) -> str:
+    return f"/ea-delivery/risks/{risk.id}"
+
+
+async def sync_owner_todo(
+    db: AsyncSession,
+    risk: Risk,
+    *,
+    actor_id: uuid.UUID,
+    previous_owner: uuid.UUID | None,
+) -> None:
+    """Mirror the PPM task pattern: keep a single ``is_system`` Todo on
+    the current owner and fire a notification when the owner changes.
+
+    * Owner assigned (new or changed) → create/update a Todo + notify.
+    * Owner cleared → delete the existing system Todo. No notification.
+    * Idempotent: the Todo's ``link`` doubles as its identity.
+    """
+    link = _risk_link(risk)
+    existing_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
+    existing = existing_res.scalar_one_or_none()
+
+    if risk.owner_id is None:
+        if existing is not None:
+            await db.delete(existing)
+        return
+
+    description = f"[Risk {risk.reference}] {risk.title}"
+    if existing is not None:
+        existing.assigned_to = risk.owner_id
+        existing.description = description
+        existing.due_date = risk.target_resolution_date
+        # Keep status linked to risk lifecycle so closed risks don't
+        # leave zombie todos on the owner's list.
+        existing.status = (
+            "done" if risk.status in ("mitigated", "monitoring", "accepted", "closed") else "open"
+        )
+    else:
+        db.add(
+            Todo(
+                id=uuid.uuid4(),
+                card_id=None,
+                description=description,
+                status="open",
+                link=link,
+                is_system=True,
+                assigned_to=risk.owner_id,
+                created_by=actor_id,
+                due_date=risk.target_resolution_date,
+            )
+        )
+
+    # Notification — only when the owner actually changes (not on unrelated patches).
+    if risk.owner_id != previous_owner and risk.owner_id != actor_id:
+        try:
+            await notification_service.create_notification(
+                db,
+                user_id=risk.owner_id,
+                notif_type="risk_assigned",
+                title=f"Risk {risk.reference} assigned to you",
+                message=risk.title[:200],
+                link=link,
+                data={
+                    "risk_id": str(risk.id),
+                    "reference": risk.reference,
+                    "level": risk.residual_level or risk.initial_level,
+                },
+                actor_id=actor_id,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Risk-assignment notification failed")
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +316,8 @@ async def create_risk(
     if body.card_ids:
         await link_cards(db, risk.id, _parse_card_ids(body.card_ids))
 
+    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
+
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -257,6 +333,7 @@ async def update_risk(
 ) -> RiskOut:
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
+    previous_owner = risk.owner_id
 
     data = body.model_dump(exclude_unset=True)
 
@@ -319,6 +396,11 @@ async def update_risk(
                 str(user.id),
             )
 
+    # Keep the owner's system Todo aligned with the current state.
+    # Runs on every patch so status / target-date edits stay reflected
+    # on the assignee's Todos page; notification only fires on owner change.
+    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=previous_owner)
+
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -360,6 +442,11 @@ async def delete_risk(
 ) -> dict[str, bool]:
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
+    link = _risk_link(risk)
+    # Clean up the owner's system Todo before removing the risk row.
+    todo_res = await db.execute(select(Todo).where(Todo.link == link, Todo.is_system.is_(True)))
+    for t in todo_res.scalars().all():
+        await db.delete(t)
     await db.delete(risk)
     await db.commit()
     return {"ok": True}
@@ -438,6 +525,7 @@ async def promote_cve(
         risk = await promote_cve_finding(db, fid, user.id, overrides=_overrides_from_promote(body))
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))
@@ -462,6 +550,7 @@ async def promote_compliance(
         )
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+    await sync_owner_todo(db, risk, actor_id=user.id, previous_owner=None)
     await db.commit()
     await db.refresh(risk)
     return RiskOut.model_validate(await risk_to_dict(db, risk))

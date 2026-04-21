@@ -514,5 +514,9 @@
   "risks.action.start_mitigation": "Maßnahmen starten",
   "risks.action.mark_mitigated": "Als gemildert markieren",
   "risks.action.start_monitoring": "Überwachung starten",
-  "risks.action.noTransitions": "Keine weiteren Übergänge verfügbar."
+  "risks.action.noTransitions": "Keine weiteren Übergänge verfügbar.",
+  "risks.action.nextStep": "Nächster Schritt:",
+  "risks.action.otherActions": "Weitere Aktionen:",
+  "risks.action.resume_mitigation": "Maßnahmen fortsetzen",
+  "risks.action.close_now": "Ohne Überwachung schließen"
 }
