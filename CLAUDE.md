@@ -376,7 +376,7 @@ turbo-ea/
 │   │   ├── config.py                  # Settings from env vars + APP_VERSION
 │   │   ├── database.py                # Async engine + session factory
 │   │   └── main.py                    # FastAPI app, lifespan (migrations + seed + purge loop + AI auto-config)
-│   ├── alembic/                       # Database migrations (41 versions)
+│   ├── alembic/                       # Database migrations (64 versions)
 │   ├── tests/
 │   ├── pyproject.toml
 │   └── Dockerfile                     # Python 3.12-alpine + uvicorn (root context)
@@ -682,7 +682,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 ### Migrations
 
-Located in `backend/alembic/versions/` (41 migration files, sequentially numbered `001_` through `041_`). The app auto-runs Alembic on startup:
+Located in `backend/alembic/versions/` (64 migration files, sequentially numbered `001_` through `064_`). The app auto-runs Alembic on startup:
 - Fresh DB: `create_all` + stamp head
 - Existing DB without Alembic: stamp head
 - Normal: `upgrade head` (run pending migrations)
@@ -1079,7 +1079,7 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (19 groups, 40+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `ai.*`, `admin.*`
+**App-level permissions** (22 groups, 50+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `security_compliance.*` (view + manage for TurboLens Security & Compliance), `risks.*` (view + manage for the EA Risk Register), `ai.*`, `admin.*`
 
 **Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
 
@@ -1195,7 +1195,9 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `turbolens_vendor_hierarchy` | `TurboLensVendorHierarchy` | Resolved canonical vendor tree (parent-child, aliases, confidence) |
 | `turbolens_duplicate_clusters` | `TurboLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
 | `turbolens_modernization_assessments` | `TurboLensModernization` | Modernization opportunities with effort, priority, current tech |
-| `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors) |
+| `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors, progress JSONB). Used by both old analyses and the new split security scans (`security_cve` / `security_compliance`). |
+| `turbolens_cve_findings` | `TurboLensCveFinding` | One CVE × card row from NVD lookup + AI prioritisation. Carries CVSS, severity, priority, probability, attack vector, patch flag, references, AI-generated business impact + remediation, status, and an optional `risk_id` back-link to a promoted `Risk`. |
+| `turbolens_compliance_findings` | `TurboLensComplianceFinding` | Compliance gap / attestation per regulation (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001). Carries article, category, requirement, status, severity, gap, evidence, remediation, `ai_detected` flag for semantically-identified AI cards, and optional `risk_id`. |
 
 ### Backend Services
 
@@ -1205,6 +1207,8 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `services/turbolens_vendors.py` | Vendor categorization (45+ categories, batch=15) + resolution (batch=60, hierarchy building) |
 | `services/turbolens_duplicates.py` | Duplicate detection (union-find merge, batch=40) + modernization assessment (batch=25) |
 | `services/turbolens_architect.py` | 5-step architecture AI: objective-driven capability mapping, solution options, gap analysis, dependency analysis, and target architecture with C4 diagram visualization |
+| `services/turbolens_nvd.py` | NIST NVD REST client — CPE builder, severity banding, deterministic probability heuristic, 24 h in-memory cache, request throttling (5 req/30 s default, 50 req/30 s with `NVD_API_KEY`), v3.1 → v3.0 → v2 CVSS fallback |
+| `services/turbolens_security.py` | Security & Compliance orchestrator. Two entry points (`run_cve_scan`, `run_compliance_scan`) that can run concurrently, each emitting phase-aware progress to `run.results["progress"]`. Includes the EU AI Act **semantic detector** that flags cards embedding AI regardless of subtype. |
 
 ### Architecture AI Flow
 
@@ -1249,19 +1253,51 @@ The Architecture AI follows a 5-step guided wizard:
 | GET | `/assessments` | `turbolens.view` | List saved assessments |
 | GET | `/assessments/{id}` | `turbolens.view` | Get assessment details |
 | GET | `/analysis-runs` | `turbolens.view` | Analysis run history |
-| GET | `/analysis-runs/{run_id}` | `turbolens.view` | Get specific run with results |
+| GET | `/analysis-runs/{run_id}` | `turbolens.view` | Get specific run with results (or progress while still running) |
+| POST | `/security/cve-scan` | `security_compliance.manage` | Trigger CVE-only scan (background task) |
+| POST | `/security/compliance-scan` | `security_compliance.manage` | Trigger compliance-only scan with optional `regulations[]` filter |
+| GET | `/security/active-runs` | `security_compliance.view` | Return currently-running CVE + compliance scans so the UI can reattach polling after a refresh |
+| GET | `/security/overview` | `security_compliance.view` | KPIs: severity / status / probability counts, risk matrix, compliance scores + matrix, top critical findings, per-scan last-run metadata |
+| GET | `/security/findings` | `security_compliance.view` | Paginated CVE findings; filters: `severity`, `probability`, `status`, `card_id`, `card_type` (probability × severity drive the matrix drill-through) |
+| GET | `/security/findings/{id}` | `security_compliance.view` | Single finding + resolved card name + promoted risk reference |
+| PATCH | `/security/findings/{id}` | `security_compliance.manage` | Update finding status (open / acknowledged / in_progress / mitigated / accepted) |
+| GET | `/security/compliance` | `security_compliance.view` | Compliance findings grouped by regulation with per-regulation scores |
+| GET | `/security/export.csv` | `security_compliance.view` | CSV export of CVE findings in OWASP/NIST column order |
+
+### Risk Register API (`/risks` + `/cards/{id}/risks`)
+
+TOGAF-aligned Risk Register mounted at `/api/v1/risks`, plus a card sub-route for the Card Detail → Risks tab.
+
+| Method | Path | Permission | Description |
+|--------|------|------------|-------------|
+| GET | `/risks` | `risks.view` | Paginated, filterable risk list (status, category, level, owner, card_id, source_type, search, overdue) |
+| GET | `/risks/metrics` | `risks.view` | KPIs + initial and residual 4×4 matrices |
+| GET | `/risks/{id}` | `risks.view` | Single risk + linked cards + owner display name |
+| POST | `/risks` | `risks.manage` | Manual risk creation (auto-assigns `R-000123` reference) |
+| PATCH | `/risks/{id}` | `risks.manage` | Update fields; recomputes derived levels; enforces status transitions; requires `acceptance_rationale` to move to `accepted` |
+| DELETE | `/risks/{id}` | `risks.manage` | Delete risk + clean up the owner's system Todo |
+| POST | `/risks/{id}/cards` | `risks.manage` | Link one or more cards (idempotent) |
+| DELETE | `/risks/{id}/cards/{card_id}` | `risks.manage` | Unlink a single card |
+| POST | `/risks/promote/cve/{finding_id}` | `risks.manage` + `security_compliance.view` | Promote a CVE finding to a risk (idempotent — returns existing one if already promoted). Seeds title, description, category, probability/impact, mitigation, and links the finding's card. |
+| POST | `/risks/promote/compliance/{finding_id}` | `risks.manage` + `security_compliance.view` | Same for a compliance finding. |
+| GET | `/cards/{id}/risks` | `risks.view` | All risks linked to a card (used by CardDetail → Risks tab) |
+
+Owner assignment on create / patch / promote auto-creates a single `is_system` Todo on the owner's Todos page (description `[Risk R-xxxxxx] title`, link back to the risk, due-date mirrors `target_resolution_date`, auto-done when the risk reaches mitigated / monitoring / accepted / closed) and fires a `risk_assigned` in-app + email-capable notification whenever the owner actually changes (including self-assignment — `risk_assigned` is whitelisted in `notification_service.allow_self_types`).
 
 ### Frontend Pages
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/turbolens` | `TurboLensPage` | Tab container: Dashboard, Vendors, Resolution, Duplicates, Architect, History |
+| `/turbolens` | `TurboLensPage` | Tab container: Dashboard, Vendors, Resolution, Duplicates, Architect, Security, History |
 | `/turbolens` (Dashboard tab) | `TurboLensDashboard` | KPI tiles, cards by type, quality tiers (Bronze/Silver/Gold), top issues |
 | `/turbolens` (Vendors tab) | `TurboLensVendors` | Vendor analysis with category breakdown, grid/table toggle |
 | `/turbolens` (Resolution tab) | `TurboLensResolution` | Canonical vendor hierarchy with confidence scores |
 | `/turbolens` (Duplicates tab) | `TurboLensDuplicates` | Duplicate clusters + modernization assessment (sub-tabs) |
 | `/turbolens` (Architect tab) | `TurboLensArchitect` | 5-step architecture AI wizard with C4 diagram visualization |
+| `/turbolens` (Security tab) | `TurboLensSecurity` | On-demand CVE + compliance scans with split triggers, phase-aware progress bars, **clickable risk matrix** (drill-through to filtered CVEs), compliance heatmap, and **Create risk** / **Open risk** actions on every finding |
 | `/turbolens` (History tab) | `TurboLensHistory` | Analysis run history table |
+| `/ea-delivery?tab=risks` | `RiskRegisterPage` (embedded in `EADeliveryPage`) | Risk Register — KPIs, Initial/Residual 4×4 matrix toggle, filters, risk table |
+| `/ea-delivery/risks/:id` | `RiskDetailPage` | Full TOGAF-shaped detail: Identification, Initial assessment, Mitigation & residual (with Owner picker), Affected cards (M:N), Status stepper + primary **Next step** + secondary side actions (Accept / Reopen / Close-early), Audit |
 
 ### Key Frontend Components
 
@@ -1282,6 +1318,50 @@ The Architecture AI follows a 5-step guided wizard:
 
 ### Credits
 TurboLens was originally created by [Vinod](https://github.com/vinod-ea/archlens) under the MIT License. The AI analysis logic has been ported to Python and integrated natively into Turbo EA.
+
+---
+
+## EA Risk Register (TOGAF Phase G)
+
+Landscape-level risk register aligned to TOGAF ADM Phase G. Separate from `PpmRisk` (which is initiative-scoped). Lives as a tab inside the EA Delivery page (`/ea-delivery?tab=risks`) with detail pages at `/ea-delivery/risks/:id`.
+
+### Tables
+
+| Table | Model | Purpose |
+|-------|-------|---------|
+| `risks` | `Risk` | One row per risk. Fields: reference (`R-000123`), title, description, category, source_type / source_ref, initial + residual probability × impact (with derived level), mitigation, owner_id, target_resolution_date, status, acceptance_rationale + accepted_by + accepted_at, created_by |
+| `risk_cards` | `RiskCard` | M:N junction between risks and cards (composite PK risk_id + card_id, role defaulting to `affected`) |
+
+The `turbolens_cve_findings` and `turbolens_compliance_findings` tables also carry a nullable `risk_id` back-link so findings that have been promoted show **Open risk R-000123** instead of **Create risk** (idempotent promotion).
+
+### Backend modules
+
+| File | Purpose |
+|------|---------|
+| `models/risk.py` | `Risk` + `RiskCard` SQLAlchemy models |
+| `schemas/risk.py` | Pydantic I/O models with typed literals for category, level, probability, impact, status |
+| `services/risk_service.py` | Pure helpers: `derive_level` (4×4 probability × impact matrix), `validate_status_transition`, `next_reference` (`R-000001` monotonic), `link_cards`, `promote_cve_finding`, `promote_compliance_finding`, `risk_to_dict`, `compute_metrics`, `build_level_matrix` |
+| `api/v1/risks.py` | CRUD + card linking + promote + metrics + `GET /cards/{id}/risks`. Includes `sync_owner_todo()` which creates / updates / deletes an `is_system` Todo on the owner and fires a `risk_assigned` notification whenever the owner changes (self-assignment included — whitelisted in `allow_self_types`). |
+
+### Key behaviour
+
+- **Status workflow** is sequential with explicit side actions. The UI renders one primary **Next step** button per state (Start analysis → Plan mitigation → Start mitigation → Mark mitigated → Start monitoring → Close) plus secondary actions for Accept risk / Resume mitigation / Reopen. Accepting requires a rationale; acceptance user + timestamp are captured on the record.
+- **Derived levels** (`initial_level`, `residual_level`) are computed server-side via `derive_level()` and treated as read-only by the API layer.
+- **Promote-from-finding** is idempotent — the CVE or compliance finding's `risk_id` is populated on promotion and a re-promote returns the existing risk.
+- **Owner → Todo → Notification** loop: assignment (from create, patch, or promote) creates a linked Todo on the owner's Todos page and sends an in-app + email-capable `risk_assigned` notification. The Todo auto-marks done when the risk reaches `mitigated` / `monitoring` / `accepted` / `closed`, and is removed when the owner is cleared or the risk is deleted.
+
+### Permissions
+
+- `risks.view` — view the register, metrics, and the Risks tab on cards (admin / bpm_admin / member / viewer).
+- `risks.manage` — create, edit, promote, delete, link cards, change status (admin / bpm_admin / member).
+
+### Frontend modules
+
+- `features/ea-delivery/risks/RiskMatrix.tsx` — shared 4×4 clickable heatmap used by Register and Detail pages.
+- `features/ea-delivery/risks/CreateRiskDialog.tsx` — reused for manual create and for promoting CVE + compliance findings, including an Owner picker so assignment happens at creation time.
+- `features/ea-delivery/risks/RiskRegisterPage.tsx` — register list view (embedded as a tab in EA Delivery).
+- `features/ea-delivery/risks/RiskDetailPage.tsx` — full TOGAF layout: Identification → Initial assessment → Mitigation & residual (with Owner autocomplete, Target date, residual matrix) → Affected cards (M:N) → Status workflow (primary Next step + secondary side actions + stepper) → Audit.
+- `features/cards/sections/RisksTab.tsx` — Card Detail → Risks tab listing all risks linked to that card.
 
 ---
 

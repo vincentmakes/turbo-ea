@@ -5680,6 +5680,15 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
     def card(ref: str):
         return ref_to_uuid.get(ref)
 
+    # 10 demo risks spanning every lifecycle phase, every category,
+    # different source types, M:N card links, owner assignment, and an
+    # overdue entry. Designed so a fresh SEED_DEMO install shows off the
+    # register matrix, filters, Card→Risks tab, Todos page, and the
+    # "Create risk" flow from TurboLens with realistic data.
+    from datetime import date, timedelta
+
+    today = date.today()
+
     demo = [
         {
             "title": "CVE-2024-45678 on legacy Apache HTTP Server",
@@ -5694,6 +5703,8 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             "initial_probability": "very_high",
             "initial_impact": "critical",
             "status": "identified",
+            "owner": admin_id,
+            "target": today + timedelta(days=14),
             "mitigation": None,
             "cards": ["app_nexacore_erp"],
         },
@@ -5710,10 +5721,32 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             "initial_probability": "high",
             "initial_impact": "high",
             "status": "analysed",
+            "owner": admin_id,
+            "target": today + timedelta(days=60),
             "mitigation": (
                 "Publish the registry and assign a Human Oversight owner per classified system."
             ),
-            "cards": [],
+            "cards": ["app_anomaly_ai", "app_pred_maint"],
+        },
+        {
+            "title": "GDPR: CRM lacks documented cross-border transfer clauses",
+            "description": (
+                "HubSpot tenant stores EU customer data and replicates to US "
+                "datacenters; no SCC attached to the DPA of record."
+            ),
+            "category": "compliance",
+            "source_type": "security_compliance",
+            "source_ref": "gdpr",
+            "initial_probability": "medium",
+            "initial_impact": "high",
+            "status": "mitigation_planned",
+            "owner": admin_id,
+            "target": today + timedelta(days=45),
+            "mitigation": (
+                "Sign updated SCCs, enable EU-only data residency on the "
+                "HubSpot tenant, record DPIA in the compliance portal."
+            ),
+            "cards": ["app_hubspot"],
         },
         {
             "title": "Single-vendor concentration — payments platform",
@@ -5726,10 +5759,33 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             "initial_probability": "medium",
             "initial_impact": "critical",
             "status": "in_progress",
+            "owner": admin_id,
+            "target": today + timedelta(days=90),
             "mitigation": "Onboard secondary PSP for fail-over by Q3.",
             "residual_probability": "low",
             "residual_impact": "critical",
-            "cards": [],
+            "cards": ["app_nexacore_erp", "app_nexaportal"],
+        },
+        {
+            "title": "Overdue: Jenkins credentials stored in plain-text config",
+            "description": (
+                "Audit flagged plain-text secrets in Jenkins build jobs. "
+                "Migration to Azure Key Vault was scheduled and missed."
+            ),
+            "category": "security",
+            "source_type": "manual",
+            "source_ref": None,
+            "initial_probability": "high",
+            "initial_impact": "high",
+            "status": "in_progress",
+            "owner": admin_id,
+            # Deliberately in the past so the Overdue KPI lights up.
+            "target": today - timedelta(days=7),
+            "mitigation": (
+                "Rotate all secrets; move to Key Vault; enforce via the "
+                "shared build-pipeline template."
+            ),
+            "cards": ["app_jenkins", "app_github_actions"],
         },
         {
             "title": "Legacy batch ETL nearing end-of-support",
@@ -5740,10 +5796,52 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             "initial_probability": "high",
             "initial_impact": "medium",
             "status": "mitigated",
+            "owner": admin_id,
+            "target": today + timedelta(days=180),
             "mitigation": "Migrated key jobs to dbt Cloud; decommission 2025.",
             "residual_probability": "low",
             "residual_impact": "low",
-            "cards": [],
+            "cards": ["app_snowflake"],
+        },
+        {
+            "title": "NIS2: incident response playbook missing for OT estate",
+            "description": (
+                "Factory-floor SCADA stack has no documented NIS2-aligned "
+                "incident response playbook."
+            ),
+            "category": "compliance",
+            "source_type": "security_compliance",
+            "source_ref": "nis2",
+            "initial_probability": "medium",
+            "initial_impact": "critical",
+            "status": "monitoring",
+            "owner": admin_id,
+            "target": today + timedelta(days=30),
+            "mitigation": (
+                "Playbook published; monthly tabletop exercises scheduled with the OT SOC team."
+            ),
+            "residual_probability": "low",
+            "residual_impact": "medium",
+            "cards": ["app_nexascada", "app_opcenter"],
+        },
+        {
+            "title": "Closed: SSO misconfiguration on legacy intranet portal",
+            "description": (
+                "Stale SAML assertion signature was re-enabled after a config "
+                "drift. Fixed and monitored for 60 days without recurrence."
+            ),
+            "category": "security",
+            "source_type": "manual",
+            "source_ref": None,
+            "initial_probability": "high",
+            "initial_impact": "high",
+            "status": "closed",
+            "owner": admin_id,
+            "target": today - timedelta(days=60),
+            "mitigation": "Hardened SAML config; drift detection via Okta policy.",
+            "residual_probability": "low",
+            "residual_impact": "low",
+            "cards": ["app_okta"],
         },
         {
             "title": "Accepted: Niche reporting tool on end-of-life OS",
@@ -5757,11 +5855,30 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             "initial_probability": "medium",
             "initial_impact": "medium",
             "status": "accepted",
+            "owner": admin_id,
+            "target": today + timedelta(days=120),
             "mitigation": "Network-isolated; decommissioning scheduled Q4.",
             "acceptance_rationale": (
                 "Replacement already funded; network isolation limits blast radius."
             ),
-            "cards": [],
+            "cards": ["app_powerbi"],
+        },
+        {
+            "title": "DORA: third-party resilience testing plan missing",
+            "description": (
+                "Financial-services critical apps have no documented "
+                "resilience-testing plan for their top-tier ICT providers."
+            ),
+            "category": "compliance",
+            "source_type": "security_compliance",
+            "source_ref": "dora",
+            "initial_probability": "medium",
+            "initial_impact": "high",
+            "status": "identified",
+            "owner": admin_id,
+            "target": today + timedelta(days=21),
+            "mitigation": None,
+            "cards": ["app_nexacore_erp"],
         },
     ]
 
@@ -5785,6 +5902,8 @@ async def _seed_demo_risks(db, admin_id, uuid_to_ref) -> int:
             residual_probability=r.get("residual_probability"),
             residual_impact=r.get("residual_impact"),
             residual_level=derive_level(r.get("residual_probability"), r.get("residual_impact")),
+            owner_id=r.get("owner"),
+            target_resolution_date=r.get("target"),
             status=r["status"],
             acceptance_rationale=r.get("acceptance_rationale"),
             accepted_by=admin_id if r["status"] == "accepted" else None,

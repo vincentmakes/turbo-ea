@@ -1,6 +1,6 @@
 # Risk Register
 
-The **Risk Register** captures architecture risks through their full lifecycle — from identification to mitigation, residual assessment, monitoring and closure (or formal acceptance). It lives under **EA Delivery → Risks** alongside SoAW and ADR documents.
+The **Risk Register** captures architecture risks through their full lifecycle — from identification to mitigation, residual assessment, monitoring and closure (or formal acceptance). It lives as a tab inside **EA Delivery → Risks**, alongside Initiatives, EA Principles, and Architecture Decisions.
 
 ## TOGAF alignment
 
@@ -19,11 +19,22 @@ The register implements the Architecture Risk Management process from **TOGAF AD
 
 Three paths all land in the same **Create risk** dialog — each variant prefills different fields so you can edit and submit:
 
-1. **Manual** — Risks page → **+ New risk**. Blank form.
+1. **Manual** — Risks tab → **+ New risk**. Blank form.
 2. **From a CVE finding** — TurboLens → Security & Compliance → CVE drawer → **Create risk**. Pre-fills title (CVE ID on card), description (NVD text + business impact + CVSS), category `security`, probability/impact from the CVE, mitigation from the finding's remediation, and links the affected card.
 3. **From a compliance finding** — TurboLens → Security & Compliance → Compliance tab → **Create risk** on a non-compliant finding. Pre-fills category `compliance`, probability/impact from regulation severity + status, description from requirement + gap.
 
+All three variants include **Owner**, **Category**, and **Target resolution date** fields so you can assign accountability at creation time — no need to re-open the risk to add them.
+
 Promotion is **idempotent** — once a finding has been promoted its button flips to **Open risk R-000123** and navigates straight to the risk detail page.
+
+## Ownership → Todo + notification
+
+Assigning an **owner** (either at create time or later) automatically:
+
+- Creates a **system Todo** on the owner's Todos page. The description reads `[Risk R-000123] <title>`, the due date mirrors the risk's target resolution date, and the link jumps back to the risk detail. The Todo auto-marks as **done** when the risk reaches `mitigated` / `monitoring` / `accepted` / `closed`.
+- Fires a **bell notification** (`risk_assigned`) — shown in the bell dropdown and the notifications page, with optional email if the user has opted in. Self-assignment also fires the bell, so the trail is consistent across team and personal workflows.
+
+Clearing or reassigning the owner keeps the Todo in sync — the old one is removed / reassigned.
 
 ## Linking risks to cards
 
@@ -38,16 +49,31 @@ Both the TurboLens Security Overview and the Risk Register page render a 4×4 pr
 
 ## Status workflow
 
-The stepper on the detail page enforces valid transitions:
+The detail page always shows a single **primary Next step** button plus a smaller row of side actions, so the sequential path is obvious but governance escape hatches remain one click away:
+
+| Current state | Next step (primary button) | Side actions |
+|---|---|---|
+| identified | Start analysis | Accept risk |
+| analysed | Plan mitigation | Accept risk |
+| mitigation_planned | Start mitigation | Accept risk |
+| in_progress | Mark mitigated | Accept risk |
+| mitigated | Start monitoring | Resume mitigation · Close without monitoring |
+| monitoring | Close | Resume mitigation · Accept risk |
+| accepted | — | Reopen · Close |
+| closed | — | Reopen |
+
+Full transition graph (enforced server-side):
 
 ```
 identified → analysed → mitigation_planned → in_progress → mitigated → monitoring → closed
-       │           │                                                   ▲
-       └───────────┴──────────── accepted (requires rationale) ────────┘
+       │           │             │                │            ▲           ▲
+       └───────────┴─────────────┴────────────────┴──── accepted (rationale required)
+                                                              │
+                              reopen → in_progress ◄──────────┘
 ```
 
 - **Accepting** a risk requires an acceptance rationale. The user, timestamp and rationale are captured on the record.
-- **Reopening** is always possible — `closed`, `monitoring` and `accepted` risks all allow a move back to `in_progress`.
+- **Reopening** an `accepted` / `closed` risk goes back to `in_progress`. `mitigated` also allows a manual "Resume mitigation" without needing a full reopen.
 
 ## Permissions
 

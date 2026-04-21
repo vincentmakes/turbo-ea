@@ -239,14 +239,22 @@ Refreshing the page **does not interrupt a running scan** — the background tas
 
 ### Risk report structure
 
-- **Overview** — KPI strip (total findings, critical / high / medium counts, overall compliance score), a 5×5 **probability × severity risk matrix**, the top five critical findings, and a compact compliance heatmap you can click through to the details.
+- **Overview** — KPI strip (total findings, critical / high / medium counts, overall compliance score), a 5×5 **probability × severity risk matrix**, the top five critical findings, and a compact compliance heatmap you can click through to the details. The matrix itself is **clickable**: click a cell and the CVEs sub-tab opens filtered to that bucket, with a dismissible chip above the table so you can see (and clear) the active filter.
 - **CVEs** — filterable table showing card, CVE ID (linked to the NVD detail page), CVSS base score, severity, priority, probability, patch availability, and status. Each row opens a detail drawer with the description, CVSS vector, attack vector, exploitability / impact scores, references, AI-generated business impact and remediation, and a status action bar (**Acknowledge → Mark in progress → Mark mitigated / Accept risk / Reopen**).
 - **Compliance** — one tab per regulation with an overall score, and a card-style list of findings showing status, article, category, requirement, gap description, remediation and evidence. A small **AI-detected** chip highlights cards flagged as AI-bearing by the semantic detector even though they are not tagged as AI subtypes.
 - **Export CSV** — downloads the CVE findings in OWASP/NIST-style column order (Card, Type, CVE, CVSS, Severity, Attack Vector, Probability, Priority, Patch, Published, Last Modified, Status, Vendor, Product, Version, Business Impact, Remediation, Description).
 
+### Promote a finding to the Risk Register
+
+Every CVE drawer and every compliance finding card includes a **Create risk** primary action. Clicking it opens the shared create-risk dialog with the title, description, category, probability, impact, mitigation and affected card **prefilled from the finding**. You can edit any field before submitting, assign an **owner**, and pick a **target resolution date**. On submit, the finding's row flips to **Open risk R-000123** so the link stays visible — promotions are idempotent server-side. See [Risk Register](risks.md) for the full TOGAF-aligned lifecycle and how owner assignment creates a follow-up Todo + bell notification.
+
 ### EU AI Act semantic detection
 
 AI features are frequently embedded inside general-purpose applications. The EU AI Act pass therefore **does not rely on subtype filtering alone**: it asks the LLM to flag every card whose name, description, vendor or related interfaces suggest AI / ML capabilities — LLMs, recommendation engines, computer vision, fraud or credit scoring, chatbots, predictive analytics, anomaly detection. Findings produced from this semantic pass are marked **AI-detected** so you can distinguish them from cards that were already classified as `AI Agent` / `AI Model`.
+
+### Progress and resume
+
+Each scan writes phase-aware progress (loading cards → querying NVD → AI prioritisation → saving, or loading cards → semantic AI detection → per-regulation check) into its analysis-run record. The UI renders a live progress bar per scan. **Refreshing the page does not interrupt a scan** — the background task keeps running server-side, and on mount the Security tab queries `/turbolens/security/active-runs` and reattaches the poll loop.
 
 ### NVD API key (optional)
 
@@ -254,7 +262,7 @@ Without a key, NVD allows only 5 requests / 30 seconds, which can make large-lan
 
 ### Status workflow
 
-Each CVE finding progresses through: **open** → **acknowledged** → **in progress** → **mitigated** (or **accepted**, when the team has formally accepted the risk). Reopening is always available. Status changes are owned by users with `security_compliance.manage`.
+Each CVE finding progresses through: **open** → **acknowledged** → **in progress** → **mitigated** (or **accepted**, when the team has formally accepted the risk). Reopening is always available. Status changes are owned by users with `security_compliance.manage`. For governance workflows (ownership, residual assessment, acceptance rationale, Todos and notifications) promote the finding to a Risk — the full lifecycle lives in the [Risk Register](risks.md).
 
 ## Analysis History
 
