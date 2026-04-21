@@ -14,6 +14,7 @@ const TurboLensResolution = lazy(() => import("./TurboLensResolution"));
 const TurboLensDuplicates = lazy(() => import("./TurboLensDuplicates"));
 const TurboLensArchitect = lazy(() => import("./TurboLensArchitect"));
 const TurboLensAssessments = lazy(() => import("./TurboLensAssessments"));
+const TurboLensSecurity = lazy(() => import("./TurboLensSecurity"));
 const TurboLensHistory = lazy(() => import("./TurboLensHistory"));
 
 const TAB_KEYS = [
@@ -23,6 +24,7 @@ const TAB_KEYS = [
   "duplicates",
   "architect",
   "assessments",
+  "security",
   "history",
 ] as const;
 
@@ -35,6 +37,7 @@ const TAB_ICONS: Record<TabKey, string> = {
   duplicates: "content_copy",
   architect: "architecture",
   assessments: "assignment",
+  security: "shield",
   history: "history",
 };
 
@@ -76,6 +79,7 @@ export default function TurboLensPage() {
       duplicates: t("turbolens.duplicates"),
       architect: t("turbolens.architect"),
       assessments: t("turbolens.assessments"),
+      security: t("turbolens.security"),
       history: t("turbolens.history"),
     }),
     [t],
@@ -111,6 +115,7 @@ export default function TurboLensPage() {
         {tab === "duplicates" && <TurboLensDuplicates />}
         {tab === "architect" && <TurboLensArchitect />}
         {tab === "assessments" && <TurboLensAssessments />}
+        {tab === "security" && <TurboLensSecurity />}
         {tab === "history" && <TurboLensHistory />}
       </Suspense>
     </Box>

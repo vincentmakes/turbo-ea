@@ -160,6 +160,13 @@ APP_PERMISSIONS: dict[str, dict] = {
             "turbolens.manage": "Manage TurboLens connections and trigger analyses",
         },
     },
+    "security_compliance": {
+        "label": "Security & Compliance",
+        "permissions": {
+            "security_compliance.view": "View CVE findings and compliance reports",
+            "security_compliance.manage": "Trigger security scans and update finding status",
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -293,6 +300,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "servicenow.manage": False,
     "turbolens.view": True,
     "turbolens.manage": False,
+    "security_compliance.view": True,
+    "security_compliance.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -357,6 +366,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "servicenow.manage": False,
     "turbolens.view": True,
     "turbolens.manage": False,
+    "security_compliance.view": True,
+    "security_compliance.manage": False,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "notifications.manage": True,
@@ -421,6 +432,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "servicenow.manage": False,
     "turbolens.view": False,
     "turbolens.manage": False,
+    "security_compliance.view": True,
+    "security_compliance.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "notifications.manage": True,

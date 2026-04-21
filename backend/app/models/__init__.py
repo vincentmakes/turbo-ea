@@ -46,6 +46,8 @@ from app.models.todo import Todo
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
+    TurboLensComplianceFinding,
+    TurboLensCveFinding,
     TurboLensDuplicateCluster,
     TurboLensModernization,
     TurboLensVendorAnalysis,
@@ -58,6 +60,8 @@ from app.models.web_portal import WebPortal
 __all__ = [
     "TurboLensAnalysisRun",
     "TurboLensAssessment",
+    "TurboLensComplianceFinding",
+    "TurboLensCveFinding",
     "TurboLensDuplicateCluster",
     "TurboLensModernization",
     "TurboLensVendorAnalysis",

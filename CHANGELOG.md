@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.44.0] - 2026-04-21
+
+### Added
+- TurboLens Security & Compliance scan — new on-demand tab that queries the NIST NVD for CVEs affecting every Application and IT Component in the landscape, prioritises each finding with AI (business impact, remediation, priority, probability), and produces a CVSS-standard risk report with a 5×5 probability × severity matrix, filterable table, drawer detail, status workflow (open → acknowledged → in progress → mitigated / accepted), and CSV export
+- TurboLens compliance gap analysis against EU AI Act, GDPR, NIS2, DORA, SOC 2 and ISO 27001, with a compliance heatmap, per-regulation scores, and links back to the offending cards
+- EU AI Act semantic AI detection — cards that embed AI (LLMs, recommendation engines, fraud / credit scoring, chatbots, predictive analytics) are flagged even when their subtype is not `AI Agent` / `AI Model`, with an "AI-detected" badge on the resulting findings
+- Optional `NVD_API_KEY` environment variable to raise NVD rate limits from 5 req/30 s to 50 req/30 s
+
+### Security
+- New `security_compliance.view` and `security_compliance.manage` permissions; granted to admin by default (view also granted to bpm_admin, member and viewer)
+
 ## [0.43.1] - 2026-04-21
 
 ### Fixed

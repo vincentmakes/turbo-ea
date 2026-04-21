@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -224,3 +225,106 @@ class TurboLensAssessmentOut(BaseModel):
     @classmethod
     def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
         return str(v) if v is not None else None
+
+
+# ---------------------------------------------------------------------------
+# Security & Compliance
+# ---------------------------------------------------------------------------
+
+
+SUPPORTED_REGULATIONS = ("eu_ai_act", "gdpr", "nis2", "dora", "soc2", "iso27001")
+
+
+class SecurityScanRequest(BaseModel):
+    """Options for an on-demand security & compliance scan."""
+
+    regulations: list[str] | None = None
+    include_itc: bool = True
+
+
+class CveFindingStatusUpdate(BaseModel):
+    status: Literal["open", "acknowledged", "in_progress", "mitigated", "accepted"]
+
+
+class CveFindingOut(BaseModel):
+    id: str
+    run_id: str
+    card_id: str
+    card_name: str | None = None
+    card_type: str
+    cve_id: str
+    vendor: str = ""
+    product: str = ""
+    version: str | None = None
+    cvss_score: float | None = None
+    cvss_vector: str | None = None
+    severity: str = "unknown"
+    attack_vector: str | None = None
+    exploitability_score: float | None = None
+    impact_score: float | None = None
+    patch_available: bool = False
+    published_date: date | None = None
+    last_modified_date: date | None = None
+    description: str = ""
+    nvd_references: list[dict] | None = None
+    priority: str = "medium"
+    probability: str = "medium"
+    business_impact: str | None = None
+    remediation: str | None = None
+    status: str = "open"
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("id", "run_id", "card_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
+        return str(v) if v is not None else None
+
+
+class ComplianceFindingOut(BaseModel):
+    id: str
+    run_id: str
+    regulation: str
+    regulation_article: str | None = None
+    card_id: str | None = None
+    card_name: str | None = None
+    scope_type: str = "landscape"
+    category: str = ""
+    requirement: str = ""
+    status: str = "review_needed"
+    severity: str = "info"
+    gap_description: str = ""
+    evidence: str | None = None
+    remediation: str | None = None
+    ai_detected: bool = False
+    created_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("id", "run_id", "card_id", mode="before")
+    @classmethod
+    def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
+        return str(v) if v is not None else None
+
+
+class SecurityOverviewOut(BaseModel):
+    last_run_id: str | None = None
+    last_run_status: str | None = None
+    last_run_started_at: datetime | None = None
+    last_run_completed_at: datetime | None = None
+    last_run_error: str | None = None
+    total_findings: int = 0
+    by_severity: dict[str, int] = Field(default_factory=dict)
+    by_status: dict[str, int] = Field(default_factory=dict)
+    by_probability: dict[str, int] = Field(default_factory=dict)
+    risk_matrix: list[list[int]] = Field(default_factory=list)
+    compliance_scores: dict[str, int] = Field(default_factory=dict)
+    compliance_by_status: dict[str, dict[str, int]] = Field(default_factory=dict)
+    top_critical: list[CveFindingOut] = Field(default_factory=list)
+
+
+class ComplianceBundleOut(BaseModel):
+    regulation: str
+    score: int = 0
+    findings: list[ComplianceFindingOut] = Field(default_factory=list)

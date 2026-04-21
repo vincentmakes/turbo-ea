@@ -1254,6 +1254,116 @@ export interface TurboLensOverview {
   top_issues: Array<{ id: string; name: string; type: string; data_quality: number }>;
 }
 
+// ── Security & Compliance ──────────────────────────────────────────────
+
+export type CveSeverity = "critical" | "high" | "medium" | "low" | "unknown";
+export type CveProbability = "very_high" | "high" | "medium" | "low" | "unknown";
+export type CvePriority = "critical" | "high" | "medium" | "low";
+export type CveStatus =
+  | "open"
+  | "acknowledged"
+  | "in_progress"
+  | "mitigated"
+  | "accepted";
+
+export type ComplianceStatus =
+  | "compliant"
+  | "partial"
+  | "non_compliant"
+  | "not_applicable"
+  | "review_needed";
+
+export type RegulationKey =
+  | "eu_ai_act"
+  | "gdpr"
+  | "nis2"
+  | "dora"
+  | "soc2"
+  | "iso27001";
+
+export interface CveReference {
+  url: string;
+  tags?: string[];
+  source?: string;
+}
+
+export interface TurboLensCveFinding {
+  id: string;
+  run_id: string;
+  card_id: string;
+  card_name: string | null;
+  card_type: string;
+  cve_id: string;
+  vendor: string;
+  product: string;
+  version: string | null;
+  cvss_score: number | null;
+  cvss_vector: string | null;
+  severity: CveSeverity;
+  attack_vector: string | null;
+  exploitability_score: number | null;
+  impact_score: number | null;
+  patch_available: boolean;
+  published_date: string | null;
+  last_modified_date: string | null;
+  description: string;
+  nvd_references: CveReference[] | null;
+  priority: CvePriority;
+  probability: CveProbability;
+  business_impact: string | null;
+  remediation: string | null;
+  status: CveStatus;
+  created_at: string | null;
+}
+
+export interface TurboLensComplianceFinding {
+  id: string;
+  run_id: string;
+  regulation: RegulationKey;
+  regulation_article: string | null;
+  card_id: string | null;
+  card_name: string | null;
+  scope_type: "card" | "landscape";
+  category: string;
+  requirement: string;
+  status: ComplianceStatus;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  gap_description: string;
+  evidence: string | null;
+  remediation: string | null;
+  ai_detected: boolean;
+  created_at: string | null;
+}
+
+export interface TurboLensComplianceBundle {
+  regulation: RegulationKey;
+  score: number;
+  findings: TurboLensComplianceFinding[];
+}
+
+export interface TurboLensSecurityOverview {
+  last_run_id: string | null;
+  last_run_status: string | null;
+  last_run_started_at: string | null;
+  last_run_completed_at: string | null;
+  last_run_error: string | null;
+  total_findings: number;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+  by_probability: Record<string, number>;
+  risk_matrix: number[][];
+  compliance_scores: Record<string, number>;
+  compliance_by_status: Record<string, Record<string, number>>;
+  top_critical: TurboLensCveFinding[];
+}
+
+export interface CveFindingsPage {
+  items: TurboLensCveFinding[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 // Architecture AI result types
 export interface ArchComponent {
   name: string;

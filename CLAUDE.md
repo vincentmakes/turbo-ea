@@ -584,6 +584,7 @@ turbo-ea/
 | `AI_SEARCH_URL` | *(empty)* | Search provider URL: SearXNG URL or `API_KEY:CX` for Google |
 | `AI_AUTO_CONFIGURE` | `false` | Auto-enable AI on startup if provider is reachable |
 | `OLLAMA_MEMORY_LIMIT` | `4G` | Memory limit for bundled Ollama container (Docker `--profile ai`) |
+| `NVD_API_KEY` | *(empty)* | Optional NIST NVD API key. When set, the TurboLens Security & Compliance scan uses the higher 50 req / 30 s rate limit; otherwise it uses the unauthenticated 5 req / 30 s limit |
 | `TURBO_EA_URL` | `http://localhost:8000` | (MCP server) Internal backend URL |
 | `TURBO_EA_PUBLIC_URL` | `http://localhost:8920` | (MCP server) Public-facing Turbo EA URL for OAuth redirects |
 | `MCP_PUBLIC_URL` | `http://localhost:8001` | (MCP server) Public URL for OAuth metadata |

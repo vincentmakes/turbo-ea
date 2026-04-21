@@ -59,6 +59,9 @@ class Settings:
     AI_SEARCH_URL: str = os.getenv("AI_SEARCH_URL", "")
     AI_AUTO_CONFIGURE: bool = os.getenv("AI_AUTO_CONFIGURE", "").lower() in ("1", "true", "yes")
 
+    # NVD API (optional — raises rate limit from 5/30s to 50/30s when set)
+    NVD_API_KEY: str = os.getenv("NVD_API_KEY", "")
+
     @property
     def database_url(self) -> str:
         return (

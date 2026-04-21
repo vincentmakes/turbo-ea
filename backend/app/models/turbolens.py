@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -116,6 +127,88 @@ class TurboLensAnalysisRun(UUIDMixin, TimestampMixin, Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
+    )
+
+
+class TurboLensCveFinding(UUIDMixin, TimestampMixin, Base):
+    """A single CVE affecting a specific card (Application or ITComponent)."""
+
+    __tablename__ = "turbolens_cve_findings"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("turbolens_analysis_runs.id", ondelete="CASCADE"),
+    )
+    card_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="CASCADE"),
+    )
+    card_type: Mapped[str] = mapped_column(String(64))
+    cve_id: Mapped[str] = mapped_column(String(32))
+    vendor: Mapped[str] = mapped_column(String(255), default="")
+    product: Mapped[str] = mapped_column(String(255), default="")
+    version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    cvss_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cvss_vector: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    severity: Mapped[str] = mapped_column(String(16), default="unknown")
+    attack_vector: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    exploitability_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    impact_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    patch_available: Mapped[bool] = mapped_column(Boolean, default=False)
+    published_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_modified_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    nvd_references: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    priority: Mapped[str] = mapped_column(String(16), default="medium")
+    probability: Mapped[str] = mapped_column(String(16), default="medium")
+    business_impact: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(16), default="open")
+
+    __table_args__ = (
+        Index("ix_turbolens_cve_findings_card_id_severity", "card_id", "severity"),
+        Index("ix_turbolens_cve_findings_run_id", "run_id"),
+        Index("ix_turbolens_cve_findings_status", "status"),
+        Index("ix_turbolens_cve_findings_cve_id", "cve_id"),
+        Index("ix_turbolens_cve_findings_severity", "severity"),
+        Index("ix_turbolens_cve_findings_priority", "priority"),
+    )
+
+
+class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
+    """A compliance gap or attestation for a given regulation."""
+
+    __tablename__ = "turbolens_compliance_findings"
+
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("turbolens_analysis_runs.id", ondelete="CASCADE"),
+    )
+    regulation: Mapped[str] = mapped_column(String(32))
+    regulation_article: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    card_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("cards.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    scope_type: Mapped[str] = mapped_column(String(16), default="landscape")
+    category: Mapped[str] = mapped_column(String(64), default="")
+    requirement: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(24), default="review_needed")
+    severity: Mapped[str] = mapped_column(String(16), default="info")
+    gap_description: Mapped[str] = mapped_column(Text, default="")
+    evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    remediation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_detected: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    __table_args__ = (
+        Index(
+            "ix_turbolens_compliance_findings_regulation_status",
+            "regulation",
+            "status",
+        ),
+        Index("ix_turbolens_compliance_findings_card_id", "card_id"),
+        Index("ix_turbolens_compliance_findings_run_id", "run_id"),
     )
 
 
