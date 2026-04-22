@@ -93,6 +93,11 @@ async def send_notification_email(
 
     Returns True if the email was actually sent, False otherwise.
     """
+    # Short-circuit when SMTP isn't configured so we don't open a DB session
+    # (used for the app-title lookup) on every notification path.
+    if not _is_configured():
+        return False
+
     # H7: Escape user-supplied content to prevent HTML injection
     title = html.escape(title)
     message = html.escape(message)
