@@ -939,14 +939,22 @@ export default function PortalViewer() {
 
                   {/* Tags */}
                   {show("tags", "card") && card.tags.length > 0 && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 0.75,
-                        flexWrap: "wrap",
-                        mt: 1.5,
-                      }}
-                    >
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px dashed", borderColor: "divider" }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          mb: 0.5,
+                          textTransform: "uppercase",
+                          fontSize: "0.65rem",
+                          letterSpacing: 0.8,
+                          color: "text.secondary",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {t("portal.tags")}
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
                       {card.tags.slice(0, 4).map((tag) => (
                         <Chip
                           key={tag.id}
@@ -971,6 +979,7 @@ export default function PortalViewer() {
                           sx={{ height: 24, fontSize: "0.73rem" }}
                         />
                       )}
+                      </Box>
                     </Box>
                   )}
 

@@ -19,6 +19,7 @@ from app.models.card_type import CardType
 from app.models.event import Event
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.kpi_snapshot_service import (
     compute_trend_block,
@@ -418,6 +419,31 @@ async def app_portfolio(
         elif tid in org_ids and sid in app_id_set:
             app_orgs.setdefault(sid, set()).add(tid)
 
+    # Tag assignments + tag groups applicable to Application
+    app_tag_ids: dict[str, list[str]] = {}
+    if app_ids:
+        ct_rows = await db.execute(select(CardTag).where(CardTag.card_id.in_(app_ids)))
+        for ct in ct_rows.scalars().all():
+            app_tag_ids.setdefault(str(ct.card_id), []).append(str(ct.tag_id))
+
+    tg_rows = await db.execute(select(TagGroup).order_by(TagGroup.name))
+    tag_groups_payload = []
+    for tg in tg_rows.scalars().all():
+        if tg.restrict_to_types and "Application" not in tg.restrict_to_types:
+            continue
+        t_rows = await db.execute(select(Tag).where(Tag.tag_group_id == tg.id).order_by(Tag.name))
+        tag_groups_payload.append(
+            {
+                "id": str(tg.id),
+                "name": tg.name,
+                "mode": tg.mode,
+                "tags": [
+                    {"id": str(t.id), "name": t.name, "color": t.color}
+                    for t in t_rows.scalars().all()
+                ],
+            }
+        )
+
     # 8. Build response items
     items = []
     for a in apps:
@@ -431,6 +457,7 @@ async def app_portfolio(
                 "lifecycle": a.lifecycle,
                 "relations": app_relations.get(aid, []),
                 "org_ids": sorted(app_orgs.get(aid, set())),
+                "tag_ids": app_tag_ids.get(aid, []),
             }
         )
 
@@ -455,6 +482,7 @@ async def app_portfolio(
         "relation_types": rel_type_defs,
         "groupable_types": groupable_types,
         "organizations": organizations,
+        "tag_groups": tag_groups_payload,
     }
 
 
@@ -756,6 +784,31 @@ async def capability_heatmap(
         elif tid in app_id_set and sid in related_map:
             app_related.setdefault(tid, {}).setdefault(related_map[sid]["type"], []).append(sid)
 
+    # Tag assignments per application (for tag filter)
+    cap_app_tag_ids: dict[str, list[str]] = {}
+    if app_ids:
+        ct_rows = await db.execute(select(CardTag).where(CardTag.card_id.in_(app_ids)))
+        for ct in ct_rows.scalars().all():
+            cap_app_tag_ids.setdefault(str(ct.card_id), []).append(str(ct.tag_id))
+
+    tg_rows = await db.execute(select(TagGroup).order_by(TagGroup.name))
+    cap_tag_groups_payload = []
+    for tg in tg_rows.scalars().all():
+        if tg.restrict_to_types and "Application" not in tg.restrict_to_types:
+            continue
+        t_rows = await db.execute(select(Tag).where(Tag.tag_group_id == tg.id).order_by(Tag.name))
+        cap_tag_groups_payload.append(
+            {
+                "id": str(tg.id),
+                "name": tg.name,
+                "mode": tg.mode,
+                "tags": [
+                    {"id": str(t.id), "name": t.name, "color": t.color}
+                    for t in t_rows.scalars().all()
+                ],
+            }
+        )
+
     def _app_to_dict(a):
         aid = str(a.id)
         by_type = app_related.get(aid, {})
@@ -767,6 +820,7 @@ async def capability_heatmap(
             "lifecycle": a.lifecycle,
             "org_ids": sorted(by_type.get("Organization", [])),
             "related_by_type": {k: sorted(v) for k, v in by_type.items()},
+            "tag_ids": cap_app_tag_ids.get(aid, []),
         }
 
     # Collect relation filter options grouped by type (visible types only)
@@ -818,6 +872,7 @@ async def capability_heatmap(
         "metric": metric,
         "filterable_types": filterable_types,
         "fields_schema": app_fields_schema,
+        "tag_groups": cap_tag_groups_payload,
     }
 
 

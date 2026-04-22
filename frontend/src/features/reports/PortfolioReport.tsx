@@ -57,6 +57,14 @@ interface AppData {
   lifecycle?: Record<string, string>;
   relations: AppRelation[];
   org_ids: string[];
+  tag_ids?: string[];
+}
+
+interface TagGroupDef {
+  id: string;
+  name: string;
+  mode: string;
+  tags: { id: string; name: string; color?: string }[];
 }
 
 interface FieldOption {
@@ -99,6 +107,7 @@ interface ApiResponse {
   relation_types: RelTypeDef[];
   groupable_types: Record<string, { id: string; name: string; type: string }[]>;
   organizations: OrgRef[];
+  tag_groups?: TagGroupDef[];
 }
 
 interface GroupData {
@@ -194,6 +203,7 @@ function isLightColor(hex: string): boolean {
 interface FilterState {
   attributeFilters: Record<string, string[]>;
   relationFilters: Record<string, string[]>;
+  tagFilters: Record<string, string[]>;
   timelineDate: number;
   search: string;
 }
@@ -223,6 +233,17 @@ function matchesFilters(
     const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
     if (wantEmpty && appRels.length === 0) continue;
     if (realIds.length > 0 && appRels.some((r) => realIds.includes(r.related_id))) continue;
+    return false;
+  }
+  // Tag filters (OR within a group, AND across groups)
+  const appTagIds = new Set(app.tag_ids || []);
+  for (const [, tagIds] of Object.entries(filters.tagFilters)) {
+    if (tagIds.length === 0) continue;
+    const wantEmpty = tagIds.includes(EMPTY_FILTER_KEY);
+    const realIds = tagIds.filter((x) => x !== EMPTY_FILTER_KEY);
+    const hasAny = realIds.some((id) => appTagIds.has(id));
+    if (wantEmpty && appTagIds.size === 0) continue;
+    if (realIds.length > 0 && hasAny) continue;
     return false;
   }
   if (
@@ -505,6 +526,7 @@ export default function PortfolioReport() {
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [tagFilters, setTagFilters] = useState<Record<string, string[]>>({});
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Timeline
@@ -525,6 +547,7 @@ export default function PortfolioReport() {
       if (cfg.search != null) setSearch(cfg.search as string);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      if (cfg.tagFilters) setTagFilters(cfg.tagFilters as Record<string, string[]>);
       // Backwards compat: old saved configs may have filterOrgs
       if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
       if (cfg.sortK) setSortK(cfg.sortK as string);
@@ -533,12 +556,12 @@ export default function PortfolioReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate: tl.persistValue, sortK, sortD });
+  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilters, timelineDate: tl.persistValue, sortK, sortD });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilters, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -549,6 +572,7 @@ export default function PortfolioReport() {
     setSearch("");
     setAttrFilters({});
     setRelationFilters({});
+    setTagFilters({});
     setShowAllRelFilters(false);
     tl.reset();
     setSortK("name");
@@ -687,10 +711,11 @@ export default function PortfolioReport() {
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
+      tagFilters,
       timelineDate: tl.timelineDate,
       search,
     }),
-    [attrFilters, relationFilters, tl.timelineDate, search],
+    [attrFilters, relationFilters, tagFilters, tl.timelineDate, search],
   );
 
   // Filtered apps
@@ -748,11 +773,13 @@ export default function PortfolioReport() {
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
     Object.values(relationFilters).some((v) => v.length > 0) ||
+    Object.values(tagFilters).some((v) => v.length > 0) ||
     search.length > 0;
 
   const clearFilters = useCallback(() => {
     setAttrFilters({});
     setRelationFilters({});
+    setTagFilters({});
     setSearch("");
     tl.reset();
   }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -884,7 +911,7 @@ export default function PortfolioReport() {
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + Object.values(tagFilters).flat().length;
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -1174,6 +1201,44 @@ export default function PortfolioReport() {
                         }
                       />
                     ))}
+                </Box>
+              )}
+
+              {/* Tags section */}
+              {(data?.tag_groups || []).length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    {t("portfolio.tags")}
+                  </Typography>
+                  {(data?.tag_groups || []).map((tg) => (
+                    <FilterSelect
+                      key={tg.id}
+                      label={tg.name}
+                      options={tg.tags.map((tag) => ({
+                        key: tag.id,
+                        label: tag.name,
+                        color: tag.color,
+                      }))}
+                      value={tagFilters[tg.id] || []}
+                      onChange={(v) =>
+                        setTagFilters((prev) => ({ ...prev, [tg.id]: v }))
+                      }
+                    />
+                  ))}
                 </Box>
               )}
             </Box>
