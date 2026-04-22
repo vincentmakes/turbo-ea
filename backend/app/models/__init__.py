@@ -26,6 +26,7 @@ from app.models.process_element import ProcessElement
 from app.models.process_flow_version import ProcessFlowVersion
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
+from app.models.risk import Risk, RiskCard
 from app.models.role import Role
 from app.models.saved_report import SavedReport
 from app.models.servicenow import (
@@ -46,6 +47,8 @@ from app.models.todo import Todo
 from app.models.turbolens import (
     TurboLensAnalysisRun,
     TurboLensAssessment,
+    TurboLensComplianceFinding,
+    TurboLensCveFinding,
     TurboLensDuplicateCluster,
     TurboLensModernization,
     TurboLensVendorAnalysis,
@@ -58,6 +61,8 @@ from app.models.web_portal import WebPortal
 __all__ = [
     "TurboLensAnalysisRun",
     "TurboLensAssessment",
+    "TurboLensComplianceFinding",
+    "TurboLensCveFinding",
     "TurboLensDuplicateCluster",
     "TurboLensModernization",
     "TurboLensVendorAnalysis",
@@ -97,6 +102,8 @@ __all__ = [
     "PpmTaskComment",
     "PpmWbs",
     "AppSettings",
+    "Risk",
+    "RiskCard",
     "Survey",
     "SurveyResponse",
     "ProcessDiagram",

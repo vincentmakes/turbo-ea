@@ -13,22 +13,16 @@
   "detail.dialogs.delete.confirm": "Are you sure you want to permanently delete <strong>{{name}}</strong>?",
   "detail.dialogs.delete.description": "This action cannot be undone. The card and all its relations will be removed.",
   "detail.dialogs.delete.submit": "Delete Permanently",
-
   "create.title": "Create Card",
   "create.failed": "Failed to create card",
-
   "utils.dataQuality": "{{value}}% complete",
   "utils.unknownOption": "Unknown option key: {{key}}",
   "utils.urlError": "Must use http://, https://, or mailto: scheme",
-
   "description.title": "Description",
   "description.noDescription": "No description provided.",
-
   "lifecycle.title": "Lifecycle",
-
   "attributes.calculated": "calculated",
   "attributes.auto": "auto",
-
   "hierarchy.title": "Hierarchy",
   "hierarchy.level": "Level {{level}}",
   "hierarchy.path": "Path",
@@ -52,7 +46,6 @@
   "hierarchy.errors.setParent": "Failed to set parent",
   "hierarchy.errors.addChild": "Failed to add child",
   "hierarchy.errors.create": "Failed to create",
-
   "successors.title": "Lineage",
   "successors.predecessors": "Predecessors",
   "successors.successorsList": "Successors",
@@ -69,7 +62,6 @@
   "successors.backToSearch": "Back to search",
   "successors.errors.add": "Failed to add relation",
   "successors.errors.create": "Failed to create card",
-
   "relations.title": "Relations",
   "relations.add": "Add Relation",
   "relations.empty": "No relations yet.",
@@ -87,22 +79,18 @@
   "relations.createAndAdd": "Create & Add",
   "relations.errors.create": "Failed to create relation",
   "relations.errors.createCard": "Failed to create card",
-
   "stakeholders.add": "Add Stakeholder",
   "stakeholders.role": "Role",
   "stakeholders.user": "User",
   "stakeholders.noneAssigned": "No {{role}} assigned",
-
   "comments.placeholder": "Write a comment...",
   "comments.post": "Post",
   "comments.empty": "No comments yet.",
-
   "todos.add": "Add Todo",
   "todos.empty": "No todos yet.",
   "todos.assignTo": "Assign to",
   "todos.dueDate": "Due date",
-  "todos.adding": "Adding\u2026",
-
+  "todos.adding": "Adding…",
   "history.empty": "No history yet.",
   "history.by": "by {{user}}",
   "history.events.created": "Created",
@@ -117,7 +105,6 @@
   "history.fields.alias": "Alias",
   "history.fields.externalId": "External ID",
   "history.fields.approvalStatus": "Approval Status",
-
   "eol.title": "End of Life",
   "eol.tracking": "End-of-Life Tracking",
   "eol.manualSearch": "Manual Search",
@@ -151,7 +138,6 @@
   "eol.status.supported": "Supported",
   "eol.status.yesEol": "Yes (EOL)",
   "eol.status.unknown": "Unknown",
-
   "vendor.label": "Vendor",
   "vendor.searchPlaceholder": "Search existing providers or type a new name...",
   "vendor.createProvider": "Create Provider \"{{name}}\"",
@@ -159,7 +145,6 @@
   "vendor.createNew.description": "No existing Provider matches \"{{name}}\". Create a new Provider card and link it?",
   "vendor.createNew.creating": "Creating...",
   "vendor.createNew.submit": "Create & Link",
-
   "tabs.card": "Card",
   "tabs.processFlow": "Process Flow",
   "tabs.assessments": "Assessments",
@@ -168,8 +153,8 @@
   "tabs.todos": "Todos",
   "tabs.stakeholders": "Stakeholders",
   "tabs.resources": "Resources",
+  "tabs.risks": "Risks",
   "tabs.history": "History",
-
   "resources.architectureDecisions": "Architecture Decisions",
   "resources.fileAttachments": "File Attachments",
   "resources.documentLinks": "Document Links",
@@ -223,7 +208,6 @@
   "resources.error.linkFailed": "Failed to link",
   "resources.error.unlinkFailed": "Failed to unlink",
   "resources.error.diagramLinkFailed": "Failed to link/unlink diagram",
-
   "resources.diagrams": "Diagrams",
   "resources.linkDiagram": "Link Diagram",
   "resources.unlinkDiagram": "Unlink",
@@ -232,9 +216,7 @@
   "resources.linkDiagramDialog.title": "Link Diagram",
   "resources.linkDiagramDialog.search": "Search diagrams...",
   "resources.linkDiagramDialog.empty": "No diagrams available to link.",
-
   "sidePanel.openFullPage": "Open full page",
-
   "dependencies.title": "Dependencies",
   "dependencies.empty": "No dependencies found for this card.",
   "dependencies.error": "Failed to load dependencies."

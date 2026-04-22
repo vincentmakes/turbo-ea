@@ -1254,6 +1254,234 @@ export interface TurboLensOverview {
   top_issues: Array<{ id: string; name: string; type: string; data_quality: number }>;
 }
 
+// ── Security & Compliance ──────────────────────────────────────────────
+
+export type CveSeverity = "critical" | "high" | "medium" | "low" | "unknown";
+export type CveProbability = "very_high" | "high" | "medium" | "low" | "unknown";
+export type CvePriority = "critical" | "high" | "medium" | "low";
+export type CveStatus =
+  | "open"
+  | "acknowledged"
+  | "in_progress"
+  | "mitigated"
+  | "accepted";
+
+export type ComplianceStatus =
+  | "compliant"
+  | "partial"
+  | "non_compliant"
+  | "not_applicable"
+  | "review_needed";
+
+export type RegulationKey =
+  | "eu_ai_act"
+  | "gdpr"
+  | "nis2"
+  | "dora"
+  | "soc2"
+  | "iso27001";
+
+export interface CveReference {
+  url: string;
+  tags?: string[];
+  source?: string;
+}
+
+export interface TurboLensCveFinding {
+  id: string;
+  run_id: string;
+  card_id: string;
+  card_name: string | null;
+  card_type: string;
+  cve_id: string;
+  vendor: string;
+  product: string;
+  version: string | null;
+  cvss_score: number | null;
+  cvss_vector: string | null;
+  severity: CveSeverity;
+  attack_vector: string | null;
+  exploitability_score: number | null;
+  impact_score: number | null;
+  patch_available: boolean;
+  published_date: string | null;
+  last_modified_date: string | null;
+  description: string;
+  nvd_references: CveReference[] | null;
+  priority: CvePriority;
+  probability: CveProbability;
+  business_impact: string | null;
+  remediation: string | null;
+  status: CveStatus;
+  risk_id: string | null;
+  risk_reference: string | null;
+  created_at: string | null;
+}
+
+export interface TurboLensComplianceFinding {
+  id: string;
+  run_id: string;
+  regulation: RegulationKey;
+  regulation_article: string | null;
+  card_id: string | null;
+  card_name: string | null;
+  scope_type: "card" | "landscape";
+  category: string;
+  requirement: string;
+  status: ComplianceStatus;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  gap_description: string;
+  evidence: string | null;
+  remediation: string | null;
+  ai_detected: boolean;
+  risk_id: string | null;
+  risk_reference: string | null;
+  created_at: string | null;
+}
+
+// ── Risk Register ──────────────────────────────────────────────────────
+
+export type RiskCategory =
+  | "security"
+  | "compliance"
+  | "operational"
+  | "technology"
+  | "financial"
+  | "reputational"
+  | "strategic";
+
+export type RiskSourceType =
+  | "manual"
+  | "security_cve"
+  | "security_compliance"
+  | "architect";
+
+export type RiskLevel = "critical" | "high" | "medium" | "low";
+
+export type RiskProbability = "very_high" | "high" | "medium" | "low";
+
+export type RiskImpact = "critical" | "high" | "medium" | "low";
+
+export type RiskStatus =
+  | "identified"
+  | "analysed"
+  | "mitigation_planned"
+  | "in_progress"
+  | "mitigated"
+  | "monitoring"
+  | "accepted"
+  | "closed";
+
+export type RiskLinkRole = "affected" | "contributing" | "owner_of_control";
+
+export interface RiskCardLink {
+  card_id: string;
+  card_name: string;
+  card_type: string;
+  role: RiskLinkRole;
+}
+
+export interface Risk {
+  id: string;
+  reference: string;
+  title: string;
+  description: string;
+  category: RiskCategory;
+  source_type: RiskSourceType;
+  source_ref: string | null;
+
+  initial_probability: RiskProbability;
+  initial_impact: RiskImpact;
+  initial_level: RiskLevel;
+
+  mitigation: string | null;
+  residual_probability: RiskProbability | null;
+  residual_impact: RiskImpact | null;
+  residual_level: RiskLevel | null;
+
+  owner_id: string | null;
+  owner_name: string | null;
+  target_resolution_date: string | null;
+
+  status: RiskStatus;
+  acceptance_rationale: string | null;
+  accepted_by: string | null;
+  accepted_at: string | null;
+
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+
+  cards: RiskCardLink[];
+}
+
+export interface RiskListPage {
+  items: Risk[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface RiskMetrics {
+  total: number;
+  by_status: Record<string, number>;
+  by_level: Record<string, number>;
+  by_category: Record<string, number>;
+  overdue: number;
+  created_this_month: number;
+  initial_matrix: number[][];
+  residual_matrix: number[][];
+}
+
+export interface TurboLensComplianceBundle {
+  regulation: RegulationKey;
+  score: number;
+  findings: TurboLensComplianceFinding[];
+}
+
+export interface ScanProgress {
+  phase: string;
+  current: number;
+  total: number;
+  note?: string;
+  updated_at?: string;
+}
+
+export interface SecurityScanRun {
+  run_id: string | null;
+  status: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  error: string | null;
+  progress: ScanProgress | null;
+  summary: Record<string, unknown> | null;
+}
+
+export interface TurboLensSecurityOverview {
+  cve_run: SecurityScanRun;
+  compliance_run: SecurityScanRun;
+  total_findings: number;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+  by_probability: Record<string, number>;
+  risk_matrix: number[][];
+  compliance_scores: Record<string, number>;
+  compliance_by_status: Record<string, Record<string, number>>;
+  top_critical: TurboLensCveFinding[];
+}
+
+export interface SecurityActiveRuns {
+  cve: TurboLensAnalysisRun | null;
+  compliance: TurboLensAnalysisRun | null;
+}
+
+export interface CveFindingsPage {
+  items: TurboLensCveFinding[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 // Architecture AI result types
 export interface ArchComponent {
   name: string;

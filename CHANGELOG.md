@@ -5,6 +5,30 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.44.0] - 2026-04-21
+
+### Added
+- TurboLens Security & Compliance scan — new on-demand tab that queries the NIST NVD for CVEs affecting every Application and IT Component in the landscape, prioritises each finding with AI (business impact, remediation, priority, probability), and produces a CVSS-standard risk report with a 5×5 probability × severity matrix, filterable table, drawer detail, status workflow (open → acknowledged → in progress → mitigated / accepted), and CSV export
+- TurboLens compliance gap analysis against EU AI Act, GDPR, NIS2, DORA, SOC 2 and ISO 27001, with a compliance heatmap, per-regulation scores, and links back to the offending cards
+- EU AI Act semantic AI detection — cards that embed AI (LLMs, recommendation engines, fraud / credit scoring, chatbots, predictive analytics) are flagged even when their subtype is not `AI Agent` / `AI Model`, with an "AI-detected" badge on the resulting findings
+- Optional `NVD_API_KEY` environment variable to raise NVD rate limits from 5 req/30 s to 50 req/30 s
+
+### Changed
+- TurboLens Security & Compliance — the single "Run scan" button is split into **two independent scans**: CVE scan and Compliance scan. Each has its own background task, progress bar (phase + current/total), and status card on the Overview tab. The compliance scan lets the user pick which regulations to include via checkboxes, and never wipes CVE findings (and vice versa).
+- Security scan progress now streams into the analysis-run row, so the UI shows a phase-aware progress bar (loading cards → querying NVD → AI prioritisation → saving findings, or loading cards → semantic AI detection → per-regulation check). A page refresh no longer interrupts the scan: on mount the tab queries `/turbolens/security/active-runs` and reattaches the poll loop to any scan still in progress.
+- TurboLens risk matrix is now **clickable** — click a probability × severity cell to jump to the CVEs tab filtered to that bucket, and clear with the chip that appears above the table.
+
+### Added (EA Risk Register)
+- New **Risk Register** under EA Delivery (`/ea-delivery/risks`) aligned to TOGAF ADM Phase G. Captures the full risk lifecycle: identification → analysis → mitigation planning → residual assessment → monitoring → closure (with a separate accepted branch that requires an explicit rationale).
+- Risks are **many-to-many** with Cards: one risk can span multiple Applications / IT Components, and each Card detail page has a new **Risks** tab showing every risk linked to it.
+- **Promote a finding to a risk** from any TurboLens CVE drawer or compliance finding — one click creates a risk with prefilled title, description, category, probability, impact, mitigation, and the affected card link. Already-promoted findings flip to **Open risk R-000123** so the relationship stays visible and idempotent.
+- Risk matrix on the register header is toggleable between **Initial** and **Residual** views so mitigation progress is visible at a glance.
+- Seed-demo data ships five demo risks (identified → analysed → in_progress → mitigated → accepted) so a fresh install has content.
+
+### Security
+- New `security_compliance.view` and `security_compliance.manage` permissions; granted to admin by default (view also granted to bpm_admin, member and viewer).
+- New `risks.view` and `risks.manage` permissions; view granted to admin, bpm_admin, member, viewer; manage granted to admin, bpm_admin, member.
+
 ## [0.43.1] - 2026-04-21
 
 ### Fixed

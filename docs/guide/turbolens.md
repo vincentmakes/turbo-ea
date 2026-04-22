@@ -217,11 +217,58 @@ A draft ADR is automatically created alongside the initiative with:
 
 Click **Choose Different** to return to the solution options and select a different approach. All your Phase 1 and Phase 2 answers are preserved — only the downstream data (gap analysis, dependencies, target architecture) is reset. After selecting a new option, the wizard proceeds through gap analysis and dependency analysis again. You can save the updated assessment or commit when ready.
 
+## Security & Compliance
+
+The **Security & Compliance** tab runs an on-demand scan against the live landscape and produces a standards-compliant risk report plus a regulatory gap analysis.
+
+### What it scans
+
+- **CVEs** — every non-archived Application and IT Component is looked up in the [NIST National Vulnerability Database](https://nvd.nist.gov/) using the card's `vendor`, `productName` / `version` attributes. Results are contextualised by an AI pass that rates **priority** (critical / high / medium / low) and **probability** (very high / high / medium / low) using the card's business criticality, lifecycle phase, attack vector, exploitability and patch availability.
+- **Compliance** — the same landscape is checked against **EU AI Act**, **GDPR**, **NIS2**, **DORA**, **SOC 2** and **ISO/IEC 27001** by the configured LLM. Each regulation has a dedicated checklist; findings are either **card-scoped** (one specific card is the source of the gap) or **landscape-wide** (systemic issue).
+
+### Running a scan
+
+Only users with `security_compliance.manage` can trigger scans (admin by default). The Overview tab shows **two independent scan cards**:
+
+- **CVE scan** — queries NVD + AI prioritisation. Safe to re-run often; leaves compliance findings untouched.
+- **Compliance scan** — AI gap analysis against the regulations you tick. Replaces compliance findings for the regulations you scoped in this run.
+
+Each scan reports its own phase-aware progress bar (loading cards → querying NVD → AI prioritisation → saving, or loading cards → semantic AI detection → per-regulation check). The two can run concurrently.
+
+Refreshing the page **does not interrupt a running scan** — the background task keeps going server-side, and the UI automatically reattaches the progress poll on reload.
+
+### Risk report structure
+
+- **Overview** — KPI strip (total findings, critical / high / medium counts, overall compliance score), a 5×5 **probability × severity risk matrix**, the top five critical findings, and a compact compliance heatmap you can click through to the details. The matrix itself is **clickable**: click a cell and the CVEs sub-tab opens filtered to that bucket, with a dismissible chip above the table so you can see (and clear) the active filter.
+- **CVEs** — filterable table showing card, CVE ID (linked to the NVD detail page), CVSS base score, severity, priority, probability, patch availability, and status. Each row opens a detail drawer with the description, CVSS vector, attack vector, exploitability / impact scores, references, AI-generated business impact and remediation, and a status action bar (**Acknowledge → Mark in progress → Mark mitigated / Accept risk / Reopen**).
+- **Compliance** — one tab per regulation with an overall score, and a card-style list of findings showing status, article, category, requirement, gap description, remediation and evidence. A small **AI-detected** chip highlights cards flagged as AI-bearing by the semantic detector even though they are not tagged as AI subtypes.
+- **Export CSV** — downloads the CVE findings in OWASP/NIST-style column order (Card, Type, CVE, CVSS, Severity, Attack Vector, Probability, Priority, Patch, Published, Last Modified, Status, Vendor, Product, Version, Business Impact, Remediation, Description).
+
+### Promote a finding to the Risk Register
+
+Every CVE drawer and every compliance finding card includes a **Create risk** primary action. Clicking it opens the shared create-risk dialog with the title, description, category, probability, impact, mitigation and affected card **prefilled from the finding**. You can edit any field before submitting, assign an **owner**, and pick a **target resolution date**. On submit, the finding's row flips to **Open risk R-000123** so the link stays visible — promotions are idempotent server-side. See [Risk Register](risks.md) for the full TOGAF-aligned lifecycle and how owner assignment creates a follow-up Todo + bell notification.
+
+### EU AI Act semantic detection
+
+AI features are frequently embedded inside general-purpose applications. The EU AI Act pass therefore **does not rely on subtype filtering alone**: it asks the LLM to flag every card whose name, description, vendor or related interfaces suggest AI / ML capabilities — LLMs, recommendation engines, computer vision, fraud or credit scoring, chatbots, predictive analytics, anomaly detection. Findings produced from this semantic pass are marked **AI-detected** so you can distinguish them from cards that were already classified as `AI Agent` / `AI Model`.
+
+### Progress and resume
+
+Each scan writes phase-aware progress (loading cards → querying NVD → AI prioritisation → saving, or loading cards → semantic AI detection → per-regulation check) into its analysis-run record. The UI renders a live progress bar per scan. **Refreshing the page does not interrupt a scan** — the background task keeps running server-side, and on mount the Security tab queries `/turbolens/security/active-runs` and reattaches the poll loop.
+
+### NVD API key (optional)
+
+Without a key, NVD allows only 5 requests / 30 seconds, which can make large-landscape scans slow. Request a free key at <https://nvd.nist.gov/developers/request-an-api-key> and set it via the `NVD_API_KEY` environment variable to raise the limit to 50 requests / 30 seconds.
+
+### Status workflow
+
+Each CVE finding progresses through: **open** → **acknowledged** → **in progress** → **mitigated** (or **accepted**, when the team has formally accepted the risk). Reopening is always available. Status changes are owned by users with `security_compliance.manage`. For governance workflows (ownership, residual assessment, acceptance rationale, Todos and notifications) promote the finding to a Risk — the full lifecycle lives in the [Risk Register](risks.md).
+
 ## Analysis History
 
 All analysis runs are tracked in **TurboLens > History**, showing:
 
-- Analysis type (vendor analysis, vendor resolution, duplicate detection, modernization, architect)
+- Analysis type (vendor analysis, vendor resolution, duplicate detection, modernization, architect, security_compliance)
 - Status (running, completed, failed)
 - Start and completion timestamps
 - Error messages (if any)
@@ -232,3 +279,5 @@ All analysis runs are tracked in **TurboLens > History**, showing:
 |------------|-------------|
 | `turbolens.view` | View analysis results (granted to admin, bpm_admin, member) |
 | `turbolens.manage` | Trigger analyses (granted to admin) |
+| `security_compliance.view` | View CVE and compliance findings (granted to admin, bpm_admin, member, viewer) |
+| `security_compliance.manage` | Trigger security scans and update finding status (granted to admin) |

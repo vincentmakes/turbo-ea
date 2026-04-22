@@ -21,3 +21,4 @@ export { default as TodosTab } from "@/features/cards/sections/TodosTab";
 export { default as StakeholdersTab } from "@/features/cards/sections/StakeholdersTab";
 export { default as ResourcesTab } from "@/features/cards/sections/ResourcesTab";
 export { default as HistoryTab } from "@/features/cards/sections/HistoryTab";
+export { default as RisksTab } from "@/features/cards/sections/RisksTab";

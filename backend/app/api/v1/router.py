@@ -24,6 +24,7 @@ from app.api.v1 import (
     ppm_reports,
     relations,
     reports,
+    risks,
     roles,
     saved_reports,
     servicenow,
@@ -74,5 +75,7 @@ api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)
 api_router.include_router(adr.router)
+api_router.include_router(risks.router)
+api_router.include_router(risks.cards_risks_router)
 api_router.include_router(file_attachments.router)
 api_router.include_router(favorites.router)
