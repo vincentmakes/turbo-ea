@@ -16,9 +16,16 @@ from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
 
 
-async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict]]:
-    """Return {"relations": [...], "tag_groups": [...]} of unsatisfied
-    mandatory items for this card.
+async def missing_mandatory(db: AsyncSession, card: Card) -> dict:
+    """Return unsatisfied mandatory items + applicable counts for a card.
+
+    Shape:
+        {
+            "relations": [ {key, label, side, other_type_key}, ... ],
+            "tag_groups": [ {id, name}, ... ],
+            "relations_applicable": int,   # total mandatory relation sides
+            "tag_groups_applicable": int,  # total applicable mandatory groups
+        }
 
     - A RelationType with ``source_mandatory`` and ``source_type_key == card.type``
       requires at least one outgoing relation of that type.
@@ -31,6 +38,8 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict
     """
     missing_relations: list[dict] = []
     missing_tag_groups: list[dict] = []
+    relations_applicable = 0
+    tag_groups_applicable = 0
 
     # ── Relation types touching this card's type on a mandatory side ────────
     rt_rows = await db.execute(
@@ -52,6 +61,7 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict
 
         # Outgoing check (source side)
         if source_side:
+            relations_applicable += 1
             exists = await db.execute(
                 select(Relation.id)
                 .where(
@@ -72,6 +82,7 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict
 
         # Incoming check (target side)
         if target_side:
+            relations_applicable += 1
             exists = await db.execute(
                 select(Relation.id)
                 .where(
@@ -103,6 +114,7 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict
         if has_any_tag.scalar_one_or_none() is None:
             continue
 
+        tag_groups_applicable += 1
         satisfied = await db.execute(
             select(CardTag.tag_id)
             .join(Tag, Tag.id == CardTag.tag_id)
@@ -115,4 +127,9 @@ async def missing_mandatory(db: AsyncSession, card: Card) -> dict[str, list[dict
         if satisfied.scalar_one_or_none() is None:
             missing_tag_groups.append({"id": str(tg.id), "name": tg.name})
 
-    return {"relations": missing_relations, "tag_groups": missing_tag_groups}
+    return {
+        "relations": missing_relations,
+        "tag_groups": missing_tag_groups,
+        "relations_applicable": relations_applicable,
+        "tag_groups_applicable": tag_groups_applicable,
+    }

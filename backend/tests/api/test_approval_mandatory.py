@@ -234,3 +234,40 @@ class TestApprovalMandatoryTagGroup:
         )
         assert reset.status_code == 200
         assert reset.json()["approval_status"] == "DRAFT"
+
+
+class TestDataQualityWithMandatory:
+    async def test_data_quality_drops_when_mandatory_missing(self, client, db, approval_env):
+        """Introducing a new mandatory requirement the card doesn't satisfy
+        should lower its data_quality score on the next PATCH."""
+        admin = approval_env["admin"]
+        card = approval_env["card"]
+
+        # Baseline PATCH so data_quality is computed with no mandatory items.
+        baseline = await client.patch(
+            f"/api/v1/cards/{card.id}",
+            json={"description": "seed"},
+            headers=auth_headers(admin),
+        )
+        assert baseline.status_code == 200, baseline.text
+        baseline_dq = baseline.json()["data_quality"]
+
+        # Introduce a mandatory relation that this card can't satisfy yet.
+        rt = await create_relation_type(
+            db,
+            key="app_operated_by_org",
+            label="operated by",
+            source_type_key="Application",
+            target_type_key="Organization",
+        )
+        rt.source_mandatory = True
+        await db.flush()
+
+        # Any PATCH recomputes data_quality.
+        after = await client.patch(
+            f"/api/v1/cards/{card.id}",
+            json={"description": "seed 2"},
+            headers=auth_headers(admin),
+        )
+        assert after.status_code == 200
+        assert after.json()["data_quality"] < baseline_dq

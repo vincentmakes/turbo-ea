@@ -132,6 +132,13 @@ async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
     if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
         filled_weight += 1
 
+    # Each applicable mandatory relation side and each applicable mandatory
+    # tag group contributes +1 to total, +1 to filled only when satisfied.
+    state = await missing_mandatory(db, card)
+    total_weight += state["relations_applicable"] + state["tag_groups_applicable"]
+    filled_weight += state["relations_applicable"] - len(state["relations"])
+    filled_weight += state["tag_groups_applicable"] - len(state["tag_groups"])
+
     if total_weight == 0:
         return 0.0
     return round((filled_weight / total_weight) * 100, 1)
