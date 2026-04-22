@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.48.0] - 2026-04-22
+
+### Added
+- Mandatory relations and mandatory tag groups now gate card approval. Marking a `RelationType` as `source_mandatory` / `target_mandatory`, or a `TagGroup` as `mandatory`, blocks the **Approve** action with a clear in-page list of what's missing until the card has at least one matching relation / tag. The `data_quality` score now also reflects mandatory coverage so the indicator drops when a requirement is unmet.
+- "Required" visual cues on the Card Detail: relation types render the existing `Required` chip when the corresponding side is mandatory, mandatory tag groups display a red asterisk in the **Tags** section (with a tooltip), and unsatisfied mandatory tag groups now appear as empty-state rows so users can discover the requirement before they hit Approve. The shared TagPicker dropdown group headers also annotate mandatory groups with `*`.
+- `restrict_to_types` is now editable on tag groups via `POST /tag-groups` and `PATCH /tag-groups/{id}` (previously only seedable). The PATCH response also surfaces the current value.
+
+### Removed
+- Unused `tag_groups.create_mode` column. It was pre-Alembic scaffolding never written or read by anything in the codebase. Migration `065_drop_tag_groups_create_mode` drops the column with a symmetrical downgrade.
+
 ## [0.47.0] - 2026-04-22
 
 ### Added
