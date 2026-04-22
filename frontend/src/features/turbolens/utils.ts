@@ -196,14 +196,3 @@ const COMPLIANCE_STATUS_COLORS: Record<string, ChipColor> = {
 export function complianceStatusColor(status: string): ChipColor {
   return COMPLIANCE_STATUS_COLORS[status] ?? "default";
 }
-
-/** 5x5 risk matrix cell background based on (probability index, severity index). */
-export function riskMatrixColor(probIdx: number, sevIdx: number): string {
-  // Lower index = more severe. Blend probability + severity into a hot/cold scale.
-  const heat = (4 - probIdx) + (4 - sevIdx);
-  if (heat >= 7) return "rgba(211, 47, 47, 0.28)";   // deep red
-  if (heat >= 5) return "rgba(245, 124, 0, 0.24)";   // orange
-  if (heat >= 3) return "rgba(251, 192, 45, 0.22)";  // amber
-  if (heat >= 1) return "rgba(56, 142, 60, 0.18)";   // green
-  return "rgba(117, 117, 117, 0.12)";                 // grey
-}

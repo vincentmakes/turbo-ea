@@ -28,6 +28,7 @@ import { useBpmEnabled } from "@/hooks/useBpmEnabled";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { useAppTitle } from "@/hooks/useAppTitle";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import SearchDialog from "@/components/SearchDialog";
@@ -104,6 +105,11 @@ export default function AppLayout({ children, user, onLogout }: Props) {
   const { turboLensReady } = useTurboLensReady();
   const { enabledLocales } = useEnabledLocales();
   const { mode, toggleMode } = useThemeMode();
+  const appTitle = useAppTitle();
+
+  useEffect(() => {
+    document.title = appTitle;
+  }, [appTitle]);
 
   // Permission check helper
   const can = useCallback(
@@ -287,7 +293,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
       >
         <img
           src="/api/v1/settings/logo"
-          alt="Turbo EA"
+          alt={appTitle}
           style={{ height: 45, objectFit: "contain" }}
         />
       </Box>
@@ -489,7 +495,7 @@ export default function AppLayout({ children, user, onLogout }: Props) {
           >
             <img
               src="/api/v1/settings/logo"
-              alt="Turbo EA"
+              alt={appTitle}
               style={{ height: 45, objectFit: "contain" }}
             />
           </Box>

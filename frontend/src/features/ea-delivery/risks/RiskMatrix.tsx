@@ -10,6 +10,8 @@ import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import type { RiskImpact, RiskProbability } from "@/types";
+import RiskMatrixLegend from "./RiskMatrixLegend";
+import { deriveLevelFromPair, riskLevelBackground } from "./riskMatrixColors";
 
 const PROBABILITIES: RiskProbability[] = ["very_high", "high", "medium", "low"];
 const IMPACTS: RiskImpact[] = ["critical", "high", "medium", "low"];
@@ -27,17 +29,6 @@ interface Props {
   /** Label for the label column (defaults to the translated "Probability"). */
   probabilityAxisLabel?: string;
   impactAxisLabel?: string;
-}
-
-function cellBackground(probIdx: number, impactIdx: number, count: number) {
-  // Heat weights: lower index = more severe on both axes.
-  const heat = (3 - probIdx) + (3 - impactIdx);
-  if (count === 0) return "rgba(117, 117, 117, 0.08)";
-  if (heat >= 5) return "rgba(211, 47, 47, 0.32)"; // very high × critical/high
-  if (heat >= 4) return "rgba(245, 124, 0, 0.28)";
-  if (heat >= 3) return "rgba(251, 192, 45, 0.26)";
-  if (heat >= 2) return "rgba(56, 142, 60, 0.22)";
-  return "rgba(46, 125, 50, 0.18)";
 }
 
 export default function RiskMatrix({
@@ -61,8 +52,8 @@ export default function RiskMatrix({
       >
         <Box sx={{ py: 1, pr: 1, textAlign: "right" }}>
           <Typography variant="caption" color="text.secondary">
-            {probabilityAxisLabel ?? t("risks.matrix.probability")} ↓ /{" "}
-            {impactAxisLabel ?? t("risks.matrix.impact")} →
+            {impactAxisLabel ?? t("risks.matrix.impact")} → /{" "}
+            {probabilityAxisLabel ?? t("risks.matrix.probability")} ↓
           </Typography>
         </Box>
         {IMPACTS.map((impact) => (
@@ -81,26 +72,24 @@ export default function RiskMatrix({
           <RiskMatrixRow
             key={prob}
             probability={prob}
-            probIdx={probIdx}
             counts={matrix[probIdx] ?? [0, 0, 0, 0]}
             onSelect={onSelect}
             highlight={highlight}
           />
         ))}
       </Box>
+      <RiskMatrixLegend />
     </Box>
   );
 }
 
 function RiskMatrixRow({
   probability,
-  probIdx,
   counts,
   onSelect,
   highlight,
 }: {
   probability: RiskProbability;
-  probIdx: number;
   counts: number[];
   onSelect?: (selection: RiskMatrixSelection | null) => void;
   highlight?: RiskMatrixSelection | null;
@@ -152,7 +141,10 @@ function RiskMatrixRow({
               borderRadius: 1,
               textAlign: "center",
               cursor: onSelect ? "pointer" : "default",
-              bgcolor: cellBackground(probIdx, impactIdx, count),
+              bgcolor: riskLevelBackground(
+                deriveLevelFromPair(probability, impact),
+                count,
+              ),
               outline: isActive ? "2px solid" : "none",
               outlineColor: "primary.main",
               transition: "outline 120ms",

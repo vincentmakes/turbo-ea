@@ -467,7 +467,6 @@
   "risks.source.manual": "Manual",
   "risks.source.security_cve": "CVE scan",
   "risks.source.security_compliance": "Compliance scan",
-  "risks.source.architect": "Architect AI",
   "risks.section.identification": "Identification",
   "risks.section.assessment": "Initial assessment",
   "risks.section.mitigation": "Mitigation & residual",

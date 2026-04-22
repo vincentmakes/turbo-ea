@@ -67,8 +67,12 @@ import {
   cveStatusColor,
   priorityColor,
   probabilityColor,
-  riskMatrixColor,
 } from "./utils";
+import RiskMatrixLegend from "../ea-delivery/risks/RiskMatrixLegend";
+import {
+  deriveLevelFromPair,
+  riskLevelBackground,
+} from "../ea-delivery/risks/riskMatrixColors";
 
 const REGULATIONS: RegulationKey[] = [
   "eu_ai_act",
@@ -1079,18 +1083,19 @@ function RiskMatrix({
   const { t } = useTranslation("admin");
   if (matrix.length === 0) return null;
   return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: `100px repeat(${SEVERITY_LABELS.length}, 1fr)`,
-        gap: 0.5,
-        mt: 1,
-      }}
-    >
-      <Box />
-      {SEVERITY_LABELS.map((s) => (
-        <Typography key={s} variant="caption" color="text.secondary" align="center">
-          {t(`turbolens_security_severity_${s}`)}
+    <>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: `100px repeat(${SEVERITY_LABELS.length}, 1fr)`,
+          gap: 0.5,
+          mt: 1,
+        }}
+      >
+        <Box />
+        {SEVERITY_LABELS.map((s) => (
+          <Typography key={s} variant="caption" color="text.secondary" align="center">
+            {t(`turbolens_security_severity_${s}`)}
         </Typography>
       ))}
       {PROBABILITY_LABELS.map((probKey, probIdx) => (
@@ -1142,7 +1147,10 @@ function RiskMatrix({
                   textAlign: "center",
                   borderRadius: 1,
                   cursor: clickable ? "pointer" : "default",
-                  bgcolor: riskMatrixColor(probIdx, sevIdx),
+                  bgcolor: riskLevelBackground(
+                    deriveLevelFromPair(probKey, sevKey),
+                    count,
+                  ),
                   outline: isActive ? "2px solid" : "none",
                   outlineColor: "primary.main",
                   fontWeight: count ? 700 : 400,
@@ -1160,6 +1168,8 @@ function RiskMatrix({
           })}
         </Fragment>
       ))}
-    </Box>
+      </Box>
+      <RiskMatrixLegend />
+    </>
   );
 }

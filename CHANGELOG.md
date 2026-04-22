@@ -5,6 +5,19 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.45.0] - 2026-04-22
+
+### Added
+- General Settings: new **Application Title** setting, in the same spirit as the custom logo and favicon. The configured title propagates to the browser tab, image `alt` text on the navbar and login page, and the header/footer of outgoing notification emails. A public `GET /settings/app-title` endpoint lets unauthenticated surfaces (login page, browser tab) render the customized title.
+
+### Changed
+- Risk Register: the matrix on the register and detail pages now uses the same risk-level color palette as the TurboLens Security risk matrix, derived from the probability × impact level (critical / high / medium / low), with a shared color legend rendered below each matrix.
+- Risk Register: the matrix axis caption is now read as **Impact → / Probability ↓** so the horizontal axis is announced first.
+- TurboLens Security risk matrix now shares the Risk Register color helper and legend, and the same colors appear on both surfaces.
+
+### Removed
+- Risk Register: the **Architect AI** risk source has been removed from the source filter. No feature created risks from this source; the option was misleading and was never written to the database.
+
 ## [0.44.1] - 2026-04-22
 
 ### Fixed

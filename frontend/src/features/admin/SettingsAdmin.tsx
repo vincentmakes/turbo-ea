@@ -20,6 +20,7 @@ import Checkbox from "@mui/material/Checkbox";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useCurrency } from "@/hooks/useCurrency";
+import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type SupportedLocale } from "@/i18n";
@@ -136,6 +137,10 @@ function GeneralTab() {
   const [selectedCurrency, setSelectedCurrency] = useState("USD");
   const [savingCurrency, setSavingCurrency] = useState(false);
 
+  // App title state
+  const [appTitle, setAppTitle] = useState("Turbo EA");
+  const [savingAppTitle, setSavingAppTitle] = useState(false);
+
   // BPM toggle state
   const [bpmEnabled, setBpmEnabled] = useState(true);
   const [savingBpm, setSavingBpm] = useState(false);
@@ -176,8 +181,9 @@ function GeneralTab() {
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
       api.get<{ enabled: boolean }>("/settings/ppm-enabled"),
       api.get<{ month: number }>("/settings/fiscal-year-start"),
+      api.get<{ app_title: string }>("/settings/app-title"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, appTitleData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -192,6 +198,7 @@ function GeneralTab() {
         setBpmEnabled(bpmData.enabled);
         setPpmEnabled(ppmData.enabled);
         setFiscalYearStart(fiscalData.month);
+        setAppTitle(appTitleData.app_title || "Turbo EA");
         const validLocales = (localesData.locales || []).filter((l: string): l is SupportedLocale =>
           (SUPPORTED_LOCALES as readonly string[]).includes(l),
         );
@@ -370,6 +377,21 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingCurrency(false);
+    }
+  };
+
+  const handleAppTitleSave = async () => {
+    setSavingAppTitle(true);
+    setError("");
+    try {
+      const trimmed = appTitle.trim();
+      await api.patch("/settings/app-title", { app_title: trimmed });
+      invalidateAppTitle(trimmed);
+      setSnack(t("settings.appTitle.updated"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingAppTitle(false);
     }
   };
 
@@ -591,6 +613,45 @@ function GeneralTab() {
               </Button>
             )}
           </Box>
+        </Box>
+      </Paper>
+
+      {/* App title Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="badge" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.appTitle.title")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.appTitle.description")}
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            value={appTitle}
+            onChange={(e) => setAppTitle(e.target.value)}
+            inputProps={{ maxLength: 64 }}
+            placeholder="Turbo EA"
+            sx={{ minWidth: 280 }}
+          />
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleAppTitleSave}
+            disabled={savingAppTitle}
+            startIcon={
+              savingAppTitle ? (
+                <CircularProgress size={16} />
+              ) : (
+                <MaterialSymbol icon="save" size={18} />
+              )
+            }
+            sx={{ textTransform: "none" }}
+          >
+            {savingAppTitle ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
         </Box>
       </Paper>
 

@@ -103,7 +103,6 @@ const SOURCES: RiskSourceType[] = [
   "manual",
   "security_cve",
   "security_compliance",
-  "architect",
 ];
 
 const MIN_WIDTH = 220;
