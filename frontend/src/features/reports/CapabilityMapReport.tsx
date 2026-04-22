@@ -1072,6 +1072,38 @@ export default function CapabilityMapReport() {
                   </Box>
                 )}
 
+                {/* Tags section */}
+                {tagGroupsData.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "action.hover",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      {t("capabilityMap.tags")}
+                    </Typography>
+                    <TagPicker
+                      groups={tagGroupsData as unknown as TagGroup[]}
+                      value={tagFilterIds}
+                      onChange={setTagFilterIds}
+                      size="small"
+                      label={t("capabilityMap.tags")}
+                      placeholder=""
+                      sx={{ minWidth: 180, maxWidth: 320 }}
+                    />
+                  </Box>
+                )}
+
                 {/* Own Fields section */}
                 {selectFields.filter((f) => f.options && f.options.length > 0).length > 0 && (
                   <Box
@@ -1109,38 +1141,6 @@ export default function CapabilityMapReport() {
                           }
                         />
                       ))}
-                  </Box>
-                )}
-
-                {/* Tags section */}
-                {tagGroupsData.length > 0 && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      flexWrap: "wrap",
-                      bgcolor: "action.hover",
-                      borderRadius: 1.5,
-                      px: 1.5,
-                      py: 0.75,
-                    }}
-                  >
-                    <Typography
-                      variant="caption"
-                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
-                    >
-                      {t("capabilityMap.tags")}
-                    </Typography>
-                    <TagPicker
-                      groups={tagGroupsData as unknown as TagGroup[]}
-                      value={tagFilterIds}
-                      onChange={setTagFilterIds}
-                      size="small"
-                      label={t("capabilityMap.tags")}
-                      placeholder=""
-                      sx={{ minWidth: 240, flex: 1, maxWidth: 480 }}
-                    />
                   </Box>
                 )}
               </Box>

@@ -86,12 +86,23 @@ export default function TagPicker({
     onChange([...multi, ...singleByGroup.values()]);
   };
 
+  const compactSx =
+    size === "small"
+      ? {
+          "& .MuiAutocomplete-inputRoot": {
+            flexWrap: "wrap",
+            gap: 0.5,
+            py: "4px !important",
+          },
+        }
+      : undefined;
+
   return (
     <Autocomplete
       multiple
       disabled={disabled}
       size={size}
-      sx={sx}
+      sx={[compactSx, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])] as typeof sx}
       options={options}
       value={selected}
       onChange={(_, next) => handleChange(next as TagOption[])}
@@ -125,7 +136,12 @@ export default function TagPicker({
               key={key}
               label={`${option.group_name}: ${option.name}`}
               size="small"
-              sx={option.color ? { bgcolor: option.color, color: "#fff" } : {}}
+              sx={{
+                ...(size === "small"
+                  ? { height: 20, fontSize: "0.7rem", fontWeight: 500, maxWidth: 180 }
+                  : {}),
+                ...(option.color ? { bgcolor: option.color, color: "#fff" } : {}),
+              }}
               {...chipProps}
             />
           );
@@ -136,6 +152,21 @@ export default function TagPicker({
           {...params}
           label={label ?? t("tags.pickerLabel")}
           placeholder={placeholder ?? t("tags.pickerPlaceholder")}
+          sx={
+            size === "small"
+              ? {
+                  "& .MuiInputLabel-root": {
+                    fontSize: "0.8rem",
+                    maxWidth: "calc(100% - 40px)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  },
+                  "& .MuiInputLabel-shrink": { maxWidth: "100%" },
+                  "& .MuiInputBase-input": { fontSize: "0.8rem" },
+                }
+              : undefined
+          }
         />
       )}
     />
