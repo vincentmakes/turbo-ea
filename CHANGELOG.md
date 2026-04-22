@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.44.1] - 2026-04-22
+
+### Fixed
+- BPM: Pre-linking elements in a draft process flow now shows the available Application, Data Object, and IT Component cards immediately when a cell is clicked, instead of requiring the user to type before any options appear
+
 ## [0.44.0] - 2026-04-21
 
 ### Added

@@ -189,17 +189,32 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
   // ── Card search for element editing ───────────────────────────────────
 
+  const loadInitialCardOptions = async (type: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    setFsLoading(true);
+    try {
+      const res = await api.get<{ items: CardOption[] }>(
+        `/cards?type=${type}&page_size=200&status=ACTIVE&sort_by=name&sort_dir=asc`,
+      );
+      setCardOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
+    } catch {
+      setCardOptions([]);
+    } finally {
+      setFsLoading(false);
+    }
+  };
+
   const searchCards = (query: string, type: string) => {
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
-    if (!query || query.length < 2) {
-      setCardOptions([]);
+    if (!query) {
+      void loadInitialCardOptions(type);
       return;
     }
     setFsLoading(true);
     searchTimerRef.current = setTimeout(async () => {
       try {
         const res = await api.get<{ items: CardOption[] }>(
-          `/cards?type=${type}&search=${encodeURIComponent(query)}&page_size=10`
+          `/cards?type=${type}&search=${encodeURIComponent(query)}&page_size=50&status=ACTIVE`,
         );
         setCardOptions(res.items.map((p) => ({ id: p.id, name: p.name })));
       } catch {
@@ -521,7 +536,7 @@ export default function ProcessFlowTab({ processId, processName, initialSubTab }
 
     return (
       <Box
-        onClick={() => { setEditingCell({ elementId, field }); setCardOptions([]); }}
+        onClick={() => { setEditingCell({ elementId, field }); void loadInitialCardOptions(cardTypeKey); }}
         sx={linkCellSx}
       >
         {currentName ? (
