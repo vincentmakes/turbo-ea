@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.45.0] - 2026-04-22
+
+### Added
+- Tag Management admin: tag groups and individual tags can now be renamed, recoloured, and deleted — previously only creation was supported. Deleting a tag group removes its tags from every card; deleting an individual tag removes only that tag from the cards it was assigned to.
+
 ## [0.44.1] - 2026-04-22
 
 ### Fixed

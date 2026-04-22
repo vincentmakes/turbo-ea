@@ -183,3 +183,285 @@ class TestRemoveTag:
             headers=auth_headers(admin),
         )
         assert resp.status_code == 204
+
+
+# ---------------------------------------------------------------
+# PATCH /tag-groups/{id}  (update group)
+# ---------------------------------------------------------------
+
+
+class TestUpdateTagGroup:
+    async def test_admin_can_update_group(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Env", "mode": "multi"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group_id}",
+            json={"name": "Environment", "description": "Deployment env", "mandatory": True},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "Environment"
+        assert data["description"] == "Deployment env"
+        assert data["mandatory"] is True
+        assert data["mode"] == "multi"  # unchanged
+
+    async def test_viewer_cannot_update_group(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        viewer = tags_env["viewer"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Protected"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group_id}",
+            json={"name": "Hacked"},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_update_unknown_group_returns_404(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        resp = await client.patch(
+            "/api/v1/tag-groups/00000000-0000-0000-0000-000000000000",
+            json={"name": "Ghost"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# DELETE /tag-groups/{id}  (delete group, cascades to tags + card_tags)
+# ---------------------------------------------------------------
+
+
+class TestDeleteTagGroup:
+    async def test_admin_can_delete_group_cascades(self, client, db, tags_env):
+        import uuid as uuid_mod
+
+        from sqlalchemy import select
+
+        from app.models.tag import CardTag, Tag, TagGroup
+
+        admin = tags_env["admin"]
+        card = tags_env["card"]
+
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Doomed"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Temp"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+        await client.post(
+            f"/api/v1/cards/{card.id}/tags",
+            json=[tag_id],
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.delete(
+            f"/api/v1/tag-groups/{group_id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 204
+
+        # Cascade: group gone, tag gone, card_tags row gone
+        assert await db.get(TagGroup, uuid_mod.UUID(group_id)) is None
+        assert await db.get(Tag, uuid_mod.UUID(tag_id)) is None
+        leftover = await db.execute(select(CardTag).where(CardTag.tag_id == uuid_mod.UUID(tag_id)))
+        assert leftover.scalar_one_or_none() is None
+
+    async def test_viewer_cannot_delete_group(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        viewer = tags_env["viewer"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Protected"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/tag-groups/{group_id}",
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------
+# PATCH /tag-groups/{group_id}/tags/{tag_id}  (update tag)
+# ---------------------------------------------------------------
+
+
+class TestUpdateTag:
+    async def test_admin_can_update_tag(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Priority"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "High", "color": "#ff0000"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group_id}/tags/{tag_id}",
+            json={"name": "Critical", "color": "#cc0000"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "Critical"
+        assert data["color"] == "#cc0000"
+
+    async def test_viewer_cannot_update_tag(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        viewer = tags_env["viewer"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Owner"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Alice"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{group_id}/tags/{tag_id}",
+            json={"name": "Eve"},
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_update_tag_wrong_group_returns_404(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        # Two groups, one tag
+        g1 = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "G1"},
+            headers=auth_headers(admin),
+        )
+        g2 = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "G2"},
+            headers=auth_headers(admin),
+        )
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{g1.json()['id']}/tags",
+            json={"name": "T1"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+
+        # Path references wrong group for this tag
+        resp = await client.patch(
+            f"/api/v1/tag-groups/{g2.json()['id']}/tags/{tag_id}",
+            json={"name": "Moved"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------
+# DELETE /tag-groups/{group_id}/tags/{tag_id}  (delete tag)
+# ---------------------------------------------------------------
+
+
+class TestDeleteTag:
+    async def test_admin_can_delete_tag_cascades_card_tags(self, client, db, tags_env):
+        import uuid as uuid_mod
+
+        from sqlalchemy import select
+
+        from app.models.tag import CardTag, Tag
+
+        admin = tags_env["admin"]
+        card = tags_env["card"]
+
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Stage"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Staging"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+        await client.post(
+            f"/api/v1/cards/{card.id}/tags",
+            json=[tag_id],
+            headers=auth_headers(admin),
+        )
+
+        resp = await client.delete(
+            f"/api/v1/tag-groups/{group_id}/tags/{tag_id}",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 204
+
+        assert await db.get(Tag, uuid_mod.UUID(tag_id)) is None
+        leftover = await db.execute(select(CardTag).where(CardTag.tag_id == uuid_mod.UUID(tag_id)))
+        assert leftover.scalar_one_or_none() is None
+
+    async def test_viewer_cannot_delete_tag(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        viewer = tags_env["viewer"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Protected"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Locked"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/tag-groups/{group_id}/tags/{tag_id}",
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+    async def test_delete_unknown_tag_returns_404(self, client, db, tags_env):
+        admin = tags_env["admin"]
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "G"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+
+        resp = await client.delete(
+            f"/api/v1/tag-groups/{group_id}/tags/00000000-0000-0000-0000-000000000000",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 404
