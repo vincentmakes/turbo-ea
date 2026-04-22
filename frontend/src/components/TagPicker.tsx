@@ -86,15 +86,24 @@ export default function TagPicker({
     onChange([...multi, ...singleByGroup.values()]);
   };
 
+  // Mirror FilterSelect's small-mode styling exactly so the picker lines
+  // up with neighbouring FilterSelect filters in the same row.
   const compactSx =
     size === "small"
       ? {
-          alignSelf: "flex-start",
           "& .MuiAutocomplete-inputRoot": {
             flexWrap: "wrap",
             gap: 0.5,
             py: "4px !important",
           },
+          "& .MuiInputLabel-root": {
+            fontSize: "0.8rem",
+            maxWidth: "calc(100% - 40px)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          },
+          "& .MuiInputLabel-shrink": { maxWidth: "100%" },
         }
       : undefined;
 
@@ -153,21 +162,6 @@ export default function TagPicker({
           {...params}
           label={label ?? t("tags.pickerLabel")}
           placeholder={placeholder ?? t("tags.pickerPlaceholder")}
-          sx={
-            size === "small"
-              ? {
-                  "& .MuiInputLabel-root": {
-                    fontSize: "0.8rem",
-                    maxWidth: "calc(100% - 40px)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  },
-                  "& .MuiInputLabel-shrink": { maxWidth: "100%" },
-                  "& .MuiInputBase-input": { fontSize: "0.8rem" },
-                }
-              : undefined
-          }
         />
       )}
     />
