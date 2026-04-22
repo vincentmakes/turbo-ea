@@ -168,7 +168,10 @@ def _pick_best_metric(metrics: dict[str, Any]) -> dict[str, Any] | None:
         items = metrics.get(key) or []
         if items:
             # Prefer the primary scorer if present.
-            primary = next((m for m in items if m.get("type") == "Primary"), items[0])
+            primary: dict[str, Any] = next(
+                (m for m in items if m.get("type") == "Primary"),
+                items[0],
+            )
             return primary
     return None
 

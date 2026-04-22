@@ -993,15 +993,15 @@ async def security_overview(
         by_probability[row.probability] = by_probability.get(row.probability, 0) + 1
 
     by_regulation: dict[str, list[TurboLensComplianceFinding]] = {}
-    for row in compliance_rows:
-        by_regulation.setdefault(row.regulation, []).append(row)
+    for comp_row in compliance_rows:
+        by_regulation.setdefault(comp_row.regulation, []).append(comp_row)
     compliance_scores = {reg: compliance_score(rows) for reg, rows in by_regulation.items()}
 
     compliance_by_status: dict[str, dict[str, int]] = {}
     for reg in SUPPORTED_REGULATIONS:
         status_counts: dict[str, int] = {}
-        for row in by_regulation.get(reg, []):
-            status_counts[row.status] = status_counts.get(row.status, 0) + 1
+        for comp_row in by_regulation.get(reg, []):
+            status_counts[comp_row.status] = status_counts.get(comp_row.status, 0) + 1
         compliance_by_status[reg] = status_counts
 
     # Top 5 criticals, joined with card names.
