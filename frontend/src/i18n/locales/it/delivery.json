@@ -532,5 +532,6 @@
   "risks.filter.source": "Source",
   "risks.filter.target": "Target date",
   "risks.filter.from": "From",
-  "risks.filter.to": "To"
+  "risks.filter.to": "To",
+  "risks.closed.readOnlyBanner": "This risk is closed and read-only. Reopen it to make changes."
 }

@@ -394,6 +394,25 @@ async def update_risk(
 
     data = body.model_dump(exclude_unset=True)
 
+    # Closed risks are read-only — the only accepted PATCH is the
+    # reopen transition itself (``status: in_progress``). Any other
+    # field edit is rejected with 409 so the UI matches what the user
+    # sees (all fields greyed out, only the Reopen button active).
+    if risk.status == "closed":
+        allowed_keys = {"status"}
+        disallowed = set(data.keys()) - allowed_keys
+        if disallowed:
+            raise HTTPException(
+                409,
+                "Risk is closed and read-only. Reopen it first to edit "
+                f"these fields: {sorted(disallowed)}",
+            )
+        if data.get("status") not in {None, "in_progress", "closed"}:
+            raise HTTPException(
+                409,
+                "Closed risks can only be reopened (status → in_progress).",
+            )
+
     # Scalar field updates.
     for key in (
         "title",
@@ -523,6 +542,11 @@ async def link_risk_cards(
 ) -> RiskOut:
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
+    if risk.status == "closed":
+        raise HTTPException(
+            409,
+            "Risk is closed and read-only. Reopen it first to link cards.",
+        )
     await link_cards(db, risk.id, _parse_card_ids(body.card_ids), body.role)
     await db.commit()
     await db.refresh(risk)
@@ -538,6 +562,11 @@ async def unlink_risk_card(
 ) -> RiskOut:
     await PermissionService.require_permission(db, user, "risks.manage")
     risk = await _load_risk(db, risk_id)
+    if risk.status == "closed":
+        raise HTTPException(
+            409,
+            "Risk is closed and read-only. Reopen it first to unlink cards.",
+        )
     try:
         cid = uuid.UUID(card_id)
     except ValueError as exc:

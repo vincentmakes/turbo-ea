@@ -36,10 +36,12 @@ import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
 import type {
   Risk,
+  RiskCardLink,
   RiskLevel,
   RiskListPage,
   RiskMetrics,
 } from "@/types";
+import Tooltip from "@mui/material/Tooltip";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import CreateRiskDialog from "./CreateRiskDialog";
 import RiskFilterSidebar, {
@@ -298,10 +300,24 @@ export default function RiskRegisterPage() {
       },
       {
         headerName: t("risks.col.cards"),
-        width: 100,
-        type: "rightAligned",
-        filter: "agNumberColumnFilter",
-        valueGetter: (p) => p.data?.cards.length ?? 0,
+        colId: "cards",
+        width: 260,
+        minWidth: 200,
+        filter: "agTextColumnFilter",
+        // String value so the built-in text filter matches card names.
+        valueGetter: (p) =>
+          (p.data?.cards ?? []).map((c) => c.card_name).join("; "),
+        cellRenderer: (p: ICellRendererParams<Risk, string>) => {
+          const cards = p.data?.cards ?? [];
+          if (cards.length === 0) {
+            return (
+              <Typography component="span" variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+          return <StackedCards cards={cards} />;
+        },
       },
       {
         field: "updated_at",
@@ -527,4 +543,51 @@ function topLevel(byLevel: Record<string, number> | undefined): string | null {
     if ((byLevel[lvl] ?? 0) > 0) return lvl;
   }
   return null;
+}
+
+/** Renders the M:N affected cards as a compact stack of chips —
+ *  first 2 names inline, an ``+N`` overflow chip with the full list in a
+ *  tooltip when there are more. Keeps the column width tight and the
+ *  information scent high.
+ */
+function StackedCards({ cards }: { cards: RiskCardLink[] }) {
+  const VISIBLE = 2;
+  const visible = cards.slice(0, VISIBLE);
+  const overflow = cards.slice(VISIBLE);
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ overflow: "hidden" }}>
+      {visible.map((c) => (
+        <Tooltip key={c.card_id} title={`${c.card_name} · ${c.card_type}`}>
+          <Chip
+            size="small"
+            variant="outlined"
+            label={c.card_name}
+            sx={{
+              maxWidth: 110,
+              "& .MuiChip-label": {
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              },
+            }}
+          />
+        </Tooltip>
+      ))}
+      {overflow.length > 0 && (
+        <Tooltip
+          title={
+            <Box component="ul" sx={{ m: 0, pl: 2 }}>
+              {overflow.map((c) => (
+                <li key={c.card_id}>
+                  {c.card_name} · {c.card_type}
+                </li>
+              ))}
+            </Box>
+          }
+        >
+          <Chip size="small" color="primary" label={`+${overflow.length}`} />
+        </Tooltip>
+      )}
+    </Stack>
+  );
 }

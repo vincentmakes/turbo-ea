@@ -532,5 +532,6 @@
   "risks.filter.source": "Quelle",
   "risks.filter.target": "Zieldatum",
   "risks.filter.from": "Von",
-  "risks.filter.to": "Bis"
+  "risks.filter.to": "Bis",
+  "risks.closed.readOnlyBanner": "Dieses Risiko ist geschlossen und schreibgeschützt. Öffnen Sie es erneut, um Änderungen vorzunehmen."
 }

@@ -347,6 +347,14 @@ export default function RiskDetailPage() {
       risk.status,
     );
 
+  // Closed risks are read-only by policy (TOGAF "closed" = final state).
+  // Every editable control below ORs this flag into its ``disabled`` so
+  // the form still renders the stored values but rejects input. The
+  // **Reopen** side action stays enabled so users can recover from a
+  // premature closure.
+  const isClosed = risk.status === "closed";
+  const lockInput = saving || isClosed;
+
   return (
     <Box>
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
@@ -416,6 +424,25 @@ export default function RiskDetailPage() {
           {info}
         </Alert>
       )}
+      {isClosed && (
+        <Alert
+          severity="info"
+          icon={<MaterialSymbol icon="lock" size={18} />}
+          sx={{ mb: 2 }}
+          action={
+            <Button
+              size="small"
+              color="primary"
+              onClick={() => tryTransition("in_progress")}
+              startIcon={<MaterialSymbol icon="replay" size={16} />}
+            >
+              {t("risks.action.reopen")}
+            </Button>
+          }
+        >
+          {t("risks.closed.readOnlyBanner")}
+        </Alert>
+      )}
 
       <Stack spacing={3}>
         {/* Identification */}
@@ -429,7 +456,7 @@ export default function RiskDetailPage() {
               value={risk.title}
               onChange={(e) => setRisk({ ...risk, title: e.target.value })}
               onBlur={() => patch({ title: risk.title })}
-              disabled={saving}
+              disabled={lockInput}
               fullWidth
             />
             <TextField
@@ -437,7 +464,7 @@ export default function RiskDetailPage() {
               value={risk.description}
               onChange={(e) => setRisk({ ...risk, description: e.target.value })}
               onBlur={() => patch({ description: risk.description })}
-              disabled={saving}
+              disabled={lockInput}
               multiline
               minRows={3}
               fullWidth
@@ -449,7 +476,7 @@ export default function RiskDetailPage() {
                   label={t("risks.field.category")}
                   value={risk.category}
                   onChange={(e) => patch({ category: e.target.value })}
-                  disabled={saving}
+                  disabled={lockInput}
                 >
                   {CATEGORIES.map((c) => (
                     <MenuItem key={c} value={c}>
@@ -466,7 +493,7 @@ export default function RiskDetailPage() {
                 onChange={(e) =>
                   patch({ target_resolution_date: e.target.value || null })
                 }
-                disabled={saving}
+                disabled={lockInput}
                 InputLabelProps={{ shrink: true }}
                 sx={{ flex: 1 }}
               />
@@ -479,7 +506,7 @@ export default function RiskDetailPage() {
               isOptionEqualToValue={(a, b) => a.id === b.id}
               value={users.find((u) => u.id === risk.owner_id) ?? null}
               onChange={(_, value) => patch({ owner_id: value?.id ?? null })}
-              disabled={saving}
+              disabled={lockInput}
               renderInput={(params) => (
                 <TextField {...params} label={t("risks.field.owner")} />
               )}
@@ -501,7 +528,7 @@ export default function RiskDetailPage() {
                   label={t("risks.field.probability")}
                   value={risk.initial_probability}
                   onChange={(e) => patch({ initial_probability: e.target.value })}
-                  disabled={saving}
+                  disabled={lockInput}
                 >
                   {PROBABILITIES.map((p) => (
                     <MenuItem key={p} value={p}>
@@ -516,7 +543,7 @@ export default function RiskDetailPage() {
                   label={t("risks.field.impact")}
                   value={risk.initial_impact}
                   onChange={(e) => patch({ initial_impact: e.target.value })}
-                  disabled={saving}
+                  disabled={lockInput}
                 >
                   {IMPACTS.map((i) => (
                     <MenuItem key={i} value={i}>
@@ -565,7 +592,7 @@ export default function RiskDetailPage() {
               value={risk.mitigation ?? ""}
               onChange={(e) => setRisk({ ...risk, mitigation: e.target.value })}
               onBlur={() => patch({ mitigation: risk.mitigation })}
-              disabled={saving}
+              disabled={lockInput}
               multiline
               minRows={3}
               fullWidth
@@ -579,7 +606,7 @@ export default function RiskDetailPage() {
                   onChange={(e) =>
                     patch({ residual_probability: e.target.value || null })
                   }
-                  disabled={saving || residualLocked}
+                  disabled={lockInput || residualLocked}
                 >
                   <MenuItem value="">
                     <em>—</em>
@@ -597,7 +624,7 @@ export default function RiskDetailPage() {
                   label={t("risks.field.impact")}
                   value={risk.residual_impact ?? ""}
                   onChange={(e) => patch({ residual_impact: e.target.value || null })}
-                  disabled={saving || residualLocked}
+                  disabled={lockInput || residualLocked}
                 >
                   <MenuItem value="">
                     <em>—</em>
@@ -647,7 +674,7 @@ export default function RiskDetailPage() {
                   clickable
                   onClick={() => navigate(`/cards/${c.card_id}`)}
                   label={`${c.card_name} · ${c.card_type}`}
-                  onDelete={() => unlinkCard(c.card_id)}
+                  onDelete={isClosed ? undefined : () => unlinkCard(c.card_id)}
                 />
               ))}
             </Stack>
@@ -659,6 +686,7 @@ export default function RiskDetailPage() {
             filterOptions={(x) => x}
             inputValue={cardQuery}
             onInputChange={(_, v) => setCardQuery(v)}
+            disabled={lockInput}
             onChange={(_, value) => {
               if (value && "id" in value) {
                 linkCard(value.id);
