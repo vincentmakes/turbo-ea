@@ -229,5 +229,6 @@
   "tags.pickerLabel": "标签",
   "tags.pickerPlaceholder": "添加标签…",
   "tags.singleMode": "单选",
+  "tags.mandatoryHint": "在批准前，此组中至少需要选择一个标签",
   "tags.ungrouped": "未分组"
 }

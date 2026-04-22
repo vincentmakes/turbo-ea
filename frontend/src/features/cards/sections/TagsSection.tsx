@@ -5,6 +5,7 @@ import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
 import IconButton from "@mui/material/IconButton";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -100,32 +101,68 @@ export default function TagsSection({
       <AccordionDetails>
         <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
           <Box sx={{ flex: 1 }}>
-            {card.tags.length === 0 ? (
+            {card.tags.length === 0 && applicableGroups.every((g) => !g.mandatory) ? (
               <Typography variant="body2" color="text.secondary">
                 {t("tags.noTagsYet")}
               </Typography>
             ) : (
-              Object.entries(grouped).map(([groupName, tags]) => (
-                <Box key={groupName} sx={{ mb: 1.5 }}>
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ display: "block", mb: 0.5 }}
-                  >
-                    {groupName}
-                  </Typography>
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                    {tags.map((tag) => (
-                      <Chip
-                        key={tag.id}
-                        label={tag.name}
-                        size="small"
-                        sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              ))
+              <>
+                {Object.entries(grouped).map(([groupName, tags]) => {
+                  const grp = applicableGroups.find((g) => g.name === groupName);
+                  return (
+                    <Box key={groupName} sx={{ mb: 1.5 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mb: 0.5 }}
+                      >
+                        {groupName}
+                        {grp?.mandatory && (
+                          <Tooltip title={t("tags.mandatoryHint")}>
+                            <Box component="span" sx={{ color: "error.main", ml: 0.5 }}>*</Box>
+                          </Tooltip>
+                        )}
+                      </Typography>
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
+                        {tags.map((tag) => (
+                          <Chip
+                            key={tag.id}
+                            label={tag.name}
+                            size="small"
+                            sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  );
+                })}
+                {/* Mandatory groups with no current selection — surface them so
+                    the user knows what's required before approval. */}
+                {applicableGroups
+                  .filter(
+                    (g) =>
+                      g.mandatory &&
+                      !card.tags.some((tg) => tg.group_name === g.name) &&
+                      g.tags.length > 0,
+                  )
+                  .map((g) => (
+                    <Box key={`mand-${g.id}`} sx={{ mb: 1.5 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", mb: 0.5 }}
+                      >
+                        {g.name}
+                        <Tooltip title={t("tags.mandatoryHint")}>
+                          <Box component="span" sx={{ color: "error.main", ml: 0.5 }}>*</Box>
+                        </Tooltip>
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                        {t("tags.noTagsYet")}
+                      </Typography>
+                    </Box>
+                  ))}
+              </>
             )}
           </Box>
           {canEdit && applicableGroups.length > 0 && (

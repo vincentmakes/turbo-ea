@@ -14,6 +14,7 @@ interface TagOption {
   group_id: string;
   group_name: string;
   group_mode: string;
+  group_mandatory: boolean;
 }
 
 interface Props {
@@ -67,6 +68,7 @@ export default function TagPicker({
           group_id: g.id,
           group_name: g.name,
           group_mode: g.mode,
+          group_mandatory: g.mandatory,
         })),
       ),
     [applicableGroups],
@@ -120,7 +122,9 @@ export default function TagPicker({
       value={selected}
       onChange={(_, next) => handleChange(next as TagOption[])}
       groupBy={(o) =>
-        `${o.group_name}${o.group_mode === "single" ? ` · ${t("tags.singleMode")}` : ""}`
+        `${o.group_name}${o.group_mandatory ? " *" : ""}${
+          o.group_mode === "single" ? ` · ${t("tags.singleMode")}` : ""
+        }`
       }
       getOptionLabel={(o) => o.name}
       isOptionEqualToValue={(a, b) => a.id === b.id}

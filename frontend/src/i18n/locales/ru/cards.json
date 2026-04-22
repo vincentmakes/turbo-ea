@@ -229,5 +229,6 @@
   "tags.pickerLabel": "Теги",
   "tags.pickerPlaceholder": "Добавить теги…",
   "tags.singleMode": "один",
+  "tags.mandatoryHint": "Перед одобрением требуется хотя бы один тег из этой группы",
   "tags.ungrouped": "Без группы"
 }

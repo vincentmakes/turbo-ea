@@ -229,5 +229,6 @@
   "tags.pickerLabel": "Tags",
   "tags.pickerPlaceholder": "Add tags…",
   "tags.singleMode": "single",
+  "tags.mandatoryHint": "At least one tag from this group is required before approval",
   "tags.ungrouped": "Ungrouped"
 }

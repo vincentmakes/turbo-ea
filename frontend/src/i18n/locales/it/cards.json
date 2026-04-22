@@ -229,5 +229,6 @@
   "tags.pickerLabel": "Tag",
   "tags.pickerPlaceholder": "Aggiungi tag…",
   "tags.singleMode": "singolo",
+  "tags.mandatoryHint": "È necessario almeno un tag di questo gruppo prima dell'approvazione",
   "tags.ungrouped": "Senza gruppo"
 }
