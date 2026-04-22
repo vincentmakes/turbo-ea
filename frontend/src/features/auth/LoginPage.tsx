@@ -10,6 +10,7 @@ import Alert from "@mui/material/Alert";
 import Divider from "@mui/material/Divider";
 import { useTranslation } from "react-i18next";
 import { auth } from "@/api/client";
+import { useAppTitle } from "@/hooks/useAppTitle";
 import type { SsoConfig } from "@/types";
 
 interface Props {
@@ -26,10 +27,15 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [ssoConfig, setSsoConfig] = useState<SsoConfig | null>(null);
+  const appTitle = useAppTitle();
 
   useEffect(() => {
     auth.ssoConfig().then(setSsoConfig).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    document.title = appTitle;
+  }, [appTitle]);
 
   const ssoEnabled = ssoConfig?.enabled === true;
   const registrationAllowed =
@@ -90,7 +96,7 @@ export default function LoginPage({ onLogin, onRegister }: Props) {
       <Box sx={{ textAlign: "center", mb: 3 }}>
         <img
           src="/logo.png"
-          alt="Turbo EA"
+          alt={appTitle}
           style={{ height: 64, objectFit: "contain" }}
         />
         <Typography variant="body2" sx={{ mt: 1, color: "rgba(255,255,255,0.6)" }}>

@@ -1353,8 +1353,7 @@ export type RiskCategory =
 export type RiskSourceType =
   | "manual"
   | "security_cve"
-  | "security_compliance"
-  | "architect";
+  | "security_compliance";
 
 export type RiskLevel = "critical" | "high" | "medium" | "low";
 

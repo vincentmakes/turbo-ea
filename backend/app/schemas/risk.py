@@ -36,7 +36,7 @@ CategoryLiteral = Literal[
     "reputational",
     "strategic",
 ]
-SourceLiteral = Literal["manual", "security_cve", "security_compliance", "architect"]
+SourceLiteral = Literal["manual", "security_cve", "security_compliance"]
 RoleLiteral = Literal["affected", "contributing", "owner_of_control"]
 
 
