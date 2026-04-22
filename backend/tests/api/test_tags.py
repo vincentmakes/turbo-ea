@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.permissions import VIEWER_PERMISSIONS
+from app.core.permissions import MEMBER_PERMISSIONS, VIEWER_PERMISSIONS
 from tests.conftest import (
     auth_headers,
     create_card,
@@ -109,6 +109,48 @@ class TestCreateTag:
 # ---------------------------------------------------------------
 # POST /cards/{id}/tags  (assign tags)
 # ---------------------------------------------------------------
+
+
+class TestAssignTagsPermissionGate:
+    async def test_editor_without_tags_manage_can_assign_and_remove(self, client, db, tags_env):
+        """A user with card.edit (via inventory.edit) but NOT tags.manage
+        must be able to tag their own card and remove tags from it."""
+        # Build a custom role: member perms minus tags.manage
+        editor_perms = {**MEMBER_PERMISSIONS, "tags.manage": False}
+        await create_role(db, key="card_editor", label="Card Editor", permissions=editor_perms)
+        editor = await create_user(db, email="editor@test.com", role="card_editor")
+
+        admin = tags_env["admin"]
+        card = tags_env["card"]
+
+        # Admin creates a tag group + tag
+        group_resp = await client.post(
+            "/api/v1/tag-groups",
+            json={"name": "Env"},
+            headers=auth_headers(admin),
+        )
+        group_id = group_resp.json()["id"]
+        tag_resp = await client.post(
+            f"/api/v1/tag-groups/{group_id}/tags",
+            json={"name": "Prod"},
+            headers=auth_headers(admin),
+        )
+        tag_id = tag_resp.json()["id"]
+
+        # Editor (no tags.manage) assigns the tag — must succeed
+        assign = await client.post(
+            f"/api/v1/cards/{card.id}/tags",
+            json=[tag_id],
+            headers=auth_headers(editor),
+        )
+        assert assign.status_code == 201, assign.text
+
+        # Editor removes the tag — must also succeed
+        remove = await client.delete(
+            f"/api/v1/cards/{card.id}/tags/{tag_id}",
+            headers=auth_headers(editor),
+        )
+        assert remove.status_code == 204, remove.text
 
 
 class TestAssignTags:
