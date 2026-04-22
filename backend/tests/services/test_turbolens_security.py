@@ -168,6 +168,7 @@ def _cve_row(**overrides):
         "business_impact": "bi",
         "remediation": "upgrade",
         "status": "open",
+        "risk_id": None,
         "created_at": datetime.now(timezone.utc),
     }
     base.update(overrides)
@@ -213,6 +214,7 @@ def test_compliance_to_dict_handles_landscape_scope():
         evidence=None,
         remediation="Create a registry.",
         ai_detected=False,
+        risk_id=None,
         created_at=datetime.now(timezone.utc),
     )
     d = compliance_to_dict(row, None)
