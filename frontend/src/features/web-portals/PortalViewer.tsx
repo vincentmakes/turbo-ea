@@ -26,10 +26,12 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import TagPicker from "@/components/TagPicker";
 import type {
   PublicPortal,
   PortalCard,
   PortalCardListResponse,
+  TagGroup,
 } from "@/types";
 
 const BASE = "/api/v1";
@@ -254,6 +256,7 @@ export default function PortalViewer() {
   const [subtype, setSubtype] = useState("");
   const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string>>({});
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [relationOptions, setRelationOptions] = useState<Record<string, { id: string; name: string }[]>>({});
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -330,6 +333,9 @@ export default function PortalViewer() {
       if (Object.keys(activeRelFilters).length > 0) {
         params.set("relation_filters", JSON.stringify(activeRelFilters));
       }
+      if (tagFilter.length > 0) {
+        params.set("tag_ids", tagFilter.join(","));
+      }
       params.set("page", String(page));
       params.set("page_size", String(pageSize));
       params.set("sort_by", sortBy);
@@ -344,7 +350,7 @@ export default function PortalViewer() {
     } finally {
       setFsLoading(false);
     }
-  }, [slug, search, subtype, attrFilters, relationFilters, page, pageSize, sortBy, sortDir]);
+  }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     if (portal) loadCards();
@@ -388,7 +394,8 @@ export default function PortalViewer() {
   const hasActiveFilters =
     subtype !== "" ||
     Object.values(attrFilters).some((v) => v !== "") ||
-    Object.values(relationFilters).some((v) => v !== "");
+    Object.values(relationFilters).some((v) => v !== "") ||
+    tagFilter.length > 0;
 
   if (loading) {
     return (
@@ -675,6 +682,22 @@ export default function PortalViewer() {
               );
             })}
 
+            {(portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
+              <TagPicker
+                groups={(portal.tag_groups || []) as unknown as TagGroup[]}
+                value={tagFilter}
+                onChange={(ids) => {
+                  setTagFilter(ids);
+                  setPage(1);
+                }}
+                size="small"
+                label={t("portal.tags")}
+                placeholder=""
+                inputLabelShrink
+                sx={{ width: 200 }}
+              />
+            )}
+
             {hasActiveFilters && (
               <Chip
                 label={t("portal.clearFilters")}
@@ -683,6 +706,7 @@ export default function PortalViewer() {
                   setSubtype("");
                   setAttrFilters({});
                   setRelationFilters({});
+                  setTagFilter([]);
                   setPage(1);
                 }}
               />
@@ -888,14 +912,22 @@ export default function PortalViewer() {
 
                   {/* Tags */}
                   {show("tags", "card") && card.tags.length > 0 && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 0.75,
-                        flexWrap: "wrap",
-                        mt: 1.5,
-                      }}
-                    >
+                    <Box sx={{ mt: 1.5, pt: 1.5, borderTop: "1px dashed", borderColor: "divider" }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          display: "block",
+                          mb: 0.5,
+                          textTransform: "uppercase",
+                          fontSize: "0.65rem",
+                          letterSpacing: 0.8,
+                          color: "text.secondary",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {t("portal.tags")}
+                      </Typography>
+                      <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
                       {card.tags.slice(0, 4).map((tag) => (
                         <Chip
                           key={tag.id}
@@ -920,6 +952,7 @@ export default function PortalViewer() {
                           sx={{ height: 24, fontSize: "0.73rem" }}
                         />
                       )}
+                      </Box>
                     </Box>
                   )}
 

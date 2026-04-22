@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Apri a pagina intera",
   "dependencies.title": "Dipendenze",
   "dependencies.empty": "Nessuna dipendenza trovata per questa scheda.",
-  "dependencies.error": "Impossibile caricare le dipendenze."
+  "dependencies.error": "Impossibile caricare le dipendenze.",
+  "sections.tags": "Tag",
+  "tags.noTagsYet": "Ancora nessun tag",
+  "tags.edit": "Modifica tag",
+  "tags.pickerLabel": "Tag",
+  "tags.pickerPlaceholder": "Aggiungi tag…",
+  "tags.singleMode": "singolo",
+  "tags.ungrouped": "Senza gruppo"
 }

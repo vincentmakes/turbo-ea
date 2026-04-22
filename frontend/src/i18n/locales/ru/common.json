@@ -160,6 +160,7 @@
   "portal.lastUpdated": "Последнее обновление: {{date}}",
   "portal.filterSubtype": "Подтип",
   "portal.allRelType": "Все {{label}}",
+  "portal.allTagGroup": "Все {{label}}",
   "portal.roles.responsible": "Ответственный",
   "portal.roles.observer": "Наблюдатель",
   "portal.roles.technical_application_owner": "Технический владелец",

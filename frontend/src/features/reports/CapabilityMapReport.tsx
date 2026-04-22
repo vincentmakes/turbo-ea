@@ -18,6 +18,8 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import TagPicker from "@/components/TagPicker";
+import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
@@ -60,6 +62,14 @@ interface AppData {
   lifecycle?: Record<string, string>;
   org_ids: string[];
   related_by_type?: Record<string, string[]>;
+  tag_ids?: string[];
+}
+
+interface TagGroupDef {
+  id: string;
+  name: string;
+  mode: string;
+  tags: { id: string; name: string; color?: string }[];
 }
 
 interface FilterableTypeRef {
@@ -184,11 +194,13 @@ function isLightColor(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
-/** Filter an app based on active attribute and relation filters */
+/** Filter an app based on active attribute, relation and tag filters */
 function matchesFilters(
   app: AppData,
   attrFilters: Record<string, string[]>,
   relationFilters: Record<string, string[]>,
+  tagFilterIds: string[],
+  tagGroups: TagGroupDef[],
   timelineDate: number,
 ): boolean {
   if (!isAppAliveAtDate(app, timelineDate)) return false;
@@ -214,6 +226,19 @@ function matchesFilters(
     if (wantEmpty && appRelIds.length === 0) continue;
     if (realIds.length > 0 && realIds.some((id) => appRelIds.includes(id))) continue;
     return false;
+  }
+  // Tag filters (OR within a group, AND across groups) — bucket the flat
+  // selection by tag_group_id before matching.
+  if (tagFilterIds.length > 0) {
+    const appTagIds = new Set(app.tag_ids || []);
+    const selectedSet = new Set(tagFilterIds);
+    for (const group of tagGroups) {
+      const pickedInGroup = group.tags
+        .filter((tag) => selectedSet.has(tag.id))
+        .map((tag) => tag.id);
+      if (pickedInGroup.length === 0) continue;
+      if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
+    }
   }
   return true;
 }
@@ -241,13 +266,15 @@ function buildTree(
   items: CapItem[],
   attrFilters: Record<string, string[]>,
   relationFilters: Record<string, string[]>,
+  tagFilterIds: string[],
+  tagGroups: TagGroupDef[],
   timelineDate: number,
   costFieldKeys: string[],
 ): CapNode[] {
   const nodeMap = new Map<string, CapNode>();
   for (const item of items) {
     const filteredApps = item.apps.filter((a) =>
-      matchesFilters(a, attrFilters, relationFilters, timelineDate),
+      matchesFilters(a, attrFilters, relationFilters, tagFilterIds, tagGroups, timelineDate),
     );
     nodeMap.set(item.id, {
       ...item,
@@ -612,6 +639,8 @@ export default function CapabilityMapReport() {
   // Dynamic filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
+  const [tagGroupsData, setTagGroupsData] = useState<TagGroupDef[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Load saved report config
@@ -625,17 +654,27 @@ export default function CapabilityMapReport() {
       if (cfg.colorBy != null) setColorBy(cfg.colorBy as string);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
+      if (cfg.tagFilterIds) {
+        setTagFilterIds(cfg.tagFilterIds as string[]);
+      } else if (cfg.tagFilters && typeof cfg.tagFilters === "object") {
+        const flat: string[] = [];
+        for (const vals of Object.values(cfg.tagFilters as Record<string, string[]>)) {
+          if (Array.isArray(vals)) flat.push(...vals);
+        }
+        setTagFilterIds(flat);
+      }
       // Backwards compat
       if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters });
+  const getConfig = () => ({ metric, displayLevel, showApps, colorBy, timelineDate: tl.persistValue, attrFilters, relationFilters, tagFilterIds });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [metric, displayLevel, showApps, colorBy, tl.timelineDate, attrFilters, relationFilters, tagFilterIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -647,6 +686,7 @@ export default function CapabilityMapReport() {
     tl.reset();
     setAttrFilters({});
     setRelationFilters({});
+    setTagFilterIds([]);
     setShowAllRelFilters(false);
   }, [saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -689,6 +729,7 @@ export default function CapabilityMapReport() {
         items: CapItem[];
         filterable_types?: Record<string, FilterableTypeRef[]>;
         fields_schema?: SectionDef[];
+        tag_groups?: TagGroupDef[];
       }>(
         `/reports/capability-heatmap?metric=${metric}`,
       )
@@ -696,6 +737,7 @@ export default function CapabilityMapReport() {
         setData(r.items);
         if (r.filterable_types) setFilterableTypes(r.filterable_types);
         if (r.fields_schema) setFieldsSchema(r.fields_schema);
+        if (r.tag_groups) setTagGroupsData(r.tag_groups);
       });
   }, [metric]);
 
@@ -739,11 +781,12 @@ export default function CapabilityMapReport() {
 
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
-    Object.values(relationFilters).some((v) => v.length > 0);
+    Object.values(relationFilters).some((v) => v.length > 0) ||
+    tagFilterIds.length > 0;
 
   const tree = useMemo(
-    () => (data ? buildTree(data, attrFilters, relationFilters, tl.timelineDate, costFieldKeys) : []),
-    [data, attrFilters, relationFilters, tl.timelineDate, costFieldKeys],
+    () => (data ? buildTree(data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys) : []),
+    [data, attrFilters, relationFilters, tagFilterIds, tagGroupsData, tl.timelineDate, costFieldKeys],
   );
   const maxLvl = useMemo(() => getMaxLevel(tree), [tree]);
 
@@ -811,7 +854,7 @@ export default function CapabilityMapReport() {
       .map((o) => ({ label: o.label, color: o.color! }));
   }, [colorBy, selectFields]);
 
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
     const mo = METRIC_OPTIONS.find((o) => o.key === metric);
@@ -947,6 +990,7 @@ export default function CapabilityMapReport() {
                     onDelete={() => {
                       setAttrFilters({});
                       setRelationFilters({});
+                      setTagFilterIds([]);
                     }}
                     sx={{ fontSize: "0.7rem", height: 22, ml: 0.5 }}
                   />
@@ -1025,6 +1069,38 @@ export default function CapabilityMapReport() {
                         }}
                       />
                     )}
+                  </Box>
+                )}
+
+                {/* Tags section */}
+                {tagGroupsData.length > 0 && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      flexWrap: "wrap",
+                      bgcolor: "action.hover",
+                      borderRadius: 1.5,
+                      px: 1.5,
+                      py: 0.75,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                    >
+                      {t("capabilityMap.tags")}
+                    </Typography>
+                    <TagPicker
+                      groups={tagGroupsData as unknown as TagGroup[]}
+                      value={tagFilterIds}
+                      onChange={setTagFilterIds}
+                      size="small"
+                      label={t("capabilityMap.tags")}
+                      placeholder=""
+                      sx={{ minWidth: 180, maxWidth: 320 }}
+                    />
                   </Box>
                 )}
 

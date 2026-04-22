@@ -28,6 +28,8 @@ import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
 import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import TagPicker from "@/components/TagPicker";
+import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import { api } from "@/api/client";
@@ -57,6 +59,14 @@ interface AppData {
   lifecycle?: Record<string, string>;
   relations: AppRelation[];
   org_ids: string[];
+  tag_ids?: string[];
+}
+
+interface TagGroupDef {
+  id: string;
+  name: string;
+  mode: string;
+  tags: { id: string; name: string; color?: string }[];
 }
 
 interface FieldOption {
@@ -99,6 +109,7 @@ interface ApiResponse {
   relation_types: RelTypeDef[];
   groupable_types: Record<string, { id: string; name: string; type: string }[]>;
   organizations: OrgRef[];
+  tag_groups?: TagGroupDef[];
 }
 
 interface GroupData {
@@ -194,6 +205,9 @@ function isLightColor(hex: string): boolean {
 interface FilterState {
   attributeFilters: Record<string, string[]>;
   relationFilters: Record<string, string[]>;
+  /** Flat list of selected tag ids (bucketed by group at filter time) */
+  tagFilterIds: string[];
+  tagGroups: TagGroupDef[];
   timelineDate: number;
   search: string;
 }
@@ -224,6 +238,19 @@ function matchesFilters(
     if (wantEmpty && appRels.length === 0) continue;
     if (realIds.length > 0 && appRels.some((r) => realIds.includes(r.related_id))) continue;
     return false;
+  }
+  // Tag filters (OR within a group, AND across groups) — bucket the flat
+  // selection by tag_group_id before matching.
+  if (filters.tagFilterIds.length > 0) {
+    const appTagIds = new Set(app.tag_ids || []);
+    const selectedSet = new Set(filters.tagFilterIds);
+    for (const group of filters.tagGroups) {
+      const pickedInGroup = group.tags
+        .filter((tag) => selectedSet.has(tag.id))
+        .map((tag) => tag.id);
+      if (pickedInGroup.length === 0) continue;
+      if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
+    }
   }
   if (
     filters.search &&
@@ -505,6 +532,7 @@ export default function PortfolioReport() {
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
   // Timeline
@@ -525,6 +553,16 @@ export default function PortfolioReport() {
       if (cfg.search != null) setSearch(cfg.search as string);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
+      if (cfg.tagFilterIds) {
+        setTagFilterIds(cfg.tagFilterIds as string[]);
+      } else if (cfg.tagFilters && typeof cfg.tagFilters === "object") {
+        const flat: string[] = [];
+        for (const vals of Object.values(cfg.tagFilters as Record<string, string[]>)) {
+          if (Array.isArray(vals)) flat.push(...vals);
+        }
+        setTagFilterIds(flat);
+      }
       // Backwards compat: old saved configs may have filterOrgs
       if (cfg.filterOrgs) setRelationFilters((prev) => ({ ...prev, Organization: cfg.filterOrgs as string[] }));
       if (cfg.sortK) setSortK(cfg.sortK as string);
@@ -533,12 +571,12 @@ export default function PortfolioReport() {
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, timelineDate: tl.persistValue, sortK, sortD });
+  const getConfig = () => ({ view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD });
 
   // Auto-persist config to localStorage
   useEffect(() => {
     saved.persistConfig(getConfig());
-  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilterIds, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -549,6 +587,7 @@ export default function PortfolioReport() {
     setSearch("");
     setAttrFilters({});
     setRelationFilters({});
+    setTagFilterIds([]);
     setShowAllRelFilters(false);
     tl.reset();
     setSortK("name");
@@ -687,10 +726,12 @@ export default function PortfolioReport() {
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
+      tagFilterIds,
+      tagGroups: data?.tag_groups || [],
       timelineDate: tl.timelineDate,
       search,
     }),
-    [attrFilters, relationFilters, tl.timelineDate, search],
+    [attrFilters, relationFilters, tagFilterIds, data, tl.timelineDate, search],
   );
 
   // Filtered apps
@@ -748,11 +789,13 @@ export default function PortfolioReport() {
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
     Object.values(relationFilters).some((v) => v.length > 0) ||
+    tagFilterIds.length > 0 ||
     search.length > 0;
 
   const clearFilters = useCallback(() => {
     setAttrFilters({});
     setRelationFilters({});
+    setTagFilterIds([]);
     setSearch("");
     tl.reset();
   }, [tl]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -884,7 +927,7 @@ export default function PortfolioReport() {
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length;
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
 
   const printParams = useMemo(() => {
     const params: { label: string; value: string }[] = [];
@@ -1134,6 +1177,38 @@ export default function PortfolioReport() {
                       }}
                     />
                   )}
+                </Box>
+              )}
+
+              {/* Tags section */}
+              {(data?.tag_groups || []).length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    {t("portfolio.tags")}
+                  </Typography>
+                  <TagPicker
+                    groups={(data?.tag_groups || []) as unknown as TagGroup[]}
+                    value={tagFilterIds}
+                    onChange={setTagFilterIds}
+                    size="small"
+                    label={t("portfolio.tags")}
+                    placeholder=""
+                    sx={{ minWidth: 180, maxWidth: 320 }}
+                  />
                 </Box>
               )}
 

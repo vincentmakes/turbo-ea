@@ -17,7 +17,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { Card, CardType } from "@/types";
+import type { Card, CardType, TagGroup } from "@/types";
 import {
   parseWorkbook,
   validateImport,
@@ -33,6 +33,7 @@ interface ImportDialogProps {
   existingCards: Card[];
   allTypes: CardType[];
   preSelectedType?: string;
+  tagGroups?: TagGroup[];
 }
 
 type Step = "upload" | "report" | "progress" | "done";
@@ -44,6 +45,7 @@ export default function ImportDialog({
   existingCards,
   allTypes,
   preSelectedType,
+  tagGroups = [],
 }: ImportDialogProps) {
   const { t } = useTranslation(["inventory", "common"]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -85,7 +87,7 @@ export default function ImportDialog({
     try {
       const buffer = await file.arrayBuffer();
       const rows = parseWorkbook(buffer);
-      const rpt = validateImport(rows, existingCards, allTypes, preSelectedType);
+      const rpt = validateImport(rows, existingCards, allTypes, preSelectedType, tagGroups);
       setReport(rpt);
       setStep("report");
     } catch {

@@ -11,6 +11,7 @@
   "columns.lifecycle": "Ciclo de vida",
   "columns.approvalStatus": "Estado de aprobaci\u00f3n",
   "columns.dataQuality": "Calidad de datos",
+  "columns.tags": "Etiquetas",
   "columns.clickToEdit": "Haga clic para editar",
   "columns.createdAt": "Creado",
   "columns.updatedAt": "Modificado",
@@ -41,6 +42,7 @@
   "filter.dataQualityPoor": "Baja (< 50%)",
   "filter.attributes": "Atributos",
   "filter.relationships": "Relaciones",
+  "filter.tags": "Etiquetas",
   "filter.noMatches": "Sin coincidencias",
   "filter.any": "Cualquiera",
   "filter.minValue": "Valor m\u00ednimo",
@@ -166,5 +168,6 @@
   "import.errors.expectsBoolean": "Fila {{row}}: \"{{field}}\" espera verdadero/falso, se recibi\u00f3 \"{{value}}\"",
   "import.errors.invalidSelectValue": "Fila {{row}}: valor inv\u00e1lido \"{{value}}\" para el campo \"{{field}}\" (v\u00e1lidos: {{valid}})",
   "import.errors.unknown": "Error desconocido",
-  "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada"
+  "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada",
+  "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada"
 }

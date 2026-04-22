@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Открыть на всю страницу",
   "dependencies.title": "Зависимости",
   "dependencies.empty": "Зависимости для этой карточки не найдены.",
-  "dependencies.error": "Не удалось загрузить зависимости."
+  "dependencies.error": "Не удалось загрузить зависимости.",
+  "sections.tags": "Теги",
+  "tags.noTagsYet": "Пока нет тегов",
+  "tags.edit": "Редактировать теги",
+  "tags.pickerLabel": "Теги",
+  "tags.pickerPlaceholder": "Добавить теги…",
+  "tags.singleMode": "один",
+  "tags.ungrouped": "Без группы"
 }

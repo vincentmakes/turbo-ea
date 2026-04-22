@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.47.0] - 2026-04-22
+
+### Added
+- Card tagging: every card now has a **Tags** section on its detail page, sitting just before Relations on all 14 built-in card types. Users can attach tags via a group-aware picker that respects single-vs-multi mode and `restrict_to_types` scoping, and chips render with the tag's configured colour.
+- Tags can also be selected at card creation time from the New Card dialog — they're attached to the new card immediately after it's saved.
+- Inventory: new **Tags** column rendering up to three coloured chips with a "+N" overflow, plus a **Tags** filter section in the sidebar (one multi-select per applicable tag group, OR-within-group and AND-across-groups semantics, same as relation filters). Selections persist in saved views / bookmarks automatically.
+- Excel import/export round-trips tags through a new `Tags` column formatted as `Group: Tag, Group: Tag`. Unknown tag entries surface as per-row warnings rather than blocking errors.
+- Web Portal viewer: one select per tag group in the filter panel, sends the selection as `?tag_ids=...` to the existing public backend query.
+- Demo seed: the **Business Domain** tag group now covers Organizations, Business Capabilities, Initiatives and the IoT platform as well as Applications; plus three new groups — **Initiative Theme** (Digital / Growth / Cost-Out / Compliance), **Data Sensitivity** (Public / Internal / Confidential, restricted to Data Objects) and **Provider Tier** (Strategic / Preferred / Commodity, restricted to Providers).
+
+### Changed
+- `POST /cards/{id}/tags` and `DELETE /cards/{id}/tags/{tag_id}` now accept **either** `tags.manage` (admin) **or** `card.edit` on the target card, so a normal card editor can tag their own card without admin rights. Tag-group / tag CRUD stays `tags.manage`-only.
+- `GET /tag-groups` now also returns `restrict_to_types` so the new picker can scope groups per card type.
+
+## [0.46.0] - 2026-04-22
+
+### Added
+- Tag Management admin: tag groups and individual tags can now be renamed, recoloured, and deleted — previously only creation was supported. Deleting a tag group removes its tags from every card; deleting an individual tag removes only that tag from the cards it was assigned to.
+
 ## [0.45.0] - 2026-04-22
 
 ### Added

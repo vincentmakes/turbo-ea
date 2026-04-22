@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import i18n from "@/i18n";
 import { resolveLabel } from "@/hooks/useResolveLabel";
-import type { Card, CardType, FieldDef } from "@/types";
+import type { Card, CardType, FieldDef, TagGroup } from "@/types";
 import { api } from "@/api/client";
 
 const t = (key: string, opts?: Record<string, unknown>) =>
@@ -32,6 +32,8 @@ export interface ParsedRow {
   existing?: Card;
   /** For updates: the fields that actually changed (field → { old, new }) */
   changes?: Record<string, { old: unknown; new: unknown }>;
+  /** Resolved tag ids to assign (undefined = `tags` column absent / not supplied) */
+  tagIds?: string[];
 }
 
 export interface ImportReport {
@@ -58,6 +60,13 @@ const VALID_APPROVAL_STATUSES = new Set(["DRAFT", "APPROVED", "BROKEN", "REJECTE
 const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"] as const;
 const TRUTHY = new Set(["true", "yes", "1"]);
 const FALSY = new Set(["false", "no", "0"]);
+
+function sameTagSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const setA = new Set(a);
+  for (const id of b) if (!setA.has(id)) return false;
+  return true;
+}
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -217,6 +226,7 @@ export function validateImport(
   existingCards: Card[],
   allTypes: CardType[],
   preSelectedType?: string,
+  tagGroups: TagGroup[] = [],
 ): ImportReport {
   const errors: ImportError[] = [];
   const warnings: ImportWarning[] = [];
@@ -253,7 +263,7 @@ export function validateImport(
   // Warn about unrecognised columns
   const knownCoreCols = new Set([
     "id", "type", "name", "description", "subtype", "parent_id",
-    "external_id", "alias", "approval_status",
+    "external_id", "alias", "approval_status", "tags",
     ...LIFECYCLE_PHASES.map((p) => `lifecycle_${p}`),
   ]);
   // Build set of all known attribute columns across all types
@@ -288,6 +298,21 @@ export function validateImport(
   }
 
   const typeKeys = new Set(allTypes.filter((t) => !t.is_hidden).map((t) => t.key));
+
+  // Tag lookup: "group_name|tag_name" (lowercased) → id. Also allow bare "tag_name"
+  // when the tag name is unique across groups so exports that didn't carry the
+  // group prefix can still round-trip.
+  const tagByGroupTag = new Map<string, string>();
+  const tagByNameOnly = new Map<string, string | null>(); // null marks ambiguous
+  for (const g of tagGroups) {
+    for (const tg of g.tags) {
+      const gt = `${g.name.trim().toLowerCase()}|${tg.name.trim().toLowerCase()}`;
+      tagByGroupTag.set(gt, tg.id);
+      const bare = tg.name.trim().toLowerCase();
+      if (tagByNameOnly.has(bare)) tagByNameOnly.set(bare, null);
+      else tagByNameOnly.set(bare, tg.id);
+    }
+  }
 
   for (let i = 0; i < rows.length; i++) {
     const rowNum = i + 2; // +2 because row 1 is the header, data starts at 2
@@ -551,6 +576,37 @@ export function validateImport(
 
     if (rowHasAttrError) continue;
 
+    // Parse optional Tags column: "Group: Tag, Group: Tag" (or bare "Tag")
+    let parsedTagIds: string[] | undefined;
+    const tagsCell = str(raw["tags"] ?? raw["Tags"]);
+    if (tagsCell !== "") {
+      parsedTagIds = [];
+      const entries = tagsCell
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const entry of entries) {
+        const colonIdx = entry.indexOf(":");
+        let resolved: string | null | undefined;
+        if (colonIdx > 0) {
+          const groupName = entry.slice(0, colonIdx).trim().toLowerCase();
+          const tagName = entry.slice(colonIdx + 1).trim().toLowerCase();
+          resolved = tagByGroupTag.get(`${groupName}|${tagName}`);
+        } else {
+          resolved = tagByNameOnly.get(entry.toLowerCase());
+        }
+        if (resolved == null) {
+          warnings.push({
+            row: rowNum,
+            column: "tags",
+            message: t("import.warnings.unknownTag", { row: rowNum, value: entry }),
+          });
+        } else if (!parsedTagIds.includes(resolved)) {
+          parsedTagIds.push(resolved);
+        }
+      }
+    }
+
     // Build the data payload
     const data: Record<string, unknown> = {
       type,
@@ -564,15 +620,45 @@ export function validateImport(
     if (Object.keys(lifecycle).length > 0) data.lifecycle = lifecycle;
     if (Object.keys(attributes).length > 0) data.attributes = attributes;
 
-    const parsed: ParsedRow = { rowIndex: rowNum, type, data, parentId: parentId || undefined };
+    const parsed: ParsedRow = {
+      rowIndex: rowNum,
+      type,
+      data,
+      parentId: parentId || undefined,
+      tagIds: parsedTagIds,
+    };
 
     if (id && matchedExisting) {
       parsed.id = id;
       parsed.existing = matchedExisting;
-      // Only classify as update when there are actual changes
+      // Classify as update when either regular fields or tags actually changed
       const { patch, changes } = buildPatch(data, matchedExisting);
-      if (Object.keys(patch).length > 0) {
+      const tagsChanged =
+        parsedTagIds !== undefined &&
+        !sameTagSet(
+          parsedTagIds,
+          (matchedExisting.tags || []).map((tg) => tg.id),
+        );
+      if (Object.keys(patch).length > 0 || tagsChanged) {
         parsed.changes = changes;
+        if (tagsChanged && parsedTagIds) {
+          const newTagIds = parsedTagIds;
+          parsed.changes = {
+            ...(parsed.changes || {}),
+            tags: {
+              old: (matchedExisting.tags || []).map((tg) => tg.name).join(", "),
+              new: newTagIds
+                .map((id) => {
+                  for (const g of tagGroups) {
+                    const tg = g.tags.find((x) => x.id === id);
+                    if (tg) return tg.name;
+                  }
+                  return id;
+                })
+                .join(", "),
+            },
+          };
+        }
         updates.push(parsed);
       } else {
         skipped++;
@@ -620,6 +706,14 @@ export async function executeImport(
       if (row.id && result.id) {
         idMapping.set(row.id, result.id);
       }
+      // Assign tags if any were resolved for this row
+      if (row.tagIds && row.tagIds.length > 0 && result.id) {
+        try {
+          await api.post(`/cards/${result.id}/tags`, row.tagIds);
+        } catch {
+          // Non-fatal: card was created; surface no extra failure here.
+        }
+      }
       created++;
     } catch (e) {
       failed++;
@@ -636,11 +730,27 @@ export async function executeImport(
   for (const row of report.updates) {
     try {
       const { patch } = buildPatch(row.data, row.existing!);
-
+      let didSomething = false;
       if (Object.keys(patch).length > 0) {
         await api.patch(`/cards/${row.id}`, patch);
-        updated++;
+        didSomething = true;
       }
+      // Sync tags when the row supplied a Tags column
+      if (row.tagIds !== undefined && row.existing) {
+        const oldIds = new Set((row.existing.tags || []).map((tg) => tg.id));
+        const newIds = new Set(row.tagIds);
+        const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+        const toRemove = [...oldIds].filter((id) => !newIds.has(id));
+        if (toAdd.length > 0) {
+          await api.post(`/cards/${row.id}/tags`, toAdd);
+          didSomething = true;
+        }
+        for (const id of toRemove) {
+          await api.delete(`/cards/${row.id}/tags/${id}`);
+          didSomething = true;
+        }
+      }
+      if (didSomething) updated++;
     } catch (e) {
       failed++;
       failedDetails.push({

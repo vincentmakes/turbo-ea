@@ -9,6 +9,7 @@
   "columns.lifecycle": "Lebenszyklus",
   "columns.approvalStatus": "Genehmigungsstatus",
   "columns.dataQuality": "Datenqualität",
+  "columns.tags": "Tags",
   "columns.clickToEdit": "Klicken zum Bearbeiten",
   "columns.createdAt": "Erstellt",
   "columns.updatedAt": "Geändert",
@@ -38,6 +39,7 @@
   "filter.dataQualityPoor": "Schlecht (< 50%)",
   "filter.attributes": "Attribute",
   "filter.relationships": "Beziehungen",
+  "filter.tags": "Tags",
   "filter.noMatches": "Keine Treffer",
   "filter.any": "Beliebig",
   "filter.minValue": "Mindestwert",
@@ -156,5 +158,6 @@
   "import.errors.expectsBoolean": "Zeile {{row}}: \"{{field}}\" erwartet true/false, erhalten \"{{value}}\"",
   "import.errors.invalidSelectValue": "Zeile {{row}}: ungültiger Wert \"{{value}}\" für Feld \"{{field}}\" (gültig: {{valid}})",
   "import.errors.unknown": "Unbekannter Fehler",
-  "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert"
+  "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert",
+  "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert"
 }

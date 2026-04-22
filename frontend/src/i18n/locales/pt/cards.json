@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Abrir página completa",
   "dependencies.title": "Dependências",
   "dependencies.empty": "Nenhuma dependência encontrada para este cartão.",
-  "dependencies.error": "Falha ao carregar as dependências."
+  "dependencies.error": "Falha ao carregar as dependências.",
+  "sections.tags": "Tags",
+  "tags.noTagsYet": "Ainda sem tags",
+  "tags.edit": "Editar tags",
+  "tags.pickerLabel": "Tags",
+  "tags.pickerPlaceholder": "Adicionar tags…",
+  "tags.singleMode": "único",
+  "tags.ungrouped": "Sem grupo"
 }

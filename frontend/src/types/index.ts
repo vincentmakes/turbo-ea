@@ -340,6 +340,7 @@ export interface TagGroup {
   description?: string;
   mode: string;
   mandatory: boolean;
+  restrict_to_types?: string[] | null;
   tags: Tag[];
 }
 

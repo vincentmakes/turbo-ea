@@ -34,7 +34,7 @@ import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { api } from "@/api/client";
-import type { Card, CardListResponse, FieldDef, Relation, RelationType } from "@/types";
+import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -195,6 +195,7 @@ export default function InventoryPage() {
         showArchived: searchParams.get("show_archived") === "true",
         attributes,
         relations: {},
+        tagIds: [],
       };
     }
 
@@ -211,6 +212,7 @@ export default function InventoryPage() {
         showArchived: saved.filters.showArchived || false,
         attributes: saved.filters.attributes || {},
         relations: saved.filters.relations || {},
+        tagIds: saved.filters.tagIds || [],
       };
     }
 
@@ -224,6 +226,7 @@ export default function InventoryPage() {
       showArchived: false,
       attributes: {},
       relations: {},
+      tagIds: [],
     };
   });
 
@@ -241,6 +244,25 @@ export default function InventoryPage() {
 
   // Relations data: relTypeKey → Map<cardId, relatedNames[]>
   const [relationsMap, setRelationsMap] = useState<Map<string, Map<string, string[]>>>(new Map());
+
+  // Tag groups (for filter + column rendering)
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
+  useEffect(() => {
+    api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => setTagGroups([]));
+  }, []);
+
+  // User id → display name map for Created By / Modified By columns
+  const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    api
+      .get<{ id: string; display_name: string }[]>("/users")
+      .then((users) => {
+        const map: Record<string, string> = {};
+        for (const u of users) map[u.id] = u.display_name;
+        setUserNameMap(map);
+      })
+      .catch(() => setUserNameMap({}));
+  }, []);
 
   // Dynamic column visibility: set of column keys the user has opted to show
   // Initialized from localStorage if available, otherwise defaults to all when type selected
@@ -558,8 +580,39 @@ export default function InventoryPage() {
       });
     }
 
+    // Tag filters — OR within a group, AND across groups
+    const selectedTagIds = filters.tagIds || [];
+    if (selectedTagIds.length > 0 && tagGroups.length > 0) {
+      // Group selected ids by their tag_group_id
+      const tagToGroup = new Map<string, string>();
+      for (const g of tagGroups) {
+        for (const tg of g.tags) tagToGroup.set(tg.id, g.id);
+      }
+      const byGroup = new Map<string, Set<string>>();
+      for (const id of selectedTagIds) {
+        const gid = tagToGroup.get(id);
+        if (!gid) continue;
+        if (!byGroup.has(gid)) byGroup.set(gid, new Set());
+        byGroup.get(gid)!.add(id);
+      }
+      result = result.filter((card) => {
+        const cardTagIds = new Set((card.tags || []).map((tg) => tg.id));
+        for (const groupTagIds of byGroup.values()) {
+          let anyMatch = false;
+          for (const id of groupTagIds) {
+            if (cardTagIds.has(id)) {
+              anyMatch = true;
+              break;
+            }
+          }
+          if (!anyMatch) return false;
+        }
+        return true;
+      });
+    }
+
     return result;
-  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, relationsMap]);
+  }, [data, filters.types, filters.subtypes, filters.lifecyclePhases, filters.dataQualityMin, filters.attributes, filters.relations, filters.tagIds, relationsMap, tagGroups]);
 
   const handleCellEdit = async (event: CellValueChangedEvent) => {
     const card = event.data as Card;
@@ -856,6 +909,52 @@ export default function InventoryPage() {
             </Box>
           );
         },
+      },
+      {
+        field: "tags",
+        headerName: t("columns.tags"),
+        width: 200,
+        sortable: false,
+        cellRenderer: (p: { value: TagRef[] }) => {
+          const tags = p.value || [];
+          if (tags.length === 0) return "";
+          const visible = tags.slice(0, 3);
+          const overflow = tags.length - visible.length;
+          return (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 0.25,
+                rowGap: "2px",
+                alignItems: "center",
+                lineHeight: 1,
+              }}
+            >
+              {visible.map((tag) => (
+                <Chip
+                  key={tag.id}
+                  label={tag.name}
+                  size="small"
+                  sx={{
+                    height: 16,
+                    fontSize: 11,
+                    "& .MuiChip-label": { px: 0.75 },
+                    ...(tag.color ? { bgcolor: tag.color, color: "#fff" } : {}),
+                  }}
+                />
+              ))}
+              {overflow > 0 && (
+                <Chip
+                  label={`+${overflow}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
+                />
+              )}
+            </Box>
+          );
+        },
       }
     );
 
@@ -1068,17 +1167,21 @@ export default function InventoryPage() {
         headerName: t("columns.createdBy"),
         width: 150,
         hide: !selectedColumns.has("meta_created_by"),
+        valueFormatter: (p: { value?: string }) =>
+          p.value ? userNameMap[p.value] ?? p.value : "",
       },
       {
         field: "updated_by",
         headerName: t("columns.updatedBy"),
         width: 150,
         hide: !selectedColumns.has("meta_updated_by"),
+        valueFormatter: (p: { value?: string }) =>
+          p.value ? userNameMap[p.value] ?? p.value : "",
       }
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, t]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -1176,6 +1279,7 @@ export default function InventoryPage() {
             onWidthChange={() => {}}
             relevantRelTypes={relevantRelTypes}
             relationsMap={relationsMap}
+            tagGroups={tagGroups}
             canArchive={canArchive}
             canShareBookmarks={canShareBookmarks}
             canOdataBookmarks={canOdataBookmarks}
@@ -1197,6 +1301,7 @@ export default function InventoryPage() {
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
+          tagGroups={tagGroups}
           canArchive={canArchive}
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
@@ -1483,6 +1588,7 @@ export default function InventoryPage() {
         existingCards={data}
         allTypes={types}
         preSelectedType={selectedType || undefined}
+        tagGroups={tagGroups}
       />
 
       {relEditRelType && (

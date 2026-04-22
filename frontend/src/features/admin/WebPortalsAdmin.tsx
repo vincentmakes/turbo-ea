@@ -25,10 +25,11 @@ import TableBody from "@mui/material/TableBody";
 import TableRow from "@mui/material/TableRow";
 import TableCell from "@mui/material/TableCell";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
-import type { WebPortal } from "@/types";
+import type { WebPortal, TagGroup } from "@/types";
 
 interface ToggleEntry {
   card: boolean;
@@ -95,6 +96,8 @@ export default function WebPortalsAdmin() {
   const [isPublished, setIsPublished] = useState(false);
   const [toggles, setToggles] = useState<Toggles>({});
   const [filterSubtypes, setFilterSubtypes] = useState<string[]>([]);
+  const [filterTagIds, setFilterTagIds] = useState<string[]>([]);
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
   const [showLogo, setShowLogo] = useState(true);
 
   const visibleTypes = types.filter((tp) => !tp.is_hidden);
@@ -110,6 +113,10 @@ export default function WebPortalsAdmin() {
 
   useEffect(() => {
     load();
+    api
+      .get<TagGroup[]>("/tag-groups")
+      .then(setTagGroups)
+      .catch(() => setTagGroups([]));
   }, []);
 
   const resetForm = () => {
@@ -121,6 +128,7 @@ export default function WebPortalsAdmin() {
     setIsPublished(false);
     setToggles({});
     setFilterSubtypes([]);
+    setFilterTagIds([]);
     setShowLogo(true);
     setError("");
     setEditingPortal(null);
@@ -147,6 +155,9 @@ export default function WebPortalsAdmin() {
     );
     setFilterSubtypes(
       ((portal.filters as Record<string, unknown>)?.subtypes as string[]) || []
+    );
+    setFilterTagIds(
+      ((portal.filters as Record<string, unknown>)?.tag_ids as string[]) || []
     );
     setError("");
     setDialogOpen(true);
@@ -201,7 +212,12 @@ export default function WebPortalsAdmin() {
       is_published: isPublished,
       display_fields: null,
       filters:
-        filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : null,
+        filterSubtypes.length > 0 || filterTagIds.length > 0
+          ? {
+              ...(filterSubtypes.length > 0 ? { subtypes: filterSubtypes } : {}),
+              ...(filterTagIds.length > 0 ? { tag_ids: filterTagIds } : {}),
+            }
+          : null,
       card_config: hasCardConfig
         ? { ...(hasToggles ? { toggles } : {}), show_logo: showLogo }
         : null,
@@ -483,6 +499,7 @@ export default function WebPortalsAdmin() {
               setCardType(e.target.value);
               setToggles({});
               setFilterSubtypes([]);
+              setFilterTagIds([]);
             }}
             helperText={t("webPortals.cardTypeHelper")}
           >
@@ -523,6 +540,22 @@ export default function WebPortalsAdmin() {
                 </MenuItem>
               ))}
             </TextField>
+          )}
+
+          {cardType && tagGroups.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <TagPicker
+                groups={tagGroups}
+                value={filterTagIds}
+                onChange={setFilterTagIds}
+                typeKey={cardType}
+                label={t("webPortals.filterTags")}
+                placeholder={t("webPortals.filterTagsPlaceholder")}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                {t("webPortals.filterTagsHelper")}
+              </Typography>
+            </Box>
           )}
 
           {cardType && (

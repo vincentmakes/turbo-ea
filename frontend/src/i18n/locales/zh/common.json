@@ -160,6 +160,7 @@
   "portal.lastUpdated": "最后更新：{{date}}",
   "portal.filterSubtype": "子类型",
   "portal.allRelType": "所有 {{label}}",
+  "portal.allTagGroup": "所有 {{label}}",
   "portal.roles.responsible": "负责人",
   "portal.roles.observer": "观察者",
   "portal.roles.technical_application_owner": "技术负责人",

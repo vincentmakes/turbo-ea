@@ -29,6 +29,7 @@ import {
   ResourcesTab,
   HistoryTab,
   RisksTab,
+  TagsSection,
 } from "@/features/cards/sections";
 import type { Card, CardEffectivePermissions } from "@/types";
 
@@ -136,6 +137,12 @@ export default function CardDetailContent({
         if (relIdx >= 0) result.splice(relIdx, 0, "successors");
         else result.push("successors");
       }
+      // Inject "tags" before "relations" if not already present
+      if (!existing.has("tags")) {
+        const relIdx = result.indexOf("relations");
+        if (relIdx >= 0) result.splice(relIdx, 0, "tags");
+        else result.push("tags");
+      }
       return result.filter((k) => {
         if (k === "hierarchy" && !typeConfig?.has_hierarchy) return false;
         if (k === "successors" && !typeConfig?.has_successors) return false;
@@ -146,6 +153,7 @@ export default function CardDetailContent({
     customSections.forEach((_, i) => order.push(`custom:${i}`));
     if (typeConfig?.has_hierarchy) order.push("hierarchy");
     if (typeConfig?.has_successors) order.push("successors");
+    order.push("tags");
     order.push("relations");
     return order;
   })();
@@ -221,6 +229,18 @@ export default function CardDetailContent({
           <SuccessorsSection
             card={card}
             canEdit={perms.can_manage_relations}
+            initialExpanded={exp}
+          />
+        </ErrorBoundary>
+      );
+    }
+    if (key === "tags") {
+      return (
+        <ErrorBoundary key={key} label="Tags" inline>
+          <TagsSection
+            card={card}
+            onUpdate={() => api.get<Card>(`/cards/${card.id}`).then(onCardUpdate)}
+            canEdit={perms.can_edit}
             initialExpanded={exp}
           />
         </ErrorBoundary>

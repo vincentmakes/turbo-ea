@@ -11,6 +11,7 @@
   "columns.lifecycle": "Lifecycle",
   "columns.approvalStatus": "Approval Status",
   "columns.dataQuality": "Data Quality",
+  "columns.tags": "Tags",
   "columns.clickToEdit": "Click to edit",
   "columns.createdAt": "Created",
   "columns.updatedAt": "Modified",
@@ -41,6 +42,7 @@
   "filter.dataQualityPoor": "Poor (< 50%)",
   "filter.attributes": "Attributes",
   "filter.relationships": "Relationships",
+  "filter.tags": "Tags",
   "filter.noMatches": "No matches",
   "filter.any": "Any",
   "filter.minValue": "Min value",
@@ -166,5 +168,6 @@
   "import.errors.expectsBoolean": "Row {{row}}: \"{{field}}\" expects true/false, got \"{{value}}\"",
   "import.errors.invalidSelectValue": "Row {{row}}: invalid value \"{{value}}\" for field \"{{field}}\" (valid: {{valid}})",
   "import.errors.unknown": "Unknown error",
-  "import.warnings.unrecognisedColumn": "Column \"{{column}}\" is not recognised and will be ignored"
+  "import.warnings.unrecognisedColumn": "Column \"{{column}}\" is not recognised and will be ignored",
+  "import.warnings.unknownTag": "Row {{row}}: unknown tag \"{{value}}\" — ignored"
 }

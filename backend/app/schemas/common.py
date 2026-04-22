@@ -100,6 +100,18 @@ class TagCreate(BaseModel):
     color: str | None = None
 
 
+class TagGroupUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    mode: str | None = None
+    mandatory: bool | None = None
+
+
+class TagUpdate(BaseModel):
+    name: str | None = None
+    color: str | None = None
+
+
 class TagGroupResponse(BaseModel):
     id: str
     name: str

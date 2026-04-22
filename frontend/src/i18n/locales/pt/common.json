@@ -173,6 +173,7 @@
   "portal.lastUpdated": "Última atualização: {{date}}",
   "portal.filterSubtype": "Subtipo",
   "portal.allRelType": "Todos os {{label}}s",
+  "portal.allTagGroup": "Todas as {{label}}",
   "portal.roles.responsible": "Responsável",
   "portal.roles.observer": "Observador",
   "portal.roles.technical_application_owner": "Proprietário técnico",

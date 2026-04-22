@@ -34,6 +34,9 @@ export function exportToExcel(
       external_id: card.external_id ?? "",
       alias: card.alias ?? "",
       approval_status: card.approval_status ?? "",
+      tags: (card.tags || [])
+        .map((tg) => (tg.group_name ? `${tg.group_name}: ${tg.name}` : tg.name))
+        .join(", "),
     };
 
     // Flatten lifecycle phases

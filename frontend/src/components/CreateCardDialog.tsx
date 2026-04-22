@@ -26,10 +26,19 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { EolLinkDialog } from "@/components/EolLinkSection";
 import VendorField from "@/components/VendorField";
+import TagPicker from "@/components/TagPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { FieldDef, Card, EolCycle, EolProductMatch, AiSuggestResponse, AiStatus } from "@/types";
+import type {
+  FieldDef,
+  Card,
+  EolCycle,
+  EolProductMatch,
+  AiSuggestResponse,
+  AiStatus,
+  TagGroup,
+} from "@/types";
 
 const EOL_ELIGIBLE_TYPES = ["Application", "ITComponent"];
 const VENDOR_ELIGIBLE_TYPES = ["Application", "ITComponent"];
@@ -92,6 +101,10 @@ export default function CreateCardDialog({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
 
+  // Tag picker state
+  const [tagGroups, setTagGroups] = useState<TagGroup[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+
   const typeConfig = useMemo(
     () => types.find((t) => t.key === selectedType),
     [types, selectedType],
@@ -130,6 +143,15 @@ export default function CreateCardDialog({
       .catch(() => setAiStatus(null));
   }, []);
 
+  // Fetch tag groups when the dialog opens
+  useEffect(() => {
+    if (!open) return;
+    api
+      .get<TagGroup[]>("/tag-groups")
+      .then(setTagGroups)
+      .catch(() => setTagGroups([]));
+  }, [open]);
+
   // Reset dependent fields when type changes
   useEffect(() => {
     setSubtype("");
@@ -144,6 +166,7 @@ export default function CreateCardDialog({
     setEolAutoSearchDone(false);
     setAiResponse(null);
     setAiError("");
+    setTagIds([]);
   }, [selectedType]);
 
   // Set initial type when dialog opens
@@ -174,6 +197,7 @@ export default function CreateCardDialog({
       setAiResponse(null);
       setAiLoading(false);
       setAiError("");
+      setTagIds([]);
     }
   }, [open, initialType]);
 
@@ -330,6 +354,13 @@ export default function CreateCardDialog({
           Object.keys(finalAttrs).length > 0 ? finalAttrs : undefined,
         lifecycle,
       });
+      if (tagIds.length > 0) {
+        try {
+          await api.post(`/cards/${newId}/tags`, tagIds);
+        } catch {
+          // Card was created successfully; tag-assignment failure is non-fatal.
+        }
+      }
       onClose();
       navigate(`/cards/${newId}`);
     } catch (err: unknown) {
@@ -581,6 +612,18 @@ export default function CreateCardDialog({
           rows={3}
           sx={{ mb: 2 }}
         />
+
+        {/* Tags */}
+        {selectedType && tagGroups.length > 0 && (
+          <Box sx={{ mb: 2 }}>
+            <TagPicker
+              groups={tagGroups}
+              value={tagIds}
+              onChange={setTagIds}
+              typeKey={selectedType}
+            />
+          </Box>
+        )}
 
         {/* AI Suggest button */}
         {aiEnabled && name.trim().length >= 2 && !aiResponse && !aiLoading && (

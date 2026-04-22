@@ -39,6 +39,7 @@ import type {
   RelationType,
   TranslationMap,
   MetamodelTranslations,
+  TagGroup,
   User,
 } from "@/types";
 
@@ -56,6 +57,7 @@ export interface Filters {
   showArchived: boolean;
   attributes: Record<string, string | string[]>; // select fields → string[], text/number → string
   relations: Record<string, string[]>; // relTypeKey → related card names (multi-select)
+  tagIds: string[]; // selected tag ids (OR within a group, AND across groups)
 }
 
 interface Props {
@@ -68,6 +70,7 @@ interface Props {
   onWidthChange: (w: number) => void;
   relevantRelTypes?: RelationType[];
   relationsMap?: Map<string, Map<string, string[]>>;
+  tagGroups?: TagGroup[];
   canArchive?: boolean;
   canShareBookmarks?: boolean;
   canOdataBookmarks?: boolean;
@@ -116,6 +119,7 @@ export default function InventoryFilterSidebar({
   onWidthChange,
   relevantRelTypes = [],
   relationsMap,
+  tagGroups = [],
   canArchive = false,
   canShareBookmarks = false,
   canOdataBookmarks = false,
@@ -138,6 +142,7 @@ export default function InventoryFilterSidebar({
     approvalStatus: false,
     attributes: false,
     relationships: false,
+    tags: false,
   });
 
   // Search-within-dropdown state: keyed by field key or relation type key
@@ -255,7 +260,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {} });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [] });
 
   const activeCount =
     filters.types.length +
@@ -266,7 +271,8 @@ export default function InventoryFilterSidebar({
     filters.approvalStatuses.length +
     (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
-    Object.keys(filters.relations || {}).length;
+    Object.keys(filters.relations || {}).length +
+    (filters.tagIds?.length ?? 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -319,6 +325,7 @@ export default function InventoryFilterSidebar({
         showArchived: filters.showArchived,
         attributes: filters.attributes,
         relations: filters.relations,
+        tagIds: filters.tagIds,
       },
       columns: Array.from(selectedColumns),
       visibility: dialogVisibility,
@@ -349,6 +356,7 @@ export default function InventoryFilterSidebar({
         showArchived: f.showArchived || false,
         attributes: f.attributes || {},
         relations: f.relations || {},
+        tagIds: f.tagIds || [],
       });
     }
     // Restore saved columns if present
@@ -956,6 +964,138 @@ export default function InventoryFilterSidebar({
                   </Collapse>
                 </>
               )}
+
+              {/* Tag filters (scoped by restrict_to_types when a single type is selected) */}
+              {(() => {
+                const applicableGroups = tagGroups.filter((g) => {
+                  if (!g.restrict_to_types || g.restrict_to_types.length === 0) return true;
+                  if (filters.types.length !== 1) return true;
+                  return g.restrict_to_types.includes(filters.types[0]);
+                }).filter((g) => g.tags.length > 0);
+                if (applicableGroups.length === 0) return null;
+
+                const selectedIds = new Set(filters.tagIds || []);
+                const setGroupSelection = (groupId: string, next: string[]) => {
+                  const group = applicableGroups.find((g) => g.id === groupId);
+                  if (!group) return;
+                  const groupIds = new Set(group.tags.map((tg) => tg.id));
+                  const kept = (filters.tagIds || []).filter((id) => !groupIds.has(id));
+                  onFiltersChange({ ...filters, tagIds: [...kept, ...next] });
+                };
+
+                return (
+                  <>
+                    <SectionHeader
+                      label={t("filter.tags")}
+                      icon="sell"
+                      expanded={expandedSections.tags}
+                      onToggle={() => toggleSection("tags")}
+                      count={(filters.tagIds || []).length}
+                    />
+                    <Collapse in={expandedSections.tags}>
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mb: 2, px: 0.5 }}>
+                        {applicableGroups.map((group) => {
+                          const groupSelected = group.tags
+                            .filter((tg) => selectedIds.has(tg.id))
+                            .map((tg) => tg.id);
+                          const searchKey = `tag_${group.id}`;
+                          const searchTerm = (dropdownSearch[searchKey] || "").toLowerCase();
+                          const filteredTags = searchTerm
+                            ? group.tags.filter((tg) => tg.name.toLowerCase().includes(searchTerm))
+                            : group.tags;
+                          return (
+                            <FormControl key={group.id} size="small" fullWidth>
+                              <InputLabel sx={{ fontSize: 14 }}>{group.name}</InputLabel>
+                              <Select
+                                multiple
+                                value={groupSelected}
+                                label={group.name}
+                                onChange={(e) => setGroupSelection(group.id, e.target.value as string[])}
+                                onClose={() => setDropdownSearch((s) => ({ ...s, [searchKey]: "" }))}
+                                sx={{ fontSize: 14 }}
+                                MenuProps={{ autoFocus: false, PaperProps: { sx: { maxHeight: 300 } } }}
+                                renderValue={(vals) => (
+                                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25 }}>
+                                    {(vals as string[]).map((id) => {
+                                      const tag = group.tags.find((tg) => tg.id === id);
+                                      if (!tag) return null;
+                                      return (
+                                        <Chip
+                                          key={id}
+                                          label={tag.name}
+                                          size="small"
+                                          sx={{
+                                            height: 20,
+                                            fontSize: 12,
+                                            ...(tag.color ? { bgcolor: tag.color, color: "#fff" } : {}),
+                                          }}
+                                          onDelete={() =>
+                                            setGroupSelection(
+                                              group.id,
+                                              groupSelected.filter((s) => s !== id),
+                                            )
+                                          }
+                                          onMouseDown={(e) => e.stopPropagation()}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                )}
+                              >
+                                <ListSubheader sx={{ p: 0.5, lineHeight: "unset" }}>
+                                  <TextField
+                                    size="small"
+                                    autoFocus
+                                    placeholder="Search…"
+                                    fullWidth
+                                    value={dropdownSearch[searchKey] || ""}
+                                    onChange={(e) => setDropdownSearch((s) => ({ ...s, [searchKey]: e.target.value }))}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                    InputProps={{
+                                      startAdornment: (
+                                        <InputAdornment position="start">
+                                          <MaterialSymbol icon="search" size={18} />
+                                        </InputAdornment>
+                                      ),
+                                      sx: { fontSize: 14 },
+                                    }}
+                                  />
+                                </ListSubheader>
+                                {filteredTags.map((tag) => (
+                                  <MenuItem key={tag.id} value={tag.id}>
+                                    <Checkbox size="small" checked={groupSelected.includes(tag.id)} sx={{ p: 0, mr: 1 }} />
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                      {tag.color && (
+                                        <Box
+                                          sx={{
+                                            width: 10,
+                                            height: 10,
+                                            borderRadius: "50%",
+                                            bgcolor: tag.color,
+                                            flexShrink: 0,
+                                          }}
+                                        />
+                                      )}
+                                      {tag.name}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                                {filteredTags.length === 0 && (
+                                  <MenuItem disabled>
+                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: 14 }}>
+                                      {t("filter.noMatches")}
+                                    </Typography>
+                                  </MenuItem>
+                                )}
+                              </Select>
+                            </FormControl>
+                          );
+                        })}
+                      </Box>
+                    </Collapse>
+                  </>
+                );
+              })()}
 
               {/* Include Archived toggle */}
               {canArchive && (

@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Abrir página completa",
   "dependencies.title": "Dependencias",
   "dependencies.empty": "No se encontraron dependencias para esta tarjeta.",
-  "dependencies.error": "Error al cargar las dependencias."
+  "dependencies.error": "Error al cargar las dependencias.",
+  "sections.tags": "Etiquetas",
+  "tags.noTagsYet": "Aún no hay etiquetas",
+  "tags.edit": "Editar etiquetas",
+  "tags.pickerLabel": "Etiquetas",
+  "tags.pickerPlaceholder": "Agregar etiquetas…",
+  "tags.singleMode": "única",
+  "tags.ungrouped": "Sin grupo"
 }
