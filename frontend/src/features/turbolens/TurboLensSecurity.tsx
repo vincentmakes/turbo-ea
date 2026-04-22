@@ -1149,7 +1149,6 @@ function RiskMatrix({
                   cursor: clickable ? "pointer" : "default",
                   bgcolor: riskLevelBackground(
                     deriveLevelFromPair(probKey, sevKey),
-                    count,
                   ),
                   outline: isActive ? "2px solid" : "none",
                   outlineColor: "primary.main",

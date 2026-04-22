@@ -442,6 +442,45 @@ function GeneralTab() {
       {/* ── Appearance ────────────────────────────────────────────── */}
       <SectionHeader>{t("settings.section.appearance")}</SectionHeader>
 
+      {/* App title Settings */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="badge" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.appTitle.title")}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.appTitle.description")}
+        </Typography>
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+          <TextField
+            size="small"
+            value={appTitle}
+            onChange={(e) => setAppTitle(e.target.value)}
+            inputProps={{ maxLength: 64 }}
+            placeholder="Turbo EA"
+            sx={{ minWidth: 280 }}
+          />
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleAppTitleSave}
+            disabled={savingAppTitle}
+            startIcon={
+              savingAppTitle ? (
+                <CircularProgress size={16} />
+              ) : (
+                <MaterialSymbol icon="save" size={18} />
+              )
+            }
+            sx={{ textTransform: "none" }}
+          >
+            {savingAppTitle ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
+      </Paper>
+
       {/* Logo Settings */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
@@ -613,45 +652,6 @@ function GeneralTab() {
               </Button>
             )}
           </Box>
-        </Box>
-      </Paper>
-
-      {/* App title Settings */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
-          <MaterialSymbol icon="badge" size={22} color="#555" />
-          <Typography variant="h6" fontWeight={600}>
-            {t("settings.appTitle.title")}
-          </Typography>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t("settings.appTitle.description")}
-        </Typography>
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
-          <TextField
-            size="small"
-            value={appTitle}
-            onChange={(e) => setAppTitle(e.target.value)}
-            inputProps={{ maxLength: 64 }}
-            placeholder="Turbo EA"
-            sx={{ minWidth: 280 }}
-          />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={handleAppTitleSave}
-            disabled={savingAppTitle}
-            startIcon={
-              savingAppTitle ? (
-                <CircularProgress size={16} />
-              ) : (
-                <MaterialSymbol icon="save" size={18} />
-              )
-            }
-            sx={{ textTransform: "none" }}
-          >
-            {savingAppTitle ? t("common:labels.loading") : t("common:actions.save")}
-          </Button>
         </Box>
       </Paper>
 

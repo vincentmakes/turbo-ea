@@ -39,12 +39,17 @@ export function deriveLevelFromPair(
   return LEVEL_MATRIX[probability as RiskProbability][impact as RiskImpact];
 }
 
-/** Background color for a matrix cell, keyed off the derived risk level. */
-export function riskLevelBackground(
-  level: RiskLevel | null,
-  count: number,
-): string {
-  if (count === 0) return "rgba(117, 117, 117, 0.12)";
+/**
+ * Background color for a matrix cell, keyed off the derived risk level.
+ *
+ * The color always reflects the cell's severity (probability × impact),
+ * regardless of whether the cell currently holds any risks. This matches the
+ * reference TurboLens Security matrix, where every cell is tinted by its
+ * intrinsic risk level so the heatmap is readable even for an empty landscape.
+ *
+ * Only cells with an `unknown` / missing axis fall back to grey.
+ */
+export function riskLevelBackground(level: RiskLevel | null): string {
   switch (level) {
     case "critical":
       return "rgba(211, 47, 47, 0.28)";

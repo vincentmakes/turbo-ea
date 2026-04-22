@@ -47,38 +47,37 @@ describe("CVE severity / status / probability colors", () => {
 describe("riskLevelBackground", () => {
   it("returns deep red for the very_high × critical cell", () => {
     expect(
-      riskLevelBackground(deriveLevelFromPair("very_high", "critical"), 1),
+      riskLevelBackground(deriveLevelFromPair("very_high", "critical")),
     ).toMatch(/rgba\(211/);
   });
 
   it("returns green for the low × low cell", () => {
-    expect(riskLevelBackground(deriveLevelFromPair("low", "low"), 1)).toMatch(
+    expect(riskLevelBackground(deriveLevelFromPair("low", "low"))).toMatch(
       /rgba\(56/,
     );
   });
 
   it("returns grey for the unknown axes", () => {
     expect(
-      riskLevelBackground(deriveLevelFromPair("unknown", "unknown"), 1),
+      riskLevelBackground(deriveLevelFromPair("unknown", "unknown")),
     ).toMatch(/rgba\(117/);
   });
 
-  it("returns grey when the cell has no count, regardless of level", () => {
+  it("always reflects the cell's intrinsic severity, even when empty", () => {
+    // Regardless of count, a very_high × critical cell must stay red —
+    // the matrix is a heatmap of the (probability, impact) space, not a
+    // sparse plot of current risks.
     expect(
-      riskLevelBackground(deriveLevelFromPair("very_high", "critical"), 0),
-    ).toMatch(/rgba\(117/);
+      riskLevelBackground(deriveLevelFromPair("very_high", "critical")),
+    ).toMatch(/rgba\(211/);
   });
 
   it("severity decreases monotonically from top-left to bottom-right", () => {
     const topLeft = riskLevelBackground(
       deriveLevelFromPair("very_high", "critical"),
-      1,
     );
-    const middle = riskLevelBackground(
-      deriveLevelFromPair("medium", "medium"),
-      1,
-    );
-    const bottomRight = riskLevelBackground(deriveLevelFromPair("low", "low"), 1);
+    const middle = riskLevelBackground(deriveLevelFromPair("medium", "medium"));
+    const bottomRight = riskLevelBackground(deriveLevelFromPair("low", "low"));
     expect(topLeft).not.toBe(middle);
     expect(middle).not.toBe(bottomRight);
   });

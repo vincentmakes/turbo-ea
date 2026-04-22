@@ -143,7 +143,6 @@ function RiskMatrixRow({
               cursor: onSelect ? "pointer" : "default",
               bgcolor: riskLevelBackground(
                 deriveLevelFromPair(probability, impact),
-                count,
               ),
               outline: isActive ? "2px solid" : "none",
               outlineColor: "primary.main",
