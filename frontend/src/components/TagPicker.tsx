@@ -26,6 +26,8 @@ interface Props {
   disabled?: boolean;
   size?: "small" | "medium";
   sx?: SxProps<Theme>;
+  /** Force the label to stay shrunk (top-left) regardless of focus / value. */
+  inputLabelShrink?: boolean;
 }
 
 export default function TagPicker({
@@ -38,6 +40,7 @@ export default function TagPicker({
   disabled = false,
   size,
   sx,
+  inputLabelShrink,
 }: Props) {
   const { t } = useTranslation("cards");
 
@@ -162,6 +165,7 @@ export default function TagPicker({
           {...params}
           label={label ?? t("tags.pickerLabel")}
           placeholder={placeholder ?? t("tags.pickerPlaceholder")}
+          {...(inputLabelShrink ? { InputLabelProps: { shrink: true } } : {})}
         />
       )}
     />

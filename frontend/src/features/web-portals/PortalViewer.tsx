@@ -26,10 +26,12 @@ import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import { useResolveMetaLabel, useResolveLabel } from "@/hooks/useResolveLabel";
+import TagPicker from "@/components/TagPicker";
 import type {
   PublicPortal,
   PortalCard,
   PortalCardListResponse,
+  TagGroup,
 } from "@/types";
 
 const BASE = "/api/v1";
@@ -680,50 +682,21 @@ export default function PortalViewer() {
               );
             })}
 
-            {(portal.tag_groups || []).map((group) => {
-              if (!group.tags || group.tags.length === 0) return null;
-              const groupIds = new Set(group.tags.map((tg) => tg.id));
-              const selectedForGroup = tagFilter.filter((id) => groupIds.has(id));
-              return (
-                <TextField
-                  key={group.id}
-                  select
-                  size="small"
-                  label={group.name}
-                  value={selectedForGroup[0] || ""}
-                  onChange={(e) => {
-                    const next = tagFilter.filter((id) => !groupIds.has(id));
-                    if (e.target.value) next.push(e.target.value);
-                    setTagFilter(next);
-                    setPage(1);
-                  }}
-                  InputLabelProps={{ shrink: true }}
-                  sx={{ width: 200 }}
-                >
-                  <MenuItem value="">
-                    {t("portal.allTagGroup", { label: group.name })}
-                  </MenuItem>
-                  {group.tags.map((tg) => (
-                    <MenuItem key={tg.id} value={tg.id}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        {tg.color && (
-                          <Box
-                            sx={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: "50%",
-                              bgcolor: tg.color,
-                              flexShrink: 0,
-                            }}
-                          />
-                        )}
-                        {tg.name}
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </TextField>
-              );
-            })}
+            {(portal.tag_groups || []).some((g) => (g.tags || []).length > 0) && (
+              <TagPicker
+                groups={(portal.tag_groups || []) as unknown as TagGroup[]}
+                value={tagFilter}
+                onChange={(ids) => {
+                  setTagFilter(ids);
+                  setPage(1);
+                }}
+                size="small"
+                label={t("portal.tags")}
+                placeholder=""
+                inputLabelShrink
+                sx={{ width: 200 }}
+              />
+            )}
 
             {hasActiveFilters && (
               <Chip
