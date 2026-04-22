@@ -4,6 +4,7 @@ import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
 import Box from "@mui/material/Box";
 import { useTranslation } from "react-i18next";
+import type { SxProps, Theme } from "@mui/material/styles";
 import type { TagGroup } from "@/types";
 
 interface TagOption {
@@ -23,6 +24,8 @@ interface Props {
   label?: string;
   placeholder?: string;
   disabled?: boolean;
+  size?: "small" | "medium";
+  sx?: SxProps<Theme>;
 }
 
 export default function TagPicker({
@@ -33,6 +36,8 @@ export default function TagPicker({
   label,
   placeholder,
   disabled = false,
+  size,
+  sx,
 }: Props) {
   const { t } = useTranslation("cards");
 
@@ -85,6 +90,8 @@ export default function TagPicker({
     <Autocomplete
       multiple
       disabled={disabled}
+      size={size}
+      sx={sx}
       options={options}
       value={selected}
       onChange={(_, next) => handleChange(next as TagOption[])}
