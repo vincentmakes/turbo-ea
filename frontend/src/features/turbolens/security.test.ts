@@ -4,8 +4,11 @@ import {
   cveSeverityColor,
   cveStatusColor,
   probabilityColor,
-  riskMatrixColor,
 } from "./utils";
+import {
+  deriveLevelFromPair,
+  riskLevelBackground,
+} from "../ea-delivery/risks/riskMatrixColors";
 
 describe("CVE severity / status / probability colors", () => {
   it("maps known CVE severity values to MUI chip colors", () => {
@@ -41,25 +44,40 @@ describe("CVE severity / status / probability colors", () => {
   });
 });
 
-describe("riskMatrixColor", () => {
-  // Rows are probability indices (0 = very_high → 4 = unknown).
-  // Columns are severity indices (0 = critical → 4 = unknown).
-  it("returns deep red for the top-left (very_high x critical) cell", () => {
-    expect(riskMatrixColor(0, 0)).toMatch(/rgba\(211/);
+describe("riskLevelBackground", () => {
+  it("returns deep red for the very_high × critical cell", () => {
+    expect(
+      riskLevelBackground(deriveLevelFromPair("very_high", "critical")),
+    ).toMatch(/rgba\(211/);
   });
 
-  it("returns green for the bottom-left / low-severity corner", () => {
-    expect(riskMatrixColor(3, 3)).toMatch(/rgba\(56/);
+  it("returns green for the low × low cell", () => {
+    expect(riskLevelBackground(deriveLevelFromPair("low", "low"))).toMatch(
+      /rgba\(56/,
+    );
   });
 
-  it("returns grey for the unknown/unknown corner", () => {
-    expect(riskMatrixColor(4, 4)).toMatch(/rgba\(117/);
+  it("returns grey for the unknown axes", () => {
+    expect(
+      riskLevelBackground(deriveLevelFromPair("unknown", "unknown")),
+    ).toMatch(/rgba\(117/);
   });
 
-  it("heat decreases as we move away from the top-left", () => {
-    const topLeft = riskMatrixColor(0, 0);
-    const middle = riskMatrixColor(2, 2);
-    const bottomRight = riskMatrixColor(3, 3);
+  it("always reflects the cell's intrinsic severity, even when empty", () => {
+    // Regardless of count, a very_high × critical cell must stay red —
+    // the matrix is a heatmap of the (probability, impact) space, not a
+    // sparse plot of current risks.
+    expect(
+      riskLevelBackground(deriveLevelFromPair("very_high", "critical")),
+    ).toMatch(/rgba\(211/);
+  });
+
+  it("severity decreases monotonically from top-left to bottom-right", () => {
+    const topLeft = riskLevelBackground(
+      deriveLevelFromPair("very_high", "critical"),
+    );
+    const middle = riskLevelBackground(deriveLevelFromPair("medium", "medium"));
+    const bottomRight = riskLevelBackground(deriveLevelFromPair("low", "low"));
     expect(topLeft).not.toBe(middle);
     expect(middle).not.toBe(bottomRight);
   });

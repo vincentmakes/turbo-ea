@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import RedirectResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +41,10 @@ class EmailSettingsPayload(BaseModel):
 
 class CurrencyPayload(BaseModel):
     currency: str = "USD"
+
+
+class AppTitlePayload(BaseModel):
+    app_title: str = Field(default="", max_length=64)
 
 
 class SsoSettingsPayload(BaseModel):
@@ -204,6 +208,50 @@ async def update_currency(
     general["currency"] = body.currency
     row.general_settings = general
     await db.commit()
+
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# App title endpoint
+# ---------------------------------------------------------------------------
+
+DEFAULT_APP_TITLE = "Turbo EA"
+
+
+@router.get("/app-title")
+async def get_app_title(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns the configured app title.
+
+    Public because the login page and browser tab title need it before the
+    user authenticates. Falls back to the default brand name when unset.
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    title = (general.get("app_title") or "").strip() or DEFAULT_APP_TITLE
+    return {"app_title": title}
+
+
+@router.patch("/app-title")
+async def update_app_title(
+    body: AppTitlePayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set the app title shown in navbar, tab, and emails."""
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    trimmed = body.app_title.strip()
+    general["app_title"] = trimmed
+    row.general_settings = general
+    await db.commit()
+
+    # Mirror to the runtime config so email templates pick up the change
+    # without having to query the DB on every send.
+    app_config.APP_TITLE = trimmed or DEFAULT_APP_TITLE
 
     return {"ok": True}
 

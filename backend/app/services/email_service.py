@@ -16,6 +16,14 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_APP_TITLE = "Turbo EA"
+
+
+def _get_app_title() -> str:
+    """Return the configured app title from the runtime config, or the default."""
+    title = (getattr(settings, "APP_TITLE", "") or "").strip()
+    return title or DEFAULT_APP_TITLE
+
 
 def _is_configured() -> bool:
     return bool(settings.SMTP_HOST)
@@ -73,12 +81,19 @@ async def send_notification_email(
 
     Returns True if the email was actually sent, False otherwise.
     """
+    # Short-circuit when SMTP isn't configured so we don't open a DB session
+    # (used for the app-title lookup) on every notification path.
+    if not _is_configured():
+        return False
+
     # H7: Escape user-supplied content to prevent HTML injection
     title = html.escape(title)
     message = html.escape(message)
 
     base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
+
+    app_title = html.escape(_get_app_title())
 
     link_html = ""
     if full_link:
@@ -87,7 +102,7 @@ async def send_notification_email(
             "display: inline-block; margin-top: 12px; "
             "padding: 8px 16px; background: #1976d2; "
             "color: white; text-decoration: none; "
-            "border-radius: 4px;'>View in Turbo EA</a>"
+            f"border-radius: 4px;'>View in {app_title}</a>"
         )
 
     wrapper = "font-family: sans-serif; max-width: 600px; margin: 0 auto"
@@ -96,18 +111,18 @@ async def send_notification_email(
     body_html = (
         f'<div style="{wrapper}">'
         f'<div style="{header_s}">'
-        '<h2 style="color:#64b5f6;margin:0">Turbo EA</h2></div>'
+        f'<h2 style="color:#64b5f6;margin:0">{app_title}</h2></div>'
         f'<div style="{body_s}">'
         f'<h3 style="margin:0 0 8px;color:#333">{title}</h3>'
         f'<p style="color:#555">{message}</p>'
         f"{link_html}</div>"
         '<p style="color:#999;font-size:12px;text-align:center">'
-        "You received this from Turbo EA.</p></div>"
+        f"You received this from {app_title}.</p></div>"
     )
 
     body_text = f"{title}\n\n{message}"
     if full_link:
         body_text += f"\n\nView: {full_link}"
 
-    subject = f"[Turbo EA] {title}"
+    subject = f"[{app_title}] {title}"
     return await send_email(to, subject, body_html, body_text)

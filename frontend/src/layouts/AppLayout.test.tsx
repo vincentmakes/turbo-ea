@@ -112,7 +112,7 @@ describe("AppLayout", () => {
 
   it("renders the brand logo", () => {
     renderLayout();
-    expect(screen.getByAltText("Turbo EA")).toBeInTheDocument();
+    expect(screen.getByAltText(/turbo ea/i)).toBeInTheDocument();
   });
 
   it("renders core navigation items for admin", () => {

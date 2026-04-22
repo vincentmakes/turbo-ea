@@ -11,6 +11,9 @@ vi.mock("@/api/client", () => ({
   auth: {
     ssoConfig: vi.fn(),
   },
+  api: {
+    get: vi.fn().mockResolvedValue({ app_title: "Turbo EA" }),
+  },
 }));
 
 import { auth } from "@/api/client";
