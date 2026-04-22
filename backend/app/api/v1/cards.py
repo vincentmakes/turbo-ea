@@ -32,6 +32,7 @@ from app.schemas.card import (
 )
 from app.services import notification_service
 from app.services.calculation_engine import run_calculations_for_card
+from app.services.card_completeness import missing_mandatory
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -833,6 +834,18 @@ async def update_approval_status(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    # Gate: block approve when any mandatory relation / tag group is missing.
+    if action == "approve":
+        missing = await missing_mandatory(db, card)
+        if missing["relations"] or missing["tag_groups"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "approval_blocked_mandatory_missing",
+                    "missing_relations": missing["relations"],
+                    "missing_tag_groups": missing["tag_groups"],
+                },
+            )
     status_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
     card.approval_status = status_map[action]
     await event_bus.publish(

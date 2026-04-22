@@ -51,7 +51,11 @@ async def create_tag_group(
 ):
     await PermissionService.require_permission(db, user, "tags.manage")
     group = TagGroup(
-        name=body.name, description=body.description, mode=body.mode, mandatory=body.mandatory
+        name=body.name,
+        description=body.description,
+        mode=body.mode,
+        mandatory=body.mandatory,
+        restrict_to_types=body.restrict_to_types,
     )
     db.add(group)
     await db.commit()
@@ -80,6 +84,7 @@ async def update_tag_group(
         "description": group.description,
         "mode": group.mode,
         "mandatory": group.mandatory,
+        "restrict_to_types": group.restrict_to_types,
     }
 
 
