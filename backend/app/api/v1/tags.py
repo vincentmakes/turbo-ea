@@ -163,6 +163,23 @@ async def delete_tag(
     await db.commit()
 
 
+async def _require_can_tag_card(db: AsyncSession, user: User, card_uuid: uuid.UUID) -> None:
+    """Allow tagging a card if the user has `tags.manage` globally OR can
+    edit the card (via `inventory.edit` at the app level, or `card.edit`
+    through a stakeholder role)."""
+    if await PermissionService.check_permission(db, user, "tags.manage"):
+        return
+    if await PermissionService.check_permission(
+        db,
+        user,
+        "inventory.edit",
+        card_id=card_uuid,
+        card_permission="card.edit",
+    ):
+        return
+    raise HTTPException(status_code=403, detail="Insufficient permissions")
+
+
 @router.post("/cards/{card_id}/tags", status_code=201)
 async def assign_tags(
     card_id: str,
@@ -170,13 +187,7 @@ async def assign_tags(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(
-        db,
-        user,
-        "tags.manage",
-        card_id=uuid.UUID(card_id),
-        card_permission="card.edit",
-    )
+    await _require_can_tag_card(db, user, uuid.UUID(card_id))
     for tid in tag_ids:
         existing = await db.execute(
             select(CardTag).where(
@@ -197,13 +208,7 @@ async def remove_tag(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(
-        db,
-        user,
-        "tags.manage",
-        card_id=uuid.UUID(card_id),
-        card_permission="card.edit",
-    )
+    await _require_can_tag_card(db, user, uuid.UUID(card_id))
     result = await db.execute(
         select(CardTag).where(
             CardTag.card_id == uuid.UUID(card_id),
