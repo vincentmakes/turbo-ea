@@ -89,6 +89,7 @@ export default function TagPicker({
   const compactSx =
     size === "small"
       ? {
+          alignSelf: "flex-start",
           "& .MuiAutocomplete-inputRoot": {
             flexWrap: "wrap",
             gap: 0.5,
