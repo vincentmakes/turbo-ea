@@ -28,6 +28,7 @@ async def list_tag_groups(db: AsyncSession = Depends(get_db)):
             "description": g.description,
             "mode": g.mode,
             "mandatory": g.mandatory,
+            "restrict_to_types": g.restrict_to_types,
             "tags": [
                 {
                     "id": str(t.id),
@@ -169,7 +170,13 @@ async def assign_tags(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "tags.manage")
+    await PermissionService.require_permission(
+        db,
+        user,
+        "tags.manage",
+        card_id=uuid.UUID(card_id),
+        card_permission="card.edit",
+    )
     for tid in tag_ids:
         existing = await db.execute(
             select(CardTag).where(
@@ -190,7 +197,13 @@ async def remove_tag(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, user, "tags.manage")
+    await PermissionService.require_permission(
+        db,
+        user,
+        "tags.manage",
+        card_id=uuid.UUID(card_id),
+        card_permission="card.edit",
+    )
     result = await db.execute(
         select(CardTag).where(
             CardTag.card_id == uuid.UUID(card_id),

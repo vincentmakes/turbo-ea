@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Open full page",
   "dependencies.title": "Dependencies",
   "dependencies.empty": "No dependencies found for this card.",
-  "dependencies.error": "Failed to load dependencies."
+  "dependencies.error": "Failed to load dependencies.",
+  "sections.tags": "Tags",
+  "tags.noTagsYet": "No tags yet",
+  "tags.edit": "Edit tags",
+  "tags.pickerLabel": "Tags",
+  "tags.pickerPlaceholder": "Add tags…",
+  "tags.singleMode": "single",
+  "tags.ungrouped": "Ungrouped"
 }

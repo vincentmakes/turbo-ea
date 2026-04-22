@@ -219,5 +219,12 @@
   "sidePanel.openFullPage": "Ganze Seite öffnen",
   "dependencies.title": "Abhängigkeiten",
   "dependencies.empty": "Keine Abhängigkeiten für diese Karte gefunden.",
-  "dependencies.error": "Abhängigkeiten konnten nicht geladen werden."
+  "dependencies.error": "Abhängigkeiten konnten nicht geladen werden.",
+  "sections.tags": "Tags",
+  "tags.noTagsYet": "Noch keine Tags",
+  "tags.edit": "Tags bearbeiten",
+  "tags.pickerLabel": "Tags",
+  "tags.pickerPlaceholder": "Tags hinzufügen…",
+  "tags.singleMode": "einfach",
+  "tags.ungrouped": "Ohne Gruppe"
 }
