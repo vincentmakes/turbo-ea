@@ -251,6 +251,19 @@ export default function InventoryPage() {
     api.get<TagGroup[]>("/tag-groups").then(setTagGroups).catch(() => setTagGroups([]));
   }, []);
 
+  // User id → display name map for Created By / Modified By columns
+  const [userNameMap, setUserNameMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    api
+      .get<{ id: string; display_name: string }[]>("/users")
+      .then((users) => {
+        const map: Record<string, string> = {};
+        for (const u of users) map[u.id] = u.display_name;
+        setUserNameMap(map);
+      })
+      .catch(() => setUserNameMap({}));
+  }, []);
+
   // Dynamic column visibility: set of column keys the user has opted to show
   // Initialized from localStorage if available, otherwise defaults to all when type selected
   const [selectedColumns, setSelectedColumns] = useState<Set<string>>(() => {
@@ -908,15 +921,25 @@ export default function InventoryPage() {
           const visible = tags.slice(0, 3);
           const overflow = tags.length - visible.length;
           return (
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.25, alignItems: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 0.25,
+                rowGap: "2px",
+                alignItems: "center",
+                lineHeight: 1,
+              }}
+            >
               {visible.map((tag) => (
                 <Chip
                   key={tag.id}
                   label={tag.name}
                   size="small"
                   sx={{
-                    height: 20,
-                    fontSize: 12,
+                    height: 16,
+                    fontSize: 11,
+                    "& .MuiChip-label": { px: 0.75 },
                     ...(tag.color ? { bgcolor: tag.color, color: "#fff" } : {}),
                   }}
                 />
@@ -926,7 +949,7 @@ export default function InventoryPage() {
                   label={`+${overflow}`}
                   size="small"
                   variant="outlined"
-                  sx={{ height: 20, fontSize: 12 }}
+                  sx={{ height: 16, fontSize: 11, "& .MuiChip-label": { px: 0.75 } }}
                 />
               )}
             </Box>
@@ -1144,17 +1167,21 @@ export default function InventoryPage() {
         headerName: t("columns.createdBy"),
         width: 150,
         hide: !selectedColumns.has("meta_created_by"),
+        valueFormatter: (p: { value?: string }) =>
+          p.value ? userNameMap[p.value] ?? p.value : "",
       },
       {
         field: "updated_by",
         headerName: t("columns.updatedBy"),
         width: 150,
         hide: !selectedColumns.has("meta_updated_by"),
+        valueFormatter: (p: { value?: string }) =>
+          p.value ? userNameMap[p.value] ?? p.value : "",
       }
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, t]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, hierarchyPaths, filters.showArchived, selectedColumns, userNameMap, t]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
