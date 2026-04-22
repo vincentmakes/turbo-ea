@@ -168,5 +168,6 @@
   "import.errors.expectsBoolean": "Linha {{row}}: \"{{field}}\" espera verdadeiro/falso, recebido \"{{value}}\"",
   "import.errors.invalidSelectValue": "Linha {{row}}: valor inválido \"{{value}}\" para o campo \"{{field}}\" (válidos: {{valid}})",
   "import.errors.unknown": "Erro desconhecido",
-  "import.warnings.unrecognisedColumn": "A coluna \"{{column}}\" não é reconhecida e será ignorada"
+  "import.warnings.unrecognisedColumn": "A coluna \"{{column}}\" não é reconhecida e será ignorada",
+  "import.warnings.unknownTag": "Linha {{row}}: tag desconhecida «{{value}}» — ignorada"
 }

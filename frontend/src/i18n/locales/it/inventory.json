@@ -158,5 +158,6 @@
   "import.errors.expectsBoolean": "Riga {{row}}: \"{{field}}\" richiede true/false, ricevuto \"{{value}}\"",
   "import.errors.invalidSelectValue": "Riga {{row}}: valore non valido \"{{value}}\" per il campo \"{{field}}\" (validi: {{valid}})",
   "import.errors.unknown": "Errore sconosciuto",
-  "import.warnings.unrecognisedColumn": "La colonna \"{{column}}\" non \u00e8 riconosciuta e verr\u00e0 ignorata"
+  "import.warnings.unrecognisedColumn": "La colonna \"{{column}}\" non \u00e8 riconosciuta e verr\u00e0 ignorata",
+  "import.warnings.unknownTag": "Riga {{row}}: tag sconosciuto «{{value}}» — ignorato"
 }

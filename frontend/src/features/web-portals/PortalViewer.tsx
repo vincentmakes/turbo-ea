@@ -254,6 +254,7 @@ export default function PortalViewer() {
   const [subtype, setSubtype] = useState("");
   const [attrFilters, setAttrFilters] = useState<Record<string, string>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string>>({});
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [relationOptions, setRelationOptions] = useState<Record<string, { id: string; name: string }[]>>({});
   const [sortBy, setSortBy] = useState("name");
   const [sortDir, setSortDir] = useState("asc");
@@ -330,6 +331,9 @@ export default function PortalViewer() {
       if (Object.keys(activeRelFilters).length > 0) {
         params.set("relation_filters", JSON.stringify(activeRelFilters));
       }
+      if (tagFilter.length > 0) {
+        params.set("tag_ids", tagFilter.join(","));
+      }
       params.set("page", String(page));
       params.set("page_size", String(pageSize));
       params.set("sort_by", sortBy);
@@ -344,7 +348,7 @@ export default function PortalViewer() {
     } finally {
       setFsLoading(false);
     }
-  }, [slug, search, subtype, attrFilters, relationFilters, page, pageSize, sortBy, sortDir]);
+  }, [slug, search, subtype, attrFilters, relationFilters, tagFilter, page, pageSize, sortBy, sortDir]);
 
   useEffect(() => {
     if (portal) loadCards();
@@ -388,7 +392,8 @@ export default function PortalViewer() {
   const hasActiveFilters =
     subtype !== "" ||
     Object.values(attrFilters).some((v) => v !== "") ||
-    Object.values(relationFilters).some((v) => v !== "");
+    Object.values(relationFilters).some((v) => v !== "") ||
+    tagFilter.length > 0;
 
   if (loading) {
     return (
@@ -675,6 +680,51 @@ export default function PortalViewer() {
               );
             })}
 
+            {(portal.tag_groups || []).map((group) => {
+              if (!group.tags || group.tags.length === 0) return null;
+              const groupIds = new Set(group.tags.map((tg) => tg.id));
+              const selectedForGroup = tagFilter.filter((id) => groupIds.has(id));
+              return (
+                <TextField
+                  key={group.id}
+                  select
+                  size="small"
+                  label={group.name}
+                  value={selectedForGroup[0] || ""}
+                  onChange={(e) => {
+                    const next = tagFilter.filter((id) => !groupIds.has(id));
+                    if (e.target.value) next.push(e.target.value);
+                    setTagFilter(next);
+                    setPage(1);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: 200 }}
+                >
+                  <MenuItem value="">
+                    {t("portal.allTagGroup", { label: group.name })}
+                  </MenuItem>
+                  {group.tags.map((tg) => (
+                    <MenuItem key={tg.id} value={tg.id}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        {tg.color && (
+                          <Box
+                            sx={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: "50%",
+                              bgcolor: tg.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        {tg.name}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </TextField>
+              );
+            })}
+
             {hasActiveFilters && (
               <Chip
                 label={t("portal.clearFilters")}
@@ -683,6 +733,7 @@ export default function PortalViewer() {
                   setSubtype("");
                   setAttrFilters({});
                   setRelationFilters({});
+                  setTagFilter([]);
                   setPage(1);
                 }}
               />

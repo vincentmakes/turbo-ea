@@ -158,5 +158,6 @@
   "import.errors.expectsBoolean": "第 {{row}} 行：\"{{field}}\" 需要 true/false，得到 \"{{value}}\"",
   "import.errors.invalidSelectValue": "第 {{row}} 行：字段 \"{{field}}\" 的值 \"{{value}}\" 无效（有效值：{{valid}}）",
   "import.errors.unknown": "未知错误",
-  "import.warnings.unrecognisedColumn": "列 \"{{column}}\" 未被识别，将被忽略"
+  "import.warnings.unrecognisedColumn": "列 \"{{column}}\" 未被识别，将被忽略",
+  "import.warnings.unknownTag": "第 {{row}} 行：未知标签「{{value}}」— 已忽略"
 }

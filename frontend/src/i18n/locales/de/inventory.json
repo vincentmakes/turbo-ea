@@ -158,5 +158,6 @@
   "import.errors.expectsBoolean": "Zeile {{row}}: \"{{field}}\" erwartet true/false, erhalten \"{{value}}\"",
   "import.errors.invalidSelectValue": "Zeile {{row}}: ungültiger Wert \"{{value}}\" für Feld \"{{field}}\" (gültig: {{valid}})",
   "import.errors.unknown": "Unbekannter Fehler",
-  "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert"
+  "import.warnings.unrecognisedColumn": "Spalte \"{{column}}\" wird nicht erkannt und ignoriert",
+  "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert"
 }

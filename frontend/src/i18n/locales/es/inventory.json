@@ -168,5 +168,6 @@
   "import.errors.expectsBoolean": "Fila {{row}}: \"{{field}}\" espera verdadero/falso, se recibi\u00f3 \"{{value}}\"",
   "import.errors.invalidSelectValue": "Fila {{row}}: valor inv\u00e1lido \"{{value}}\" para el campo \"{{field}}\" (v\u00e1lidos: {{valid}})",
   "import.errors.unknown": "Error desconocido",
-  "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada"
+  "import.warnings.unrecognisedColumn": "La columna \"{{column}}\" no se reconoce y ser\u00e1 ignorada",
+  "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada"
 }

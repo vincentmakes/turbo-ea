@@ -168,5 +168,6 @@
   "import.errors.expectsBoolean": "Ligne {{row}} : \u00ab {{field}} \u00bb attend true/false, re\u00e7u \u00ab {{value}} \u00bb",
   "import.errors.invalidSelectValue": "Ligne {{row}} : valeur invalide \u00ab {{value}} \u00bb pour le champ \u00ab {{field}} \u00bb (valides : {{valid}})",
   "import.errors.unknown": "Erreur inconnue",
-  "import.warnings.unrecognisedColumn": "La colonne \u00ab {{column}} \u00bb n\u2019est pas reconnue et sera ignor\u00e9e"
+  "import.warnings.unrecognisedColumn": "La colonne \u00ab {{column}} \u00bb n\u2019est pas reconnue et sera ignor\u00e9e",
+  "import.warnings.unknownTag": "Ligne {{row}} : tag inconnu « {{value}} » — ignoré"
 }

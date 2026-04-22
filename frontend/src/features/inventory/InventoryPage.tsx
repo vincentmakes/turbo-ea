@@ -1565,6 +1565,7 @@ export default function InventoryPage() {
         existingCards={data}
         allTypes={types}
         preSelectedType={selectedType || undefined}
+        tagGroups={tagGroups}
       />
 
       {relEditRelType && (

@@ -158,5 +158,6 @@
   "import.errors.expectsBoolean": "Строка {{row}}: «{{field}}» ожидает true/false, получено «{{value}}»",
   "import.errors.invalidSelectValue": "Строка {{row}}: некорректное значение «{{value}}» для поля «{{field}}» (допустимые: {{valid}})",
   "import.errors.unknown": "Неизвестная ошибка",
-  "import.warnings.unrecognisedColumn": "Столбец «{{column}}» не распознан и будет проигнорирован"
+  "import.warnings.unrecognisedColumn": "Столбец «{{column}}» не распознан и будет проигнорирован",
+  "import.warnings.unknownTag": "Строка {{row}}: неизвестный тег «{{value}}» — проигнорирован"
 }
