@@ -244,9 +244,14 @@ async def update_app_title(
 
     row = await _get_or_create_row(db)
     general = dict(row.general_settings or {})
-    general["app_title"] = body.app_title.strip()
+    trimmed = body.app_title.strip()
+    general["app_title"] = trimmed
     row.general_settings = general
     await db.commit()
+
+    # Mirror to the runtime config so email templates pick up the change
+    # without having to query the DB on every send.
+    app_config.APP_TITLE = trimmed or DEFAULT_APP_TITLE
 
     return {"ok": True}
 

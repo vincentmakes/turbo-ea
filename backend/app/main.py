@@ -382,6 +382,12 @@ async def lifespan(app: FastAPI):
                 settings.SMTP_TLS = bool(_email["smtp_tls"])
             if _email.get("app_base_url"):
                 settings._app_base_url = _email["app_base_url"]
+        # Seed the app title from the general_settings JSONB so email templates
+        # and any other consumers can read it off the singleton without a DB query.
+        if _row and _row.general_settings:
+            _title = (_row.general_settings.get("app_title") or "").strip()
+            if _title:
+                settings.APP_TITLE = _title
 
     logger.info("[startup] Email settings loaded, seeding metamodel...")
     # Seed default metamodel

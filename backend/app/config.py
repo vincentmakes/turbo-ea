@@ -52,6 +52,10 @@ class Settings:
     SMTP_FROM: str = os.getenv("SMTP_FROM", "noreply@turboea.local")
     SMTP_TLS: bool = os.getenv("SMTP_TLS", "true").lower() in ("1", "true", "yes")
 
+    # Display name shown in the navbar, browser tab, and outgoing emails.
+    # Seeded from the DB on startup and updated when the admin changes it.
+    APP_TITLE: str = "Turbo EA"
+
     # AI / LLM (optional — disabled by default)
     AI_PROVIDER_URL: str = os.getenv("AI_PROVIDER_URL", "")
     AI_MODEL: str = os.getenv("AI_MODEL", "")

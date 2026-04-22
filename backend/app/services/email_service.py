@@ -12,29 +12,17 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from sqlalchemy import select
-
 from app.config import settings
-from app.database import async_session
-from app.models.app_settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_APP_TITLE = "Turbo EA"
 
 
-async def _get_app_title() -> str:
-    """Fetch the configured app title from the DB, or fall back to the default."""
-    try:
-        async with async_session() as db:
-            result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-            row = result.scalar_one_or_none()
-            general = (row.general_settings if row else None) or {}
-            title = (general.get("app_title") or "").strip()
-            return title or DEFAULT_APP_TITLE
-    except Exception:
-        logger.exception("Failed to load app_title from settings; using default")
-        return DEFAULT_APP_TITLE
+def _get_app_title() -> str:
+    """Return the configured app title from the runtime config, or the default."""
+    title = (getattr(settings, "APP_TITLE", "") or "").strip()
+    return title or DEFAULT_APP_TITLE
 
 
 def _is_configured() -> bool:
@@ -105,7 +93,7 @@ async def send_notification_email(
     base_url = getattr(settings, "_app_base_url", "") or "http://localhost:8920"
     full_link = f"{base_url}{link}" if link else ""
 
-    app_title = html.escape(await _get_app_title())
+    app_title = html.escape(_get_app_title())
 
     link_html = ""
     if full_link:

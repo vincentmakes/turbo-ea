@@ -38,6 +38,7 @@ class TestSendEmail:
             mock_settings.SMTP_USER = "user"
             mock_settings.SMTP_PASSWORD = "pass"
             mock_settings.SMTP_FROM = "noreply@example.com"
+            mock_settings.APP_TITLE = "Turbo EA"
 
             result = await send_email(
                 "user@example.com",
@@ -69,6 +70,7 @@ class TestSendEmail:
             mock_settings.SMTP_USER = ""
             mock_settings.SMTP_PASSWORD = ""
             mock_settings.SMTP_FROM = "noreply@example.com"
+            mock_settings.APP_TITLE = "Turbo EA"
 
             await send_email(
                 "user@example.com",
@@ -119,6 +121,7 @@ class TestSendNotificationEmail:
             mock_settings.SMTP_USER = ""
             mock_settings.SMTP_PASSWORD = ""
             mock_settings.SMTP_FROM = "noreply@example.com"
+            mock_settings.APP_TITLE = "Turbo EA"
 
             result = await send_notification_email(
                 to="user@example.com",
@@ -153,6 +156,7 @@ class TestSendNotificationEmail:
             mock_settings.SMTP_USER = ""
             mock_settings.SMTP_PASSWORD = ""
             mock_settings.SMTP_FROM = "noreply@example.com"
+            mock_settings.APP_TITLE = "Turbo EA"
 
             await send_notification_email(
                 to="user@example.com",
