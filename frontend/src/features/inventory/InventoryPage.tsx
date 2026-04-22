@@ -393,12 +393,8 @@ export default function InventoryPage() {
         rt.source_type_key === selectedType ? rt.target_type_key : rt.source_type_key;
       cols.add(`rel_${otherKey}`);
     }
-    // Tags column is visible by default whenever any tag groups exist
-    if (tagGroups.length > 0) {
-      cols.add("tags");
-    }
     return cols;
-  }, [typeConfig, commonFields, relevantRelTypes, selectedType, tagGroups]);
+  }, [typeConfig, commonFields, relevantRelTypes, selectedType]);
 
   // Auto-populate columns with all-checked defaults when type changes (and not yet initialized)
   useEffect(() => {
@@ -905,7 +901,6 @@ export default function InventoryPage() {
         field: "tags",
         headerName: t("columns.tags"),
         width: 200,
-        hide: !selectedColumns.has("tags"),
         sortable: false,
         cellRenderer: (p: { value: TagRef[] }) => {
           const tags = p.value || [];

@@ -247,10 +247,13 @@ async def get_public_portal(
             }
         )
 
-    # Fetch available tag groups
+    # Fetch tag groups applicable to this portal's card type (honour
+    # `restrict_to_types`) so the filter bar only offers relevant groups.
     tag_groups_result = await db.execute(select(TagGroup).order_by(TagGroup.name))
     tag_groups = []
     for tg in tag_groups_result.scalars().all():
+        if tg.restrict_to_types and portal.card_type not in tg.restrict_to_types:
+            continue
         tags_result = await db.execute(
             select(Tag).where(Tag.tag_group_id == tg.id).order_by(Tag.name)
         )
@@ -308,6 +311,14 @@ async def get_public_portal_relation_options(
         visible_q = visible_q.where(Card.subtype.in_(portal_filters["subtypes"]))
     if portal_filters.get("approval_statuses"):
         visible_q = visible_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+    preset_tag_ids = portal_filters.get("tag_ids") or []
+    if preset_tag_ids:
+        try:
+            preset_uuids = [uuid.UUID(str(tid)) for tid in preset_tag_ids]
+            preset_cards = select(CardTag.card_id).where(CardTag.tag_id.in_(preset_uuids))
+            visible_q = visible_q.where(Card.id.in_(preset_cards))
+        except ValueError:
+            pass
 
     # Only return cards of type_key that are related to a portal-visible card
     related_ids = (
@@ -369,6 +380,16 @@ async def get_public_portal_cards(
     if portal_filters.get("approval_statuses"):
         q = q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
         count_q = count_q.where(Card.approval_status.in_(portal_filters["approval_statuses"]))
+    preset_tag_ids = portal_filters.get("tag_ids") or []
+    if preset_tag_ids:
+        try:
+            preset_uuids = [uuid.UUID(str(tid)) for tid in preset_tag_ids]
+            preset_cards = select(CardTag.card_id).where(CardTag.tag_id.in_(preset_uuids))
+            q = q.where(Card.id.in_(preset_cards))
+            count_q = count_q.where(Card.id.in_(preset_cards))
+        except ValueError:
+            # Malformed preset — ignore rather than 500 on a public endpoint
+            pass
 
     # Apply user-supplied search
     if search:
