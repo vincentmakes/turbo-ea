@@ -1301,6 +1301,7 @@ export default function InventoryPage() {
           onWidthChange={setSidebarWidth}
           relevantRelTypes={relevantRelTypes}
           relationsMap={relationsMap}
+          tagGroups={tagGroups}
           canArchive={canArchive}
           canShareBookmarks={canShareBookmarks}
           canOdataBookmarks={canOdataBookmarks}
