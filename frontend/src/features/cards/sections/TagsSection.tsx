@@ -11,22 +11,11 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
-import Autocomplete from "@mui/material/Autocomplete";
-import TextField from "@mui/material/TextField";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import TagPicker from "@/components/TagPicker";
 import { api } from "@/api/client";
 import type { Card, TagGroup, TagRef } from "@/types";
-
-interface TagOption {
-  id: string;
-  name: string;
-  color?: string;
-  group_id: string;
-  group_name: string;
-  group_mode: string;
-  group_mandatory: boolean;
-}
 
 interface Props {
   card: Card;
@@ -51,7 +40,6 @@ export default function TagsSection({
     api.get<TagGroup[]>("/tag-groups").then(setGroups).catch(() => {});
   }, []);
 
-  // Filter groups to those applicable to this card type
   const applicableGroups = useMemo(
     () =>
       groups.filter(
@@ -63,23 +51,6 @@ export default function TagsSection({
     [groups, card.type],
   );
 
-  const allOptions: TagOption[] = useMemo(
-    () =>
-      applicableGroups.flatMap((g) =>
-        g.tags.map((tg) => ({
-          id: tg.id,
-          name: tg.name,
-          color: tg.color,
-          group_id: g.id,
-          group_name: g.name,
-          group_mode: g.mode,
-          group_mandatory: g.mandatory,
-        })),
-      ),
-    [applicableGroups],
-  );
-
-  // Group current tags by group_name for display
   const grouped = useMemo(() => {
     const by: Record<string, TagRef[]> = {};
     for (const tag of card.tags) {
@@ -97,7 +68,7 @@ export default function TagsSection({
   const save = async () => {
     setSaving(true);
     try {
-      const oldIds = new Set(card.tags.map((tg) => tg.id));
+      const oldIds = new Set(card.tags.map((tag) => tag.id));
       const newIds = new Set(draftIds);
       const toAdd = [...newIds].filter((id) => !oldIds.has(id));
       const toRemove = [...oldIds].filter((id) => !newIds.has(id));
@@ -113,26 +84,6 @@ export default function TagsSection({
       setSaving(false);
     }
   };
-
-  // Enforce single-mode: when a tag from a single-mode group is added,
-  // drop any previously selected tag from the same group.
-  const handlePickerChange = (next: TagOption[]) => {
-    const nextIds: string[] = [];
-    const singleModeGroupsSeen = new Map<string, string>(); // group_id -> kept tag id
-    // Walk the new selection; if two tags share a single-mode group, keep the
-    // later one (the one the user just clicked).
-    for (const opt of next) {
-      if (opt.group_mode === "single") {
-        singleModeGroupsSeen.set(opt.group_id, opt.id);
-      } else {
-        nextIds.push(opt.id);
-      }
-    }
-    nextIds.push(...singleModeGroupsSeen.values());
-    setDraftIds(nextIds);
-  };
-
-  const currentOptions = allOptions.filter((o) => draftIds.includes(o.id));
 
   return (
     <Accordion defaultExpanded={initialExpanded} sx={{ mb: 2 }}>
@@ -164,12 +115,12 @@ export default function TagsSection({
                     {groupName}
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                    {tags.map((tg) => (
+                    {tags.map((tag) => (
                       <Chip
-                        key={tg.id}
-                        label={tg.name}
+                        key={tag.id}
+                        label={tag.name}
                         size="small"
-                        sx={tg.color ? { bgcolor: tg.color, color: "#fff" } : {}}
+                        sx={tag.color ? { bgcolor: tag.color, color: "#fff" } : {}}
                       />
                     ))}
                   </Box>
@@ -193,54 +144,14 @@ export default function TagsSection({
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t("tags.edit")}</DialogTitle>
         <DialogContent>
-          <Autocomplete
-            multiple
-            options={allOptions}
-            value={currentOptions}
-            onChange={(_, next) => handlePickerChange(next as TagOption[])}
-            groupBy={(o) => `${o.group_name}${o.group_mode === "single" ? ` · ${t("tags.singleMode")}` : ""}`}
-            getOptionLabel={(o) => o.name}
-            isOptionEqualToValue={(a, b) => a.id === b.id}
-            renderOption={(props, option) => (
-              <li {...props} key={option.id}>
-                {option.color && (
-                  <Box
-                    sx={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      bgcolor: option.color,
-                      mr: 1,
-                      flexShrink: 0,
-                    }}
-                  />
-                )}
-                {option.name}
-              </li>
-            )}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => {
-                const { key, ...chipProps } = getTagProps({ index });
-                return (
-                  <Chip
-                    key={key}
-                    label={`${option.group_name}: ${option.name}`}
-                    size="small"
-                    sx={option.color ? { bgcolor: option.color, color: "#fff" } : {}}
-                    {...chipProps}
-                  />
-                );
-              })
-            }
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label={t("tags.pickerLabel")}
-                placeholder={t("tags.pickerPlaceholder")}
-                sx={{ mt: 1 }}
-              />
-            )}
-          />
+          <Box sx={{ mt: 1 }}>
+            <TagPicker
+              groups={groups}
+              value={draftIds}
+              onChange={setDraftIds}
+              typeKey={card.type}
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditOpen(false)} disabled={saving}>
