@@ -93,6 +93,7 @@ class TagGroupCreate(BaseModel):
     description: str | None = None
     mode: str = "multi"
     mandatory: bool = False
+    restrict_to_types: list[str] | None = None
 
 
 class TagCreate(BaseModel):
@@ -105,6 +106,7 @@ class TagGroupUpdate(BaseModel):
     description: str | None = None
     mode: str | None = None
     mandatory: bool | None = None
+    restrict_to_types: list[str] | None = None
 
 
 class TagUpdate(BaseModel):

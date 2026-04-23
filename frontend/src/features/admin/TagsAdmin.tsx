@@ -17,9 +17,13 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
 import Chip from "@mui/material/Chip";
+import Tooltip from "@mui/material/Tooltip";
+import Autocomplete from "@mui/material/Autocomplete";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
-import type { Tag, TagGroup } from "@/types";
+import type { CardType, Tag, TagGroup } from "@/types";
 
 type DeleteTarget =
   | { kind: "group"; id: string; name: string }
@@ -27,6 +31,13 @@ type DeleteTarget =
 
 export default function TagsAdmin() {
   const { t } = useTranslation(["admin", "common"]);
+  const { types } = useMetamodel();
+  const rml = useResolveMetaLabel();
+  const visibleTypes = types.filter((tp) => !tp.is_hidden);
+  const labelForType = (key: string) => {
+    const tp = types.find((x) => x.key === key);
+    return tp ? rml(tp.key, tp.translations, "label") : key;
+  };
   const [groups, setGroups] = useState<TagGroup[]>([]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -35,11 +46,18 @@ export default function TagsAdmin() {
   const [tagColor, setTagColor] = useState("#1976d2");
 
   const [editGroup, setEditGroup] = useState<TagGroup | null>(null);
-  const [editGroupDraft, setEditGroupDraft] = useState({
+  const [editGroupDraft, setEditGroupDraft] = useState<{
+    name: string;
+    description: string;
+    mode: string;
+    mandatory: boolean;
+    restrict_to_types: string[];
+  }>({
     name: "",
     description: "",
     mode: "multi",
     mandatory: false,
+    restrict_to_types: [],
   });
   const [editTag, setEditTag] = useState<Tag | null>(null);
   const [editTagDraft, setEditTagDraft] = useState({ name: "", color: "#1976d2" });
@@ -73,12 +91,23 @@ export default function TagsAdmin() {
       description: g.description ?? "",
       mode: g.mode,
       mandatory: g.mandatory,
+      restrict_to_types: g.restrict_to_types ?? [],
     });
   };
 
   const updateGroup = async () => {
     if (!editGroup) return;
-    await api.patch(`/tag-groups/${editGroup.id}`, editGroupDraft);
+    // Send `null` when the user cleared all selections so the backend
+    // treats the group as applicable to every card type (not an empty
+    // allowlist that would lock it to none).
+    const payload = {
+      ...editGroupDraft,
+      restrict_to_types:
+        editGroupDraft.restrict_to_types.length > 0
+          ? editGroupDraft.restrict_to_types
+          : null,
+    };
+    await api.patch(`/tag-groups/${editGroup.id}`, payload);
     setEditGroup(null);
     load();
   };
@@ -123,6 +152,25 @@ export default function TagsAdmin() {
               <Typography variant="subtitle1" fontWeight={600}>{g.name}</Typography>
               <Chip size="small" label={g.mode} variant="outlined" />
               {g.mandatory && <Chip size="small" label={t("tags.mandatory")} color="primary" variant="outlined" />}
+              {g.restrict_to_types && g.restrict_to_types.length > 0 && (() => {
+                const typeLabels = g.restrict_to_types.map(labelForType);
+                const preview = typeLabels.slice(0, 2).join(", ");
+                const overflow = typeLabels.length - 2;
+                const display = overflow > 0
+                  ? t("tags.restrictedToLabelMore", { preview, count: overflow })
+                  : t("tags.restrictedToLabel", { types: preview });
+                return (
+                  <Tooltip title={typeLabels.join(", ")}>
+                    <Chip
+                      size="small"
+                      label={display}
+                      variant="outlined"
+                      icon={<MaterialSymbol icon="filter_alt" size={14} />}
+                      sx={{ maxWidth: 260 }}
+                    />
+                  </Tooltip>
+                );
+              })()}
               <Box sx={{ flex: 1 }} />
               <Button size="small" onClick={() => setAddTagGroupId(g.id)}>{t("tags.addTag")}</Button>
               <IconButton size="small" aria-label={t("tags.editGroup")} title={t("tags.editGroup")} onClick={() => openEditGroup(g)}>
@@ -201,6 +249,49 @@ export default function TagsAdmin() {
             <MenuItem value="single">{t("tags.modeSingle")}</MenuItem>
             <MenuItem value="multi">{t("tags.modeMulti")}</MenuItem>
           </TextField>
+          <Autocomplete<CardType, true>
+            multiple
+            options={visibleTypes}
+            value={visibleTypes.filter((tp) => editGroupDraft.restrict_to_types.includes(tp.key))}
+            onChange={(_, next) =>
+              setEditGroupDraft((d) => ({
+                ...d,
+                restrict_to_types: next.map((tp) => tp.key),
+              }))
+            }
+            getOptionLabel={(tp) => rml(tp.key, tp.translations, "label")}
+            isOptionEqualToValue={(a, b) => a.key === b.key}
+            renderOption={(props, option) => (
+              <li {...props} key={option.key}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <MaterialSymbol icon={option.icon} size={18} color={option.color} />
+                  {rml(option.key, option.translations, "label")}
+                </Box>
+              </li>
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => {
+                const { key, ...chipProps } = getTagProps({ index });
+                return (
+                  <Chip
+                    key={key}
+                    size="small"
+                    label={rml(option.key, option.translations, "label")}
+                    icon={<MaterialSymbol icon={option.icon} size={14} color={option.color} />}
+                    {...chipProps}
+                  />
+                );
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("tags.restrictToTypes")}
+                helperText={t("tags.restrictToTypesHelper")}
+              />
+            )}
+            sx={{ mb: 2 }}
+          />
           <FormControlLabel
             control={
               <Switch

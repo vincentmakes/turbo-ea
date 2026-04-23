@@ -25,7 +25,7 @@ import LifecycleBadge from "@/components/LifecycleBadge";
 import AiSuggestPanel, { type AiApplyPayload } from "@/components/AiSuggestPanel";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import { DataQualityRing } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
 import type {
@@ -82,6 +82,10 @@ export default function CardDetail() {
   const [aiResponse, setAiResponse] = useState<AiSuggestResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [approvalBlock, setApprovalBlock] = useState<{
+    missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
+    missing_tag_groups: { id: string; name: string }[];
+  } | null>(null);
 
   // Fetch effective permissions for this card
   useEffect(() => {
@@ -160,14 +164,36 @@ export default function CardDetail() {
   const typeConfig = getType(card.type);
 
   const handleApprovalAction = async (action: "approve" | "reject" | "reset") => {
-    await api.post(`/cards/${card.id}/approval-status?action=${action}`);
-    const newStatus =
-      action === "approve"
-        ? "APPROVED"
-        : action === "reject"
-          ? "REJECTED"
-          : "DRAFT";
-    setCard({ ...card, approval_status: newStatus });
+    try {
+      await api.post(`/cards/${card.id}/approval-status?action=${action}`);
+      const newStatus =
+        action === "approve"
+          ? "APPROVED"
+          : action === "reject"
+            ? "REJECTED"
+            : "DRAFT";
+      setCard({ ...card, approval_status: newStatus });
+      setApprovalBlock(null);
+    } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 400 &&
+        typeof err.detail === "object" &&
+        err.detail !== null &&
+        (err.detail as { code?: string }).code === "approval_blocked_mandatory_missing"
+      ) {
+        const detail = err.detail as {
+          missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
+          missing_tag_groups: { id: string; name: string }[];
+        };
+        setApprovalBlock({
+          missing_relations: detail.missing_relations,
+          missing_tag_groups: detail.missing_tag_groups,
+        });
+        return;
+      }
+      throw err;
+    }
   };
 
   // ── Archive / Restore / Delete ───────────────────────────────
@@ -389,6 +415,31 @@ export default function CardDetail() {
                 }
               >
                 {t("detail.archivedBanner")}{daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
+              </Alert>
+            )}
+
+            {/* Approval blocked: missing mandatory items */}
+            {approvalBlock && (approvalBlock.missing_relations.length > 0 || approvalBlock.missing_tag_groups.length > 0) && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                onClose={() => setApprovalBlock(null)}
+              >
+                <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600 }}>
+                  {t("approval.blockedTitle")}
+                </Typography>
+                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                  {approvalBlock.missing_relations.map((r) => (
+                    <li key={`rel-${r.key}-${r.side}`}>
+                      {t("approval.missingRelation", { label: r.label, otherType: r.other_type_key })}
+                    </li>
+                  ))}
+                  {approvalBlock.missing_tag_groups.map((g) => (
+                    <li key={`tag-${g.id}`}>
+                      {t("approval.missingTagGroup", { name: g.name })}
+                    </li>
+                  ))}
+                </Box>
               </Alert>
             )}
 

@@ -32,6 +32,7 @@ from app.schemas.card import (
 )
 from app.services import notification_service
 from app.services.calculation_engine import run_calculations_for_card
+from app.services.card_completeness import missing_mandatory
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
 
@@ -130,6 +131,13 @@ async def _calc_data_quality(db: AsyncSession, card: Card) -> float:
     lc = card.lifecycle or {}
     if any(lc.get(p) for p in ("plan", "phaseIn", "active", "phaseOut", "endOfLife")):
         filled_weight += 1
+
+    # Each applicable mandatory relation side and each applicable mandatory
+    # tag group contributes +1 to total, +1 to filled only when satisfied.
+    state = await missing_mandatory(db, card)
+    total_weight += state["relations_applicable"] + state["tag_groups_applicable"]
+    filled_weight += state["relations_applicable"] - len(state["relations"])
+    filled_weight += state["tag_groups_applicable"] - len(state["tag_groups"])
 
     if total_weight == 0:
         return 0.0
@@ -833,6 +841,18 @@ async def update_approval_status(
     card = result.scalar_one_or_none()
     if not card:
         raise HTTPException(404, "Card not found")
+    # Gate: block approve when any mandatory relation / tag group is missing.
+    if action == "approve":
+        missing = await missing_mandatory(db, card)
+        if missing["relations"] or missing["tag_groups"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "approval_blocked_mandatory_missing",
+                    "missing_relations": missing["relations"],
+                    "missing_tag_groups": missing["tag_groups"],
+                },
+            )
     status_map = {"approve": "APPROVED", "reject": "REJECTED", "reset": "DRAFT"}
     card.approval_status = status_map[action]
     await event_bus.publish(

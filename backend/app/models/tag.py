@@ -16,7 +16,6 @@ class TagGroup(Base, UUIDMixin):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     mode: Mapped[str] = mapped_column(String(20), default="multi")  # single/multi
-    create_mode: Mapped[str] = mapped_column(String(20), default="open")  # open/restricted
     restrict_to_types: Mapped[list | None] = mapped_column(
         JSONB
     )  # list of card type keys, null=all

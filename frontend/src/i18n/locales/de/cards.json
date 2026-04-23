@@ -221,10 +221,14 @@
   "dependencies.empty": "Keine Abhängigkeiten für diese Karte gefunden.",
   "dependencies.error": "Abhängigkeiten konnten nicht geladen werden.",
   "sections.tags": "Tags",
+  "approval.blockedTitle": "Kann nicht genehmigt werden — Pflichteinträge fehlen",
+  "approval.missingRelation": "Beziehung: {{label}} ({{otherType}})",
+  "approval.missingTagGroup": "Tag-Gruppe: {{name}}",
   "tags.noTagsYet": "Noch keine Tags",
   "tags.edit": "Tags bearbeiten",
   "tags.pickerLabel": "Tags",
   "tags.pickerPlaceholder": "Tags hinzufügen…",
   "tags.singleMode": "einfach",
+  "tags.mandatoryHint": "Mindestens ein Tag aus dieser Gruppe ist vor der Genehmigung erforderlich",
   "tags.ungrouped": "Ohne Gruppe"
 }

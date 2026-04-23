@@ -221,10 +221,14 @@
   "dependencies.empty": "Nenhuma dependência encontrada para este cartão.",
   "dependencies.error": "Falha ao carregar as dependências.",
   "sections.tags": "Tags",
+  "approval.blockedTitle": "Não é possível aprovar — itens obrigatórios em falta",
+  "approval.missingRelation": "Relação: {{label}} ({{otherType}})",
+  "approval.missingTagGroup": "Grupo de tags: {{name}}",
   "tags.noTagsYet": "Ainda sem tags",
   "tags.edit": "Editar tags",
   "tags.pickerLabel": "Tags",
   "tags.pickerPlaceholder": "Adicionar tags…",
   "tags.singleMode": "único",
+  "tags.mandatoryHint": "É necessário pelo menos uma tag deste grupo antes da aprovação",
   "tags.ungrouped": "Sem grupo"
 }

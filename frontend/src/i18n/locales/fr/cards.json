@@ -221,10 +221,14 @@
   "dependencies.empty": "Aucune dépendance trouvée pour cette carte.",
   "dependencies.error": "Échec du chargement des dépendances.",
   "sections.tags": "Tags",
+  "approval.blockedTitle": "Approbation impossible — éléments obligatoires manquants",
+  "approval.missingRelation": "Relation : {{label}} ({{otherType}})",
+  "approval.missingTagGroup": "Groupe de tags : {{name}}",
   "tags.noTagsYet": "Aucun tag pour l'instant",
   "tags.edit": "Modifier les tags",
   "tags.pickerLabel": "Tags",
   "tags.pickerPlaceholder": "Ajouter des tags…",
   "tags.singleMode": "unique",
+  "tags.mandatoryHint": "Au moins un tag de ce groupe est obligatoire avant l'approbation",
   "tags.ungrouped": "Sans groupe"
 }

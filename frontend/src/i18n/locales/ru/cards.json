@@ -221,10 +221,14 @@
   "dependencies.empty": "Зависимости для этой карточки не найдены.",
   "dependencies.error": "Не удалось загрузить зависимости.",
   "sections.tags": "Теги",
+  "approval.blockedTitle": "Невозможно одобрить — отсутствуют обязательные элементы",
+  "approval.missingRelation": "Связь: {{label}} ({{otherType}})",
+  "approval.missingTagGroup": "Группа тегов: {{name}}",
   "tags.noTagsYet": "Пока нет тегов",
   "tags.edit": "Редактировать теги",
   "tags.pickerLabel": "Теги",
   "tags.pickerPlaceholder": "Добавить теги…",
   "tags.singleMode": "один",
+  "tags.mandatoryHint": "Перед одобрением требуется хотя бы один тег из этой группы",
   "tags.ungrouped": "Без группы"
 }
