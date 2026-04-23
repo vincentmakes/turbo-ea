@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.48.1] - 2026-04-23
+
+### Changed
+- Risk Register detail: the **Affected cards** picker now lives inside the **Identification** section (linking a card is part of identifying what the risk touches), and the inline card search fires on the first character typed instead of waiting for the second.
+
 ## [0.48.0] - 2026-04-22
 
 ### Added
