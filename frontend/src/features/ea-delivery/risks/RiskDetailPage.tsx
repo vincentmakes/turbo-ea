@@ -1,9 +1,9 @@
 /**
  * RiskDetailPage — full TOGAF-style edit view for a single risk.
  *
- * Three scrollable sections: Identification, Initial assessment,
- * Mitigation & residual. Plus an Affected cards panel and the status
- * stepper at the bottom. Every field patches the backend via
+ * Three scrollable sections: Identification (including the Affected
+ * cards picker), Initial assessment, Mitigation & residual. Plus the
+ * status stepper at the bottom. Every field patches the backend via
  * PATCH /risks/{id} — the derived ``initial_level`` / ``residual_level``
  * chips refresh from the response.
  */
@@ -214,7 +214,7 @@ export default function RiskDetailPage() {
 
   // Minimal card search — hits the cards search endpoint and filters by type.
   useEffect(() => {
-    if (cardQuery.length < 2) {
+    if (cardQuery.length < 1) {
       setCardOptions([]);
       return;
     }
@@ -512,6 +512,59 @@ export default function RiskDetailPage() {
               )}
               sx={{ maxWidth: 420 }}
             />
+
+            <Box sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                fontWeight={600}
+                color="text.secondary"
+                sx={{ mb: 1 }}
+              >
+                {t("risks.section.cards")}
+              </Typography>
+              {risk.cards.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {t("risks.cards.none")}
+                </Typography>
+              ) : (
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  flexWrap="wrap"
+                  useFlexGap
+                  sx={{ mb: 1 }}
+                >
+                  {risk.cards.map((c) => (
+                    <Chip
+                      key={c.card_id}
+                      clickable
+                      onClick={() => navigate(`/cards/${c.card_id}`)}
+                      label={`${c.card_name} · ${c.card_type}`}
+                      onDelete={isClosed ? undefined : () => unlinkCard(c.card_id)}
+                    />
+                  ))}
+                </Stack>
+              )}
+              <Autocomplete
+                size="small"
+                options={cardOptions}
+                getOptionLabel={(o) => `${o.name} (${o.type})`}
+                filterOptions={(x) => x}
+                inputValue={cardQuery}
+                onInputChange={(_, v) => setCardQuery(v)}
+                disabled={lockInput}
+                onChange={(_, value) => {
+                  if (value && "id" in value) {
+                    linkCard(value.id);
+                    setCardQuery("");
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField {...params} placeholder={t("risks.cards.linkPlaceholder")} />
+                )}
+                sx={{ maxWidth: 420 }}
+              />
+            </Box>
           </Stack>
         </Paper>
 
@@ -655,49 +708,6 @@ export default function RiskDetailPage() {
               </Box>
             </Stack>
           </Stack>
-        </Paper>
-
-        {/* Affected cards */}
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-            {t("risks.section.cards")}
-          </Typography>
-          {risk.cards.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {t("risks.cards.none")}
-            </Typography>
-          ) : (
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
-              {risk.cards.map((c) => (
-                <Chip
-                  key={c.card_id}
-                  clickable
-                  onClick={() => navigate(`/cards/${c.card_id}`)}
-                  label={`${c.card_name} · ${c.card_type}`}
-                  onDelete={isClosed ? undefined : () => unlinkCard(c.card_id)}
-                />
-              ))}
-            </Stack>
-          )}
-          <Autocomplete
-            size="small"
-            options={cardOptions}
-            getOptionLabel={(o) => `${o.name} (${o.type})`}
-            filterOptions={(x) => x}
-            inputValue={cardQuery}
-            onInputChange={(_, v) => setCardQuery(v)}
-            disabled={lockInput}
-            onChange={(_, value) => {
-              if (value && "id" in value) {
-                linkCard(value.id);
-                setCardQuery("");
-              }
-            }}
-            renderInput={(params) => (
-              <TextField {...params} placeholder={t("risks.cards.linkPlaceholder")} />
-            )}
-            sx={{ maxWidth: 420 }}
-          />
         </Paper>
 
         {/* Status workflow */}
