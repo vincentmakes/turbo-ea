@@ -48,7 +48,14 @@
 | **Subtyp-Vorlage** | Die Konfiguration, welche Felder für einen bestimmten Subtyp sichtbar oder ausgeblendet sind. Administratoren konfigurieren dies in der Metamodell-Verwaltung durch Klicken auf einen Subtyp-Chip |
 | **Stakeholder** | Eine Person mit einer bestimmten Rolle auf einer Karte (z.B. Anwendungseigner, Technischer Eigner) |
 | **Umfrage** | Ein Datenpflege-Fragebogen, der auf bestimmte Kartentypen abzielt, um Informationen von Stakeholdern zu sammeln |
-| **Tag / Tag-Gruppe** | Ein Klassifizierungslabel, organisiert in Gruppen mit Einfach- oder Mehrfachauswahlmodus |
+| **Tag / Tag-Gruppe** | Ein Klassifizierungslabel, organisiert in Gruppen mit Einfach- oder Mehrfachauswahlmodus, optionalen Typbeschränkungen und einem optionalen Pflicht-Flag, das die Freigabe blockiert und in den Datenqualitäts-Score einfliesst |
+| **Pflicht-Tag-Gruppe** | Eine als erforderlich markierte Tag-Gruppe. Anwendbare Karten können erst freigegeben werden, wenn mindestens ein Tag der Gruppe zugewiesen ist; ihre Erfüllung trägt zum Datenqualitäts-Score der Karte bei |
+| **CVE** | Common Vulnerabilities and Exposures — eine öffentliche Kennung für eine bekannte Software-Schwachstelle (z. B. `CVE-2024-12345`). TurboLens Sicherheit & Compliance schlägt CVEs pro Karte in der NIST NVD nach |
+| **CVSS** | Common Vulnerability Scoring System — der Industriestandard-Score von 0.0–10.0, der die Schwere eines CVE bewertet. TurboLens speichert den Basisscore, den Angriffsvektor und die Ausnutzbarkeits- / Auswirkungs-Sub-Scores |
+| **NVD** | NIST National Vulnerability Database — die US-Regierungsdatenbank von CVE-Einträgen, die TurboLens für Schwachstellendaten abfragt. Ratenlimits: 5 Anfragen / 30 Sekunden ohne Authentifizierung, 50 / 30 s mit `NVD_API_KEY` |
+| **Semantische EU-AI-Act-Erkennung** | Ein TurboLens-Compliance-Durchlauf, der das LLM bittet, Karten zu markieren, die KI- / ML-Fähigkeiten einbetten (LLMs, Empfehlungs-Engines, Computer Vision, Scoring, Chatbots, …), auch wenn sie nicht explizit als `AI Agent` / `AI Model` klassifiziert sind. Solche Befunde werden als **KI-erkannt** markiert |
+| **Initial- vs. Rest-Risiko** | Zwei Bewertungen, die für jedes Risiko im Risikoregister erfasst werden. `Initial` ist Wahrscheinlichkeit × Auswirkung ohne Minderung; `Rest` ist Wahrscheinlichkeit × Auswirkung nach Minderung, editierbar sobald ein Minderungsplan existiert. Beide leiten über die 4×4-Matrix ein Level ab |
+| **Risiko-Referenz** | Eine monoton steigende, menschlich lesbare Kennung (`R-000123`), die beim Anlegen eines Risikos vergeben wird. Sie bleibt auf Schaltflächen überführter Befunde sichtbar (**Risiko R-000123 öffnen**) und in der Beschreibung des verknüpften Todos des Eigentümers |
 | **TOGAF** | The Open Group Architecture Framework — eine weit verbreitete EA-Methodik. Die SoAW-Funktion von Turbo EA orientiert sich an TOGAF |
 | **Statusbericht** | Ein monatlicher PPM-Bericht, der die Projektgesundheit über RAG-Indikatoren für Zeitplan, Kosten und Umfang verfolgt |
 | **Web-Portal** | Eine öffentliche, schreibgeschützte Ansicht ausgewählter Karten, zugänglich ohne Authentifizierung über eine eindeutige URL |

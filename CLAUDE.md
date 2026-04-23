@@ -650,7 +650,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 
 | Table | Model | Purpose |
 |-------|-------|---------|
-| `tag_groups` | `TagGroup` | Tag categories with mode (single/multi), create_mode, restrict_to_types |
+| `tag_groups` | `TagGroup` | Tag categories with mode (single/multi), mandatory flag, restrict_to_types. Mandatory groups that apply to a card type must be satisfied before the card can be approved and also contribute to the data-quality score |
 | `tags` | `Tag` | Individual tags within groups, with optional color |
 | `card_tags` | (association) | M:N join table |
 | `comments` | `Comment` | Threaded comments on cards (self-referential parent_id) |
