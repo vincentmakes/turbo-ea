@@ -48,7 +48,14 @@
 | **Modelo de Subtipo** | A configuração de quais campos são visíveis ou ocultos para um subtipo específico. Os administradores configuram isso na administração do metamodelo clicando em um chip de subtipo |
 | **Stakeholder** | Uma pessoa com um papel específico em um card (ex.: Proprietário da Aplicação, Proprietário Técnico) |
 | **Pesquisa** | Um questionário de manutenção de dados direcionado a tipos de card específicos para coletar informações dos stakeholders |
-| **Tag / Grupo de Tags** | Um rótulo de classificação organizado em grupos com modos de seleção única ou múltipla |
+| **Tag / Grupo de Tags** | Um rótulo de classificação organizado em grupos com modos de seleção única ou múltipla, restrições de tipo opcionais e um indicador opcional de obrigatoriedade que bloqueia a aprovação e alimenta o score de qualidade de dados |
+| **Grupo de Tags Obrigatório** | Um grupo de tags marcado como requerido. Os cards aplicáveis não podem ser aprovados até que pelo menos uma tag do grupo seja anexada; o seu cumprimento contribui para o score de qualidade dos dados do card |
+| **CVE** | Common Vulnerabilities and Exposures — identificador público de uma vulnerabilidade de software conhecida (ex. `CVE-2024-12345`). O módulo Segurança e Conformidade do TurboLens pesquisa CVEs por card no NVD do NIST |
+| **CVSS** | Common Vulnerability Scoring System — pontuação padrão da indústria de 0.0 a 10.0 que avalia a severidade de um CVE. O TurboLens regista a pontuação base, o vetor de ataque e os sub-scores de explorabilidade / impacto |
+| **NVD** | NIST National Vulnerability Database — repositório do governo dos EUA com registos CVE usado pelo TurboLens para obter dados de vulnerabilidades. Limites: 5 pedidos / 30 segundos sem autenticação, 50 / 30 s com `NVD_API_KEY` |
+| **Deteção semântica da Lei da IA da UE** | Passagem de conformidade do TurboLens que pede ao LLM para assinalar cards que incorporam capacidades de IA / ML (LLMs, motores de recomendação, visão computacional, scoring, chatbots, …) mesmo quando não estão explicitamente classificados como `AI Agent` / `AI Model`. Estes achados ficam marcados como **Detetado por IA** |
+| **Risco Inicial vs. Residual** | Duas avaliações capturadas em cada risco do Registo de Riscos. `Inicial` é probabilidade × impacto sem mitigação; `Residual` é probabilidade × impacto pós-mitigação, editável assim que exista um plano de mitigação. Ambas derivam um nível através da matriz 4×4 |
+| **Referência do Risco** | Identificador monótono legível (`R-000123`) atribuído na criação do risco. Mantém-se visível nos botões de achados promovidos (**Abrir risco R-000123**) e na descrição do Todo ligado ao proprietário |
 | **TOGAF** | The Open Group Architecture Framework — uma metodologia de EA amplamente utilizada. O recurso SoAW do Turbo EA é alinhado com o TOGAF |
 | **Relatório de status** | Um relatório PPM mensal que rastreia a saúde do projeto via indicadores RAG para cronograma, custos e escopo |
 | **Portal Web** | Uma visualização pública e somente leitura de cards selecionados, acessível sem autenticação por meio de uma URL única |

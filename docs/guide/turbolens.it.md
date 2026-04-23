@@ -217,11 +217,58 @@ Una bozza di ADR viene automaticamente creata insieme all'iniziativa con:
 
 Fai clic su **Scegli un'alternativa** per tornare alle opzioni di soluzione e selezionare un approccio diverso. Tutte le tue risposte della Fase 1 e della Fase 2 vengono preservate — solo i dati a valle (analisi dei gap, dipendenze, architettura target) vengono reimpostati. Dopo aver selezionato una nuova opzione, la procedura guidata ripercorre l'analisi dei gap e l'analisi delle dipendenze. Puoi salvare la valutazione aggiornata o confermare quando sei pronto.
 
+## Sicurezza e conformità
+
+La scheda **Sicurezza e conformità** esegue una scansione on-demand sul panorama corrente e produce un report di rischio conforme agli standard più un'analisi delle lacune normative.
+
+### Cosa viene analizzato
+
+- **CVE** — ogni Applicazione e Componente IT non archiviato viene cercato nella [NIST National Vulnerability Database](https://nvd.nist.gov/) usando gli attributi `vendor`, `productName` / `version` della card. I risultati vengono contestualizzati da una passata di IA che valuta **priorità** (critica / alta / media / bassa) e **probabilità** (molto alta / alta / media / bassa) in base a criticità di business, fase del ciclo di vita, vettore di attacco, sfruttabilità e disponibilità di patch.
+- **Conformità** — lo stesso panorama viene verificato dall'LLM configurato rispetto a **Legge UE sull'IA**, **GDPR**, **NIS2**, **DORA**, **SOC 2** e **ISO/IEC 27001**. Ogni normativa ha la propria checklist; le evidenze sono **relative a una card** (una card specifica è l'origine della lacuna) oppure **trasversali al panorama** (problema sistemico).
+
+### Eseguire una scansione
+
+Solo gli utenti con `security_compliance.manage` possono avviare scansioni (admin di default). La scheda Panoramica mostra **due riquadri di scansione indipendenti**:
+
+- **Scansione CVE** — interroga NVD + prioritizzazione IA. Può essere rilanciata senza rischi; le evidenze di conformità restano intatte.
+- **Scansione di conformità** — analisi delle lacune con IA sulle normative selezionate. Sostituisce le evidenze di conformità per le normative incluse in questa esecuzione.
+
+Ogni scansione mostra la propria barra di avanzamento per fasi (caricamento card → interrogazione NVD → prioritizzazione IA → salvataggio, oppure caricamento card → rilevamento semantico dell'IA → verifica per normativa). Le due possono girare contemporaneamente.
+
+Aggiornare la pagina **non interrompe una scansione in corso** — il task in background continua lato server e l'interfaccia si riaggancia automaticamente al polling di avanzamento al ricaricamento.
+
+### Struttura del report di rischio
+
+- **Panoramica** — strip di KPI (totale evidenze, conteggi critiche / alte / medie, punteggio complessivo di conformità), una **matrice di rischio probabilità × gravità** 5×5, le cinque evidenze critiche principali e una heatmap compatta di conformità da cui navigare al dettaglio. La matrice è **cliccabile**: un clic su una cella apre la sotto-scheda CVE filtrata su quel bucket, con un chip rimovibile sopra la tabella per vedere (e cancellare) il filtro attivo.
+- **CVE** — tabella filtrabile che mostra card, ID CVE (collegato alla pagina di dettaglio NVD), punteggio base CVSS, gravità, priorità, probabilità, disponibilità di patch e stato. Ogni riga apre un pannello di dettaglio con la descrizione, il vettore CVSS, il vettore di attacco, i punteggi di sfruttabilità / impatto, i riferimenti, l'impatto sul business e la remediation generati dall'IA, più una barra di azioni di stato (**Confermare → Passare in corso → Segnare come mitigato / Accettare il rischio / Riaprire**).
+- **Conformità** — una scheda per normativa con un punteggio complessivo e un elenco in stile card che mostra stato, articolo, categoria, requisito, descrizione della lacuna, remediation ed evidenze. Un piccolo chip **Rilevato dall'IA** evidenzia le card segnalate come portatrici di IA dal rilevatore semantico anche se non sono etichettate come sottotipi IA.
+- **Esporta CSV** — scarica le evidenze CVE in un ordine di colonne in stile OWASP/NIST (Card, Tipo, CVE, CVSS, Gravità, Vettore di attacco, Probabilità, Priorità, Patch, Pubblicata, Ultima modifica, Stato, Fornitore, Prodotto, Versione, Impatto sul business, Remediation, Descrizione).
+
+### Promuovere un'evidenza al Registro dei Rischi
+
+Ogni pannello CVE e ogni card di evidenza di conformità include un'azione primaria **Crea rischio**. Cliccandola si apre il dialogo condiviso di creazione rischio con titolo, descrizione, categoria, probabilità, impatto, mitigazione e card interessata **precompilati dall'evidenza**. Potete modificare ogni campo prima di inviare, assegnare un **proprietario** e scegliere una **data obiettivo di risoluzione**. All'invio, la riga dell'evidenza diventa **Apri rischio R-000123** per mantenere visibile il collegamento — le promozioni sono idempotenti lato server. Vedi il [Registro dei Rischi](risks.md) per il ciclo di vita completo allineato a TOGAF e come l'assegnazione del proprietario crei un Todo di follow-up + notifica nella campanella.
+
+### Rilevamento semantico della Legge UE sull'IA
+
+Le funzionalità IA sono spesso incorporate in applicazioni general-purpose. La passata Legge UE sull'IA **non si basa quindi solo sul filtro per sottotipo**: chiede all'LLM di segnalare ogni card il cui nome, descrizione, fornitore o interfacce correlate suggeriscano capacità IA / ML — LLM, motori di raccomandazione, computer vision, scoring di frode o credito, chatbot, analisi predittiva, rilevamento anomalie. Le evidenze prodotte da questa passata semantica sono marcate **Rilevato dall'IA** per distinguerle dalle card già classificate come `AI Agent` / `AI Model`.
+
+### Avanzamento e ripresa
+
+Ogni scansione scrive l'avanzamento per fasi (caricamento card → interrogazione NVD → prioritizzazione IA → salvataggio, oppure caricamento card → rilevamento semantico dell'IA → verifica per normativa) nel proprio record di esecuzione. L'interfaccia mostra una barra di avanzamento live per scansione. **Aggiornare la pagina non interrompe una scansione** — il task in background continua lato server e al mount la scheda Sicurezza interroga `/turbolens/security/active-runs` e riaggancia il loop di polling.
+
+### Chiave API NVD (opzionale)
+
+Senza chiave, NVD consente solo 5 richieste ogni 30 secondi, il che può rallentare scansioni su panorami estesi. Richiedete una chiave gratuita a <https://nvd.nist.gov/developers/request-an-api-key> e impostatela tramite la variabile d'ambiente `NVD_API_KEY` per alzare il limite a 50 richieste ogni 30 secondi.
+
+### Flusso di stato
+
+Ogni evidenza CVE passa per: **aperta** → **confermata** → **in corso** → **mitigata** (oppure **accettata**, quando il team ha formalmente accettato il rischio). La riapertura è sempre disponibile. I cambi di stato sono di competenza degli utenti con `security_compliance.manage`. Per i workflow di governance (titolarità, valutazione residua, motivazione di accettazione, Todo e notifiche) promuovete l'evidenza a Rischio — il ciclo di vita completo vive nel [Registro dei Rischi](risks.md).
+
 ## Cronologia delle analisi
 
 Tutte le esecuzioni di analisi sono tracciate in **TurboLens > Cronologia**, con le seguenti informazioni:
 
-- Tipo di analisi (analisi fornitori, risoluzione fornitori, rilevamento duplicati, modernizzazione, architetto)
+- Tipo di analisi (analisi fornitori, risoluzione fornitori, rilevamento duplicati, modernizzazione, architetto, security_compliance)
 - Stato (in esecuzione, completata, fallita)
 - Timestamp di inizio e completamento
 - Messaggi di errore (se presenti)
@@ -232,3 +279,5 @@ Tutte le esecuzioni di analisi sono tracciate in **TurboLens > Cronologia**, con
 |----------------|-------------|
 | `turbolens.view` | Visualizza i risultati delle analisi (concessa ad admin, bpm_admin, member) |
 | `turbolens.manage` | Avvia le analisi (concessa ad admin) |
+| `security_compliance.view` | Visualizza evidenze CVE e di conformità (concessa ad admin, bpm_admin, member, viewer) |
+| `security_compliance.manage` | Avvia scansioni di sicurezza e aggiorna lo stato delle evidenze (concessa ad admin) |

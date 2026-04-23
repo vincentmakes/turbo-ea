@@ -48,7 +48,14 @@
 | **Subtype Template** | The configuration of which fields are visible or hidden for a specific subtype. Admins configure this in the metamodel admin by clicking on a subtype chip |
 | **Stakeholder** | A person with a specific role on a card (e.g., Application Owner, Technical Owner) |
 | **Survey** | A data-maintenance questionnaire targeting specific card types to collect information from stakeholders |
-| **Tag / Tag Group** | A classification label organized into groups with single-select or multi-select modes |
+| **Tag / Tag Group** | A classification label organized into groups with single-select or multi-select modes, optional type restrictions, and an optional mandatory flag that blocks approval and feeds the data-quality score |
+| **Mandatory Tag Group** | A tag group flagged as required. Applicable cards cannot be approved until at least one tag from the group is attached, and satisfying it contributes to the card's data-quality score |
+| **CVE** | Common Vulnerabilities and Exposures — a public identifier for a known software vulnerability (e.g., `CVE-2024-12345`). TurboLens Security & Compliance looks up CVEs per card in the NIST NVD |
+| **CVSS** | Common Vulnerability Scoring System — the industry-standard 0.0–10.0 score that rates the severity of a CVE. TurboLens records the base score, attack vector and exploitability / impact sub-scores |
+| **NVD** | NIST National Vulnerability Database — the U.S. government's repository of CVE records used by TurboLens to fetch vulnerability data. Rate limits: 5 requests / 30 seconds unauthenticated, 50 / 30 s with `NVD_API_KEY` |
+| **EU AI Act Semantic Detection** | A TurboLens compliance pass that asks the LLM to flag cards embedding AI / ML capabilities (LLMs, recommendation engines, computer vision, scoring, chatbots, …) even when they are not explicitly classified as `AI Agent` / `AI Model`. Such findings are marked **AI-detected** |
+| **Initial vs Residual Risk** | Two assessments captured on every risk in the Risk Register. `Initial` is the unmitigated probability × impact; `Residual` is the post-mitigation probability × impact, editable once a mitigation plan exists. Both derive a level via the 4×4 matrix |
+| **Risk Reference** | A monotonic human-readable identifier (`R-000123`) assigned on risk creation. It stays visible in promoted-finding buttons (**Open risk R-000123**) and in the owner's linked Todo description |
 | **TOGAF** | The Open Group Architecture Framework — a widely used EA methodology. Turbo EA's SoAW feature aligns with TOGAF |
 | **Status Report** | A monthly PPM report tracking project health via RAG indicators for schedule, cost, and scope, along with accomplishments and next steps |
 | **Web Portal** | A public, read-only view of selected cards accessible without authentication via a unique URL |

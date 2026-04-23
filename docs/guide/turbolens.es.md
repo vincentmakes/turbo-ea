@@ -217,11 +217,58 @@ Un borrador de ADR se crea automáticamente junto con la iniciativa con:
 
 Haga clic en **Choose Different** para volver a las opciones de solución y seleccionar un enfoque diferente. Todas sus respuestas de la Fase 1 y la Fase 2 se conservan — solo se restablecen los datos posteriores (análisis de brechas, dependencias, arquitectura objetivo). Tras seleccionar una nueva opción, el asistente vuelve a recorrer el análisis de brechas y el análisis de dependencias. Puede guardar la evaluación actualizada o confirmar cuando esté listo.
 
+## Seguridad y Cumplimiento
+
+La pestaña **Seguridad y Cumplimiento** ejecuta un análisis bajo demanda contra el paisaje vigente y produce un informe de riesgos conforme a estándares más un análisis de brechas regulatorias.
+
+### Qué se analiza
+
+- **CVE** — cada Aplicación y Componente de TI no archivado se busca en la [Base Nacional de Vulnerabilidades del NIST](https://nvd.nist.gov/) usando los atributos `vendor`, `productName` / `version` de la ficha. Los resultados se contextualizan mediante una pasada de IA que califica **prioridad** (crítica / alta / media / baja) y **probabilidad** (muy alta / alta / media / baja) a partir de la criticidad de negocio, la fase del ciclo de vida, el vector de ataque, la explotabilidad y la disponibilidad de parches.
+- **Cumplimiento** — el mismo paisaje se comprueba con el LLM configurado contra **Ley de IA de la UE**, **RGPD**, **NIS2**, **DORA**, **SOC 2** e **ISO/IEC 27001**. Cada regulación tiene su propia lista de control; los hallazgos son **específicos de una ficha** (una ficha concreta es el origen de la brecha) o **de alcance transversal** (problema sistémico).
+
+### Ejecutar un análisis
+
+Sólo los usuarios con `security_compliance.manage` pueden lanzar análisis (admin por defecto). La pestaña Resumen muestra **dos tarjetas de análisis independientes**:
+
+- **Análisis CVE** — consulta NVD + priorización por IA. Puede relanzarse sin peligro; los hallazgos de cumplimiento no se ven afectados.
+- **Análisis de cumplimiento** — análisis de brechas por IA contra las regulaciones marcadas. Reemplaza los hallazgos de cumplimiento para las regulaciones incluidas en esta ejecución.
+
+Cada análisis muestra su propia barra de progreso por fases (cargar fichas → consultar NVD → priorización IA → guardar, o cargar fichas → detección semántica de IA → comprobación por regulación). Ambos pueden correr en paralelo.
+
+Refrescar la página **no interrumpe un análisis en curso** — la tarea en segundo plano sigue corriendo en el servidor y la interfaz vuelve a engancharse automáticamente al sondeo de progreso al recargar.
+
+### Estructura del informe de riesgos
+
+- **Resumen** — barra de KPI (total de hallazgos, recuentos críticos / altos / medios, puntuación global de cumplimiento), una **matriz de riesgo probabilidad × severidad** de 5×5, los cinco hallazgos críticos principales y un mapa de calor compacto de cumplimiento en el que puede pulsar para ver el detalle. La matriz es **clicable**: al pulsar una celda se abre la sub-pestaña CVE filtrada por ese segmento, con un chip descartable sobre la tabla para ver (y borrar) el filtro activo.
+- **CVE** — tabla filtrable con ficha, ID de CVE (enlazado a la página de detalle del NVD), puntuación base CVSS, severidad, prioridad, probabilidad, disponibilidad de parche y estado. Cada fila abre un panel de detalle con la descripción, vector CVSS, vector de ataque, puntuaciones de explotabilidad / impacto, referencias, impacto de negocio y remediación generados por IA, y una barra de acciones de estado (**Reconocer → Marcar en curso → Marcar mitigado / Aceptar riesgo / Reabrir**).
+- **Cumplimiento** — una pestaña por regulación con una puntuación global y un listado en estilo tarjeta que muestra estado, artículo, categoría, requisito, descripción de la brecha, remediación y evidencias. Un pequeño chip **Detectado por IA** resalta las fichas marcadas como portadoras de IA por el detector semántico, aunque no estén etiquetadas como subtipos de IA.
+- **Exportar CSV** — descarga los hallazgos CVE en un orden de columnas al estilo OWASP/NIST (Ficha, Tipo, CVE, CVSS, Severidad, Vector de Ataque, Probabilidad, Prioridad, Parche, Publicada, Última Modificación, Estado, Proveedor, Producto, Versión, Impacto de Negocio, Remediación, Descripción).
+
+### Promover un hallazgo al Registro de Riesgos
+
+Cada panel CVE y cada tarjeta de hallazgo de cumplimiento incluye una acción primaria **Crear riesgo**. Al pulsarla se abre el diálogo compartido de creación de riesgo con el título, descripción, categoría, probabilidad, impacto, mitigación y ficha afectada **precargados desde el hallazgo**. Puede editar cualquier campo antes de enviarlo, asignar un **propietario** y elegir una **fecha objetivo de resolución**. Al enviar, la fila del hallazgo pasa a **Abrir riesgo R-000123** para mantener el enlace visible — las promociones son idempotentes en el servidor. Consulte el [Registro de Riesgos](risks.md) para el ciclo completo alineado con TOGAF y cómo la asignación del propietario crea una tarea de seguimiento + notificación en la campanita.
+
+### Detección semántica de la Ley de IA de la UE
+
+Las funciones de IA suelen estar embebidas dentro de aplicaciones de propósito general. La pasada de Ley de IA de la UE **no se basa sólo en el filtrado por subtipo**: pide al LLM que marque cada ficha cuyo nombre, descripción, proveedor o interfaces relacionadas sugieran capacidades de IA / ML — LLM, motores de recomendación, visión por computador, puntuación de fraude o crediticia, chatbots, analítica predictiva, detección de anomalías. Los hallazgos producidos por esta pasada semántica se marcan como **Detectado por IA** para distinguirlos de fichas ya clasificadas como `AI Agent` / `AI Model`.
+
+### Progreso y reanudación
+
+Cada análisis escribe el progreso por fases (cargar fichas → consultar NVD → priorización IA → guardar, o cargar fichas → detección semántica de IA → comprobación por regulación) en su registro de ejecución. La interfaz muestra una barra de progreso en vivo por análisis. **Refrescar la página no interrumpe un análisis** — la tarea en segundo plano continúa en el servidor, y al montarse, la pestaña Seguridad consulta `/turbolens/security/active-runs` y vuelve a engancharse al bucle de sondeo.
+
+### Clave de API del NVD (opcional)
+
+Sin clave, el NVD sólo permite 5 peticiones cada 30 segundos, lo que puede ralentizar análisis de paisajes grandes. Solicite una clave gratuita en <https://nvd.nist.gov/developers/request-an-api-key> y configúrela en la variable de entorno `NVD_API_KEY` para elevar el límite a 50 peticiones cada 30 segundos.
+
+### Flujo de estado
+
+Cada hallazgo CVE recorre: **abierto** → **reconocido** → **en curso** → **mitigado** (o **aceptado**, cuando el equipo ha aceptado formalmente el riesgo). La reapertura siempre está disponible. Los cambios de estado los realizan usuarios con `security_compliance.manage`. Para flujos de gobernanza (titularidad, evaluación residual, justificación de aceptación, tareas y notificaciones) promueva el hallazgo a un Riesgo — el ciclo completo vive en el [Registro de Riesgos](risks.md).
+
 ## Historial de Análisis
 
 Todas las ejecuciones de análisis se rastrean en **TurboLens > History**, mostrando:
 
-- Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto)
+- Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto, security_compliance)
 - Estado (en ejecución, completado, fallido)
 - Marcas de tiempo de inicio y finalización
 - Mensajes de error (si los hubiera)
@@ -232,3 +279,5 @@ Todas las ejecuciones de análisis se rastrean en **TurboLens > History**, mostr
 |---------|-------------|
 | `turbolens.view` | Ver resultados de análisis (otorgado a admin, bpm_admin, member) |
 | `turbolens.manage` | Activar análisis (otorgado a admin) |
+| `security_compliance.view` | Ver hallazgos CVE y de cumplimiento (otorgado a admin, bpm_admin, member, viewer) |
+| `security_compliance.manage` | Lanzar análisis de seguridad y actualizar el estado de los hallazgos (otorgado a admin) |

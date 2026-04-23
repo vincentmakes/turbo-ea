@@ -217,11 +217,58 @@ Un brouillon d'ADR est automatiquement créé avec l'initiative, comprenant :
 
 Cliquez sur **Choisir une autre option** pour revenir aux options de solution et sélectionner une approche différente. Toutes vos réponses de la Phase 1 et de la Phase 2 sont conservées — seules les données en aval (analyse des écarts, dépendances, architecture cible) sont réinitialisées. Après avoir sélectionné une nouvelle option, l'assistant reprend l'analyse des écarts et l'analyse des dépendances. Vous pouvez sauvegarder l'évaluation mise à jour ou valider lorsque vous êtes prêt.
 
+## Sécurité et conformité
+
+L'onglet **Sécurité et conformité** exécute une analyse à la demande sur le paysage en cours et produit un rapport de risques conforme aux standards ainsi qu'une analyse d'écart réglementaire.
+
+### Ce qui est analysé
+
+- **CVE** — chaque Application et Composant informatique non archivé est recherché dans la [National Vulnerability Database du NIST](https://nvd.nist.gov/) à l'aide des attributs `vendor`, `productName` / `version` de la fiche. Les résultats sont contextualisés par une passe IA qui évalue la **priorité** (critique / élevée / moyenne / faible) et la **probabilité** (très élevée / élevée / moyenne / faible) à partir de la criticité métier, de la phase du cycle de vie, du vecteur d'attaque, de l'exploitabilité et de la disponibilité des correctifs.
+- **Conformité** — le même paysage est vérifié par le LLM configuré face à la **Loi européenne sur l'IA**, au **RGPD**, à **NIS2**, à **DORA**, à **SOC 2** et à l'**ISO/IEC 27001**. Chaque réglementation dispose de sa propre liste de contrôle ; les constats sont soit **spécifiques à une fiche** (une fiche précise est à l'origine de l'écart), soit **transversaux** (problème systémique).
+
+### Exécuter une analyse
+
+Seuls les utilisateurs disposant de `security_compliance.manage` peuvent lancer des analyses (admin par défaut). L'onglet Vue d'ensemble propose **deux cartes d'analyse indépendantes** :
+
+- **Analyse CVE** — interroge le NVD + priorisation IA. Peut être relancée sans risque ; les constats de conformité restent intacts.
+- **Analyse de conformité** — analyse d'écart par IA sur les réglementations cochées. Remplace les constats de conformité pour les réglementations ciblées lors de cette exécution.
+
+Chaque analyse affiche sa propre barre de progression par phases (chargement des fiches → interrogation du NVD → priorisation IA → enregistrement, ou chargement des fiches → détection sémantique de l'IA → vérification par réglementation). Les deux peuvent s'exécuter simultanément.
+
+Rafraîchir la page **n'interrompt pas une analyse en cours** — la tâche d'arrière-plan continue côté serveur et l'interface se raccroche automatiquement au sondage de progression au rechargement.
+
+### Structure du rapport de risques
+
+- **Vue d'ensemble** — bandeau de KPI (total des constats, nombres critiques / élevés / moyens, score global de conformité), une **matrice de risque probabilité × gravité** 5×5, les cinq constats critiques principaux et une carte thermique compacte de conformité avec navigation vers les détails. La matrice elle-même est **cliquable** : cliquer sur une cellule ouvre le sous-onglet CVE filtré sur ce compartiment, avec un chip supprimable au-dessus du tableau pour voir (et effacer) le filtre actif.
+- **CVE** — tableau filtrable présentant la fiche, l'ID CVE (lié vers la page de détail du NVD), le score CVSS de base, la gravité, la priorité, la probabilité, la disponibilité des correctifs et le statut. Chaque ligne ouvre un panneau de détail comportant la description, le vecteur CVSS, le vecteur d'attaque, les scores d'exploitabilité / d'impact, les références, l'impact métier et la remédiation générés par IA, ainsi qu'une barre d'actions d'état (**Accuser réception → Passer en cours → Marquer comme atténué / Accepter le risque / Rouvrir**).
+- **Conformité** — un onglet par réglementation avec un score global et une liste sous forme de cartes affichant le statut, l'article, la catégorie, l'exigence, la description de l'écart, la remédiation et les preuves. Un petit chip **Détecté par IA** met en évidence les fiches identifiées comme porteuses d'IA par le détecteur sémantique, même si elles ne sont pas étiquetées comme sous-types d'IA.
+- **Exporter en CSV** — télécharge les constats CVE dans un ordre de colonnes inspiré d'OWASP/NIST (Fiche, Type, CVE, CVSS, Gravité, Vecteur d'attaque, Probabilité, Priorité, Correctif, Publié, Dernière modification, Statut, Éditeur, Produit, Version, Impact métier, Remédiation, Description).
+
+### Promouvoir un constat vers le Registre des risques
+
+Chaque panneau CVE et chaque carte de constat de conformité comporte une action primaire **Créer un risque**. Un clic ouvre la boîte de dialogue partagée de création de risque avec le titre, la description, la catégorie, la probabilité, l'impact, la mitigation et la fiche concernée **pré-remplis depuis le constat**. Vous pouvez modifier chaque champ avant de valider, attribuer un **propriétaire** et choisir une **date cible de résolution**. À la validation, la ligne du constat bascule en **Ouvrir le risque R-000123** pour conserver le lien visible — les promotions sont idempotentes côté serveur. Voir le [Registre des risques](risks.md) pour le cycle de vie complet aligné sur TOGAF et la façon dont l'attribution du propriétaire crée un Todo de suivi + une notification dans la cloche.
+
+### Détection sémantique de la Loi européenne sur l'IA
+
+Les fonctionnalités d'IA sont souvent embarquées dans des applications à usage général. La passe sur la Loi européenne sur l'IA **ne repose donc pas uniquement sur le filtrage par sous-type** : elle demande au LLM de signaler toute fiche dont le nom, la description, l'éditeur ou les interfaces liées évoquent des capacités d'IA / ML — LLM, moteurs de recommandation, vision par ordinateur, notation de fraude ou de crédit, chatbots, analytique prédictive, détection d'anomalies. Les constats produits par cette passe sémantique sont marqués **Détecté par IA** pour les distinguer des fiches déjà classées comme `AI Agent` / `AI Model`.
+
+### Progression et reprise
+
+Chaque analyse écrit sa progression par phases (chargement des fiches → interrogation du NVD → priorisation IA → enregistrement, ou chargement des fiches → détection sémantique de l'IA → vérification par réglementation) dans son enregistrement d'exécution. L'interface affiche une barre de progression en direct par analyse. **Rafraîchir la page n'interrompt pas une analyse** — la tâche d'arrière-plan continue côté serveur, et au montage, l'onglet Sécurité interroge `/turbolens/security/active-runs` et se raccroche à la boucle de sondage.
+
+### Clé d'API NVD (optionnelle)
+
+Sans clé, le NVD n'autorise que 5 requêtes par 30 secondes, ce qui peut ralentir les analyses de grands paysages. Demandez une clé gratuite à l'adresse <https://nvd.nist.gov/developers/request-an-api-key> et renseignez-la via la variable d'environnement `NVD_API_KEY` pour porter la limite à 50 requêtes par 30 secondes.
+
+### Flux de statut
+
+Chaque constat CVE suit le cycle : **ouvert** → **accusé réception** → **en cours** → **atténué** (ou **accepté**, lorsque l'équipe a formellement accepté le risque). La réouverture reste toujours possible. Les changements de statut sont pilotés par les utilisateurs disposant de `security_compliance.manage`. Pour les workflows de gouvernance (propriété, évaluation résiduelle, justification d'acceptation, Todos et notifications), promouvez le constat en Risque — le cycle complet vit dans le [Registre des risques](risks.md).
+
 ## Historique des analyses
 
 Toutes les exécutions d'analyse sont suivies dans **TurboLens > Historique**, affichant :
 
-- Type d'analyse (analyse des fournisseurs, résolution des fournisseurs, détection des doublons, modernisation, architecte)
+- Type d'analyse (analyse des fournisseurs, résolution des fournisseurs, détection des doublons, modernisation, architecte, security_compliance)
 - Statut (en cours, terminé, échoué)
 - Horodatages de début et de fin
 - Messages d'erreur (le cas échéant)
@@ -232,3 +279,5 @@ Toutes les exécutions d'analyse sont suivies dans **TurboLens > Historique**, a
 |------------|-------------|
 | `turbolens.view` | Consulter les résultats d'analyse (accordée aux rôles admin, bpm_admin, member) |
 | `turbolens.manage` | Déclencher des analyses (accordée au rôle admin) |
+| `security_compliance.view` | Consulter les constats CVE et de conformité (accordée aux rôles admin, bpm_admin, member, viewer) |
+| `security_compliance.manage` | Déclencher des analyses de sécurité et mettre à jour le statut des constats (accordée au rôle admin) |

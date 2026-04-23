@@ -217,11 +217,58 @@ Um rascunho de ADR é criado automaticamente juntamente com a iniciativa com:
 
 Clique em **Escolher Diferente** para regressar às opções de solução e selecionar uma abordagem diferente. Todas as suas respostas da Fase 1 e Fase 2 são preservadas — apenas os dados subsequentes (análise de lacunas, dependências, arquitetura-alvo) são repostos. Após selecionar uma nova opção, o assistente prossegue novamente pela análise de lacunas e análise de dependências. Pode guardar a avaliação atualizada ou confirmar quando estiver pronto.
 
+## Segurança e Conformidade
+
+O separador **Segurança e Conformidade** executa uma análise a pedido sobre o panorama atual e produz um relatório de risco conforme a padrões além de uma análise de lacunas regulatórias.
+
+### O que é analisado
+
+- **CVEs** — cada Aplicação e Componente de TI não arquivado é pesquisado na [NIST National Vulnerability Database](https://nvd.nist.gov/) usando os atributos `vendor`, `productName` / `version` do card. Os resultados são contextualizados por uma passagem de IA que classifica **prioridade** (crítica / alta / média / baixa) e **probabilidade** (muito alta / alta / média / baixa) a partir da criticidade de negócio, fase do ciclo de vida, vetor de ataque, explorabilidade e disponibilidade de correção.
+- **Conformidade** — o mesmo panorama é verificado pelo LLM configurado contra **Lei da IA da UE**, **RGPD**, **NIS2**, **DORA**, **SOC 2** e **ISO/IEC 27001**. Cada regulação tem a sua própria lista de verificação; os achados são **específicos de um card** (um card concreto é a origem da lacuna) ou **transversais ao panorama** (problema sistémico).
+
+### Executar uma análise
+
+Só utilizadores com `security_compliance.manage` podem disparar análises (admin por omissão). O separador Visão Geral mostra **dois cartões de análise independentes**:
+
+- **Análise de CVE** — consulta o NVD + priorização por IA. Pode ser relançada à vontade; os achados de conformidade permanecem intactos.
+- **Análise de conformidade** — análise de lacunas por IA sobre as regulações escolhidas. Substitui os achados de conformidade para as regulações incluídas nesta execução.
+
+Cada análise apresenta uma barra de progresso por fases (carregar cards → consultar NVD → priorização por IA → guardar, ou carregar cards → deteção semântica de IA → verificação por regulação). Ambas podem correr em paralelo.
+
+Atualizar a página **não interrompe uma análise em curso** — a tarefa em segundo plano continua no servidor, e a interface volta a ligar-se automaticamente à sondagem de progresso ao recarregar.
+
+### Estrutura do relatório de risco
+
+- **Visão Geral** — barra de KPI (total de achados, contagens crítico / alto / médio, pontuação global de conformidade), uma **matriz de risco probabilidade × severidade** 5×5, os cinco principais achados críticos e um mapa de calor compacto de conformidade com navegação para o detalhe. A matriz é **clicável**: clicar numa célula abre o sub-separador CVE filtrado nesse compartimento, com um chip descartável acima da tabela para ver (e limpar) o filtro ativo.
+- **CVEs** — tabela filtrável com card, ID do CVE (ligado à página de detalhe do NVD), pontuação base CVSS, severidade, prioridade, probabilidade, disponibilidade de correção e estado. Cada linha abre um painel de detalhe com a descrição, vetor CVSS, vetor de ataque, pontuações de explorabilidade / impacto, referências, impacto de negócio e remediação gerados por IA, e uma barra de ações de estado (**Reconhecer → Marcar em andamento → Marcar como mitigado / Aceitar risco / Reabrir**).
+- **Conformidade** — um separador por regulação com pontuação global e uma lista em estilo cartão mostrando estado, artigo, categoria, requisito, descrição da lacuna, remediação e evidências. Um pequeno chip **Detetado por IA** destaca cards assinalados como portadores de IA pelo detetor semântico, mesmo que não estejam marcados como subtipos de IA.
+- **Exportar CSV** — transfere os achados CVE numa ordem de colunas ao estilo OWASP/NIST (Card, Tipo, CVE, CVSS, Severidade, Vetor de ataque, Probabilidade, Prioridade, Correção, Publicado, Última modificação, Estado, Fornecedor, Produto, Versão, Impacto de negócio, Remediação, Descrição).
+
+### Promover um achado para o Registo de Riscos
+
+Cada painel CVE e cada cartão de achado de conformidade inclui uma ação primária **Criar risco**. Clicá-la abre o diálogo partilhado de criação de risco com título, descrição, categoria, probabilidade, impacto, mitigação e card afetado **pré-preenchidos a partir do achado**. Pode editar qualquer campo antes de submeter, atribuir um **proprietário** e escolher uma **data-alvo de resolução**. Ao submeter, a linha do achado passa a **Abrir risco R-000123** para manter o link visível — as promoções são idempotentes no servidor. Veja o [Registo de Riscos](risks.md) para o ciclo de vida completo alinhado com TOGAF e como a atribuição do proprietário cria um Todo de acompanhamento + notificação no sino.
+
+### Deteção semântica da Lei da IA da UE
+
+As funcionalidades de IA estão frequentemente embutidas em aplicações de uso geral. A passagem da Lei da IA da UE **não se apoia apenas na filtragem por subtipo**: pede ao LLM para assinalar cada card cujo nome, descrição, fornecedor ou interfaces relacionadas sugiram capacidades de IA / ML — LLMs, motores de recomendação, visão computacional, scoring de fraude ou crédito, chatbots, analítica preditiva, deteção de anomalias. Os achados produzidos por esta passagem semântica são marcados **Detetado por IA** para os distinguir de cards já classificados como `AI Agent` / `AI Model`.
+
+### Progresso e retoma
+
+Cada análise escreve o progresso por fases (carregar cards → consultar NVD → priorização por IA → guardar, ou carregar cards → deteção semântica de IA → verificação por regulação) no seu registo de execução. A interface mostra uma barra de progresso em tempo real por análise. **Atualizar a página não interrompe uma análise** — a tarefa em segundo plano continua no servidor, e ao montar, o separador Segurança consulta `/turbolens/security/active-runs` e volta a ligar-se ao ciclo de sondagem.
+
+### Chave de API do NVD (opcional)
+
+Sem chave, o NVD só permite 5 pedidos a cada 30 segundos, o que pode tornar lentas as análises de panoramas grandes. Solicite uma chave gratuita em <https://nvd.nist.gov/developers/request-an-api-key> e configure-a através da variável de ambiente `NVD_API_KEY` para elevar o limite para 50 pedidos a cada 30 segundos.
+
+### Fluxo de estado
+
+Cada achado CVE percorre: **aberto** → **reconhecido** → **em andamento** → **mitigado** (ou **aceite**, quando a equipa aceitou formalmente o risco). A reabertura está sempre disponível. As mudanças de estado são da responsabilidade de utilizadores com `security_compliance.manage`. Para fluxos de governança (titularidade, avaliação residual, justificação de aceitação, Todos e notificações) promova o achado a um Risco — o ciclo completo vive no [Registo de Riscos](risks.md).
+
 ## Histórico de Análises
 
 Todas as execuções de análise são registadas em **TurboLens > Histórico**, mostrando:
 
-- Tipo de análise (análise de fornecedores, resolução de fornecedores, deteção de duplicados, modernização, arquiteto)
+- Tipo de análise (análise de fornecedores, resolução de fornecedores, deteção de duplicados, modernização, arquiteto, security_compliance)
 - Estado (em execução, concluída, com falha)
 - Timestamps de início e de conclusão
 - Mensagens de erro (se existirem)
@@ -232,3 +279,5 @@ Todas as execuções de análise são registadas em **TurboLens > Histórico**, 
 |-----------|-----------|
 | `turbolens.view` | Ver resultados de análise (concedida a admin, bpm_admin, member) |
 | `turbolens.manage` | Acionar análises (concedida a admin) |
+| `security_compliance.view` | Ver achados CVE e de conformidade (concedida a admin, bpm_admin, member, viewer) |
+| `security_compliance.manage` | Disparar análises de segurança e atualizar o estado dos achados (concedida a admin) |
