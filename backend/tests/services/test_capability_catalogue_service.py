@@ -281,9 +281,12 @@ async def test_import_relinks_existing_children_to_new_parent(db, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_import_preserves_manual_nesting_when_creating_parent(db, monkeypatch):
-    """Existing children that already have a non-null parent_id (a manual
-    nesting) must NOT be re-parented when the catalogue parent is created."""
+async def test_import_relinks_unconditionally_when_catalogue_parent_created(db, monkeypatch):
+    """Importing a catalogue parent re-parents every name/catalogueId-matched
+    existing child under the new parent, regardless of whether the child was
+    previously top-level, orphaned, or hand-nested under an unrelated card.
+    The catalogue is the source of truth for hierarchy; if a user wants a
+    different layout they can adjust the parent_id on the card afterwards."""
     _install_fake_pkg(monkeypatch)
     from app.services import capability_catalogue_service as svc
 
@@ -302,9 +305,14 @@ async def test_import_preserves_manual_nesting_when_creating_parent(db, monkeypa
     result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1"])
 
     assert len(result["created"]) == 1
-    assert result["relinked"] == []
+    assert len(result["relinked"]) == 1
+    new_parent = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1")))
+        .scalars()
+        .one()
+    )
     await db.refresh(child)
-    assert str(child.parent_id) == str(other_root.id)
+    assert str(child.parent_id) == str(new_parent.id)
 
 
 @pytest.mark.asyncio

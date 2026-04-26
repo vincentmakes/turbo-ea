@@ -21,7 +21,7 @@ from typing import Any
 
 import httpx
 import turbo_ea_capabilities as catalogue_pkg
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.app_settings import AppSettings
@@ -332,13 +332,12 @@ async def import_capabilities(
         created.append({"catalogue_id": cap["id"], "card_id": str(card.id)})
         created_in_batch.add(cap["id"])
 
-    # Re-parent existing top-level cards whose catalogue parent was just
-    # created in this batch. We touch the existing card if either:
-    #   - its `parent_id` is NULL (top-level), OR
-    #   - its `parent_id` points to a missing or ARCHIVED card (a stale /
-    #     orphaned reference left over from a previous edit).
-    # Manual nestings under a still-active card are preserved deliberately,
-    # so users keep authority over their hand-built hierarchies.
+    # Re-parent existing cards whose catalogue parent was just created in
+    # this batch. The relink is unconditional: as long as we identified the
+    # existing card (by catalogueId or display name), we set its parent_id
+    # to the new catalogue parent. We use an explicit UPDATE statement
+    # (rather than mutating the ORM instance) so the write is independent
+    # of any session-state quirks — the value lands in the row.
     for cat_id in pre_existing_ids:
         cap_data = by_id.get(cat_id)
         if cap_data is None:
@@ -348,17 +347,13 @@ async def import_capabilities(
             continue
         existing_card_id = catalogue_id_to_card_id[cat_id]
         new_parent_card_id = catalogue_id_to_card_id[cat_parent]
-        existing_card = await db.get(Card, uuid.UUID(existing_card_id))
-        if existing_card is None:
-            continue
-        if existing_card.parent_id is not None:
-            current_parent = await db.get(Card, existing_card.parent_id)
-            # An "active manual nesting" — only that case wins over the
-            # catalogue's own hierarchy.
-            if current_parent is not None and current_parent.status != "ARCHIVED":
-                continue
-        existing_card.parent_id = uuid.UUID(new_parent_card_id)
-        existing_card.updated_by = user_id
+        existing_uuid = uuid.UUID(existing_card_id)
+        new_parent_uuid = uuid.UUID(new_parent_card_id)
+        await db.execute(
+            update(Card)
+            .where(Card.id == existing_uuid)
+            .values(parent_id=new_parent_uuid, updated_by=user_id)
+        )
         relinked.append(
             {
                 "catalogue_id": cat_id,
