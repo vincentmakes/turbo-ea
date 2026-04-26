@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -34,36 +34,6 @@ function compareIds(a: string, b: string): number {
 function splitIndustry(s: string | null | undefined): string[] {
   if (!s) return [];
   return s.split(";").map((x) => x.trim()).filter(Boolean);
-}
-
-// Light-blue palette inside the BusinessCapability tone family. Drives the
-// background of each level's header strip (L1 banner + L2/L3/L4/L5 rows).
-// Pure values, lightening with depth, so the visual hierarchy reads even
-// on a stack of small rows. Text on every level is the brand navy
-// `#003399`. Same indexing convention as HierarchySection.tsx:30
-// (LEVEL_COLORS).
-const BC_LEVEL_COLORS = [
-  "#90caf9", // L1 — Material Blue 200
-  "#bbdefb", // L2 — Material Blue 100
-  "#e3f2fd", // L3 — Material Blue 50
-  "#f1f7fc", // L4
-  "#f8fbfe", // L5
-] as const;
-
-// Dark-mode counterpart — same family, picked so the per-level depth still
-// reads against a #1e1e1e paper.
-const BC_LEVEL_COLORS_DARK = [
-  "#3a5d80", // L1
-  "#2f4a66", // L2
-  "#263a4f", // L3
-  "#1f2e3d", // L4
-  "#1b2632", // L5
-] as const;
-
-function levelColor(level: number, isDark = false): string {
-  const palette = isDark ? BC_LEVEL_COLORS_DARK : BC_LEVEL_COLORS;
-  const i = Math.max(0, Math.min(level - 1, palette.length - 1));
-  return palette[i];
 }
 
 interface Props {
@@ -555,7 +525,6 @@ export default function CapabilityCatalogueBrowser({
               onToggleSelect={toggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
-              isDark={isDark}
             />
           ))}
         </div>
@@ -583,7 +552,6 @@ interface L1CardProps {
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
-  isDark: boolean;
 }
 
 function L1Card({
@@ -601,7 +569,6 @@ function L1Card({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
-  isDark,
 }: L1CardProps) {
   const { t } = useTranslation(["cards"]);
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
@@ -640,16 +607,6 @@ function L1Card({
     }
   }, [checkState]);
 
-  // L1 header background is the level-1 colour from the active palette
-  // (light blue in light mode, muted blue in dark). The brand navy
-  // `#003399` reads on the light tone; in dark mode the row text uses the
-  // lifted lavender that's set on .tcc-row in CSS, so we mirror that here
-  // for the header to feel cohesive with its rows.
-  const headerStyle: CSSProperties = {
-    background: levelColor(1, isDark),
-    color: isDark ? "#cdd9ee" : "#003399",
-  };
-
   const expandLabel = t("cards:catalogue.expandOneLevel");
   const collapseLabel = t("cards:catalogue.collapseOneLevel");
   const canExpand = hasKids && openDepth < maxDepth;
@@ -657,11 +614,10 @@ function L1Card({
 
   return (
     <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
-      <header className="tcc-l1-header" style={headerStyle}>
-        {/* Per-L1 ± pill — mirrors the global .tcc-stepper aesthetic but
-            scoped to this L1's subtree only. Always renders both buttons; the
-            inactive direction goes disabled. Pressing + opens one tree level
-            within this L1; pressing − closes the deepest open level. */}
+      <header className="tcc-l1-header">
+        {/* Per-L1 ± pill — scoped to this L1's subtree. + opens one tree level
+            within this L1; − closes the deepest open level. The global
+            stepper at the top of the page is unaffected. */}
         <div className="tcc-branch-stepper" role="group" aria-label={expandLabel}>
           <button
             type="button"
@@ -702,6 +658,12 @@ function L1Card({
             }}
           />
         )}
+        {/* Type icon prefix — mirrors the BusinessCapability card type
+            (icon=account_tree, color=#003399 in seed.py) so an L1 reads as
+            "this is a Business Capability container" without a coloured band. */}
+        <span className="tcc-l1-type-icon" aria-hidden="true">
+          <MaterialSymbol icon="account_tree" size={20} />
+        </span>
         <button
           type="button"
           className="tcc-l1-name"
@@ -726,7 +688,6 @@ function L1Card({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
-              isDark={isDark}
               depth={1}
             />
           ))}
@@ -746,7 +707,6 @@ interface ChildRowProps {
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
-  isDark: boolean;
   depth: number;
 }
 
@@ -760,7 +720,6 @@ function ChildRow({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
-  isDark,
   depth,
 }: ChildRowProps) {
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
@@ -769,13 +728,6 @@ function ChildRow({
   const isExisting = !!node.existing_card_id;
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
-
-  // Each row's background is its level colour from the active palette
-  // (light-blue in light mode, muted blue in dark). Set inline because the
-  // value is data-driven; CSS owns layout + the constant text/border.
-  const rowStyle: CSSProperties = {
-    background: levelColor(node.level, isDark),
-  };
 
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
@@ -807,10 +759,7 @@ function ChildRow({
 
   return (
     <li>
-      <div
-        className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}
-        style={rowStyle}
-      >
+      <div className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}>
         {checkbox}
         {chevron}
         <button
@@ -838,7 +787,6 @@ function ChildRow({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
-              isDark={isDark}
               depth={depth + 1}
             />
           ))}

@@ -1,5 +1,14 @@
 /* Tree-specific visuals for the Capability Catalogue browser.
-   Scoped under .tcc-root so it doesn't leak into other pages. */
+   Scoped under .tcc-root so it doesn't leak into other pages.
+
+   Visual model (matches the rest of the app — see HierarchySection,
+   CapabilityMapReport.CapabilityCard, PpmTaskCard):
+     • Surfaces stay neutral (`background.paper`, divider borders).
+     • Hierarchy is read from indentation + a single typography step-down
+       (bold L1, semi-bold L2, regular L3+).
+     • The brand navy `#003399` is reserved for: the L1 type-icon prefix,
+       the L1 name, and the selected-state ring/wash.
+*/
 
 .tcc-root .tcc-l1-grid {
   display: grid;
@@ -27,28 +36,38 @@
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
 }
 
-/* L1 header — light-blue band that names the section. The bg is set
-   inline (levelColor(1)) so the colour scheme stays data-driven; CSS owns
-   layout only. The corner radius comes from the parent .tcc-l1-card via
-   overflow: hidden so the band tucks neatly into the rounded card chrome. */
+/* L1 header — neutral paper, navy title, divider underneath. The header
+   anchors the card without a coloured band; the only colour cue is the
+   navy type-icon + title. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
   min-width: 0;
+  border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+}
+
+.tcc-root .tcc-l1-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #003399;
+  flex-shrink: 0;
 }
 
 .tcc-root .tcc-l1-name {
   flex: 1;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
+  color: #003399;
   background: none;
   border: 0;
   padding: 0;
   text-align: left;
   cursor: pointer;
-  color: inherit;
   min-width: 0;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -59,31 +78,29 @@
   opacity: 0.85;
 }
 
-/* Cap-count badge — picks up the row's foreground colour (white on dark
-   levels, navy on light levels) via currentColor + a translucent same-colour
-   pill. Works on both palettes without per-class overrides. */
+/* Cap-count badge — picks up the row's foreground colour via
+   currentColor + a translucent same-colour pill. Reads on neutral
+   surfaces in both modes without per-class overrides. */
 .tcc-root .tcc-cap-count {
   font-size: 11px;
   font-weight: 700;
-  background: color-mix(in srgb, currentColor 18%, transparent);
+  background: color-mix(in srgb, currentColor 12%, transparent);
   color: inherit;
   border-radius: 999px;
   padding: 2px 8px;
   flex-shrink: 0;
 }
 
-/* Per-L1 ± stepper pill — pair of buttons sharing one rounded outline,
-   placed on the light-blue L1 header. Both icons are always visible; the
-   inactive direction goes disabled. Navy outline + tint, navy text
-   inherited from the header so it reads on the lighter blue backdrop. */
+/* Per-L1 ± stepper pill. Navy outline + tint on a white-paper header. */
 .tcc-root .tcc-branch-stepper {
   display: inline-flex;
   align-items: stretch;
   border: 1px solid rgba(0, 51, 153, 0.35);
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.55);
+  background: transparent;
   flex-shrink: 0;
+  color: #003399;
 }
 
 .tcc-root .tcc-branch-stepper button {
@@ -103,7 +120,7 @@
 }
 
 .tcc-root .tcc-branch-stepper button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 51, 153, 0.06);
 }
 
 .tcc-root .tcc-branch-stepper button:disabled {
@@ -121,32 +138,36 @@
   gap: 4px;
 }
 
+/* Nested levels: indent + a faint vertical rail that signals depth without
+   colour. Same idiom as .tcc-detail-tree-children below. */
 .tcc-root .tcc-l2-children {
-  padding: 4px 0 4px 14px;
-  margin-left: 12px;
+  padding: 4px 0 4px 16px;
+  margin-left: 14px;
+  border-left: 1px solid rgba(0, 51, 153, 0.10);
 }
 
-/* Rows are small "mini-cards" tinted in the per-level light blue — bg
-   set inline from BC_LEVEL_COLORS by the component. CSS owns layout,
-   border, radius, and the brand-navy text. Hover lifts to a subtle navy
-   highlight; selection paints a stronger navy ring + tint. */
+/* Rows are neutral — paper bg, divider border, navy text. Depth is conveyed
+   by indentation (.tcc-l2-children) + typography (is-l2 weight bump),
+   never by background tint. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid rgba(0, 51, 153, 0.12);
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
   border-radius: 8px;
+  background: var(--mui-palette-background-paper, #fff);
   color: #003399;
   min-width: 0;
-  transition: box-shadow 120ms ease, filter 120ms ease;
+  transition: box-shadow 120ms ease, background-color 120ms ease;
 }
 
 .tcc-root .tcc-row:hover {
-  filter: brightness(0.96);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .tcc-root .tcc-row.is-selected {
+  background: rgba(0, 51, 153, 0.06);
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.45);
 }
 
@@ -236,13 +257,6 @@
   flex-shrink: 0;
 }
 
-/* On the dark navy L1 header the standard MUI green isn't bright enough —
-   swap to the high-contrast Material green 200 for visibility. Child rows
-   are white-bg so they keep the default green. */
-.tcc-root .tcc-existing-tick.tcc-existing-tick--on-dark {
-  color: #a5d6a7;
-}
-
 .tcc-root .tcc-action-bar {
   display: flex;
   align-items: center;
@@ -317,15 +331,13 @@
 }
 
 /* -- Dark mode -------------------------------------------------------------
-   The MUI theme isn't using `cssVariables: true`, so the
-   var(--mui-palette-…) tokens above don't actually resolve at runtime — the
-   browser falls back to the literal #fff / divider values, which is why the
-   catalogue cards stay white when the rest of the app switches to dark.
-   The component reads `theme.palette.mode` and tags the root with
-   `tcc-root--dark`. Per-level row backgrounds come from the dark palette
-   (BC_LEVEL_COLORS_DARK) and are set inline on .tcc-row, so we only
-   override the chrome (card paper, borders, text, divider, checkbox) here.
-   Border-radius (8 px) and layout are shared across modes. */
+   MUI 6 isn't running with `cssVariables: true`, so the
+   var(--mui-palette-…) tokens above don't actually resolve at runtime —
+   the browser falls back to the literal #fff / divider values. The
+   component reads `theme.palette.mode` and tags the root with
+   `tcc-root--dark`; everything below mirrors the neutral light-mode
+   layout on a #1e1e1e paper with lifted-lavender text. No per-level
+   tints in either mode — depth is read from indentation + typography. */
 
 .tcc-root.tcc-root--dark .tcc-l1-card {
   background: #1e1e1e;
@@ -341,17 +353,36 @@
   box-shadow: 0 0 0 1px rgba(102, 153, 255, 0.35);
 }
 
+.tcc-root.tcc-root--dark .tcc-l1-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-type-icon,
+.tcc-root.tcc-root--dark .tcc-l1-name {
+  color: #a8c4ff;
+}
+
 .tcc-root.tcc-root--dark .tcc-row {
-  border-color: rgba(102, 153, 255, 0.22);
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.10);
   color: #cdd9ee;
 }
 
+.tcc-root.tcc-root--dark .tcc-row:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
 .tcc-root.tcc-root--dark .tcc-row.is-selected {
+  background: rgba(168, 196, 255, 0.08);
   box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.6);
 }
 
+.tcc-root.tcc-root--dark .tcc-l2-children {
+  border-left-color: rgba(168, 196, 255, 0.18);
+}
+
 /* MUI Checkbox in rows: navy in light, lifted lavender in dark. The CSS
-   selector chain (4 classes) wins over MUI's emotion-generated single-class
+   selector chain (3 classes) wins over MUI's emotion-generated single-class
    `sx` rule on specificity, so no !important needed. */
 .tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root {
   color: rgba(168, 196, 255, 0.55);
@@ -361,28 +392,26 @@
   color: #a8c4ff;
 }
 
-/* L1 header on dark — matching checkbox + ± stepper to the lifted-lavender
-   text colour set inline on the header. */
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root {
-  color: rgba(205, 217, 238, 0.6);
+  color: rgba(168, 196, 255, 0.55);
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.Mui-checked,
 .tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.MuiCheckbox-indeterminate {
-  color: #cdd9ee;
+  color: #a8c4ff;
 }
 
 .tcc-root.tcc-root--dark .tcc-branch-stepper {
-  border-color: rgba(205, 217, 238, 0.4);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(168, 196, 255, 0.45);
+  color: #a8c4ff;
 }
 
 .tcc-root.tcc-root--dark .tcc-branch-stepper button + button {
-  border-left-color: rgba(205, 217, 238, 0.4);
+  border-left-color: rgba(168, 196, 255, 0.45);
 }
 
 .tcc-root.tcc-root--dark .tcc-branch-stepper button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(168, 196, 255, 0.12);
 }
 
 .tcc-root.tcc-root--dark .tcc-cap-id {
@@ -390,8 +419,6 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* Existing-card tick is always green; bump to the bright Material green 200
-   on dark backgrounds so it stays legible. */
 .tcc-root.tcc-root--dark .tcc-existing-tick {
   color: #a5d6a7;
 }

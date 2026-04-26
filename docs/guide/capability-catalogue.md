@@ -11,7 +11,7 @@ Click the user icon in the top-right corner of the app, then **Capability Catalo
 - **Header** — the active catalogue version, the number of capabilities it contains, and (for admins) controls to check for and fetch updates.
 - **Filter bar** — full-text search across id, name, description and aliases, plus level chips (L1 → L4), an industry multi-select, and a "Show deprecated" toggle.
 - **Action bar** — match counters, the global level stepper (expand/collapse all L1s one level at a time), expand/collapse all, select-visible, clear selection.
-- **L1 grid** — one card per top-level capability, with the L1 name on a navy header and child capabilities rendered as small white "mini-cards" inside, each carrying a coloured left-border accent that lightens with depth. Names wrap to multiple lines instead of being truncated. Each L1 header also exposes its own `−` / `+` stepper pill: `+` opens the next level of descendants for that L1 only, `−` closes the deepest open level. The two buttons are always visible (the inactive direction goes disabled), the action is scoped to that one L1 — other branches stay put — and the global level stepper at the top of the page is unaffected.
+- **L1 grid** — one card per top-level capability, on neutral paper with a navy `account_tree` icon and L1 name in the header. Child capabilities are listed underneath, indented with a faint vertical rail to convey depth — the same hierarchy idiom used elsewhere in the app, so the page doesn't carry its own visual identity. Names wrap to multiple lines instead of being truncated. Each L1 header also exposes its own `−` / `+` stepper pill: `+` opens the next level of descendants for that L1 only, `−` closes the deepest open level. The two buttons are always visible (the inactive direction goes disabled), the action is scoped to that one L1 — other branches stay put — and the global level stepper at the top of the page is unaffected.
 
 ## Selecting capabilities
 
@@ -22,7 +22,7 @@ Tick the checkbox next to any capability to add it to the selection. Selection c
 
 So unticking a single child only removes that child and what's below — its parent and siblings stay selected. Unticking a parent removes the whole subtree in one action. To assemble an "L1 + a couple of leaves" selection, pick the L1 (which seeds the whole subtree) and then untick the L2/L3 capabilities you don't want — the L1 stays selected and its checkbox stays ticked.
 
-The page picks up the app-wide light/dark theme automatically — dark mode switches the L1 card chrome and child-row tints to a lifted navy palette while the navy header keeps its white-on-navy contrast in both modes.
+The page picks up the app-wide light/dark theme automatically — dark mode renders the same neutral layout on `#1e1e1e` paper with lifted-lavender text and accents.
 
 Capabilities that **already exist** in your inventory (matched by display name, case-insensitive) appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue.
 
