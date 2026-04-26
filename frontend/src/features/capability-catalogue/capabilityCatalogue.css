@@ -26,13 +26,17 @@
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
 }
 
+/* L1 header — solid brand bg + foreground come from inline style on the
+   element (driven by levelBg(1) / levelFg(1)) so the colour scheme stays
+   data-driven. CSS owns layout only. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: rgba(0, 51, 153, 0.06);
-  border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   min-width: 0;
 }
 
@@ -45,7 +49,7 @@
   padding: 0;
   text-align: left;
   cursor: pointer;
-  color: #003399;
+  color: inherit;
   min-width: 0;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -53,17 +57,48 @@
 }
 
 .tcc-root .tcc-l1-name:hover {
-  text-decoration: underline;
+  opacity: 0.85;
 }
 
+/* Cap-count badge — picks up the row's foreground colour (white on dark
+   levels, navy on light levels) via currentColor + a translucent same-colour
+   pill. Works on both palettes without per-class overrides. */
 .tcc-root .tcc-cap-count {
   font-size: 11px;
   font-weight: 700;
-  background: rgba(0, 51, 153, 0.1);
-  color: #003399;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
   border-radius: 999px;
   padding: 2px 8px;
   flex-shrink: 0;
+}
+
+/* +/- branch toggle — pill on the LEFT of the L1 header. Mirrors the
+   .tcc-stepper aesthetic but adapted for placement on a coloured header. */
+.tcc-root .tcc-branch-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.tcc-root .tcc-branch-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+
+.tcc-root .tcc-branch-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .tcc-root .tcc-l2-list,
@@ -71,31 +106,34 @@
   list-style: none;
   margin: 0;
   padding: 6px 8px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .tcc-root .tcc-l2-children {
-  padding: 4px 0 4px 22px;
-  border-left: 1px dashed var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  padding: 4px 0 4px 14px;
   margin-left: 12px;
 }
 
+/* Each row is a coloured bar — bg / fg come from inline style (per level),
+   so this rule owns layout + the constant pieces only. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: 4px;
   min-width: 0;
-  transition: background-color 120ms ease;
+  transition: filter 120ms ease, box-shadow 120ms ease;
 }
 
 .tcc-root .tcc-row:hover {
-  background: rgba(0, 51, 153, 0.04);
+  filter: brightness(0.96);
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(0, 51, 153, 0.08);
-  box-shadow: inset 2px 0 0 #003399;
+  box-shadow: inset 3px 0 0 #003399, 0 0 0 1px rgba(0, 51, 153, 0.35);
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
@@ -107,6 +145,7 @@
   cursor: pointer;
   color: inherit;
   font-size: 14px;
+  font-weight: 500;
   min-width: 0;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -114,7 +153,7 @@
 }
 
 .tcc-root .tcc-row .tcc-name-btn:hover {
-  text-decoration: underline;
+  opacity: 0.85;
 }
 
 .tcc-root .tcc-row.is-l2 .tcc-name-btn {
@@ -131,7 +170,8 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--mui-palette-text-secondary);
+  color: inherit;
+  opacity: 0.85;
 }
 
 .tcc-root .tcc-chevron.is-empty {
@@ -166,9 +206,10 @@
   font-size: 10px;
   font-weight: 700;
   color: #b26500;
-  background: rgba(255, 152, 0, 0.18);
+  background: rgba(255, 224, 178, 0.92);
   padding: 1px 6px;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .tcc-root .tcc-existing-tick {
@@ -179,6 +220,12 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+}
+
+/* On dark coloured rows the standard MUI green isn't bright enough — swap
+   to the high-contrast Material green 200 for visibility against navy. */
+.tcc-root .tcc-existing-tick.tcc-existing-tick--on-dark {
+  color: #a5d6a7;
 }
 
 .tcc-root .tcc-action-bar {

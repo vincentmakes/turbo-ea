@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -8,7 +8,6 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Chip from "@mui/material/Chip";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
-import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
@@ -37,8 +36,11 @@ function splitIndustry(s: string | null | undefined): string[] {
 }
 
 // Per-level shades of the BusinessCapability brand colour (#003399), tinted
-// toward white in 20% steps. Conveys depth via lightening — same indexing
-// convention as HierarchySection.tsx:30 (LEVEL_COLORS).
+// toward white in 20% steps. Drives the row backgrounds; same indexing
+// convention as HierarchySection.tsx:30 (LEVEL_COLORS). Levels 1-3 are dark
+// enough that white text reads cleanly on them — for the lighter L4/L5
+// shades we flip to the brand navy as the foreground (the codebase has no
+// luminance helper, so this is hard-coded by inspection).
 const BC_LEVEL_COLORS = [
   "#003399", // L1
   "#335bad", // L2
@@ -47,9 +49,13 @@ const BC_LEVEL_COLORS = [
   "#ccd6eb", // L5
 ] as const;
 
-function levelColor(level: number): string {
+function levelBg(level: number): string {
   const i = Math.max(0, Math.min(level - 1, BC_LEVEL_COLORS.length - 1));
   return BC_LEVEL_COLORS[i];
+}
+
+function levelFg(level: number): string {
+  return level <= 3 ? "#fff" : "#003399";
 }
 
 interface Props {
@@ -427,9 +433,12 @@ export default function CapabilityCatalogueBrowser({
             <MaterialSymbol icon="remove" size={16} />
           </button>
           <span className="tcc-stepper-label">
+            {/* Display levels 1-indexed: depth=0 in state means "L1 cards
+                visible only" → "Level 1 / N" in the UI. The underlying state
+                still uses 0-based depth so the calculations remain natural. */}
             {t("cards:catalogue.levelStepper", {
-              current: currentLevel,
-              max: stepperMax,
+              current: currentLevel + 1,
+              max: stepperMax + 1,
             })}
           </span>
           <button
@@ -563,12 +572,34 @@ function L1Card({
     }
   }, [checkState]);
 
+  // L1 header gets the brand colour as solid background; deeper rows carry
+  // their own bg in ChildRow.
+  const headerStyle: CSSProperties = {
+    background: levelBg(1),
+    color: levelFg(1),
+  };
+
+  const branchLabel = branchFullyOpen
+    ? t("cards:catalogue.collapseBranch")
+    : t("cards:catalogue.expandBranch");
+
   return (
     <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
-      <header className="tcc-l1-header">
+      <header className="tcc-l1-header" style={headerStyle}>
+        {/* Branch +/- pill — left side, mirrors the .tcc-stepper aesthetic */}
+        <button
+          type="button"
+          className="tcc-branch-toggle"
+          onClick={() => onToggleBranch(node.id)}
+          disabled={!hasKids}
+          aria-label={branchLabel}
+          title={branchLabel}
+        >
+          <MaterialSymbol icon={branchFullyOpen ? "remove" : "add"} size={16} />
+        </button>
         {isExisting ? (
           <Tooltip title={`Already a card: ${node.name}`}>
-            <span className="tcc-existing-tick">
+            <span className="tcc-existing-tick tcc-existing-tick--on-dark">
               <MaterialSymbol icon="check_circle" size={20} />
             </span>
           </Tooltip>
@@ -579,6 +610,10 @@ function L1Card({
             checked={checkState === "checked"}
             onChange={() => onToggleSelect(node.id)}
             inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
+            sx={{
+              color: "rgba(255,255,255,0.7)",
+              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" },
+            }}
           />
         )}
         <button
@@ -590,28 +625,6 @@ function L1Card({
         </button>
         {node.deprecated && <span className="tcc-deprecated-badge">Dep.</span>}
         {hasKids && <span className="tcc-cap-count">{kids.length}</span>}
-        <Tooltip
-          title={
-            branchFullyOpen
-              ? t("cards:catalogue.collapseBranch")
-              : t("cards:catalogue.expandBranch")
-          }
-        >
-          <span>
-            <IconButton
-              size="small"
-              onClick={() => onToggleBranch(node.id)}
-              disabled={!hasKids}
-              aria-label={
-                branchFullyOpen
-                  ? t("cards:catalogue.collapseBranch")
-                  : t("cards:catalogue.expandBranch")
-              }
-            >
-              <MaterialSymbol icon={branchFullyOpen ? "remove" : "add"} size={20} />
-            </IconButton>
-          </span>
-        </Tooltip>
       </header>
       {isOpen && hasKids && (
         <ul className="tcc-l2-list">
@@ -667,10 +680,18 @@ function ChildRow({
   const isExisting = !!node.existing_card_id;
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
+  const onDark = node.level <= 3;
+
+  const rowStyle: CSSProperties = {
+    background: levelBg(node.level),
+    color: levelFg(node.level),
+  };
 
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
-      <span className="tcc-existing-tick">
+      <span
+        className={`tcc-existing-tick${onDark ? " tcc-existing-tick--on-dark" : ""}`}
+      >
         <MaterialSymbol icon="check_circle" size={18} />
       </span>
     </Tooltip>
@@ -680,7 +701,15 @@ function ChildRow({
       checked={selfSelected}
       onChange={() => onToggleSelect(node.id)}
       inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
-      sx={{ p: 0.5 }}
+      sx={
+        onDark
+          ? {
+              p: 0.5,
+              color: "rgba(255,255,255,0.7)",
+              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" },
+            }
+          : { p: 0.5, color: "rgba(0,51,153,0.6)", "&.Mui-checked": { color: "#003399" } }
+      }
     />
   );
 
@@ -698,7 +727,10 @@ function ChildRow({
 
   return (
     <li>
-      <div className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}>
+      <div
+        className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}
+        style={rowStyle}
+      >
         {checkbox}
         {chevron}
         <button
@@ -706,7 +738,6 @@ function ChildRow({
           className="tcc-name-btn"
           onClick={() => onOpenDetail(node.id)}
           title={node.description ?? undefined}
-          style={{ color: levelColor(node.level) }}
         >
           {node.name}
         </button>
