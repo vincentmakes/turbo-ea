@@ -307,6 +307,41 @@ async def test_import_preserves_manual_nesting_when_creating_parent(db, monkeypa
 
 
 @pytest.mark.asyncio
+async def test_import_relinks_via_catalogue_id_after_rename(db, monkeypatch):
+    """A previously-imported child whose display name has since been edited
+    by the user must still be matched on its `attributes.catalogueId` and
+    re-parented under the newly-created catalogue parent."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    # Existing top-level card whose name no longer matches the catalogue
+    # ("Lead Capture") but whose catalogueId still flags it as BC-1.1.1.
+    renamed_child = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Inbound Lead Intake (renamed)",
+        user_id=user.id,
+        attributes={"catalogueId": "BC-1.1.1", "catalogueVersion": "0.1.0"},
+    )
+    assert renamed_child.parent_id is None
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1"])
+
+    assert len(result["created"]) == 1
+    assert len(result["relinked"]) == 1
+    assert result["relinked"][0]["catalogue_id"] == "BC-1.1.1"
+
+    new_parent = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1")))
+        .scalars()
+        .one()
+    )
+    await db.refresh(renamed_child)
+    assert str(renamed_child.parent_id) == str(new_parent.id)
+
+
+@pytest.mark.asyncio
 async def test_version_tuple_handles_double_digit(monkeypatch):
     _install_fake_pkg(monkeypatch)
     from app.services.capability_catalogue_service import _version_tuple

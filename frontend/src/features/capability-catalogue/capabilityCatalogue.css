@@ -27,10 +27,10 @@
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
 }
 
-/* L1 header — solid brand bg, white text. The bg is set inline (levelColor)
-   so the colour scheme stays data-driven; CSS owns layout only. The radius
-   comes from the parent .tcc-l1-card via overflow: hidden so the navy bar
-   tucks neatly into the rounded card chrome. */
+/* L1 header — light-blue band that names the section. The bg is set
+   inline (levelColor(1)) so the colour scheme stays data-driven; CSS owns
+   layout only. The corner radius comes from the parent .tcc-l1-card via
+   overflow: hidden so the band tucks neatly into the rounded card chrome. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
@@ -73,15 +73,16 @@
 }
 
 /* Per-L1 ± stepper pill — pair of buttons sharing one rounded outline,
-   placed on the dark navy L1 header. Both icons are always visible; the
-   inactive direction goes disabled. Mirrors the .tcc-stepper template. */
+   placed on the light-blue L1 header. Both icons are always visible; the
+   inactive direction goes disabled. Navy outline + tint, navy text
+   inherited from the header so it reads on the lighter blue backdrop. */
 .tcc-root .tcc-branch-stepper {
   display: inline-flex;
   align-items: stretch;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 51, 153, 0.35);
   border-radius: 999px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.55);
   flex-shrink: 0;
 }
 
@@ -98,11 +99,11 @@
 }
 
 .tcc-root .tcc-branch-stepper button + button {
-  border-left: 1px solid rgba(255, 255, 255, 0.5);
+  border-left: 1px solid rgba(0, 51, 153, 0.35);
 }
 
 .tcc-root .tcc-branch-stepper button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .tcc-root .tcc-branch-stepper button:disabled {
@@ -125,29 +126,27 @@
   margin-left: 12px;
 }
 
-/* Rows are small "mini-cards" tinted in the BusinessCapability brand colour
-   — a very-light navy wash that hints at the type without competing for
-   attention. No left-border accent; depth is conveyed by the existing
-   indentation in .tcc-l2-children. */
+/* Rows are small "mini-cards" tinted in the per-level light blue — bg
+   set inline from BC_LEVEL_COLORS by the component. CSS owns layout,
+   border, radius, and the brand-navy text. Hover lifts to a subtle navy
+   highlight; selection paints a stronger navy ring + tint. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid rgba(0, 51, 153, 0.08);
-  border-radius: 6px;
-  background: rgba(0, 51, 153, 0.04);
+  border: 1px solid rgba(0, 51, 153, 0.12);
+  border-radius: 8px;
   color: #003399;
   min-width: 0;
-  transition: box-shadow 120ms ease, background-color 120ms ease;
+  transition: box-shadow 120ms ease, filter 120ms ease;
 }
 
 .tcc-root .tcc-row:hover {
-  background: rgba(0, 51, 153, 0.08);
+  filter: brightness(0.96);
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(0, 51, 153, 0.12);
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.45);
 }
 
@@ -323,11 +322,10 @@
    browser falls back to the literal #fff / divider values, which is why the
    catalogue cards stay white when the rest of the app switches to dark.
    The component reads `theme.palette.mode` and tags the root with
-   `tcc-root--dark`; everything below overrides the literal colours so the
-   panel matches the rest of the dark-mode chrome.
-
-   The L1 header keeps the brand navy + white text in both modes — it reads
-   correctly on either palette. */
+   `tcc-root--dark`. Per-level row backgrounds come from the dark palette
+   (BC_LEVEL_COLORS_DARK) and are set inline on .tcc-row, so we only
+   override the chrome (card paper, borders, text, divider, checkbox) here.
+   Border-radius (8 px) and layout are shared across modes. */
 
 .tcc-root.tcc-root--dark .tcc-l1-card {
   background: #1e1e1e;
@@ -344,18 +342,12 @@
 }
 
 .tcc-root.tcc-root--dark .tcc-row {
-  background: rgba(102, 153, 255, 0.08);
-  border-color: rgba(102, 153, 255, 0.18);
-  color: #b8c8e8;
-}
-
-.tcc-root.tcc-root--dark .tcc-row:hover {
-  background: rgba(102, 153, 255, 0.16);
+  border-color: rgba(102, 153, 255, 0.22);
+  color: #cdd9ee;
 }
 
 .tcc-root.tcc-root--dark .tcc-row.is-selected {
-  background: rgba(102, 153, 255, 0.22);
-  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.6);
 }
 
 /* MUI Checkbox in rows: navy in light, lifted lavender in dark. The CSS
@@ -369,6 +361,30 @@
   color: #a8c4ff;
 }
 
+/* L1 header on dark — matching checkbox + ± stepper to the lifted-lavender
+   text colour set inline on the header. */
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root {
+  color: rgba(205, 217, 238, 0.6);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.Mui-checked,
+.tcc-root.tcc-root--dark .tcc-l1-header .MuiCheckbox-root.MuiCheckbox-indeterminate {
+  color: #cdd9ee;
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper {
+  border-color: rgba(205, 217, 238, 0.4);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper button + button {
+  border-left-color: rgba(205, 217, 238, 0.4);
+}
+
+.tcc-root.tcc-root--dark .tcc-branch-stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .tcc-root.tcc-root--dark .tcc-cap-id {
   color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.08);
@@ -376,7 +392,7 @@
 
 /* Existing-card tick is always green; bump to the bright Material green 200
    on dark backgrounds so it stays legible. */
-.tcc-root.tcc-root--dark .tcc-row .tcc-existing-tick {
+.tcc-root.tcc-root--dark .tcc-existing-tick {
   color: #a5d6a7;
 }
 

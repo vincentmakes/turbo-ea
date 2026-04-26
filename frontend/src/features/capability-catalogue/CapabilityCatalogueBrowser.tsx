@@ -36,23 +36,34 @@ function splitIndustry(s: string | null | undefined): string[] {
   return s.split(";").map((x) => x.trim()).filter(Boolean);
 }
 
-// Per-level shades of the BusinessCapability brand colour (#003399), tinted
-// toward white in 20% steps. Drives the per-row left-border accent (rows
-// themselves are white-bg / dark-navy-text, mirroring the
-// CapabilityMapReport visual language: white Paper + colored header / border
-// + 8 px corner radius). Same indexing convention as HierarchySection.tsx:30
+// Light-blue palette inside the BusinessCapability tone family. Drives the
+// background of each level's header strip (L1 banner + L2/L3/L4/L5 rows).
+// Pure values, lightening with depth, so the visual hierarchy reads even
+// on a stack of small rows. Text on every level is the brand navy
+// `#003399`. Same indexing convention as HierarchySection.tsx:30
 // (LEVEL_COLORS).
 const BC_LEVEL_COLORS = [
-  "#003399", // L1
-  "#335bad", // L2
-  "#6685c2", // L3
-  "#99add6", // L4
-  "#ccd6eb", // L5
+  "#90caf9", // L1 — Material Blue 200
+  "#bbdefb", // L2 — Material Blue 100
+  "#e3f2fd", // L3 — Material Blue 50
+  "#f1f7fc", // L4
+  "#f8fbfe", // L5
 ] as const;
 
-function levelColor(level: number): string {
-  const i = Math.max(0, Math.min(level - 1, BC_LEVEL_COLORS.length - 1));
-  return BC_LEVEL_COLORS[i];
+// Dark-mode counterpart — same family, picked so the per-level depth still
+// reads against a #1e1e1e paper.
+const BC_LEVEL_COLORS_DARK = [
+  "#3a5d80", // L1
+  "#2f4a66", // L2
+  "#263a4f", // L3
+  "#1f2e3d", // L4
+  "#1b2632", // L5
+] as const;
+
+function levelColor(level: number, isDark = false): string {
+  const palette = isDark ? BC_LEVEL_COLORS_DARK : BC_LEVEL_COLORS;
+  const i = Math.max(0, Math.min(level - 1, palette.length - 1));
+  return palette[i];
 }
 
 interface Props {
@@ -544,6 +555,7 @@ export default function CapabilityCatalogueBrowser({
               onToggleSelect={toggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
+              isDark={isDark}
             />
           ))}
         </div>
@@ -571,6 +583,7 @@ interface L1CardProps {
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
+  isDark: boolean;
 }
 
 function L1Card({
@@ -588,6 +601,7 @@ function L1Card({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
+  isDark,
 }: L1CardProps) {
   const { t } = useTranslation(["cards"]);
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
@@ -626,12 +640,14 @@ function L1Card({
     }
   }, [checkState]);
 
-  // L1 header keeps the brand navy as a solid bg with white foreground —
-  // mirrors the colored-header pattern from CapabilityMapReport. Deeper rows
-  // are white with a per-level coloured left-border accent (see ChildRow).
+  // L1 header background is the level-1 colour from the active palette
+  // (light blue in light mode, muted blue in dark). The brand navy
+  // `#003399` reads on the light tone; in dark mode the row text uses the
+  // lifted lavender that's set on .tcc-row in CSS, so we mirror that here
+  // for the header to feel cohesive with its rows.
   const headerStyle: CSSProperties = {
-    background: levelColor(1),
-    color: "#fff",
+    background: levelColor(1, isDark),
+    color: isDark ? "#cdd9ee" : "#003399",
   };
 
   const expandLabel = t("cards:catalogue.expandOneLevel");
@@ -668,7 +684,7 @@ function L1Card({
         </div>
         {isExisting ? (
           <Tooltip title={`Already a card: ${node.name}`}>
-            <span className="tcc-existing-tick tcc-existing-tick--on-dark">
+            <span className="tcc-existing-tick">
               <MaterialSymbol icon="check_circle" size={20} />
             </span>
           </Tooltip>
@@ -680,8 +696,9 @@ function L1Card({
             onChange={() => onToggleSelect(node.id)}
             inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
             sx={{
-              color: "rgba(255,255,255,0.7)",
-              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" },
+              p: 0.5,
+              color: "rgba(0,51,153,0.55)",
+              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#003399" },
             }}
           />
         )}
@@ -709,6 +726,7 @@ function L1Card({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
+              isDark={isDark}
               depth={1}
             />
           ))}
@@ -728,6 +746,7 @@ interface ChildRowProps {
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
+  isDark: boolean;
   depth: number;
 }
 
@@ -741,6 +760,7 @@ function ChildRow({
   onToggleSelect,
   onOpenDetail,
   isSelectable,
+  isDark,
   depth,
 }: ChildRowProps) {
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
@@ -749,6 +769,13 @@ function ChildRow({
   const isExisting = !!node.existing_card_id;
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
+
+  // Each row's background is its level colour from the active palette
+  // (light-blue in light mode, muted blue in dark). Set inline because the
+  // value is data-driven; CSS owns layout + the constant text/border.
+  const rowStyle: CSSProperties = {
+    background: levelColor(node.level, isDark),
+  };
 
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
@@ -780,7 +807,10 @@ function ChildRow({
 
   return (
     <li>
-      <div className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}>
+      <div
+        className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}
+        style={rowStyle}
+      >
         {checkbox}
         {chevron}
         <button
@@ -808,6 +838,7 @@ function ChildRow({
               onToggleSelect={onToggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
+              isDark={isDark}
               depth={depth + 1}
             />
           ))}

@@ -160,19 +160,45 @@ async def _existing_bc_name_index(db: AsyncSession) -> dict[str, str]:
     return out
 
 
+async def _existing_bc_catalogue_id_index(db: AsyncSession) -> dict[str, str]:
+    """Return {catalogueId: card_id} for active BusinessCapability cards
+    that were previously imported from the catalogue.
+
+    This is the more robust lookup: it survives display-name edits and
+    captures cards even if the user has renamed them since import. Used in
+    addition to the name index when deciding which catalogue entries
+    already exist locally.
+    """
+    res = await db.execute(
+        select(Card.id, Card.attributes).where(
+            Card.type == BUSINESS_CAPABILITY_TYPE,
+            Card.status != "ARCHIVED",
+        )
+    )
+    out: dict[str, str] = {}
+    for card_id, attrs in res.all():
+        cat_id = (attrs or {}).get("catalogueId")
+        if isinstance(cat_id, str) and cat_id and cat_id not in out:
+            out[cat_id] = str(card_id)
+    return out
+
+
 async def get_catalogue_payload(db: AsyncSession) -> dict[str, Any]:
     """Build the response for `GET /capability-catalogue`.
 
     Each capability is annotated with `existing_card_id` (str | null) — the
-    id of an already-created BusinessCapability card whose display name
-    matches (case-insensitive, whitespace-collapsed). The frontend uses this
-    to render a green tick instead of a checkbox.
+    id of an already-created BusinessCapability card. Matching prefers
+    `attributes.catalogueId` (so the green-tick survives display-name
+    edits) and falls back to a case-insensitive, whitespace-collapsed name
+    match. The frontend uses this to render a green tick instead of a
+    checkbox.
     """
     flat, meta = await _resolve_active_catalogue(db)
     name_index = await _existing_bc_name_index(db)
+    cat_id_index = await _existing_bc_catalogue_id_index(db)
     annotated: list[dict[str, Any]] = []
     for cap in flat:
-        existing = name_index.get(_normalize_name(cap["name"]))
+        existing = cat_id_index.get(cap["id"]) or name_index.get(_normalize_name(cap["name"]))
         annotated.append({**cap, "existing_card_id": existing})
     return {"version": meta, "capabilities": annotated}
 
@@ -225,13 +251,22 @@ async def import_capabilities(
     flat, meta = await _resolve_active_catalogue(db)
     by_id = {c["id"]: c for c in flat}
     name_index = await _existing_bc_name_index(db)
+    cat_id_index = await _existing_bc_catalogue_id_index(db)
 
     # Pre-seed the FULL catalogue → existing card mapping so that a selected
-    # child grafts onto an existing parent matched by name even when the
-    # parent itself isn't in the selection.
+    # child grafts onto an existing parent (or an existing child gets
+    # re-parented under a newly-created parent) even when only one side is
+    # in the selection. Two lookups feed this map, in priority order:
+    #   1. catalogueId on attributes — the most reliable signal, set every
+    #      time a card was imported through the catalogue. Survives display-
+    #      name edits.
+    #   2. case-insensitive display-name match — covers cards the user
+    #      created manually before discovering the catalogue.
     catalogue_id_to_card_id: dict[str, str] = {}
     for cap in flat:
-        existing_card_id = name_index.get(_normalize_name(cap["name"]))
+        existing_card_id = cat_id_index.get(cap["id"]) or name_index.get(
+            _normalize_name(cap["name"])
+        )
         if existing_card_id:
             catalogue_id_to_card_id[cap["id"]] = existing_card_id
     pre_existing_ids: set[str] = set(catalogue_id_to_card_id.keys())
