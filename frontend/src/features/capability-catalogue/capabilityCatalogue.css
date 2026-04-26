@@ -125,31 +125,30 @@
   margin-left: 12px;
 }
 
-/* Rows are small white "mini-cards" with a per-level coloured left-border
-   accent — same visual idea as CapabilityMapReport (white Paper + colored
-   header / border, 8 px corner radius). The accent colour is set inline via
-   borderLeftColor so this rule owns layout + the constant pieces only. */
+/* Rows are small "mini-cards" tinted in the BusinessCapability brand colour
+   — a very-light navy wash that hints at the type without competing for
+   attention. No left-border accent; depth is conveyed by the existing
+   indentation in .tcc-l2-children. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
-  border-left-width: 3px;
+  border: 1px solid rgba(0, 51, 153, 0.08);
   border-radius: 6px;
-  background: var(--mui-palette-background-paper, #fff);
+  background: rgba(0, 51, 153, 0.04);
   color: #003399;
   min-width: 0;
   transition: box-shadow 120ms ease, background-color 120ms ease;
 }
 
 .tcc-root .tcc-row:hover {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: rgba(0, 51, 153, 0.08);
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(0, 51, 153, 0.06);
-  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.4);
+  background: rgba(0, 51, 153, 0.12);
+  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.45);
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
@@ -316,4 +315,79 @@
   font-size: 12px;
   color: var(--mui-palette-text-secondary);
   margin-left: 6px;
+}
+
+/* -- Dark mode -------------------------------------------------------------
+   The MUI theme isn't using `cssVariables: true`, so the
+   var(--mui-palette-…) tokens above don't actually resolve at runtime — the
+   browser falls back to the literal #fff / divider values, which is why the
+   catalogue cards stay white when the rest of the app switches to dark.
+   The component reads `theme.palette.mode` and tags the root with
+   `tcc-root--dark`; everything below overrides the literal colours so the
+   panel matches the rest of the dark-mode chrome.
+
+   The L1 header keeps the brand navy + white text in both modes — it reads
+   correctly on either palette. */
+
+.tcc-root.tcc-root--dark .tcc-l1-card {
+  background: #1e1e1e;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tcc-root.tcc-root--dark .tcc-l1-card.is-selected {
+  border-color: #6699ff;
+  box-shadow: 0 0 0 1px rgba(102, 153, 255, 0.35);
+}
+
+.tcc-root.tcc-root--dark .tcc-row {
+  background: rgba(102, 153, 255, 0.08);
+  border-color: rgba(102, 153, 255, 0.18);
+  color: #b8c8e8;
+}
+
+.tcc-root.tcc-root--dark .tcc-row:hover {
+  background: rgba(102, 153, 255, 0.16);
+}
+
+.tcc-root.tcc-root--dark .tcc-row.is-selected {
+  background: rgba(102, 153, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.55);
+}
+
+/* MUI Checkbox in rows: navy in light, lifted lavender in dark. The CSS
+   selector chain (4 classes) wins over MUI's emotion-generated single-class
+   `sx` rule on specificity, so no !important needed. */
+.tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root {
+  color: rgba(168, 196, 255, 0.55);
+}
+
+.tcc-root.tcc-root--dark .tcc-row .MuiCheckbox-root.Mui-checked {
+  color: #a8c4ff;
+}
+
+.tcc-root.tcc-root--dark .tcc-cap-id {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Existing-card tick is always green; bump to the bright Material green 200
+   on dark backgrounds so it stays legible. */
+.tcc-root.tcc-root--dark .tcc-row .tcc-existing-tick {
+  color: #a5d6a7;
+}
+
+.tcc-root.tcc-root--dark .tcc-detail-tree-children {
+  border-left-color: rgba(255, 255, 255, 0.18);
+}
+
+.tcc-root.tcc-root--dark .tcc-stepper {
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.tcc-root.tcc-root--dark .tcc-stepper-label {
+  border-color: rgba(255, 255, 255, 0.18);
 }

@@ -14,6 +14,7 @@ import MenuItem from "@mui/material/MenuItem";
 import OutlinedInput from "@mui/material/OutlinedInput";
 import ListItemText from "@mui/material/ListItemText";
 import Tooltip from "@mui/material/Tooltip";
+import { useTheme } from "@mui/material/styles";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import type { FlatCapability } from "./types";
 import "./capabilityCatalogue.css";
@@ -68,6 +69,11 @@ export default function CapabilityCatalogueBrowser({
   onOpenDetail,
 }: Props) {
   const { t } = useTranslation(["cards", "common"]);
+  // Without `cssVariables: true` on the MUI theme, the `var(--mui-palette-…)`
+  // tokens used in the catalogue stylesheet aren't actually injected, so we
+  // must read the active palette mode at render time and toggle a class on
+  // the root. The CSS file owns all the dual-mode rules.
+  const isDark = useTheme().palette.mode === "dark";
 
   // Indexes ----------------------------------------------------------------
   const byId = useMemo(() => {
@@ -351,7 +357,7 @@ export default function CapabilityCatalogueBrowser({
   );
 
   return (
-    <Box className="tcc-root">
+    <Box className={`tcc-root${isDark ? " tcc-root--dark" : ""}`}>
       {/* Filter bar */}
       <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -593,22 +599,28 @@ function L1Card({
   const selfSelected = selected.has(node.id);
   const isExisting = !!node.existing_card_id;
 
-  // Tri-state: only creatable nodes count toward the parent's checkbox state.
-  // Existing-as-card nodes can never be selected and so are excluded from
-  // both totalCreatable and selectedCreatable.
-  let totalCreatable = isSelectable(node) ? 1 : 0;
-  let selectedCreatable = isSelectable(node) && selfSelected ? 1 : 0;
+  // Tri-state for the L1 checkbox is bound to L1's OWN selection state, not
+  // the subtree:
+  //   selfSelected            → "checked"      (user picked L1; stays solid
+  //                                              even if individual descendants
+  //                                              are then unticked)
+  //   some descendants picked → "indeterminate" (visual hint that the subtree
+  //                                              is partially populated even
+  //                                              though L1 itself isn't ticked)
+  //   none of the above       → "unchecked"
+  // This keeps the deselect cascade unsurprising: unticking an L2 must never
+  // make the L1 checkbox jump to indeterminate or unchecked.
+  let someDescendantsSelected = false;
   for (const sid of descendantsOf.get(node.id) ?? []) {
-    const c = byId.get(sid);
-    if (!c || !isSelectable(c)) continue;
-    totalCreatable += 1;
-    if (selected.has(sid)) selectedCreatable += 1;
+    if (selected.has(sid)) {
+      someDescendantsSelected = true;
+      break;
+    }
   }
-
-  let checkState: "unchecked" | "checked" | "indeterminate" = "unchecked";
-  if (totalCreatable === 0 || selectedCreatable === 0) checkState = "unchecked";
-  else if (selectedCreatable >= totalCreatable) checkState = "checked";
-  else checkState = "indeterminate";
+  let checkState: "unchecked" | "checked" | "indeterminate";
+  if (selfSelected) checkState = "checked";
+  else if (someDescendantsSelected) checkState = "indeterminate";
+  else checkState = "unchecked";
 
   const checkboxRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -741,14 +753,6 @@ function ChildRow({
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
 
-  // Each row reads as a small white card with a coloured left-border
-  // accent — same visual language as CapabilityMapReport (white Paper +
-  // colored cap), with the level conveyed by the accent colour rather than
-  // by tinting the whole row.
-  const rowStyle: CSSProperties = {
-    borderLeftColor: levelColor(node.level),
-  };
-
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
       <span className="tcc-existing-tick">
@@ -779,10 +783,7 @@ function ChildRow({
 
   return (
     <li>
-      <div
-        className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}
-        style={rowStyle}
-      >
+      <div className={`tcc-row${selfSelected ? " is-selected" : ""}${isL2 ? " is-l2" : ""}`}>
         {checkbox}
         {chevron}
         <button

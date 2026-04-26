@@ -20,7 +20,9 @@ Tick the checkbox next to any capability to add it to the selection. Selection c
 - **Ticking** an unselected capability adds it plus every selectable descendant.
 - **Unticking** a selected capability removes it plus every selectable descendant.
 
-So unticking a single child only removes that child and what's below — its parent and siblings stay selected. Unticking a parent removes the whole subtree in one action. To assemble an "L1 + a couple of leaves" selection, pick the L1 (which seeds the whole subtree) and then untick the L2/L3 capabilities you don't want — the L1 stays selected.
+So unticking a single child only removes that child and what's below — its parent and siblings stay selected. Unticking a parent removes the whole subtree in one action. To assemble an "L1 + a couple of leaves" selection, pick the L1 (which seeds the whole subtree) and then untick the L2/L3 capabilities you don't want — the L1 stays selected and its checkbox stays ticked.
+
+The page picks up the app-wide light/dark theme automatically — dark mode switches the L1 card chrome and child-row tints to a lifted navy palette while the navy header keeps its white-on-navy contrast in both modes.
 
 Capabilities that **already exist** in your inventory (matched by display name, case-insensitive) appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue.
 
