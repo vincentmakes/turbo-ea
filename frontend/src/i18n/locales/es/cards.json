@@ -256,6 +256,8 @@
   "catalogue.levelStepper": "Nivel {{current}} / {{max}}",
   "catalogue.expandAll": "Expandir todo",
   "catalogue.collapseAll": "Contraer todo",
+  "catalogue.expandBranch": "Expandir esta rama",
+  "catalogue.collapseBranch": "Contraer esta rama",
   "catalogue.selectVisible": "Seleccionar visibles",
   "catalogue.clearSelection": "Limpiar selección",
   "catalogue.noMatches": "Sin coincidencias",

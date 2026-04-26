@@ -195,6 +195,25 @@ export default function CapabilityCatalogueBrowser({
     setExpanded(next);
   };
 
+  // Expand or collapse a whole L1 subtree at once. The branch is the L1 plus
+  // every descendant that has children of its own (leaves don't need to be in
+  // `expanded`). If every branch node is already expanded, this collapses all
+  // of them; otherwise it expands all of them.
+  const toggleBranch = (id: string) => {
+    const branch = [id, ...(descendantsOf.get(id) ?? [])].filter(
+      (bid) => (byParent.get(bid) ?? []).length > 0,
+    );
+    if (branch.length === 0) return;
+    const allOpen = branch.every((bid) => expanded.has(bid));
+    const next = new Set(expanded);
+    if (allOpen) {
+      for (const bid of branch) next.delete(bid);
+    } else {
+      for (const bid of branch) next.add(bid);
+    }
+    setExpanded(next);
+  };
+
   const expandAll = () => {
     const s = new Set<string>();
     for (const c of data) s.add(c.id);
@@ -462,6 +481,7 @@ export default function CapabilityCatalogueBrowser({
               selected={selected}
               descendantsOf={descendantsOf}
               onToggleExpand={toggleExpand}
+              onToggleBranch={toggleBranch}
               onToggleSelect={toggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
@@ -486,6 +506,7 @@ interface L1CardProps {
   selected: Set<string>;
   descendantsOf: Map<string, string[]>;
   onToggleExpand: (id: string) => void;
+  onToggleBranch: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
@@ -500,13 +521,21 @@ function L1Card({
   selected,
   descendantsOf,
   onToggleExpand,
+  onToggleBranch,
   onToggleSelect,
   onOpenDetail,
   isSelectable,
 }: L1CardProps) {
+  const { t } = useTranslation(["cards"]);
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
-  const isOpen = expanded.has(node.id);
   const hasKids = kids.length > 0;
+  // Branch state: is the entire L1 subtree currently expanded? Drives the
+  // +/- icon glyph and the conditional render of the L2 list below.
+  const branchIds = [node.id, ...(descendantsOf.get(node.id) ?? [])].filter(
+    (bid) => (byParent.get(bid) ?? []).length > 0,
+  );
+  const branchFullyOpen = branchIds.length > 0 && branchIds.every((bid) => expanded.has(bid));
+  const isOpen = expanded.has(node.id);
   const selfSelected = selected.has(node.id);
   const isExisting = !!node.existing_card_id;
 
@@ -561,14 +590,28 @@ function L1Card({
         </button>
         {node.deprecated && <span className="tcc-deprecated-badge">Dep.</span>}
         {hasKids && <span className="tcc-cap-count">{kids.length}</span>}
-        <IconButton
-          size="small"
-          onClick={() => onToggleExpand(node.id)}
-          disabled={!hasKids}
-          aria-label={isOpen ? "Collapse" : "Expand"}
+        <Tooltip
+          title={
+            branchFullyOpen
+              ? t("cards:catalogue.collapseBranch")
+              : t("cards:catalogue.expandBranch")
+          }
         >
-          <MaterialSymbol icon={isOpen ? "expand_less" : "expand_more"} size={20} />
-        </IconButton>
+          <span>
+            <IconButton
+              size="small"
+              onClick={() => onToggleBranch(node.id)}
+              disabled={!hasKids}
+              aria-label={
+                branchFullyOpen
+                  ? t("cards:catalogue.collapseBranch")
+                  : t("cards:catalogue.expandBranch")
+              }
+            >
+              <MaterialSymbol icon={branchFullyOpen ? "remove" : "add"} size={20} />
+            </IconButton>
+          </span>
+        </Tooltip>
       </header>
       {isOpen && hasKids && (
         <ul className="tcc-l2-list">

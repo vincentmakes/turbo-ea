@@ -47,9 +47,9 @@
   cursor: pointer;
   color: #003399;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 .tcc-root .tcc-l1-name:hover {
@@ -108,9 +108,9 @@
   color: inherit;
   font-size: 14px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
 }
 
 .tcc-root .tcc-row .tcc-name-btn:hover {

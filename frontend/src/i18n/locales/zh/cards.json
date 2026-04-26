@@ -256,6 +256,8 @@
   "catalogue.levelStepper": "层级 {{current}} / {{max}}",
   "catalogue.expandAll": "全部展开",
   "catalogue.collapseAll": "全部折叠",
+  "catalogue.expandBranch": "展开此分支",
+  "catalogue.collapseBranch": "折叠此分支",
   "catalogue.selectVisible": "选择可见项",
   "catalogue.clearSelection": "清除选择",
   "catalogue.noMatches": "未找到匹配项",

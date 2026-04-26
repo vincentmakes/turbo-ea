@@ -256,6 +256,8 @@
   "catalogue.levelStepper": "Уровень {{current}} / {{max}}",
   "catalogue.expandAll": "Развернуть всё",
   "catalogue.collapseAll": "Свернуть всё",
+  "catalogue.expandBranch": "Развернуть эту ветвь",
+  "catalogue.collapseBranch": "Свернуть эту ветвь",
   "catalogue.selectVisible": "Выбрать видимые",
   "catalogue.clearSelection": "Очистить выбор",
   "catalogue.noMatches": "Нет совпадений",

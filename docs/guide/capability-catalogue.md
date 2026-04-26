@@ -11,7 +11,7 @@ Click the user icon in the top-right corner of the app, then **Capability Catalo
 - **Header** — the active catalogue version, the number of capabilities it contains, and (for admins) controls to check for and fetch updates.
 - **Filter bar** — full-text search across id, name, description and aliases, plus level chips (L1 → L4), an industry multi-select, and a "Show deprecated" toggle.
 - **Action bar** — match counters, level stepper (expand/collapse one level at a time), expand/collapse all, select-visible, clear selection.
-- **L1 grid** — one card per top-level capability. Each card shows its children as collapsible rows, recursively.
+- **L1 grid** — one card per top-level capability. Each card shows its children as collapsible rows, recursively. The `+` button on the L1 card expands the entire branch in one click; while a branch is open the same button shows `−` and collapses everything underneath. Names wrap to multiple lines instead of being truncated.
 
 ## Selecting capabilities
 

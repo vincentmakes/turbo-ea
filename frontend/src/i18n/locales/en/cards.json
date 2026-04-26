@@ -256,6 +256,8 @@
   "catalogue.levelStepper": "Level {{current}} / {{max}}",
   "catalogue.expandAll": "Expand all",
   "catalogue.collapseAll": "Collapse all",
+  "catalogue.expandBranch": "Expand this branch",
+  "catalogue.collapseBranch": "Collapse this branch",
   "catalogue.selectVisible": "Select visible",
   "catalogue.clearSelection": "Clear selection",
   "catalogue.noMatches": "No matches",

@@ -5,23 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.49.2] - 2026-04-26
-
-### Changed
-- Capability Catalogue browser: capability names now render in the BusinessCapability brand navy `#003399`, lightening progressively as the depth increases (L1 darkest, L4 lightest) — same discrete-palette idea as the hierarchy chips on regular cards. The card chrome itself stays neutral (standard outlined Paper, no coloured top stripe), with the brand colour reserved for the name, the L1 header tint, the cap-count chip, and the selected-row indicator.
-
-### Fixed
-- Capability Catalogue selection: clicking an already-selected capability now removes only that node, while clicking an unselected one still cascades the whole selectable subtree. This makes "select L1 only" achievable — pick the parent, then prune individual descendants — and stops a child deselect from indirectly toggling its siblings or the parent itself.
-
-## [0.49.1] - 2026-04-26
-
-### Fixed
-- Capability Catalogue import now establishes the parent–child link in both directions when only one side of a pair is in the selection. A new child grafts onto a pre-existing parent matched by name (previously the new card was created at the top level), and existing top-level children are re-parented under a newly-created parent. Manual nestings (an existing card whose `parent_id` is already set) are preserved — Turbo EA never overwrites a hierarchy you set by hand. The import response now also returns a `relinked` list and the result dialog shows the count alongside created and skipped.
-
 ## [0.49.0] - 2026-04-26
 
 ### Added
-- **Capability Catalogue** browser, accessible from the user menu (top-right profile icon). Browse the bundled Business Capability reference catalogue (filter by level, industry, search), select any combination of capabilities, and **mass-create** them as `BusinessCapability` cards in one action. Existing capabilities (matched by display name, case-insensitive) show a green tick instead of a checkbox and are skipped on import — re-runs are idempotent. Hierarchy from the catalogue is preserved automatically: when both parent and child are imported in the same batch, or when the parent already exists locally, `parent_id` is wired correctly. Card creation goes through the regular `inventory.create` permission.
+- **Capability Catalogue** browser, accessible from the user menu (top-right profile icon). Browse the bundled Business Capability reference catalogue (filter by level, industry, search), select any combination of capabilities, and **mass-create** them as `BusinessCapability` cards in one action. Existing capabilities (matched by display name, case-insensitive) show a green tick instead of a checkbox and are skipped on import — re-runs are idempotent. Hierarchy from the catalogue is preserved automatically and is repaired in both directions: when both parent and child are in the same batch, or when one side already exists locally as a top-level card, `parent_id` is wired correctly. Manual nestings (an existing card whose `parent_id` is already set) are never overwritten, and the import response includes a `relinked` count alongside `created` and `skipped`. Card creation goes through the regular `inventory.create` permission.
+- L1 cards on the catalogue browser now expose a `+`/`−` button that expands or collapses the entire branch in one click, capability names wrap onto multiple lines instead of being truncated, and names render in the BusinessCapability brand navy `#003399`, lightening progressively with depth (L1 darkest, L4 lightest) — same discrete-palette idea as the hierarchy chips on regular cards.
+- Selection on the catalogue browser is asymmetric: clicking an unselected capability cascades the whole selectable subtree, while clicking an already-selected capability removes only that node. This makes "select L1 only" achievable — pick the parent, then prune individual descendants — without a child deselect indirectly toggling its siblings or the parent itself.
 - The catalogue itself ships as a bundled Python dependency (`turbo-ea-capabilities` on PyPI), so the page works offline / in airgapped deployments. Admins (`admin.metamodel`) get **Check for update** and **Fetch update** controls that talk to the public catalogue at `https://capabilities.turbo-ea.org` and cache a newer version into `app_settings.general_settings.capability_catalogue` — a server-side override that wins over the bundled package only when its version is strictly greater. The remote URL is configurable via `CAPABILITY_CATALOGUE_URL`.
 
 ## [0.48.1] - 2026-04-23
