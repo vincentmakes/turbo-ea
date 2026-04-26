@@ -323,6 +323,7 @@ export default function CapabilityCataloguePage() {
                 {t("cards:catalogue.importDoneBody", {
                   created: importResult.created.length,
                   skipped: importResult.skipped.length,
+                  relinked: importResult.relinked.length,
                 })}
               </Alert>
               {importResult.created.length > 0 && (

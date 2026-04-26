@@ -221,6 +221,86 @@ async def test_import_wires_parent_to_just_created_sibling(db, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_import_grafts_new_child_onto_existing_parent_not_in_selection(db, monkeypatch):
+    """Selecting only a child while its catalogue parent already exists locally
+    must wire the new child's parent_id to the existing parent card."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    existing_parent = await create_card(
+        db, card_type="BusinessCapability", name="Customer Acquisition", user_id=user.id
+    )
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1.1"])
+
+    assert len(result["created"]) == 1
+    new_child = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1.1")))
+        .scalars()
+        .one()
+    )
+    assert str(new_child.parent_id) == str(existing_parent.id)
+    assert result["relinked"] == []
+
+
+@pytest.mark.asyncio
+async def test_import_relinks_existing_children_to_new_parent(db, monkeypatch):
+    """Selecting only a parent while its catalogue children already exist
+    locally with parent_id=NULL must re-parent those children under the new
+    card."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    existing_child = await create_card(
+        db, card_type="BusinessCapability", name="Lead Capture", user_id=user.id
+    )
+    assert existing_child.parent_id is None
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1"])
+
+    assert len(result["created"]) == 1
+    assert len(result["relinked"]) == 1
+    assert result["relinked"][0]["catalogue_id"] == "BC-1.1.1"
+
+    new_parent = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1")))
+        .scalars()
+        .one()
+    )
+    await db.refresh(existing_child)
+    assert str(existing_child.parent_id) == str(new_parent.id)
+
+
+@pytest.mark.asyncio
+async def test_import_preserves_manual_nesting_when_creating_parent(db, monkeypatch):
+    """Existing children that already have a non-null parent_id (a manual
+    nesting) must NOT be re-parented when the catalogue parent is created."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    other_root = await create_card(
+        db, card_type="BusinessCapability", name="Other Root", user_id=user.id
+    )
+    child = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Lead Capture",
+        user_id=user.id,
+        parent_id=other_root.id,
+    )
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1"])
+
+    assert len(result["created"]) == 1
+    assert result["relinked"] == []
+    await db.refresh(child)
+    assert str(child.parent_id) == str(other_root.id)
+
+
+@pytest.mark.asyncio
 async def test_version_tuple_handles_double_digit(monkeypatch):
     _install_fake_pkg(monkeypatch)
     from app.services.capability_catalogue_service import _version_tuple

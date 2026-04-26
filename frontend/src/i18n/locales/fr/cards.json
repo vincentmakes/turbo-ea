@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Les cartes existantes au même nom sont ignorées automatiquement. La hiérarchie est préservée si parent et enfant sont sélectionnés.",
   "catalogue.confirmCreate": "Créer",
   "catalogue.importDoneTitle": "Import terminé",
-  "catalogue.importDoneBody": "{{created}} créées, {{skipped}} déjà existantes.",
+  "catalogue.importDoneBody": "{{created}} créées, {{skipped}} déjà existantes, {{relinked}} re-rattachées à de nouveaux parents.",
   "catalogue.openInventory": "Ouvrir l'inventaire",
   "catalogue.industryLabel": "Industrie",
   "catalogue.aliasesLabel": "Alias",

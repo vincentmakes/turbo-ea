@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Existing cards with matching names are skipped automatically. Hierarchy is preserved when both parent and child are selected.",
   "catalogue.confirmCreate": "Create",
   "catalogue.importDoneTitle": "Import complete",
-  "catalogue.importDoneBody": "{{created}} created, {{skipped}} already existed.",
+  "catalogue.importDoneBody": "{{created}} created, {{skipped}} already existed, {{relinked}} re-linked under new parents.",
   "catalogue.openInventory": "Open inventory",
   "catalogue.industryLabel": "Industry",
   "catalogue.aliasesLabel": "Aliases",

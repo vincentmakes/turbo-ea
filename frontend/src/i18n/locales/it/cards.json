@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Le carte esistenti con nomi corrispondenti vengono ignorate. La gerarchia è preservata se sono selezionati sia padre che figlio.",
   "catalogue.confirmCreate": "Crea",
   "catalogue.importDoneTitle": "Importazione completata",
-  "catalogue.importDoneBody": "{{created}} create, {{skipped}} già esistenti.",
+  "catalogue.importDoneBody": "{{created}} create, {{skipped}} già esistenti, {{relinked}} ri-collegate sotto nuovi genitori.",
   "catalogue.openInventory": "Apri inventario",
   "catalogue.industryLabel": "Settore",
   "catalogue.aliasesLabel": "Alias",

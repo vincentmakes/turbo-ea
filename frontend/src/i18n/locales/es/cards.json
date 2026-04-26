@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Las tarjetas existentes con nombres coincidentes se omiten. La jerarquía se mantiene si el padre y el hijo están seleccionados.",
   "catalogue.confirmCreate": "Crear",
   "catalogue.importDoneTitle": "Importación completa",
-  "catalogue.importDoneBody": "{{created}} creadas, {{skipped}} ya existían.",
+  "catalogue.importDoneBody": "{{created}} creadas, {{skipped}} ya existían, {{relinked}} re-vinculadas bajo nuevos padres.",
   "catalogue.openInventory": "Abrir inventario",
   "catalogue.industryLabel": "Industria",
   "catalogue.aliasesLabel": "Alias",

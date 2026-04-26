@@ -52,5 +52,8 @@ export interface UpdateStatus {
 export interface ImportResult {
   created: { catalogue_id: string; card_id: string }[];
   skipped: { catalogue_id: string; card_id: string; reason: string }[];
+  /** Pre-existing top-level cards that were re-parented under a card we
+   *  created in this batch. Empty when nothing was re-linked. */
+  relinked: { catalogue_id: string; card_id: string; new_parent_card_id: string }[];
   catalogue_version: string | null;
 }

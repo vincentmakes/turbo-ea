@@ -32,6 +32,13 @@ On confirmation, Turbo EA:
 
 Re-running the same import is safe — it's idempotent.
 
+**Bidirectional linking.** The hierarchy is repaired in both directions, so the order in which you import doesn't matter:
+
+- Selecting only a child whose catalogue **parent already exists** as a card grafts the new child onto that existing parent automatically.
+- Selecting only a parent whose catalogue **children already exist** as top-level cards re-parents those children under the new card.
+
+Re-parenting is non-destructive: only existing cards whose `parent_id` is currently empty (top-level) are touched. Manual nestings you've set up by hand are preserved — Turbo EA never overwrites a parent link you've explicitly chosen. The result dialog reports how many cards were re-linked alongside the created and skipped counts.
+
 ## Detail view
 
 Click any capability name to open a detail dialog showing its breadcrumb, description, industry, aliases, references, and a fully-expanded view of its subtree. Existing matches in the subtree are flagged with a green tick.

@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "名称相同的现有卡片会自动跳过。如果父项和子项都被选中，层级将被保留。",
   "catalogue.confirmCreate": "创建",
   "catalogue.importDoneTitle": "导入完成",
-  "catalogue.importDoneBody": "已创建 {{created}} 项，已存在 {{skipped}} 项。",
+  "catalogue.importDoneBody": "已创建 {{created}} 项，已存在 {{skipped}} 项，重新关联到新父级 {{relinked}} 项。",
   "catalogue.openInventory": "打开清单",
   "catalogue.industryLabel": "行业",
   "catalogue.aliasesLabel": "别名",

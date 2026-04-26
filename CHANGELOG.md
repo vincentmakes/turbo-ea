@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.1] - 2026-04-26
+
+### Fixed
+- Capability Catalogue import now establishes the parent–child link in both directions when only one side of a pair is in the selection. A new child grafts onto a pre-existing parent matched by name (previously the new card was created at the top level), and existing top-level children are re-parented under a newly-created parent. Manual nestings (an existing card whose `parent_id` is already set) are preserved — Turbo EA never overwrites a hierarchy you set by hand. The import response now also returns a `relinked` list and the result dialog shows the count alongside created and skipped.
+
 ## [0.49.0] - 2026-04-26
 
 ### Added

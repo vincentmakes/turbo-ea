@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Cartões existentes com nomes correspondentes são ignorados. A hierarquia é preservada se pai e filho estiverem selecionados.",
   "catalogue.confirmCreate": "Criar",
   "catalogue.importDoneTitle": "Importação concluída",
-  "catalogue.importDoneBody": "{{created}} criadas, {{skipped}} já existiam.",
+  "catalogue.importDoneBody": "{{created}} criadas, {{skipped}} já existiam, {{relinked}} re-vinculadas sob novos pais.",
   "catalogue.openInventory": "Abrir inventário",
   "catalogue.industryLabel": "Indústria",
   "catalogue.aliasesLabel": "Aliases",

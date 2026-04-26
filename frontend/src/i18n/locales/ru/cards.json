@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Существующие карточки с совпадающими именами пропускаются. Иерархия сохраняется, если выбраны и родитель, и потомок.",
   "catalogue.confirmCreate": "Создать",
   "catalogue.importDoneTitle": "Импорт завершён",
-  "catalogue.importDoneBody": "Создано: {{created}}, уже существовало: {{skipped}}.",
+  "catalogue.importDoneBody": "Создано: {{created}}, уже существовало: {{skipped}}, переподключено к новым родителям: {{relinked}}.",
   "catalogue.openInventory": "Открыть инвентарь",
   "catalogue.industryLabel": "Отрасль",
   "catalogue.aliasesLabel": "Псевдонимы",

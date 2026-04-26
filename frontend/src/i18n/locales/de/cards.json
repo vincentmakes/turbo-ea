@@ -272,7 +272,7 @@
   "catalogue.importConfirmHint": "Bestehende Karten mit passenden Namen werden automatisch übersprungen. Die Hierarchie bleibt erhalten, wenn Eltern und Kinder ausgewählt sind.",
   "catalogue.confirmCreate": "Erstellen",
   "catalogue.importDoneTitle": "Import abgeschlossen",
-  "catalogue.importDoneBody": "{{created}} erstellt, {{skipped}} bereits vorhanden.",
+  "catalogue.importDoneBody": "{{created}} erstellt, {{skipped}} bereits vorhanden, {{relinked}} unter neue Eltern verknüpft.",
   "catalogue.openInventory": "Bestand öffnen",
   "catalogue.industryLabel": "Branche",
   "catalogue.aliasesLabel": "Aliase",

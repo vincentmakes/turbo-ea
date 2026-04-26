@@ -15,6 +15,7 @@ Three responsibilities:
 from __future__ import annotations
 
 import os
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -225,23 +226,36 @@ async def import_capabilities(
     by_id = {c["id"]: c for c in flat}
     name_index = await _existing_bc_name_index(db)
 
+    # Pre-seed the FULL catalogue → existing card mapping so that a selected
+    # child grafts onto an existing parent matched by name even when the
+    # parent itself isn't in the selection.
+    catalogue_id_to_card_id: dict[str, str] = {}
+    for cap in flat:
+        existing_card_id = name_index.get(_normalize_name(cap["name"]))
+        if existing_card_id:
+            catalogue_id_to_card_id[cap["id"]] = existing_card_id
+    pre_existing_ids: set[str] = set(catalogue_id_to_card_id.keys())
+
     requested = {cid for cid in catalogue_ids if cid in by_id}
     ordered = _bfs_order(requested, by_id)
 
     created: list[dict[str, str]] = []
     skipped: list[dict[str, str]] = []
-    catalogue_id_to_card_id: dict[str, str] = {}
+    relinked: list[dict[str, str]] = []
+    created_in_batch: set[str] = set()
     now = datetime.now(timezone.utc).isoformat()
-    user_id = user.id if isinstance(user.id, str) else user.id
+    user_id = user.id
 
     for cap in ordered:
-        # Already a card with this name? Skip but remember the mapping so
-        # children can graft onto it.
-        existing_card_id = name_index.get(_normalize_name(cap["name"]))
-        if existing_card_id:
-            catalogue_id_to_card_id[cap["id"]] = existing_card_id
+        # Already a card with this name? Skip — the mapping is already in
+        # catalogue_id_to_card_id (pre-built above) so descendants can find it.
+        if cap["id"] in pre_existing_ids:
             skipped.append(
-                {"catalogue_id": cap["id"], "card_id": existing_card_id, "reason": "exists"}
+                {
+                    "catalogue_id": cap["id"],
+                    "card_id": catalogue_id_to_card_id[cap["id"]],
+                    "reason": "exists",
+                }
             )
             continue
 
@@ -281,11 +295,39 @@ async def import_capabilities(
         # doesn't get created twice.
         name_index[_normalize_name(cap["name"])] = str(card.id)
         created.append({"catalogue_id": cap["id"], "card_id": str(card.id)})
+        created_in_batch.add(cap["id"])
+
+    # Re-parent existing top-level cards whose catalogue parent was just
+    # created in this batch. Only `parent_id IS NULL` cards are touched —
+    # manual nestings (existing parent_id pointing somewhere else) are
+    # preserved deliberately, so users keep authority over their hierarchy.
+    for cat_id in pre_existing_ids:
+        cap = by_id.get(cat_id)
+        if cap is None:
+            continue
+        cat_parent = cap.get("parent_id")
+        if not cat_parent or cat_parent not in created_in_batch:
+            continue
+        existing_card_id = catalogue_id_to_card_id[cat_id]
+        new_parent_card_id = catalogue_id_to_card_id[cat_parent]
+        existing_card = await db.get(Card, uuid.UUID(existing_card_id))
+        if existing_card is None or existing_card.parent_id is not None:
+            continue
+        existing_card.parent_id = uuid.UUID(new_parent_card_id)
+        existing_card.updated_by = user_id
+        relinked.append(
+            {
+                "catalogue_id": cat_id,
+                "card_id": existing_card_id,
+                "new_parent_card_id": new_parent_card_id,
+            }
+        )
 
     await db.commit()
     return {
         "created": created,
         "skipped": skipped,
+        "relinked": relinked,
         "catalogue_version": meta.get("catalogue_version"),
     }
 
