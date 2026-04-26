@@ -36,11 +36,11 @@ function splitIndustry(s: string | null | undefined): string[] {
 }
 
 // Per-level shades of the BusinessCapability brand colour (#003399), tinted
-// toward white in 20% steps. Drives the row backgrounds; same indexing
-// convention as HierarchySection.tsx:30 (LEVEL_COLORS). Levels 1-3 are dark
-// enough that white text reads cleanly on them — for the lighter L4/L5
-// shades we flip to the brand navy as the foreground (the codebase has no
-// luminance helper, so this is hard-coded by inspection).
+// toward white in 20% steps. Drives the per-row left-border accent (rows
+// themselves are white-bg / dark-navy-text, mirroring the
+// CapabilityMapReport visual language: white Paper + colored header / border
+// + 8 px corner radius). Same indexing convention as HierarchySection.tsx:30
+// (LEVEL_COLORS).
 const BC_LEVEL_COLORS = [
   "#003399", // L1
   "#335bad", // L2
@@ -49,13 +49,9 @@ const BC_LEVEL_COLORS = [
   "#ccd6eb", // L5
 ] as const;
 
-function levelBg(level: number): string {
+function levelColor(level: number): string {
   const i = Math.max(0, Math.min(level - 1, BC_LEVEL_COLORS.length - 1));
   return BC_LEVEL_COLORS[i];
-}
-
-function levelFg(level: number): string {
-  return level <= 3 ? "#fff" : "#003399";
 }
 
 interface Props {
@@ -172,23 +168,25 @@ export default function CapabilityCatalogueBrowser({
   // Existing-card matches are non-selectable (rendered as a green tick).
   const isSelectable = (cap: FlatCapability) => !cap.existing_card_id;
 
-  // Cascade-on-select / single-node-on-deselect:
-  //   - clicking an unselected node adds the node + all selectable descendants
-  //   - clicking an already-selected node removes only that node
-  // This lets users start from "select L1" (which seeds the whole subtree) and
-  // then prune individual descendants without losing the parent — the only way
-  // to assemble e.g. an L1-only selection.
+  // Subtree-cascading selection — symmetric in direction (always walks
+  // downward) but never touches ancestors:
+  //   - selecting an unselected node adds the node + all selectable descendants
+  //   - deselecting a selected node removes the node + all selectable descendants
+  // Deselecting a child therefore never tears down its parent, so users can
+  // assemble "L1 + a couple of leaves" by selecting L1, then pruning the
+  // intermediate L2/L3 they don't want. Conversely, deselecting the parent
+  // wipes the whole subtree in one action.
   const toggleSelect = (id: string) => {
     const cap = byId.get(id);
     if (!cap || !isSelectable(cap)) return;
     const next = new Set(selected);
+    const subtree = [id, ...(descendantsOf.get(id) ?? [])].filter((sid) => {
+      const c = byId.get(sid);
+      return c && isSelectable(c);
+    });
     if (next.has(id)) {
-      next.delete(id);
+      for (const s of subtree) next.delete(s);
     } else {
-      const subtree = [id, ...(descendantsOf.get(id) ?? [])].filter((sid) => {
-        const c = byId.get(sid);
-        return c && isSelectable(c);
-      });
       for (const s of subtree) next.add(s);
     }
     onSelectedChange(next);
@@ -198,25 +196,6 @@ export default function CapabilityCatalogueBrowser({
     const next = new Set(expanded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    setExpanded(next);
-  };
-
-  // Expand or collapse a whole L1 subtree at once. The branch is the L1 plus
-  // every descendant that has children of its own (leaves don't need to be in
-  // `expanded`). If every branch node is already expanded, this collapses all
-  // of them; otherwise it expands all of them.
-  const toggleBranch = (id: string) => {
-    const branch = [id, ...(descendantsOf.get(id) ?? [])].filter(
-      (bid) => (byParent.get(bid) ?? []).length > 0,
-    );
-    if (branch.length === 0) return;
-    const allOpen = branch.every((bid) => expanded.has(bid));
-    const next = new Set(expanded);
-    if (allOpen) {
-      for (const bid of branch) next.delete(bid);
-    } else {
-      for (const bid of branch) next.add(bid);
-    }
     setExpanded(next);
   };
 
@@ -257,6 +236,69 @@ export default function CapabilityCatalogueBrowser({
   }, [expanded, expandablesByLevel, maxLevel]);
 
   const stepperMax = Math.max(maxLevel - 1, 0);
+
+  // Per-L1 stepwise expand / collapse — one tree level at a time, scoped to a
+  // single L1's subtree. Mirrors the global level stepper but applies only to
+  // descendants of the chosen L1, so users can pop one branch open without
+  // disturbing the others. The current "depth" of an L1 is the deepest tree
+  // level k such that every expandable node within the subtree at levels
+  // 1..k is in `expanded`:
+  //   depth 0 — L1 collapsed (header only)
+  //   depth 1 — L1 expanded, no L2 children opened (L2 list visible)
+  //   depth 2 — L1 + every L2-with-kids expanded (L3 visible)
+  //   …
+  // Pressing + bumps the depth by one (opens that level); pressing − closes
+  // the current depth and everything deeper, so the next press always
+  // strictly decreases the depth by exactly one.
+  const l1OpenDepth = (l1Id: string): number => {
+    const within = new Set([l1Id, ...(descendantsOf.get(l1Id) ?? [])]);
+    let depth = 0;
+    for (let lvl = 1; lvl <= maxLevel - 1; lvl++) {
+      const ids = (expandablesByLevel.get(lvl) ?? []).filter((id) => within.has(id));
+      if (ids.length === 0) continue;
+      if (ids.every((id) => expanded.has(id))) depth = lvl;
+      else break;
+    }
+    return depth;
+  };
+
+  const l1MaxDepth = (l1Id: string): number => {
+    const within = new Set([l1Id, ...(descendantsOf.get(l1Id) ?? [])]);
+    let max = 0;
+    for (let lvl = 1; lvl <= maxLevel - 1; lvl++) {
+      const ids = (expandablesByLevel.get(lvl) ?? []).filter((id) => within.has(id));
+      if (ids.length > 0) max = lvl;
+    }
+    return max;
+  };
+
+  const expandL1OneLevel = (l1Id: string) => {
+    const within = new Set([l1Id, ...(descendantsOf.get(l1Id) ?? [])]);
+    const cur = l1OpenDepth(l1Id);
+    const max = l1MaxDepth(l1Id);
+    if (cur >= max) return;
+    const target = cur + 1;
+    const next = new Set(expanded);
+    for (const id of expandablesByLevel.get(target) ?? []) {
+      if (within.has(id)) next.add(id);
+    }
+    setExpanded(next);
+  };
+
+  const collapseL1OneLevel = (l1Id: string) => {
+    const within = new Set([l1Id, ...(descendantsOf.get(l1Id) ?? [])]);
+    const cur = l1OpenDepth(l1Id);
+    if (cur === 0) return;
+    const next = new Set(expanded);
+    // Close the current depth AND everything deeper, so depth strictly drops
+    // by one regardless of any leftover state from earlier interactions.
+    for (let lvl = cur; lvl <= maxLevel - 1; lvl++) {
+      for (const id of expandablesByLevel.get(lvl) ?? []) {
+        if (within.has(id)) next.delete(id);
+      }
+    }
+    setExpanded(next);
+  };
 
   const expandOneLevel = () => {
     const target = Math.min(currentLevel + 1, stepperMax);
@@ -490,7 +532,10 @@ export default function CapabilityCatalogueBrowser({
               selected={selected}
               descendantsOf={descendantsOf}
               onToggleExpand={toggleExpand}
-              onToggleBranch={toggleBranch}
+              onExpandL1={expandL1OneLevel}
+              onCollapseL1={collapseL1OneLevel}
+              openDepth={l1OpenDepth(r.id)}
+              maxDepth={l1MaxDepth(r.id)}
               onToggleSelect={toggleSelect}
               onOpenDetail={onOpenDetail}
               isSelectable={isSelectable}
@@ -515,7 +560,10 @@ interface L1CardProps {
   selected: Set<string>;
   descendantsOf: Map<string, string[]>;
   onToggleExpand: (id: string) => void;
-  onToggleBranch: (id: string) => void;
+  onExpandL1: (id: string) => void;
+  onCollapseL1: (id: string) => void;
+  openDepth: number;
+  maxDepth: number;
   onToggleSelect: (id: string) => void;
   onOpenDetail: (id: string) => void;
   isSelectable: (cap: FlatCapability) => boolean;
@@ -530,7 +578,10 @@ function L1Card({
   selected,
   descendantsOf,
   onToggleExpand,
-  onToggleBranch,
+  onExpandL1,
+  onCollapseL1,
+  openDepth,
+  maxDepth,
   onToggleSelect,
   onOpenDetail,
   isSelectable,
@@ -538,12 +589,6 @@ function L1Card({
   const { t } = useTranslation(["cards"]);
   const kids = (byParent.get(node.id) ?? []).filter((c) => visible.has(c.id));
   const hasKids = kids.length > 0;
-  // Branch state: is the entire L1 subtree currently expanded? Drives the
-  // +/- icon glyph and the conditional render of the L2 list below.
-  const branchIds = [node.id, ...(descendantsOf.get(node.id) ?? [])].filter(
-    (bid) => (byParent.get(bid) ?? []).length > 0,
-  );
-  const branchFullyOpen = branchIds.length > 0 && branchIds.every((bid) => expanded.has(bid));
   const isOpen = expanded.has(node.id);
   const selfSelected = selected.has(node.id);
   const isExisting = !!node.existing_card_id;
@@ -572,31 +617,46 @@ function L1Card({
     }
   }, [checkState]);
 
-  // L1 header gets the brand colour as solid background; deeper rows carry
-  // their own bg in ChildRow.
+  // L1 header keeps the brand navy as a solid bg with white foreground —
+  // mirrors the colored-header pattern from CapabilityMapReport. Deeper rows
+  // are white with a per-level coloured left-border accent (see ChildRow).
   const headerStyle: CSSProperties = {
-    background: levelBg(1),
-    color: levelFg(1),
+    background: levelColor(1),
+    color: "#fff",
   };
 
-  const branchLabel = branchFullyOpen
-    ? t("cards:catalogue.collapseBranch")
-    : t("cards:catalogue.expandBranch");
+  const expandLabel = t("cards:catalogue.expandOneLevel");
+  const collapseLabel = t("cards:catalogue.collapseOneLevel");
+  const canExpand = hasKids && openDepth < maxDepth;
+  const canCollapse = openDepth > 0;
 
   return (
     <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
       <header className="tcc-l1-header" style={headerStyle}>
-        {/* Branch +/- pill — left side, mirrors the .tcc-stepper aesthetic */}
-        <button
-          type="button"
-          className="tcc-branch-toggle"
-          onClick={() => onToggleBranch(node.id)}
-          disabled={!hasKids}
-          aria-label={branchLabel}
-          title={branchLabel}
-        >
-          <MaterialSymbol icon={branchFullyOpen ? "remove" : "add"} size={16} />
-        </button>
+        {/* Per-L1 ± pill — mirrors the global .tcc-stepper aesthetic but
+            scoped to this L1's subtree only. Always renders both buttons; the
+            inactive direction goes disabled. Pressing + opens one tree level
+            within this L1; pressing − closes the deepest open level. */}
+        <div className="tcc-branch-stepper" role="group" aria-label={expandLabel}>
+          <button
+            type="button"
+            onClick={() => onCollapseL1(node.id)}
+            disabled={!canCollapse}
+            aria-label={collapseLabel}
+            title={collapseLabel}
+          >
+            <MaterialSymbol icon="remove" size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onExpandL1(node.id)}
+            disabled={!canExpand}
+            aria-label={expandLabel}
+            title={expandLabel}
+          >
+            <MaterialSymbol icon="add" size={16} />
+          </button>
+        </div>
         {isExisting ? (
           <Tooltip title={`Already a card: ${node.name}`}>
             <span className="tcc-existing-tick tcc-existing-tick--on-dark">
@@ -680,18 +740,18 @@ function ChildRow({
   const isExisting = !!node.existing_card_id;
   const selfSelected = selected.has(node.id);
   const isL2 = depth === 1;
-  const onDark = node.level <= 3;
 
+  // Each row reads as a small white card with a coloured left-border
+  // accent — same visual language as CapabilityMapReport (white Paper +
+  // colored cap), with the level conveyed by the accent colour rather than
+  // by tinting the whole row.
   const rowStyle: CSSProperties = {
-    background: levelBg(node.level),
-    color: levelFg(node.level),
+    borderLeftColor: levelColor(node.level),
   };
 
   const checkbox = isExisting ? (
     <Tooltip title={`Already a card: ${node.name}`}>
-      <span
-        className={`tcc-existing-tick${onDark ? " tcc-existing-tick--on-dark" : ""}`}
-      >
+      <span className="tcc-existing-tick">
         <MaterialSymbol icon="check_circle" size={18} />
       </span>
     </Tooltip>
@@ -701,15 +761,7 @@ function ChildRow({
       checked={selfSelected}
       onChange={() => onToggleSelect(node.id)}
       inputProps={{ "aria-label": `Select ${node.id} ${node.name}` }}
-      sx={
-        onDark
-          ? {
-              p: 0.5,
-              color: "rgba(255,255,255,0.7)",
-              "&.Mui-checked, &.MuiCheckbox-indeterminate": { color: "#fff" },
-            }
-          : { p: 0.5, color: "rgba(0,51,153,0.6)", "&.Mui-checked": { color: "#003399" } }
-      }
+      sx={{ p: 0.5, color: "rgba(0,51,153,0.55)", "&.Mui-checked": { color: "#003399" } }}
     />
   );
 

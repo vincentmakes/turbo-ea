@@ -9,11 +9,12 @@
 
 .tcc-root .tcc-l1-card {
   border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--mui-palette-background-paper, #fff);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
   transition: box-shadow 150ms ease, border-color 150ms ease;
 }
 
@@ -26,17 +27,15 @@
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
 }
 
-/* L1 header — solid brand bg + foreground come from inline style on the
-   element (driven by levelBg(1) / levelFg(1)) so the colour scheme stays
-   data-driven. CSS owns layout only. */
+/* L1 header — solid brand bg, white text. The bg is set inline (levelColor)
+   so the colour scheme stays data-driven; CSS owns layout only. The radius
+   comes from the parent .tcc-l1-card via overflow: hidden so the navy bar
+   tucks neatly into the rounded card chrome. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
   min-width: 0;
 }
 
@@ -73,31 +72,41 @@
   flex-shrink: 0;
 }
 
-/* +/- branch toggle — pill on the LEFT of the L1 header. Mirrors the
-   .tcc-stepper aesthetic but adapted for placement on a coloured header. */
-.tcc-root .tcc-branch-toggle {
+/* Per-L1 ± stepper pill — pair of buttons sharing one rounded outline,
+   placed on the dark navy L1 header. Both icons are always visible; the
+   inactive direction goes disabled. Mirrors the .tcc-stepper template. */
+.tcc-root .tcc-branch-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+.tcc-root .tcc-branch-stepper button {
+  background: none;
+  border: 0;
+  padding: 2px 8px;
+  color: inherit;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 22px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.15);
-  color: inherit;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color 120ms ease;
 }
 
-.tcc-root .tcc-branch-toggle:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.28);
-  border-color: rgba(255, 255, 255, 0.7);
+.tcc-root .tcc-branch-stepper button + button {
+  border-left: 1px solid rgba(255, 255, 255, 0.5);
 }
 
-.tcc-root .tcc-branch-toggle:disabled {
-  opacity: 0.4;
+.tcc-root .tcc-branch-stepper button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.tcc-root .tcc-branch-stepper button:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
@@ -105,7 +114,7 @@
 .tcc-root .tcc-l2-children {
   list-style: none;
   margin: 0;
-  padding: 6px 8px 8px 8px;
+  padding: 8px 10px 10px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -116,24 +125,31 @@
   margin-left: 12px;
 }
 
-/* Each row is a coloured bar — bg / fg come from inline style (per level),
-   so this rule owns layout + the constant pieces only. */
+/* Rows are small white "mini-cards" with a per-level coloured left-border
+   accent — same visual idea as CapabilityMapReport (white Paper + colored
+   header / border, 8 px corner radius). The accent colour is set inline via
+   borderLeftColor so this rule owns layout + the constant pieces only. */
 .tcc-root .tcc-row {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 8px;
-  border-radius: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: var(--mui-palette-background-paper, #fff);
+  color: #003399;
   min-width: 0;
-  transition: filter 120ms ease, box-shadow 120ms ease;
+  transition: box-shadow 120ms ease, background-color 120ms ease;
 }
 
 .tcc-root .tcc-row:hover {
-  filter: brightness(0.96);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .tcc-root .tcc-row.is-selected {
-  box-shadow: inset 3px 0 0 #003399, 0 0 0 1px rgba(0, 51, 153, 0.35);
+  background: rgba(0, 51, 153, 0.06);
+  box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.4);
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
@@ -222,8 +238,9 @@
   flex-shrink: 0;
 }
 
-/* On dark coloured rows the standard MUI green isn't bright enough — swap
-   to the high-contrast Material green 200 for visibility against navy. */
+/* On the dark navy L1 header the standard MUI green isn't bright enough —
+   swap to the high-contrast Material green 200 for visibility. Child rows
+   are white-bg so they keep the default green. */
 .tcc-root .tcc-existing-tick.tcc-existing-tick--on-dark {
   color: #a5d6a7;
 }
