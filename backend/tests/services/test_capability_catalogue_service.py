@@ -1,14 +1,14 @@
 """Tests for the capability catalogue service.
 
 The `turbo_ea_capabilities` package may not be installed in the test
-environment yet (it's a new external dependency). We monkeypatch the module's
-`load_all`, `VERSION`, etc. with a small in-memory fixture so the service
-behaviour can be validated end-to-end without the real wheel.
+environment yet (it's a new external dependency). We patch the service's
+module-local `catalogue_pkg` attribute with a small in-memory fixture so
+the service behaviour can be validated end-to-end without the real wheel —
+and the patch wins regardless of when the service module was first imported.
 """
 
 from __future__ import annotations
 
-import sys
 import types
 from typing import Any
 
@@ -105,7 +105,13 @@ class _FakeCap:
 
 
 def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Install a fake `turbo_ea_capabilities` module before the service imports it."""
+    """Replace `catalogue_pkg` inside the service module with an in-memory fake.
+
+    Patching the attribute directly on the already-imported service module
+    bypasses any sys.modules / import-order issues — the swap takes effect
+    immediately even if the service was loaded earlier (e.g. via the FastAPI
+    app fixture).
+    """
     fake = types.ModuleType("turbo_ea_capabilities")
     fake.VERSION = "1.2.3"
     fake.SCHEMA_VERSION = "1"
@@ -114,9 +120,9 @@ def _install_fake_pkg(monkeypatch: pytest.MonkeyPatch) -> None:
     fake.Capability = _FakeCap
     fake.load_all = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE]
     fake.load_tree = lambda: [_FakeCap(**c) for c in _FAKE_CATALOGUE if c["parent_id"] is None]
-    monkeypatch.setitem(sys.modules, "turbo_ea_capabilities", fake)
-    # Force re-import of the service so it picks up the fake module.
-    monkeypatch.delitem(sys.modules, "app.services.capability_catalogue_service", raising=False)
+    from app.services import capability_catalogue_service as svc
+
+    monkeypatch.setattr(svc, "catalogue_pkg", fake)
 
 
 # ---------------------------------------------------------------------------

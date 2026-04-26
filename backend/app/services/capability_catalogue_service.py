@@ -76,7 +76,7 @@ def _bundled_payload() -> tuple[list[dict[str, Any]], dict[str, Any]]:
 
 async def _get_app_settings(db: AsyncSession) -> AppSettings:
     res = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
-    settings = res.scalar_one_or_none()
+    settings: AppSettings | None = res.scalar_one_or_none()
     if settings is None:
         settings = AppSettings(id="default", general_settings={})
         db.add(settings)
@@ -88,7 +88,7 @@ async def _get_cached_remote(db: AsyncSession) -> dict[str, Any] | None:
     settings = await _get_app_settings(db)
     general = settings.general_settings or {}
     cached = general.get(SETTINGS_KEY)
-    if not cached or not cached.get("data"):
+    if not isinstance(cached, dict) or not cached.get("data"):
         return None
     return cached
 
@@ -302,10 +302,10 @@ async def import_capabilities(
     # manual nestings (existing parent_id pointing somewhere else) are
     # preserved deliberately, so users keep authority over their hierarchy.
     for cat_id in pre_existing_ids:
-        cap = by_id.get(cat_id)
-        if cap is None:
+        cap_data = by_id.get(cat_id)
+        if cap_data is None:
             continue
-        cat_parent = cap.get("parent_id")
+        cat_parent = cap_data.get("parent_id")
         if not cat_parent or cat_parent not in created_in_batch:
             continue
         existing_card_id = catalogue_id_to_card_id[cat_id]
