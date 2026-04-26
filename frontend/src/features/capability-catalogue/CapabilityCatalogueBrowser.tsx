@@ -531,7 +531,6 @@ export default function CapabilityCatalogueBrowser({
             <L1Card
               key={r.id}
               node={r}
-              byId={byId}
               byParent={byParent}
               visible={visibleSet}
               expanded={expanded}
@@ -559,7 +558,6 @@ export default function CapabilityCatalogueBrowser({
 
 interface L1CardProps {
   node: FlatCapability;
-  byId: Map<string, FlatCapability>;
   byParent: Map<string | null, FlatCapability[]>;
   visible: Set<string>;
   expanded: Set<string>;
@@ -577,7 +575,6 @@ interface L1CardProps {
 
 function L1Card({
   node,
-  byId,
   byParent,
   visible,
   expanded,
