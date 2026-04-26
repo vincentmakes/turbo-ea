@@ -697,6 +697,19 @@ export default function AppLayout({ children, user, onLogout }: Props) {
               </ListItemIcon>
               <ListItemText>{t("userMenu.userManual")}</ListItemText>
             </MenuItem>
+            {can("inventory.view") && (
+              <MenuItem
+                onClick={() => {
+                  setUserMenu(null);
+                  navigate("/capability-catalogue");
+                }}
+              >
+                <ListItemIcon>
+                  <MaterialSymbol icon="account_tree" size={18} />
+                </ListItemIcon>
+                <ListItemText>{t("userMenu.capabilityCatalogue")}</ListItemText>
+              </MenuItem>
+            )}
             {showAdmin && <Divider />}
             {showAdmin && (
               <MenuItem disabled sx={{ opacity: 0.7, minHeight: 32 }}>

@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.0] - 2026-04-26
+
+### Added
+- **Capability Catalogue** browser, accessible from the user menu (top-right profile icon). Browse the bundled Business Capability reference catalogue (filter by level, industry, search), select any combination of capabilities, and **mass-create** them as `BusinessCapability` cards in one action. Existing capabilities (matched by display name, case-insensitive) show a green tick instead of a checkbox and are skipped on import — re-runs are idempotent. Hierarchy from the catalogue is preserved automatically: when both parent and child are imported in the same batch, or when the parent already exists locally, `parent_id` is wired correctly. Card creation goes through the regular `inventory.create` permission.
+- The catalogue itself ships as a bundled Python dependency (`turbo-ea-capabilities` on PyPI), so the page works offline / in airgapped deployments. Admins (`admin.metamodel`) get **Check for update** and **Fetch update** controls that talk to the public catalogue at `https://capabilities.turbo-ea.org` and cache a newer version into `app_settings.general_settings.capability_catalogue` — a server-side override that wins over the bundled package only when its version is strictly greater. The remote URL is configurable via `CAPABILITY_CATALOGUE_URL`.
+
 ## [0.48.1] - 2026-04-23
 
 ### Changed

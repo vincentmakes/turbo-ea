@@ -1,0 +1,243 @@
+/* Tree-specific visuals for the Capability Catalogue browser.
+   Scoped under .tcc-root so it doesn't leak into other pages. */
+
+.tcc-root .tcc-l1-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+.tcc-root .tcc-l1-card {
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  background: var(--mui-palette-background-paper, #fff);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tcc-root .tcc-l1-card.is-selected {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 1px #1976d2 inset;
+}
+
+.tcc-root .tcc-l1-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  min-width: 0;
+}
+
+.tcc-root .tcc-l1-name {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcc-root .tcc-l1-name:hover {
+  text-decoration: underline;
+}
+
+.tcc-root .tcc-cap-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--mui-palette-text-secondary);
+  flex-shrink: 0;
+}
+
+.tcc-root .tcc-l2-list,
+.tcc-root .tcc-l2-children {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px 8px 8px;
+}
+
+.tcc-root .tcc-l2-children {
+  padding: 4px 0 4px 22px;
+  border-left: 1px dashed rgba(0, 0, 0, 0.12);
+  margin-left: 12px;
+}
+
+.tcc-root .tcc-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  min-width: 0;
+}
+
+.tcc-root .tcc-row.is-selected {
+  background: rgba(25, 118, 210, 0.08);
+}
+
+.tcc-root .tcc-row .tcc-name-btn {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcc-root .tcc-row .tcc-name-btn:hover {
+  text-decoration: underline;
+}
+
+.tcc-root .tcc-row.is-l2 .tcc-name-btn {
+  font-weight: 600;
+}
+
+.tcc-root .tcc-chevron {
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--mui-palette-text-secondary);
+}
+
+.tcc-root .tcc-chevron.is-empty {
+  visibility: hidden;
+  cursor: default;
+}
+
+.tcc-root .tcc-chevron.is-open {
+  transform: rotate(90deg);
+}
+
+.tcc-root .tcc-cap-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mui-palette-text-secondary);
+  background: rgba(0, 0, 0, 0.04);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tcc-root .tcc-cap-level {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1976d2;
+  background: rgba(25, 118, 210, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tcc-root .tcc-deprecated-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #b26500;
+  background: rgba(255, 152, 0, 0.18);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tcc-root .tcc-existing-tick {
+  color: #2e7d32;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.tcc-root .tcc-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tcc-root .tcc-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tcc-root .tcc-stepper button {
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: var(--mui-palette-text-primary);
+  display: inline-flex;
+  align-items: center;
+}
+
+.tcc-root .tcc-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tcc-root .tcc-stepper-label {
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mui-palette-text-secondary);
+  border-left: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-right: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+}
+
+.tcc-root .tcc-detail-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tcc-root .tcc-detail-tree-children {
+  padding-left: 18px;
+  border-left: 1px dashed rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tcc-root .tcc-detail-tree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tcc-root .tcc-detail-tree-row .tcc-tree-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tcc-root .tcc-detail-tree-row .tcc-tree-desc {
+  width: 100%;
+  font-size: 12px;
+  color: var(--mui-palette-text-secondary);
+  margin-left: 6px;
+}

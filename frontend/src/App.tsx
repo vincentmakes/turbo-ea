@@ -53,6 +53,9 @@ const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
 const TurboLensPage = lazy(() => import("@/features/turbolens/TurboLensPage"));
 const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewer"));
+const CapabilityCataloguePage = lazy(
+  () => import("@/features/capability-catalogue/CapabilityCataloguePage"),
+);
 
 function buildTheme(mode: "light" | "dark") {
   return createTheme({
@@ -165,6 +168,7 @@ function AppRoutes() {
                 <Route path="/turbolens" element={<TurboLensPage />} />
                 <Route path="/turbolens/assessments/:id" element={<AssessmentViewer />} />
                 <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
+                <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
                 <Route path="*" element={<Navigate to="/" />} />
               </Routes>
             </Suspense>

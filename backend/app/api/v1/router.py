@@ -10,6 +10,7 @@ from app.api.v1 import (
     bpm_reports,
     bpm_workflow,
     calculations,
+    capability_catalogue,
     cards,
     comments,
     diagrams,
@@ -79,3 +80,4 @@ api_router.include_router(risks.router)
 api_router.include_router(risks.cards_risks_router)
 api_router.include_router(file_attachments.router)
 api_router.include_router(favorites.router)
+api_router.include_router(capability_catalogue.router)

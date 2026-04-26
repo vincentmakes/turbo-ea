@@ -78,6 +78,7 @@ plugins:
             EA Delivery: Entrega EA
             Tasks & Surveys: Tareas y encuestas
             Notifications: Notificaciones
+            Capability Catalogue: Catálogo de capacidades
             Administration: Administración
             General Settings: Configuración general
             Metamodel: Metamodelo
@@ -114,6 +115,7 @@ plugins:
             EA Delivery: EA-Bereitstellung
             Tasks & Surveys: Aufgaben und Umfragen
             Notifications: Benachrichtigungen
+            Capability Catalogue: Capability-Katalog
             Administration: Administration
             General Settings: Allgemeine Einstellungen
             Metamodel: Metamodell
@@ -150,6 +152,7 @@ plugins:
             EA Delivery: Livraison EA
             Tasks & Surveys: Tâches et enquêtes
             Notifications: Notifications
+            Capability Catalogue: Catalogue de capacités
             Administration: Administration
             General Settings: Paramètres généraux
             Metamodel: Métamodèle
@@ -186,6 +189,7 @@ plugins:
             EA Delivery: Consegna EA
             Tasks & Surveys: Attività e sondaggi
             Notifications: Notifiche
+            Capability Catalogue: Catalogo delle capacità
             Administration: Amministrazione
             General Settings: Impostazioni generali
             Metamodel: Metamodello
@@ -222,6 +226,7 @@ plugins:
             EA Delivery: Entrega EA
             Tasks & Surveys: Tarefas e pesquisas
             Notifications: Notificações
+            Capability Catalogue: Catálogo de capacidades
             Administration: Administração
             General Settings: Configurações gerais
             Metamodel: Metamodelo
@@ -258,6 +263,7 @@ plugins:
             EA Delivery: EA 交付
             Tasks & Surveys: 任务与调查
             Notifications: 通知
+            Capability Catalogue: 能力目录
             Administration: 管理
             General Settings: 常规设置
             Metamodel: 元模型
@@ -294,6 +300,7 @@ plugins:
             EA Delivery: Поставка EA
             Tasks & Surveys: Задачи и опросы
             Notifications: Уведомления
+            Capability Catalogue: Каталог возможностей
             Administration: Администрирование
             General Settings: Общие настройки
             Metamodel: Метамодель
@@ -357,6 +364,7 @@ nav:
       - Risk Register: guide/risks.md
       - Tasks & Surveys: guide/tasks.md
       - Notifications: guide/notifications.md
+      - Capability Catalogue: guide/capability-catalogue.md
   - Administration:
       - admin/index.md
       - General Settings: admin/settings.md
