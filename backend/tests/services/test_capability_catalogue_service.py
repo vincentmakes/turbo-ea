@@ -10,6 +10,7 @@ and the patch wins regardless of when the service module was first imported.
 from __future__ import annotations
 
 import types
+from datetime import datetime, timezone
 from typing import Any
 
 import pytest
@@ -339,6 +340,50 @@ async def test_import_relinks_via_catalogue_id_after_rename(db, monkeypatch):
     )
     await db.refresh(renamed_child)
     assert str(renamed_child.parent_id) == str(new_parent.id)
+
+
+@pytest.mark.asyncio
+async def test_import_relinks_when_existing_child_points_to_archived_parent(db, monkeypatch):
+    """When the existing child has a `parent_id` pointing to an ARCHIVED card
+    (stale reference — the previous parent was archived after the link was
+    set), the relink walk should treat it as orphaned and re-parent the
+    child under the newly-created catalogue parent. Manual nestings under a
+    still-active card are preserved separately by another test."""
+    _install_fake_pkg(monkeypatch)
+    from app.services import capability_catalogue_service as svc
+
+    user = await create_user(db, email="u@x.com")
+    archived_old_parent = await create_card(
+        db, card_type="BusinessCapability", name="Old (now archived) Root", user_id=user.id
+    )
+    # Archive the previous parent (soft delete) — this is what the codebase
+    # does on Card delete: status="ARCHIVED" + archived_at timestamp.
+    archived_old_parent.status = "ARCHIVED"
+    archived_old_parent.archived_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    existing_child = await create_card(
+        db,
+        card_type="BusinessCapability",
+        name="Lead Capture",
+        user_id=user.id,
+        parent_id=archived_old_parent.id,
+    )
+    assert existing_child.parent_id == archived_old_parent.id
+
+    result = await svc.import_capabilities(db, user=user, catalogue_ids=["BC-1.1"])
+
+    assert len(result["created"]) == 1
+    assert len(result["relinked"]) == 1
+    assert result["relinked"][0]["catalogue_id"] == "BC-1.1.1"
+
+    new_parent = (
+        (await db.execute(select(Card).where(Card.attributes["catalogueId"].astext == "BC-1.1")))
+        .scalars()
+        .one()
+    )
+    await db.refresh(existing_child)
+    assert str(existing_child.parent_id) == str(new_parent.id)
 
 
 @pytest.mark.asyncio

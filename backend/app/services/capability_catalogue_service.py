@@ -333,9 +333,12 @@ async def import_capabilities(
         created_in_batch.add(cap["id"])
 
     # Re-parent existing top-level cards whose catalogue parent was just
-    # created in this batch. Only `parent_id IS NULL` cards are touched —
-    # manual nestings (existing parent_id pointing somewhere else) are
-    # preserved deliberately, so users keep authority over their hierarchy.
+    # created in this batch. We touch the existing card if either:
+    #   - its `parent_id` is NULL (top-level), OR
+    #   - its `parent_id` points to a missing or ARCHIVED card (a stale /
+    #     orphaned reference left over from a previous edit).
+    # Manual nestings under a still-active card are preserved deliberately,
+    # so users keep authority over their hand-built hierarchies.
     for cat_id in pre_existing_ids:
         cap_data = by_id.get(cat_id)
         if cap_data is None:
@@ -346,8 +349,14 @@ async def import_capabilities(
         existing_card_id = catalogue_id_to_card_id[cat_id]
         new_parent_card_id = catalogue_id_to_card_id[cat_parent]
         existing_card = await db.get(Card, uuid.UUID(existing_card_id))
-        if existing_card is None or existing_card.parent_id is not None:
+        if existing_card is None:
             continue
+        if existing_card.parent_id is not None:
+            current_parent = await db.get(Card, existing_card.parent_id)
+            # An "active manual nesting" — only that case wins over the
+            # catalogue's own hierarchy.
+            if current_parent is not None and current_parent.status != "ARCHIVED":
+                continue
         existing_card.parent_id = uuid.UUID(new_parent_card_id)
         existing_card.updated_by = user_id
         relinked.append(
