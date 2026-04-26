@@ -436,7 +436,7 @@ function DetailDialog({ node, byId, byParent, onOpen, onClose }: DetailDialogPro
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pr: 6 }}>
         <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-          {ancestors.map((a, idx) => (
+          {ancestors.map((a) => (
             <Box key={a.id} sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
               <Button size="small" onClick={() => onOpen(a.id)} sx={{ minWidth: 0, p: 0.25 }}>
                 {a.name}
