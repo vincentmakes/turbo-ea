@@ -11,7 +11,7 @@ Click the user icon in the top-right corner of the app, then **Capability Catalo
 - **Header** — the active catalogue version, the number of capabilities it contains, and (for admins) controls to check for and fetch updates.
 - **Filter bar** — full-text search across id, name, description and aliases, plus level chips (L1 → L4), an industry multi-select, and a "Show deprecated" toggle.
 - **Action bar** — match counters, the global level stepper (expand/collapse all L1s one level at a time), expand/collapse all, select-visible, clear selection.
-- **L1 grid** — one card per top-level capability, on neutral paper with a navy `account_tree` icon and L1 name in the header. Child capabilities are listed underneath, indented with a faint vertical rail to convey depth — the same hierarchy idiom used elsewhere in the app, so the page doesn't carry its own visual identity. Names wrap to multiple lines instead of being truncated. Each L1 header also exposes its own `−` / `+` stepper pill: `+` opens the next level of descendants for that L1 only, `−` closes the deepest open level. The two buttons are always visible (the inactive direction goes disabled), the action is scoped to that one L1 — other branches stay put — and the global level stepper at the top of the page is unaffected.
+- **L1 grid** — one card per top-level capability. The L1 name sits in a pale-blue header band; child capabilities are listed underneath, indented with a faint vertical rail to convey depth — the same hierarchy idiom used elsewhere in the app, so the page doesn't carry its own visual identity. Names wrap to multiple lines instead of being truncated. Each L1 header also exposes its own `−` / `+` stepper pill: `+` opens the next level of descendants for that L1 only, `−` closes the deepest open level. The two buttons are always visible (the inactive direction goes disabled), the action is scoped to that one L1 — other branches stay put — and the global level stepper at the top of the page is unaffected.
 
 ## Selecting capabilities
 
@@ -24,7 +24,7 @@ So unticking a single child only removes that child and what's below — its par
 
 The page picks up the app-wide light/dark theme automatically — dark mode renders the same neutral layout on `#1e1e1e` paper with lifted-lavender text and accents.
 
-Capabilities that **already exist** in your inventory (matched by display name, case-insensitive) appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue.
+Capabilities that **already exist** in your inventory appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue. Matching prefers the `attributes.catalogueId` stamp left by a previous import (so the green tick survives display-name edits) and falls back to a case-insensitive display-name match for cards you created by hand.
 
 ## Mass-creating cards
 
@@ -42,9 +42,7 @@ Re-running the same import is safe — it's idempotent.
 **Bidirectional linking.** The hierarchy is repaired in both directions, so the order in which you import doesn't matter:
 
 - Selecting only a child whose catalogue **parent already exists** as a card grafts the new child onto that existing parent automatically.
-- Selecting only a parent whose catalogue **children already exist** as top-level cards re-parents those children under the new card.
-
-Re-parenting is non-destructive: only existing cards whose `parent_id` is currently empty (top-level) are touched. Manual nestings you've set up by hand are preserved — Turbo EA never overwrites a parent link you've explicitly chosen. The result dialog reports how many cards were re-linked alongside the created and skipped counts.
+- Selecting only a parent whose catalogue **children already exist** as cards re-parents those children under the new card — regardless of where they currently sit (top-level or hand-nested under another card). The catalogue is the source of truth for hierarchy on import; if you'd prefer a different parent for a specific card, edit it after the import. The result dialog reports how many cards were re-linked alongside the created and skipped counts.
 
 ## Detail view
 
