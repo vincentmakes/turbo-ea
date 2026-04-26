@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -34,6 +34,27 @@ function compareIds(a: string, b: string): number {
 function splitIndustry(s: string | null | undefined): string[] {
   if (!s) return [];
   return s.split(";").map((x) => x.trim()).filter(Boolean);
+}
+
+// Stable per-L1 accent color drawn from Turbo EA's existing card-type palette
+// (see backend/app/services/seed.py). Each L1 maps to one of these via a
+// simple deterministic hash, so the same capability always gets the same
+// color across reloads while neighbouring L1s look visually distinct.
+const L1_ACCENT_PALETTE = [
+  "#003399", // BusinessCapability deep navy
+  "#0f7eb5", // Application sky blue
+  "#027446", // Platform forest green
+  "#774fcc", // DataObject purple
+  "#c7527d", // Objective rose
+  "#8e24aa", // BusinessProcess magenta
+  "#d29270", // ITComponent warm tan
+  "#02afa4", // Interface teal
+] as const;
+
+function l1Accent(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return L1_ACCENT_PALETTE[Math.abs(h) % L1_ACCENT_PALETTE.length];
 }
 
 interface Props {
@@ -150,18 +171,23 @@ export default function CapabilityCatalogueBrowser({
   // Existing-card matches are non-selectable (rendered as a green tick).
   const isSelectable = (cap: FlatCapability) => !cap.existing_card_id;
 
+  // Cascade-on-select / single-node-on-deselect:
+  //   - clicking an unselected node adds the node + all selectable descendants
+  //   - clicking an already-selected node removes only that node
+  // This lets users start from "select L1" (which seeds the whole subtree) and
+  // then prune individual descendants without losing the parent — the only way
+  // to assemble e.g. an L1-only selection.
   const toggleSelect = (id: string) => {
     const cap = byId.get(id);
     if (!cap || !isSelectable(cap)) return;
     const next = new Set(selected);
-    const subtree = [id, ...(descendantsOf.get(id) ?? [])].filter((sid) => {
-      const c = byId.get(sid);
-      return c && isSelectable(c);
-    });
-    const allSelected = subtree.every((s) => next.has(s));
-    if (allSelected) {
-      for (const s of subtree) next.delete(s);
+    if (next.has(id)) {
+      next.delete(id);
     } else {
+      const subtree = [id, ...(descendantsOf.get(id) ?? [])].filter((sid) => {
+        const c = byId.get(sid);
+        return c && isSelectable(c);
+      });
       for (const s of subtree) next.add(s);
     }
     onSelectedChange(next);
@@ -513,8 +539,21 @@ function L1Card({
     }
   }, [checkState]);
 
+  const accent = l1Accent(node.id);
+  // Append 0x14 (8% alpha) for the header tint and 0x33 (20% alpha) for the
+  // selected-state ring — using hex-with-alpha keeps it portable across
+  // browsers without relying on color-mix().
+  const accentStyle = {
+    "--tcc-accent": accent,
+    "--tcc-accent-tint": `${accent}14`,
+    "--tcc-accent-ring": `${accent}33`,
+  } as CSSProperties;
+
   return (
-    <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
+    <section
+      className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}
+      style={accentStyle}
+    >
       <header className="tcc-l1-header">
         {isExisting ? (
           <Tooltip title={`Already a card: ${node.name}`}>

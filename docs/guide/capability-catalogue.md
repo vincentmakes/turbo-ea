@@ -15,7 +15,7 @@ Click the user icon in the top-right corner of the app, then **Capability Catalo
 
 ## Selecting capabilities
 
-Tick the checkbox next to any capability to add it to the selection. Ticking a parent cascades the selection down the subtree.
+Tick the checkbox next to any capability to add it to the selection. Ticking an unselected parent cascades the selection down the whole subtree, but unticking a single capability only removes that one — its parent and siblings stay selected. To assemble e.g. an L1-only selection, pick the L1 (which seeds the subtree) and then untick the L2 children individually.
 
 Capabilities that **already exist** in your inventory (matched by display name, case-insensitive) appear with a **green check icon** instead of a checkbox. They cannot be selected — you can never create the same Business Capability twice through the catalogue.
 

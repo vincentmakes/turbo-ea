@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.49.2] - 2026-04-26
+
+### Changed
+- Capability Catalogue browser: each L1 card now carries a stable accent colour drawn from the existing Turbo EA card-type palette (top stripe, header tint, name colour, child rail, selected-row highlight all inherit it), making it easier to scan a long catalogue of capabilities at a glance.
+
+### Fixed
+- Capability Catalogue selection: clicking an already-selected capability now removes only that node, while clicking an unselected one still cascades the whole selectable subtree. This makes "select L1 only" achievable — pick the parent, then prune individual descendants — and stops a child deselect from indirectly toggling its siblings or the parent itself.
+
 ## [0.49.1] - 2026-04-26
 
 ### Fixed

@@ -8,17 +8,26 @@
 }
 
 .tcc-root .tcc-l1-card {
+  --tcc-accent: #003399;
+  --tcc-accent-tint: rgba(0, 51, 153, 0.08);
+  --tcc-accent-ring: rgba(0, 51, 153, 0.2);
   border: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
+  border-top: 3px solid var(--tcc-accent);
   border-radius: 6px;
   background: var(--mui-palette-background-paper, #fff);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.tcc-root .tcc-l1-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .tcc-root .tcc-l1-card.is-selected {
-  border-color: #1976d2;
-  box-shadow: 0 0 0 1px #1976d2 inset;
+  border-color: var(--tcc-accent);
+  box-shadow: 0 0 0 2px var(--tcc-accent-ring);
 }
 
 .tcc-root .tcc-l1-header {
@@ -26,6 +35,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
+  background: var(--tcc-accent-tint);
   border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.12));
   min-width: 0;
 }
@@ -39,7 +49,7 @@
   padding: 0;
   text-align: left;
   cursor: pointer;
-  color: inherit;
+  color: var(--tcc-accent);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -53,10 +63,10 @@
 .tcc-root .tcc-cap-count {
   font-size: 11px;
   font-weight: 700;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--tcc-accent-tint, rgba(0, 0, 0, 0.06));
+  color: var(--tcc-accent, var(--mui-palette-text-secondary));
   border-radius: 999px;
   padding: 2px 8px;
-  color: var(--mui-palette-text-secondary);
   flex-shrink: 0;
 }
 
@@ -69,7 +79,7 @@
 
 .tcc-root .tcc-l2-children {
   padding: 4px 0 4px 22px;
-  border-left: 1px dashed rgba(0, 0, 0, 0.12);
+  border-left: 1px dashed var(--tcc-accent-ring, rgba(0, 0, 0, 0.12));
   margin-left: 12px;
 }
 
@@ -80,10 +90,16 @@
   padding: 4px 6px;
   border-radius: 4px;
   min-width: 0;
+  transition: background-color 120ms ease;
+}
+
+.tcc-root .tcc-row:hover {
+  background: var(--tcc-accent-tint, rgba(0, 0, 0, 0.04));
 }
 
 .tcc-root .tcc-row.is-selected {
-  background: rgba(25, 118, 210, 0.08);
+  background: var(--tcc-accent-tint, rgba(25, 118, 210, 0.08));
+  box-shadow: inset 2px 0 0 var(--tcc-accent, #1976d2);
 }
 
 .tcc-root .tcc-row .tcc-name-btn {
