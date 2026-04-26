@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -36,25 +36,20 @@ function splitIndustry(s: string | null | undefined): string[] {
   return s.split(";").map((x) => x.trim()).filter(Boolean);
 }
 
-// Stable per-L1 accent color drawn from Turbo EA's existing card-type palette
-// (see backend/app/services/seed.py). Each L1 maps to one of these via a
-// simple deterministic hash, so the same capability always gets the same
-// color across reloads while neighbouring L1s look visually distinct.
-const L1_ACCENT_PALETTE = [
-  "#003399", // BusinessCapability deep navy
-  "#0f7eb5", // Application sky blue
-  "#027446", // Platform forest green
-  "#774fcc", // DataObject purple
-  "#c7527d", // Objective rose
-  "#8e24aa", // BusinessProcess magenta
-  "#d29270", // ITComponent warm tan
-  "#02afa4", // Interface teal
+// Per-level shades of the BusinessCapability brand colour (#003399), tinted
+// toward white in 20% steps. Conveys depth via lightening — same indexing
+// convention as HierarchySection.tsx:30 (LEVEL_COLORS).
+const BC_LEVEL_COLORS = [
+  "#003399", // L1
+  "#335bad", // L2
+  "#6685c2", // L3
+  "#99add6", // L4
+  "#ccd6eb", // L5
 ] as const;
 
-function l1Accent(id: string): string {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
-  return L1_ACCENT_PALETTE[Math.abs(h) % L1_ACCENT_PALETTE.length];
+function levelColor(level: number): string {
+  const i = Math.max(0, Math.min(level - 1, BC_LEVEL_COLORS.length - 1));
+  return BC_LEVEL_COLORS[i];
 }
 
 interface Props {
@@ -539,21 +534,8 @@ function L1Card({
     }
   }, [checkState]);
 
-  const accent = l1Accent(node.id);
-  // Append 0x14 (8% alpha) for the header tint and 0x33 (20% alpha) for the
-  // selected-state ring — using hex-with-alpha keeps it portable across
-  // browsers without relying on color-mix().
-  const accentStyle = {
-    "--tcc-accent": accent,
-    "--tcc-accent-tint": `${accent}14`,
-    "--tcc-accent-ring": `${accent}33`,
-  } as CSSProperties;
-
   return (
-    <section
-      className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}
-      style={accentStyle}
-    >
+    <section className={`tcc-l1-card${selfSelected ? " is-selected" : ""}`}>
       <header className="tcc-l1-header">
         {isExisting ? (
           <Tooltip title={`Already a card: ${node.name}`}>
@@ -681,6 +663,7 @@ function ChildRow({
           className="tcc-name-btn"
           onClick={() => onOpenDetail(node.id)}
           title={node.description ?? undefined}
+          style={{ color: levelColor(node.level) }}
         >
           {node.name}
         </button>

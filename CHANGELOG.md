@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.49.2] - 2026-04-26
 
 ### Changed
-- Capability Catalogue browser: each L1 card now carries a stable accent colour drawn from the existing Turbo EA card-type palette (top stripe, header tint, name colour, child rail, selected-row highlight all inherit it), making it easier to scan a long catalogue of capabilities at a glance.
+- Capability Catalogue browser: capability names now render in the BusinessCapability brand navy `#003399`, lightening progressively as the depth increases (L1 darkest, L4 lightest) — same discrete-palette idea as the hierarchy chips on regular cards. The card chrome itself stays neutral (standard outlined Paper, no coloured top stripe), with the brand colour reserved for the name, the L1 header tint, the cap-count chip, and the selected-row indicator.
 
 ### Fixed
 - Capability Catalogue selection: clicking an already-selected capability now removes only that node, while clicking an unselected one still cascades the whole selectable subtree. This makes "select L1 only" achievable — pick the parent, then prune individual descendants — and stops a child deselect from indirectly toggling its siblings or the parent itself.
