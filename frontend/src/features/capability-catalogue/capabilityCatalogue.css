@@ -36,26 +36,19 @@
   box-shadow: 0 0 0 1px rgba(0, 51, 153, 0.15);
 }
 
-/* L1 header — neutral paper, navy title, divider underneath. The header
-   anchors the card without a coloured band; the only colour cue is the
-   navy type-icon + title. */
+/* L1 header — pale-blue band that visually anchors the card without
+   competing with the neutral child rows. The tint is the same brand-navy
+   wash used for the selected-row state, just slightly lighter (4 % vs
+   6 %), so it reads as "this is the L1 banner" but stays well behind the
+   navy title. */
 .tcc-root .tcc-l1-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
   min-width: 0;
+  background: rgba(0, 51, 153, 0.05);
   border-bottom: 1px solid var(--mui-palette-divider, rgba(0, 0, 0, 0.08));
-}
-
-.tcc-root .tcc-l1-type-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  color: #003399;
-  flex-shrink: 0;
 }
 
 .tcc-root .tcc-l1-name {
@@ -354,10 +347,10 @@
 }
 
 .tcc-root.tcc-root--dark .tcc-l1-header {
+  background: rgba(168, 196, 255, 0.06);
   border-bottom-color: rgba(255, 255, 255, 0.08);
 }
 
-.tcc-root.tcc-root--dark .tcc-l1-type-icon,
 .tcc-root.tcc-root--dark .tcc-l1-name {
   color: #a8c4ff;
 }

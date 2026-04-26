@@ -658,12 +658,6 @@ function L1Card({
             }}
           />
         )}
-        {/* Type icon prefix — mirrors the BusinessCapability card type
-            (icon=account_tree, color=#003399 in seed.py) so an L1 reads as
-            "this is a Business Capability container" without a coloured band. */}
-        <span className="tcc-l1-type-icon" aria-hidden="true">
-          <MaterialSymbol icon="account_tree" size={20} />
-        </span>
         <button
           type="button"
           className="tcc-l1-name"
