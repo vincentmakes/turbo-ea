@@ -15,7 +15,6 @@
     }
   },
   "postCreateCommand": "bash .devcontainer/setup-demo.sh",
-  "postStartCommand": "bash .devcontainer/start-demo.sh",
   "customizations": {
     "codespaces": {
       "openFiles": []

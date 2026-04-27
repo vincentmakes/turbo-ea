@@ -5,11 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.49.4] - 2026-04-27
-
-### Fixed
-- Codespaces demo no longer 502s on the forwarded port after the build finishes. The `postCreateCommand` health-check was calling `curl` inside the backend container, but the `python:3.12-alpine` runtime image doesn't ship `curl`, so the wait loop returned a false negative on every iteration and silently exited 0 — the user opened port 8920 before the stack was actually serving. The check now hits `http://localhost:8920/api/health` from the codespace host, which validates the full chain (nginx → backend → db) the user's browser will hit, with a longer 8-minute budget for first-run `SEED_DEMO=true` builds on 2-core machines. A new `postStartCommand` (`.devcontainer/start-demo.sh`) re-runs `docker compose up -d` whenever the codespace is resumed, so containers come back automatically after a stop/start cycle (the dockerd from the docker-in-docker feature boots fresh each time and `restart: unless-stopped` alone wasn't enough). The `POSTGRES_PASSWORD` is now generated with `openssl rand` instead of using the hard-coded `demo-codespaces`, and re-running the setup script preserves the existing `.env` so cached JWTs stay valid.
-
 ## [0.49.3] - 2026-04-27
 
 ### Added
