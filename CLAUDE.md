@@ -1463,7 +1463,6 @@ Ollama is available as an opt-in Docker Compose profile:
 ```bash
 docker compose --profile ai up -d   # Starts Ollama alongside backend + frontend
 ```
-The `ollama` service uses a persistent volume (`turboea-ollama`) and is only accessible internally. Set `AI_AUTO_CONFIGURE=true` to auto-detect and configure on first startup.
 The `ollama` service uses a persistent volume (`ollama_models`) and is only accessible internally. Set `AI_AUTO_CONFIGURE=true` to auto-detect and configure on first startup.
 
 ### Startup Automation (`main.py`)

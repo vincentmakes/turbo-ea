@@ -2,13 +2,13 @@ name: turboea
 
 services:
   db:
-    image: ghcr.io/vincentmakes/turbo-ea/db:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/db:${TURBO_EA_TAG:-latest}
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-turboea}
+      POSTGRES_USER: ${POSTGRES_USER:-turboea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       PGDATA: /var/lib/postgresql/data
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -19,39 +19,43 @@ services:
       retries: 5
 
   backend:
-    image: ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/backend:${TURBO_EA_TAG:-latest}
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEMORY_LIMIT:-512M}
     environment:
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      SECRET_KEY: ${SECRET_KEY}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      ENVIRONMENT: ${ENVIRONMENT}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      RESET_DB: ${RESET_DB}
-      SEED_DEMO: ${SEED_DEMO}
-      SEED_BPM: ${SEED_BPM}
-      SEED_PPM: ${SEED_PPM}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM: ${SMTP_FROM}
-      SMTP_TLS: ${SMTP_TLS}
-      AI_PROVIDER_URL: ${AI_PROVIDER_URL}
-      AI_MODEL: ${AI_MODEL}
-      AI_SEARCH_PROVIDER: ${AI_SEARCH_PROVIDER}
-      AI_SEARCH_URL: ${AI_SEARCH_URL}
-      AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE}
-      NVD_API_KEY: ${NVD_API_KEY}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-turboea}
+      POSTGRES_USER: ${POSTGRES_USER:-turboea}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8920}
+      RESET_DB: ${RESET_DB:-false}
+      SEED_DEMO: ${SEED_DEMO:-false}
+      SEED_BPM: ${SEED_BPM:-false}
+      SEED_PPM: ${SEED_PPM:-false}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@turboea.local}
+      SMTP_TLS: ${SMTP_TLS:-true}
+      AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_SEARCH_PROVIDER: ${AI_SEARCH_PROVIDER:-duckduckgo}
+      AI_SEARCH_URL: ${AI_SEARCH_URL:-}
+      AI_AUTO_CONFIGURE: ${AI_AUTO_CONFIGURE:-false}
+      NVD_API_KEY: ${NVD_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
@@ -65,31 +69,39 @@ services:
       - "8000"
 
   frontend:
-    image: ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/frontend:${TURBO_EA_TAG:-latest}
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    deploy:
+      resources:
+        limits:
+          memory: ${FRONTEND_MEMORY_LIMIT:-256M}
     expose:
       - "8080"
 
   mcp-server:
-    image: ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/mcp-server:${TURBO_EA_TAG:-latest}
     profiles:
       - mcp
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+    deploy:
+      resources:
+        limits:
+          memory: ${MCP_MEMORY_LIMIT:-256M}
     environment:
-      TURBO_EA_URL: ${TURBO_EA_URL}
-      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL}
-      MCP_PORT: ${MCP_PORT}
-      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL}
+      TURBO_EA_URL: ${TURBO_EA_URL:-http://backend:8000}
+      TURBO_EA_PUBLIC_URL: ${TURBO_EA_PUBLIC_URL:-http://localhost:8920}
+      MCP_PORT: ${MCP_PORT:-8001}
+      MCP_PUBLIC_URL: ${MCP_PUBLIC_URL:-http://localhost:8920/mcp}
     depends_on:
       backend:
         condition: service_healthy
@@ -103,25 +115,27 @@ services:
       - "8001"
 
   nginx:
-    image: ghcr.io/vincentmakes/turbo-ea/nginx:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/nginx:${TURBO_EA_TAG:-latest}
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
     depends_on:
-      - backend
-      - frontend
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     ports:
-      - "${HOST_PORT}:8080"
+      - "${HOST_PORT:-8920}:8080"
 
   ollama:
-    image: ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG}
+    image: ghcr.io/vincentmakes/turbo-ea/ollama:${TURBO_EA_TAG:-latest}
     profiles:
       - ai
     restart: unless-stopped
-    user: "1000:1000"
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
     volumes:
       - ollama_models:/models
     expose:
@@ -129,7 +143,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${OLLAMA_MEMORY_LIMIT}
+          memory: ${OLLAMA_MEMORY_LIMIT:-4G}
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 30s

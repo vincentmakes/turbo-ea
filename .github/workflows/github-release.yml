@@ -35,14 +35,16 @@ jobs:
             exit 1
           fi
 
+          delimiter="CHANGELOG_$(openssl rand -hex 8)"
           {
             echo "name=Turbo EA $version"
-            echo "body<<EOF"
+            echo "body<<${delimiter}"
             printf '%s\n' "$section"
-            echo "EOF"
+            echo "${delimiter}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
+        # TODO: pin to a SHA before merging — `@v2` follows a moving major.
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.notes.outputs.name }}

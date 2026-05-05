@@ -280,6 +280,37 @@ The repository Makefile wraps that as:
 make up-dev
 ```
 
+### Use an existing PostgreSQL server
+
+If you already run a managed or shared PostgreSQL instance, you can skip the bundled `db` service and point the backend at your existing server:
+
+1. Create a database and user for Turbo EA:
+
+   ```sql
+   CREATE USER turboea WITH PASSWORD 'your-password';
+   CREATE DATABASE turboea OWNER turboea;
+   ```
+
+2. In `.env`, point `POSTGRES_HOST` at your server (and update credentials):
+
+   ```dotenv
+   POSTGRES_HOST=your-postgres-host
+   POSTGRES_PORT=5432
+   POSTGRES_DB=turboea
+   POSTGRES_USER=turboea
+   POSTGRES_PASSWORD=your-password
+   ```
+
+3. Start everything except the bundled database:
+
+   ```bash
+   docker compose up -d backend frontend nginx
+   ```
+
+   (Add `mcp-server` / `ollama` to the list, or use `--profile mcp --profile ai`, as needed.)
+
+The backend can reach external hosts via the host's network. If your PostgreSQL is in another container on the same Docker host, attach it to the same network or use `host.docker.internal`.
+
 ### Load demo data (optional)
 
 To start with a fully populated demo dataset (NexaTech Industries), add seed variables to your `.env` before the first startup:
