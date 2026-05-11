@@ -5,6 +5,24 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] - 2026-05-11
+
+The second slice of the GRC three-PR refactor: AI Governance gets a real surface. The placeholder banner under **GRC > Governance > AI Inventory** is replaced with a working dashboard, and the metamodel grows a new **AI Governance** section so EU AI Act risk-class + AI lifecycle + ownership can be captured directly on Application / ITComponent / Interface cards. Discovery reuses the existing TurboLens semantic detector — no LLM logic is duplicated.
+
+### Added
+- **AI Governance metamodel section** on three card types: **Application**, **ITComponent**, **Interface**. Five JSONB-stored attributes per card: `aiRiskClass` (EU AI Act: `unacceptable` / `high` / `limited` / `minimal`), `aiSystemRole` (`provider` / `consumer` / `embedded`), `aiLifecycleStage` (`design` / `training` / `validation` / `production` / `retired`), `aiIntendedPurpose` (free text), `aiClassificationOverride` (`auto` / `yes` / `no` — manual override of the semantic detector). All five fields ship with full 7-locale translations (de/fr/es/it/pt/zh/ru).
+- **Migration `075_ai_governance_fields`** backfills the new section onto existing rows. Idempotent (skipped if a section named «AI Governance» is already present) and admin-customisation-safe (the new section is appended after whatever sections currently exist, none of which are mutated).
+- **New `ai_governance_classifications` cache table** (migration `076`) — one row per card detected as AI-bearing, with `detected_role` / `confidence` / `subtype_match` / `signal` / `detected_at`. Cascade-deleted with the card; FK indexed. Lets the inventory dashboard load instantly between discovery runs.
+- **New REST endpoints under `/api/v1/grc`**:
+  - `GET /grc/overview` — cross-tab KPI counts for the GRC landing (open risks, high/critical risks, AI total, AI unowned, AI high-risk, last discovery timestamp).
+  - `GET /grc/ai-inventory` — paginated list of AI-bearing cards with their AI Governance attributes and per-card owner count. Filterable by `risk_class`, `lifecycle_stage`, `method`. Force-excluded cards (`aiClassificationOverride=no`) are filtered server-side.
+  - `GET /grc/ai-inventory/kpis` — aggregate counts for the dashboard tiles (total, unclassified, high-or-unacceptable, unowned, plus risk-class and lifecycle distributions).
+  - `POST /grc/ai-inventory/discover` (permission: `grc.manage`) — refresh the classification cache by running `turbolens_security.detect_ai_bearing_cards` against Application / ITComponent / Interface cards. Honours `aiClassificationOverride` (forces in/out of the cache). Returns `{ classified, by_method, skipped_no_ai_provider }`. The LLM pass is skipped when no AI provider is configured, so the call stays fast on installs without AI; subtype matches and manual overrides are always recorded.
+- **AI Inventory dashboard** at `/grc?tab=governance&sub=ai`: header with Last discovered timestamp + **Run discovery** button; four KPI tiles (Total / High risk / Unclassified / Unowned); three filter dropdowns (risk class / lifecycle / detection method); paginated table of AI systems with chips for risk class (coloured by EU AI Act severity), role, lifecycle, detection method (`subtype` / `semantic` / `override`) and the LLM signal that triggered detection; per-row owner count with explicit "No owner" warning. Card-name cells link to `/cards/:id`.
+
+### Changed
+- **`AiInventoryPanel` replaces the 1.9.0 «Coming soon» banner** with the real dashboard. No prop changes; the panel is still loaded via the existing lazy import in `GovernanceTab`, so no upstream component edits were needed.
+
 ## [1.9.0] - 2026-05-11
 
 This release introduces a dedicated **GRC** (Governance, Risk and Compliance) module — the first slice of a three-PR refactor that consolidates governance concerns scattered across EA Delivery and TurboLens into a single, classically-named home. PR 1 ships the scaffold and relocates Compliance; PR 2 will add AI Governance metamodel + Inventory; PR 3 will dissolve `/ea-delivery`, lift SoAW onto the Initiative card, and ship the EA Delivery Report.

@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "Inventaire IA",
-      "comingSoon": "L'inventaire IA et la classification des risques au sens du règlement IA de l'UE arrivent dans la prochaine itération.",
-      "comingSoonHint": "En attendant, l'onglet «Conformité» présente les constats liés au règlement IA pour chaque système IA détecté."
+      "subtitle": "Cartes intégrant de l'IA (sous-type, détection sémantique ou dérogation manuelle), avec classification des risques au sens du règlement IA de l'UE et étape du cycle de vie",
+      "runDiscovery": "Lancer la détection",
+      "running": "Détection en cours…",
+      "discoveredCount_one": "{{count}} système IA classé",
+      "discoveredCount_other": "{{count}} systèmes IA classés",
+      "skippedNoProvider": "Fournisseur IA non configuré — seules les correspondances de sous-type ont été classées. Configurez un fournisseur IA dans Admin › Paramètres › IA pour détecter aussi l'IA cachée dans des logiciels généralistes.",
+      "lastDiscovered": "Dernière détection : {{when}}",
+      "neverRun": "La détection n'a jamais été lancée",
+      "empty": "Aucun système IA détecté pour le moment. Cliquez sur «Lancer la détection» pour analyser les cartes Application / ITComponent / Interface.",
+      "kpi": {
+        "total": "Systèmes IA",
+        "unclassified": "Non classés",
+        "unclassifiedHint": "Sans classe de risque IA",
+        "highRisk": "Élevé / inacceptable",
+        "highRiskHint": "Règlement IA : risque élevé ou inacceptable",
+        "unowned": "Sans propriétaire",
+        "unownedHint": "Aucun stakeholder assigné"
+      },
+      "filters": {
+        "allRiskClasses": "Toutes les classes de risque",
+        "allLifecycles": "Toutes les étapes du cycle de vie",
+        "allMethods": "Toutes les méthodes de détection"
+      },
+      "columns": {
+        "name": "Carte",
+        "type": "Type",
+        "subtype": "Sous-type",
+        "riskClass": "Classe de risque IA",
+        "role": "Rôle",
+        "lifecycle": "Cycle de vie",
+        "method": "Détection",
+        "owners": "Propriétaires",
+        "confidence": "Confiance"
+      },
+      "method": {
+        "subtype": "Sous-type",
+        "semantic": "Signal IA",
+        "override": "Manuel"
+      },
+      "role": {
+        "provider": "Fournisseur",
+        "consumer": "Utilisateur",
+        "embedded": "Intégré"
+      },
+      "lifecycle": {
+        "design": "Conception",
+        "training": "Entraînement",
+        "validation": "Validation",
+        "production": "Production",
+        "retired": "Retiré"
+      },
+      "riskClass": {
+        "unacceptable": "Inacceptable",
+        "high": "Élevé",
+        "limited": "Limité",
+        "minimal": "Minimal"
+      },
+      "unknown": "—",
+      "unowned": "Sans propriétaire"
     },
     "principles": {
       "title": "Principes d'architecture",

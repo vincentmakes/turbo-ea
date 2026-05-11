@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "Inventário de IA",
-      "comingSoon": "O inventário de IA e a classificação de risco da Lei de IA da UE chegam na próxima iteração.",
-      "comingSoonHint": "Até lá, a aba «Conformidade» mostra os achados da Lei de IA para cada sistema de IA detectado."
+      "subtitle": "Cards com IA (subtipo, detecção semântica ou override manual), com classificação de risco da Lei de IA da UE e etapa do ciclo de vida",
+      "runDiscovery": "Executar detecção",
+      "running": "Detecção em andamento…",
+      "discoveredCount_one": "{{count}} sistema de IA classificado",
+      "discoveredCount_other": "{{count}} sistemas de IA classificados",
+      "skippedNoProvider": "Provedor de IA não configurado — apenas correspondências de subtipo foram classificadas. Configure um provedor de IA em Admin › Configurações › IA para também capturar IA oculta em software de uso geral.",
+      "lastDiscovered": "Última detecção: {{when}}",
+      "neverRun": "A detecção nunca foi executada",
+      "empty": "Nenhum sistema de IA detectado ainda. Clique em «Executar detecção» para analisar cards Application / ITComponent / Interface.",
+      "kpi": {
+        "total": "Total de sistemas de IA",
+        "unclassified": "Não classificados",
+        "unclassifiedHint": "Sem classe de risco de IA",
+        "highRisk": "Alto / inaceitável",
+        "highRiskHint": "Lei de IA: alto ou inaceitável",
+        "unowned": "Sem proprietário",
+        "unownedHint": "Sem stakeholder atribuído"
+      },
+      "filters": {
+        "allRiskClasses": "Todas as classes de risco",
+        "allLifecycles": "Todas as etapas",
+        "allMethods": "Todos os métodos"
+      },
+      "columns": {
+        "name": "Card",
+        "type": "Tipo",
+        "subtype": "Subtipo",
+        "riskClass": "Classe de risco de IA",
+        "role": "Papel",
+        "lifecycle": "Ciclo de vida",
+        "method": "Detecção",
+        "owners": "Proprietários",
+        "confidence": "Confiança"
+      },
+      "method": {
+        "subtype": "Subtipo",
+        "semantic": "Sinal de IA",
+        "override": "Manual"
+      },
+      "role": {
+        "provider": "Fornecedor",
+        "consumer": "Consumidor",
+        "embedded": "Integrado"
+      },
+      "lifecycle": {
+        "design": "Concepção",
+        "training": "Treinamento",
+        "validation": "Validação",
+        "production": "Produção",
+        "retired": "Aposentado"
+      },
+      "riskClass": {
+        "unacceptable": "Inaceitável",
+        "high": "Alto",
+        "limited": "Limitado",
+        "minimal": "Mínimo"
+      },
+      "unknown": "—",
+      "unowned": "Sem proprietário"
     },
     "principles": {
       "title": "Princípios de arquitetura",

@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "AI 清单",
-      "comingSoon": "AI 清单与欧盟《人工智能法》风险分级将于下一迭代上线。",
-      "comingSoonHint": "在此之前,「合规」选项卡会针对每个检测到的 AI 系统展示《人工智能法》相关问题。"
+      "subtitle": "包含 AI 的卡片(子类型、语义识别或手动覆盖),含欧盟《人工智能法》风险分级与生命周期阶段。",
+      "runDiscovery": "开始识别",
+      "running": "正在识别…",
+      "discoveredCount_one": "已分类 {{count}} 个 AI 系统",
+      "discoveredCount_other": "已分类 {{count}} 个 AI 系统",
+      "skippedNoProvider": "未配置 AI 提供方 — 仅完成了子类型匹配。请在「管理 › 设置 › AI」中配置 AI 提供方,以识别隐藏在通用软件中的 AI。",
+      "lastDiscovered": "最近识别:{{when}}",
+      "neverRun": "尚未运行识别",
+      "empty": "尚未识别到任何 AI 系统。点击「开始识别」以扫描 Application / ITComponent / Interface 卡片。",
+      "kpi": {
+        "total": "AI 系统总数",
+        "unclassified": "未分类",
+        "unclassifiedHint": "缺少 AI 风险等级",
+        "highRisk": "高 / 不可接受",
+        "highRiskHint": "欧盟《人工智能法》高或不可接受",
+        "unowned": "无负责人",
+        "unownedHint": "未分配相关方"
+      },
+      "filters": {
+        "allRiskClasses": "全部风险等级",
+        "allLifecycles": "全部生命周期",
+        "allMethods": "全部识别方式"
+      },
+      "columns": {
+        "name": "卡片",
+        "type": "类型",
+        "subtype": "子类型",
+        "riskClass": "AI 风险等级",
+        "role": "角色",
+        "lifecycle": "生命周期",
+        "method": "识别方式",
+        "owners": "负责人",
+        "confidence": "置信度"
+      },
+      "method": {
+        "subtype": "子类型",
+        "semantic": "AI 信号",
+        "override": "手动"
+      },
+      "role": {
+        "provider": "提供方",
+        "consumer": "使用方",
+        "embedded": "嵌入式"
+      },
+      "lifecycle": {
+        "design": "设计",
+        "training": "训练",
+        "validation": "验证",
+        "production": "生产",
+        "retired": "已退役"
+      },
+      "riskClass": {
+        "unacceptable": "不可接受",
+        "high": "高",
+        "limited": "有限",
+        "minimal": "最小"
+      },
+      "unknown": "—",
+      "unowned": "无负责人"
     },
     "principles": {
       "title": "架构原则",

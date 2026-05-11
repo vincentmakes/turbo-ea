@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "KI-Bestand",
-      "comingSoon": "KI-Bestand und Risikoklassifizierung nach EU-KI-Verordnung folgen in der nächsten Iteration.",
-      "comingSoonHint": "Bis dahin zeigt der Reiter «Compliance» KI-Verordnungs-Befunde zu jedem erkannten KI-System."
+      "subtitle": "KI-behaftete Karten (Untertyp, semantische Erkennung oder manuelles Override), mit Risikoklassifizierung nach EU-KI-Verordnung und Lebenszyklusphase",
+      "runDiscovery": "Erkennung starten",
+      "running": "Erkennung läuft…",
+      "discoveredCount_one": "{{count}} KI-System klassifiziert",
+      "discoveredCount_other": "{{count}} KI-Systeme klassifiziert",
+      "skippedNoProvider": "KI-Anbieter nicht konfiguriert — nur Untertyp-Treffer wurden klassifiziert. Konfigurieren Sie einen KI-Anbieter unter Admin › Einstellungen › KI, um auch in Allzweck-Software verborgene KI zu erfassen.",
+      "lastDiscovered": "Zuletzt erkannt: {{when}}",
+      "neverRun": "Erkennung wurde noch nie ausgeführt",
+      "empty": "Noch keine KI-Systeme erkannt. Klicken Sie auf «Erkennung starten», um Application-, ITComponent- und Interface-Karten zu scannen.",
+      "kpi": {
+        "total": "KI-Systeme gesamt",
+        "unclassified": "Nicht klassifiziert",
+        "unclassifiedHint": "Ohne KI-Risikoklasse",
+        "highRisk": "Hoch / unannehmbar",
+        "highRiskHint": "EU-KI-Verordnung hoch oder unannehmbar",
+        "unowned": "Ohne Eigentümer",
+        "unownedHint": "Kein Stakeholder zugewiesen"
+      },
+      "filters": {
+        "allRiskClasses": "Alle Risikoklassen",
+        "allLifecycles": "Alle Lebenszyklusphasen",
+        "allMethods": "Alle Erkennungsmethoden"
+      },
+      "columns": {
+        "name": "Karte",
+        "type": "Typ",
+        "subtype": "Untertyp",
+        "riskClass": "KI-Risikoklasse",
+        "role": "Rolle",
+        "lifecycle": "Lebenszyklus",
+        "method": "Erkennung",
+        "owners": "Eigentümer",
+        "confidence": "Zuverlässigkeit"
+      },
+      "method": {
+        "subtype": "Untertyp",
+        "semantic": "KI-Signal",
+        "override": "Manuell"
+      },
+      "role": {
+        "provider": "Anbieter",
+        "consumer": "Nutzer",
+        "embedded": "Eingebettet"
+      },
+      "lifecycle": {
+        "design": "Konzeption",
+        "training": "Training",
+        "validation": "Validierung",
+        "production": "Produktion",
+        "retired": "Stillgelegt"
+      },
+      "riskClass": {
+        "unacceptable": "Unannehmbar",
+        "high": "Hoch",
+        "limited": "Begrenzt",
+        "minimal": "Minimal"
+      },
+      "unknown": "—",
+      "unowned": "Kein Eigentümer"
     },
     "principles": {
       "title": "Architekturprinzipien",

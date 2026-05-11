@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "Inventario IA",
-      "comingSoon": "L'inventario IA e la classificazione del rischio ai sensi dell'AI Act dell'UE arrivano nella prossima iterazione.",
-      "comingSoonHint": "Nel frattempo la scheda «Conformità» mostra i rilievi dell'AI Act per ogni sistema IA rilevato."
+      "subtitle": "Schede con IA (sottotipo, rilevamento semantico o override manuale), con classificazione del rischio ai sensi dell'AI Act dell'UE e fase del ciclo di vita",
+      "runDiscovery": "Avvia rilevamento",
+      "running": "Rilevamento in corso…",
+      "discoveredCount_one": "{{count}} sistema IA classificato",
+      "discoveredCount_other": "{{count}} sistemi IA classificati",
+      "skippedNoProvider": "Provider IA non configurato — sono stati classificati solo i match per sottotipo. Configura un provider IA in Admin › Impostazioni › IA per intercettare anche l'IA nascosta nel software generico.",
+      "lastDiscovered": "Ultimo rilevamento: {{when}}",
+      "neverRun": "Rilevamento mai eseguito",
+      "empty": "Nessun sistema IA rilevato. Clicca su «Avvia rilevamento» per analizzare le schede Application / ITComponent / Interface.",
+      "kpi": {
+        "total": "Sistemi IA totali",
+        "unclassified": "Non classificati",
+        "unclassifiedHint": "Senza classe di rischio IA",
+        "highRisk": "Elevato / inaccettabile",
+        "highRiskHint": "AI Act: elevato o inaccettabile",
+        "unowned": "Senza proprietario",
+        "unownedHint": "Nessuno stakeholder assegnato"
+      },
+      "filters": {
+        "allRiskClasses": "Tutte le classi di rischio",
+        "allLifecycles": "Tutte le fasi del ciclo di vita",
+        "allMethods": "Tutti i metodi di rilevamento"
+      },
+      "columns": {
+        "name": "Scheda",
+        "type": "Tipo",
+        "subtype": "Sottotipo",
+        "riskClass": "Classe di rischio IA",
+        "role": "Ruolo",
+        "lifecycle": "Ciclo di vita",
+        "method": "Rilevamento",
+        "owners": "Proprietari",
+        "confidence": "Affidabilità"
+      },
+      "method": {
+        "subtype": "Sottotipo",
+        "semantic": "Segnale IA",
+        "override": "Manuale"
+      },
+      "role": {
+        "provider": "Fornitore",
+        "consumer": "Utilizzatore",
+        "embedded": "Integrato"
+      },
+      "lifecycle": {
+        "design": "Progettazione",
+        "training": "Addestramento",
+        "validation": "Validazione",
+        "production": "Produzione",
+        "retired": "Ritirato"
+      },
+      "riskClass": {
+        "unacceptable": "Inaccettabile",
+        "high": "Elevato",
+        "limited": "Limitato",
+        "minimal": "Minimo"
+      },
+      "unknown": "—",
+      "unowned": "Senza proprietario"
     },
     "principles": {
       "title": "Principi di architettura",

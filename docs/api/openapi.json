@@ -251,6 +251,260 @@
         "title": "AiFieldSuggestion",
         "type": "object"
       },
+      "AiInventoryDetection": {
+        "description": "How a card was identified as AI-bearing.",
+        "properties": {
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected At"
+          },
+          "method": {
+            "enum": [
+              "subtype",
+              "semantic",
+              "override"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "provider",
+              "consumer",
+              "embedded"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "signal": {
+            "title": "Signal",
+            "type": "string"
+          },
+          "subtype_match": {
+            "title": "Subtype Match",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "method",
+          "role",
+          "confidence",
+          "subtype_match",
+          "signal",
+          "detected_at"
+        ],
+        "title": "AiInventoryDetection",
+        "type": "object"
+      },
+      "AiInventoryItem": {
+        "properties": {
+          "ai_classification_override": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Classification Override"
+          },
+          "ai_intended_purpose": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Intended Purpose"
+          },
+          "ai_lifecycle_stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Lifecycle Stage"
+          },
+          "ai_risk_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Risk Class"
+          },
+          "ai_system_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai System Role"
+          },
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "card_name": {
+            "title": "Card Name",
+            "type": "string"
+          },
+          "card_subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Subtype"
+          },
+          "card_type": {
+            "title": "Card Type",
+            "type": "string"
+          },
+          "detection": {
+            "$ref": "#/components/schemas/AiInventoryDetection"
+          },
+          "owner_count": {
+            "title": "Owner Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "card_id",
+          "card_name",
+          "card_type",
+          "card_subtype",
+          "detection",
+          "ai_risk_class",
+          "ai_system_role",
+          "ai_lifecycle_stage",
+          "ai_intended_purpose",
+          "ai_classification_override",
+          "owner_count"
+        ],
+        "title": "AiInventoryItem",
+        "type": "object"
+      },
+      "AiInventoryKpis": {
+        "properties": {
+          "by_lifecycle": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Lifecycle",
+            "type": "object"
+          },
+          "by_risk_class": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Risk Class",
+            "type": "object"
+          },
+          "high_or_unacceptable": {
+            "title": "High Or Unacceptable",
+            "type": "integer"
+          },
+          "last_discovered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Discovered At"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unclassified": {
+            "title": "Unclassified",
+            "type": "integer"
+          },
+          "unowned": {
+            "title": "Unowned",
+            "type": "integer"
+          },
+          "with_risk_class": {
+            "title": "With Risk Class",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "with_risk_class",
+          "unclassified",
+          "high_or_unacceptable",
+          "unowned",
+          "by_risk_class",
+          "by_lifecycle",
+          "last_discovered_at"
+        ],
+        "title": "AiInventoryKpis",
+        "type": "object"
+      },
+      "AiInventoryPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AiInventoryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "AiInventoryPage",
+        "type": "object"
+      },
       "AiSettingsPayload": {
         "properties": {
           "api_key": {
@@ -3081,6 +3335,32 @@
         "title": "DiagramUpdate",
         "type": "object"
       },
+      "DiscoverResponse": {
+        "properties": {
+          "by_method": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "By Method",
+            "type": "object"
+          },
+          "classified": {
+            "title": "Classified",
+            "type": "integer"
+          },
+          "skipped_no_ai_provider": {
+            "title": "Skipped No Ai Provider",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "classified",
+          "by_method",
+          "skipped_no_ai_provider"
+        ],
+        "title": "DiscoverResponse",
+        "type": "object"
+      },
       "DocumentCreate": {
         "properties": {
           "name": {
@@ -3585,6 +3865,52 @@
           "month"
         ],
         "title": "FiscalYearStartPayload",
+        "type": "object"
+      },
+      "GrcOverview": {
+        "properties": {
+          "ai_systems_high_risk": {
+            "title": "Ai Systems High Risk",
+            "type": "integer"
+          },
+          "ai_systems_last_discovered_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Systems Last Discovered At"
+          },
+          "ai_systems_total": {
+            "title": "Ai Systems Total",
+            "type": "integer"
+          },
+          "ai_systems_unowned": {
+            "title": "Ai Systems Unowned",
+            "type": "integer"
+          },
+          "high_or_critical_risks": {
+            "title": "High Or Critical Risks",
+            "type": "integer"
+          },
+          "open_risks": {
+            "title": "Open Risks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open_risks",
+          "high_or_critical_risks",
+          "ai_systems_total",
+          "ai_systems_unowned",
+          "ai_systems_high_risk",
+          "ai_systems_last_discovered_at"
+        ],
+        "title": "GrcOverview",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -16506,6 +16832,178 @@
         "summary": "Download File Attachment",
         "tags": [
           "file-attachments"
+        ]
+      }
+    },
+    "/api/v1/grc/ai-inventory": {
+      "get": {
+        "description": "Paginated list of AI-bearing cards with their AI Governance attributes.",
+        "operationId": "get_ai_inventory_api_v1_grc_ai_inventory_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "risk_class",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Risk Class"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lifecycle_stage",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lifecycle Stage"
+            }
+          },
+          {
+            "in": "query",
+            "name": "method",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(subtype|semantic|override)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Method"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiInventoryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Ai Inventory",
+        "tags": [
+          "GRC"
+        ]
+      }
+    },
+    "/api/v1/grc/ai-inventory/discover": {
+      "post": {
+        "description": "Refresh the AI Governance classification cache.\n\nWalks Application / ITComponent / Interface cards and flags AI-bearing\nones using the shared semantic detector. Synchronous: the LLM pass is\nskipped when no AI provider is configured, so this is fast on most\ninstalls. Force-included (override=yes) cards are also recorded.",
+        "operationId": "discover_ai_inventory_api_v1_grc_ai_inventory_discover_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Discover Ai Inventory",
+        "tags": [
+          "GRC"
+        ]
+      }
+    },
+    "/api/v1/grc/ai-inventory/kpis": {
+      "get": {
+        "description": "Aggregate KPIs for the AI inventory header tiles.",
+        "operationId": "get_ai_inventory_kpis_api_v1_grc_ai_inventory_kpis_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiInventoryKpis"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Ai Inventory Kpis",
+        "tags": [
+          "GRC"
+        ]
+      }
+    },
+    "/api/v1/grc/overview": {
+      "get": {
+        "description": "Cross-tab KPIs for the GRC landing.\n\nCheap \u2014 counts only, no joins onto findings.",
+        "operationId": "grc_overview_api_v1_grc_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GrcOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Grc Overview",
+        "tags": [
+          "GRC"
         ]
       }
     },

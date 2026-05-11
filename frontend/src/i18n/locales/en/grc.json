@@ -16,8 +16,65 @@
     },
     "ai": {
       "title": "AI Inventory",
-      "comingSoon": "AI inventory and EU AI Act risk classification land in the next iteration.",
-      "comingSoonHint": "Until then, the Compliance tab surfaces AI Act findings on every detected AI system."
+      "subtitle": "AI-bearing cards (subtype, semantic detection or manual override), with EU AI Act risk classification and lifecycle stage",
+      "runDiscovery": "Run discovery",
+      "running": "Running discovery…",
+      "discoveredCount_one": "{{count}} AI system classified",
+      "discoveredCount_other": "{{count}} AI systems classified",
+      "skippedNoProvider": "AI provider not configured — only subtype matches were classified. Configure an AI provider in Admin › Settings › AI to also catch AI hidden inside general-purpose software.",
+      "lastDiscovered": "Last discovered: {{when}}",
+      "neverRun": "Discovery never run yet",
+      "empty": "No AI systems detected yet. Click «Run discovery» to scan Application / ITComponent / Interface cards.",
+      "kpi": {
+        "total": "Total AI systems",
+        "unclassified": "Unclassified",
+        "unclassifiedHint": "Missing AI Risk Class",
+        "highRisk": "High / unacceptable",
+        "highRiskHint": "EU AI Act high or unacceptable",
+        "unowned": "Unowned",
+        "unownedHint": "No stakeholder assigned"
+      },
+      "filters": {
+        "allRiskClasses": "All risk classes",
+        "allLifecycles": "All lifecycle stages",
+        "allMethods": "All detection methods"
+      },
+      "columns": {
+        "name": "Card",
+        "type": "Type",
+        "subtype": "Subtype",
+        "riskClass": "AI Risk Class",
+        "role": "Role",
+        "lifecycle": "Lifecycle",
+        "method": "Detection",
+        "owners": "Owners",
+        "confidence": "Confidence"
+      },
+      "method": {
+        "subtype": "Subtype",
+        "semantic": "AI signal",
+        "override": "Manual"
+      },
+      "role": {
+        "provider": "Provider",
+        "consumer": "Consumer",
+        "embedded": "Embedded"
+      },
+      "lifecycle": {
+        "design": "Design",
+        "training": "Training",
+        "validation": "Validation",
+        "production": "Production",
+        "retired": "Retired"
+      },
+      "riskClass": {
+        "unacceptable": "Unacceptable",
+        "high": "High",
+        "limited": "Limited",
+        "minimal": "Minimal"
+      },
+      "unknown": "—",
+      "unowned": "No owner"
     },
     "principles": {
       "title": "Architecture Principles",

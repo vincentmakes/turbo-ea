@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 
 vi.mock("@/api/client", () => ({
-  api: { get: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn() },
 }));
 
 // Risk register pulls a lot of state — stub it.
@@ -20,8 +20,26 @@ import GrcPage from "./GrcPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default: principles + decisions endpoints return empty arrays
-  vi.mocked(api.get).mockResolvedValue([]);
+  // /metamodel/principles, /adr → empty arrays.
+  // /grc/ai-inventory → empty page. /grc/ai-inventory/kpis → empty KPIs.
+  vi.mocked(api.get).mockImplementation(async (path: string) => {
+    if (path.startsWith("/grc/ai-inventory/kpis")) {
+      return {
+        total: 0,
+        with_risk_class: 0,
+        unclassified: 0,
+        high_or_unacceptable: 0,
+        unowned: 0,
+        by_risk_class: {},
+        by_lifecycle: {},
+        last_discovered_at: null,
+      };
+    }
+    if (path.startsWith("/grc/ai-inventory")) {
+      return { items: [], total: 0, page: 1, page_size: 50 };
+    }
+    return [];
+  });
 });
 
 function renderAt(path: string) {
@@ -43,12 +61,14 @@ describe("GrcPage", () => {
     expect(screen.getByRole("tab", { name: /Compliance/i })).toBeInTheDocument();
   });
 
-  it("defaults to the Governance tab (AI Inventory placeholder visible)", async () => {
+  it("defaults to the Governance tab and shows the AI Inventory dashboard", async () => {
     renderAt("/grc");
-    // AI placeholder copy mentions the EU AI Act / next iteration
+    // The dashboard's "Run discovery" button is the canonical signal.
     expect(
-      await screen.findByText(/AI inventory.*next iteration/i),
+      await screen.findByRole("button", { name: /Run discovery/i }),
     ).toBeInTheDocument();
+    // KPI tiles render their labels.
+    expect(await screen.findByText(/Total AI systems/i)).toBeInTheDocument();
   });
 
   it("renders the embedded Risk Register when ?tab=risk", async () => {
