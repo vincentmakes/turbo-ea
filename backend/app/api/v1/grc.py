@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import and_, func, or_, select
@@ -76,7 +76,9 @@ def _card_to_scan_card(card: Card) -> ScanCard:
     )
 
 
-def _detection_method(attrs: dict[str, Any], subtype_match: bool) -> str:
+def _detection_method(
+    attrs: dict[str, Any], subtype_match: bool
+) -> Literal["subtype", "semantic", "override"]:
     """Pick the method label the inventory dashboard surfaces."""
     if attrs.get("aiClassificationOverride") == "yes":
         return "override"
