@@ -74,6 +74,7 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
   { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
   { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
+  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 

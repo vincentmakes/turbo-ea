@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, Risiko und Compliance"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Risiko",
+    "compliance": "Compliance"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "KI-Governance",
+      "principles": "Prinzipien",
+      "decisions": "Entscheidungen"
+    },
+    "ai": {
+      "title": "KI-Bestand",
+      "comingSoon": "KI-Bestand und Risikoklassifizierung nach EU-KI-Verordnung folgen in der nächsten Iteration.",
+      "comingSoonHint": "Bis dahin zeigt der Reiter «Compliance» KI-Verordnungs-Befunde zu jedem erkannten KI-System."
+    },
+    "principles": {
+      "title": "Architekturprinzipien",
+      "empty": "Noch keine aktiven Prinzipien. Definieren Sie sie unter Admin › Metamodell.",
+      "rationale": "Begründung",
+      "implications": "Implikationen"
+    },
+    "decisions": {
+      "title": "Architekturentscheidungen",
+      "empty": "Noch keine Architekturentscheidungen erfasst.",
+      "status": "Status",
+      "open": "Öffnen"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statement of Architecture Work",
+    "subtitle": "Umfang, Vorgehen und Freigabe für diese Initiative",
+    "empty": "Noch keine SoAWs. Erstellen Sie eines, um Umfang, Vorgehen und Freigabe dieser Initiative zu erfassen.",
+    "create": "Neues SoAW",
+    "columns": {
+      "title": "Titel",
+      "status": "Status",
+      "revision": "Revision",
+      "updated": "Aktualisiert",
+      "author": "Autor"
+    },
+    "actions": {
+      "open": "Öffnen",
+      "preview": "Vorschau",
+      "delete": "Löschen"
+    },
+    "confirmDelete": "Dieses SoAW löschen? Dies kann nicht rückgängig gemacht werden."
+  }
+}

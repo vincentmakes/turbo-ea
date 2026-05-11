@@ -5,6 +5,25 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] - 2026-05-11
+
+This release introduces a dedicated **GRC** (Governance, Risk and Compliance) module — the first slice of a three-PR refactor that consolidates governance concerns scattered across EA Delivery and TurboLens into a single, classically-named home. PR 1 ships the scaffold and relocates Compliance; PR 2 will add AI Governance metamodel + Inventory; PR 3 will dissolve `/ea-delivery`, lift SoAW onto the Initiative card, and ship the EA Delivery Report.
+
+### Added
+- **New `/grc` top-level module with three tabs: Governance · Risk · Compliance.** Reachable from the main nav between *EA Delivery* and *Todos*. Each tab is URL-driven (`?tab=…`) so deep links and browser back/forward work. Permission-gated on the new `grc.view` key.
+- **Governance subtabs** (URL-driven `?sub=…`): **AI Governance** (placeholder banner in this release — full inventory + EU AI Act risk classification land in 1.10.0), **Principles** (read-only render of active EA Principles, pulled from `/metamodel/principles`), **Decisions** (read-only ADR list with status badge and per-decision "Open" link, pulled from `/adr`). All three panels lazy-load and share the same suspense fallback.
+- **Risk tab** embeds the existing TOGAF Risk Register (`RiskRegisterPage`) unchanged. New route `/grc/risks/:id` mirrors `/ea-delivery/risks/:id` for risk detail; both serve simultaneously during the transition.
+- **Compliance tab** embeds the existing CVE + Compliance scanner (formerly TurboLens > Security & Compliance). EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001 coverage, semantic AI detection, risk-promotion flow — all unchanged, just relocated to the conceptually correct home.
+- **New permission group `grc`** with two keys: `grc.view` (gate the module, granted to `viewer`, `member`, `bpm_admin`, `admin`) and `grc.manage` (governance content management, granted to `member`, `bpm_admin`, `admin`). Risk and Compliance subtabs continue to honour the existing `risks.view` / `risks.manage` / `security_compliance.view` / `security_compliance.manage` permissions on top of `grc.view`. Migration `074_grant_grc_default_roles` follows the canonical `069_grant_costs_view_default_roles` pattern: existing role rows get the new keys merged in via `jsonb_build_object`, custom roles are left untouched.
+- **i18n** — new `grc` namespace with full translations across all 8 locales (en/de/fr/es/it/pt/zh/ru). Top-level `grc` nav label added to `nav.json` in every locale.
+
+### Changed
+- **TurboLens loses its Security & Compliance tab.** The tab and its label have been removed from `TurboLensPage.tsx`; the component itself (`TurboLensSecurity.tsx`) is untouched and is now consumed by the GRC Compliance tab. Permissions, API routes (`/api/v1/turbolens/security/*`), and CVE / compliance scan history are unchanged. Bookmarks to `/turbolens?tab=security` will silently land on the default Dashboard tab — point users to `/grc?tab=compliance` instead.
+- **EA Delivery > Risks tab continues to serve.** Per the staged plan, `/ea-delivery?tab=risks` and `/ea-delivery/risks/:id` keep working in 1.9.0 so existing bookmarks survive. Both routes will be removed in 1.11.0 when `/ea-delivery` is dissolved.
+
+### Notes
+- **EA Delivery dissolution, SoAW tab on the Initiative card, EA Delivery Report, and AI Governance metamodel additions are deliberately out of scope** for this release — they ship in subsequent PRs to keep each diff reviewable.
+
 ## [1.8.0] - 2026-05-12
 
 Diagramming overhaul — LeanIX-inspired UX on top of the embedded DrawIO editor.

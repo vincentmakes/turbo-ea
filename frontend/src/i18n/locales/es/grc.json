@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Gobierno, Riesgo y Cumplimiento"
+  },
+  "tabs": {
+    "governance": "Gobierno",
+    "risk": "Riesgo",
+    "compliance": "Cumplimiento"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "Gobierno de IA",
+      "principles": "Principios",
+      "decisions": "Decisiones"
+    },
+    "ai": {
+      "title": "Inventario de IA",
+      "comingSoon": "El inventario de IA y la clasificación de riesgo según la Ley de IA de la UE llegan en la siguiente iteración.",
+      "comingSoonHint": "Mientras tanto, la pestaña «Cumplimiento» muestra los hallazgos de la Ley de IA para cada sistema de IA detectado."
+    },
+    "principles": {
+      "title": "Principios de arquitectura",
+      "empty": "Aún no hay principios activos. Defínelos en Admin › Metamodelo.",
+      "rationale": "Justificación",
+      "implications": "Implicaciones"
+    },
+    "decisions": {
+      "title": "Decisiones de arquitectura",
+      "empty": "Aún no se han registrado decisiones de arquitectura.",
+      "status": "Estado",
+      "open": "Abrir"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Declaraciones de Trabajo de Arquitectura",
+    "subtitle": "Alcance, enfoque y aprobación para esta iniciativa",
+    "empty": "Aún no hay SoAW. Crea uno para registrar el alcance, el enfoque y la aprobación de esta iniciativa.",
+    "create": "Nuevo SoAW",
+    "columns": {
+      "title": "Título",
+      "status": "Estado",
+      "revision": "Revisión",
+      "updated": "Actualizado",
+      "author": "Autor"
+    },
+    "actions": {
+      "open": "Abrir",
+      "preview": "Vista previa",
+      "delete": "Eliminar"
+    },
+    "confirmDelete": "¿Eliminar este SoAW? Esta acción no se puede deshacer."
+  }
+}

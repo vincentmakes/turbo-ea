@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, Risk and Compliance"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Risk",
+    "compliance": "Compliance"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "AI Governance",
+      "principles": "Principles",
+      "decisions": "Decisions"
+    },
+    "ai": {
+      "title": "AI Inventory",
+      "comingSoon": "AI inventory and EU AI Act risk classification land in the next iteration.",
+      "comingSoonHint": "Until then, the Compliance tab surfaces AI Act findings on every detected AI system."
+    },
+    "principles": {
+      "title": "Architecture Principles",
+      "empty": "No active principles yet. Define them under Admin › Metamodel.",
+      "rationale": "Rationale",
+      "implications": "Implications"
+    },
+    "decisions": {
+      "title": "Architecture Decisions",
+      "empty": "No architecture decisions recorded yet.",
+      "status": "Status",
+      "open": "Open"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statements of Architecture Work",
+    "subtitle": "Scope, approach and sign-off for this initiative",
+    "empty": "No SoAWs yet. Create one to capture the scope, approach and sign-off for this initiative.",
+    "create": "New SoAW",
+    "columns": {
+      "title": "Title",
+      "status": "Status",
+      "revision": "Revision",
+      "updated": "Updated",
+      "author": "Author"
+    },
+    "actions": {
+      "open": "Open",
+      "preview": "Preview",
+      "delete": "Delete"
+    },
+    "confirmDelete": "Delete this SoAW? This cannot be undone."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Gouvernance, Risque et Conformité"
+  },
+  "tabs": {
+    "governance": "Gouvernance",
+    "risk": "Risque",
+    "compliance": "Conformité"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "Gouvernance IA",
+      "principles": "Principes",
+      "decisions": "Décisions"
+    },
+    "ai": {
+      "title": "Inventaire IA",
+      "comingSoon": "L'inventaire IA et la classification des risques au sens du règlement IA de l'UE arrivent dans la prochaine itération.",
+      "comingSoonHint": "En attendant, l'onglet «Conformité» présente les constats liés au règlement IA pour chaque système IA détecté."
+    },
+    "principles": {
+      "title": "Principes d'architecture",
+      "empty": "Aucun principe actif pour le moment. Définissez-les via Admin › Métamodèle.",
+      "rationale": "Justification",
+      "implications": "Implications"
+    },
+    "decisions": {
+      "title": "Décisions d'architecture",
+      "empty": "Aucune décision d'architecture enregistrée.",
+      "status": "Statut",
+      "open": "Ouvrir"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statements of Architecture Work",
+    "subtitle": "Périmètre, démarche et validation pour cette initiative",
+    "empty": "Aucun SoAW. Créez-en un pour formaliser le périmètre, la démarche et la validation de cette initiative.",
+    "create": "Nouveau SoAW",
+    "columns": {
+      "title": "Titre",
+      "status": "Statut",
+      "revision": "Révision",
+      "updated": "Mis à jour",
+      "author": "Auteur"
+    },
+    "actions": {
+      "open": "Ouvrir",
+      "preview": "Aperçu",
+      "delete": "Supprimer"
+    },
+    "confirmDelete": "Supprimer ce SoAW? Cette action est irréversible."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "治理、风险与合规"
+  },
+  "tabs": {
+    "governance": "治理",
+    "risk": "风险",
+    "compliance": "合规"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "AI 治理",
+      "principles": "原则",
+      "decisions": "决策"
+    },
+    "ai": {
+      "title": "AI 清单",
+      "comingSoon": "AI 清单与欧盟《人工智能法》风险分级将于下一迭代上线。",
+      "comingSoonHint": "在此之前,「合规」选项卡会针对每个检测到的 AI 系统展示《人工智能法》相关问题。"
+    },
+    "principles": {
+      "title": "架构原则",
+      "empty": "尚无活跃原则。请在「管理 › 元模型」中定义。",
+      "rationale": "理由",
+      "implications": "影响"
+    },
+    "decisions": {
+      "title": "架构决策",
+      "empty": "尚未记录任何架构决策。",
+      "status": "状态",
+      "open": "打开"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "架构工作说明书",
+    "subtitle": "本举措的范围、方法与签批",
+    "empty": "尚无 SoAW。创建一个以记录本举措的范围、方法与签批。",
+    "create": "新建 SoAW",
+    "columns": {
+      "title": "标题",
+      "status": "状态",
+      "revision": "版本",
+      "updated": "更新时间",
+      "author": "作者"
+    },
+    "actions": {
+      "open": "打开",
+      "preview": "预览",
+      "delete": "删除"
+    },
+    "confirmDelete": "确定删除此 SoAW 吗?此操作无法撤销。"
+  }
+}
