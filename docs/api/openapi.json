@@ -2290,11 +2290,41 @@
         "title": "ComplianceBundleOut",
         "type": "object"
       },
+      "ComplianceFindingDecisionUpdate": {
+        "description": "Body for ``PATCH /security/compliance-findings/{id}``.\n\nUsers can transition the decision to ``open``, ``acknowledged``, or\n``accepted``. ``risk_tracked`` is set automatically when a finding is\npromoted to a Risk (``POST /risks/promote/compliance/{id}``);\n``auto_resolved`` is set by the scanner when a re-scan no longer\nreports the finding. Neither is user-settable.",
+        "properties": {
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "ComplianceFindingDecisionUpdate",
+        "type": "object"
+      },
       "ComplianceFindingOut": {
         "properties": {
           "ai_detected": {
             "default": false,
             "title": "Ai Detected",
+            "type": "boolean"
+          },
+          "auto_resolved": {
+            "default": false,
+            "title": "Auto Resolved",
             "type": "boolean"
           },
           "card_id": {
@@ -2336,6 +2366,11 @@
             ],
             "title": "Created At"
           },
+          "decision": {
+            "default": "open",
+            "title": "Decision",
+            "type": "string"
+          },
           "evidence": {
             "anyOf": [
               {
@@ -2355,6 +2390,17 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "last_seen_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen Run Id"
           },
           "regulation": {
             "title": "Regulation",
@@ -2386,6 +2432,51 @@
             "default": "",
             "title": "Requirement",
             "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By"
+          },
+          "reviewer_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Name"
           },
           "risk_id": {
             "anyOf": [
@@ -26211,6 +26302,63 @@
         ]
       }
     },
+    "/api/v1/turbolens/cards/{card_id}/compliance-findings": {
+      "get": {
+        "description": "All compliance findings scoped to a single card.\n\nOrdered by severity then regulation/article. Used by the Compliance\ntab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).",
+        "operationId": "list_card_compliance_findings_api_v1_turbolens_cards__card_id__compliance_findings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include_auto_resolved",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Auto Resolved",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceFindingOut"
+                  },
+                  "title": "Response List Card Compliance Findings Api V1 Turbolens Cards  Card Id  Compliance Findings Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Card Compliance Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
     "/api/v1/turbolens/duplicates": {
       "get": {
         "description": "Get duplicate clusters.",
@@ -26493,6 +26641,59 @@
           }
         },
         "summary": "List Compliance",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/compliance-findings/{finding_id}": {
+      "patch": {
+        "description": "Set the human decision on a compliance finding.\n\nAllowed transitions are between ``open`` / ``acknowledged`` /\n``accepted``. ``accepted`` requires a ``review_note``. Cannot be used\nto set ``risk_tracked`` (use ``POST /risks/promote/compliance/{id}``)\nor ``auto_resolved`` (set by the scanner).",
+        "operationId": "update_compliance_finding_decision_api_v1_turbolens_security_compliance_findings__finding_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplianceFindingDecisionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplianceFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Compliance Finding Decision",
         "tags": [
           "TurboLens"
         ]

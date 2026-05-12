@@ -484,5 +484,17 @@
   "valueStreamCatalogue.industryVariantLabel": "Variante setorial: {{variant}}",
   "valueStreamCatalogue.notesLabel": "Notas",
   "valueStreamCatalogue.capabilityIdsLabel": "Capacidades nesta etapa",
-  "valueStreamCatalogue.processIdsLabel": "Processos nesta etapa"
+  "valueStreamCatalogue.processIdsLabel": "Processos nesta etapa",
+  "tabs.compliance": "Conformidade",
+  "compliance.cardTab.title": "Achados de conformidade",
+  "compliance.cardTab.empty": "Nenhum achado de conformidade registrado para este cartão. Execute uma verificação em GRC → Conformidade para gerar achados.",
+  "compliance.cardTab.includeResolved": "Incluir resolvidos automaticamente",
+  "compliance.cardTab.openModule": "Abrir módulo de conformidade",
+  "compliance.cardTab.col.regulation": "Regulamento",
+  "compliance.cardTab.col.article": "Artigo",
+  "compliance.cardTab.col.status": "Status",
+  "compliance.cardTab.col.severity": "Severidade",
+  "compliance.cardTab.col.decision": "Decisão",
+  "compliance.cardTab.col.requirement": "Requisito",
+  "compliance.cardTab.col.actions": "Ações"
 }

@@ -5,6 +5,27 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] - 2026-05-12
+
+**Compliance findings are now stateful and survive re-scans.** The GRC › Compliance tab previously wiped every finding on each scan, so human decisions and risk-promotion back-links vanished and findings were lost when a new scan ran. This release introduces a per-finding decision workflow with stable identity, plus UX upgrades to the Compliance tab and a new Compliance tab on the Card Detail page.
+
+### Added
+- **Decision workflow on every compliance finding.** Each row now carries a `decision` value (`open` / `acknowledged` / `accepted` / `risk_tracked` / `auto_resolved`) plus reviewer, timestamp, and rationale fields. Users can **Acknowledge** (reviewed, no action) or **Accept** (explicit decision not to remediate, rationale required) directly from the finding card. Promoting a finding to a Risk automatically transitions it to `risk_tracked`.
+- **Findings survive re-scans.** `run_compliance_scan` now upserts by a stable `finding_key` (md5 of scope + card + regulation + article + first-200-chars-of-requirement) instead of deleting and re-inserting. Decisions, reviewer metadata, and `risk_id` back-links are preserved. Findings the new scan no longer reports get flagged `auto_resolved=true` (with the original `risk_id` intact) so the audit trail stays coherent.
+- **`PATCH /turbolens/security/compliance-findings/{id}`** — sets the decision and optional review note. `accepted` requires a rationale. `risk_tracked` and `auto_resolved` are not user-settable. Guarded by `security_compliance.manage`.
+- **`GET /cards/{id}/compliance-findings`** — list compliance findings scoped to a single card, ordered by severity. Supports `?include_auto_resolved=true` to surface historical rows.
+- **Filter bar on the GRC Compliance tab** with toggle chips for compliance status, severity, decision; an *AI-detected only* checkbox; and an *Include auto-resolved* checkbox. Defaults show all active findings per regulation subtab. Heatmap drill-through still works as a transient pre-filter that can be cleared inline.
+- **Side card panel** opens when you click a card name in a compliance finding — reuses the existing `CardDetailSidePanel` already used by Inventory, Dependencies, BPM, and most reports. No more leaving the Compliance view to inspect a card.
+- **New Compliance tab on the Card Detail page** (gated by `security_compliance.view`). Lists every compliance finding linked to that card with regulation, article, status, severity, decision, and the same Acknowledge / Accept / Create risk / Open risk actions as the GRC tab. Mirrors the existing Risks-on-a-card pattern.
+- **Migration `077_compliance_finding_durability`** adds `finding_key`, `decision`, `reviewed_by`, `reviewed_at`, `review_note`, `last_seen_run_id`, and `auto_resolved` columns to `turbolens_compliance_findings`. Backfills `finding_key` for every existing row using the same recipe as the runtime upsert; rows that were already promoted to a Risk are marked `decision = "risk_tracked"`.
+- **i18n** — new compliance decision / filter / action labels added to `admin.json` and the new `compliance.cardTab.*` group plus `tabs.compliance` added to `cards.json`, all replicated across the 7 non-English locales (de/fr/es/it/pt/zh/ru).
+
+### Changed
+- **`promote_compliance_finding`** now stamps `decision="risk_tracked"`, the reviewing user, and the review timestamp on the finding alongside the existing `risk_id` link. Promotion is still idempotent — a re-promote returns the existing Risk.
+
+### Notes
+- **CVE findings still wipe and re-insert on each scan.** They already have an independent `status` workflow, so risk-promotion loop-back is only partially affected. Applying the same `finding_key` upsert pattern is a clean follow-up; flagged for a later PR rather than expanded here to keep the change focused.
+
 ## [1.10.0] - 2026-05-12
 
 Full introduction of the **GRC** (Governance, Risk and Compliance) module — a new classically-named top-level home that consolidates governance concerns previously scattered across `/ea-delivery` and TurboLens. The same release dissolves the legacy `/ea-delivery` page, lifts SoAW management onto the Initiative card, and relocates the Initiatives workspace under **Reports › EA Delivery**.

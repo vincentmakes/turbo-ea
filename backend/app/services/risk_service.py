@@ -302,6 +302,9 @@ async def promote_compliance_finding(
     if finding.card_id:
         await link_cards(db, risk.id, [finding.card_id])
     finding.risk_id = risk.id
+    finding.decision = "risk_tracked"
+    finding.reviewed_by = user_id
+    finding.reviewed_at = datetime.now(timezone.utc)
     await db.flush()
     return risk
 

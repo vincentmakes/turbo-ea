@@ -303,14 +303,43 @@ class ComplianceFindingOut(BaseModel):
     ai_detected: bool = False
     risk_id: str | None = None
     risk_reference: str | None = None
+    decision: str = "open"
+    reviewed_by: str | None = None
+    reviewer_name: str | None = None
+    reviewed_at: datetime | None = None
+    review_note: str | None = None
+    auto_resolved: bool = False
+    last_seen_run_id: str | None = None
     created_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
-    @field_validator("id", "run_id", "card_id", "risk_id", mode="before")
+    @field_validator(
+        "id",
+        "run_id",
+        "card_id",
+        "risk_id",
+        "reviewed_by",
+        "last_seen_run_id",
+        mode="before",
+    )
     @classmethod
     def coerce_uuid(cls, v: str | uuid.UUID | None) -> str | None:
         return str(v) if v is not None else None
+
+
+class ComplianceFindingDecisionUpdate(BaseModel):
+    """Body for ``PATCH /security/compliance-findings/{id}``.
+
+    Users can transition the decision to ``open``, ``acknowledged``, or
+    ``accepted``. ``risk_tracked`` is set automatically when a finding is
+    promoted to a Risk (``POST /risks/promote/compliance/{id}``);
+    ``auto_resolved`` is set by the scanner when a re-scan no longer
+    reports the finding. Neither is user-settable.
+    """
+
+    decision: str
+    review_note: str | None = None
 
 
 class SecurityScanRunOut(BaseModel):

@@ -184,7 +184,16 @@ class TurboLensCveFinding(UUIDMixin, TimestampMixin, Base):
 
 
 class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
-    """A compliance gap or attestation for a given regulation."""
+    """A compliance gap or attestation for a given regulation.
+
+    Findings are *durable* across re-scans: ``run_compliance_scan`` upserts by
+    ``finding_key`` (a stable hash of scope + card + regulation + article +
+    requirement) and never deletes rows. Human decisions (``decision``,
+    ``review_note``, reviewer metadata) and the promoted-Risk back-link
+    (``risk_id``) therefore survive subsequent scans. A finding that the new
+    scan no longer reports is flagged ``auto_resolved=True`` so the linked
+    Risk's audit trail isn't broken.
+    """
 
     __tablename__ = "turbolens_compliance_findings"
 
@@ -213,6 +222,21 @@ class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
         ForeignKey("risks.id", ondelete="SET NULL"),
         nullable=True,
     )
+    finding_key: Mapped[str] = mapped_column(String(64))
+    decision: Mapped[str] = mapped_column(String(24), default="open")
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_seen_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("turbolens_analysis_runs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    auto_resolved: Mapped[bool] = mapped_column(Boolean, default=False)
 
     __table_args__ = (
         Index(
@@ -223,6 +247,14 @@ class TurboLensComplianceFinding(UUIDMixin, TimestampMixin, Base):
         Index("ix_turbolens_compliance_findings_card_id", "card_id"),
         Index("ix_turbolens_compliance_findings_run_id", "run_id"),
         Index("ix_turbolens_compliance_findings_risk_id", "risk_id"),
+        Index(
+            "ix_turbolens_compliance_findings_finding_key",
+            "finding_key",
+        ),
+        Index(
+            "ix_turbolens_compliance_findings_decision",
+            "decision",
+        ),
     )
 
 

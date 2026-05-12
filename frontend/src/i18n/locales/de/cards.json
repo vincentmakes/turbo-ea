@@ -484,5 +484,17 @@
   "valueStreamCatalogue.industryVariantLabel": "Branchenvariante: {{variant}}",
   "valueStreamCatalogue.notesLabel": "Notizen",
   "valueStreamCatalogue.capabilityIdsLabel": "Fähigkeiten in dieser Stufe",
-  "valueStreamCatalogue.processIdsLabel": "Prozesse in dieser Stufe"
+  "valueStreamCatalogue.processIdsLabel": "Prozesse in dieser Stufe",
+  "tabs.compliance": "Compliance",
+  "compliance.cardTab.title": "Compliance-Befunde",
+  "compliance.cardTab.empty": "Für diese Karte sind keine Compliance-Befunde erfasst. Führen Sie unter GRC → Compliance einen Scan aus, um Befunde zu erzeugen.",
+  "compliance.cardTab.includeResolved": "Automatisch behobene einbeziehen",
+  "compliance.cardTab.openModule": "Compliance-Modul öffnen",
+  "compliance.cardTab.col.regulation": "Regulierung",
+  "compliance.cardTab.col.article": "Artikel",
+  "compliance.cardTab.col.status": "Status",
+  "compliance.cardTab.col.severity": "Schweregrad",
+  "compliance.cardTab.col.decision": "Entscheidung",
+  "compliance.cardTab.col.requirement": "Anforderung",
+  "compliance.cardTab.col.actions": "Aktionen"
 }

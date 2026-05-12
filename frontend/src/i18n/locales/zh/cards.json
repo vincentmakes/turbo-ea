@@ -484,5 +484,17 @@
   "valueStreamCatalogue.industryVariantLabel": "行业变体: {{variant}}",
   "valueStreamCatalogue.notesLabel": "备注",
   "valueStreamCatalogue.capabilityIdsLabel": "本阶段的能力",
-  "valueStreamCatalogue.processIdsLabel": "本阶段的流程"
+  "valueStreamCatalogue.processIdsLabel": "本阶段的流程",
+  "tabs.compliance": "合规",
+  "compliance.cardTab.title": "合规发现",
+  "compliance.cardTab.empty": "此卡片尚未记录任何合规发现。请在「GRC → 合规」中运行扫描以生成发现。",
+  "compliance.cardTab.includeResolved": "包含自动解决项",
+  "compliance.cardTab.openModule": "打开合规模块",
+  "compliance.cardTab.col.regulation": "法规",
+  "compliance.cardTab.col.article": "条款",
+  "compliance.cardTab.col.status": "状态",
+  "compliance.cardTab.col.severity": "严重性",
+  "compliance.cardTab.col.decision": "决策",
+  "compliance.cardTab.col.requirement": "要求",
+  "compliance.cardTab.col.actions": "操作"
 }

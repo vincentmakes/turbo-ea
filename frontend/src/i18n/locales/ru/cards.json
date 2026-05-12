@@ -484,5 +484,17 @@
   "valueStreamCatalogue.industryVariantLabel": "Отраслевой вариант: {{variant}}",
   "valueStreamCatalogue.notesLabel": "Заметки",
   "valueStreamCatalogue.capabilityIdsLabel": "Возможности на этом этапе",
-  "valueStreamCatalogue.processIdsLabel": "Процессы на этом этапе"
+  "valueStreamCatalogue.processIdsLabel": "Процессы на этом этапе",
+  "tabs.compliance": "Соответствие",
+  "compliance.cardTab.title": "Находки соответствия",
+  "compliance.cardTab.empty": "Для этой карточки нет записей по соответствию. Запустите сканирование из GRC → Соответствие, чтобы сформировать находки.",
+  "compliance.cardTab.includeResolved": "Включая автоматически устранённые",
+  "compliance.cardTab.openModule": "Открыть модуль соответствия",
+  "compliance.cardTab.col.regulation": "Нормативный акт",
+  "compliance.cardTab.col.article": "Статья",
+  "compliance.cardTab.col.status": "Статус",
+  "compliance.cardTab.col.severity": "Серьёзность",
+  "compliance.cardTab.col.decision": "Решение",
+  "compliance.cardTab.col.requirement": "Требование",
+  "compliance.cardTab.col.actions": "Действия"
 }

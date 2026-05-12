@@ -1372,6 +1372,13 @@ export interface TurboLensCveFinding {
   created_at: string | null;
 }
 
+export type ComplianceDecision =
+  | "open"
+  | "acknowledged"
+  | "accepted"
+  | "risk_tracked"
+  | "auto_resolved";
+
 export interface TurboLensComplianceFinding {
   id: string;
   run_id: string;
@@ -1390,6 +1397,13 @@ export interface TurboLensComplianceFinding {
   ai_detected: boolean;
   risk_id: string | null;
   risk_reference: string | null;
+  decision: ComplianceDecision;
+  reviewed_by: string | null;
+  reviewer_name: string | null;
+  reviewed_at: string | null;
+  review_note: string | null;
+  auto_resolved: boolean;
+  last_seen_run_id: string | null;
   created_at: string | null;
 }
 

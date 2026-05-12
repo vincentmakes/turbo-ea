@@ -197,3 +197,15 @@ const COMPLIANCE_STATUS_COLORS: Record<string, ChipColor> = {
 export function complianceStatusColor(status: string): ChipColor {
   return COMPLIANCE_STATUS_COLORS[status] ?? "default";
 }
+
+const COMPLIANCE_DECISION_COLORS: Record<string, ChipColor> = {
+  open: "default",
+  acknowledged: "info",
+  accepted: "success",
+  risk_tracked: "warning",
+  auto_resolved: "default",
+};
+
+export function complianceDecisionColor(decision: string): ChipColor {
+  return COMPLIANCE_DECISION_COLORS[decision] ?? "default";
+}

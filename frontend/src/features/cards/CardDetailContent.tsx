@@ -29,8 +29,11 @@ import {
   ResourcesTab,
   HistoryTab,
   RisksTab,
+  ComplianceTab,
   TagsSection,
 } from "@/features/cards/sections";
+import { useAuthContext } from "@/hooks/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import SoAWTab from "@/features/cards/sections/SoAWTab";
 import type { Card, CardEffectivePermissions } from "@/types";
 
@@ -78,6 +81,9 @@ export default function CardDetailContent({
   const { isCalculated } = useCalculatedFields();
   const { fmt: currencyFmt } = useCurrency();
   const { ppmEnabled } = usePpmEnabled();
+  const { user } = useAuthContext();
+  const { can } = usePermissions(user);
+  const showComplianceTab = can("security_compliance.view");
 
   const [tab, setTab] = useState(initialTab);
   const [relRefresh, setRelRefresh] = useState(0);
@@ -313,7 +319,9 @@ export default function CardDetailContent({
   const stakeholdersIdx = 3 + extraOffset;
   const resourcesIdx = 4 + extraOffset;
   const risksIdx = 5 + extraOffset;
-  const historyIdx = 6 + extraOffset;
+  const complianceTabOffset = showComplianceTab ? 1 : 0;
+  const complianceIdx = showComplianceTab ? 6 + extraOffset : -1;
+  const historyIdx = 6 + extraOffset + complianceTabOffset;
   const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
   // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
   const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
@@ -345,6 +353,7 @@ export default function CardDetailContent({
         <Tab label={t("tabs.stakeholders")} />
         <Tab label={t("tabs.resources")} />
         <Tab label={t("tabs.risks")} />
+        {showComplianceTab && <Tab label={t("tabs.compliance")} />}
         <Tab label={t("tabs.history")} />
         {isPpm && <Tab label={t("tabs.ppm")} />}
       </Tabs>
@@ -448,6 +457,15 @@ export default function CardDetailContent({
           <MuiCard>
             <CardContent>
               <RisksTab cardId={card.id} />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {showComplianceTab && tab === complianceIdx && (
+        <ErrorBoundary label="Compliance">
+          <MuiCard>
+            <CardContent>
+              <ComplianceTab cardId={card.id} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>

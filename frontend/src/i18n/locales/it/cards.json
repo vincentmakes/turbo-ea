@@ -484,5 +484,17 @@
   "valueStreamCatalogue.industryVariantLabel": "Variante settoriale: {{variant}}",
   "valueStreamCatalogue.notesLabel": "Note",
   "valueStreamCatalogue.capabilityIdsLabel": "Capacità in questa fase",
-  "valueStreamCatalogue.processIdsLabel": "Processi in questa fase"
+  "valueStreamCatalogue.processIdsLabel": "Processi in questa fase",
+  "tabs.compliance": "Conformità",
+  "compliance.cardTab.title": "Rilievi di conformità",
+  "compliance.cardTab.empty": "Nessun rilievo di conformità registrato per questa scheda. Esegui una scansione da GRC → Conformità per generare rilievi.",
+  "compliance.cardTab.includeResolved": "Includi risolti automaticamente",
+  "compliance.cardTab.openModule": "Apri modulo Conformità",
+  "compliance.cardTab.col.regulation": "Normativa",
+  "compliance.cardTab.col.article": "Articolo",
+  "compliance.cardTab.col.status": "Stato",
+  "compliance.cardTab.col.severity": "Gravità",
+  "compliance.cardTab.col.decision": "Decisione",
+  "compliance.cardTab.col.requirement": "Requisito",
+  "compliance.cardTab.col.actions": "Azioni"
 }

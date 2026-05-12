@@ -17,6 +17,7 @@ from app.services.turbolens_security import (
     build_risk_matrix,
     compliance_score,
     compliance_to_dict,
+    compute_finding_key,
     finding_to_dict,
 )
 
@@ -198,6 +199,33 @@ def test_service_exposes_split_scan_entry_points():
     assert not hasattr(svc, "run_security_scan")
 
 
+def test_compute_finding_key_is_stable_across_calls():
+    card_id = uuid.uuid4()
+    a = compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "Maintain a registry")
+    b = compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "Maintain a registry")
+    assert a == b
+
+
+def test_compute_finding_key_changes_with_any_identity_field():
+    card_id = uuid.uuid4()
+    base = compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "x")
+    assert base != compute_finding_key("landscape", card_id, "eu_ai_act", "Art. 6", "x")
+    assert base != compute_finding_key("card", uuid.uuid4(), "eu_ai_act", "Art. 6", "x")
+    assert base != compute_finding_key("card", card_id, "gdpr", "Art. 6", "x")
+    assert base != compute_finding_key("card", card_id, "eu_ai_act", "Art. 7", "x")
+    assert base != compute_finding_key("card", card_id, "eu_ai_act", "Art. 6", "y")
+
+
+def test_compute_finding_key_truncates_requirement_to_first_200_chars():
+    # Two requirements that differ only after the first 200 chars must hash
+    # identically — the upsert key is meant to ignore late-prompt drift.
+    long_a = "a" * 200 + "TAIL_A"
+    long_b = "a" * 200 + "TAIL_B"
+    assert compute_finding_key("card", None, "gdpr", "Art. 5", long_a) == compute_finding_key(
+        "card", None, "gdpr", "Art. 5", long_b
+    )
+
+
 def test_compliance_to_dict_handles_landscape_scope():
     row = SimpleNamespace(
         id=uuid.uuid4(),
@@ -215,6 +243,12 @@ def test_compliance_to_dict_handles_landscape_scope():
         remediation="Create a registry.",
         ai_detected=False,
         risk_id=None,
+        decision="open",
+        reviewed_by=None,
+        reviewed_at=None,
+        review_note=None,
+        auto_resolved=False,
+        last_seen_run_id=None,
         created_at=datetime.now(timezone.utc),
     )
     d = compliance_to_dict(row, None)
@@ -222,3 +256,5 @@ def test_compliance_to_dict_handles_landscape_scope():
     assert d["scope_type"] == "landscape"
     assert d["regulation"] == "eu_ai_act"
     assert d["requirement"].startswith("Maintain")
+    assert d["decision"] == "open"
+    assert d["auto_resolved"] is False

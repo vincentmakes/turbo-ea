@@ -17,6 +17,7 @@ Runs in a background task triggered from
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid as uuid_mod
@@ -839,6 +840,30 @@ async def run_cve_scan(
     return summary
 
 
+def compute_finding_key(
+    scope_type: str | None,
+    card_id: uuid_mod.UUID | str | None,
+    regulation: str | None,
+    regulation_article: str | None,
+    requirement: str | None,
+) -> str:
+    """Stable identity for a compliance finding across re-scans.
+
+    Used as the upsert key in ``run_compliance_scan`` so human decisions
+    (acknowledge / accept / risk_tracked) and promoted-Risk back-links
+    survive subsequent scans. The recipe is mirrored by migration 077's
+    backfill — keep them in sync.
+    """
+    parts = [
+        (scope_type or "").strip(),
+        str(card_id) if card_id else "",
+        (regulation or "").strip(),
+        (regulation_article or "").strip(),
+        (requirement or "")[:200],
+    ]
+    return hashlib.md5("|".join(parts).encode("utf-8")).hexdigest()
+
+
 async def run_compliance_scan(
     db: AsyncSession,
     run_id: uuid_mod.UUID | str,
@@ -848,10 +873,13 @@ async def run_compliance_scan(
 ) -> dict[str, Any]:
     """Compliance pipeline only: per-regulation AI gap analysis.
 
-    Replaces any existing compliance findings for the scanned
-    regulations; findings for unscoped regulations (e.g. the user
-    un-ticked DORA this time) are also cleared so the dashboard never
-    shows stale data from a previous pass.
+    Findings are *upserted* by ``finding_key`` (stable hash of scope +
+    card + regulation + article + requirement) so that human decisions
+    and any linked Risks survive re-scans. Findings that the new pass no
+    longer reports — within the scanned regulations — are flagged
+    ``auto_resolved=True`` instead of deleted; their ``risk_id`` is
+    preserved so the owner can verify / close any open Risk manually.
+    Findings under regulations not in scope this run are untouched.
     """
     run_uuid = uuid_mod.UUID(str(run_id))
     progress_cb = _progress_cb(db, run_uuid)
@@ -862,12 +890,6 @@ async def run_compliance_scan(
 
     await progress_cb("loading_cards", 0, 0, "")
     cards = await load_scan_targets(db, include_itc=True)
-
-    # Clear all previous compliance findings — a compliance scan is a
-    # full refresh of the selected regulations; anything not in scope
-    # this run shouldn't linger.
-    await db.execute(delete(TurboLensComplianceFinding))
-    await db.flush()
 
     ai_scope: dict[str, dict[str, Any]] = {}
     if "eu_ai_act" in regs:
@@ -880,25 +902,86 @@ async def run_compliance_scan(
         compliance_rows.extend(reg_findings)
 
     await progress_cb("persisting_compliance_findings", 0, len(compliance_rows), "")
-    for f in compliance_rows:
-        db.add(
-            TurboLensComplianceFinding(
-                id=uuid_mod.uuid4(),
-                run_id=run_uuid,
-                regulation=f["regulation"],
-                regulation_article=f.get("regulation_article"),
-                card_id=f.get("card_id"),
-                scope_type=f.get("scope_type") or "landscape",
-                category=f.get("category") or "",
-                requirement=f.get("requirement") or "",
-                status=f.get("status") or "review_needed",
-                severity=f.get("severity") or "info",
-                gap_description=f.get("gap_description") or "",
-                evidence=f.get("evidence"),
-                remediation=f.get("remediation"),
-                ai_detected=bool(f.get("ai_detected")),
+
+    # Load existing findings within the scanned regulations and index by key.
+    existing_rows = (
+        (
+            await db.execute(
+                select(TurboLensComplianceFinding).where(
+                    TurboLensComplianceFinding.regulation.in_(regs)
+                )
             )
         )
+        .scalars()
+        .all()
+    )
+    existing_by_key: dict[str, TurboLensComplianceFinding] = {
+        row.finding_key: row for row in existing_rows
+    }
+
+    seen_keys: set[str] = set()
+    for f in compliance_rows:
+        key = compute_finding_key(
+            f.get("scope_type") or "landscape",
+            f.get("card_id"),
+            f["regulation"],
+            f.get("regulation_article"),
+            f.get("requirement") or "",
+        )
+        seen_keys.add(key)
+        row = existing_by_key.get(key)
+        if row is None:
+            db.add(
+                TurboLensComplianceFinding(
+                    id=uuid_mod.uuid4(),
+                    run_id=run_uuid,
+                    regulation=f["regulation"],
+                    regulation_article=f.get("regulation_article"),
+                    card_id=f.get("card_id"),
+                    scope_type=f.get("scope_type") or "landscape",
+                    category=f.get("category") or "",
+                    requirement=f.get("requirement") or "",
+                    status=f.get("status") or "review_needed",
+                    severity=f.get("severity") or "info",
+                    gap_description=f.get("gap_description") or "",
+                    evidence=f.get("evidence"),
+                    remediation=f.get("remediation"),
+                    ai_detected=bool(f.get("ai_detected")),
+                    finding_key=key,
+                    decision="open",
+                    last_seen_run_id=run_uuid,
+                    auto_resolved=False,
+                )
+            )
+        else:
+            # Refresh AI-generated content; preserve decision + risk_id +
+            # reviewer metadata so human judgement isn't wiped.
+            row.run_id = run_uuid
+            row.last_seen_run_id = run_uuid
+            row.auto_resolved = False
+            row.status = f.get("status") or "review_needed"
+            row.severity = f.get("severity") or "info"
+            row.category = f.get("category") or ""
+            row.gap_description = f.get("gap_description") or ""
+            row.evidence = f.get("evidence")
+            row.remediation = f.get("remediation")
+            row.ai_detected = bool(f.get("ai_detected"))
+            # If the row had been auto-resolved by a prior scan and now
+            # re-surfaces, drop the auto-resolved decision so the user
+            # re-evaluates. Other decisions (acknowledged / accepted /
+            # risk_tracked) are preserved.
+            if row.decision == "auto_resolved":
+                row.decision = "open"
+
+    # Mark any finding within the scanned regulations that wasn't
+    # re-emitted this pass as auto-resolved. Preserve risk_tracked so
+    # the linked Risk's audit trail stays coherent.
+    vanished = [row for row in existing_rows if row.finding_key not in seen_keys]
+    for row in vanished:
+        row.auto_resolved = True
+        if row.decision != "risk_tracked":
+            row.decision = "auto_resolved"
+
     await db.flush()
 
     if user_id:
@@ -1029,6 +1112,7 @@ def compliance_to_dict(
     card_name: str | None,
     *,
     risk_reference: str | None = None,
+    reviewer_name: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": str(row.id),
@@ -1048,6 +1132,13 @@ def compliance_to_dict(
         "ai_detected": row.ai_detected,
         "risk_id": str(row.risk_id) if row.risk_id else None,
         "risk_reference": risk_reference,
+        "decision": row.decision,
+        "reviewed_by": str(row.reviewed_by) if row.reviewed_by else None,
+        "reviewer_name": reviewer_name,
+        "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+        "review_note": row.review_note,
+        "auto_resolved": row.auto_resolved,
+        "last_seen_run_id": (str(row.last_seen_run_id) if row.last_seen_run_id else None),
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
@@ -1060,3 +1151,15 @@ async def load_risk_references(db: AsyncSession, risk_ids: set[uuid_mod.UUID]) -
 
     result = await db.execute(select(Risk.id, Risk.reference).where(Risk.id.in_(risk_ids)))
     return {str(rid): ref for rid, ref in result.all()}
+
+
+async def load_reviewer_names(db: AsyncSession, user_ids: set[uuid_mod.UUID]) -> dict[str, str]:
+    """Resolve user id → display_name (falling back to email) for reviewers."""
+    if not user_ids:
+        return {}
+    from app.models.user import User
+
+    result = await db.execute(
+        select(User.id, User.display_name, User.email).where(User.id.in_(user_ids))
+    )
+    return {str(uid): (display or email or "") for uid, display, email in result.all()}

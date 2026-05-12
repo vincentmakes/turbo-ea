@@ -35,6 +35,7 @@ from app.models.user import User
 from app.schemas.turbolens import (
     SUPPORTED_REGULATIONS,
     ComplianceBundleOut,
+    ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
     CveFindingOut,
     CveFindingStatusUpdate,
@@ -1182,6 +1183,7 @@ async def list_compliance(
     from app.services.turbolens_security import (
         compliance_score,
         compliance_to_dict,
+        load_reviewer_names,
         load_risk_references,
     )
 
@@ -1197,6 +1199,7 @@ async def list_compliance(
     card_ids = {r.card_id for r in rows if r.card_id}
     name_map = await _load_card_names(db, card_ids)
     risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
+    reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
 
     grouped: dict[str, list[TurboLensComplianceFinding]] = {}
     for row in rows:
@@ -1212,6 +1215,9 @@ async def list_compliance(
                     row,
                     name_map.get(str(row.card_id)) if row.card_id else None,
                     risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+                    reviewer_name=(
+                        reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None
+                    ),
                 )
             )
             for row in reg_rows
@@ -1224,6 +1230,143 @@ async def list_compliance(
             )
         )
     return bundles
+
+
+# Decisions the user can set explicitly. ``risk_tracked`` is set by the
+# promote endpoint, ``auto_resolved`` is set by the scanner; neither is
+# user-settable here.
+_USER_SETTABLE_COMPLIANCE_DECISIONS: frozenset[str] = frozenset(
+    {"open", "acknowledged", "accepted"}
+)
+
+
+@router.patch("/security/compliance-findings/{finding_id}")
+async def update_compliance_finding_decision(
+    finding_id: str,
+    body: ComplianceFindingDecisionUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> ComplianceFindingOut:
+    """Set the human decision on a compliance finding.
+
+    Allowed transitions are between ``open`` / ``acknowledged`` /
+    ``accepted``. ``accepted`` requires a ``review_note``. Cannot be used
+    to set ``risk_tracked`` (use ``POST /risks/promote/compliance/{id}``)
+    or ``auto_resolved`` (set by the scanner).
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+    decision = (body.decision or "").strip()
+    if decision not in _USER_SETTABLE_COMPLIANCE_DECISIONS:
+        raise HTTPException(
+            400,
+            "decision must be one of open, acknowledged, accepted",
+        )
+    note = (body.review_note or "").strip() or None
+    if decision == "accepted" and not note:
+        raise HTTPException(400, "review_note is required when accepting a finding")
+
+    row = await db.get(TurboLensComplianceFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+
+    # Cannot overwrite an active risk_tracked decision through this
+    # endpoint — the user must close the linked Risk first.
+    if row.decision == "risk_tracked" and row.risk_id is not None:
+        raise HTTPException(
+            409,
+            "Finding is tracked by a Risk. Close or unlink the Risk first.",
+        )
+
+    row.decision = decision
+    row.review_note = note
+    row.reviewed_by = user.id
+    row.reviewed_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(row)
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    card_name = None
+    if row.card_id:
+        names = await _load_card_names(db, {row.card_id})
+        card_name = names.get(str(row.card_id))
+    risk_refs = await load_risk_references(db, {row.risk_id}) if row.risk_id else {}
+    reviewer_names = await load_reviewer_names(db, {row.reviewed_by}) if row.reviewed_by else {}
+    return ComplianceFindingOut.model_validate(
+        compliance_to_dict(
+            row,
+            card_name,
+            risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+            reviewer_name=(reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None),
+        )
+    )
+
+
+@router.get("/cards/{card_id}/compliance-findings")
+async def list_card_compliance_findings(
+    card_id: str,
+    include_auto_resolved: bool = False,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[ComplianceFindingOut]:
+    """All compliance findings scoped to a single card.
+
+    Ordered by severity then regulation/article. Used by the Compliance
+    tab on the Card Detail page (mirrors ``GET /cards/{id}/risks``).
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.view")
+    try:
+        card_uuid = uuid.UUID(card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card id") from exc
+
+    stmt = select(TurboLensComplianceFinding).where(TurboLensComplianceFinding.card_id == card_uuid)
+    if not include_auto_resolved:
+        stmt = stmt.where(TurboLensComplianceFinding.auto_resolved.is_(False))
+    rows = list((await db.execute(stmt)).scalars().all())
+
+    from app.services.turbolens_security import (
+        compliance_to_dict,
+        load_reviewer_names,
+        load_risk_references,
+    )
+
+    name_map = await _load_card_names(db, {card_uuid})
+    risk_refs = await load_risk_references(db, {r.risk_id for r in rows if r.risk_id})
+    reviewer_names = await load_reviewer_names(db, {r.reviewed_by for r in rows if r.reviewed_by})
+
+    severity_order = {
+        "critical": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 3,
+        "info": 4,
+    }
+    rows.sort(
+        key=lambda r: (
+            severity_order.get(r.severity, 99),
+            r.regulation,
+            r.regulation_article or "",
+        )
+    )
+
+    return [
+        ComplianceFindingOut.model_validate(
+            compliance_to_dict(
+                row,
+                name_map.get(str(card_uuid)),
+                risk_reference=risk_refs.get(str(row.risk_id)) if row.risk_id else None,
+                reviewer_name=(
+                    reviewer_names.get(str(row.reviewed_by)) if row.reviewed_by else None
+                ),
+            )
+        )
+        for row in rows
+    ]
 
 
 @router.get("/security/export.csv")
