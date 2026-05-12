@@ -28,25 +28,7 @@ import GrcPage from "./GrcPage";
 beforeEach(() => {
   vi.clearAllMocks();
   // /metamodel/principles, /adr → empty arrays.
-  // /grc/ai-inventory → empty page. /grc/ai-inventory/kpis → empty KPIs.
-  vi.mocked(api.get).mockImplementation(async (path: string) => {
-    if (path.startsWith("/grc/ai-inventory/kpis")) {
-      return {
-        total: 0,
-        with_risk_class: 0,
-        unclassified: 0,
-        high_or_unacceptable: 0,
-        unowned: 0,
-        by_risk_class: {},
-        by_lifecycle: {},
-        last_discovered_at: null,
-      };
-    }
-    if (path.startsWith("/grc/ai-inventory")) {
-      return { items: [], total: 0, page: 1, page_size: 50 };
-    }
-    return [];
-  });
+  vi.mocked(api.get).mockResolvedValue([]);
 });
 
 function renderAt(path: string) {
@@ -68,14 +50,12 @@ describe("GrcPage", () => {
     expect(screen.getByRole("tab", { name: /Compliance/i })).toBeInTheDocument();
   });
 
-  it("defaults to the Governance tab and shows the AI Inventory dashboard", async () => {
+  it("defaults to the Governance tab and lands on the Principles sub-tab", async () => {
     renderAt("/grc");
-    // The dashboard's "Run discovery" button is the canonical signal.
+    // With no principles seeded, the panel renders its empty-state copy.
     expect(
-      await screen.findByRole("button", { name: /Run discovery/i }),
+      await screen.findByText(/No active principles yet/i),
     ).toBeInTheDocument();
-    // KPI tiles render their labels.
-    expect(await screen.findByText(/Total AI systems/i)).toBeInTheDocument();
   });
 
   it("renders the embedded Risk Register when ?tab=risk", async () => {

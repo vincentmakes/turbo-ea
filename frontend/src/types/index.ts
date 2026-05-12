@@ -1802,67 +1802,6 @@ export interface CardRestoreRequest {
   also_restore_card_ids?: string[];
 }
 
-// ---------------------------------------------------------------------------
-// GRC — AI Governance Inventory
-// ---------------------------------------------------------------------------
-
-export type AiDetectionMethod = "subtype" | "semantic" | "override";
-export type AiSystemRoleKey = "provider" | "consumer" | "embedded";
-
-export interface AiInventoryDetection {
-  method: AiDetectionMethod;
-  role: AiSystemRoleKey;
-  confidence: number;
-  subtype_match: boolean;
-  signal: string;
-  detected_at: string | null;
-}
-
-export interface AiInventoryItem {
-  card_id: string;
-  card_name: string;
-  card_type: string;
-  card_subtype: string | null;
-  detection: AiInventoryDetection;
-  ai_risk_class: string | null;
-  ai_system_role: string | null;
-  ai_lifecycle_stage: string | null;
-  ai_intended_purpose: string | null;
-  ai_classification_override: string | null;
-  owner_count: number;
-}
-
-export interface AiInventoryPage {
-  items: AiInventoryItem[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-export interface AiInventoryKpis {
-  total: number;
-  with_risk_class: number;
-  unclassified: number;
-  /** AI cards still missing either a risk class or a documented intended purpose. */
-  pending_review: number;
-  high_or_unacceptable: number;
-  unowned: number;
-  by_risk_class: Record<string, number>;
-  by_lifecycle: Record<string, number>;
-  last_discovered_at: string | null;
-}
-
-export interface AiLinkedRisk {
-  id: string;
-  reference: string;
-  title: string;
-  status: string;
-  initial_level: string | null;
-  residual_level: string | null;
-  affected_card_ids: string[];
-  affected_card_names: string[];
-}
-
 export interface CardRestoreResponse {
   primary: Card;
   restored_passenger_ids: string[];

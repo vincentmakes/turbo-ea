@@ -19,7 +19,6 @@ from app.api.v1 import (
     events,
     favorites,
     file_attachments,
-    grc,
     metamodel,
     notifications,
     ppm,
@@ -76,7 +75,6 @@ api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(turbolens.router)
-api_router.include_router(grc.router)
 api_router.include_router(ai_suggest.router)
 api_router.include_router(ppm.router)
 api_router.include_router(ppm_reports.router)

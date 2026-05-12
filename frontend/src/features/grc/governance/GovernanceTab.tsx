@@ -7,15 +7,13 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import MaterialSymbol from "@/components/MaterialSymbol";
 
-const AiInventoryPanel = lazy(() => import("./AiInventoryPanel"));
 const PrinciplesPanel = lazy(() => import("./PrinciplesPanel"));
 const DecisionsPanel = lazy(() => import("./DecisionsPanel"));
 
-const SUB_KEYS = ["ai", "principles", "decisions"] as const;
+const SUB_KEYS = ["principles", "decisions"] as const;
 type SubKey = (typeof SUB_KEYS)[number];
 
 const SUB_ICONS: Record<SubKey, string> = {
-  ai: "smart_toy",
   principles: "bookmark_star",
   decisions: "fact_check",
 };
@@ -32,7 +30,7 @@ export default function GovernanceTab() {
   const { t } = useTranslation("grc");
   const [searchParams, setSearchParams] = useSearchParams();
   const paramSub = searchParams.get("sub") as SubKey | null;
-  const resolved = paramSub && SUB_KEYS.includes(paramSub) ? paramSub : "ai";
+  const resolved = paramSub && SUB_KEYS.includes(paramSub) ? paramSub : "principles";
   const [sub, setSub] = useState<SubKey>(resolved);
 
   useEffect(() => {
@@ -44,7 +42,7 @@ export default function GovernanceTab() {
     setSub(next);
     const params = new URLSearchParams(searchParams);
     params.set("tab", "governance");
-    if (next === "ai") {
+    if (next === "principles") {
       params.delete("sub");
     } else {
       params.set("sub", next);
@@ -54,7 +52,6 @@ export default function GovernanceTab() {
 
   const labels: Record<SubKey, string> = useMemo(
     () => ({
-      ai: t("governance.subtabs.ai"),
       principles: t("governance.subtabs.principles"),
       decisions: t("governance.subtabs.decisions"),
     }),
@@ -82,7 +79,6 @@ export default function GovernanceTab() {
         ))}
       </Tabs>
       <Suspense fallback={<PanelFallback />}>
-        {sub === "ai" && <AiInventoryPanel />}
         {sub === "principles" && <PrinciplesPanel />}
         {sub === "decisions" && <DecisionsPanel />}
       </Suspense>
