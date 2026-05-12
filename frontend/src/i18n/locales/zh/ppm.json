@@ -1,4 +1,8 @@
 {
+  "tabs": {
+    "portfolio": "组合",
+    "eaDelivery": "EA 交付"
+  },
   "title": "项目组合管理",
   "totalInitiatives": "举措总数",
   "totalBudget": "总预算",

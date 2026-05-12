@@ -5,6 +5,43 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] - 2026-05-12
+
+Full introduction of the **GRC** (Governance, Risk and Compliance) module — a new classically-named top-level home that consolidates governance concerns previously scattered across `/ea-delivery` and TurboLens. The same release dissolves the legacy `/ea-delivery` page, lifts SoAW management onto the Initiative card, relocates the Initiatives workspace under **Reports › EA Delivery**, and grows the metamodel with EU AI Act-aligned **AI Governance** attributes plus a working AI Inventory dashboard.
+
+### Added
+- **New `/grc` top-level module with three tabs: Governance · Risk · Compliance.** Reachable from the main nav. Each tab is URL-driven (`?tab=…`) so deep links and browser back/forward work. Permission-gated on the new `grc.view` key.
+- **Governance subtabs** (URL-driven `?sub=…`): **AI Governance** (full inventory dashboard with EU AI Act risk classification), **Principles** (read-only render of active EA Principles, pulled from `/metamodel/principles`), **Decisions** (full ADR grid with the «New decision» button, pulled from `/adr`). All three panels lazy-load and share the same suspense fallback.
+- **Risk tab** embeds the existing TOGAF Risk Register (`RiskRegisterPage`) unchanged. New route `/grc/risks/:id` replaces `/ea-delivery/risks/:id` for risk detail; legacy URLs redirect.
+- **Compliance tab** embeds the existing CVE + Compliance scanner (formerly TurboLens > Security & Compliance). EU AI Act / GDPR / NIS2 / DORA / SOC 2 / ISO 27001 coverage, semantic AI detection, risk-promotion flow — all unchanged, just relocated to the conceptually correct home. The Compliance tab is gated on an AI provider being configured.
+- **AI Governance metamodel section** on three card types: **Application**, **ITComponent**, **Interface**. Five JSONB-stored attributes per card: `aiRiskClass` (EU AI Act: `unacceptable` / `high` / `limited` / `minimal`), `aiSystemRole` (`provider` / `consumer` / `embedded`), `aiLifecycleStage` (`design` / `training` / `validation` / `production` / `retired`), `aiIntendedPurpose` (free text), `aiClassificationOverride` (`auto` / `yes` / `no` — manual override of the semantic detector). All five fields ship with full 7-locale translations (de/fr/es/it/pt/zh/ru).
+- **`ai_governance_classifications` cache table** — one row per card detected as AI-bearing, with `detected_role` / `confidence` / `subtype_match` / `signal` / `detected_at`. Cascade-deleted with the card; FK indexed. Lets the inventory dashboard load instantly between discovery runs.
+- **AI Inventory dashboard** at `/grc?tab=governance&sub=ai`: header with Last discovered timestamp + **Run discovery** button; four KPI tiles (Total / High risk / Unclassified / Unowned); three filter dropdowns (risk class / lifecycle / detection method); paginated table of AI systems with chips for risk class (coloured by EU AI Act severity), role, lifecycle, detection method (`subtype` / `semantic` / `override`) and the LLM signal that triggered detection; per-row owner count with explicit "No owner" warning. Card-name cells link to `/cards/:id`.
+- **REST endpoints under `/api/v1/grc`**:
+  - `GET /grc/overview` — cross-tab KPI counts for the GRC landing.
+  - `GET /grc/ai-inventory` — paginated list of AI-bearing cards with their AI Governance attributes and per-card owner count. Filterable by `risk_class`, `lifecycle_stage`, `method`. Force-excluded cards (`aiClassificationOverride=no`) are filtered server-side.
+  - `GET /grc/ai-inventory/kpis` — aggregate counts for the dashboard tiles.
+  - `POST /grc/ai-inventory/discover` (permission: `grc.manage`) — refresh the classification cache by running `turbolens_security.detect_ai_bearing_cards` against Application / ITComponent / Interface cards. Honours `aiClassificationOverride`. Returns `{ classified, by_method, skipped_no_ai_provider }`. The LLM pass is skipped when no AI provider is configured; subtype matches and manual overrides are always recorded.
+- **SoAW tab on the Initiative card.** Visible on every `card.type === "Initiative"` card detail, slotted right after Card (matches the BPM Process Flow tab pattern). Lists this initiative's SoAWs with title, status chip, revision number and updated-at; per-row Open / Preview / Delete actions. The **New SoAW** button reuses the same `CreateSoAWDialog` as the EA Delivery report, pinned to the current initiative.
+- **`CreateSoAWDialog` is now a standalone, reusable component** (`features/ea-delivery/CreateSoAWDialog.tsx`). Lifted out of the deleted EADeliveryPage so the same dialog powers the SoAW tab (pinned via `fixedInitiativeId`) and the EA Delivery report (free choice).
+- **EA Delivery Report at `/reports/ea-delivery`.** The hierarchical Initiatives + Diagrams + ADRs + SoAWs workspace lives here now, surfaced from the **Reports** dropdown in the top nav. Same data, same `InitiativesTab` component, leaner shell.
+- **New permission group `grc`** with two keys: `grc.view` (gate the module, granted to `viewer`, `member`, `bpm_admin`, `admin`) and `grc.manage` (granted to `member`, `bpm_admin`, `admin`). Risk and Compliance subtabs continue to honour the existing `risks.view` / `risks.manage` / `security_compliance.view` / `security_compliance.manage` permissions on top of `grc.view`. Migration `076_grant_grc_default_roles` follows the canonical `069_grant_costs_view_default_roles` pattern: existing role rows get the new keys merged in via `jsonb_build_object`; custom roles untouched.
+- **Migrations** — `076` grants default GRC role permissions, `077_ai_governance_fields` backfills the AI Governance section onto existing rows (idempotent and admin-customisation-safe), `078` creates the `ai_governance_classifications` cache table.
+- **i18n** — new `grc` namespace with full translations across all 8 locales (en/de/fr/es/it/pt/zh/ru). New `reports.eaDelivery` and `cards.tabs.soaw` keys added to `nav.json` and `cards.json` for the relocated surfaces.
+
+### Changed
+- **TurboLens loses its Security & Compliance tab.** The tab and its label have been removed from `TurboLensPage.tsx`; the component itself (`TurboLensSecurity.tsx`) is untouched and is now consumed by the GRC Compliance tab. Permissions, API routes (`/api/v1/turbolens/security/*`), and CVE / compliance scan history are unchanged. Bookmarks to `/turbolens?tab=security` will silently land on the default Dashboard tab — point users to `/grc?tab=compliance` instead.
+- **`/ea-delivery` page dissolved.** The route now `301`-redirects to `/reports/ea-delivery`. EA Delivery is no longer a top-level nav item; it appears as a child entry under the **Reports** dropdown (`reports.eaDelivery` key in `nav.json`). When PPM is disabled, EA Delivery is promoted back to a top-level nav item to preserve discoverability.
+- **Risk components physically moved** from `features/ea-delivery/risks/` to `features/grc/risk/` via `git mv` so blame is preserved. All consumer imports (App.tsx, GrcPage.tsx, GrcPage.test.tsx, RisksTab.tsx, TurboLensSecurity.tsx, security.test.ts) updated. `RiskDetailPage`'s back-navigation switches from `/ea-delivery?tab=risks` to `/grc?tab=risk`.
+- **Legacy risk routes redirect** to their GRC successors: `/ea-delivery/risks` → `/grc?tab=risk`, `/ea-delivery/risks/:id` → `/grc/risks/:id` (preserving the id via a small wrapper). Existing bookmarks survive transparently.
+- **SoAW and ADR editor routes** (`/ea-delivery/soaw/:id`, `/ea-delivery/adr/:id`) are unchanged. The files still live in `features/ea-delivery/` — they're SoAW / ADR editors, not EA Delivery page artefacts. Moving them was out of scope for this release.
+
+### Removed
+- **`features/ea-delivery/EADeliveryPage.tsx`** (939 lines) and its 23 test cases have been deleted. The tab-switching shell + principles/decisions/ADR-list code paths are no longer needed (those tabs are now in `/grc`). The Initiatives workspace logic was rewritten lean (~330 lines) as `features/reports/EaDeliveryReport.tsx`.
+
+### Notes
+- **Docs and screenshots** for the relocated surface (`/reports/ea-delivery` + the SoAW tab on Initiative cards, plus the new `/grc` module) are deferred to a follow-up — the user-visible end state stabilises with this release, so the docs refresh can land in a single docs-only PR without churn.
+
 ## [1.9.0] - 2026-05-12
 
 **Provider / Consumer roles on Application↔Interface relations.** An

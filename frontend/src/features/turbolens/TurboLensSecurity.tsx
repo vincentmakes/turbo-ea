@@ -50,12 +50,12 @@ import type {
   TurboLensSecurityOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
-import CreateRiskDialog from "@/features/ea-delivery/risks/CreateRiskDialog";
+import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   RiskDialogSeed,
   seedFromCompliance,
   seedFromCve,
-} from "@/features/ea-delivery/risks/riskDefaults";
+} from "@/features/grc/risk/riskDefaults";
 import { useNavigate } from "react-router-dom";
 import type { Risk } from "@/types";
 import SecurityFindingDrawer from "./SecurityFindingDrawer";
@@ -68,11 +68,11 @@ import {
   priorityColor,
   probabilityColor,
 } from "./utils";
-import RiskMatrixLegend from "../ea-delivery/risks/RiskMatrixLegend";
+import RiskMatrixLegend from "../grc/risk/RiskMatrixLegend";
 import {
   deriveLevelFromPair,
   riskLevelBackground,
-} from "../ea-delivery/risks/riskMatrixColors";
+} from "../grc/risk/riskMatrixColors";
 
 const REGULATIONS: RegulationKey[] = [
   "eu_ai_act",
@@ -149,7 +149,7 @@ export default function TurboLensSecurity() {
   // Risk promotion dialog (used from CVE drawer, CVE rows, compliance cards).
   const [riskSeed, setRiskSeed] = useState<RiskDialogSeed | null>(null);
   const openRisk = useCallback(
-    (riskId: string) => navigate(`/ea-delivery/risks/${riskId}`),
+    (riskId: string) => navigate(`/grc/risks/${riskId}`),
     [navigate],
   );
 
@@ -448,7 +448,7 @@ export default function TurboLensSecurity() {
               risk_reference: risk.reference,
             });
           }
-          navigate(`/ea-delivery/risks/${risk.id}`);
+          navigate(`/grc/risks/${risk.id}`);
         }}
       />
     </Box>

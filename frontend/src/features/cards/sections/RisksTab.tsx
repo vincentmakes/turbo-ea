@@ -24,12 +24,12 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api, ApiError } from "@/api/client";
 import type { Risk } from "@/types";
-import CreateRiskDialog from "@/features/ea-delivery/risks/CreateRiskDialog";
+import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
 import {
   emptySeed,
   RiskDialogSeed,
   riskLevelChipColor,
-} from "@/features/ea-delivery/risks/riskDefaults";
+} from "@/features/grc/risk/riskDefaults";
 
 interface Props {
   cardId: string;
@@ -126,7 +126,7 @@ export default function RisksTab({ cardId }: Props) {
               <TableRow
                 key={r.id}
                 hover
-                onClick={() => navigate(`/ea-delivery/risks/${r.id}`)}
+                onClick={() => navigate(`/grc/risks/${r.id}`)}
                 sx={{ cursor: "pointer" }}
               >
                 <TableCell>{r.reference}</TableCell>
@@ -177,7 +177,7 @@ export default function RisksTab({ cardId }: Props) {
         onCreated={(risk) => {
           setDialogSeed(null);
           load();
-          navigate(`/ea-delivery/risks/${risk.id}`);
+          navigate(`/grc/risks/${risk.id}`);
         }}
       />
     </Paper>

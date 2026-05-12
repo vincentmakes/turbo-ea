@@ -1017,6 +1017,345 @@ PROCESS_FREQUENCY_OPTIONS = [
     },
 ]
 
+# ── AI Governance section ────────────────────────────────────────────
+# Per the GRC plan: shipped on Application, ITComponent and Interface card
+# types so EU AI Act risk-classification + ownership + lifecycle stage can
+# be captured on any card that embeds AI. The fields land in cards.attributes
+# JSONB — no schema change. The Inventory dashboard at
+# /grc?tab=governance&sub=ai surfaces AI-bearing cards (subtype match,
+# semantic detection, or aiClassificationOverride="yes") with these values.
+
+AI_RISK_CLASS_OPTIONS = [
+    # EU AI Act risk-class taxonomy (Article 5 / Annex III / Article 50 / minimal).
+    {
+        "key": "unacceptable",
+        "label": "Unacceptable risk",
+        "color": "#b71c1c",
+        "translations": {
+            "de": "Unannehmbares Risiko",
+            "fr": "Risque inacceptable",
+            "es": "Riesgo inaceptable",
+            "it": "Rischio inaccettabile",
+            "pt": "Risco inaceitável",
+            "zh": "不可接受的风险",
+            "ru": "Неприемлемый риск",
+        },
+    },
+    {
+        "key": "high",
+        "label": "High risk",
+        "color": "#e53935",
+        "translations": {
+            "de": "Hohes Risiko",
+            "fr": "Risque élevé",
+            "es": "Riesgo alto",
+            "it": "Rischio elevato",
+            "pt": "Risco alto",
+            "zh": "高风险",
+            "ru": "Высокий риск",
+        },
+    },
+    {
+        "key": "limited",
+        "label": "Limited risk",
+        "color": "#fbc02d",
+        "translations": {
+            "de": "Begrenztes Risiko",
+            "fr": "Risque limité",
+            "es": "Riesgo limitado",
+            "it": "Rischio limitato",
+            "pt": "Risco limitado",
+            "zh": "有限风险",
+            "ru": "Ограниченный риск",
+        },
+    },
+    {
+        "key": "minimal",
+        "label": "Minimal risk",
+        "color": "#43a047",
+        "translations": {
+            "de": "Minimales Risiko",
+            "fr": "Risque minimal",
+            "es": "Riesgo mínimo",
+            "it": "Rischio minimo",
+            "pt": "Risco mínimo",
+            "zh": "最小风险",
+            "ru": "Минимальный риск",
+        },
+    },
+]
+
+AI_SYSTEM_ROLE_OPTIONS = [
+    # Matches the role taxonomy used by the semantic detector in
+    # turbolens_security.detect_ai_bearing_cards (see AI_SUBTYPES handling).
+    {
+        "key": "provider",
+        "label": "Provider",
+        "color": "#1565c0",
+        "translations": {
+            "de": "Anbieter",
+            "fr": "Fournisseur",
+            "es": "Proveedor",
+            "it": "Fornitore",
+            "pt": "Fornecedor",
+            "zh": "提供方",
+            "ru": "Поставщик",
+        },
+    },
+    {
+        "key": "consumer",
+        "label": "Consumer",
+        "color": "#6a1b9a",
+        "translations": {
+            "de": "Nutzer",
+            "fr": "Utilisateur",
+            "es": "Consumidor",
+            "it": "Utilizzatore",
+            "pt": "Consumidor",
+            "zh": "使用方",
+            "ru": "Потребитель",
+        },
+    },
+    {
+        "key": "embedded",
+        "label": "Embedded",
+        "color": "#00897b",
+        "translations": {
+            "de": "Eingebettet",
+            "fr": "Intégré",
+            "es": "Integrado",
+            "it": "Integrato",
+            "pt": "Integrado",
+            "zh": "嵌入式",
+            "ru": "Встроенный",
+        },
+    },
+]
+
+AI_LIFECYCLE_STAGE_OPTIONS = [
+    {
+        "key": "design",
+        "label": "Design",
+        "color": "#90a4ae",
+        "translations": {
+            "de": "Konzeption",
+            "fr": "Conception",
+            "es": "Diseño",
+            "it": "Progettazione",
+            "pt": "Concepção",
+            "zh": "设计",
+            "ru": "Проектирование",
+        },
+    },
+    {
+        "key": "training",
+        "label": "Training",
+        "color": "#7b1fa2",
+        "translations": {
+            "de": "Training",
+            "fr": "Entraînement",
+            "es": "Entrenamiento",
+            "it": "Addestramento",
+            "pt": "Treinamento",
+            "zh": "训练",
+            "ru": "Обучение",
+        },
+    },
+    {
+        "key": "validation",
+        "label": "Validation",
+        "color": "#1976d2",
+        "translations": {
+            "de": "Validierung",
+            "fr": "Validation",
+            "es": "Validación",
+            "it": "Validazione",
+            "pt": "Validação",
+            "zh": "验证",
+            "ru": "Валидация",
+        },
+    },
+    {
+        "key": "production",
+        "label": "Production",
+        "color": "#2e7d32",
+        "translations": {
+            "de": "Produktion",
+            "fr": "Production",
+            "es": "Producción",
+            "it": "Produzione",
+            "pt": "Produção",
+            "zh": "生产",
+            "ru": "Эксплуатация",
+        },
+    },
+    {
+        "key": "retired",
+        "label": "Retired",
+        "color": "#757575",
+        "translations": {
+            "de": "Stillgelegt",
+            "fr": "Retiré",
+            "es": "Retirado",
+            "it": "Ritirato",
+            "pt": "Aposentado",
+            "zh": "已退役",
+            "ru": "Выведено из эксплуатации",
+        },
+    },
+]
+
+AI_CLASSIFICATION_OVERRIDE_OPTIONS = [
+    # Manual override of the semantic detector. "auto" defers to detection,
+    # "yes" forces inclusion (e.g. an AI-embedded card the detector missed),
+    # "no" forces exclusion (false positive).
+    {
+        "key": "auto",
+        "label": "Auto-detect",
+        "color": "#90a4ae",
+        "translations": {
+            "de": "Automatisch erkennen",
+            "fr": "Détection automatique",
+            "es": "Detección automática",
+            "it": "Rilevamento automatico",
+            "pt": "Detecção automática",
+            "zh": "自动识别",
+            "ru": "Автоопределение",
+        },
+    },
+    {
+        "key": "yes",
+        "label": "Force include",
+        "color": "#2e7d32",
+        "translations": {
+            "de": "Erzwingen: ja",
+            "fr": "Forcer l'inclusion",
+            "es": "Forzar inclusión",
+            "it": "Forza inclusione",
+            "pt": "Forçar inclusão",
+            "zh": "强制纳入",
+            "ru": "Принудительно включить",
+        },
+    },
+    {
+        "key": "no",
+        "label": "Force exclude",
+        "color": "#c62828",
+        "translations": {
+            "de": "Erzwingen: nein",
+            "fr": "Forcer l'exclusion",
+            "es": "Forzar exclusión",
+            "it": "Forza esclusione",
+            "pt": "Forçar exclusão",
+            "zh": "强制排除",
+            "ru": "Принудительно исключить",
+        },
+    },
+]
+
+
+def _ai_governance_section() -> dict:
+    """The AI Governance section appended to Application / ITComponent / Interface.
+
+    Returns a fresh dict on each call so the migration's deep-equality guard
+    can mutate the copy it inserts into an existing row without affecting the
+    seed value for other types.
+    """
+    return {
+        "section": "AI Governance",
+        "translations": {
+            "de": "KI-Governance",
+            "fr": "Gouvernance IA",
+            "es": "Gobierno de IA",
+            "it": "Governance dell'IA",
+            "pt": "Governança de IA",
+            "zh": "AI 治理",
+            "ru": "Управление ИИ",
+        },
+        "fields": [
+            {
+                "key": "aiRiskClass",
+                "label": "AI Risk Class",
+                "type": "single_select",
+                "options": AI_RISK_CLASS_OPTIONS,
+                "weight": 3,
+                "translations": {
+                    "de": "KI-Risikoklasse",
+                    "fr": "Classe de risque IA",
+                    "es": "Clase de riesgo de IA",
+                    "it": "Classe di rischio IA",
+                    "pt": "Classe de risco de IA",
+                    "zh": "AI 风险等级",
+                    "ru": "Класс риска ИИ",
+                },
+            },
+            {
+                "key": "aiSystemRole",
+                "label": "AI System Role",
+                "type": "single_select",
+                "options": AI_SYSTEM_ROLE_OPTIONS,
+                "weight": 2,
+                "translations": {
+                    "de": "Rolle im KI-System",
+                    "fr": "Rôle dans le système IA",
+                    "es": "Rol en el sistema de IA",
+                    "it": "Ruolo nel sistema IA",
+                    "pt": "Papel no sistema de IA",
+                    "zh": "AI 系统角色",
+                    "ru": "Роль в системе ИИ",
+                },
+            },
+            {
+                "key": "aiLifecycleStage",
+                "label": "AI Lifecycle Stage",
+                "type": "single_select",
+                "options": AI_LIFECYCLE_STAGE_OPTIONS,
+                "weight": 2,
+                "translations": {
+                    "de": "KI-Lebenszyklusphase",
+                    "fr": "Étape du cycle de vie IA",
+                    "es": "Etapa del ciclo de vida de IA",
+                    "it": "Fase del ciclo di vita IA",
+                    "pt": "Etapa do ciclo de vida de IA",
+                    "zh": "AI 生命周期阶段",
+                    "ru": "Этап жизненного цикла ИИ",
+                },
+            },
+            {
+                "key": "aiIntendedPurpose",
+                "label": "Intended Purpose",
+                "type": "text",
+                "weight": 1,
+                "translations": {
+                    "de": "Beabsichtigter Zweck",
+                    "fr": "Finalité prévue",
+                    "es": "Finalidad prevista",
+                    "it": "Finalità prevista",
+                    "pt": "Finalidade pretendida",
+                    "zh": "预期用途",
+                    "ru": "Назначение",
+                },
+            },
+            {
+                "key": "aiClassificationOverride",
+                "label": "AI Classification",
+                "type": "single_select",
+                "options": AI_CLASSIFICATION_OVERRIDE_OPTIONS,
+                "weight": 1,
+                "translations": {
+                    "de": "KI-Klassifizierung",
+                    "fr": "Classification IA",
+                    "es": "Clasificación de IA",
+                    "it": "Classificazione IA",
+                    "pt": "Classificação de IA",
+                    "zh": "AI 分类",
+                    "ru": "Классификация ИИ",
+                },
+            },
+        ],
+    }
+
+
 # ── 14 Card Types (from Meta_Model.xml + BPM) ────────────────────────
 
 TYPES = [
@@ -2761,6 +3100,7 @@ TYPES = [
                     },
                 ],
             },
+            _ai_governance_section(),
         ],
         "translations": {
             "label": {
@@ -2898,6 +3238,7 @@ TYPES = [
                     },
                 ],
             },
+            _ai_governance_section(),
         ],
         "translations": {
             "label": {
@@ -3231,6 +3572,7 @@ TYPES = [
                     },
                 ],
             },
+            _ai_governance_section(),
         ],
         "translations": {
             "label": {

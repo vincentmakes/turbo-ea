@@ -1,4 +1,8 @@
 {
+  "tabs": {
+    "portfolio": "Portefeuille",
+    "eaDelivery": "EA Delivery"
+  },
   "title": "Gestion de portefeuille de projets",
   "totalInitiatives": "Total des initiatives",
   "totalBudget": "Budget total",

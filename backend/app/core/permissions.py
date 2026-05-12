@@ -174,6 +174,19 @@ APP_PERMISSIONS: dict[str, dict] = {
             "risks.manage": "Create, edit, promote, and resolve risks",
         },
     },
+    "grc": {
+        "label": "GRC",
+        "permissions": {
+            "grc.view": (
+                "View the GRC module (Governance, Risk, Compliance). "
+                "Risk and Compliance subtabs additionally honour risks.view "
+                "and security_compliance.view."
+            ),
+            "grc.manage": (
+                "Manage Governance content (AI risk classifications, ownership, principles)"
+            ),
+        },
+    },
     "ai": {
         "label": "AI",
         "permissions": {
@@ -320,6 +333,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "security_compliance.manage": False,
     "risks.view": True,
     "risks.manage": True,
+    "grc.view": True,
+    "grc.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -389,6 +404,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "security_compliance.manage": False,
     "risks.view": True,
     "risks.manage": True,
+    "grc.view": True,
+    "grc.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -458,6 +475,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "security_compliance.manage": False,
     "risks.view": True,
     "risks.manage": False,
+    "grc.view": True,
+    "grc.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,

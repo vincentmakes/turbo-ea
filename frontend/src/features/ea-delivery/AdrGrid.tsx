@@ -42,6 +42,12 @@ interface Props {
   onExport: (adrs: ArchitectureDecision[]) => void;
   quickFilterText: string;
   onQuickFilterChange: (text: string) => void;
+  /**
+   * When true, the grid sizes itself to its rows instead of filling a fixed
+   * parent height, and the page scroll becomes the single scroll context.
+   * Used by GRC > Governance > Decisions to avoid nested scrollbars.
+   */
+  autoHeight?: boolean;
 }
 
 const STATUS_CHIP_PROPS: Record<string, { label_key: string; color: "default" | "warning" | "success" }> = {
@@ -67,6 +73,7 @@ export default function AdrGrid({
   onExport,
   quickFilterText,
   onQuickFilterChange,
+  autoHeight = false,
 }: Props) {
   const { t } = useTranslation("delivery");
   const navigate = useNavigate();
@@ -357,7 +364,14 @@ export default function AdrGrid({
 
   return (
     <>
-      <Box sx={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: autoHeight ? "auto" : "100%",
+          width: "100%",
+        }}
+      >
         {/* Search bar + selection actions inside the grid panel */}
         <Box
           sx={{
@@ -402,7 +416,7 @@ export default function AdrGrid({
         <Box
           className={isDark ? "ag-theme-quartz-dark" : "ag-theme-quartz"}
           sx={{
-            flex: 1,
+            flex: autoHeight ? "none" : 1,
             minHeight: 0,
             // Rows are clickable (open ADR detail) — surface that affordance:
             // pointer cursor over the body cells (skip the leftmost checkbox
@@ -433,6 +447,7 @@ export default function AdrGrid({
             suppressCellFocus
             animateRows={false}
             getRowId={(params) => params.data.id}
+            domLayout={autoHeight ? "autoHeight" : undefined}
           />
         </Box>
       </Box>

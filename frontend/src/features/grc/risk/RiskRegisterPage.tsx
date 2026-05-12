@@ -14,7 +14,6 @@ import { useNavigate } from "react-router-dom";
 import { AgGridReact } from "ag-grid-react";
 import type {
   ColDef,
-  GridReadyEvent,
   ICellRendererParams,
   RowClickedEvent,
 } from "ag-grid-community";
@@ -169,7 +168,7 @@ export default function RiskRegisterPage() {
     setDialogSeed(null);
     reload();
     reloadMetrics();
-    navigate(`/ea-delivery/risks/${risk.id}`);
+    navigate(`/grc/risks/${risk.id}`);
   };
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -201,8 +200,9 @@ export default function RiskRegisterPage() {
       {
         field: "title",
         headerName: t("risks.col.title"),
+        width: 380,
+        minWidth: 240,
         flex: 2,
-        minWidth: 260,
         filter: "agTextColumnFilter",
       },
       {
@@ -262,7 +262,7 @@ export default function RiskRegisterPage() {
       {
         field: "status",
         headerName: t("risks.col.status"),
-        width: 160,
+        width: 180,
         filter: "agSetColumnFilter",
         valueFormatter: (p) => (p.value ? t(`risks.status.${p.value}`) : ""),
         cellRenderer: (p: ICellRendererParams<Risk, string>) =>
@@ -277,7 +277,7 @@ export default function RiskRegisterPage() {
       {
         field: "owner_name",
         headerName: t("risks.col.owner"),
-        width: 180,
+        width: 160,
         filter: "agTextColumnFilter",
         valueFormatter: (p) => p.value ?? "—",
       },
@@ -323,7 +323,7 @@ export default function RiskRegisterPage() {
       {
         field: "updated_at",
         headerName: t("risks.col.updatedAt"),
-        width: 150,
+        width: 140,
         filter: "agDateColumnFilter",
         sort: "desc",
         valueFormatter: (p) => formatDate(p.value as string | null | undefined),
@@ -515,10 +515,7 @@ export default function RiskRegisterPage() {
                 )}</span>`}
                 suppressCellFocus
                 onRowClicked={(e: RowClickedEvent<Risk>) => {
-                  if (e.data) navigate(`/ea-delivery/risks/${e.data.id}`);
-                }}
-                onGridReady={(e: GridReadyEvent<Risk>) => {
-                  e.api.sizeColumnsToFit();
+                  if (e.data) navigate(`/grc/risks/${e.data.id}`);
                 }}
               />
             </Box>

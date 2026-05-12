@@ -67,13 +67,16 @@ const NAV_ITEM_DEFS: NavItemDef[] = [
       { labelKey: "reports.matrix", icon: "table_chart", path: "/reports/matrix" },
       { labelKey: "reports.dataQuality", icon: "verified", path: "/reports/data-quality" },
       { labelKey: "reports.endOfLife", icon: "update", path: "/reports/eol" },
+      // EA Delivery lives inside /ppm as a tab when PPM is enabled. When PPM
+      // is disabled the nav memo below promotes EA Delivery to a top-level
+      // nav item (in PPM's old slot) so the surface stays reachable.
       { labelKey: "reports.saved", icon: "bookmarks", path: "/reports/saved" },
     ],
   },
   { labelKey: "bpm", icon: "route", path: "/bpm", permission: "bpm.view" },
   { labelKey: "ppm", icon: "view_timeline", path: "/ppm", permission: "ppm.view" },
   { labelKey: "diagrams", icon: "schema", path: "/diagrams", permission: "diagrams.view" },
-  { labelKey: "delivery", icon: "architecture", path: "/ea-delivery", permission: "soaw.view" },
+  { labelKey: "grc", icon: "policy", path: "/grc", permission: "grc.view" },
   { labelKey: "todos", icon: "checklist", path: "/todos" },
 ];
 
@@ -128,6 +131,21 @@ export default function AppLayout({ children, user, onLogout }: Props) {
     let items = NAV_ITEM_DEFS as NavItemDef[];
     if (!bpmEnabled) items = items.filter((item) => item.labelKey !== "bpm");
     if (!ppmEnabled) items = items.filter((item) => item.labelKey !== "ppm");
+
+    // When PPM is disabled, EA Delivery has no parent tab to live under —
+    // promote it to a top-level nav item, sitting in PPM's old slot (between
+    // BPM and Diagrams) so the surface stays reachable from the top menu.
+    if (!ppmEnabled) {
+      const eaDeliveryItem: NavItemDef = {
+        labelKey: "delivery",
+        icon: "architecture",
+        path: "/reports/ea-delivery",
+        permission: "soaw.view",
+      };
+      const diagramsIdx = items.findIndex((i) => i.labelKey === "diagrams");
+      const insertAt = diagramsIdx >= 0 ? diagramsIdx : items.length;
+      items = [...items.slice(0, insertAt), eaDeliveryItem, ...items.slice(insertAt)];
+    }
 
     // Append single TurboLens entry to Reports dropdown when AI is configured
     if (turboLensReady && can("turbolens.view")) {

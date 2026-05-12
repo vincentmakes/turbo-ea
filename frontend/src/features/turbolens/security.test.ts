@@ -8,7 +8,7 @@ import {
 import {
   deriveLevelFromPair,
   riskLevelBackground,
-} from "../ea-delivery/risks/riskMatrixColors";
+} from "../grc/risk/riskMatrixColors";
 
 describe("CVE severity / status / probability colors", () => {
   it("maps known CVE severity values to MUI chip colors", () => {

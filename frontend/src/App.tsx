@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -32,17 +32,15 @@ const DiagramsPage = lazy(() => import("@/features/diagrams/DiagramsPage"));
 const DiagramViewer = lazy(() => import("@/features/diagrams/DiagramViewer"));
 const DiagramEditor = lazy(() => import("@/features/diagrams/DiagramEditor"));
 const TodosPage = lazy(() => import("@/features/todos/TodosPage"));
-const EADeliveryPage = lazy(() => import("@/features/ea-delivery/EADeliveryPage"));
+const EaDeliveryReport = lazy(() => import("@/features/reports/EaDeliveryReport"));
 const SoAWEditor = lazy(() => import("@/features/ea-delivery/SoAWEditor"));
 const SoAWPreview = lazy(() => import("@/features/ea-delivery/SoAWPreview"));
 const ADREditor = lazy(() => import("@/features/ea-delivery/ADREditor"));
 const ADRPreview = lazy(() => import("@/features/ea-delivery/ADRPreview"));
-const RiskRegisterPage = lazy(
-  () => import("@/features/ea-delivery/risks/RiskRegisterPage"),
-);
 const RiskDetailPage = lazy(
-  () => import("@/features/ea-delivery/risks/RiskDetailPage"),
+  () => import("@/features/grc/risk/RiskDetailPage"),
 );
+const GrcPage = lazy(() => import("@/features/grc/GrcPage"));
 const MetamodelAdmin = lazy(() => import("@/features/admin/MetamodelAdmin"));
 const UsersAdmin = lazy(() => import("@/features/admin/UsersAdmin"));
 const SettingsAdmin = lazy(() => import("@/features/admin/SettingsAdmin"));
@@ -53,7 +51,7 @@ const SurveyRespond = lazy(() => import("@/features/surveys/SurveyRespond"));
 const PortalViewer = lazy(() => import("@/features/web-portals/PortalViewer"));
 const BpmDashboard = lazy(() => import("@/features/bpm/BpmDashboard"));
 const ProcessFlowEditorPage = lazy(() => import("@/features/bpm/ProcessFlowEditorPage"));
-const PpmPortfolio = lazy(() => import("@/features/ppm/PpmPortfolio"));
+const PpmHome = lazy(() => import("@/features/ppm/PpmHome"));
 const PpmProjectDetail = lazy(() => import("@/features/ppm/PpmProjectDetail"));
 const TurboLensPage = lazy(() => import("@/features/turbolens/TurboLensPage"));
 const AssessmentViewer = lazy(() => import("@/features/turbolens/AssessmentViewer"));
@@ -69,6 +67,12 @@ const ValueStreamCataloguePage = lazy(
 const PrinciplesCataloguePage = lazy(
   () => import("@/features/principles-catalogue/PrinciplesCataloguePage"),
 );
+
+/** Preserve the :id when redirecting /ea-delivery/risks/:id → /grc/risks/:id. */
+function LegacyRiskDetailRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/grc/risks/${id ?? ""}`} replace />;
+}
 
 /** Centered spinner shown while lazy components are loading. */
 function PageLoader() {
@@ -133,20 +137,27 @@ function AppRoutes() {
                 <Route path="/reports/saved" element={<SavedReportsPage />} />
                 <Route path="/bpm" element={<ModuleGate module="bpm"><BpmDashboard /></ModuleGate>} />
                 <Route path="/bpm/processes/:id/flow" element={<ModuleGate module="bpm"><ProcessFlowEditorPage /></ModuleGate>} />
-                <Route path="/ppm" element={<ModuleGate module="ppm"><PpmPortfolio /></ModuleGate>} />
+                <Route path="/ppm" element={<ModuleGate module="ppm"><PpmHome /></ModuleGate>} />
                 <Route path="/ppm/:id" element={<ModuleGate module="ppm"><PpmProjectDetail /></ModuleGate>} />
                 <Route path="/diagrams" element={<DiagramsPage />} />
                 <Route path="/diagrams/:id" element={<DiagramViewer />} />
                 <Route path="/diagrams/:id/edit" element={<DiagramEditor />} />
-                <Route path="/ea-delivery" element={<EADeliveryPage />} />
+                {/* EA Delivery: page dissolved in 1.10.0. Initiatives workspace
+                    moved to /reports/ea-delivery; risks moved to /grc?tab=risk.
+                    Editor routes for SoAW and ADR keep their /ea-delivery/ paths
+                    so existing bookmarks survive. */}
+                <Route path="/ea-delivery" element={<Navigate to="/reports/ea-delivery" replace />} />
+                <Route path="/reports/ea-delivery" element={<EaDeliveryReport />} />
                 <Route path="/ea-delivery/soaw/new" element={<SoAWEditor />} />
                 <Route path="/ea-delivery/soaw/:id/preview" element={<SoAWPreview />} />
                 <Route path="/ea-delivery/soaw/:id" element={<SoAWEditor />} />
                 <Route path="/ea-delivery/adr/new" element={<ADREditor />} />
                 <Route path="/ea-delivery/adr/:id/preview" element={<ADRPreview />} />
                 <Route path="/ea-delivery/adr/:id" element={<ADREditor />} />
-                <Route path="/ea-delivery/risks" element={<RiskRegisterPage />} />
-                <Route path="/ea-delivery/risks/:id" element={<RiskDetailPage />} />
+                <Route path="/ea-delivery/risks" element={<Navigate to="/grc?tab=risk" replace />} />
+                <Route path="/ea-delivery/risks/:id" element={<LegacyRiskDetailRedirect />} />
+                <Route path="/grc" element={<GrcPage />} />
+                <Route path="/grc/risks/:id" element={<RiskDetailPage />} />
                 <Route path="/todos" element={<TodosPage />} />
                 <Route path="/surveys" element={<Navigate to="/todos?tab=surveys" />} />
                 <Route path="/surveys/:surveyId/respond/:cardId" element={<SurveyRespond />} />

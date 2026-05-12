@@ -1,0 +1,122 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, Risiko und Compliance"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Risiko",
+    "compliance": "Compliance"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "KI-Governance",
+      "principles": "Prinzipien",
+      "decisions": "Entscheidungen"
+    },
+    "ai": {
+      "title": "KI-Bestand",
+      "subtitle": "KI-behaftete Karten (Untertyp, semantische Erkennung oder manuelles Override), mit Risikoklassifizierung nach EU-KI-Verordnung und Lebenszyklusphase",
+      "runDiscovery": "Erkennung starten",
+      "running": "Erkennung läuft…",
+      "discoveredCount_one": "{{count}} KI-System klassifiziert",
+      "discoveredCount_other": "{{count}} KI-Systeme klassifiziert",
+      "skippedNoProvider": "KI-Anbieter nicht konfiguriert — nur Untertyp-Treffer wurden klassifiziert. Konfigurieren Sie einen KI-Anbieter unter Admin › Einstellungen › KI, um auch in Allzweck-Software verborgene KI zu erfassen.",
+      "lastDiscovered": "Zuletzt erkannt: {{when}}",
+      "neverRun": "Erkennung wurde noch nie ausgeführt",
+      "empty": "Noch keine KI-Systeme erkannt. Klicken Sie auf «Erkennung starten», um Application-, ITComponent- und Interface-Karten zu scannen.",
+      "kpi": {
+        "total": "KI-Systeme gesamt",
+        "unclassified": "Nicht klassifiziert",
+        "unclassifiedHint": "Ohne KI-Risikoklasse",
+        "highRisk": "Hoch / unannehmbar",
+        "highRiskHint": "EU-KI-Verordnung hoch oder unannehmbar",
+        "unowned": "Ohne Eigentümer",
+        "unownedHint": "Kein Stakeholder zugewiesen"
+      },
+      "filters": {
+        "allRiskClasses": "Alle Risikoklassen",
+        "allLifecycles": "Alle Lebenszyklusphasen",
+        "allMethods": "Alle Erkennungsmethoden"
+      },
+      "columns": {
+        "name": "Karte",
+        "type": "Typ",
+        "subtype": "Untertyp",
+        "riskClass": "KI-Risikoklasse",
+        "role": "Rolle",
+        "lifecycle": "Lebenszyklus",
+        "method": "Erkennung",
+        "owners": "Eigentümer",
+        "confidence": "Zuverlässigkeit"
+      },
+      "method": {
+        "subtype": "Untertyp",
+        "semantic": "KI-Signal",
+        "override": "Manuell"
+      },
+      "role": {
+        "provider": "Anbieter",
+        "consumer": "Nutzer",
+        "embedded": "Eingebettet"
+      },
+      "lifecycle": {
+        "design": "Konzeption",
+        "training": "Training",
+        "validation": "Validierung",
+        "production": "Produktion",
+        "retired": "Stillgelegt"
+      },
+      "riskClass": {
+        "unacceptable": "Unannehmbar",
+        "high": "Hoch",
+        "limited": "Begrenzt",
+        "minimal": "Minimal"
+      },
+      "unknown": "—",
+      "unowned": "Kein Eigentümer"
+    },
+    "principles": {
+      "title": "Architekturprinzipien",
+      "empty": "Noch keine aktiven Prinzipien. Definieren Sie sie unter Admin › Metamodell.",
+      "rationale": "Begründung",
+      "implications": "Implikationen"
+    },
+    "decisions": {
+      "title": "Architekturentscheidungen",
+      "empty": "Noch keine Architekturentscheidungen erfasst.",
+      "status": "Status",
+      "open": "Öffnen",
+      "create": "Neue Entscheidung"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "KI-Anbieter ist nicht konfiguriert",
+      "body": "Compliance-Scans werden von einem LLM gesteuert — jede Regulierung wird beurteilt, indem der konfigurierte KI-Anbieter gegen Ihre Landschaft aufgerufen wird. Ohne Anbieter sind die Scans sofort fertig, aber jeder Befund weicht auf «KI ist nicht konfiguriert» aus; deshalb verbergen wir den Scanner, bis er sinnvolle Arbeit leisten kann.",
+      "regulations": "Abgedeckte Regulierungen: EU-KI-Verordnung · DSGVO · NIS2 · DORA · SOC 2 · ISO 27001.",
+      "configureCta": "KI-Anbieter konfigurieren",
+      "contactAdmin": "Bitten Sie einen Administrator, unter Admin › Einstellungen › KI einen KI-Anbieter einzurichten, um Compliance-Scans zu aktivieren."
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statement of Architecture Work",
+    "subtitle": "Umfang, Vorgehen und Freigabe für diese Initiative",
+    "empty": "Noch keine SoAWs. Erstellen Sie eines, um Umfang, Vorgehen und Freigabe dieser Initiative zu erfassen.",
+    "create": "Neues SoAW",
+    "columns": {
+      "title": "Titel",
+      "status": "Status",
+      "revision": "Revision",
+      "updated": "Aktualisiert",
+      "author": "Autor"
+    },
+    "actions": {
+      "open": "Öffnen",
+      "preview": "Vorschau",
+      "delete": "Löschen"
+    },
+    "confirmDelete": "Dieses SoAW löschen? Dies kann nicht rückgängig gemacht werden."
+  }
+}

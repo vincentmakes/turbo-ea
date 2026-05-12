@@ -1,0 +1,122 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governança, Risco e Conformidade"
+  },
+  "tabs": {
+    "governance": "Governança",
+    "risk": "Risco",
+    "compliance": "Conformidade"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "Governança de IA",
+      "principles": "Princípios",
+      "decisions": "Decisões"
+    },
+    "ai": {
+      "title": "Inventário de IA",
+      "subtitle": "Cards com IA (subtipo, detecção semântica ou override manual), com classificação de risco da Lei de IA da UE e etapa do ciclo de vida",
+      "runDiscovery": "Executar detecção",
+      "running": "Detecção em andamento…",
+      "discoveredCount_one": "{{count}} sistema de IA classificado",
+      "discoveredCount_other": "{{count}} sistemas de IA classificados",
+      "skippedNoProvider": "Provedor de IA não configurado — apenas correspondências de subtipo foram classificadas. Configure um provedor de IA em Admin › Configurações › IA para também capturar IA oculta em software de uso geral.",
+      "lastDiscovered": "Última detecção: {{when}}",
+      "neverRun": "A detecção nunca foi executada",
+      "empty": "Nenhum sistema de IA detectado ainda. Clique em «Executar detecção» para analisar cards Application / ITComponent / Interface.",
+      "kpi": {
+        "total": "Total de sistemas de IA",
+        "unclassified": "Não classificados",
+        "unclassifiedHint": "Sem classe de risco de IA",
+        "highRisk": "Alto / inaceitável",
+        "highRiskHint": "Lei de IA: alto ou inaceitável",
+        "unowned": "Sem proprietário",
+        "unownedHint": "Sem stakeholder atribuído"
+      },
+      "filters": {
+        "allRiskClasses": "Todas as classes de risco",
+        "allLifecycles": "Todas as etapas",
+        "allMethods": "Todos os métodos"
+      },
+      "columns": {
+        "name": "Card",
+        "type": "Tipo",
+        "subtype": "Subtipo",
+        "riskClass": "Classe de risco de IA",
+        "role": "Papel",
+        "lifecycle": "Ciclo de vida",
+        "method": "Detecção",
+        "owners": "Proprietários",
+        "confidence": "Confiança"
+      },
+      "method": {
+        "subtype": "Subtipo",
+        "semantic": "Sinal de IA",
+        "override": "Manual"
+      },
+      "role": {
+        "provider": "Fornecedor",
+        "consumer": "Consumidor",
+        "embedded": "Integrado"
+      },
+      "lifecycle": {
+        "design": "Concepção",
+        "training": "Treinamento",
+        "validation": "Validação",
+        "production": "Produção",
+        "retired": "Aposentado"
+      },
+      "riskClass": {
+        "unacceptable": "Inaceitável",
+        "high": "Alto",
+        "limited": "Limitado",
+        "minimal": "Mínimo"
+      },
+      "unknown": "—",
+      "unowned": "Sem proprietário"
+    },
+    "principles": {
+      "title": "Princípios de arquitetura",
+      "empty": "Ainda não há princípios ativos. Defina-os em Admin › Metamodelo.",
+      "rationale": "Justificativa",
+      "implications": "Implicações"
+    },
+    "decisions": {
+      "title": "Decisões de arquitetura",
+      "empty": "Ainda não há decisões de arquitetura registradas.",
+      "status": "Status",
+      "open": "Abrir",
+      "create": "Nova decisão"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "O provedor de IA não está configurado",
+      "body": "A análise de conformidade é conduzida por um LLM — cada regulamento é avaliado chamando o provedor de IA configurado contra o seu cenário. Sem um provedor, as varreduras terminam instantaneamente, mas cada achado recai em «IA não configurada»; por isso ocultamos o scanner até que possa produzir resultados úteis.",
+      "regulations": "Regulamentos cobertos: Lei de IA da UE · LGPD/GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
+      "configureCta": "Configurar provedor de IA",
+      "contactAdmin": "Peça a um administrador para configurar um provedor de IA em Admin › Configurações › IA para habilitar a análise de conformidade."
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statements of Architecture Work",
+    "subtitle": "Escopo, abordagem e aprovação para esta iniciativa",
+    "empty": "Ainda não há SoAWs. Crie um para registrar o escopo, a abordagem e a aprovação desta iniciativa.",
+    "create": "Novo SoAW",
+    "columns": {
+      "title": "Título",
+      "status": "Status",
+      "revision": "Revisão",
+      "updated": "Atualizado",
+      "author": "Autor"
+    },
+    "actions": {
+      "open": "Abrir",
+      "preview": "Visualizar",
+      "delete": "Excluir"
+    },
+    "confirmDelete": "Excluir este SoAW? Esta ação não pode ser desfeita."
+  }
+}

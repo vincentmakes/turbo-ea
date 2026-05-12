@@ -1,0 +1,122 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "治理、风险与合规"
+  },
+  "tabs": {
+    "governance": "治理",
+    "risk": "风险",
+    "compliance": "合规"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "AI 治理",
+      "principles": "原则",
+      "decisions": "决策"
+    },
+    "ai": {
+      "title": "AI 清单",
+      "subtitle": "包含 AI 的卡片(子类型、语义识别或手动覆盖),含欧盟《人工智能法》风险分级与生命周期阶段。",
+      "runDiscovery": "开始识别",
+      "running": "正在识别…",
+      "discoveredCount_one": "已分类 {{count}} 个 AI 系统",
+      "discoveredCount_other": "已分类 {{count}} 个 AI 系统",
+      "skippedNoProvider": "未配置 AI 提供方 — 仅完成了子类型匹配。请在「管理 › 设置 › AI」中配置 AI 提供方,以识别隐藏在通用软件中的 AI。",
+      "lastDiscovered": "最近识别:{{when}}",
+      "neverRun": "尚未运行识别",
+      "empty": "尚未识别到任何 AI 系统。点击「开始识别」以扫描 Application / ITComponent / Interface 卡片。",
+      "kpi": {
+        "total": "AI 系统总数",
+        "unclassified": "未分类",
+        "unclassifiedHint": "缺少 AI 风险等级",
+        "highRisk": "高 / 不可接受",
+        "highRiskHint": "欧盟《人工智能法》高或不可接受",
+        "unowned": "无负责人",
+        "unownedHint": "未分配相关方"
+      },
+      "filters": {
+        "allRiskClasses": "全部风险等级",
+        "allLifecycles": "全部生命周期",
+        "allMethods": "全部识别方式"
+      },
+      "columns": {
+        "name": "卡片",
+        "type": "类型",
+        "subtype": "子类型",
+        "riskClass": "AI 风险等级",
+        "role": "角色",
+        "lifecycle": "生命周期",
+        "method": "识别方式",
+        "owners": "负责人",
+        "confidence": "置信度"
+      },
+      "method": {
+        "subtype": "子类型",
+        "semantic": "AI 信号",
+        "override": "手动"
+      },
+      "role": {
+        "provider": "提供方",
+        "consumer": "使用方",
+        "embedded": "嵌入式"
+      },
+      "lifecycle": {
+        "design": "设计",
+        "training": "训练",
+        "validation": "验证",
+        "production": "生产",
+        "retired": "已退役"
+      },
+      "riskClass": {
+        "unacceptable": "不可接受",
+        "high": "高",
+        "limited": "有限",
+        "minimal": "最小"
+      },
+      "unknown": "—",
+      "unowned": "无负责人"
+    },
+    "principles": {
+      "title": "架构原则",
+      "empty": "尚无活跃原则。请在「管理 › 元模型」中定义。",
+      "rationale": "理由",
+      "implications": "影响"
+    },
+    "decisions": {
+      "title": "架构决策",
+      "empty": "尚未记录任何架构决策。",
+      "status": "状态",
+      "open": "打开",
+      "create": "新建决策"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "尚未配置 AI 提供方",
+      "body": "合规扫描依赖大语言模型 (LLM) — 每条法规都通过调用已配置的 AI 提供方对您的环境进行评估。未配置提供方时,扫描会立即结束,但每条结论都会回落到「AI 未配置」,因此在扫描器能产出有用结果之前我们将其隐藏。",
+      "regulations": "覆盖的法规:欧盟《人工智能法》· GDPR · NIS2 · DORA · SOC 2 · ISO 27001。",
+      "configureCta": "配置 AI 提供方",
+      "contactAdmin": "请联系管理员,在「管理 › 设置 › AI」中配置 AI 提供方以启用合规扫描。"
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "架构工作说明书",
+    "subtitle": "本举措的范围、方法与签批",
+    "empty": "尚无 SoAW。创建一个以记录本举措的范围、方法与签批。",
+    "create": "新建 SoAW",
+    "columns": {
+      "title": "标题",
+      "status": "状态",
+      "revision": "版本",
+      "updated": "更新时间",
+      "author": "作者"
+    },
+    "actions": {
+      "open": "打开",
+      "preview": "预览",
+      "delete": "删除"
+    },
+    "confirmDelete": "确定删除此 SoAW 吗?此操作无法撤销。"
+  }
+}

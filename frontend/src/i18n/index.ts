@@ -14,6 +14,7 @@ import bpmEn from "./locales/en/bpm.json";
 import ppmEn from "./locales/en/ppm.json";
 import diagramsEn from "./locales/en/diagrams.json";
 import deliveryEn from "./locales/en/delivery.json";
+import grcEn from "./locales/en/grc.json";
 import notificationsEn from "./locales/en/notifications.json";
 import validationEn from "./locales/en/validation.json";
 
@@ -29,6 +30,7 @@ import bpmFr from "./locales/fr/bpm.json";
 import ppmFr from "./locales/fr/ppm.json";
 import diagramsFr from "./locales/fr/diagrams.json";
 import deliveryFr from "./locales/fr/delivery.json";
+import grcFr from "./locales/fr/grc.json";
 import notificationsFr from "./locales/fr/notifications.json";
 import validationFr from "./locales/fr/validation.json";
 
@@ -44,6 +46,7 @@ import bpmEs from "./locales/es/bpm.json";
 import ppmEs from "./locales/es/ppm.json";
 import diagramsEs from "./locales/es/diagrams.json";
 import deliveryEs from "./locales/es/delivery.json";
+import grcEs from "./locales/es/grc.json";
 import notificationsEs from "./locales/es/notifications.json";
 import validationEs from "./locales/es/validation.json";
 
@@ -59,6 +62,7 @@ import bpmIt from "./locales/it/bpm.json";
 import ppmIt from "./locales/it/ppm.json";
 import diagramsIt from "./locales/it/diagrams.json";
 import deliveryIt from "./locales/it/delivery.json";
+import grcIt from "./locales/it/grc.json";
 import notificationsIt from "./locales/it/notifications.json";
 import validationIt from "./locales/it/validation.json";
 
@@ -74,6 +78,7 @@ import bpmPt from "./locales/pt/bpm.json";
 import ppmPt from "./locales/pt/ppm.json";
 import diagramsPt from "./locales/pt/diagrams.json";
 import deliveryPt from "./locales/pt/delivery.json";
+import grcPt from "./locales/pt/grc.json";
 import notificationsPt from "./locales/pt/notifications.json";
 import validationPt from "./locales/pt/validation.json";
 
@@ -89,6 +94,7 @@ import bpmZh from "./locales/zh/bpm.json";
 import ppmZh from "./locales/zh/ppm.json";
 import diagramsZh from "./locales/zh/diagrams.json";
 import deliveryZh from "./locales/zh/delivery.json";
+import grcZh from "./locales/zh/grc.json";
 import notificationsZh from "./locales/zh/notifications.json";
 import validationZh from "./locales/zh/validation.json";
 
@@ -104,6 +110,7 @@ import bpmDe from "./locales/de/bpm.json";
 import ppmDe from "./locales/de/ppm.json";
 import diagramsDe from "./locales/de/diagrams.json";
 import deliveryDe from "./locales/de/delivery.json";
+import grcDe from "./locales/de/grc.json";
 import notificationsDe from "./locales/de/notifications.json";
 import validationDe from "./locales/de/validation.json";
 
@@ -119,6 +126,7 @@ import bpmRu from "./locales/ru/bpm.json";
 import ppmRu from "./locales/ru/ppm.json";
 import diagramsRu from "./locales/ru/diagrams.json";
 import deliveryRu from "./locales/ru/delivery.json";
+import grcRu from "./locales/ru/grc.json";
 import notificationsRu from "./locales/ru/notifications.json";
 import validationRu from "./locales/ru/validation.json";
 
@@ -153,6 +161,7 @@ i18n
         ppm: ppmEn,
         diagrams: diagramsEn,
         delivery: deliveryEn,
+        grc: grcEn,
         notifications: notificationsEn,
         validation: validationEn,
       },
@@ -168,6 +177,7 @@ i18n
         ppm: ppmFr,
         diagrams: diagramsFr,
         delivery: deliveryFr,
+        grc: grcFr,
         notifications: notificationsFr,
         validation: validationFr,
       },
@@ -183,6 +193,7 @@ i18n
         ppm: ppmEs,
         diagrams: diagramsEs,
         delivery: deliveryEs,
+        grc: grcEs,
         notifications: notificationsEs,
         validation: validationEs,
       },
@@ -198,6 +209,7 @@ i18n
         ppm: ppmIt,
         diagrams: diagramsIt,
         delivery: deliveryIt,
+        grc: grcIt,
         notifications: notificationsIt,
         validation: validationIt,
       },
@@ -213,6 +225,7 @@ i18n
         ppm: ppmPt,
         diagrams: diagramsPt,
         delivery: deliveryPt,
+        grc: grcPt,
         notifications: notificationsPt,
         validation: validationPt,
       },
@@ -228,6 +241,7 @@ i18n
         ppm: ppmZh,
         diagrams: diagramsZh,
         delivery: deliveryZh,
+        grc: grcZh,
         notifications: notificationsZh,
         validation: validationZh,
       },
@@ -243,6 +257,7 @@ i18n
         ppm: ppmDe,
         diagrams: diagramsDe,
         delivery: deliveryDe,
+        grc: grcDe,
         notifications: notificationsDe,
         validation: validationDe,
       },
@@ -258,6 +273,7 @@ i18n
         ppm: ppmRu,
         diagrams: diagramsRu,
         delivery: deliveryRu,
+        grc: grcRu,
         notifications: notificationsRu,
         validation: validationRu,
       },

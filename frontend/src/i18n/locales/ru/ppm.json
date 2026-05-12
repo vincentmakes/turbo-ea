@@ -1,4 +1,8 @@
 {
+  "tabs": {
+    "portfolio": "Портфель",
+    "eaDelivery": "Поставка EA"
+  },
   "title": "Управление портфелем проектов",
   "totalInitiatives": "Всего инициатив",
   "totalBudget": "Общий бюджет",

@@ -31,6 +31,7 @@ import {
   RisksTab,
   TagsSection,
 } from "@/features/cards/sections";
+import SoAWTab from "@/features/cards/sections/SoAWTab";
 import type { Card, CardEffectivePermissions } from "@/types";
 
 interface Props {
@@ -300,16 +301,22 @@ export default function CardDetailContent({
 
   const isBpm = showBpmTabs && card.type === "BusinessProcess";
   const isPpm = showPpmTab && ppmEnabled && card.type === "Initiative";
+  const isSoaw = card.type === "Initiative";
 
-  // BPM adds 2 tabs after Card; PPM tab goes at the very end
+  // BPM adds 2 tabs after Card; SoAW adds 1 tab after Card (only one of these
+  // ever fires — a card has exactly one type). PPM tab goes at the very end.
   const bpmOffset = isBpm ? 2 : 0;
-  const commentsIdx = 1 + bpmOffset;
-  const todosIdx = 2 + bpmOffset;
-  const stakeholdersIdx = 3 + bpmOffset;
-  const resourcesIdx = 4 + bpmOffset;
-  const risksIdx = 5 + bpmOffset;
-  const historyIdx = 6 + bpmOffset;
+  const soawOffset = isSoaw ? 1 : 0;
+  const extraOffset = bpmOffset + soawOffset;
+  const commentsIdx = 1 + extraOffset;
+  const todosIdx = 2 + extraOffset;
+  const stakeholdersIdx = 3 + extraOffset;
+  const resourcesIdx = 4 + extraOffset;
+  const risksIdx = 5 + extraOffset;
+  const historyIdx = 6 + extraOffset;
   const ppmTabIdx = isPpm ? historyIdx + 1 : -1;
+  // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
+  const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
 
   return (
     <>
@@ -332,6 +339,7 @@ export default function CardDetailContent({
         <Tab label={t("tabs.card")} />
         {isBpm && <Tab label={t("tabs.processFlow")} />}
         {isBpm && <Tab label={t("tabs.assessments")} />}
+        {isSoaw && <Tab label={t("tabs.soaw")} />}
         <Tab label={t("tabs.comments")} />
         <Tab label={t("tabs.todos")} />
         <Tab label={t("tabs.stakeholders")} />
@@ -360,6 +368,15 @@ export default function CardDetailContent({
                 processName={card.name}
                 initialSubTab={initialSubTab}
               />
+            </CardContent>
+          </MuiCard>
+        </ErrorBoundary>
+      )}
+      {isSoaw && tab === soawTabIdx && (
+        <ErrorBoundary label="SoAW">
+          <MuiCard>
+            <CardContent>
+              <SoAWTab initiativeId={card.id} canManage={perms.can_edit} />
             </CardContent>
           </MuiCard>
         </ErrorBoundary>

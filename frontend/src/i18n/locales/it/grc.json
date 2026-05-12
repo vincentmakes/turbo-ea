@@ -1,0 +1,122 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, Rischio e Conformità"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Rischio",
+    "compliance": "Conformità"
+  },
+  "governance": {
+    "subtabs": {
+      "ai": "Governance dell'IA",
+      "principles": "Principi",
+      "decisions": "Decisioni"
+    },
+    "ai": {
+      "title": "Inventario IA",
+      "subtitle": "Schede con IA (sottotipo, rilevamento semantico o override manuale), con classificazione del rischio ai sensi dell'AI Act dell'UE e fase del ciclo di vita",
+      "runDiscovery": "Avvia rilevamento",
+      "running": "Rilevamento in corso…",
+      "discoveredCount_one": "{{count}} sistema IA classificato",
+      "discoveredCount_other": "{{count}} sistemi IA classificati",
+      "skippedNoProvider": "Provider IA non configurato — sono stati classificati solo i match per sottotipo. Configura un provider IA in Admin › Impostazioni › IA per intercettare anche l'IA nascosta nel software generico.",
+      "lastDiscovered": "Ultimo rilevamento: {{when}}",
+      "neverRun": "Rilevamento mai eseguito",
+      "empty": "Nessun sistema IA rilevato. Clicca su «Avvia rilevamento» per analizzare le schede Application / ITComponent / Interface.",
+      "kpi": {
+        "total": "Sistemi IA totali",
+        "unclassified": "Non classificati",
+        "unclassifiedHint": "Senza classe di rischio IA",
+        "highRisk": "Elevato / inaccettabile",
+        "highRiskHint": "AI Act: elevato o inaccettabile",
+        "unowned": "Senza proprietario",
+        "unownedHint": "Nessuno stakeholder assegnato"
+      },
+      "filters": {
+        "allRiskClasses": "Tutte le classi di rischio",
+        "allLifecycles": "Tutte le fasi del ciclo di vita",
+        "allMethods": "Tutti i metodi di rilevamento"
+      },
+      "columns": {
+        "name": "Scheda",
+        "type": "Tipo",
+        "subtype": "Sottotipo",
+        "riskClass": "Classe di rischio IA",
+        "role": "Ruolo",
+        "lifecycle": "Ciclo di vita",
+        "method": "Rilevamento",
+        "owners": "Proprietari",
+        "confidence": "Affidabilità"
+      },
+      "method": {
+        "subtype": "Sottotipo",
+        "semantic": "Segnale IA",
+        "override": "Manuale"
+      },
+      "role": {
+        "provider": "Fornitore",
+        "consumer": "Utilizzatore",
+        "embedded": "Integrato"
+      },
+      "lifecycle": {
+        "design": "Progettazione",
+        "training": "Addestramento",
+        "validation": "Validazione",
+        "production": "Produzione",
+        "retired": "Ritirato"
+      },
+      "riskClass": {
+        "unacceptable": "Inaccettabile",
+        "high": "Elevato",
+        "limited": "Limitato",
+        "minimal": "Minimo"
+      },
+      "unknown": "—",
+      "unowned": "Senza proprietario"
+    },
+    "principles": {
+      "title": "Principi di architettura",
+      "empty": "Nessun principio attivo. Definiscili in Admin › Metamodello.",
+      "rationale": "Motivazione",
+      "implications": "Implicazioni"
+    },
+    "decisions": {
+      "title": "Decisioni di architettura",
+      "empty": "Nessuna decisione di architettura registrata.",
+      "status": "Stato",
+      "open": "Apri",
+      "create": "Nuova decisione"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "Il provider IA non è configurato",
+      "body": "L'analisi di conformità è guidata da un LLM — ogni regolamento è valutato chiamando il provider IA configurato sul vostro panorama. Senza provider, le scansioni terminano subito ma ogni rilievo ripiega su «IA non configurata»; per questo nasconde lo scanner finché non può produrre risultati utili.",
+      "regulations": "Regolamenti coperti: AI Act UE · GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
+      "configureCta": "Configura il provider IA",
+      "contactAdmin": "Chiedi a un amministratore di configurare un provider IA in Admin › Impostazioni › IA per abilitare l'analisi di conformità."
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statement of Architecture Work",
+    "subtitle": "Ambito, approccio e approvazione per questa iniziativa",
+    "empty": "Nessun SoAW. Creane uno per registrare ambito, approccio e approvazione di questa iniziativa.",
+    "create": "Nuovo SoAW",
+    "columns": {
+      "title": "Titolo",
+      "status": "Stato",
+      "revision": "Revisione",
+      "updated": "Aggiornato",
+      "author": "Autore"
+    },
+    "actions": {
+      "open": "Apri",
+      "preview": "Anteprima",
+      "delete": "Elimina"
+    },
+    "confirmDelete": "Eliminare questo SoAW? L'operazione non può essere annullata."
+  }
+}

@@ -283,7 +283,7 @@ export default function RiskDetailPage() {
     if (!window.confirm(confirmMsg)) return;
     try {
       await api.delete(`/risks/${risk.id}`);
-      navigate("/ea-delivery?tab=risks");
+      navigate("/grc?tab=risk");
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
     }
@@ -360,7 +360,7 @@ export default function RiskDetailPage() {
       <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Button
           size="small"
-          onClick={() => navigate("/ea-delivery?tab=risks")}
+          onClick={() => navigate("/grc?tab=risk")}
           startIcon={<MaterialSymbol icon="arrow_back" size={16} />}
         >
           {t("risks.backToRegister")}
