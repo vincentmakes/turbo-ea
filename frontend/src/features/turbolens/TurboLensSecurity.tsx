@@ -104,6 +104,19 @@ const SEVERITY_LABELS: Array<"critical" | "high" | "medium" | "low" | "unknown">
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Humanize a category slug emitted by the compliance LLM
+ * (e.g. "risk_tier_classification" → "Risk Tier Classification").
+ * The LLM is prompted to return a short slug, so we render it
+ * presentably without round-tripping through i18n.
+ */
+function humanizeCategory(slug: string): string {
+  return slug
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
   const { t: tDelivery } = useTranslation("delivery");
@@ -934,6 +947,31 @@ export default function TurboLensSecurity() {
                 variant="outlined"
                 sx={{ p: 2, borderLeft: 4, borderLeftColor: `${complianceStatusColor(f.status)}.main` }}
               >
+                {f.card_name && f.card_id && (
+                  <RouterLink
+                    to={`/cards/${f.card_id}`}
+                    style={{ textDecoration: "none", color: "inherit" }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      alignItems="center"
+                      sx={{
+                        mb: 0.75,
+                        "&:hover .card-name": { textDecoration: "underline" },
+                      }}
+                    >
+                      <Typography
+                        className="card-name"
+                        variant="subtitle2"
+                        sx={{ fontWeight: 600, color: "primary.main" }}
+                      >
+                        {f.card_name}
+                      </Typography>
+                      <MaterialSymbol icon="arrow_outward" size={14} color="primary" />
+                    </Stack>
+                  </RouterLink>
+                )}
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }} flexWrap="wrap" useFlexGap>
                   <Chip
                     size="small"
@@ -965,20 +1003,7 @@ export default function TurboLensSecurity() {
                     </Tooltip>
                   )}
                   {f.category && (
-                    <Chip size="small" variant="outlined" label={f.category} />
-                  )}
-                  {f.card_name && f.card_id && (
-                    <RouterLink
-                      to={`/cards/${f.card_id}`}
-                      style={{ textDecoration: "none" }}
-                    >
-                      <Chip
-                        size="small"
-                        clickable
-                        icon={<MaterialSymbol icon="arrow_outward" size={14} />}
-                        label={f.card_name}
-                      />
-                    </RouterLink>
+                    <Chip size="small" variant="outlined" label={humanizeCategory(f.category)} />
                   )}
                 </Stack>
                 <Typography variant="body2" sx={{ mt: 1 }}>
