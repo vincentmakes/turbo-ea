@@ -17,13 +17,6 @@
     "ai": {
       "title": "Inventaire IA",
       "subtitle": "Cartes intégrant de l'IA (sous-type, détection sémantique ou dérogation manuelle), avec classification des risques au sens du règlement IA de l'UE et étape du cycle de vie",
-      "runDiscovery": "Lancer la détection",
-      "running": "Détection en cours…",
-      "discoveredCount_one": "{{count}} système IA classé",
-      "discoveredCount_other": "{{count}} systèmes IA classés",
-      "skippedNoProvider": "Fournisseur IA non configuré — seules les correspondances de sous-type ont été classées. Configurez un fournisseur IA dans Admin › Paramètres › IA pour détecter aussi l'IA cachée dans des logiciels généralistes.",
-      "lastDiscovered": "Dernière détection : {{when}}",
-      "neverRun": "La détection n'a jamais été lancée",
       "empty": "Aucun système IA détecté pour le moment. Cliquez sur «Lancer la détection» pour analyser les cartes Application / ITComponent / Interface.",
       "kpi": {
         "total": "Systèmes IA",
@@ -96,7 +89,12 @@
         "scopeHint": "Seules les cartes Application, ITComponent et Interface peuvent être classées.",
         "cancel": "Annuler",
         "confirm": "Ajouter à l'inventaire IA"
-      }
+      },
+      "lastScanned": "Dernier scan : {{when}}",
+      "neverScanned": "Jamais scanné — la détection a lieu pendant le scan de conformité.",
+      "openScanner": "Ouvrir le scanner de conformité",
+      "emptyScanHint": "Aucun système IA classé pour l'instant. La détection se fait lors du scan EU AI Act du scanner de conformité.",
+      "detectionSource": "Le scanner de conformité est l'unique source de détection IA. Lancez un scan avec l'EU AI Act sélectionné pour alimenter l'inventaire."
     },
     "principles": {
       "title": "Principes d'architecture",

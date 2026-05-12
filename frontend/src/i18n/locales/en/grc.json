@@ -17,13 +17,6 @@
     "ai": {
       "title": "AI Inventory",
       "subtitle": "AI-bearing cards (subtype, semantic detection or manual override), with EU AI Act risk classification and lifecycle stage",
-      "runDiscovery": "Run discovery",
-      "running": "Running discovery…",
-      "discoveredCount_one": "{{count}} AI system classified",
-      "discoveredCount_other": "{{count}} AI systems classified",
-      "skippedNoProvider": "AI provider not configured — only subtype matches were classified. Configure an AI provider in Admin › Settings › AI to also catch AI hidden inside general-purpose software.",
-      "lastDiscovered": "Last discovered: {{when}}",
-      "neverRun": "Discovery never run yet",
       "empty": "No AI systems detected yet. Click «Run discovery» to scan Application / ITComponent / Interface cards.",
       "kpi": {
         "total": "Total AI systems",
@@ -96,7 +89,12 @@
         "scopeHint": "Only Application, ITComponent and Interface cards can be classified.",
         "cancel": "Cancel",
         "confirm": "Add to AI Inventory"
-      }
+      },
+      "lastScanned": "Last scanned: {{when}}",
+      "neverScanned": "Never scanned — detection happens during the compliance scan.",
+      "openScanner": "Open Compliance Scanner",
+      "emptyScanHint": "No AI systems classified yet. Detection happens during the Compliance Scanner's EU AI Act pass.",
+      "detectionSource": "The Compliance Scanner is the single source of AI detection. Run a scan with EU AI Act selected to populate the inventory."
     },
     "principles": {
       "title": "Architecture Principles",

@@ -3409,32 +3409,6 @@
         "title": "DiagramUpdate",
         "type": "object"
       },
-      "DiscoverResponse": {
-        "properties": {
-          "by_method": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "By Method",
-            "type": "object"
-          },
-          "classified": {
-            "title": "Classified",
-            "type": "integer"
-          },
-          "skipped_no_ai_provider": {
-            "title": "Skipped No Ai Provider",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "classified",
-          "by_method",
-          "skipped_no_ai_provider"
-        ],
-        "title": "DiscoverResponse",
-        "type": "object"
-      },
       "DocumentCreate": {
         "properties": {
           "name": {
@@ -17017,7 +16991,7 @@
     },
     "/api/v1/grc/ai-inventory/classify/{card_id}": {
       "post": {
-        "description": "Force-add a card to the AI inventory without waiting for the LLM detector.\n\nSets ``aiClassificationOverride=\"yes\"`` on the card and runs a single-row\ndiscovery pass so the cache table reflects the change immediately. Useful\nfor shadow-AI systems the semantic detector won't catch (e.g. a custom\nfine-tuned model hidden behind a generic \u00abService\u00bb card).",
+        "description": "Force-add a card to the AI inventory without waiting for the next\ncompliance scan.\n\nSets ``aiClassificationOverride=\"yes\"`` on the card and routes the upsert\nthrough the same persistence helper the Compliance Scanner uses, so the\ncache table reflects the change immediately. Useful for shadow-AI\nsystems the semantic detector won't catch (e.g. a custom fine-tuned\nmodel hidden behind a generic \u00abService\u00bb card).",
         "operationId": "classify_card_as_ai_api_v1_grc_ai_inventory_classify__card_id__post",
         "parameters": [
           {
@@ -17031,14 +17005,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverResponse"
-                }
-              }
-            },
+          "204": {
             "description": "Successful Response"
           },
           "422": {
@@ -17053,28 +17020,6 @@
           }
         },
         "summary": "Classify Card As Ai",
-        "tags": [
-          "GRC"
-        ]
-      }
-    },
-    "/api/v1/grc/ai-inventory/discover": {
-      "post": {
-        "description": "Refresh the AI Governance classification cache.\n\nWalks Application / ITComponent / Interface cards and flags AI-bearing\nones using the shared semantic detector. Synchronous: the LLM pass is\nskipped when no AI provider is configured, so this is fast on most\ninstalls. Force-included (override=yes) cards are also recorded.",
-        "operationId": "discover_ai_inventory_api_v1_grc_ai_inventory_discover_post",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Discover Ai Inventory",
         "tags": [
           "GRC"
         ]

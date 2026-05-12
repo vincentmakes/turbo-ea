@@ -1852,12 +1852,6 @@ export interface AiInventoryKpis {
   last_discovered_at: string | null;
 }
 
-export interface AiDiscoverResponse {
-  classified: number;
-  by_method: Record<string, number>;
-  skipped_no_ai_provider: boolean;
-}
-
 export interface AiLinkedRisk {
   id: string;
   reference: string;

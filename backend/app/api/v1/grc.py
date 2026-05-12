@@ -1,17 +1,20 @@
-"""GRC API — Governance KPIs, AI Inventory dashboard, semantic discovery.
+"""GRC API — Governance KPIs and AI Inventory registry.
 
-The Governance and Compliance subtabs of ``/grc`` also live behind their own
-existing permission groups (``risks.*``, ``security_compliance.*``,
-``adr.*``); this router only owns the AI Governance surface and a small
-cross-tab overview. It reuses the semantic AI detector from
-``turbolens_security.detect_ai_bearing_cards`` so we never duplicate the
-LLM prompt or signal heuristics.
+The Governance and Compliance subtabs of ``/grc`` live behind their own
+permission groups (``risks.*``, ``security_compliance.*``, ``adr.*``);
+this router owns the AI Governance read surface and a cross-tab overview.
+
+Detection itself is **not** owned by this router — the Compliance Scanner
+(``turbolens_security.run_compliance_scan``) is the sole AI detector
+entrypoint, and writes into ``ai_governance_classifications`` via the
+shared ``persist_ai_governance`` helper. The AI Inventory page reads
+from that cache. The single mutation path here (``classify_card_as_ai``)
+is a manual curation action, not detection.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -24,21 +27,16 @@ from app.models.ai_governance import AiGovernanceClassification
 from app.models.card import Card
 from app.models.risk import Risk, RiskCard
 from app.models.stakeholder import Stakeholder
+from app.models.turbolens import TurboLensAnalysisRun
 from app.schemas.grc import (
     AiInventoryDetection,
     AiInventoryItem,
     AiInventoryKpis,
     AiInventoryPage,
     AiLinkedRisk,
-    DiscoverResponse,
     GrcOverview,
 )
-from app.services.turbolens_ai import get_ai_config, is_ai_configured
-from app.services.turbolens_security import (
-    AI_SUBTYPES,
-    ScanCard,
-    detect_ai_bearing_cards,
-)
+from app.services.turbolens_security import persist_ai_governance
 
 logger = logging.getLogger(__name__)
 
@@ -55,26 +53,6 @@ _HIGH_AI_RISK_CLASSES = ("high", "unacceptable")
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _card_to_scan_card(card: Card) -> ScanCard:
-    """Project a Card into a ScanCard suitable for ``detect_ai_bearing_cards``."""
-    attrs = card.attributes or {}
-    vendor = (attrs.get("vendor") or "").strip()
-    product = (attrs.get("productName") or attrs.get("product") or card.name or "").strip()
-    return ScanCard(
-        id=str(card.id),
-        name=card.name,
-        type=card.type,
-        subtype=card.subtype,
-        description=(card.description or "")[:500],
-        vendor=vendor,
-        product=product,
-        version=(attrs.get("version") or "").strip() or None,
-        business_criticality=attrs.get("businessCriticality"),
-        lifecycle_phase=None,
-        attributes=attrs,
-    )
 
 
 def _detection_method(
@@ -278,10 +256,9 @@ async def get_ai_inventory_kpis(
     with_risk_class = 0
     pending_review = 0
     high_or_unacceptable = 0
-    last_detected: datetime | None = None
     card_ids: list[str] = []
 
-    for attrs, detected_at in rows:
+    for attrs, _detected_at in rows:
         attrs = attrs or {}
         total += 1
         rc = attrs.get("aiRiskClass")
@@ -298,8 +275,6 @@ async def get_ai_inventory_kpis(
         # EU AI Act Annex IV / ISO 42001 6.1.4 impact-assessment story.
         if not rc or not (attrs.get("aiIntendedPurpose") or "").strip():
             pending_review += 1
-        if detected_at and (last_detected is None or detected_at > last_detected):
-            last_detected = detected_at
 
     # Unowned: of the total AI cards, how many have zero stakeholders.
     classified_card_ids_rows = (await db.execute(select(AiGovernanceClassification.card_id))).all()
@@ -308,6 +283,19 @@ async def get_ai_inventory_kpis(
     unowned = sum(1 for cid in card_ids if sc.get(cid, 0) == 0)
 
     unclassified = total - with_risk_class
+
+    # "Last scanned" reflects the source of truth — detection happens during a
+    # compliance scan, not on the inventory page. Pull the most recent finished
+    # compliance scan that included EU AI Act in its scope.
+    last_scanned_row = (
+        await db.execute(
+            select(func.max(TurboLensAnalysisRun.completed_at)).where(
+                TurboLensAnalysisRun.analysis_type == "security_compliance",
+                TurboLensAnalysisRun.status == "completed",
+                TurboLensAnalysisRun.results["regulations"].astext.like('%"eu_ai_act"%'),
+            )
+        )
+    ).scalar()
 
     return AiInventoryKpis(
         total=total,
@@ -318,134 +306,19 @@ async def get_ai_inventory_kpis(
         unowned=unowned,
         by_risk_class=by_risk_class,
         by_lifecycle=by_lifecycle,
-        last_discovered_at=last_detected,
+        last_discovered_at=last_scanned_row,
     )
 
 
 # ---------------------------------------------------------------------------
-# Discovery — populate the classification cache
+# Detection — driven exclusively by the Compliance Scanner
 # ---------------------------------------------------------------------------
-
-
-@router.post("/ai-inventory/discover", response_model=DiscoverResponse)
-async def discover_ai_inventory(
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("grc.manage")),
-) -> DiscoverResponse:
-    """Refresh the AI Governance classification cache.
-
-    Walks Application / ITComponent / Interface cards and flags AI-bearing
-    ones using the shared semantic detector. Synchronous: the LLM pass is
-    skipped when no AI provider is configured, so this is fast on most
-    installs. Force-included (override=yes) cards are also recorded.
-    """
-    result = await db.execute(
-        select(Card).where(
-            Card.type.in_(_AI_TARGET_TYPES),
-            Card.status != "ARCHIVED",
-        )
-    )
-    cards = list(result.scalars().all())
-
-    # Build ScanCard projections for the detector.
-    scan_cards = [_card_to_scan_card(c) for c in cards]
-    ai_config = await get_ai_config(db)
-    has_provider = is_ai_configured(ai_config)
-    detected = await detect_ai_bearing_cards(db, scan_cards)
-
-    # Existing classifications keyed by card id for upsert.
-    existing_rows = (await db.execute(select(AiGovernanceClassification))).scalars().all()
-    existing = {str(c.card_id): c for c in existing_rows}
-
-    now = datetime.now(timezone.utc)
-    by_method = {"subtype": 0, "semantic": 0, "override": 0}
-    seen_card_ids: set[str] = set()
-
-    for card in cards:
-        cid = str(card.id)
-        attrs = dict(card.attributes or {})
-        override = attrs.get("aiClassificationOverride")
-        det = detected.get(cid)
-
-        if override == "no":
-            # Force-exclude: remove from cache, count nothing.
-            if cid in existing:
-                await db.delete(existing[cid])
-            continue
-
-        risk_tier = None
-        if override == "yes":
-            method = "override"
-            role = attrs.get("aiSystemRole") or "embedded"
-            confidence = 1.0
-            subtype_match = card.subtype in AI_SUBTYPES
-            signal = "Manual override (aiClassificationOverride=yes)"
-        elif det is not None:
-            subtype_match = bool(det.get("subtype_match"))
-            method = "subtype" if subtype_match else "semantic"
-            role = det.get("role", "embedded")
-            confidence = float(det.get("confidence", 0.6) or 0.6)
-            signal = det.get("signal", "") or ""
-            risk_tier = det.get("risk_tier")
-        else:
-            continue  # neither override nor detected
-
-        seen_card_ids.add(cid)
-        by_method[method] = by_method.get(method, 0) + 1
-
-        # Backfill metamodel fields from the detector — without clobbering
-        # admin-set values. The AI Inventory reads these directly off
-        # Card.attributes, so the columns stay populated for the common
-        # case where the admin hasn't manually filled them in.
-        updated_attrs = False
-        if not attrs.get("aiSystemRole") and role:
-            attrs["aiSystemRole"] = role
-            updated_attrs = True
-        if not attrs.get("aiLifecycleStage") and (card.status or "").upper() == "ACTIVE":
-            attrs["aiLifecycleStage"] = "production"
-            updated_attrs = True
-        if not attrs.get("aiRiskClass") and risk_tier in (
-            "unacceptable",
-            "high",
-            "limited",
-            "minimal",
-        ):
-            attrs["aiRiskClass"] = risk_tier
-            updated_attrs = True
-        if updated_attrs:
-            card.attributes = attrs
-
-        if cid in existing:
-            row = existing[cid]
-            row.detected_role = role
-            row.confidence = confidence
-            row.subtype_match = subtype_match
-            row.signal = signal
-            row.detected_at = now
-        else:
-            db.add(
-                AiGovernanceClassification(
-                    card_id=card.id,
-                    detected_role=role,
-                    confidence=confidence,
-                    subtype_match=subtype_match,
-                    signal=signal,
-                    detected_at=now,
-                )
-            )
-
-    # Stale rows — classifications for cards that no longer qualify.
-    for cid, row in existing.items():
-        if cid not in seen_card_ids:
-            await db.delete(row)
-
-    await db.commit()
-
-    return DiscoverResponse(
-        classified=sum(by_method.values()),
-        by_method=by_method,
-        skipped_no_ai_provider=not has_provider,
-    )
+# Detection used to live here (POST /grc/ai-inventory/discover). It was
+# removed in favour of `run_compliance_scan` being the sole detector
+# entrypoint — the AI Inventory is a registry that reads, not a detection
+# pipeline (#536). The persistence helper now lives in
+# `turbolens_security.persist_ai_governance` so both the scanner and the
+# manual «Classify as AI» action share one write path.
 
 
 # ---------------------------------------------------------------------------
@@ -520,81 +393,47 @@ async def list_ai_linked_risks(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/ai-inventory/classify/{card_id}", response_model=DiscoverResponse)
+@router.post("/ai-inventory/classify/{card_id}", status_code=204)
 async def classify_card_as_ai(
     card_id: str,
     db: AsyncSession = Depends(get_db),
     _: object = Depends(require_permission("grc.manage")),
-) -> DiscoverResponse:
-    """Force-add a card to the AI inventory without waiting for the LLM detector.
+) -> None:
+    """Force-add a card to the AI inventory without waiting for the next
+    compliance scan.
 
-    Sets ``aiClassificationOverride="yes"`` on the card and runs a single-row
-    discovery pass so the cache table reflects the change immediately. Useful
-    for shadow-AI systems the semantic detector won't catch (e.g. a custom
-    fine-tuned model hidden behind a generic «Service» card).
+    Sets ``aiClassificationOverride="yes"`` on the card and routes the upsert
+    through the same persistence helper the Compliance Scanner uses, so the
+    cache table reflects the change immediately. Useful for shadow-AI
+    systems the semantic detector won't catch (e.g. a custom fine-tuned
+    model hidden behind a generic «Service» card).
     """
     import uuid as uuid_mod
+
+    from fastapi import HTTPException
 
     try:
         card_uuid = uuid_mod.UUID(card_id)
     except ValueError as exc:
-        from fastapi import HTTPException
-
         raise HTTPException(400, "Invalid card id") from exc
 
     card = (await db.execute(select(Card).where(Card.id == card_uuid))).scalar_one_or_none()
     if card is None:
-        from fastapi import HTTPException
-
         raise HTTPException(404, "Card not found")
 
     if card.type not in _AI_TARGET_TYPES:
-        from fastapi import HTTPException
-
         raise HTTPException(
             400,
             f"AI Inventory only tracks {', '.join(_AI_TARGET_TYPES)} cards.",
         )
 
+    # Flip the override flag on the card; the shared persistence helper then
+    # honours it (turbolens_security.persist_ai_governance: override="yes"
+    # branch). No need for a separate write path here.
     attrs = dict(card.attributes or {})
     attrs["aiClassificationOverride"] = "yes"
-    # Default the system role to «embedded» when the admin force-includes;
-    # they can refine via card detail. Don't clobber existing values.
-    if not attrs.get("aiSystemRole"):
-        attrs["aiSystemRole"] = "embedded"
-    if not attrs.get("aiLifecycleStage") and (card.status or "").upper() == "ACTIVE":
-        attrs["aiLifecycleStage"] = "production"
     card.attributes = attrs
+    await db.flush()
 
-    now = datetime.now(timezone.utc)
-    existing_row = (
-        await db.execute(
-            select(AiGovernanceClassification).where(
-                AiGovernanceClassification.card_id == card_uuid
-            )
-        )
-    ).scalar_one_or_none()
-    if existing_row is None:
-        db.add(
-            AiGovernanceClassification(
-                card_id=card_uuid,
-                detected_role=attrs["aiSystemRole"],
-                confidence=1.0,
-                subtype_match=card.subtype in AI_SUBTYPES,
-                signal="Manual override (aiClassificationOverride=yes)",
-                detected_at=now,
-            )
-        )
-    else:
-        existing_row.detected_role = attrs["aiSystemRole"]
-        existing_row.confidence = 1.0
-        existing_row.subtype_match = card.subtype in AI_SUBTYPES
-        existing_row.signal = "Manual override (aiClassificationOverride=yes)"
-        existing_row.detected_at = now
-
+    await persist_ai_governance(db, {})
     await db.commit()
-    return DiscoverResponse(
-        classified=1,
-        by_method={"subtype": 0, "semantic": 0, "override": 1},
-        skipped_no_ai_provider=False,
-    )

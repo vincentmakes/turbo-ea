@@ -33,7 +33,6 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import MetricCard from "@/features/reports/MetricCard";
 import type {
   AiDetectionMethod,
-  AiDiscoverResponse,
   AiInventoryKpis,
   AiInventoryPage,
   AiLinkedRisk,
@@ -99,8 +98,6 @@ export default function AiInventoryPanel() {
   const [kpis, setKpis] = useState<AiInventoryKpis | null>(null);
   const [linkedRisks, setLinkedRisks] = useState<AiLinkedRisk[]>([]);
   const [loading, setLoading] = useState(true);
-  const [discovering, setDiscovering] = useState(false);
-  const [discoverResult, setDiscoverResult] = useState<AiDiscoverResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Manual classify dialog state.
@@ -144,24 +141,6 @@ export default function AiInventoryPanel() {
     void reload();
   }, [reload]);
 
-  const handleDiscover = async () => {
-    setDiscovering(true);
-    setDiscoverResult(null);
-    setError(null);
-    try {
-      const result = await api.post<AiDiscoverResponse>(
-        "/grc/ai-inventory/discover",
-        {},
-      );
-      setDiscoverResult(result);
-      await reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setDiscovering(false);
-    }
-  };
-
   // Debounced card search for the manual classify dialog.
   useEffect(() => {
     if (!classifyOpen) return;
@@ -193,10 +172,7 @@ export default function AiInventoryPanel() {
     setClassifySubmitting(true);
     setError(null);
     try {
-      await api.post<AiDiscoverResponse>(
-        `/grc/ai-inventory/classify/${classifyPicked.id}`,
-        {},
-      );
+      await api.post<void>(`/grc/ai-inventory/classify/${classifyPicked.id}`, {});
       setClassifyOpen(false);
       setClassifyPicked(null);
       setClassifySearch("");
@@ -208,11 +184,11 @@ export default function AiInventoryPanel() {
     }
   };
 
-  const lastDiscoveredLabel = kpis?.last_discovered_at
-    ? t("governance.ai.lastDiscovered", {
-        when: formatDate(kpis.last_discovered_at, t("governance.ai.neverRun")),
+  const lastScannedLabel = kpis?.last_discovered_at
+    ? t("governance.ai.lastScanned", {
+        when: formatDate(kpis.last_discovered_at, t("governance.ai.neverScanned")),
       })
-    : t("governance.ai.neverRun");
+    : t("governance.ai.neverScanned");
 
   return (
     <Box>
@@ -235,55 +211,42 @@ export default function AiInventoryPanel() {
             {t("governance.ai.subtitle")}
           </Typography>
           <Typography variant="caption" color="text.disabled">
-            {lastDiscoveredLabel}
+            {lastScannedLabel}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<MaterialSymbol icon="add" size={18} />}
-            onClick={() => {
-              setClassifyOpen(true);
-              setClassifyPicked(null);
-              setClassifySearch("");
-            }}
-          >
-            {t("governance.ai.classifyButton")}
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={
-              discovering ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <MaterialSymbol icon="autorenew" size={18} />
-              )
-            }
-            onClick={handleDiscover}
-            disabled={discovering}
-          >
-            {discovering ? t("governance.ai.running") : t("governance.ai.runDiscovery")}
-          </Button>
-        </Stack>
+        <Button
+          variant="outlined"
+          startIcon={<MaterialSymbol icon="add" size={18} />}
+          onClick={() => {
+            setClassifyOpen(true);
+            setClassifyPicked(null);
+            setClassifySearch("");
+          }}
+        >
+          {t("governance.ai.classifyButton")}
+        </Button>
       </Stack>
 
-      {/* Discovery result banner */}
-      {discoverResult && (
-        <Alert
-          severity={discoverResult.skipped_no_ai_provider ? "warning" : "success"}
-          onClose={() => setDiscoverResult(null)}
-          sx={{ mb: 2 }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {t("governance.ai.discoveredCount", { count: discoverResult.classified })}
-          </Typography>
-          {discoverResult.skipped_no_ai_provider && (
-            <Typography variant="caption" sx={{ display: "block", mt: 0.5 }}>
-              {t("governance.ai.skippedNoProvider")}
-            </Typography>
-          )}
-        </Alert>
-      )}
+      {/* Detection source banner — the AI Inventory is read-only; detection
+          happens during the Compliance Scanner's EU AI Act pass. */}
+      <Alert
+        severity="info"
+        icon={<MaterialSymbol icon="info" size={18} />}
+        sx={{ mb: 2 }}
+        action={
+          <Button
+            component={RouterLink}
+            to="/grc?tab=compliance"
+            size="small"
+            color="inherit"
+            endIcon={<MaterialSymbol icon="arrow_outward" size={14} />}
+          >
+            {t("governance.ai.openScanner")}
+          </Button>
+        }
+      >
+        {t("governance.ai.detectionSource")}
+      </Alert>
 
       {/* KPI tiles */}
       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mb: 2 }}>
@@ -389,8 +352,17 @@ export default function AiInventoryPanel() {
         <Paper variant="outlined" sx={{ py: 6, textAlign: "center" }}>
           <MaterialSymbol icon="smart_toy" size={40} color="#bbb" />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, px: 2 }}>
-            {t("governance.ai.empty")}
+            {t("governance.ai.emptyScanHint")}
           </Typography>
+          <Button
+            component={RouterLink}
+            to="/grc?tab=compliance"
+            size="small"
+            sx={{ mt: 1.5 }}
+            startIcon={<MaterialSymbol icon="security" size={16} />}
+          >
+            {t("governance.ai.openScanner")}
+          </Button>
         </Paper>
       ) : (
         <TableContainer component={Paper} variant="outlined">

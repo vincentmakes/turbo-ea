@@ -83,9 +83,3 @@ class GrcOverview(BaseModel):
     ai_systems_unowned: int
     ai_systems_high_risk: int
     ai_systems_last_discovered_at: datetime | None
-
-
-class DiscoverResponse(BaseModel):
-    classified: int
-    by_method: dict[str, int]
-    skipped_no_ai_provider: bool

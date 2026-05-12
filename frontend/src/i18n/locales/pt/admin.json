@@ -1288,5 +1288,8 @@
   "turbolens_security_phase_persisting_cve_findings": "Saving findings",
   "turbolens_security_phase_ai_detection": "Semantic AI detection",
   "turbolens_security_phase_regulation": "Checking regulation",
-  "turbolens_security_phase_persisting_compliance_findings": "Saving findings"
+  "turbolens_security_phase_persisting_compliance_findings": "Saving findings",
+  "turbolens_security_view_ai_inventory": "Ver inventário de IA",
+  "turbolens_security_ai_inventory_updated_one": "Inventário de IA atualizado com {{count}} sistema classificado.",
+  "turbolens_security_ai_inventory_updated_other": "Inventário de IA atualizado com {{count}} sistemas classificados."
 }

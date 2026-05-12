@@ -1288,5 +1288,8 @@
   "turbolens_security_phase_persisting_cve_findings": "Befunde speichern",
   "turbolens_security_phase_ai_detection": "Semantische KI-Erkennung",
   "turbolens_security_phase_regulation": "Vorschrift prüfen",
-  "turbolens_security_phase_persisting_compliance_findings": "Befunde speichern"
+  "turbolens_security_phase_persisting_compliance_findings": "Befunde speichern",
+  "turbolens_security_view_ai_inventory": "KI-Inventar anzeigen",
+  "turbolens_security_ai_inventory_updated_one": "KI-Inventar mit {{count}} klassifiziertem System aktualisiert.",
+  "turbolens_security_ai_inventory_updated_other": "KI-Inventar mit {{count}} klassifizierten Systemen aktualisiert."
 }

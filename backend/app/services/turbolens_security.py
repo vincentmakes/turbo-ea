@@ -28,6 +28,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.ai_governance import AiGovernanceClassification
 from app.models.card import Card
 from app.models.turbolens import (
     TurboLensAnalysisRun,
@@ -63,6 +64,14 @@ AI_SUBTYPES = {"AI Agent", "AI Model", "MCP Server"}
 CVE_PER_CARD_LIMIT = 20
 AI_BATCH_SIZE = 25
 COMPLIANCE_BATCH_SIZE = 60
+# `detect_ai_bearing_cards` packs each card with a richer payload (name, vendor,
+# product, description, plus an EU AI Act risk-tier verdict per item in the
+# response). With 60-card batches and 2400 output tokens, the JSON array can
+# truncate mid-array and the parser silently drops the whole batch. 30/4000
+# leaves plenty of headroom; if this ever needs to grow, prefer smaller batches
+# over more tokens (latency stays lower).
+AI_DETECTION_BATCH_SIZE = 30
+AI_DETECTION_MAX_TOKENS = 4000
 
 
 # A progress callback receives a ``phase`` label + a ``{current, total, note}``
@@ -400,12 +409,12 @@ async def detect_ai_bearing_cards(
     if not is_ai_configured(ai_config):
         return scoped
 
-    total_batches = max(1, (len(cards) + COMPLIANCE_BATCH_SIZE - 1) // COMPLIANCE_BATCH_SIZE)
-    for start in range(0, len(cards), COMPLIANCE_BATCH_SIZE):
-        batch_index = start // COMPLIANCE_BATCH_SIZE + 1
+    total_batches = max(1, (len(cards) + AI_DETECTION_BATCH_SIZE - 1) // AI_DETECTION_BATCH_SIZE)
+    for start in range(0, len(cards), AI_DETECTION_BATCH_SIZE):
+        batch_index = start // AI_DETECTION_BATCH_SIZE + 1
         if progress_cb:
             await progress_cb("ai_detection", batch_index, total_batches, "")
-        batch = cards[start : start + COMPLIANCE_BATCH_SIZE]
+        batch = cards[start : start + AI_DETECTION_BATCH_SIZE]
         payload = [
             {
                 "id": c.id,
@@ -447,7 +456,7 @@ async def detect_ai_bearing_cards(
             result = await call_ai(
                 db,
                 prompt,
-                max_tokens=2400,
+                max_tokens=AI_DETECTION_MAX_TOKENS,
                 system_prompt=(
                     "You are a governance analyst for the EU AI Act. Return only valid JSON."
                 ),
@@ -831,6 +840,124 @@ async def run_cve_scan(
     return summary
 
 
+AI_INVENTORY_TYPES = ("Application", "ITComponent", "Interface")
+
+
+async def persist_ai_governance(
+    db: AsyncSession,
+    ai_scope: dict[str, dict[str, Any]],
+) -> dict[str, int]:
+    """Upsert detected AI systems into the inventory and backfill card.attributes.
+
+    Single write path for both the Compliance Scanner (which calls this from
+    ``run_compliance_scan`` when EU AI Act is in scope) and the manual
+    «Classify a card as AI» action. Detection itself stays in
+    ``detect_ai_bearing_cards`` — this helper only owns persistence + the
+    don't-clobber rules over ``card.attributes``.
+
+    Honours ``aiClassificationOverride``: ``"no"`` removes any cache row;
+    ``"yes"`` forces the card in regardless of detector verdict.
+
+    Returns a small counter dict keyed by detection method (subtype / semantic
+    / override) for the caller to surface in scan summaries.
+    """
+    now = datetime.now(timezone.utc)
+    by_method = {"subtype": 0, "semantic": 0, "override": 0}
+
+    # Walk the full classifiable population so we can honour
+    # aiClassificationOverride="no" / "yes" even for cards the detector didn't
+    # surface. Skips archived cards.
+    cards: list[Card] = list(
+        (
+            await db.execute(
+                select(Card).where(
+                    Card.type.in_(AI_INVENTORY_TYPES),
+                    Card.status != "ARCHIVED",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    existing_rows = (await db.execute(select(AiGovernanceClassification))).scalars().all()
+    existing = {str(row.card_id): row for row in existing_rows}
+    seen_card_ids: set[str] = set()
+
+    for card in cards:
+        cid = str(card.id)
+        attrs = dict(card.attributes or {})
+        override = attrs.get("aiClassificationOverride")
+        det = ai_scope.get(cid)
+
+        if override == "no":
+            if cid in existing:
+                await db.delete(existing[cid])
+            continue
+
+        risk_tier: str | None = None
+        if override == "yes":
+            method = "override"
+            role = attrs.get("aiSystemRole") or "embedded"
+            confidence = 1.0
+            subtype_match = card.subtype in AI_SUBTYPES
+            signal = "Manual override (aiClassificationOverride=yes)"
+        elif det is not None:
+            subtype_match = bool(det.get("subtype_match"))
+            method = "subtype" if subtype_match else "semantic"
+            role = det.get("role", "embedded")
+            confidence = float(det.get("confidence", 0.6) or 0.6)
+            signal = det.get("signal", "") or ""
+            tier = det.get("risk_tier")
+            if tier in ("unacceptable", "high", "limited", "minimal"):
+                risk_tier = tier
+        else:
+            continue
+
+        seen_card_ids.add(cid)
+        by_method[method] += 1
+
+        # Backfill metamodel fields without clobbering admin-set values.
+        updated_attrs = False
+        if not attrs.get("aiSystemRole") and role:
+            attrs["aiSystemRole"] = role
+            updated_attrs = True
+        if not attrs.get("aiLifecycleStage") and (card.status or "").upper() == "ACTIVE":
+            attrs["aiLifecycleStage"] = "production"
+            updated_attrs = True
+        if not attrs.get("aiRiskClass") and risk_tier:
+            attrs["aiRiskClass"] = risk_tier
+            updated_attrs = True
+        if updated_attrs:
+            card.attributes = attrs
+
+        if cid in existing:
+            row = existing[cid]
+            row.detected_role = role
+            row.confidence = confidence
+            row.subtype_match = subtype_match
+            row.signal = signal
+            row.detected_at = now
+        else:
+            db.add(
+                AiGovernanceClassification(
+                    card_id=card.id,
+                    detected_role=role,
+                    confidence=confidence,
+                    subtype_match=subtype_match,
+                    signal=signal,
+                    detected_at=now,
+                )
+            )
+
+    # Stale rows — classifications for cards no longer in scope.
+    for cid, row in existing.items():
+        if cid not in seen_card_ids:
+            await db.delete(row)
+
+    return by_method
+
+
 async def run_compliance_scan(
     db: AsyncSession,
     run_id: uuid_mod.UUID | str,
@@ -862,8 +989,14 @@ async def run_compliance_scan(
     await db.flush()
 
     ai_scope: dict[str, dict[str, Any]] = {}
+    ai_by_method: dict[str, int] = {"subtype": 0, "semantic": 0, "override": 0}
     if "eu_ai_act" in regs:
         ai_scope = await detect_ai_bearing_cards(db, cards, progress_cb=progress_cb)
+        # Persist detection into the AI Governance inventory in the same
+        # transaction. The Compliance Scanner is the sole driver of AI
+        # detection; the Inventory page just reads from this cache (#536).
+        ai_by_method = await persist_ai_governance(db, ai_scope)
+        await db.flush()
 
     compliance_rows: list[dict[str, Any]] = []
     for idx, reg in enumerate(regs, 1):
@@ -920,6 +1053,8 @@ async def run_compliance_scan(
         "regulations": regs,
         "cards_scanned": len(cards),
         "ai_bearing_cards": len(ai_scope),
+        "ai_inventory_updated": sum(ai_by_method.values()),
+        "ai_inventory_by_method": ai_by_method,
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
     run = await db.get(TurboLensAnalysisRun, run_uuid)

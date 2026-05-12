@@ -17,13 +17,6 @@
     "ai": {
       "title": "Inventário de IA",
       "subtitle": "Cards com IA (subtipo, detecção semântica ou override manual), com classificação de risco da Lei de IA da UE e etapa do ciclo de vida",
-      "runDiscovery": "Executar detecção",
-      "running": "Detecção em andamento…",
-      "discoveredCount_one": "{{count}} sistema de IA classificado",
-      "discoveredCount_other": "{{count}} sistemas de IA classificados",
-      "skippedNoProvider": "Provedor de IA não configurado — apenas correspondências de subtipo foram classificadas. Configure um provedor de IA em Admin › Configurações › IA para também capturar IA oculta em software de uso geral.",
-      "lastDiscovered": "Última detecção: {{when}}",
-      "neverRun": "A detecção nunca foi executada",
       "empty": "Nenhum sistema de IA detectado ainda. Clique em «Executar detecção» para analisar cards Application / ITComponent / Interface.",
       "kpi": {
         "total": "Total de sistemas de IA",
@@ -96,7 +89,12 @@
         "scopeHint": "Apenas cartões Application, ITComponent e Interface podem ser classificados.",
         "cancel": "Cancelar",
         "confirm": "Adicionar ao inventário de IA"
-      }
+      },
+      "lastScanned": "Última verificação: {{when}}",
+      "neverScanned": "Nunca verificado — a detecção ocorre durante a verificação de conformidade.",
+      "openScanner": "Abrir Scanner de Conformidade",
+      "emptyScanHint": "Nenhum sistema de IA classificado ainda. A detecção ocorre durante a passagem EU AI Act do scanner de conformidade.",
+      "detectionSource": "O scanner de conformidade é a única fonte de detecção de IA. Execute uma verificação com EU AI Act selecionado para preencher o inventário."
     },
     "principles": {
       "title": "Princípios de arquitetura",

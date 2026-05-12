@@ -17,13 +17,6 @@
     "ai": {
       "title": "AI 清单",
       "subtitle": "包含 AI 的卡片(子类型、语义识别或手动覆盖),含欧盟《人工智能法》风险分级与生命周期阶段。",
-      "runDiscovery": "开始识别",
-      "running": "正在识别…",
-      "discoveredCount_one": "已分类 {{count}} 个 AI 系统",
-      "discoveredCount_other": "已分类 {{count}} 个 AI 系统",
-      "skippedNoProvider": "未配置 AI 提供方 — 仅完成了子类型匹配。请在「管理 › 设置 › AI」中配置 AI 提供方,以识别隐藏在通用软件中的 AI。",
-      "lastDiscovered": "最近识别:{{when}}",
-      "neverRun": "尚未运行识别",
       "empty": "尚未识别到任何 AI 系统。点击「开始识别」以扫描 Application / ITComponent / Interface 卡片。",
       "kpi": {
         "total": "AI 系统总数",
@@ -96,7 +89,12 @@
         "scopeHint": "只有 Application、ITComponent 和 Interface 卡片可以被分类。",
         "cancel": "取消",
         "confirm": "添加到 AI 清单"
-      }
+      },
+      "lastScanned": "上次扫描：{{when}}",
+      "neverScanned": "从未扫描 — 检测在合规扫描期间进行。",
+      "openScanner": "打开合规扫描器",
+      "emptyScanHint": "尚未分类任何 AI 系统。检测在合规扫描器的 EU AI Act 通道中进行。",
+      "detectionSource": "合规扫描器是 AI 检测的唯一来源。选择 EU AI Act 后运行扫描以填充清单。"
     },
     "principles": {
       "title": "架构原则",

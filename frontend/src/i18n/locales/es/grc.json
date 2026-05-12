@@ -17,13 +17,6 @@
     "ai": {
       "title": "Inventario de IA",
       "subtitle": "Tarjetas con IA (subtipo, detección semántica o anulación manual), con clasificación de riesgo según la Ley de IA de la UE y etapa del ciclo de vida",
-      "runDiscovery": "Ejecutar detección",
-      "running": "Detección en curso…",
-      "discoveredCount_one": "{{count}} sistema de IA clasificado",
-      "discoveredCount_other": "{{count}} sistemas de IA clasificados",
-      "skippedNoProvider": "Proveedor de IA no configurado — solo se clasificaron las coincidencias por subtipo. Configura un proveedor de IA en Admin › Configuración › IA para detectar también la IA oculta en software de propósito general.",
-      "lastDiscovered": "Última detección: {{when}}",
-      "neverRun": "La detección nunca se ha ejecutado",
       "empty": "Aún no se detectaron sistemas de IA. Haz clic en «Ejecutar detección» para escanear tarjetas Application / ITComponent / Interface.",
       "kpi": {
         "total": "Sistemas de IA",
@@ -96,7 +89,12 @@
         "scopeHint": "Solo se pueden clasificar tarjetas Application, ITComponent e Interface.",
         "cancel": "Cancelar",
         "confirm": "Añadir al inventario de IA"
-      }
+      },
+      "lastScanned": "Último escaneo: {{when}}",
+      "neverScanned": "Nunca escaneado — la detección ocurre durante el escaneo de cumplimiento.",
+      "openScanner": "Abrir el escáner de cumplimiento",
+      "emptyScanHint": "Aún no hay sistemas de IA clasificados. La detección se realiza durante el escaneo del EU AI Act en el escáner de cumplimiento.",
+      "detectionSource": "El escáner de cumplimiento es la única fuente de detección de IA. Ejecute un escaneo con EU AI Act seleccionado para poblar el inventario."
     },
     "principles": {
       "title": "Principios de arquitectura",

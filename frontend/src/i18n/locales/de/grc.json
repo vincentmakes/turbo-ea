@@ -17,13 +17,6 @@
     "ai": {
       "title": "KI-Bestand",
       "subtitle": "KI-behaftete Karten (Untertyp, semantische Erkennung oder manuelles Override), mit Risikoklassifizierung nach EU-KI-Verordnung und Lebenszyklusphase",
-      "runDiscovery": "Erkennung starten",
-      "running": "Erkennung läuft…",
-      "discoveredCount_one": "{{count}} KI-System klassifiziert",
-      "discoveredCount_other": "{{count}} KI-Systeme klassifiziert",
-      "skippedNoProvider": "KI-Anbieter nicht konfiguriert — nur Untertyp-Treffer wurden klassifiziert. Konfigurieren Sie einen KI-Anbieter unter Admin › Einstellungen › KI, um auch in Allzweck-Software verborgene KI zu erfassen.",
-      "lastDiscovered": "Zuletzt erkannt: {{when}}",
-      "neverRun": "Erkennung wurde noch nie ausgeführt",
       "empty": "Noch keine KI-Systeme erkannt. Klicken Sie auf «Erkennung starten», um Application-, ITComponent- und Interface-Karten zu scannen.",
       "kpi": {
         "total": "KI-Systeme gesamt",
@@ -96,7 +89,12 @@
         "scopeHint": "Nur Application-, ITComponent- und Interface-Karten können klassifiziert werden.",
         "cancel": "Abbrechen",
         "confirm": "Zum KI-Inventar hinzufügen"
-      }
+      },
+      "lastScanned": "Zuletzt gescannt: {{when}}",
+      "neverScanned": "Noch nie gescannt — Erkennung erfolgt während des Compliance-Scans.",
+      "openScanner": "Compliance-Scanner öffnen",
+      "emptyScanHint": "Noch keine KI-Systeme klassifiziert. Die Erkennung erfolgt während des EU-AI-Act-Durchlaufs im Compliance-Scanner.",
+      "detectionSource": "Der Compliance-Scanner ist die einzige Quelle der KI-Erkennung. Starten Sie einen Scan mit ausgewähltem EU AI Act, um das Inventar zu befüllen."
     },
     "principles": {
       "title": "Architekturprinzipien",

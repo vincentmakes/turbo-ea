@@ -17,13 +17,6 @@
     "ai": {
       "title": "Inventario IA",
       "subtitle": "Schede con IA (sottotipo, rilevamento semantico o override manuale), con classificazione del rischio ai sensi dell'AI Act dell'UE e fase del ciclo di vita",
-      "runDiscovery": "Avvia rilevamento",
-      "running": "Rilevamento in corso…",
-      "discoveredCount_one": "{{count}} sistema IA classificato",
-      "discoveredCount_other": "{{count}} sistemi IA classificati",
-      "skippedNoProvider": "Provider IA non configurato — sono stati classificati solo i match per sottotipo. Configura un provider IA in Admin › Impostazioni › IA per intercettare anche l'IA nascosta nel software generico.",
-      "lastDiscovered": "Ultimo rilevamento: {{when}}",
-      "neverRun": "Rilevamento mai eseguito",
       "empty": "Nessun sistema IA rilevato. Clicca su «Avvia rilevamento» per analizzare le schede Application / ITComponent / Interface.",
       "kpi": {
         "total": "Sistemi IA totali",
@@ -96,7 +89,12 @@
         "scopeHint": "Si possono classificare solo carte Application, ITComponent e Interface.",
         "cancel": "Annulla",
         "confirm": "Aggiungi all'inventario IA"
-      }
+      },
+      "lastScanned": "Ultima scansione: {{when}}",
+      "neverScanned": "Mai scansionato — la rilevazione avviene durante la scansione di conformità.",
+      "openScanner": "Apri scanner di conformità",
+      "emptyScanHint": "Nessun sistema IA classificato ancora. La rilevazione avviene durante il passaggio EU AI Act dello scanner di conformità.",
+      "detectionSource": "Lo scanner di conformità è l'unica fonte di rilevazione IA. Esegui una scansione con EU AI Act selezionato per popolare l'inventario."
     },
     "principles": {
       "title": "Principi di architettura",

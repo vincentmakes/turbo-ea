@@ -571,6 +571,40 @@ export default function TurboLensSecurity() {
                 ))}
               </FormGroup>
             </SecurityScanCard>
+            {(() => {
+              // After a compliance scan that included EU AI Act, surface the
+              // AI Inventory side-effect — the scanner is now the sole AI
+              // detection driver, so users should know where the resulting
+              // registry lives. (#536)
+              const summary = complianceRun.summary as
+                | { ai_inventory_updated?: number; regulations?: string[] }
+                | null;
+              const aiUpdated = Number(summary?.ai_inventory_updated ?? 0);
+              const hadEuAi = Array.isArray(summary?.regulations)
+                ? summary.regulations.includes("eu_ai_act")
+                : false;
+              if (!hadEuAi) return null;
+              return (
+                <Alert
+                  severity="info"
+                  icon={<MaterialSymbol icon="psychology" size={18} />}
+                  sx={{ mt: 1 }}
+                  action={
+                    <Button
+                      component={RouterLink}
+                      to="/grc?tab=governance&sub=ai"
+                      size="small"
+                      color="inherit"
+                      endIcon={<MaterialSymbol icon="arrow_outward" size={14} />}
+                    >
+                      {t("turbolens_security_view_ai_inventory")}
+                    </Button>
+                  }
+                >
+                  {t("turbolens_security_ai_inventory_updated", { count: aiUpdated })}
+                </Alert>
+              );
+            })()}
           </Grid>
         </Grid>
 
