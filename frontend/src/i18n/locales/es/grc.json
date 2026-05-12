@@ -32,7 +32,9 @@
         "highRisk": "Alto / inaceptable",
         "highRiskHint": "Ley de IA: alto o inaceptable",
         "unowned": "Sin propietario",
-        "unownedHint": "Sin stakeholder asignado"
+        "unownedHint": "Sin stakeholder asignado",
+        "pendingReview": "Revisión pendiente",
+        "pendingReviewHint": "Falta clase de riesgo o finalidad"
       },
       "filters": {
         "allRiskClasses": "Todas las clases de riesgo",
@@ -74,7 +76,27 @@
         "minimal": "Mínimo"
       },
       "unknown": "—",
-      "unowned": "Sin propietario"
+      "unowned": "Sin propietario",
+      "classifyButton": "Clasificar una tarjeta como IA",
+      "linkedRisks": {
+        "title": "Riesgos sobre sistemas de IA",
+        "openRegister": "Abrir registro de riesgos →",
+        "empty": "No hay riesgos abiertos vinculados a tarjetas de IA en este momento.",
+        "reference": "Ref",
+        "title_col": "Título",
+        "status": "Estado",
+        "residualLevel": "Riesgo residual",
+        "affectedCards": "Sistemas de IA afectados"
+      },
+      "classifyDialog": {
+        "title": "Clasificar una tarjeta como sistema de IA",
+        "help": "Forzar la inclusión de la tarjeta seleccionada en el inventario de IA. Útil para IA en la sombra que el detector semántico no captura.",
+        "searchLabel": "Tarjeta",
+        "searchPlaceholder": "Escriba para buscar…",
+        "scopeHint": "Solo se pueden clasificar tarjetas Application, ITComponent e Interface.",
+        "cancel": "Cancelar",
+        "confirm": "Añadir al inventario de IA"
+      }
     },
     "principles": {
       "title": "Principios de arquitectura",

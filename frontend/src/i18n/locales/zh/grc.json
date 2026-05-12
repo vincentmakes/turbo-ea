@@ -32,7 +32,9 @@
         "highRisk": "高 / 不可接受",
         "highRiskHint": "欧盟《人工智能法》高或不可接受",
         "unowned": "无负责人",
-        "unownedHint": "未分配相关方"
+        "unownedHint": "未分配相关方",
+        "pendingReview": "待审阅",
+        "pendingReviewHint": "缺少风险类别或用途"
       },
       "filters": {
         "allRiskClasses": "全部风险等级",
@@ -74,7 +76,27 @@
         "minimal": "最小"
       },
       "unknown": "—",
-      "unowned": "无负责人"
+      "unowned": "无负责人",
+      "classifyButton": "将卡片分类为 AI",
+      "linkedRisks": {
+        "title": "AI 系统上的风险",
+        "openRegister": "打开风险登记册 →",
+        "empty": "目前没有与 AI 卡片关联的未关闭风险。",
+        "reference": "编号",
+        "title_col": "标题",
+        "status": "状态",
+        "residualLevel": "剩余风险",
+        "affectedCards": "受影响的 AI 系统"
+      },
+      "classifyDialog": {
+        "title": "将卡片分类为 AI 系统",
+        "help": "强制将所选卡片加入 AI 清单。适用于语义检测器无法识别的隐形 AI。",
+        "searchLabel": "卡片",
+        "searchPlaceholder": "输入以搜索…",
+        "scopeHint": "只有 Application、ITComponent 和 Interface 卡片可以被分类。",
+        "cancel": "取消",
+        "confirm": "添加到 AI 清单"
+      }
     },
     "principles": {
       "title": "架构原则",

@@ -1843,6 +1843,8 @@ export interface AiInventoryKpis {
   total: number;
   with_risk_class: number;
   unclassified: number;
+  /** AI cards still missing either a risk class or a documented intended purpose. */
+  pending_review: number;
   high_or_unacceptable: number;
   unowned: number;
   by_risk_class: Record<string, number>;
@@ -1854,6 +1856,17 @@ export interface AiDiscoverResponse {
   classified: number;
   by_method: Record<string, number>;
   skipped_no_ai_provider: boolean;
+}
+
+export interface AiLinkedRisk {
+  id: string;
+  reference: string;
+  title: string;
+  status: string;
+  initial_level: string | null;
+  residual_level: string | null;
+  affected_card_ids: string[];
+  affected_card_names: string[];
 }
 
 export interface CardRestoreResponse {

@@ -426,8 +426,20 @@ async def detect_ai_bearing_cards(
             "features hidden inside general-purpose software. Do NOT rely "
             "only on the card's subtype; inspect name, vendor and "
             "description for AI signals.\n\n"
+            "For each AI card, also assess its tentative EU AI Act risk "
+            "tier (Reg. (EU) 2024/1689). Heuristics:\n"
+            "- unacceptable: social scoring, biometric mass surveillance, "
+            "subliminal manipulation (Art. 5).\n"
+            "- high: biometric identification, critical infrastructure, "
+            "education access, employment / HR screening, credit scoring, "
+            "law enforcement, migration, justice administration (Annex III).\n"
+            "- limited: chatbots, emotion recognition, deepfakes, content "
+            "labelling (Art. 50 transparency).\n"
+            "- minimal: spam filters, recommender systems, search ranking, "
+            "general-purpose productivity AI.\n\n"
             'Return ONLY JSON: [{"id":"<uuid>","ai_role":"provider|consumer|embedded",'
-            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>"}].\n'
+            '"confidence":0.0-1.0,"signal":"<what in the card hinted at AI>",'
+            '"risk_tier":"unacceptable|high|limited|minimal"}].\n'
             "Omit cards with no AI involvement.\n\n"
             f"Cards:\n{json.dumps(payload)}"
         )
@@ -452,14 +464,21 @@ async def detect_ai_bearing_cards(
             card_id = item.get("id")
             if not card_id:
                 continue
-            # Never downgrade a subtype match.
+            risk_tier = item.get("risk_tier")
+            if risk_tier not in ("unacceptable", "high", "limited", "minimal"):
+                risk_tier = None
+            # Never downgrade a subtype match — but capture the LLM's
+            # risk-tier verdict so the AI Inventory can surface it.
             if card_id in scoped and scoped[card_id]["subtype_match"]:
+                if risk_tier and not scoped[card_id].get("risk_tier"):
+                    scoped[card_id]["risk_tier"] = risk_tier
                 continue
             scoped[card_id] = {
                 "role": item.get("ai_role", "embedded"),
                 "confidence": float(item.get("confidence", 0.6) or 0.6),
                 "subtype_match": False,
                 "signal": item.get("signal", ""),
+                "risk_tier": risk_tier,
             }
     return scoped
 

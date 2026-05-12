@@ -22,13 +22,14 @@ from app.api.deps import require_permission
 from app.database import get_db
 from app.models.ai_governance import AiGovernanceClassification
 from app.models.card import Card
-from app.models.risk import Risk
+from app.models.risk import Risk, RiskCard
 from app.models.stakeholder import Stakeholder
 from app.schemas.grc import (
     AiInventoryDetection,
     AiInventoryItem,
     AiInventoryKpis,
     AiInventoryPage,
+    AiLinkedRisk,
     DiscoverResponse,
     GrcOverview,
 )
@@ -275,6 +276,7 @@ async def get_ai_inventory_kpis(
     by_lifecycle: dict[str, int] = {}
     total = 0
     with_risk_class = 0
+    pending_review = 0
     high_or_unacceptable = 0
     last_detected: datetime | None = None
     card_ids: list[str] = []
@@ -291,6 +293,11 @@ async def get_ai_inventory_kpis(
         ls = attrs.get("aiLifecycleStage")
         if ls:
             by_lifecycle[ls] = by_lifecycle.get(ls, 0) + 1
+        # «Pending review» = AI card missing either a risk classification
+        # OR a documented intended purpose. Both are required to close the
+        # EU AI Act Annex IV / ISO 42001 6.1.4 impact-assessment story.
+        if not rc or not (attrs.get("aiIntendedPurpose") or "").strip():
+            pending_review += 1
         if detected_at and (last_detected is None or detected_at > last_detected):
             last_detected = detected_at
 
@@ -306,6 +313,7 @@ async def get_ai_inventory_kpis(
         total=total,
         with_risk_class=with_risk_class,
         unclassified=unclassified,
+        pending_review=pending_review,
         high_or_unacceptable=high_or_unacceptable,
         unowned=unowned,
         by_risk_class=by_risk_class,
@@ -355,7 +363,7 @@ async def discover_ai_inventory(
 
     for card in cards:
         cid = str(card.id)
-        attrs = card.attributes or {}
+        attrs = dict(card.attributes or {})
         override = attrs.get("aiClassificationOverride")
         det = detected.get(cid)
 
@@ -365,6 +373,7 @@ async def discover_ai_inventory(
                 await db.delete(existing[cid])
             continue
 
+        risk_tier = None
         if override == "yes":
             method = "override"
             role = attrs.get("aiSystemRole") or "embedded"
@@ -377,11 +386,34 @@ async def discover_ai_inventory(
             role = det.get("role", "embedded")
             confidence = float(det.get("confidence", 0.6) or 0.6)
             signal = det.get("signal", "") or ""
+            risk_tier = det.get("risk_tier")
         else:
             continue  # neither override nor detected
 
         seen_card_ids.add(cid)
         by_method[method] = by_method.get(method, 0) + 1
+
+        # Backfill metamodel fields from the detector — without clobbering
+        # admin-set values. The AI Inventory reads these directly off
+        # Card.attributes, so the columns stay populated for the common
+        # case where the admin hasn't manually filled them in.
+        updated_attrs = False
+        if not attrs.get("aiSystemRole") and role:
+            attrs["aiSystemRole"] = role
+            updated_attrs = True
+        if not attrs.get("aiLifecycleStage") and (card.status or "").upper() == "ACTIVE":
+            attrs["aiLifecycleStage"] = "production"
+            updated_attrs = True
+        if not attrs.get("aiRiskClass") and risk_tier in (
+            "unacceptable",
+            "high",
+            "limited",
+            "minimal",
+        ):
+            attrs["aiRiskClass"] = risk_tier
+            updated_attrs = True
+        if updated_attrs:
+            card.attributes = attrs
 
         if cid in existing:
             row = existing[cid]
@@ -413,4 +445,156 @@ async def discover_ai_inventory(
         classified=sum(by_method.values()),
         by_method=by_method,
         skipped_no_ai_provider=not has_provider,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cross-link: Risk Register entries touching AI-bearing cards
+# ---------------------------------------------------------------------------
+
+
+@router.get("/ai-risks", response_model=list[AiLinkedRisk])
+async def list_ai_linked_risks(
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("grc.view")),
+    open_only: bool = Query(True, description="Filter to risks that are not yet closed."),
+    limit: int = Query(10, ge=1, le=50),
+) -> list[AiLinkedRisk]:
+    """Risk Register entries whose linked cards include at least one AI system.
+
+    Powers the *Risks on AI systems* cross-link panel on the AI Inventory page.
+    Default is open risks, capped to 10 — the panel is a teaser into the
+    proper Risk Register tab, not a full risk register.
+    """
+    ai_card_ids = (
+        select(AiGovernanceClassification.card_id)
+        .join(Card, Card.id == AiGovernanceClassification.card_id)
+        .where(Card.status != "ARCHIVED")
+    )
+    stmt = (
+        select(Risk)
+        .join(RiskCard, RiskCard.risk_id == Risk.id)
+        .where(RiskCard.card_id.in_(ai_card_ids))
+        .distinct()
+        .order_by(Risk.updated_at.desc())
+        .limit(limit)
+    )
+    if open_only:
+        stmt = stmt.where(Risk.status.in_(_OPEN_RISK_STATUSES))
+
+    risks = list((await db.execute(stmt)).scalars().all())
+    if not risks:
+        return []
+
+    # Resolve the AI cards touched by these risks (only the AI ones — not the
+    # full set of linked cards — so the panel surfaces the AI angle clearly).
+    risk_ids = [r.id for r in risks]
+    rc_rows = (
+        await db.execute(
+            select(RiskCard.risk_id, Card.id, Card.name)
+            .join(Card, Card.id == RiskCard.card_id)
+            .where(RiskCard.risk_id.in_(risk_ids), RiskCard.card_id.in_(ai_card_ids))
+        )
+    ).all()
+    by_risk: dict[str, list[tuple[str, str]]] = {}
+    for risk_id, card_id, card_name in rc_rows:
+        by_risk.setdefault(str(risk_id), []).append((str(card_id), card_name))
+
+    return [
+        AiLinkedRisk(
+            id=str(r.id),
+            reference=r.reference,
+            title=r.title,
+            status=r.status,
+            initial_level=r.initial_level,
+            residual_level=r.residual_level,
+            affected_card_ids=[c[0] for c in by_risk.get(str(r.id), [])],
+            affected_card_names=[c[1] for c in by_risk.get(str(r.id), [])],
+        )
+        for r in risks
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Manual «Classify as AI» — set aiClassificationOverride="yes" on a card
+# ---------------------------------------------------------------------------
+
+
+@router.post("/ai-inventory/classify/{card_id}", response_model=DiscoverResponse)
+async def classify_card_as_ai(
+    card_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_permission("grc.manage")),
+) -> DiscoverResponse:
+    """Force-add a card to the AI inventory without waiting for the LLM detector.
+
+    Sets ``aiClassificationOverride="yes"`` on the card and runs a single-row
+    discovery pass so the cache table reflects the change immediately. Useful
+    for shadow-AI systems the semantic detector won't catch (e.g. a custom
+    fine-tuned model hidden behind a generic «Service» card).
+    """
+    import uuid as uuid_mod
+
+    try:
+        card_uuid = uuid_mod.UUID(card_id)
+    except ValueError as exc:
+        from fastapi import HTTPException
+
+        raise HTTPException(400, "Invalid card id") from exc
+
+    card = (await db.execute(select(Card).where(Card.id == card_uuid))).scalar_one_or_none()
+    if card is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(404, "Card not found")
+
+    if card.type not in _AI_TARGET_TYPES:
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            400,
+            f"AI Inventory only tracks {', '.join(_AI_TARGET_TYPES)} cards.",
+        )
+
+    attrs = dict(card.attributes or {})
+    attrs["aiClassificationOverride"] = "yes"
+    # Default the system role to «embedded» when the admin force-includes;
+    # they can refine via card detail. Don't clobber existing values.
+    if not attrs.get("aiSystemRole"):
+        attrs["aiSystemRole"] = "embedded"
+    if not attrs.get("aiLifecycleStage") and (card.status or "").upper() == "ACTIVE":
+        attrs["aiLifecycleStage"] = "production"
+    card.attributes = attrs
+
+    now = datetime.now(timezone.utc)
+    existing_row = (
+        await db.execute(
+            select(AiGovernanceClassification).where(
+                AiGovernanceClassification.card_id == card_uuid
+            )
+        )
+    ).scalar_one_or_none()
+    if existing_row is None:
+        db.add(
+            AiGovernanceClassification(
+                card_id=card_uuid,
+                detected_role=attrs["aiSystemRole"],
+                confidence=1.0,
+                subtype_match=card.subtype in AI_SUBTYPES,
+                signal="Manual override (aiClassificationOverride=yes)",
+                detected_at=now,
+            )
+        )
+    else:
+        existing_row.detected_role = attrs["aiSystemRole"]
+        existing_row.confidence = 1.0
+        existing_row.subtype_match = card.subtype in AI_SUBTYPES
+        existing_row.signal = "Manual override (aiClassificationOverride=yes)"
+        existing_row.detected_at = now
+
+    await db.commit()
+    return DiscoverResponse(
+        classified=1,
+        by_method={"subtype": 0, "semantic": 0, "override": 1},
+        skipped_no_ai_provider=False,
     )

@@ -444,6 +444,10 @@
             ],
             "title": "Last Discovered At"
           },
+          "pending_review": {
+            "title": "Pending Review",
+            "type": "integer"
+          },
           "total": {
             "title": "Total",
             "type": "integer"
@@ -467,6 +471,7 @@
           "unclassified",
           "high_or_unacceptable",
           "unowned",
+          "pending_review",
           "by_risk_class",
           "by_lifecycle",
           "last_discovered_at"
@@ -503,6 +508,75 @@
           "page_size"
         ],
         "title": "AiInventoryPage",
+        "type": "object"
+      },
+      "AiLinkedRisk": {
+        "description": "Compact projection of a Risk Register entry that touches an AI-bearing card.\n\nBacks the *Risks on AI systems* cross-link panel on the AI Inventory page \u2014\nhonours the user's instinct that AI Risk is a slice of the broader Risk\nRegister without burying the inventory under the Risk tab.",
+        "properties": {
+          "affected_card_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Card Ids",
+            "type": "array"
+          },
+          "affected_card_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Card Names",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "initial_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initial Level"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "residual_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Residual Level"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "reference",
+          "title",
+          "status",
+          "initial_level",
+          "residual_level",
+          "affected_card_ids",
+          "affected_card_names"
+        ],
+        "title": "AiLinkedRisk",
         "type": "object"
       },
       "AiSettingsPayload": {
@@ -16941,6 +17015,49 @@
         ]
       }
     },
+    "/api/v1/grc/ai-inventory/classify/{card_id}": {
+      "post": {
+        "description": "Force-add a card to the AI inventory without waiting for the LLM detector.\n\nSets ``aiClassificationOverride=\"yes\"`` on the card and runs a single-row\ndiscovery pass so the cache table reflects the change immediately. Useful\nfor shadow-AI systems the semantic detector won't catch (e.g. a custom\nfine-tuned model hidden behind a generic \u00abService\u00bb card).",
+        "operationId": "classify_card_as_ai_api_v1_grc_ai_inventory_classify__card_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "card_id",
+            "required": true,
+            "schema": {
+              "title": "Card Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Classify Card As Ai",
+        "tags": [
+          "GRC"
+        ]
+      }
+    },
     "/api/v1/grc/ai-inventory/discover": {
       "post": {
         "description": "Refresh the AI Governance classification cache.\n\nWalks Application / ITComponent / Interface cards and flags AI-bearing\nones using the shared semantic detector. Synchronous: the LLM pass is\nskipped when no AI provider is configured, so this is fast on most\ninstalls. Force-included (override=yes) cards are also recorded.",
@@ -16980,6 +17097,68 @@
           }
         },
         "summary": "Get Ai Inventory Kpis",
+        "tags": [
+          "GRC"
+        ]
+      }
+    },
+    "/api/v1/grc/ai-risks": {
+      "get": {
+        "description": "Risk Register entries whose linked cards include at least one AI system.\n\nPowers the *Risks on AI systems* cross-link panel on the AI Inventory page.\nDefault is open risks, capped to 10 \u2014 the panel is a teaser into the\nproper Risk Register tab, not a full risk register.",
+        "operationId": "list_ai_linked_risks_api_v1_grc_ai_risks_get",
+        "parameters": [
+          {
+            "description": "Filter to risks that are not yet closed.",
+            "in": "query",
+            "name": "open_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Filter to risks that are not yet closed.",
+              "title": "Open Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AiLinkedRisk"
+                  },
+                  "title": "Response List Ai Linked Risks Api V1 Grc Ai Risks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Ai Linked Risks",
         "tags": [
           "GRC"
         ]

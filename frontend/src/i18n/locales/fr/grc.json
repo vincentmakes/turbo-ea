@@ -32,7 +32,9 @@
         "highRisk": "Élevé / inacceptable",
         "highRiskHint": "Règlement IA : risque élevé ou inacceptable",
         "unowned": "Sans propriétaire",
-        "unownedHint": "Aucun stakeholder assigné"
+        "unownedHint": "Aucun stakeholder assigné",
+        "pendingReview": "Revue en attente",
+        "pendingReviewHint": "Classe de risque ou finalité manquante"
       },
       "filters": {
         "allRiskClasses": "Toutes les classes de risque",
@@ -74,7 +76,27 @@
         "minimal": "Minimal"
       },
       "unknown": "—",
-      "unowned": "Sans propriétaire"
+      "unowned": "Sans propriétaire",
+      "classifyButton": "Classer une carte comme IA",
+      "linkedRisks": {
+        "title": "Risques sur les systèmes IA",
+        "openRegister": "Ouvrir le registre des risques →",
+        "empty": "Aucun risque ouvert lié à des cartes IA pour le moment.",
+        "reference": "Réf",
+        "title_col": "Titre",
+        "status": "Statut",
+        "residualLevel": "Risque résiduel",
+        "affectedCards": "Systèmes IA concernés"
+      },
+      "classifyDialog": {
+        "title": "Classer une carte comme système IA",
+        "help": "Ajouter de force la carte sélectionnée à l'inventaire IA. Utile pour les IA fantômes que le détecteur sémantique ne voit pas.",
+        "searchLabel": "Carte",
+        "searchPlaceholder": "Saisissez pour rechercher…",
+        "scopeHint": "Seules les cartes Application, ITComponent et Interface peuvent être classées.",
+        "cancel": "Annuler",
+        "confirm": "Ajouter à l'inventaire IA"
+      }
     },
     "principles": {
       "title": "Principes d'architecture",

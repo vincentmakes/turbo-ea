@@ -49,9 +49,31 @@ class AiInventoryKpis(BaseModel):
     unclassified: int
     high_or_unacceptable: int
     unowned: int
+    # «Pending review» tracks the actual EU AI Act Art. 11 / ISO 42001 6.1.4
+    # obligation: an AI card needs a documented risk classification *and* a
+    # documented intended purpose before the impact assessment can close.
+    pending_review: int
     by_risk_class: dict[str, int]
     by_lifecycle: dict[str, int]
     last_discovered_at: datetime | None
+
+
+class AiLinkedRisk(BaseModel):
+    """Compact projection of a Risk Register entry that touches an AI-bearing card.
+
+    Backs the *Risks on AI systems* cross-link panel on the AI Inventory page —
+    honours the user's instinct that AI Risk is a slice of the broader Risk
+    Register without burying the inventory under the Risk tab.
+    """
+
+    id: str
+    reference: str
+    title: str
+    status: str
+    initial_level: str | None
+    residual_level: str | None
+    affected_card_ids: list[str]
+    affected_card_names: list[str]
 
 
 class GrcOverview(BaseModel):

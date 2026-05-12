@@ -32,7 +32,9 @@
         "highRisk": "High / unacceptable",
         "highRiskHint": "EU AI Act high or unacceptable",
         "unowned": "Unowned",
-        "unownedHint": "No stakeholder assigned"
+        "unownedHint": "No stakeholder assigned",
+        "pendingReview": "Pending review",
+        "pendingReviewHint": "Missing risk class or intended purpose"
       },
       "filters": {
         "allRiskClasses": "All risk classes",
@@ -74,7 +76,27 @@
         "minimal": "Minimal"
       },
       "unknown": "—",
-      "unowned": "No owner"
+      "unowned": "No owner",
+      "classifyButton": "Classify a card as AI",
+      "linkedRisks": {
+        "title": "Risks on AI systems",
+        "openRegister": "Open Risk Register →",
+        "empty": "No open risks currently linked to AI-bearing cards.",
+        "reference": "Ref",
+        "title_col": "Title",
+        "status": "Status",
+        "residualLevel": "Residual level",
+        "affectedCards": "Affected AI systems"
+      },
+      "classifyDialog": {
+        "title": "Classify a card as an AI system",
+        "help": "Force-include the selected card in the AI Inventory. Useful for shadow-AI systems the semantic detector won't catch.",
+        "searchLabel": "Card",
+        "searchPlaceholder": "Type to search…",
+        "scopeHint": "Only Application, ITComponent and Interface cards can be classified.",
+        "cancel": "Cancel",
+        "confirm": "Add to AI Inventory"
+      }
     },
     "principles": {
       "title": "Architecture Principles",

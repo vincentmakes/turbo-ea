@@ -2,10 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import LinearProgress from "@mui/material/LinearProgress";
@@ -20,6 +26,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -29,7 +36,12 @@ import type {
   AiDiscoverResponse,
   AiInventoryKpis,
   AiInventoryPage,
+  AiLinkedRisk,
+  Card as CardType,
+  CardListResponse,
 } from "@/types";
+
+const AI_TARGET_TYPES = ["Application", "ITComponent", "Interface"] as const;
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
 
@@ -85,10 +97,19 @@ export default function AiInventoryPanel() {
 
   const [data, setData] = useState<AiInventoryPage | null>(null);
   const [kpis, setKpis] = useState<AiInventoryKpis | null>(null);
+  const [linkedRisks, setLinkedRisks] = useState<AiLinkedRisk[]>([]);
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
   const [discoverResult, setDiscoverResult] = useState<AiDiscoverResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Manual classify dialog state.
+  const [classifyOpen, setClassifyOpen] = useState(false);
+  const [classifySearch, setClassifySearch] = useState("");
+  const [classifyOptions, setClassifyOptions] = useState<CardType[]>([]);
+  const [classifyLoading, setClassifyLoading] = useState(false);
+  const [classifyPicked, setClassifyPicked] = useState<CardType | null>(null);
+  const [classifySubmitting, setClassifySubmitting] = useState(false);
 
   const queryParams = useMemo(() => {
     const p = new URLSearchParams();
@@ -104,12 +125,14 @@ export default function AiInventoryPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [pageData, kpiData] = await Promise.all([
+      const [pageData, kpiData, risks] = await Promise.all([
         api.get<AiInventoryPage>(`/grc/ai-inventory?${queryParams}`),
         api.get<AiInventoryKpis>("/grc/ai-inventory/kpis"),
+        api.get<AiLinkedRisk[]>("/grc/ai-risks"),
       ]);
       setData(pageData);
       setKpis(kpiData);
+      setLinkedRisks(risks);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -136,6 +159,52 @@ export default function AiInventoryPanel() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setDiscovering(false);
+    }
+  };
+
+  // Debounced card search for the manual classify dialog.
+  useEffect(() => {
+    if (!classifyOpen) return;
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      setClassifyLoading(true);
+      try {
+        const params = new URLSearchParams();
+        params.set("page", "1");
+        params.set("page_size", "20");
+        params.set("type", AI_TARGET_TYPES.join(","));
+        if (classifySearch.trim()) params.set("search", classifySearch.trim());
+        const res = await api.get<CardListResponse>(`/cards?${params.toString()}`);
+        if (!cancelled) setClassifyOptions(res.items || []);
+      } catch {
+        if (!cancelled) setClassifyOptions([]);
+      } finally {
+        if (!cancelled) setClassifyLoading(false);
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [classifyOpen, classifySearch]);
+
+  const handleClassify = async () => {
+    if (!classifyPicked) return;
+    setClassifySubmitting(true);
+    setError(null);
+    try {
+      await api.post<AiDiscoverResponse>(
+        `/grc/ai-inventory/classify/${classifyPicked.id}`,
+        {},
+      );
+      setClassifyOpen(false);
+      setClassifyPicked(null);
+      setClassifySearch("");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setClassifySubmitting(false);
     }
   };
 
@@ -169,20 +238,33 @@ export default function AiInventoryPanel() {
             {lastDiscoveredLabel}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={
-            discovering ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <MaterialSymbol icon="autorenew" size={18} />
-            )
-          }
-          onClick={handleDiscover}
-          disabled={discovering}
-        >
-          {discovering ? t("governance.ai.running") : t("governance.ai.runDiscovery")}
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<MaterialSymbol icon="add" size={18} />}
+            onClick={() => {
+              setClassifyOpen(true);
+              setClassifyPicked(null);
+              setClassifySearch("");
+            }}
+          >
+            {t("governance.ai.classifyButton")}
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={
+              discovering ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <MaterialSymbol icon="autorenew" size={18} />
+              )
+            }
+            onClick={handleDiscover}
+            disabled={discovering}
+          >
+            {discovering ? t("governance.ai.running") : t("governance.ai.runDiscovery")}
+          </Button>
+        </Stack>
       </Stack>
 
       {/* Discovery result banner */}
@@ -220,12 +302,12 @@ export default function AiInventoryPanel() {
           color={kpis && kpis.high_or_unacceptable > 0 ? "#e53935" : undefined}
         />
         <MetricCard
-          label={t("governance.ai.kpi.unclassified")}
-          value={kpis?.unclassified ?? "—"}
-          icon="help"
+          label={t("governance.ai.kpi.pendingReview")}
+          value={kpis?.pending_review ?? "—"}
+          icon="rule_settings"
           iconColor="#f57c00"
-          subtitle={t("governance.ai.kpi.unclassifiedHint")}
-          color={kpis && kpis.unclassified > 0 ? "#f57c00" : undefined}
+          subtitle={t("governance.ai.kpi.pendingReviewHint")}
+          color={kpis && kpis.pending_review > 0 ? "#f57c00" : undefined}
         />
         <MetricCard
           label={t("governance.ai.kpi.unowned")}
@@ -451,6 +533,174 @@ export default function AiInventoryPanel() {
           />
         </TableContainer>
       )}
+
+      {/* Risk Register cross-link — AI risk is a slice of the broader Risk
+          Register, not a parent of it. Keep the inventory standalone but
+          surface the connection. */}
+      <Box sx={{ mt: 4 }}>
+        <Stack direction="row" alignItems="baseline" spacing={1.5} sx={{ mb: 1 }}>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {t("governance.ai.linkedRisks.title")}
+          </Typography>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component={RouterLink}
+            to="/grc?tab=risk"
+            sx={{ textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+          >
+            {t("governance.ai.linkedRisks.openRegister")}
+          </Typography>
+        </Stack>
+        {linkedRisks.length === 0 ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="caption" color="text.secondary">
+              {t("governance.ai.linkedRisks.empty")}
+            </Typography>
+          </Paper>
+        ) : (
+          <Paper variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: 110 }}>
+                    {t("governance.ai.linkedRisks.reference")}
+                  </TableCell>
+                  <TableCell>{t("governance.ai.linkedRisks.title_col")}</TableCell>
+                  <TableCell sx={{ width: 130 }}>
+                    {t("governance.ai.linkedRisks.status")}
+                  </TableCell>
+                  <TableCell sx={{ width: 130 }}>
+                    {t("governance.ai.linkedRisks.residualLevel")}
+                  </TableCell>
+                  <TableCell>{t("governance.ai.linkedRisks.affectedCards")}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {linkedRisks.map((risk) => (
+                  <TableRow key={risk.id} hover>
+                    <TableCell>
+                      <RouterLink
+                        to={`/grc/risks/${risk.id}`}
+                        style={{ color: "inherit", textDecoration: "none", fontWeight: 500 }}
+                      >
+                        {risk.reference}
+                      </RouterLink>
+                    </TableCell>
+                    <TableCell>
+                      <RouterLink
+                        to={`/grc/risks/${risk.id}`}
+                        style={{ color: "inherit", textDecoration: "none" }}
+                      >
+                        {risk.title}
+                      </RouterLink>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" variant="outlined" label={risk.status} />
+                    </TableCell>
+                    <TableCell>
+                      {risk.residual_level || risk.initial_level ? (
+                        <Chip
+                          size="small"
+                          label={risk.residual_level ?? risk.initial_level ?? ""}
+                          sx={{
+                            bgcolor:
+                              (risk.residual_level ?? risk.initial_level) === "critical"
+                                ? "#b71c1c"
+                                : (risk.residual_level ?? risk.initial_level) === "high"
+                                  ? "#e53935"
+                                  : (risk.residual_level ?? risk.initial_level) === "medium"
+                                    ? "#fb8c00"
+                                    : "#43a047",
+                            color: "#fff",
+                            fontWeight: 600,
+                          }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                        {risk.affected_card_ids.map((cid, idx) => (
+                          <RouterLink
+                            key={cid}
+                            to={`/cards/${cid}`}
+                            style={{ textDecoration: "none" }}
+                          >
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              clickable
+                              icon={<MaterialSymbol icon="arrow_outward" size={12} />}
+                              label={risk.affected_card_names[idx]}
+                            />
+                          </RouterLink>
+                        ))}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        )}
+      </Box>
+
+      {/* Manual «Classify a card as AI» dialog */}
+      <Dialog
+        open={classifyOpen}
+        onClose={() => !classifySubmitting && setClassifyOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>{t("governance.ai.classifyDialog.title")}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("governance.ai.classifyDialog.help")}
+          </Typography>
+          <Autocomplete<CardType>
+            options={classifyOptions}
+            value={classifyPicked}
+            onChange={(_, v) => setClassifyPicked(v)}
+            getOptionLabel={(o) => `${o.name} (${o.type})`}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            loading={classifyLoading}
+            inputValue={classifySearch}
+            onInputChange={(_, v) => setClassifySearch(v)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t("governance.ai.classifyDialog.searchLabel")}
+                placeholder={t("governance.ai.classifyDialog.searchPlaceholder")}
+                autoFocus
+                fullWidth
+              />
+            )}
+          />
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="caption" color="text.disabled">
+            {t("governance.ai.classifyDialog.scopeHint")}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClassifyOpen(false)} disabled={classifySubmitting}>
+            {t("governance.ai.classifyDialog.cancel")}
+          </Button>
+          <Button
+            onClick={handleClassify}
+            disabled={!classifyPicked || classifySubmitting}
+            variant="contained"
+            startIcon={
+              classifySubmitting ? <CircularProgress size={14} color="inherit" /> : undefined
+            }
+          >
+            {t("governance.ai.classifyDialog.confirm")}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

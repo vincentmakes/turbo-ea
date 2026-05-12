@@ -32,7 +32,9 @@
         "highRisk": "Hoch / unannehmbar",
         "highRiskHint": "EU-KI-Verordnung hoch oder unannehmbar",
         "unowned": "Ohne Eigentümer",
-        "unownedHint": "Kein Stakeholder zugewiesen"
+        "unownedHint": "Kein Stakeholder zugewiesen",
+        "pendingReview": "Prüfung ausstehend",
+        "pendingReviewHint": "Risikoklasse oder Zweck fehlt"
       },
       "filters": {
         "allRiskClasses": "Alle Risikoklassen",
@@ -74,7 +76,27 @@
         "minimal": "Minimal"
       },
       "unknown": "—",
-      "unowned": "Kein Eigentümer"
+      "unowned": "Kein Eigentümer",
+      "classifyButton": "Karte als KI klassifizieren",
+      "linkedRisks": {
+        "title": "Risiken auf KI-Systemen",
+        "openRegister": "Risiko-Register öffnen →",
+        "empty": "Aktuell sind keine offenen Risiken mit KI-relevanten Karten verknüpft.",
+        "reference": "Ref",
+        "title_col": "Titel",
+        "status": "Status",
+        "residualLevel": "Restrisiko",
+        "affectedCards": "Betroffene KI-Systeme"
+      },
+      "classifyDialog": {
+        "title": "Karte als KI-System klassifizieren",
+        "help": "Karte erzwungen in das KI-Inventar aufnehmen. Nützlich für Schatten-KI, die die semantische Erkennung nicht erfasst.",
+        "searchLabel": "Karte",
+        "searchPlaceholder": "Zum Suchen tippen…",
+        "scopeHint": "Nur Application-, ITComponent- und Interface-Karten können klassifiziert werden.",
+        "cancel": "Abbrechen",
+        "confirm": "Zum KI-Inventar hinzufügen"
+      }
     },
     "principles": {
       "title": "Architekturprinzipien",
