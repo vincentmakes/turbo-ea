@@ -6,7 +6,6 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.turbolens import AnalysisStatus, AnalysisType
@@ -14,7 +13,7 @@ from app.models.turbolens import TurboLensAnalysisRun, TurboLensCveFinding
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def seed_env(db: AsyncSession):
     """Admin role + user + one Application card type (needed for FK)."""
     await create_role(db, key="admin", label="Admin", permissions={"*": True})
@@ -23,7 +22,7 @@ async def seed_env(db: AsyncSession):
     return {"admin": admin}
 
 
-@pytest_asyncio.fixture
+@pytest.fixture
 async def seed_one_cve_finding(db: AsyncSession, seed_env):
     """Insert one analysis run + one CVE finding linked to an Application card."""
     admin = seed_env["admin"]
@@ -56,7 +55,6 @@ async def seed_one_cve_finding(db: AsyncSession, seed_env):
     return finding
 
 
-@pytest.mark.asyncio
 async def test_cve_finding_response_includes_updated_at(
     client, seed_one_cve_finding, seed_env
 ) -> None:
