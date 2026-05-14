@@ -19,22 +19,12 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControl from "@mui/material/FormControl";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
 import Grid from "@mui/material/Grid";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableHead from "@mui/material/TableHead";
-import TablePagination from "@mui/material/TablePagination";
-import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -42,6 +32,7 @@ import MaterialSymbol from "@/components/MaterialSymbol";
 import CardDetailSidePanel from "@/components/CardDetailSidePanel";
 import MetricCard from "@/features/reports/MetricCard";
 import { api, ApiError } from "@/api/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { useTurboLensReady } from "@/hooks/useTurboLensReady";
 import type {
@@ -49,7 +40,6 @@ import type {
   ComplianceRegulation,
   ComplianceStatus,
   CveStatus,
-  CveFindingsPage,
   RegulationKey,
   SecurityActiveRuns,
   SecurityScanRun,
@@ -63,6 +53,10 @@ import ComplianceGrid from "@/features/grc/compliance/ComplianceGrid";
 import type { ComplianceFilters } from "@/features/grc/compliance/ComplianceFilterSidebar";
 import CreateComplianceFindingDialog from "@/features/grc/compliance/CreateComplianceFindingDialog";
 import CreateRiskDialog from "@/features/grc/risk/CreateRiskDialog";
+import CveGrid from "./cve/CveGrid";
+import CreateCveFindingDialog from "./cve/CreateCveFindingDialog";
+import { emptyCveFilters } from "./cve/types";
+import type { CveFilters, CveProbability, CveSeverity } from "./cve/types";
 import {
   RiskDialogSeed,
   seedFromCompliance,
@@ -73,12 +67,7 @@ import type { Risk } from "@/types";
 import SecurityFindingDrawer from "./SecurityFindingDrawer";
 import SecurityScanCard from "./SecurityScanCard";
 import { useAnalysisPolling } from "./useAnalysisPolling";
-import {
-  cveSeverityColor,
-  cveStatusColor,
-  priorityColor,
-  probabilityColor,
-} from "./utils";
+import { cveSeverityColor, priorityColor } from "./utils";
 import RiskMatrixLegend from "../grc/risk/RiskMatrixLegend";
 import {
   deriveLevelFromPair,
@@ -106,10 +95,6 @@ function resolveRegulationLabel(
   const translated = t(i18nKey, { defaultValue: key });
   return translated && translated !== i18nKey ? translated : key;
 }
-
-const SEVERITIES = ["critical", "high", "medium", "low"] as const;
-const STATUSES = ["open", "acknowledged", "in_progress", "mitigated", "accepted"] as const;
-const CARD_TYPES = ["Application", "ITComponent"] as const;
 
 const PROBABILITY_LABELS: Array<"very_high" | "high" | "medium" | "low" | "unknown"> = [
   "very_high",
@@ -197,6 +182,16 @@ export default function TurboLensSecurity() {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // canManage: security_compliance.manage permission (or wildcard admin).
+  const canManage = useMemo(() => {
+    const p = user?.permissions;
+    if (!p) return false;
+    if (p["*"]) return true;
+    return !!p["security_compliance.manage"];
+  }, [user]);
+
   const phaseLabel = useCallback(
     (phase: string) => {
       const key = `turbolens_security_phase_${phase}`;
@@ -214,16 +209,12 @@ export default function TurboLensSecurity() {
   const [complianceLoading, setComplianceLoading] = useState(true);
   const [createFindingOpen, setCreateFindingOpen] = useState(false);
 
-  // ── Findings table state ───────────────────────────────────────────
+  // ── Findings state ─────────────────────────────────────────────────
   const [findings, setFindings] = useState<TurboLensCveFinding[]>([]);
-  const [findingsTotal, setFindingsTotal] = useState(0);
   const [findingsLoading, setFindingsLoading] = useState(true);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(50);
-  const [severityFilter, setSeverityFilter] = useState<string>("__all__");
-  const [statusFilter, setStatusFilter] = useState<string>("__all__");
-  const [typeFilter, setTypeFilter] = useState<string>("__all__");
-  const [probabilityFilter, setProbabilityFilter] = useState<string>("__all__");
+  const [cveFilters, setCveFilters] = useState<CveFilters>(emptyCveFilters());
+  const [cveFiltersCollapsed, setCveFiltersCollapsed] = useState(false);
+  const [cveCreateOpen, setCveCreateOpen] = useState(false);
 
   // ── Compliance filter ──────────────────────────────────────────────
   const [activeRegulation, setActiveRegulation] = useState<RegulationKey>("eu_ai_act");
@@ -357,24 +348,16 @@ export default function TurboLensSecurity() {
   const loadFindings = useCallback(async () => {
     setFindingsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: String(page + 1),
-        page_size: String(pageSize),
-      });
-      if (severityFilter !== "__all__") params.set("severity", severityFilter);
-      if (probabilityFilter !== "__all__") params.set("probability", probabilityFilter);
-      if (statusFilter !== "__all__") params.set("status", statusFilter);
-      if (typeFilter !== "__all__") params.set("card_type", typeFilter);
-      const data = await api.get<CveFindingsPage>(`/turbolens/security/findings?${params}`);
+      const data = await api.get<{ items: TurboLensCveFinding[]; total: number }>(
+        "/turbolens/security/findings?page=1&page_size=10000",
+      );
       setFindings(data.items);
-      setFindingsTotal(data.total);
     } catch {
       setFindings([]);
-      setFindingsTotal(0);
     } finally {
       setFindingsLoading(false);
     }
-  }, [page, pageSize, severityFilter, probabilityFilter, statusFilter, typeFilter]);
+  }, []);
 
   const loadCompliance = useCallback(async () => {
     setComplianceLoading(true);
@@ -407,10 +390,6 @@ export default function TurboLensSecurity() {
       setActiveRegulation(compliance[0].regulation);
     }
   }, [compliance, activeRegulation]);
-
-  useEffect(() => {
-    loadFindings();
-  }, [loadFindings]);
 
   // ── Scan triggers + polling (one pair per scan type) ──────────────
   const { startPolling: startCvePoll, polling: cvePolling } = useAnalysisPolling(
@@ -651,7 +630,7 @@ export default function TurboLensSecurity() {
             variant="outlined"
             onClick={handleExportCsv}
             startIcon={<MaterialSymbol icon="download" size={18} />}
-            disabled={findingsTotal === 0}
+            disabled={findings.length === 0}
           >
             {t("turbolens_security_export_csv")}
           </Button>
@@ -680,7 +659,41 @@ export default function TurboLensSecurity() {
       </Tabs>
 
       {activeTab === 0 && renderOverview()}
-      {activeTab === 1 && renderFindings()}
+      {activeTab === 1 && (
+        <CveGrid
+          findings={findings}
+          loading={findingsLoading}
+          canManage={canManage}
+          filters={cveFilters}
+          onFiltersChange={setCveFilters}
+          filtersCollapsed={cveFiltersCollapsed}
+          onToggleFiltersCollapsed={() => setCveFiltersCollapsed((c) => !c)}
+          availableCardTypes={["Application", "ITComponent"]}
+          onRowClick={setSelected}
+          onCreate={() => setCveCreateOpen(true)}
+          onDelete={async (id) => {
+            await api.delete(`/turbolens/security/cve-findings/${id}`);
+            setFindings((rows) => rows.filter((r) => r.id !== id));
+          }}
+          onBulkDelete={async (ids) => {
+            const result = await api.delete<{
+              updated: number;
+              skipped: { id: string; reason: string }[];
+            }>("/turbolens/security/cve-findings/bulk", { ids });
+            await loadFindings();
+            return result;
+          }}
+          onBulkStatusUpdate={async (ids, status) => {
+            const result = await api.patch<{
+              updated: number;
+              skipped: { id: string; reason: string }[];
+            }>("/turbolens/security/cve-findings/bulk", { ids, status });
+            await loadFindings();
+            return result;
+          }}
+          onExportCsv={handleExportCsv}
+        />
+      )}
       {activeTab === 2 && renderCompliance()}
 
       <SecurityFindingDrawer
@@ -788,6 +801,12 @@ export default function TurboLensSecurity() {
           // on the active regulation tab.
           loadCompliance();
         }}
+      />
+
+      <CreateCveFindingDialog
+        open={cveCreateOpen}
+        onClose={() => setCveCreateOpen(false)}
+        onCreated={(row) => setFindings((rows) => [row, ...rows])}
       />
     </Box>
   );
@@ -993,16 +1012,19 @@ export default function TurboLensSecurity() {
           <RiskMatrix
             matrix={overview.risk_matrix || []}
             onSelect={(prob, sev) => {
-              setProbabilityFilter(prob ?? "__all__");
-              setSeverityFilter(sev ?? "__all__");
-              setStatusFilter("__all__");
-              setTypeFilter("__all__");
+              setCveFilters({
+                ...emptyCveFilters(),
+                ...(prob ? { probabilities: new Set([prob as CveProbability]) } : {}),
+                ...(sev ? { severities: new Set([sev as CveSeverity]) } : {}),
+              });
               setActiveTab(1);
-              setPage(0);
             }}
             highlight={
-              probabilityFilter !== "__all__" && severityFilter !== "__all__"
-                ? { probability: probabilityFilter, severity: severityFilter }
+              cveFilters.probabilities.size === 1 && cveFilters.severities.size === 1
+                ? {
+                    probability: Array.from(cveFilters.probabilities)[0],
+                    severity: Array.from(cveFilters.severities)[0],
+                  }
                 : null
             }
           />
@@ -1060,171 +1082,6 @@ export default function TurboLensSecurity() {
                 </Grid>
               ))}
             </Grid>
-          </Paper>
-        )}
-      </Stack>
-    );
-  }
-
-  // -----------------------------------------------------------------
-  // CVE findings tab
-  // -----------------------------------------------------------------
-  function renderFindings() {
-    const matrixActive =
-      probabilityFilter !== "__all__" && severityFilter !== "__all__";
-    return (
-      <Stack spacing={2}>
-        <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap alignItems="center">
-          <FilterSelect
-            label={t("turbolens_security_filter_severity")}
-            value={severityFilter}
-            onChange={(v) => {
-              setSeverityFilter(v);
-              // Clear matrix highlight when severity diverges.
-              if (v !== severityFilter) setProbabilityFilter("__all__");
-            }}
-            options={SEVERITIES.map((s) => ({
-              value: s,
-              label: t(`turbolens_security_severity_${s}`),
-            }))}
-          />
-          <FilterSelect
-            label={t("turbolens_security_filter_status")}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STATUSES.map((s) => ({
-              value: s,
-              label: t(`turbolens_security_status_${s}`),
-            }))}
-          />
-          <FilterSelect
-            label={t("turbolens_security_filter_type")}
-            value={typeFilter}
-            onChange={setTypeFilter}
-            options={CARD_TYPES.map((c) => ({ value: c, label: c }))}
-          />
-          {matrixActive && (
-            <Chip
-              color="primary"
-              size="small"
-              label={`${t(`turbolens_security_probability_${probabilityFilter}`)} × ${t(
-                `turbolens_security_severity_${severityFilter}`,
-              )}`}
-              onDelete={() => {
-                setProbabilityFilter("__all__");
-                setSeverityFilter("__all__");
-              }}
-            />
-          )}
-        </Stack>
-
-        {findingsLoading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
-            <CircularProgress />
-          </Box>
-        ) : findings.length === 0 ? (
-          <Alert severity="info">{t("turbolens_security_no_findings")}</Alert>
-        ) : (
-          <Paper variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t("turbolens_security_col_card")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_cve")}</TableCell>
-                  <TableCell align="right">{t("turbolens_security_col_cvss")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_severity")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_priority")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_probability")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_patch")}</TableCell>
-                  <TableCell>{t("turbolens_security_col_status")}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {findings.map((f) => (
-                  <TableRow
-                    key={f.id}
-                    hover
-                    sx={{ cursor: "pointer" }}
-                    onClick={() => setSelected(f)}
-                  >
-                    <TableCell>
-                      <Box component="span" sx={{ fontWeight: 600 }}>
-                        {f.card_name || f.card_id}
-                      </Box>
-                      <Box
-                        component="span"
-                        sx={{ ml: 1, color: "text.secondary", fontSize: 12 }}
-                      >
-                        ({f.card_type})
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box
-                        component="a"
-                        href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        sx={{ color: "primary.main", textDecoration: "none" }}
-                      >
-                        {f.cve_id}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      {f.cvss_score != null ? f.cvss_score.toFixed(1) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={cveSeverityColor(f.severity)}
-                        label={t(`turbolens_security_severity_${f.severity}`)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={priorityColor(f.priority)}
-                        label={t(`turbolens_security_priority_${f.priority}`)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        color={probabilityColor(f.probability)}
-                        label={t(`turbolens_security_probability_${f.probability}`)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {f.patch_available
-                        ? t("turbolens_security_patch_yes")
-                        : t("turbolens_security_patch_no")}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        color={cveStatusColor(f.status)}
-                        variant="outlined"
-                        label={t(`turbolens_security_status_${f.status}`)}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={findingsTotal}
-              page={page}
-              onPageChange={(_, p) => setPage(p)}
-              rowsPerPage={pageSize}
-              onRowsPerPageChange={(e) => {
-                setPageSize(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[25, 50, 100, 200]}
-              labelRowsPerPage={t("turbolens_security_page_size")}
-            />
           </Paper>
         )}
       </Stack>
@@ -1421,37 +1278,6 @@ export default function TurboLensSecurity() {
 // ---------------------------------------------------------------------------
 // Sub-components local to this file
 // ---------------------------------------------------------------------------
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  const { t } = useTranslation("admin");
-  return (
-    <FormControl size="small" sx={{ minWidth: 140 }}>
-      <InputLabel>{label}</InputLabel>
-      <Select
-        value={value}
-        label={label}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        <MenuItem value="__all__">{t("turbolens_security_filter_all")}</MenuItem>
-        {options.map((o) => (
-          <MenuItem key={o.value} value={o.value}>
-            {o.label}
-          </MenuItem>
-        ))}
-      </Select>
-    </FormControl>
-  );
-}
 
 function RiskMatrix({
   matrix,
