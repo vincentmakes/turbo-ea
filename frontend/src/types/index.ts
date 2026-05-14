@@ -1395,6 +1395,7 @@ export interface TurboLensCveFinding {
   risk_id: string | null;
   risk_reference: string | null;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 /**
