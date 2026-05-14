@@ -651,6 +651,7 @@
   "cve.create.businessImpact": "Влияние на бизнес",
   "cve.create.remediation": "Устранение",
   "cve.create.references": "URL-ссылки (по одной в строке)",
+  "cve.create.referencesPlaceholder": "https://nvd.nist.gov/...\nhttps://vendor.example/advisory",
   "cve.create.submit": "Создать",
   "cve.create.cancel": "Отмена",
   "cve.create.errCveIdRequired": "CVE-ID обязателен",

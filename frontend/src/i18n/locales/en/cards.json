@@ -651,6 +651,7 @@
   "cve.create.businessImpact": "Business impact",
   "cve.create.remediation": "Remediation",
   "cve.create.references": "Reference URLs (one per line)",
+  "cve.create.referencesPlaceholder": "https://nvd.nist.gov/...\nhttps://vendor.example/advisory",
   "cve.create.submit": "Create",
   "cve.create.cancel": "Cancel",
   "cve.create.errCveIdRequired": "CVE ID is required",

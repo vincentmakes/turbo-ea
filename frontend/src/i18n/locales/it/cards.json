@@ -651,6 +651,7 @@
   "cve.create.businessImpact": "Impatto sul business",
   "cve.create.remediation": "Rimedio",
   "cve.create.references": "URL di riferimento (uno per riga)",
+  "cve.create.referencesPlaceholder": "https://nvd.nist.gov/...\nhttps://vendor.example/advisory",
   "cve.create.submit": "Crea",
   "cve.create.cancel": "Annulla",
   "cve.create.errCveIdRequired": "L'ID CVE è obbligatorio",

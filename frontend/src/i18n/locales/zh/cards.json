@@ -651,6 +651,7 @@
   "cve.create.businessImpact": "业务影响",
   "cve.create.remediation": "修复措施",
   "cve.create.references": "参考 URL（每行一个）",
+  "cve.create.referencesPlaceholder": "https://nvd.nist.gov/...\nhttps://vendor.example/advisory",
   "cve.create.submit": "创建",
   "cve.create.cancel": "取消",
   "cve.create.errCveIdRequired": "CVE ID 为必填项",

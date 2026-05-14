@@ -289,7 +289,7 @@ export default function CreateCveFindingDialog({ open, onClose, onCreated }: Pro
                   size="small"
                   fullWidth
                   disabled={submitting}
-                  placeholder={"https://nvd.nist.gov/...\nhttps://vendor.example/advisory"}
+                  placeholder={t("cve.create.referencesPlaceholder")}
                 />
               </Stack>
             </AccordionDetails>
