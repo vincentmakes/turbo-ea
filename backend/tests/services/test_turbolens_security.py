@@ -176,6 +176,7 @@ def _cve_row(**overrides):
         "status": "open",
         "risk_id": None,
         "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
     base.update(overrides)
     return SimpleNamespace(**base)
