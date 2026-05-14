@@ -3,7 +3,7 @@
  *
  * Follows the Compliance sidebar pattern:
  *  - 44 px collapsed rail (left, ``borderRight``, ``action.hover`` bg)
- *  - Expanded sidebar with SectionHeader + Collapse per filter family
+ *  - Expanded sidebar with two tabs: Filters / Columns
  *  - Active-count chip visible even when collapsed
  *
  * Filter families: Severity / Status / Priority / Probability /
@@ -26,6 +26,8 @@ import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -49,6 +51,28 @@ const STATUSES: CveStatus[] = ["open", "acknowledged", "in_progress", "mitigated
 const PRIORITIES: CvePriority[] = ["critical", "high", "medium", "low"];
 const PROBABILITIES: CveProbability[] = ["very_high", "high", "medium", "low", "unknown"];
 
+/** Stable identifier + i18n label key for every CVE grid column.
+ *  Single source of truth — imported by CveGrid to drive column visibility. */
+export const CVE_GRID_COLUMNS: Array<{ id: string; labelKey: string }> = [
+  { id: "card", labelKey: "cve.grid.col.card" },
+  { id: "cveId", labelKey: "cve.grid.col.cveId" },
+  { id: "severity", labelKey: "cve.grid.col.severity" },
+  { id: "cvss", labelKey: "cve.grid.col.cvss" },
+  { id: "priority", labelKey: "cve.grid.col.priority" },
+  { id: "probability", labelKey: "cve.grid.col.probability" },
+  { id: "status", labelKey: "cve.grid.col.status" },
+  { id: "patch", labelKey: "cve.grid.col.patchAvailable" },
+  { id: "attackVector", labelKey: "cve.grid.col.attackVector" },
+  { id: "references", labelKey: "cve.grid.col.references" },
+  { id: "created", labelKey: "cve.grid.col.created" },
+  { id: "modified", labelKey: "cve.grid.col.modified" },
+  { id: "risk", labelKey: "cve.grid.col.risk" },
+  { id: "actions", labelKey: "cve.grid.col.actions" },
+];
+
+/** Columns that always render — user cannot hide them. */
+export const LOCKED_CVE_COLUMNS = new Set(["card", "actions"]);
+
 interface Props {
   filters: CveFilters;
   onFiltersChange: (f: CveFilters) => void;
@@ -56,6 +80,11 @@ interface Props {
   onToggleCollapsed: () => void;
   /** Distinct card_type values present in the loaded findings. */
   availableCardTypes: string[];
+  /** Visible column ids; columns not in this set are hidden. */
+  visibleColumns: Set<string>;
+  onVisibleColumnsChange: (cols: Set<string>) => void;
+  /** Reset visible columns to the default set. */
+  onResetColumns?: () => void;
 }
 
 function toggleSet<T>(s: Set<T>, v: T): Set<T> {
@@ -71,11 +100,15 @@ export default function CveFilterSidebar({
   collapsed,
   onToggleCollapsed,
   availableCardTypes,
+  visibleColumns,
+  onVisibleColumnsChange,
+  onResetColumns,
 }: Props) {
   const { t } = useTranslation("cards");
   const { t: tAdmin } = useTranslation("admin");
   const active = countActive(filters);
 
+  const [tab, setTab] = useState<0 | 1>(0);
   const [expanded, setExpanded] = useState({
     severity: true,
     status: true,
@@ -87,6 +120,17 @@ export default function CveFilterSidebar({
   });
   const toggle = (k: keyof typeof expanded) =>
     setExpanded((p) => ({ ...p, [k]: !p[k] }));
+
+  const totalColumns = CVE_GRID_COLUMNS.length;
+  const hiddenColumns = totalColumns - visibleColumns.size;
+  const columnsChanged = hiddenColumns > 0;
+  const toggleColumn = (id: string) => {
+    if (LOCKED_CVE_COLUMNS.has(id)) return;
+    const next = new Set(visibleColumns);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onVisibleColumnsChange(next);
+  };
 
   // ── Collapsed rail ──────────────────────────────────────────────────
   if (collapsed) {
@@ -135,237 +179,307 @@ export default function CveFilterSidebar({
         overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* Tabbed header (Filters / Columns) */}
       <Box
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           px: 1.5,
-          py: 0.75,
+          py: 0.5,
           borderBottom: 1,
           borderColor: "divider",
         }}
       >
-        <Stack direction="row" alignItems="center" spacing={0.75}>
-          <MaterialSymbol icon="filter_list" size={18} />
-          <Typography variant="subtitle2" fontWeight={600}>
-            {t("cve.filters.title")}
-          </Typography>
-          {active > 0 && (
-            <Box
-              sx={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                bgcolor: "primary.main",
-                flexShrink: 0,
-              }}
-            />
-          )}
-        </Stack>
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v as 0 | 1)}
+          sx={{
+            minHeight: 36,
+            "& .MuiTab-root": {
+              minHeight: 36,
+              py: 0,
+              textTransform: "none",
+              fontSize: 14,
+              minWidth: 0,
+            },
+          }}
+        >
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                {t("cve.filters.title")}
+                {active > 0 && (
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                {t("cve.columnPicker.title")}
+                {columnsChanged && (
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      bgcolor: "primary.main",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+              </Box>
+            }
+          />
+        </Tabs>
         <IconButton size="small" onClick={onToggleCollapsed} aria-label="collapse">
           <MaterialSymbol icon="chevron_left" size={20} />
         </IconButton>
       </Box>
 
       <Box sx={{ flex: 1, overflow: "auto", p: 1 }}>
-        {/* Active count + reset */}
-        {active > 0 && (
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-            <Chip
-              label={t("cve.filters.activeCount", { count: active })}
+        {tab === 0 ? (
+          <>
+            {/* Active count + reset */}
+            {active > 0 && (
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Chip
+                  label={t("cve.filters.activeCount", { count: active })}
+                  size="small"
+                  color="primary"
+                  sx={{ height: 20, fontSize: 12 }}
+                />
+                <Button
+                  size="small"
+                  onClick={() => onFiltersChange(emptyCveFilters())}
+                  sx={{ textTransform: "none", fontSize: 12 }}
+                >
+                  {t("cve.filters.reset")}
+                </Button>
+              </Stack>
+            )}
+
+            {/* Search */}
+            <TextField
               size="small"
-              color="primary"
-              sx={{ height: 20, fontSize: 12 }}
+              fullWidth
+              label={t("cve.filters.search")}
+              placeholder={t("cve.filters.searchPlaceholder")}
+              value={filters.search}
+              onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+              sx={{ mb: 1 }}
             />
-            <Button
-              size="small"
-              onClick={() => onFiltersChange(emptyCveFilters())}
-              sx={{ textTransform: "none", fontSize: 12 }}
+
+            {/* Severity */}
+            <SectionHeader
+              label={t("cve.filters.severity")}
+              icon="warning"
+              expanded={expanded.severity}
+              onToggle={() => toggle("severity")}
+            />
+            <Collapse in={expanded.severity}>
+              <CheckboxList
+                items={SEVERITIES.map((s) => ({
+                  key: s,
+                  label: tAdmin(`turbolens_security_severity_${s}`),
+                  checked: filters.severities.has(s),
+                  onToggle: () =>
+                    onFiltersChange({ ...filters, severities: toggleSet(filters.severities, s) }),
+                }))}
+              />
+            </Collapse>
+
+            {/* Status */}
+            <SectionHeader
+              label={t("cve.filters.status")}
+              icon="task_alt"
+              expanded={expanded.status}
+              onToggle={() => toggle("status")}
+            />
+            <Collapse in={expanded.status}>
+              <CheckboxList
+                items={STATUSES.map((s) => ({
+                  key: s,
+                  label: tAdmin(`turbolens_security_status_${s}`),
+                  checked: filters.statuses.has(s),
+                  onToggle: () =>
+                    onFiltersChange({ ...filters, statuses: toggleSet(filters.statuses, s) }),
+                }))}
+              />
+            </Collapse>
+
+            {/* Priority */}
+            <SectionHeader
+              label={t("cve.filters.priority")}
+              icon="trending_up"
+              expanded={expanded.priority}
+              onToggle={() => toggle("priority")}
+            />
+            <Collapse in={expanded.priority}>
+              <CheckboxList
+                items={PRIORITIES.map((p) => ({
+                  key: p,
+                  label: tAdmin(`turbolens_security_priority_${p}`),
+                  checked: filters.priorities.has(p),
+                  onToggle: () =>
+                    onFiltersChange({ ...filters, priorities: toggleSet(filters.priorities, p) }),
+                }))}
+              />
+            </Collapse>
+
+            {/* Probability */}
+            <SectionHeader
+              label={t("cve.filters.probability")}
+              icon="percent"
+              expanded={expanded.probability}
+              onToggle={() => toggle("probability")}
+            />
+            <Collapse in={expanded.probability}>
+              <CheckboxList
+                items={PROBABILITIES.map((p) => ({
+                  key: p,
+                  label: tAdmin(`turbolens_security_probability_${p}`),
+                  checked: filters.probabilities.has(p),
+                  onToggle: () =>
+                    onFiltersChange({
+                      ...filters,
+                      probabilities: toggleSet(filters.probabilities, p),
+                    }),
+                }))}
+              />
+            </Collapse>
+
+            {/* Card type */}
+            <SectionHeader
+              label={t("cve.filters.cardType")}
+              icon="category"
+              expanded={expanded.cardType}
+              onToggle={() => toggle("cardType")}
+            />
+            <Collapse in={expanded.cardType}>
+              <CheckboxList
+                items={availableCardTypes.map((ct) => ({
+                  key: ct,
+                  label: ct,
+                  checked: filters.cardTypes.has(ct),
+                  onToggle: () =>
+                    onFiltersChange({ ...filters, cardTypes: toggleSet(filters.cardTypes, ct) }),
+                }))}
+              />
+            </Collapse>
+
+            {/* Other (tri-state toggles) */}
+            <SectionHeader
+              label={t("cve.filters.other")}
+              icon="tune"
+              expanded={expanded.other}
+              onToggle={() => toggle("other")}
+            />
+            <Collapse in={expanded.other}>
+              <Stack spacing={1} sx={{ mb: 1, px: 0.5 }}>
+                <TriStateRow
+                  label={t("cve.filters.patchAvailable")}
+                  value={filters.patchAvailable}
+                  onChange={(v) => onFiltersChange({ ...filters, patchAvailable: v })}
+                  t={t}
+                />
+                <TriStateRow
+                  label={t("cve.filters.promotedToRisk")}
+                  value={filters.promotedToRisk}
+                  onChange={(v) => onFiltersChange({ ...filters, promotedToRisk: v })}
+                  t={t}
+                />
+              </Stack>
+            </Collapse>
+
+            {/* Date range */}
+            <SectionHeader
+              label={t("cve.filters.dateField")}
+              icon="event"
+              expanded={expanded.date}
+              onToggle={() => toggle("date")}
+            />
+            <Collapse in={expanded.date}>
+              <Stack spacing={1} sx={{ mb: 1, px: 0.5 }}>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>{t("cve.filters.dateField")}</InputLabel>
+                  <Select
+                    value={filters.dateField}
+                    label={t("cve.filters.dateField")}
+                    onChange={(e) =>
+                      onFiltersChange({ ...filters, dateField: e.target.value as CveDateField })
+                    }
+                  >
+                    <MenuItem value="created">{t("cve.filters.dateCreated")}</MenuItem>
+                    <MenuItem value="modified">{t("cve.filters.dateModified")}</MenuItem>
+                  </Select>
+                </FormControl>
+                <TextField
+                  size="small"
+                  type="date"
+                  label={t("cve.filters.dateFrom")}
+                  InputLabelProps={{ shrink: true }}
+                  value={filters.dateFrom ?? ""}
+                  onChange={(e) =>
+                    onFiltersChange({ ...filters, dateFrom: e.target.value || null })
+                  }
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  label={t("cve.filters.dateTo")}
+                  InputLabelProps={{ shrink: true }}
+                  value={filters.dateTo ?? ""}
+                  onChange={(e) =>
+                    onFiltersChange({ ...filters, dateTo: e.target.value || null })
+                  }
+                />
+              </Stack>
+            </Collapse>
+          </>
+        ) : (
+          /* ─────── Columns tab ─────── */
+          <Box>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ mb: 1, px: 0.5 }}
             >
-              {t("cve.filters.reset")}
-            </Button>
-          </Stack>
+              <Typography variant="caption" color="text.secondary">
+                {t("cve.columnPicker.help")}
+              </Typography>
+              {columnsChanged && onResetColumns && (
+                <Button
+                  size="small"
+                  onClick={onResetColumns}
+                  sx={{ textTransform: "none", fontSize: 12 }}
+                >
+                  {t("cve.columnPicker.reset")}
+                </Button>
+              )}
+            </Stack>
+            <CheckboxList
+              items={CVE_GRID_COLUMNS.map((c) => ({
+                key: c.id,
+                label: t(c.labelKey),
+                checked: visibleColumns.has(c.id),
+                onToggle: () => toggleColumn(c.id),
+                disabled: LOCKED_CVE_COLUMNS.has(c.id),
+              }))}
+            />
+          </Box>
         )}
-
-        {/* Search */}
-        <TextField
-          size="small"
-          fullWidth
-          label={t("cve.filters.search")}
-          placeholder={t("cve.filters.searchPlaceholder")}
-          value={filters.search}
-          onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-          sx={{ mb: 1 }}
-        />
-
-        {/* Severity */}
-        <SectionHeader
-          label={t("cve.filters.severity")}
-          icon="warning"
-          expanded={expanded.severity}
-          onToggle={() => toggle("severity")}
-        />
-        <Collapse in={expanded.severity}>
-          <CheckboxList
-            items={SEVERITIES.map((s) => ({
-              key: s,
-              label: tAdmin(`turbolens_security_severity_${s}`),
-              checked: filters.severities.has(s),
-              onToggle: () =>
-                onFiltersChange({ ...filters, severities: toggleSet(filters.severities, s) }),
-            }))}
-          />
-        </Collapse>
-
-        {/* Status */}
-        <SectionHeader
-          label={t("cve.filters.status")}
-          icon="task_alt"
-          expanded={expanded.status}
-          onToggle={() => toggle("status")}
-        />
-        <Collapse in={expanded.status}>
-          <CheckboxList
-            items={STATUSES.map((s) => ({
-              key: s,
-              label: tAdmin(`turbolens_security_status_${s}`),
-              checked: filters.statuses.has(s),
-              onToggle: () =>
-                onFiltersChange({ ...filters, statuses: toggleSet(filters.statuses, s) }),
-            }))}
-          />
-        </Collapse>
-
-        {/* Priority */}
-        <SectionHeader
-          label={t("cve.filters.priority")}
-          icon="trending_up"
-          expanded={expanded.priority}
-          onToggle={() => toggle("priority")}
-        />
-        <Collapse in={expanded.priority}>
-          <CheckboxList
-            items={PRIORITIES.map((p) => ({
-              key: p,
-              label: tAdmin(`turbolens_security_priority_${p}`),
-              checked: filters.priorities.has(p),
-              onToggle: () =>
-                onFiltersChange({ ...filters, priorities: toggleSet(filters.priorities, p) }),
-            }))}
-          />
-        </Collapse>
-
-        {/* Probability */}
-        <SectionHeader
-          label={t("cve.filters.probability")}
-          icon="percent"
-          expanded={expanded.probability}
-          onToggle={() => toggle("probability")}
-        />
-        <Collapse in={expanded.probability}>
-          <CheckboxList
-            items={PROBABILITIES.map((p) => ({
-              key: p,
-              label: tAdmin(`turbolens_security_probability_${p}`),
-              checked: filters.probabilities.has(p),
-              onToggle: () =>
-                onFiltersChange({
-                  ...filters,
-                  probabilities: toggleSet(filters.probabilities, p),
-                }),
-            }))}
-          />
-        </Collapse>
-
-        {/* Card type */}
-        <SectionHeader
-          label={t("cve.filters.cardType")}
-          icon="category"
-          expanded={expanded.cardType}
-          onToggle={() => toggle("cardType")}
-        />
-        <Collapse in={expanded.cardType}>
-          <CheckboxList
-            items={availableCardTypes.map((ct) => ({
-              key: ct,
-              label: ct,
-              checked: filters.cardTypes.has(ct),
-              onToggle: () =>
-                onFiltersChange({ ...filters, cardTypes: toggleSet(filters.cardTypes, ct) }),
-            }))}
-          />
-        </Collapse>
-
-        {/* Other (tri-state toggles) */}
-        <SectionHeader
-          label={t("cve.filters.other")}
-          icon="tune"
-          expanded={expanded.other}
-          onToggle={() => toggle("other")}
-        />
-        <Collapse in={expanded.other}>
-          <Stack spacing={1} sx={{ mb: 1, px: 0.5 }}>
-            <TriStateRow
-              label={t("cve.filters.patchAvailable")}
-              value={filters.patchAvailable}
-              onChange={(v) => onFiltersChange({ ...filters, patchAvailable: v })}
-              t={t}
-            />
-            <TriStateRow
-              label={t("cve.filters.promotedToRisk")}
-              value={filters.promotedToRisk}
-              onChange={(v) => onFiltersChange({ ...filters, promotedToRisk: v })}
-              t={t}
-            />
-          </Stack>
-        </Collapse>
-
-        {/* Date range */}
-        <SectionHeader
-          label={t("cve.filters.dateField")}
-          icon="event"
-          expanded={expanded.date}
-          onToggle={() => toggle("date")}
-        />
-        <Collapse in={expanded.date}>
-          <Stack spacing={1} sx={{ mb: 1, px: 0.5 }}>
-            <FormControl size="small" fullWidth>
-              <InputLabel>{t("cve.filters.dateField")}</InputLabel>
-              <Select
-                value={filters.dateField}
-                label={t("cve.filters.dateField")}
-                onChange={(e) =>
-                  onFiltersChange({ ...filters, dateField: e.target.value as CveDateField })
-                }
-              >
-                <MenuItem value="created">{t("cve.filters.dateCreated")}</MenuItem>
-                <MenuItem value="modified">{t("cve.filters.dateModified")}</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              size="small"
-              type="date"
-              label={t("cve.filters.dateFrom")}
-              InputLabelProps={{ shrink: true }}
-              value={filters.dateFrom ?? ""}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, dateFrom: e.target.value || null })
-              }
-            />
-            <TextField
-              size="small"
-              type="date"
-              label={t("cve.filters.dateTo")}
-              InputLabelProps={{ shrink: true }}
-              value={filters.dateTo ?? ""}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, dateTo: e.target.value || null })
-              }
-            />
-          </Stack>
-        </Collapse>
       </Box>
     </Paper>
   );

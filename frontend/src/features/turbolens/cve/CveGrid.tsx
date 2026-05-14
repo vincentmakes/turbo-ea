@@ -17,7 +17,7 @@
  * No "group by card" mode — each CVE finding is a distinct row
  * (1:1 CVE × card).
  */
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
@@ -33,19 +33,15 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControlLabel from "@mui/material/FormControlLabel";
-import FormGroup from "@mui/material/FormGroup";
 import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
-import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
@@ -55,7 +51,7 @@ import { useDateFormat } from "@/hooks/useDateFormat";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import type { TurboLensCveFinding } from "@/types";
 import { cveSeverityColor, cveStatusColor } from "@/features/turbolens/utils";
-import CveFilterSidebar from "./CveFilterSidebar";
+import CveFilterSidebar, { CVE_GRID_COLUMNS, LOCKED_CVE_COLUMNS } from "./CveFilterSidebar";
 import type { CveFilters, CveStatus } from "./types";
 import { applyCveFilters } from "./types";
 
@@ -76,14 +72,11 @@ const DEFAULT_VISIBLE_COLUMNS = [
   "actions",
 ];
 
-const HIDDEN_BY_DEFAULT = ["attackVector", "references"];
+// Always-visible set is the single source of truth from CveFilterSidebar.
+const ALWAYS_VISIBLE = LOCKED_CVE_COLUMNS;
 
-const ALWAYS_VISIBLE = new Set(["card", "actions"]);
-
-const ALL_COLUMN_IDS = [
-  ...DEFAULT_VISIBLE_COLUMNS,
-  ...HIDDEN_BY_DEFAULT,
-].filter((id, i, arr) => arr.indexOf(id) === i);
+// Full ordered list derived from the sidebar's column manifest.
+const ALL_COLUMN_IDS = CVE_GRID_COLUMNS.map((c) => c.id);
 
 // ── LocalStorage prefs ───────────────────────────────────────────────────────
 
@@ -294,10 +287,6 @@ export default function CveGrid({
       setBulkBusy(false);
     }
   };
-
-  // ── Column picker popover ────────────────────────────────────────────
-  const columnPickerRef = useRef<HTMLButtonElement>(null);
-  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
 
   // ── Sort persistence ─────────────────────────────────────────────────
   const onSortChanged = useCallback(
@@ -583,6 +572,12 @@ export default function CveGrid({
         collapsed={filtersCollapsed}
         onToggleCollapsed={onToggleFiltersCollapsed}
         availableCardTypes={availableCardTypes}
+        visibleColumns={visibleColumns}
+        onVisibleColumnsChange={(cols) => {
+          setVisibleColumns(cols);
+          persist({ visibleColumns: Array.from(cols) });
+        }}
+        onResetColumns={resetVisibleColumns}
       />
 
       {/* Grid + toolbar column */}
@@ -619,20 +614,8 @@ export default function CveGrid({
             />
           </Stack>
 
-          {/* Right: column picker + export + create */}
+          {/* Right: export + create */}
           <Stack direction="row" spacing={1}>
-            {/* Column visibility picker */}
-            <Tooltip title={t("cve.columnPicker.title")}>
-              <IconButton
-                ref={columnPickerRef}
-                size="small"
-                onClick={() => setColumnPickerOpen(true)}
-                aria-label={t("cve.columnPicker.title")}
-              >
-                <MaterialSymbol icon="view_column" size={20} />
-              </IconButton>
-            </Tooltip>
-
             <Button
               variant="outlined"
               color="inherit"
@@ -740,71 +723,6 @@ export default function CveGrid({
           />
         </Box>
       </Box>
-
-      {/* ── Column picker popover ────────────────────────────────────── */}
-      <Popover
-        open={columnPickerOpen}
-        anchorEl={columnPickerRef.current}
-        onClose={() => setColumnPickerOpen(false)}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Box sx={{ p: 2, minWidth: 220 }}>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            sx={{ mb: 1 }}
-          >
-            <Typography variant="subtitle2" fontWeight={600}>
-              {t("cve.columnPicker.title")}
-            </Typography>
-            <Button
-              size="small"
-              onClick={resetVisibleColumns}
-              sx={{ textTransform: "none", fontSize: 12 }}
-            >
-              {t("cve.columnPicker.reset")}
-            </Button>
-          </Stack>
-          <FormGroup>
-            {allColumnDefs
-              .filter((c) => c.colId !== "actions") // actions always pinned
-              .map((c) => {
-                const id = c.colId!;
-                const label =
-                  typeof c.headerName === "string" && c.headerName
-                    ? c.headerName
-                    : id;
-                const locked = ALWAYS_VISIBLE.has(id);
-                return (
-                  <FormControlLabel
-                    key={id}
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={visibleColumns.has(id)}
-                        disabled={locked}
-                        onChange={(e) => {
-                          const next = new Set(visibleColumns);
-                          if (e.target.checked) next.add(id);
-                          else next.delete(id);
-                          setVisibleColumns(next);
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" fontSize={13}>
-                        {label}
-                      </Typography>
-                    }
-                    sx={{ ml: 0 }}
-                  />
-                );
-              })}
-          </FormGroup>
-        </Box>
-      </Popover>
 
       {/* ── Single-row delete confirmation ───────────────────────────── */}
       <Dialog

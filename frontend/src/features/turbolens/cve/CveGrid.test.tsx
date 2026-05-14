@@ -61,9 +61,15 @@ vi.mock("ag-grid-react", () => ({
 }));
 
 // Stub the filter sidebar — not under test here.
-vi.mock("./CveFilterSidebar", () => ({
-  default: () => <div data-testid="cve-filter-sidebar" />,
-}));
+// Named exports (CVE_GRID_COLUMNS, LOCKED_CVE_COLUMNS) are used by CveGrid at
+// module scope, so they must be included in the mock factory.
+vi.mock("./CveFilterSidebar", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./CveFilterSidebar")>();
+  return {
+    ...actual,
+    default: () => <div data-testid="cve-filter-sidebar" />,
+  };
+});
 
 // ── Import component after mocks ──────────────────────────────────────────────
 
