@@ -194,13 +194,7 @@ describe("CveGrid", () => {
     // Bulk action toolbar should now appear showing "2 selected"
     await screen.findByText(/2 selected/i);
 
-    // Click the bulk Delete button in the toolbar (color="error" variant)
-    // Button text is "Delete" but the accessible name may include the icon label.
-    // Use getAllByRole and filter to the error-colored one (the toolbar delete).
-    const allBtns = screen.getAllByRole("button", { name: /delete/i });
-    // The toolbar delete button is the first "delete"-named button that appears
-    // before the dialog is open. Click it.
-    fireEvent.click(allBtns[0]);
+    fireEvent.click(screen.getByTestId("cve-bulk-delete-btn"));
 
     // Confirmation dialog should appear
     const dialogTitle = await screen.findByText(/delete.*finding/i);

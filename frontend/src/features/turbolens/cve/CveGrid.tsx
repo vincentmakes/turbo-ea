@@ -706,6 +706,7 @@ export default function CveGrid({
                 startIcon={<MaterialSymbol icon="delete" size={16} />}
                 onClick={() => setBulkDeleteOpen(true)}
                 sx={{ textTransform: "none" }}
+                data-testid="cve-bulk-delete-btn"
               >
                 {t("cve.bulk.delete")}
               </Button>
