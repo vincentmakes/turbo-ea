@@ -318,3 +318,29 @@ async def test_bulk_delete_cve_reports_not_found(
     payload = resp.json()
     assert payload["updated"] == 1
     assert {"id": fake, "reason": "not_found"} in payload["skipped"]
+
+
+# ---------------------------------------------------------------------------
+# Task 5 — DELETE /security/cve-findings/{finding_id}
+# ---------------------------------------------------------------------------
+
+
+async def test_delete_single_cve_finding(client, db, seed_env, seed_one_cve_finding) -> None:
+    admin = seed_env["admin"]
+    fid = seed_one_cve_finding.id
+    resp = await client.delete(
+        f"/api/v1/turbolens/security/cve-findings/{fid}",
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 204
+    gone = await db.get(TurboLensCveFinding, fid)
+    assert gone is None
+
+
+async def test_delete_single_cve_finding_404(client, db, seed_env) -> None:
+    admin = seed_env["admin"]
+    resp = await client.delete(
+        "/api/v1/turbolens/security/cve-findings/00000000-0000-0000-0000-000000000000",
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 404

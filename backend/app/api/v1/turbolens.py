@@ -1375,6 +1375,26 @@ async def bulk_delete_cve_findings(
     return CveFindingBulkResult(updated=len(rows), skipped=skipped)
 
 
+@router.delete("/security/cve-findings/{finding_id}", status_code=204)
+async def delete_cve_finding(
+    finding_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Permanently delete a CVE finding.
+
+    Admin-grade action gated by ``security_compliance.manage`` (granted
+    only to the admin role by default). The linked Risk (if any) is NOT
+    cascaded — risks are independent records once promoted.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+    row = await db.get(TurboLensCveFinding, uuid.UUID(finding_id))
+    if not row:
+        raise HTTPException(404, "Finding not found")
+    await db.delete(row)
+    await db.commit()
+
+
 @router.get("/security/compliance")
 async def list_compliance(
     regulation: str | None = None,
