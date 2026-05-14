@@ -757,14 +757,26 @@ async def _get_current_token() -> str | None:
     try:
         ctx = _mcp_request_ctx.get()
     except LookupError:
+        logger.warning("auth: request_ctx not set")
         return None
     request = getattr(ctx, "request", None)
     if request is None:
+        logger.warning("auth: request_ctx has no .request attached")
         return None
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
+    if not auth:
+        logger.warning(
+            "auth: no Authorization header; headers seen: %s",
+            sorted(request.headers.keys()),
+        )
         return None
-    return await oauth.resolve_token(auth[7:])
+    if not auth.lower().startswith("bearer "):
+        logger.warning("auth: Authorization header is not Bearer")
+        return None
+    jwt = await oauth.resolve_token(auth[7:])
+    if jwt is None:
+        logger.warning("auth: MCP access token did not resolve to a Turbo EA JWT")
+    return jwt
 
 
 # ── ASGI application ───────────────────────────────────────────────────────
