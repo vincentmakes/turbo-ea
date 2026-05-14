@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] - 2026-05-14
+
+Bring the CVE register tab to feature parity with the Risk and Compliance registers — proper AG Grid, filter sidebar, column picker, Created/Modified columns, manual create dialog, and bulk status update + bulk delete.
+
+### Added
+- **CVE register feature parity.** Replaces the primitive MUI table on GRC → Compliance → CVE with a full AG Grid (sort, per-column filter, resize, column-visibility picker persisted to `localStorage`). New left-rail filter sidebar with 9 families (search, severity, status, priority, probability, card type, patch-available tri-state, promoted-to-risk tri-state, created/modified date range) collapsible to a rail. New "Create CVE finding" dialog for manual entries.
+- **CVE bulk actions.** Multi-select header checkbox + a sticky toolbar with two actions: bulk status update (5 status options) and bulk delete. Backed by new `POST /security/cve-findings`, `PATCH /security/cve-findings/bulk`, `DELETE /security/cve-findings/bulk`, `DELETE /security/cve-findings/{id}` endpoints (all gated by `security_compliance.manage`). Partial-success contract — risk-tracked rows skipped with `reason="risk_tracked"`, missing rows with `reason="not_found"`. i18n added in all 8 locales (~80 new keys).
+- **`updated_at` column on CVE findings.** Exposed on the API response and rendered as a sortable "Modified" column.
+
+### Fixed
+- **Single-row CVE status PATCH refuses risk-tracked findings.** Now returns HTTP 409 if `risk_id` is set, mirroring the Compliance equivalent and the bulk PATCH behaviour — the linked Risk's lifecycle is the source of truth.
+
+### Changed
+- **CVE list fetch is now client-side bulk (`page_size=10000`)** instead of server-side paginated, matching Risk + Compliance.
+
 ## [1.11.4] - 2026-05-14
 
 Small quality-of-life addition for the Card Detail page.
