@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "CVE-ID обязателен",
   "cve.create.errCveIdFormat": "Должен иметь вид CVE-ГГГГ-NNNN",
   "cve.create.errCardRequired": "Затронутая карточка обязательна",
-  "cve.create.errSeverityRequired": "Серьёзность обязательна"
+  "cve.create.errSeverityRequired": "Серьёзность обязательна",
+  "cve.tableTitle": "CVE-находки",
+  "cve.grid.count_one": "{{count}} находка",
+  "cve.grid.count_other": "{{count}} находок",
+  "cve.delete.title": "Удалить CVE-находку?",
+  "cve.delete.confirm": "Находка для {{card}} будет удалена безвозвратно. Связанные риски сохраняются.",
+  "cve.delete.riskWarning": "Эта находка связана с риском {{ref}} — риск будет сохранён.",
+  "cve.bulk.resultTitle": "Результат массовой операции",
+  "cve.bulk.editStatusLabel": "Новый статус"
 }

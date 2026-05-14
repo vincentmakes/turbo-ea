@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "L'ID CVE est requis",
   "cve.create.errCveIdFormat": "Doit ressembler à CVE-AAAA-NNNN",
   "cve.create.errCardRequired": "La carte concernée est requise",
-  "cve.create.errSeverityRequired": "La gravité est requise"
+  "cve.create.errSeverityRequired": "La gravité est requise",
+  "cve.tableTitle": "Résultats CVE",
+  "cve.grid.count_one": "{{count}} résultat",
+  "cve.grid.count_other": "{{count}} résultats",
+  "cve.delete.title": "Supprimer le résultat CVE ?",
+  "cve.delete.confirm": "Ce résultat pour {{card}} sera supprimé définitivement. Les risques liés sont préservés.",
+  "cve.delete.riskWarning": "Ce résultat est lié au risque {{ref}} — le risque sera préservé.",
+  "cve.bulk.resultTitle": "Résultat de l'action groupée",
+  "cve.bulk.editStatusLabel": "Nouveau statut"
 }

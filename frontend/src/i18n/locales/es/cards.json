@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "El ID CVE es obligatorio",
   "cve.create.errCveIdFormat": "Debe tener el formato CVE-AAAA-NNNN",
   "cve.create.errCardRequired": "La tarjeta afectada es obligatoria",
-  "cve.create.errSeverityRequired": "La severidad es obligatoria"
+  "cve.create.errSeverityRequired": "La severidad es obligatoria",
+  "cve.tableTitle": "Hallazgos CVE",
+  "cve.grid.count_one": "{{count}} hallazgo",
+  "cve.grid.count_other": "{{count}} hallazgos",
+  "cve.delete.title": "¿Eliminar hallazgo CVE?",
+  "cve.delete.confirm": "Este hallazgo para {{card}} se eliminará permanentemente. Los riesgos vinculados se conservan.",
+  "cve.delete.riskWarning": "Este hallazgo está vinculado al riesgo {{ref}} — el riesgo se conservará.",
+  "cve.bulk.resultTitle": "Resultado de la acción masiva",
+  "cve.bulk.editStatusLabel": "Nuevo estado"
 }

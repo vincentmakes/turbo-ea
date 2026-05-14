@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "L'ID CVE è obbligatorio",
   "cve.create.errCveIdFormat": "Deve avere il formato CVE-AAAA-NNNN",
   "cve.create.errCardRequired": "La scheda interessata è obbligatoria",
-  "cve.create.errSeverityRequired": "La gravità è obbligatoria"
+  "cve.create.errSeverityRequired": "La gravità è obbligatoria",
+  "cve.tableTitle": "Risultati CVE",
+  "cve.grid.count_one": "{{count}} risultato",
+  "cve.grid.count_other": "{{count}} risultati",
+  "cve.delete.title": "Eliminare il risultato CVE?",
+  "cve.delete.confirm": "Questo risultato per {{card}} verrà eliminato definitivamente. I rischi collegati vengono conservati.",
+  "cve.delete.riskWarning": "Questo risultato è collegato al rischio {{ref}} — il rischio verrà conservato.",
+  "cve.bulk.resultTitle": "Risultato dell'azione di massa",
+  "cve.bulk.editStatusLabel": "Nuovo stato"
 }

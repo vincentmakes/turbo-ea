@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "CVE ID is required",
   "cve.create.errCveIdFormat": "Must look like CVE-YYYY-NNNN",
   "cve.create.errCardRequired": "Affected card is required",
-  "cve.create.errSeverityRequired": "Severity is required"
+  "cve.create.errSeverityRequired": "Severity is required",
+  "cve.tableTitle": "CVE Findings",
+  "cve.grid.count_one": "{{count}} finding",
+  "cve.grid.count_other": "{{count}} findings",
+  "cve.delete.title": "Delete CVE finding?",
+  "cve.delete.confirm": "This permanently removes the finding for {{card}}. Any linked Risk is preserved.",
+  "cve.delete.riskWarning": "This finding is linked to risk {{ref}} — the risk will be preserved.",
+  "cve.bulk.resultTitle": "Bulk action result",
+  "cve.bulk.editStatusLabel": "New status"
 }

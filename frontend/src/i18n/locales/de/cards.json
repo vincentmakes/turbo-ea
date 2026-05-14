@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "CVE-ID ist erforderlich",
   "cve.create.errCveIdFormat": "Muss das Format CVE-JJJJ-NNNN haben",
   "cve.create.errCardRequired": "Betroffene Karte ist erforderlich",
-  "cve.create.errSeverityRequired": "Schweregrad ist erforderlich"
+  "cve.create.errSeverityRequired": "Schweregrad ist erforderlich",
+  "cve.tableTitle": "CVE-Befunde",
+  "cve.grid.count_one": "{{count}} Befund",
+  "cve.grid.count_other": "{{count}} Befunde",
+  "cve.delete.title": "CVE-Befund löschen?",
+  "cve.delete.confirm": "Dieser Befund für {{card}} wird dauerhaft entfernt. Verknüpfte Risiken bleiben erhalten.",
+  "cve.delete.riskWarning": "Dieser Befund ist mit dem Risiko {{ref}} verknüpft — das Risiko bleibt erhalten.",
+  "cve.bulk.resultTitle": "Ergebnis der Massenoperation",
+  "cve.bulk.editStatusLabel": "Neuer Status"
 }

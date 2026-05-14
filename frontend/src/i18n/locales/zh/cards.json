@@ -656,5 +656,13 @@
   "cve.create.errCveIdRequired": "CVE ID 为必填项",
   "cve.create.errCveIdFormat": "必须符合 CVE-YYYY-NNNN 格式",
   "cve.create.errCardRequired": "受影响卡片为必填项",
-  "cve.create.errSeverityRequired": "严重程度为必填项"
+  "cve.create.errSeverityRequired": "严重程度为必填项",
+  "cve.tableTitle": "CVE 发现",
+  "cve.grid.count_one": "{{count}} 条发现",
+  "cve.grid.count_other": "{{count}} 条发现",
+  "cve.delete.title": "删除 CVE 发现？",
+  "cve.delete.confirm": "将永久删除「{{card}}」的此发现。关联风险将被保留。",
+  "cve.delete.riskWarning": "此发现已与风险 {{ref}} 关联 — 风险将被保留。",
+  "cve.bulk.resultTitle": "批量操作结果",
+  "cve.bulk.editStatusLabel": "新状态"
 }
