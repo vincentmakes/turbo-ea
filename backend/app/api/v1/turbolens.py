@@ -1215,14 +1215,6 @@ async def update_cve_finding_status(
     return await _one_cve_out(db, row)
 
 
-_VALID_CVE_SEVERITIES: frozenset[str] = frozenset(
-    {"critical", "high", "medium", "low", "info", "unknown"}
-)
-_VALID_CVE_STATUSES: frozenset[str] = frozenset(
-    {"open", "acknowledged", "in_progress", "mitigated", "accepted"}
-)
-
-
 @router.post("/security/cve-findings", response_model=CveFindingOut)
 async def create_cve_finding_manual(
     body: CveFindingCreate,
@@ -1238,12 +1230,6 @@ async def create_cve_finding_manual(
     """
     await PermissionService.require_permission(db, user, "security_compliance.manage")
 
-    if body.severity not in _VALID_CVE_SEVERITIES:
-        raise HTTPException(
-            400, f"severity must be one of: {', '.join(sorted(_VALID_CVE_SEVERITIES))}"
-        )
-    if body.status not in _VALID_CVE_STATUSES:
-        raise HTTPException(400, f"status must be one of: {', '.join(sorted(_VALID_CVE_STATUSES))}")
     cve_id = (body.cve_id or "").strip()
     if not cve_id:
         raise HTTPException(400, "cve_id is required")

@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.turbolens import AnalysisStatus, AnalysisType
+from app.core.permissions import VIEWER_PERMISSIONS
 from app.models.turbolens import TurboLensAnalysisRun, TurboLensCveFinding
 from tests.conftest import auth_headers, create_card, create_card_type, create_role, create_user
 
@@ -85,7 +86,7 @@ async def test_create_cve_finding_manual_viewer_forbidden(client, db, seed_env) 
     """Viewer gets 403 — only security_compliance.manage users may create findings."""
     admin = seed_env["admin"]
     card = await create_card(db, card_type="Application", name="Demo app 2", user_id=admin.id)
-    await create_role(db, key="viewer", label="Viewer", permissions={}, is_system=False)
+    await create_role(db, key="viewer", label="Viewer", permissions=VIEWER_PERMISSIONS)
     viewer = await create_user(db, email="viewer@test.com", role="viewer")
     body = {
         "cve_id": "CVE-2024-0002",
@@ -130,7 +131,7 @@ async def test_create_cve_finding_manual_bad_severity(client, db, seed_env) -> N
         json=body,
         headers=auth_headers(admin),
     )
-    assert resp.status_code in (400, 422), resp.text
+    assert resp.status_code == 422, resp.text
 
 
 async def test_cve_finding_response_includes_updated_at(
