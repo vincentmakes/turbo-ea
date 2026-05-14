@@ -268,6 +268,37 @@ class CveFindingCreate(BaseModel):
     status: Literal["open", "acknowledged", "in_progress", "mitigated", "accepted"] = "open"
 
 
+class CveFindingBulkStatusUpdate(BaseModel):
+    """Body for ``PATCH /security/cve-findings/bulk``.
+
+    Findings already promoted to a Risk (``risk_id`` non-null) are
+    reported in the response's ``skipped`` list with ``reason="risk_tracked"``
+    instead of being updated — the linked Risk's lifecycle is the source
+    of truth in that case.
+    """
+
+    ids: list[str]
+    status: Literal["open", "acknowledged", "in_progress", "mitigated", "accepted"]
+
+
+class CveFindingBulkDelete(BaseModel):
+    """Body for ``DELETE /security/cve-findings/bulk``."""
+
+    ids: list[str]
+
+
+class CveFindingBulkResult(BaseModel):
+    """Outcome of a bulk delete or bulk status update.
+
+    ``updated`` is the count of rows actually changed.
+    ``skipped`` lists rows left untouched, each with a ``reason``
+    ("not_found", "risk_tracked", …).
+    """
+
+    updated: int
+    skipped: list[dict[str, str]] = []
+
+
 class CveFindingOut(BaseModel):
     id: str
     run_id: str

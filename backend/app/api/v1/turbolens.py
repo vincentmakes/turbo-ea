@@ -42,6 +42,8 @@ from app.schemas.turbolens import (
     ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
+    CveFindingBulkResult,
+    CveFindingBulkStatusUpdate,
     CveFindingCreate,
     CveFindingOut,
     CveFindingStatusUpdate,
@@ -1276,6 +1278,56 @@ async def create_cve_finding_manual(
     await db.commit()
     await db.refresh(finding)
     return await _one_cve_out(db, finding)
+
+
+@router.patch("/security/cve-findings/bulk")
+async def bulk_update_cve_findings(
+    body: CveFindingBulkStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CveFindingBulkResult:
+    """Bulk-transition multiple CVE findings to one status.
+
+    Findings already promoted to a Risk (``risk_id`` non-null) are
+    skipped with ``reason="risk_tracked"`` — the linked Risk's lifecycle
+    becomes the source of truth and changing the finding's status would
+    desynchronise the two records. Missing ids are skipped with
+    ``reason="not_found"``.
+
+    The ``bulk`` segment of the path MUST be matched before the
+    ``/{finding_id}`` route — the routes below are registered in
+    definition order, so do not reorder.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    if not body.ids:
+        return CveFindingBulkResult(updated=0, skipped=[])
+
+    try:
+        ids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, "ids contains an invalid UUID") from exc
+
+    rows = (
+        (await db.execute(select(TurboLensCveFinding).where(TurboLensCveFinding.id.in_(ids))))
+        .scalars()
+        .all()
+    )
+    found_ids = {row.id for row in rows}
+    skipped: list[dict[str, str]] = []
+    for missing in ids:
+        if missing not in found_ids:
+            skipped.append({"id": str(missing), "reason": "not_found"})
+
+    updated = 0
+    for row in rows:
+        if row.risk_id is not None:
+            skipped.append({"id": str(row.id), "reason": "risk_tracked"})
+            continue
+        row.status = body.status
+        updated += 1
+    await db.commit()
+    return CveFindingBulkResult(updated=updated, skipped=skipped)
 
 
 @router.get("/security/compliance")

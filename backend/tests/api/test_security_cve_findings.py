@@ -150,3 +150,122 @@ async def test_cve_finding_response_includes_updated_at(
     assert "updated_at" in row
     assert "created_at" in row
     assert row["updated_at"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Bulk status-update fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def seed_three_cve_findings(db: AsyncSession, seed_env):
+    """Three findings on a fresh card; for bulk-operation testing."""
+    admin = seed_env["admin"]
+    card = await create_card(db, card_type="Application", name="Bulk app", user_id=admin.id)
+    run = TurboLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type=AnalysisType.SECURITY_CVE,
+        status=AnalysisStatus.COMPLETED,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        created_by=admin.id,
+    )
+    db.add(run)
+    await db.flush()
+    findings = [
+        TurboLensCveFinding(
+            run_id=run.id,
+            card_id=card.id,
+            card_type="Application",
+            cve_id=f"CVE-2024-000{i}",
+            severity="high",
+        )
+        for i in range(1, 4)
+    ]
+    for f in findings:
+        db.add(f)
+    await db.commit()
+    for f in findings:
+        await db.refresh(f)
+    return findings
+
+
+@pytest.fixture
+async def sample_risk(db: AsyncSession, seed_env):
+    from app.models.risk import Risk
+
+    admin = seed_env["admin"]
+    risk = Risk(
+        id=uuid.uuid4(),
+        reference="R-000001",
+        title="Test risk",
+        description="",
+        category="security",
+        initial_probability="medium",
+        initial_impact="medium",
+        initial_level="medium",
+        status="identified",
+        created_by=admin.id,
+    )
+    db.add(risk)
+    await db.commit()
+    await db.refresh(risk)
+    return risk
+
+
+# ---------------------------------------------------------------------------
+# Bulk status-update tests
+# ---------------------------------------------------------------------------
+
+
+async def test_bulk_update_cve_status_happy_path(
+    client, db, seed_env, seed_three_cve_findings
+) -> None:
+    admin = seed_env["admin"]
+    ids = [str(f.id) for f in seed_three_cve_findings]
+    resp = await client.patch(
+        "/api/v1/turbolens/security/cve-findings/bulk",
+        json={"ids": ids, "status": "acknowledged"},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    assert payload["updated"] == 3
+    assert payload["skipped"] == []
+
+
+async def test_bulk_update_cve_skips_risk_tracked(
+    client, db, seed_env, seed_three_cve_findings, sample_risk
+) -> None:
+    """A finding linked to a Risk is reported in skipped, not updated."""
+    admin = seed_env["admin"]
+    promoted = seed_three_cve_findings[0]
+    promoted.risk_id = sample_risk.id
+    await db.commit()
+    ids = [str(f.id) for f in seed_three_cve_findings]
+    resp = await client.patch(
+        "/api/v1/turbolens/security/cve-findings/bulk",
+        json={"ids": ids, "status": "mitigated"},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["updated"] == 2
+    assert {"id": str(promoted.id), "reason": "risk_tracked"} in payload["skipped"]
+
+
+async def test_bulk_update_cve_reports_not_found(
+    client, db, seed_env, seed_three_cve_findings
+) -> None:
+    admin = seed_env["admin"]
+    real = str(seed_three_cve_findings[0].id)
+    fake = "11111111-1111-1111-1111-111111111111"
+    resp = await client.patch(
+        "/api/v1/turbolens/security/cve-findings/bulk",
+        json={"ids": [real, fake], "status": "acknowledged"},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["updated"] == 1
+    assert {"id": fake, "reason": "not_found"} in payload["skipped"]
