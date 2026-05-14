@@ -42,6 +42,7 @@ from app.schemas.turbolens import (
     ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
+    CveFindingBulkDelete,
     CveFindingBulkResult,
     CveFindingBulkStatusUpdate,
     CveFindingCreate,
@@ -1328,6 +1329,50 @@ async def bulk_update_cve_findings(
         updated += 1
     await db.commit()
     return CveFindingBulkResult(updated=updated, skipped=skipped)
+
+
+@router.delete("/security/cve-findings/bulk")
+async def bulk_delete_cve_findings(
+    body: CveFindingBulkDelete,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CveFindingBulkResult:
+    """Bulk-delete CVE findings.
+
+    The linked Risk on any row is NOT cascaded — Risks are independent
+    records once promoted; the finding row is simply removed and the
+    Risk's ``risk_id`` back-link FK on the finding side falls away via
+    ``ondelete="SET NULL"``. Missing ids are reported in ``skipped``
+    with ``reason="not_found"``.
+
+    Same routing-order constraint as the PATCH bulk — must come before
+    the ``/{finding_id}`` single-row route Task 5 will add.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    if not body.ids:
+        return CveFindingBulkResult(updated=0, skipped=[])
+
+    try:
+        ids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, "ids contains an invalid UUID") from exc
+
+    rows = (
+        (await db.execute(select(TurboLensCveFinding).where(TurboLensCveFinding.id.in_(ids))))
+        .scalars()
+        .all()
+    )
+    found_ids = {row.id for row in rows}
+    skipped: list[dict[str, str]] = []
+    for missing in ids:
+        if missing not in found_ids:
+            skipped.append({"id": str(missing), "reason": "not_found"})
+
+    for row in rows:
+        await db.delete(row)
+    await db.commit()
+    return CveFindingBulkResult(updated=len(rows), skipped=skipped)
 
 
 @router.get("/security/compliance")

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.turbolens import AnalysisStatus, AnalysisType
@@ -263,6 +264,54 @@ async def test_bulk_update_cve_reports_not_found(
     resp = await client.patch(
         "/api/v1/turbolens/security/cve-findings/bulk",
         json={"ids": [real, fake], "status": "acknowledged"},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["updated"] == 1
+    assert {"id": fake, "reason": "not_found"} in payload["skipped"]
+
+
+# ---------------------------------------------------------------------------
+# Bulk delete tests
+# ---------------------------------------------------------------------------
+
+
+async def test_bulk_delete_cve_happy_path(client, db, seed_env, seed_three_cve_findings) -> None:
+    admin = seed_env["admin"]
+    ids = [str(f.id) for f in seed_three_cve_findings]
+    resp = await client.request(
+        "DELETE",
+        "/api/v1/turbolens/security/cve-findings/bulk",
+        json={"ids": ids},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["updated"] == 3
+    assert payload["skipped"] == []
+    # Confirm rows are gone
+    remaining = await db.execute(
+        select(TurboLensCveFinding).where(
+            TurboLensCveFinding.id.in_([f.id for f in seed_three_cve_findings])
+        )
+    )
+    assert remaining.scalars().all() == []
+
+
+async def test_bulk_delete_cve_reports_not_found(
+    client,
+    db,
+    seed_env,
+    seed_three_cve_findings,
+) -> None:
+    admin = seed_env["admin"]
+    real = str(seed_three_cve_findings[0].id)
+    fake = "22222222-2222-2222-2222-222222222222"
+    resp = await client.request(
+        "DELETE",
+        "/api/v1/turbolens/security/cve-findings/bulk",
+        json={"ids": [real, fake]},
         headers=auth_headers(admin),
     )
     assert resp.status_code == 200
