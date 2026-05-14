@@ -6,6 +6,8 @@ import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
+import Divider from "@mui/material/Divider";
+import Snackbar from "@mui/material/Snackbar";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
@@ -73,6 +75,7 @@ export default function CardDetail() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [actionsMenuAnchor, setActionsMenuAnchor] = useState<HTMLElement | null>(null);
+  const [snack, setSnack] = useState("");
 
   // Favorite star
   const [isFavorite, setIsFavorite] = useState(false);
@@ -562,6 +565,37 @@ export default function CardDetail() {
             <MenuItem
               onClick={() => {
                 setActionsMenuAnchor(null);
+                window.open(`/cards/${card.id}`, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <ListItemIcon>
+                <MaterialSymbol icon="open_in_new" size={20} />
+              </ListItemIcon>
+              <ListItemText>{t("common:actions.openInNewTab")}</ListItemText>
+            </MenuItem>
+            <MenuItem
+              onClick={async () => {
+                setActionsMenuAnchor(null);
+                const url = `${window.location.origin}/cards/${card.id}`;
+                try {
+                  await navigator.clipboard.writeText(url);
+                  setSnack(t("common:actions.linkCopied"));
+                } catch {
+                  // Clipboard API unavailable (older browsers, insecure
+                  // contexts) — fall back to a manual-copy prompt.
+                  window.prompt(t("common:actions.copyManually"), url);
+                }
+              }}
+            >
+              <ListItemIcon>
+                <MaterialSymbol icon="link" size={20} />
+              </ListItemIcon>
+              <ListItemText>{t("common:actions.copyLink")}</ListItemText>
+            </MenuItem>
+            <Divider />
+            <MenuItem
+              onClick={() => {
+                setActionsMenuAnchor(null);
                 toggleFavorite();
               }}
               disabled={favoriteSaving}
@@ -628,6 +662,14 @@ export default function CardDetail() {
         cardName={card.name}
         onClose={() => setRestoreDialogOpen(false)}
         onConfirmed={handleRestoreConfirmed}
+      />
+
+      <Snackbar
+        open={!!snack}
+        autoHideDuration={3000}
+        onClose={() => setSnack("")}
+        message={snack}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
 
       <CardDetailContent

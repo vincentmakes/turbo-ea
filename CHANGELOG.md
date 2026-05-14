@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.4] - 2026-05-14
+
+Small quality-of-life addition for the Card Detail page.
+
+### Added
+- **"Open in new tab" and "Copy link" shortcuts in the Card kebab menu.** Both items live above the existing Favorite / Archive / Delete actions (with a divider between the navigation actions and the destructive ones). "Open in new tab" opens `/cards/<id>` in a new browser tab; "Copy link" copies the absolute URL to the clipboard and surfaces a transient confirmation toast. If the Clipboard API is unavailable (older browsers, insecure contexts) the action falls back to a manual-copy `prompt`. Permission-free — both shortcuts are visible on every card. i18n keys added to `common.json` in all 8 locales.
+
 ## [1.11.3] - 2026-05-14
 
 A first-time evaluator opening `SEED_DEMO=true` used to land on an empty **GRC → Compliance** tab — the only way to populate it was to configure an LLM provider and trigger a real scan. This release ships a hand-curated set of demo findings so the tab is usable out of the box.
