@@ -42,6 +42,7 @@ from app.schemas.turbolens import (
     ComplianceFindingCreate,
     ComplianceFindingDecisionUpdate,
     ComplianceFindingOut,
+    CveFindingCreate,
     CveFindingOut,
     CveFindingStatusUpdate,
     DuplicateClusterOut,
@@ -1212,6 +1213,83 @@ async def update_cve_finding_status(
     await db.commit()
     await db.refresh(row)
     return await _one_cve_out(db, row)
+
+
+_VALID_CVE_SEVERITIES: frozenset[str] = frozenset(
+    {"critical", "high", "medium", "low", "info", "unknown"}
+)
+_VALID_CVE_STATUSES: frozenset[str] = frozenset(
+    {"open", "acknowledged", "in_progress", "mitigated", "accepted"}
+)
+
+
+@router.post("/security/cve-findings", response_model=CveFindingOut)
+async def create_cve_finding_manual(
+    body: CveFindingCreate,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CveFindingOut:
+    """Manually create a CVE finding (analyst entry).
+
+    Creates a synthetic "manual" :class:`TurboLensAnalysisRun` row to
+    satisfy the non-null ``run_id`` FK and persists the finding with
+    ``priority`` / ``probability`` defaulting to ``medium``. Requires
+    ``security_compliance.manage``.
+    """
+    await PermissionService.require_permission(db, user, "security_compliance.manage")
+
+    if body.severity not in _VALID_CVE_SEVERITIES:
+        raise HTTPException(
+            400, f"severity must be one of: {', '.join(sorted(_VALID_CVE_SEVERITIES))}"
+        )
+    if body.status not in _VALID_CVE_STATUSES:
+        raise HTTPException(400, f"status must be one of: {', '.join(sorted(_VALID_CVE_STATUSES))}")
+    cve_id = (body.cve_id or "").strip()
+    if not cve_id:
+        raise HTTPException(400, "cve_id is required")
+
+    try:
+        card_uuid = uuid.UUID(body.card_id)
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid card_id") from exc
+
+    card = await db.get(Card, card_uuid)
+    if not card:
+        raise HTTPException(404, "Card not found")
+
+    run = TurboLensAnalysisRun(
+        id=uuid.uuid4(),
+        analysis_type=AnalysisType.SECURITY_CVE,
+        status=AnalysisStatus.COMPLETED,
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
+        created_by=user.id,
+        results={"manual": True},
+    )
+    db.add(run)
+    await db.flush()
+
+    finding = TurboLensCveFinding(
+        run_id=run.id,
+        card_id=card.id,
+        card_type=card.type,
+        cve_id=cve_id,
+        severity=body.severity,
+        cvss_score=body.cvss_score,
+        attack_vector=body.attack_vector,
+        patch_available=body.patch_available,
+        description=body.description or "",
+        business_impact=body.business_impact,
+        remediation=body.remediation,
+        nvd_references=body.nvd_references,
+        priority="medium",
+        probability="medium",
+        status=body.status,
+    )
+    db.add(finding)
+    await db.commit()
+    await db.refresh(finding)
+    return await _one_cve_out(db, finding)
 
 
 @router.get("/security/compliance")

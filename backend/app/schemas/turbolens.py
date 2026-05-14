@@ -244,6 +244,30 @@ class CveFindingStatusUpdate(BaseModel):
     status: Literal["open", "acknowledged", "in_progress", "mitigated", "accepted"]
 
 
+class CveFindingCreate(BaseModel):
+    """Body for ``POST /security/cve-findings`` — manual finding entry.
+
+    Used by GRC analysts logging a vulnerability the NVD-driven scanner
+    didn't pick up (or to seed findings in installs that haven't run a
+    scan yet). The endpoint creates a synthetic "manual"
+    :class:`TurboLensAnalysisRun` to satisfy the non-null ``run_id`` FK
+    and persists the row with ``priority`` / ``probability`` defaulting
+    to ``medium`` (manual entries skip the AI prioritisation step).
+    """
+
+    cve_id: str
+    card_id: str
+    severity: Literal["critical", "high", "medium", "low", "info", "unknown"]
+    cvss_score: float | None = None
+    attack_vector: Literal["network", "adjacent", "local", "physical"] | None = None
+    patch_available: bool = False
+    description: str = ""
+    business_impact: str | None = None
+    remediation: str | None = None
+    nvd_references: list[dict] | None = None
+    status: Literal["open", "acknowledged", "in_progress", "mitigated", "accepted"] = "open"
+
+
 class CveFindingOut(BaseModel):
     id: str
     run_id: str
