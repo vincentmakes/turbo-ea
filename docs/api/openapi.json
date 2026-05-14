@@ -3113,6 +3113,196 @@
         "title": "CurrencyPayload",
         "type": "object"
       },
+      "CveFindingBulkDelete": {
+        "description": "Body for ``DELETE /security/cve-findings/bulk``.",
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "CveFindingBulkDelete",
+        "type": "object"
+      },
+      "CveFindingBulkResult": {
+        "description": "Outcome of a bulk delete or bulk status update.\n\n``updated`` is the count of rows actually changed.\n``skipped`` lists rows left untouched, each with a ``reason``\n(\"not_found\", \"risk_tracked\", \u2026).",
+        "properties": {
+          "skipped": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Skipped",
+            "type": "array"
+          },
+          "updated": {
+            "title": "Updated",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "updated"
+        ],
+        "title": "CveFindingBulkResult",
+        "type": "object"
+      },
+      "CveFindingBulkStatusUpdate": {
+        "description": "Body for ``PATCH /security/cve-findings/bulk``.\n\nFindings already promoted to a Risk (``risk_id`` non-null) are\nreported in the response's ``skipped`` list with ``reason=\"risk_tracked\"``\ninstead of being updated \u2014 the linked Risk's lifecycle is the source\nof truth in that case.",
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "acknowledged",
+              "in_progress",
+              "mitigated",
+              "accepted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids",
+          "status"
+        ],
+        "title": "CveFindingBulkStatusUpdate",
+        "type": "object"
+      },
+      "CveFindingCreate": {
+        "description": "Body for ``POST /security/cve-findings`` \u2014 manual finding entry.\n\nUsed by GRC analysts logging a vulnerability the NVD-driven scanner\ndidn't pick up (or to seed findings in installs that haven't run a\nscan yet). The endpoint creates a synthetic \"manual\"\n:class:`TurboLensAnalysisRun` to satisfy the non-null ``run_id`` FK\nand persists the row with ``priority`` / ``probability`` defaulting\nto ``medium`` (manual entries skip the AI prioritisation step).",
+        "properties": {
+          "attack_vector": {
+            "anyOf": [
+              {
+                "enum": [
+                  "network",
+                  "adjacent",
+                  "local",
+                  "physical"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attack Vector"
+          },
+          "business_impact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Impact"
+          },
+          "card_id": {
+            "title": "Card Id",
+            "type": "string"
+          },
+          "cve_id": {
+            "title": "Cve Id",
+            "type": "string"
+          },
+          "cvss_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cvss Score"
+          },
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "nvd_references": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nvd References"
+          },
+          "patch_available": {
+            "default": false,
+            "title": "Patch Available",
+            "type": "boolean"
+          },
+          "remediation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remediation"
+          },
+          "severity": {
+            "enum": [
+              "critical",
+              "high",
+              "medium",
+              "low",
+              "info",
+              "unknown"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "status": {
+            "default": "open",
+            "enum": [
+              "open",
+              "acknowledged",
+              "in_progress",
+              "mitigated",
+              "accepted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cve_id",
+          "card_id",
+          "severity"
+        ],
+        "title": "CveFindingCreate",
+        "type": "object"
+      },
       "CveFindingOut": {
         "properties": {
           "attack_vector": {
@@ -3330,6 +3520,18 @@
             "default": "open",
             "title": "Status",
             "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           },
           "vendor": {
             "default": "",
@@ -27479,6 +27681,166 @@
           }
         },
         "summary": "Trigger Compliance Scan",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/cve-findings": {
+      "post": {
+        "description": "Manually create a CVE finding (analyst entry).\n\nCreates a synthetic \"manual\" :class:`TurboLensAnalysisRun` row to\nsatisfy the non-null ``run_id`` FK and persists the finding with\n``priority`` / ``probability`` defaulting to ``medium``. Requires\n``security_compliance.manage``.",
+        "operationId": "create_cve_finding_manual_api_v1_turbolens_security_cve_findings_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CveFindingCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CveFindingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Cve Finding Manual",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/cve-findings/bulk": {
+      "delete": {
+        "description": "Bulk-delete CVE findings.\n\nThe linked Risk on any row is NOT cascaded \u2014 Risks are independent\nrecords once promoted; the finding row is simply removed and the\nRisk's ``risk_id`` back-link FK on the finding side falls away via\n``ondelete=\"SET NULL\"``. Missing ids are reported in ``skipped``\nwith ``reason=\"not_found\"``.\n\nSame routing-order constraint as the PATCH bulk \u2014 must come before\nthe ``/{finding_id}`` single-row route Task 5 will add.",
+        "operationId": "bulk_delete_cve_findings_api_v1_turbolens_security_cve_findings_bulk_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CveFindingBulkDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CveFindingBulkResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Delete Cve Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      },
+      "patch": {
+        "description": "Bulk-transition multiple CVE findings to one status.\n\nFindings already promoted to a Risk (``risk_id`` non-null) are\nskipped with ``reason=\"risk_tracked\"`` \u2014 the linked Risk's lifecycle\nbecomes the source of truth and changing the finding's status would\ndesynchronise the two records. Missing ids are skipped with\n``reason=\"not_found\"``.\n\nThe ``bulk`` segment of the path MUST be matched before the\n``/{finding_id}`` route \u2014 the routes below are registered in\ndefinition order, so do not reorder.",
+        "operationId": "bulk_update_cve_findings_api_v1_turbolens_security_cve_findings_bulk_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CveFindingBulkStatusUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CveFindingBulkResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Update Cve Findings",
+        "tags": [
+          "TurboLens"
+        ]
+      }
+    },
+    "/api/v1/turbolens/security/cve-findings/{finding_id}": {
+      "delete": {
+        "description": "Permanently delete a CVE finding.\n\nAdmin-grade action gated by ``security_compliance.manage`` (granted\nonly to the admin role by default). The linked Risk (if any) is NOT\ncascaded \u2014 risks are independent records once promoted.",
+        "operationId": "delete_cve_finding_api_v1_turbolens_security_cve_findings__finding_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "finding_id",
+            "required": true,
+            "schema": {
+              "title": "Finding Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Cve Finding",
         "tags": [
           "TurboLens"
         ]
