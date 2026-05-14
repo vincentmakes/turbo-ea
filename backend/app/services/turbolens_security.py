@@ -1357,6 +1357,7 @@ def finding_to_dict(
         "risk_id": str(row.risk_id) if row.risk_id else None,
         "risk_reference": risk_reference,
         "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
 
 

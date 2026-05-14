@@ -273,6 +273,7 @@ class CveFindingOut(BaseModel):
     risk_id: str | None = None
     risk_reference: str | None = None
     created_at: datetime | None = None
+    updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
