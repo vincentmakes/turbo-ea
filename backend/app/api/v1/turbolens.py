@@ -1212,6 +1212,8 @@ async def update_cve_finding_status(
     row = await db.get(TurboLensCveFinding, uuid.UUID(finding_id))
     if not row:
         raise HTTPException(404, "Finding not found")
+    if row.risk_id is not None:
+        raise HTTPException(409, "Finding is linked to a Risk; update the Risk lifecycle instead")
     row.status = body.status
     await db.commit()
     await db.refresh(row)

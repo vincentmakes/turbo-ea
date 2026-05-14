@@ -344,3 +344,32 @@ async def test_delete_single_cve_finding_404(client, db, seed_env) -> None:
         headers=auth_headers(admin),
     )
     assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Task follow-up — single-row PATCH risk_id guard
+# ---------------------------------------------------------------------------
+
+
+async def test_update_single_cve_status_refuses_risk_tracked(
+    client,
+    db,
+    seed_env,
+    seed_one_cve_finding,
+    sample_risk,
+) -> None:
+    """A finding linked to a Risk cannot have its status changed via the single-row PATCH.
+
+    Mirrors the bulk PATCH's risk_tracked skip — the linked Risk's lifecycle is
+    the source of truth.
+    """
+    admin = seed_env["admin"]
+    seed_one_cve_finding.risk_id = sample_risk.id
+    await db.commit()
+    resp = await client.patch(
+        f"/api/v1/turbolens/security/findings/{seed_one_cve_finding.id}",
+        json={"status": "mitigated"},
+        headers=auth_headers(admin),
+    )
+    assert resp.status_code == 409, resp.text
+    assert "risk" in resp.text.lower()
