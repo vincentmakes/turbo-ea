@@ -5,6 +5,13 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.12.1] - 2026-05-15
+
+A new "EA Beginner's Guide" section in the user manual gives new EA practitioners a sequenced, opinionated walkthrough of the first concrete initiative most organisations run on Turbo EA — Application Portfolio Rationalisation — without diving into the advanced modules (Risks, Compliance, PPM, TurboLens AI).
+
+### Added
+- **EA Beginner's Guide in the user manual.** Six-page onboarding walkthrough under `docs/beginners-guide/` (Your First 30 Days, Plan Your Rollout, Start with Applications, Leverage Reference Catalogues, Customise the Metamodel, Your First Analysis), translated into all eight supported locales. Covers scope planning, application inventory population (Excel import, ServiceNow, manual), capability map import from the bundled catalogue, lightweight metamodel customisation (worked example: adding a TIME `single_select` field on Application), and a first Portfolio Report + Capability Heatmap analysis. New top-level nav section `EA Beginner's Guide` between Getting Started and User Guide. Three new glossary terms (TIME framework, Application Portfolio Rationalisation, Crawl-Walk-Run) added to the Reference glossary in all eight locales.
+
 ## [1.12.0] - 2026-05-14
 
 The TurboLens CVE scanner has been removed. The Security tab is now Compliance-only, and the on-demand regulation gap analysis remains fully intact.
