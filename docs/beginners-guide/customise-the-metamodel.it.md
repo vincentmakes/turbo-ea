@@ -61,8 +61,6 @@ Usare un campo personalizzato quando:
 - Lo si vuole pesare nella Data Quality.
 - È un vocabolario controllato che non cambierà spesso.
 
-La disposizione TIME è nel campo dei campi personalizzati perché la useremo come asse colore del Portfolio Report nella prossima pagina.
-
 ## Anti-pattern da evitare
 
 Questi sono gli errori più comuni sul metamodello nei primi rollout:
@@ -72,6 +70,9 @@ Questi sono gli errori più comuni sul metamodello nei primi rollout:
 
 !!! warning "Non aggiungere 30 campi personalizzati il primo giorno"
     Ogni campo personalizzato aggiunge attrito alla raccolta dati e diluisce il punteggio di Data Quality. Aggiungere un campo, usarlo per un mese, poi aggiungere il successivo.
+
+!!! warning "Non duplicare campi integrati"
+    Prima di aggiungere `timeDisposition`, `funcFit`, `techFit` o `appBusinessValue`, controllare l'elenco dei campi esistenti — è molto probabile che esista già un campo integrato equivalente (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). I duplicati spezzano i dati e rompono i report.
 
 !!! warning "Non rendere `required` i nuovi campi il primo giorno"
     `Required` blocca l'approvazione per ogni card esistente che non ha un valore. Rendere un campo required solo **dopo** averlo compilato per oltre l'80% della popolazione.
@@ -85,12 +86,12 @@ Queste sono comuni estensioni di secondo passaggio, ma **non aggiungerle finché
 
 | Esigenza | Dove aggiungerla | Tipo |
 |----------|------------------|------|
-| Rating di valore di business | Application | `single_select` (High/Medium/Low) — guida l'asse Y del Portfolio Report |
-| Rating di idoneità tecnica | Application | `single_select` — guida l'asse X |
 | Cloud readiness | Application | `single_select` (Ready / Needs refactor / Stays on-prem) |
+| Flag customer-facing | Application | `boolean` |
+| Classificazione regolatoria | Application, DataObject | `multiple_select` (GDPR, PCI-DSS, …) |
 | Categoria di rischio di perdita | Application, IT Component | `single_select` (Single point of failure, ecc.) |
-| Suddivisione dei costi | Application | campi `cost` per `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| Suddivisione dei costi | Application | campi `cost` aggiuntivi per `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Ciascuno supera il test delle due domande per l'analytics di portfolio. Ciascuno è anche un buon candidato per una formula calcolata anziché un inserimento manuale — che è ciò che copre la pagina successiva.
+Ciascuno supera il test delle due domande per l'analytics di portfolio. Diversi di essi sono anche ottimi candidati per una formula **calcolata** anziché un inserimento manuale — che è ciò che copre la pagina successiva, usando `timeModel` stesso come esempio funzionante.
 
 Successivo: [La prima analisi: Armonizzazione applicativa](your-first-analysis.md).

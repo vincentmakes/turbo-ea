@@ -35,46 +35,48 @@ Para mapeos de alto criterio (o cuando hay un taller con el Propietario de la Ap
 !!! tip "Buena práctica"
     El mapeo de primera pasada es rápido y aproximado. La segunda pasada — hecha con el Propietario de la Aplicación revisando — es lo que hace que los datos sean confiables. Planifique para ambas.
 
-## Paso 2 — Elija cómo completará el campo TIME
+## Paso 2 — Elija cómo completará el Modelo TIME
 
-Tiene dos opciones. Elija una (o use ambas, con cálculo como predeterminado y anulación manual para excepciones):
+El campo integrado **Modelo TIME** en Application (`timeModel`, obligatorio, cuatro opciones: `tolerate` / `invest` / `migrate` / `eliminate`) es la columna de decisión que impulsa el resto del análisis. Tiene dos maneras de poblarlo.
 
 ### Opción A — Entrada manual de TIME (recomendada para la primera pasada)
 
-Agregó un campo `timeDisposition` de selección única en la página anterior. Úselo. Con el Propietario de la Aplicación en un taller de una hora, típicamente puede clasificar 30–50 aplicaciones:
+Con el Propietario de la Aplicación en un taller de una hora típicamente puede clasificar 30–50 aplicaciones:
 
 - **Tolerar** — funciona, bajo costo, no es un diferenciador estratégico. Déjelo en paz.
 - **Invertir** — estratégico, área de crecimiento, financie mejoras.
 - **Migrar** — reemplazar o mover a una nueva plataforma dentro del horizonte de planificación.
 - **Eliminar** — duplicado, fin de vida, dar de baja.
 
-Use el modo **Edición de Cuadrícula** del inventario con la columna `timeDisposition` visible para hacerlo a velocidad.
+Use el modo **Edición de Cuadrícula** del inventario con la columna **Modelo TIME** visible para capturar decisiones a velocidad.
 
 ### Opción B — TIME calculado mediante una fórmula
 
-Si desea una recomendación inicial que los propietarios luego validen, la función [Calculations](../admin/calculations.md) puede derivar un valor TIME predeterminado a partir de datos de costo y ciclo de vida.
+Si desea una recomendación inicial que los propietarios luego validen, la función [Cálculos](../admin/calculations.md) puede derivar un valor TIME predeterminado a partir de las dos dimensiones de idoneidad integradas — `functionalSuitability` (¿hace lo que el negocio necesita?) y `technicalSuitability` (¿es sólida la tecnología subyacente?). Este es el cuadrante TIME canónico de Gartner.
 
-Ejemplo de fórmula en el campo `timeDisposition` del tipo `Application`:
+Configure el cálculo en **Admin → Metamodelo → Cálculos** con **Tipo objetivo = `Application`**, **Campo objetivo = `timeModel`**, y la fórmula:
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-Lo que hace:
+Lo que hace — la ubicación en los cuatro cuadrantes:
 
-- Las aplicaciones que alcancen su fin de vida dentro de un año → **Eliminar**.
-- Aplicaciones estratégicas de alto gasto → **Invertir**.
-- Aplicaciones utilitarias de bajo costo → **Tolerar**.
-- Todo lo demás → **Migrar** (el predeterminado que necesita revisión humana).
+| Aptitud funcional | Aptitud técnica | → TIME |
+|-------------------|-----------------|--------|
+| Alta | Alta | **Invest** — estratégica, sólida — financie el crecimiento |
+| Alta | Baja | **Migrate** — el negocio la necesita pero la tecnología se está deteriorando — reemplace |
+| Baja | Alta | **Tolerate** — funciona bien pero el valor de negocio se desvanece — déjela en paz |
+| Baja | Baja | **Eliminate** — ni necesaria ni sólida — dar de baja |
 
-La fórmula se ejecuta automáticamente cada vez que se guarda una ficha, y Turbo EA marca el campo como solo lectura con una insignia de "calculado" para que los usuarios no se desvíen accidentalmente de la regla.
+La fórmula se ejecuta automáticamente cada vez que se guarda una ficha, y Turbo EA marca `timeModel` como solo lectura con una insignia de "calculado" para que los usuarios no se desvíen accidentalmente de la regla. El mismo ejemplo está documentado (y listo para copiar y pegar) en [Admin → Cálculos](../admin/calculations.md#ejemplos-de-formulas).
 
 !!! warning "No haga esto"
     Un TIME calculado es una **hipótesis inicial**, no un veredicto. Revise cada resultado con el propietario antes de confiar en él, o desactive el cálculo y confíe en la entrada manual una vez que el taller esté listo.
 
-El patrón híbrido: mantenga el cálculo activado mientras construye el inventario, desactívelo para el taller, cambie el campo de nuevo a edición manual para las decisiones finales.
+El patrón híbrido: mantenga el cálculo activado mientras construye el inventario y mayormente tiene datos de idoneidad; desactívelo para el taller de validación; luego déjelo desactivado para que las decisiones manuales se mantengan.
 
 ## Paso 3 — Ejecute el Informe de Portafolio
 

@@ -86,12 +86,12 @@ Estas son extensiones comunes de segunda pasada, pero **no las agregue hasta que
 
 | Necesidad | Dónde agregar | Tipo |
 |-----------|---------------|------|
-| Calificación de valor de negocio | Application | `single_select` (Alto/Medio/Bajo) — impulsa el eje Y del Informe de Portafolio |
-| Calificación de aptitud técnica | Application | `single_select` — impulsa el eje X |
 | Preparación para la nube | Application | `single_select` (Listo / Necesita refactor / Permanece on-prem) |
+| Marca de cara al cliente | Application | `boolean` |
+| Clasificación regulatoria | Application, DataObject | `multiple_select` (GDPR, PCI-DSS, …) |
 | Categoría de riesgo de pérdida | Application, IT Component | `single_select` (Punto único de fallo, etc.) |
-| División de costos | Application | campos `cost` para `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| División de costos | Application | campos `cost` adicionales para `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Cada uno pasa la prueba de las dos preguntas para análisis de portafolio. Cada uno es también un buen candidato para una fórmula calculada en lugar de entrada manual — que es lo que cubre la siguiente página.
+Cada uno pasa la prueba de las dos preguntas para análisis de portafolio. Varios de ellos también son buenos candidatos para una fórmula **calculada** en lugar de entrada manual — que es lo que cubre la siguiente página, usando `timeModel` como ejemplo de trabajo.
 
 Siguiente: [Su primer análisis: Armonización de Aplicaciones](your-first-analysis.md).

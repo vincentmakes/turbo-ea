@@ -35,62 +35,64 @@ Für urteilsintensive Zuordnungen (oder wenn ein Workshop mit dem Application Ow
 !!! tip "Bewährte Praxis"
     Die Zuordnung im ersten Durchgang ist schnell und grob. Der zweite Durchgang — durchgeführt mit dem Application Owner bei der Überprüfung — ist das, was die Daten vertrauenswürdig macht. Planen Sie beides ein.
 
-## Schritt 2 — Wählen Sie, wie Sie das TIME-Feld befüllen
+## Schritt 2 — Wählen Sie, wie Sie das TIME Model befüllen
 
-Sie haben zwei Optionen. Wählen Sie eine (oder verwenden Sie beide, mit Berechnung als Standard und manuellem Override für Ausnahmen):
+Das integrierte Feld **TIME Model** auf Application (`timeModel`, erforderlich, vier Optionen: `tolerate` / `invest` / `migrate` / `eliminate`) ist die Entscheidungsspalte, die den Rest der Analyse antreibt. Sie haben zwei Möglichkeiten, es zu befüllen.
 
 ### Option A — Manuelle TIME-Eingabe (für den ersten Durchgang empfohlen)
 
-Sie haben auf der vorherigen Seite ein Single-Select-Feld `timeDisposition` hinzugefügt. Verwenden Sie es. Mit dem Application Owner in einem einstündigen Workshop können Sie typischerweise 30–50 Anwendungen klassifizieren:
+Mit dem Application Owner in einem einstündigen Workshop können Sie typischerweise 30–50 Anwendungen klassifizieren:
 
-- **Tolerieren** — funktioniert, geringe Kosten, kein strategischer Differenzierer. In Ruhe lassen.
-- **Investieren** — strategisch, Wachstumsbereich, finanzieren Sie Verbesserungen.
-- **Migrieren** — ersetzen oder auf eine neue Plattform innerhalb des Planungshorizonts verschieben.
-- **Eliminieren** — Duplikat, End-of-Life, außer Betrieb nehmen.
+- **Tolerate** — funktioniert, geringe Kosten, kein strategischer Differenzierer. In Ruhe lassen.
+- **Invest** — strategisch, Wachstumsbereich, finanzieren Sie Verbesserungen.
+- **Migrate** — ersetzen oder auf eine neue Plattform innerhalb des Planungshorizonts verschieben.
+- **Eliminate** — Duplikat, End-of-Life, außer Betrieb nehmen.
 
-Verwenden Sie den Modus **Grid Edit** des Inventars mit sichtbarer `timeDisposition`-Spalte, um dies schnell zu erledigen.
+Verwenden Sie den Modus **Grid Edit** des Inventars mit sichtbarer Spalte **TIME Model**, um Entscheidungen schnell zu erfassen.
 
 ### Option B — Berechnete TIME via Formel
 
-Wenn Sie eine Ausgangsempfehlung wünschen, die die Owner dann validieren, kann die Funktion [Berechnungen](../admin/calculations.md) einen Standard-TIME-Wert aus Kosten- und Lebenszyklusdaten ableiten.
+Wenn Sie eine Ausgangsempfehlung wünschen, die die Owner dann validieren, kann die Funktion [Berechnungen](../admin/calculations.md) einen Standard-TIME-Wert aus den beiden integrierten Eignungsdimensionen ableiten — `functionalSuitability` (erfüllt es, was das Business benötigt?) und `technicalSuitability` (ist die zugrunde liegende Technik solide?). Dies ist der kanonische Gartner-TIME-Quadrant.
 
-Beispielformel auf dem Feld `timeDisposition` des Typs `Application`:
+Richten Sie die Berechnung unter **Admin → Metamodell → Berechnungen** ein, mit **Zieltyp = `Application`**, **Zielfeld = `timeModel`** und der Formel:
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-Was sie tut:
+Was sie tut — die Vier-Quadranten-Platzierung:
 
-- Anwendungen, die innerhalb eines Jahres End-of-Life erreichen → **Eliminieren**.
-- Hochkostige strategische Apps → **Investieren**.
-- Niedrigkostige Utility-Apps → **Tolerieren**.
-- Alles andere → **Migrieren** (der Standard, der menschliche Überprüfung erfordert).
+| Funktionale Eignung | Technische Eignung | → TIME |
+|---------------|--------------|--------|
+| Hoch | Hoch | **Invest** — strategisch, solide — Wachstum finanzieren |
+| Hoch | Niedrig | **Migrate** — das Business benötigt es, aber die Technik verrottet — ersetzen |
+| Niedrig | Hoch | **Tolerate** — läuft gut, aber der Business-Wert schwindet — in Ruhe lassen |
+| Niedrig | Niedrig | **Eliminate** — weder benötigt noch solide — außer Betrieb nehmen |
 
-Die Formel läuft automatisch jedes Mal, wenn eine Karte gespeichert wird, und Turbo EA markiert das Feld als schreibgeschützt mit einem „calculated"-Badge, damit Benutzer nicht versehentlich von der Regel abweichen können.
+Die Formel läuft automatisch jedes Mal, wenn eine Karte gespeichert wird, und Turbo EA markiert `timeModel` als schreibgeschützt mit einem „calculated"-Badge, damit Benutzer nicht versehentlich von der Regel abweichen können. Dasselbe Beispiel ist (kopierbar) dokumentiert unter [Admin → Berechnungen](../admin/calculations.md#example-formulas).
 
 !!! warning "Nicht tun"
     Ein berechnetes TIME ist eine **Ausgangshypothese**, kein Urteil. Überprüfen Sie entweder jedes Ergebnis mit dem Owner, bevor Sie ihm vertrauen, oder schalten Sie die Berechnung aus und verlassen Sie sich auf die manuelle Eingabe, sobald der Workshop abgeschlossen ist.
 
-Das hybride Muster: Lassen Sie die Berechnung eingeschaltet, während Sie das Inventar aufbauen, schalten Sie sie für den Workshop aus, stellen Sie das Feld für die endgültigen Entscheidungen auf manuelle Bearbeitung zurück.
+Das hybride Muster: Lassen Sie die Berechnung eingeschaltet, während Sie das Inventar aufbauen und überwiegend Eignungsdaten haben; schalten Sie sie für den Validierungs-Workshop aus; lassen Sie sie dann ausgeschaltet, damit manuelle Entscheidungen bestehen bleiben.
 
 ## Schritt 3 — Führen Sie den Portfolio-Bericht aus
 
 1. Gehen Sie zu **Reports → Portfolio**.
 2. Konfigurieren Sie die Achsen:
     - **Card type**: `Application`
-    - **X-Achse**: ein Maß für die technische Eignung, falls Sie eines haben (sonst Kostenaufteilung, Alter oder Lebenszyklus).
-    - **Y-Achse**: ein Maß für den Geschäftswert (sonst `costTotalAnnual` als Ersatz).
+    - **X-Achse**: `technicalSuitability` (das integrierte Feld für technische Eignung).
+    - **Y-Achse**: `functionalSuitability` oder `businessValue` (integrierte Felder für Business-Eignung).
     - **Größe**: `costTotalAnnual` — je höher die Ausgaben, desto größer die Blase.
-    - **Farbe**: `timeDisposition` — das ist es, was den Bericht entscheidungsreif macht.
+    - **Farbe**: `timeModel` — das ist es, was den Bericht entscheidungsreif macht.
 3. Speichern Sie die Konfiguration als benannte Ansicht („Anwendungsportfolio — Vertriebsdomäne"), damit Sie zu ihr zurückkehren können.
 
 Worauf achten:
 
-- **Große rote Blasen** (hochkostige Eliminieren-Kandidaten) — Ihre schnellsten Einsparungen.
-- **Große bernsteinfarbene Blasen** (hochkostige Migrieren-Kandidaten) — Ihre folgenreichsten Transformationsentscheidungen.
+- **Große rote Blasen** (hochkostige Eliminate-Kandidaten) — Ihre schnellsten Einsparungen.
+- **Große bernsteinfarbene Blasen** (hochkostige Migrate-Kandidaten) — Ihre folgenreichsten Transformationsentscheidungen.
 - **Cluster oben rechts in der Matrix**, die nicht grün sind — strategische Apps, die nicht die Investition erhalten.
 
 Referenz: [Berichte](../guide/reports.md).

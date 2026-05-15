@@ -35,56 +35,58 @@ Pour les mappings à fort jugement (ou lorsqu'un atelier avec l'Application Owne
 !!! tip "Bonne pratique"
     Le premier passage de mapping est rapide et grossier. Le second passage — effectué avec l'Application Owner en revue — est ce qui rend la donnée fiable. Prévoyez les deux.
 
-## Étape 2 — Choisir comment remplir le champ TIME
+## Étape 2 — Choisir comment remplir le TIME Model
 
-Vous avez deux options. Choisissez-en une (ou utilisez les deux, avec la calculation par défaut et la dérogation manuelle pour les exceptions) :
+Le champ **TIME Model** intégré sur Application (`timeModel`, requis, quatre options : `tolerate` / `invest` / `migrate` / `eliminate`) est la colonne de décision qui pilote le reste de l'analyse. Vous avez deux manières de le remplir.
 
 ### Option A — Saisie manuelle de TIME (recommandée pour le premier passage)
 
-Vous avez ajouté un champ `timeDisposition` en single-select à la page précédente. Utilisez-le. Avec l'Application Owner lors d'un atelier d'une heure, vous pouvez typiquement classer 30 à 50 applications :
+Avec l'Application Owner lors d'un atelier d'une heure, vous pouvez typiquement classer 30 à 50 applications :
 
 - **Tolérer** — fonctionne, faible coût, pas un différenciateur stratégique. Laisser tel quel.
 - **Investir** — stratégique, zone de croissance, financer les améliorations.
 - **Migrer** — remplacer ou déplacer vers une nouvelle plateforme dans l'horizon de planification.
 - **Éliminer** — doublon, en fin de vie, décommissionner.
 
-Utilisez le mode **Grid Edit** de l'inventaire avec la colonne `timeDisposition` visible pour aller vite.
+Utilisez le mode **Grid Edit** de l'inventaire avec la colonne **TIME Model** visible pour capturer les décisions à grande vitesse.
 
 ### Option B — TIME calculé via une formule
 
-Si vous voulez une recommandation de départ que les propriétaires valident ensuite, la fonctionnalité [Calculations](../admin/calculations.md) peut dériver une valeur TIME par défaut à partir des données de coût et de cycle de vie.
+Si vous voulez une recommandation de départ que les propriétaires valident ensuite, la fonctionnalité [Calculations](../admin/calculations.md) peut dériver une valeur TIME par défaut à partir des deux dimensions de suitability intégrées — `functionalSuitability` (fait-elle ce dont le métier a besoin ?) et `technicalSuitability` (la technologie sous-jacente est-elle saine ?). C'est le quadrant TIME canonique de Gartner.
 
-Exemple de formule sur le champ `timeDisposition` du type `Application` :
+Configurez le calcul sous **Admin → Métamodèle → Calculations** avec **Type cible = `Application`**, **Champ cible = `timeModel`**, et la formule :
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-Ce qu'elle fait :
+Ce qu'elle fait — le placement en quatre quadrants :
 
-- Applications atteignant la fin de vie d'ici un an → **Éliminer**.
-- Applis stratégiques à forte dépense → **Investir**.
-- Applis utilitaires à faible coût → **Tolérer**.
-- Tout le reste → **Migrer** (la valeur par défaut nécessitant une revue humaine).
+| Aptitude fonctionnelle | Aptitude technique | → TIME |
+|------------------------|--------------------|--------|
+| Élevée | Élevée | **Invest** — stratégique, sain — financer la croissance |
+| Élevée | Faible | **Migrate** — le métier en a besoin mais la tech se dégrade — remplacer |
+| Faible | Élevée | **Tolerate** — fonctionne mais la valeur métier s'estompe — laisser tel quel |
+| Faible | Faible | **Eliminate** — ni nécessaire ni sain — décommissionner |
 
-La formule s'exécute automatiquement à chaque enregistrement de fiche, et Turbo EA marque le champ en lecture seule avec un badge « calculé » pour que les utilisateurs ne puissent pas accidentellement dériver de la règle.
+La formule s'exécute automatiquement à chaque enregistrement de fiche, et Turbo EA marque `timeModel` en lecture seule avec un badge « calculé » pour que les utilisateurs ne puissent pas accidentellement dériver de la règle. Le même exemple est documenté (et copiable-collable) dans [Admin → Calculations](../admin/calculations.md#exemples-de-formules).
 
 !!! warning "À éviter"
     Un TIME calculé est une **hypothèse de départ**, pas un verdict. Soit vous revoyez chaque résultat avec le propriétaire avant de lui faire confiance, soit vous désactivez la calculation et vous reposez sur la saisie manuelle une fois l'atelier terminé.
 
-Le motif hybride : laissez la calculation active pendant que vous construisez l'inventaire, désactivez-la pour l'atelier, repassez le champ en édition manuelle pour les décisions finales.
+Le motif hybride : laissez la calculation active pendant que vous construisez l'inventaire et que vous disposez surtout des données de suitability ; désactivez-la pour l'atelier de validation ; puis laissez-la désactivée pour que les décisions manuelles tiennent.
 
 ## Étape 3 — Lancer le Rapport de portefeuille
 
 1. Allez dans **Rapports → Portefeuille**.
 2. Configurez les axes :
     - **Type de fiche** : `Application`
-    - **Axe X** : une mesure d'aptitude technique si vous en avez une (sinon découpage de coût, âge ou cycle de vie).
-    - **Axe Y** : une mesure de valeur métier (sinon `costTotalAnnual` comme valeur de remplacement).
+    - **Axe X** : `technicalSuitability` (le champ intégré d'aptitude technique).
+    - **Axe Y** : `functionalSuitability` ou `businessValue` (champs intégrés d'aptitude métier).
     - **Taille** : `costTotalAnnual` — plus la dépense est élevée, plus la bulle est grande.
-    - **Couleur** : `timeDisposition` — c'est ce qui rend le rapport prêt à décision.
+    - **Couleur** : `timeModel` — c'est ce qui rend le rapport prêt à décision.
 3. Enregistrez la configuration comme une vue nommée (« Application Portfolio — Sales Domain ») pour pouvoir y revenir.
 
 Ce qu'il faut regarder :
