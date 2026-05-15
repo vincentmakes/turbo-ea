@@ -4,56 +4,48 @@ Le métamodèle de Turbo EA est entièrement **configurable par l'administrateur
 
 Les équipes qui réussissent ne personnalisent le métamodèle **que lorsque les champs par défaut ne peuvent pas répondre à leur question**. Les équipes qui échouent passent leur premier mois à renommer `Application` en `Solution`, à ajouter 30 champs personnalisés, et n'arrivent jamais à un rapport opérationnel.
 
+## Ce qui est déjà dans le métamodèle
+
+Avant d'ajouter quoi que ce soit, sachez ce que vous avez déjà. Le type de fiche **Application** intégré est livré avec ces champs prêts à l'emploi (entre autres) :
+
+| Champ intégré | Type | À quoi il sert |
+|---------------|------|----------------|
+| `businessCriticality` | `single_select` | Mission-critique / Important / Utile / Marginal |
+| `functionalSuitability` | `single_select` | Parfait / Approprié / Insuffisant / Déraisonnable |
+| `technicalSuitability` | `single_select` | Totalement approprié / Adéquat / Déraisonnable / Inapproprié |
+| `timeModel` | `single_select` (requis) | **Tolérer / Investir / Migrer / Éliminer** — la disposition TIME canonique de Gartner |
+| `riskLevel` | `single_select` | Faible / Moyen / Élevé / Critique |
+| `businessValue` | `single_select` | Pilote l'axe Y du Rapport de portefeuille |
+| `costTotalAnnual` | `cost` | Coût annuel total |
+| `lifecycle.*` | dates | Plan / Phase In / Active / Phase Out / End of Life |
+
+Tout ce dont une Rationalisation du portefeuille applicatif a besoin est déjà là, y compris le **TIME Model**. Vous n'avez pas besoin d'ajouter un champ TIME — vous le remplissez (manuellement ou via un calcul, voir [Votre première analyse](your-first-analysis.md)). Il en va de même pour `functionalSuitability` et `technicalSuitability`, les deux dimensions de suitability qui pilotent classiquement un placement TIME.
+
 ## Le test des deux questions avant d'ajouter un champ
 
-Avant d'ajouter un seul champ personnalisé, posez-vous :
+Lorsque vous vous retrouvez à avoir besoin d'un champ qui n'est véritablement pas dans le métamodèle, posez-vous :
 
 1. **Vais-je filtrer, regrouper ou produire des rapports sur ce champ ?** Si non, sa place est dans la description ou dans un tag — pas dans un champ.
 2. **La même réponse est-elle nécessaire sur chaque fiche de ce type ?** Si non, c'est une relation ou une pièce jointe, pas un champ.
 
 Si vous ne pouvez pas répondre « oui » aux deux, n'ajoutez pas le champ.
 
-## Exemple complet : ajouter une disposition TIME
+## Si vous avez vraiment besoin d'un champ personnalisé
 
-Pour une Rationalisation du portefeuille applicatif, vous avez besoin d'une décision unique par application : **T**olérer / **I**nvestir / **M**igrer / **É**liminer (le cadre **TIME**, popularisé par Gartner). Le métamodèle intégré ne livre pas de champ `timeDisposition`, c'est donc l'un des rares cas où ajouter un champ personnalisé est la bonne décision.
+Pour le cas rare où un champ véritablement nouveau est nécessaire (par exemple, un drapeau `cloudReadiness`, une classification réglementaire, un marqueur de segment client), le flux de travail est :
 
-Nous allons l'ajouter en tant que champ `single_select` sur le type `Application`, avec quatre options codées par couleur, poids 1 pour qu'il contribue à la qualité de données.
-
-### Étape 1 — Ouvrir l'éditeur de type
-
-1. Allez dans **Admin → Metamodel**.
-2. Cliquez sur la fiche du type **Application**.
-3. Le tiroir du type s'ouvre à droite. Basculez sur l'onglet **Fields**.
-
-### Étape 2 — Ajouter le champ
-
-1. Choisissez la section dans laquelle vous voulez que le champ atterrisse (ou créez-en une nouvelle nommée « Portfolio Decision »).
-2. Cliquez sur **+ Ajouter un champ** dans cette section.
+1. Allez dans **Admin → Métamodèle**, cliquez sur le type, basculez sur l'onglet **Fields**.
+2. Choisissez la section (ou créez-en une nouvelle) et cliquez sur **+ Ajouter un champ**.
 3. Renseignez :
-    - **Clé** : `timeDisposition`  *(lower camel-case, sans espaces, devient la clé d'attribut en JSON)*
-    - **Libellé** : *Portfolio Disposition (TIME)*
-    - **Type** : `single_select`
-    - **Poids** : `1`  *(contribue au score de Qualité de données)*
-    - **Requis** : laisser **désactivé** — exiger le champ bloquerait l'approbation de toutes les fiches existantes.
-4. Ajoutez les quatre options :
+    - **Clé** en lower camel-case (par exemple, `cloudReadiness`) — devient la clé d'attribut en JSON et dans les formules.
+    - **Libellé** (et une traduction pour chaque locale prise en charge — sinon les utilisateurs non anglophones verront la clé brute).
+    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Poids** — `0` pour exclure de la Qualité de données, `1`+ pour l'inclure et le pondérer.
+    - **Requis** — laisser **désactivé** pour le premier déploiement ; requis bloque l'approbation de chaque fiche existante.
+4. Pour les types select, ajoutez les options (clé + libellé + couleur) et traduisez chaque option.
+5. Enregistrez.
 
-    | Clé | Libellé | Couleur |
-    |-----|---------|---------|
-    | `tolerate` | Tolérer | gris / neutre |
-    | `invest` | Investir | vert |
-    | `migrate` | Migrer | ambre |
-    | `eliminate` | Éliminer | rouge |
-
-5. **Ajoutez les traductions** pour le libellé et chaque option dans toutes les langues que vous prenez en charge — la page 4 d'[Admin → Métamodèle](../admin/metamodel.md) couvre l'éditeur de traductions. Sauter cette étape signifie que les utilisateurs non anglophones verront « timeDisposition » tel quel.
-6. Enregistrez.
-
-### Étape 3 — Confirmer que ça fonctionne
-
-1. Ouvrez n'importe quelle fiche Application. Le nouveau champ apparaît dans sa section, vide.
-2. Choisissez une valeur, enregistrez. L'anneau de Qualité de données devrait grimper de quelques points.
-3. De retour dans l'**Inventaire**, le champ est désormais disponible dans l'onglet **Colonnes** et comme filtre — vous pouvez déjà filtrer les applications par TIME.
-
-C'est tout. Un champ, dix minutes, immédiatement utile.
+Le champ est immédiatement disponible dans l'**Inventaire** (Colonnes, filtres), sur le Détail de la fiche, et dans les formules de **Calculations** sous la forme `<fieldKey>`. Référence complète : [Admin → Métamodèle](../admin/metamodel.md).
 
 ## Alternative : utiliser un Groupe de tags à la place
 
@@ -69,8 +61,6 @@ Utilisez un champ personnalisé quand :
 - Vous voulez qu'elle soit pondérée dans la Qualité de données.
 - C'est un vocabulaire contrôlé qui ne changera pas souvent.
 
-La disposition TIME est dans le camp des champs personnalisés car nous l'utiliserons comme axe couleur du Rapport de portefeuille à la page suivante.
-
 ## Anti-patterns à éviter
 
 Voici les erreurs de métamodèle les plus courantes dans les premiers déploiements :
@@ -80,6 +70,9 @@ Voici les erreurs de métamodèle les plus courantes dans les premiers déploiem
 
 !!! warning "N'ajoutez pas 30 champs personnalisés dès le premier jour"
     Chaque champ personnalisé ajoute de la friction à la collecte de données et dilue le score de Qualité de données. Ajoutez un champ, utilisez-le pendant un mois, puis ajoutez le suivant.
+
+!!! warning "Ne dupliquez pas les champs intégrés"
+    Avant d'ajouter `timeDisposition`, `funcFit`, `techFit` ou `appBusinessValue`, vérifiez la liste des champs existants — il y a de fortes chances qu'un champ intégré équivalent existe déjà (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Les doublons fractionnent vos données et cassent les rapports.
 
 !!! warning "Ne rendez pas les nouveaux champs `required` dès le premier jour"
     `Required` bloque l'approbation de toute fiche existante n'ayant pas de valeur. Ne rendez un champ requis qu'**après** l'avoir rempli pour plus de 80 % de la population.
@@ -93,12 +86,12 @@ Ce sont des extensions de second passage courantes, mais **ne les ajoutez pas av
 
 | Besoin | Où l'ajouter | Type |
 |--------|--------------|------|
-| Notation de valeur métier | Application | `single_select` (Haute/Moyenne/Basse) — pilote l'axe Y du Rapport de portefeuille |
-| Notation d'aptitude technique | Application | `single_select` — pilote l'axe X |
 | Cloud readiness | Application | `single_select` (Ready / Needs refactor / Stays on-prem) |
+| Drapeau face-client | Application | `boolean` |
+| Classification réglementaire | Application, DataObject | `multiple_select` (RGPD, PCI-DSS, …) |
 | Catégorie de risque de perte | Application, IT Component | `single_select` (Point de défaillance unique, etc.) |
-| Découpage des coûts | Application | champs `cost` pour `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| Découpage des coûts | Application | champs `cost` supplémentaires pour `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Chacune passe le test des deux questions pour l'analytique de portefeuille. Chacune est aussi un bon candidat pour une formule calculée plutôt qu'une saisie manuelle — ce que couvre la page suivante.
+Chacune passe le test des deux questions pour l'analytique de portefeuille. Plusieurs d'entre elles sont aussi de bons candidats pour une formule **calculée** plutôt qu'une saisie manuelle — ce que couvre la page suivante, en utilisant `timeModel` lui-même comme exemple opérationnel.
 
 Suite : [Votre première analyse : Harmonisation applicative](your-first-analysis.md).

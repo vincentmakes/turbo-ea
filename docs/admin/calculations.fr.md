@@ -72,6 +72,15 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
+**Placement TIME Model à partir des dimensions de suitability** (le quadrant TIME canonique de Gartner sur le champ intégré `timeModel` du type de fiche `Application` — champ cible = `timeModel`) :
+```
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
+```
+
+C'est l'exemple opérationnel référencé par le [Guide du débutant EA](../beginners-guide/your-first-analysis.md#option-b--time-calculé-via-une-formule).
+
 **Les commentaires** sont pris en charge avec `#` :
 ```
 # Calculer le score de risque pondéré

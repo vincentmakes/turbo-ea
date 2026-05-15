@@ -4,56 +4,48 @@ Turbo EA's metamodel is fully **admin-configurable** — every card type, field,
 
 The teams that succeed customise the metamodel **only when the default fields can't answer their question**. The teams that fail spend their first month renaming `Application` to `Solution`, adding 30 custom fields, and never get to a working report.
 
+## What's already in the metamodel
+
+Before adding anything, know what you already have. The built-in **Application** card type ships with these fields out of the box (among others):
+
+| Built-in field | Type | What it's for |
+|----------------|------|--------------|
+| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
+| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
+| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
+| `timeModel` | `single_select` (required) | **Tolerate / Invest / Migrate / Eliminate** — the canonical Gartner TIME disposition |
+| `riskLevel` | `single_select` | Low / Medium / High / Critical |
+| `businessValue` | `single_select` | Drives the Portfolio Report Y axis |
+| `costTotalAnnual` | `cost` | Total annual cost |
+| `lifecycle.*` | dates | Plan / Phase In / Active / Phase Out / End of Life |
+
+Everything an Application Portfolio Rationalisation needs is already there, including **TIME Model**. You don't need to add a TIME field — you fill it in (manually or via a calculation, see [Your First Analysis](your-first-analysis.md)). The same is true for `functionalSuitability` and `technicalSuitability`, the two suitability dimensions that classically drive a TIME placement.
+
 ## The two-question test before adding a field
 
-Before adding a single custom field, ask yourself:
+When you do find yourself needing a field that's genuinely not in the metamodel, ask yourself:
 
 1. **Will I filter, group, or report on this field?** If no, it belongs in the description or a tag — not a field.
 2. **Is the same answer needed on every card of this type?** If no, it's a relation or an attachment, not a field.
 
 If you can't answer "yes" to both, don't add the field.
 
-## Worked example: add a TIME disposition
+## If you really do need a custom field
 
-For an Application Portfolio Rationalisation, you need a single decision per application: **T**olerate / **I**nvest / **M**igrate / **E**liminate (the **TIME** framework, popularised by Gartner). The built-in metamodel doesn't ship a `timeDisposition` field, so this is one of the rare cases where adding a custom field is the right call.
+For the rare case where a genuinely new field is needed (e.g., a `cloudReadiness` flag, a regulatory classification, a customer-segment marker), the workflow is:
 
-We're going to add it as a `single_select` field on the `Application` type, with four colour-coded options, weight 1 so it contributes to data quality.
-
-### Step 1 — Open the type editor
-
-1. Go to **Admin → Metamodel**.
-2. Click the **Application** type card.
-3. The type drawer opens on the right. Switch to the **Fields** tab.
-
-### Step 2 — Add the field
-
-1. Pick the section you want the field to land in (or create a new section called "Portfolio Decision").
-2. Click **+ Add field** in that section.
+1. Go to **Admin → Metamodel**, click the type, switch to the **Fields** tab.
+2. Pick the section (or create a new one) and click **+ Add field**.
 3. Fill in:
-    - **Key**: `timeDisposition`  *(lower camel-case, no spaces, becomes the attribute key in JSON)*
-    - **Label**: *Portfolio Disposition (TIME)*
-    - **Type**: `single_select`
-    - **Weight**: `1`  *(contributes to the Data Quality score)*
-    - **Required**: leave **off** — required would block approval of every existing card.
-4. Add the four options:
+    - **Key** in lower camel-case (e.g., `cloudReadiness`) — becomes the attribute key in JSON and in formulas.
+    - **Label** (and a translation for every locale you support — non-English users will see the raw key otherwise).
+    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Weight** — `0` to exclude from Data Quality, `1`+ to include and weight it.
+    - **Required** — leave **off** for the first rollout; required blocks approval of every existing card.
+4. For select types, add the options (key + label + colour) and translate each option.
+5. Save.
 
-    | Key | Label | Colour |
-    |-----|-------|--------|
-    | `tolerate` | Tolerate | grey / neutral |
-    | `invest` | Invest | green |
-    | `migrate` | Migrate | amber |
-    | `eliminate` | Eliminate | red |
-
-5. **Add translations** for the label and each option in every locale you support — page 4 of [Admin → Metamodel](../admin/metamodel.md) covers the translation editor. Skipping this means non-English users see "timeDisposition" verbatim.
-6. Save.
-
-### Step 3 — Confirm it works
-
-1. Open any Application card. The new field appears in its section, empty.
-2. Pick a value, save. The Data Quality ring should tick up by a few percent.
-3. Back in **Inventory**, the field is now available in the **Columns** tab and as a filter — you can already filter applications by TIME.
-
-That's it. One field, ten minutes, immediately useful.
+The field is immediately available in **Inventory** (Columns, filters), on the Card Detail, and in **Calculations** formulas as `<fieldKey>`. Full reference: [Admin → Metamodel](../admin/metamodel.md).
 
 ## Alternative: use a Tag Group instead
 
@@ -69,8 +61,6 @@ Use a custom field when:
 - You want it weighted into Data Quality.
 - It's a controlled vocabulary that won't change often.
 
-TIME disposition is in the custom-field camp because we'll use it as a Portfolio Report colour axis on the next page.
-
 ## Anti-patterns to avoid
 
 These are the most common metamodel mistakes in first rollouts:
@@ -80,6 +70,9 @@ These are the most common metamodel mistakes in first rollouts:
 
 !!! warning "Don't add 30 custom fields on day one"
     Each custom field adds friction to data collection and dilutes the Data Quality score. Add one field, use it for a month, then add the next.
+
+!!! warning "Don't duplicate built-in fields"
+    Before adding `timeDisposition`, `funcFit`, `techFit`, or `appBusinessValue`, check the existing field list — chances are an equivalent built-in field already exists (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplicates split your data and break reports.
 
 !!! warning "Don't make new fields `required` on day one"
     `Required` blocks approval for every existing card that doesn't have a value. Make a field required only **after** you've filled it in for 80%+ of the population.
@@ -93,12 +86,12 @@ These are common second-pass extensions, but **don't add them until you actually
 
 | Need | Where to add | Type |
 |------|-------------|------|
-| Business value rating | Application | `single_select` (High/Medium/Low) — drives the Portfolio Report Y-axis |
-| Technical fitness rating | Application | `single_select` — drives the X-axis |
 | Cloud readiness | Application | `single_select` (Ready / Needs refactor / Stays on-prem) |
+| Customer-facing flag | Application | `boolean` |
+| Regulatory classification | Application, DataObject | `multiple_select` (GDPR, PCI-DSS, …) |
 | Risk-of-loss category | Application, IT Component | `single_select` (Single point of failure, etc.) |
-| Cost split | Application | `cost` fields for `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| Cost split | Application | additional `cost` fields for `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Each one passes the two-question test for portfolio analytics. Each one is also a fine candidate for a calculated formula instead of manual entry — which is what the next page covers.
+Each one passes the two-question test for portfolio analytics. Several of them are also fine candidates for a **calculated** formula instead of manual entry — which is what the next page covers, using `timeModel` itself as the worked example.
 
 Next: [Your first analysis: Application Harmonisation](your-first-analysis.md).

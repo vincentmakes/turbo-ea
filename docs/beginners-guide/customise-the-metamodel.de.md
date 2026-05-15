@@ -4,56 +4,48 @@ Das Metamodell von Turbo EA ist vollständig **admin-konfigurierbar** — jeder 
 
 Die Teams, die erfolgreich sind, passen das Metamodell **nur dann an, wenn die Standardfelder ihre Frage nicht beantworten können**. Die Teams, die scheitern, verbringen ihren ersten Monat damit, `Application` in `Solution` umzubenennen, 30 benutzerdefinierte Felder hinzuzufügen — und kommen nie zu einem funktionierenden Bericht.
 
+## Was bereits im Metamodell enthalten ist
+
+Bevor Sie etwas hinzufügen, wissen Sie, was Sie bereits haben. Der integrierte Kartentyp **Application** liefert unter anderem folgende Felder von Haus aus mit:
+
+| Integriertes Feld | Typ | Wofür es ist |
+|----------------|------|--------------|
+| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
+| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
+| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
+| `timeModel` | `single_select` (erforderlich) | **Tolerate / Invest / Migrate / Eliminate** — die kanonische Gartner-TIME-Disposition |
+| `riskLevel` | `single_select` | Low / Medium / High / Critical |
+| `businessValue` | `single_select` | Treibt die Y-Achse des Portfolio-Berichts an |
+| `costTotalAnnual` | `cost` | Gesamte jährliche Kosten |
+| `lifecycle.*` | Daten | Plan / Phase In / Active / Phase Out / End of Life |
+
+Alles, was eine Application-Portfolio-Rationalisierung benötigt, ist bereits vorhanden, einschließlich des **TIME Model**. Sie müssen kein TIME-Feld hinzufügen — Sie füllen es aus (manuell oder über eine Berechnung, siehe [Ihre erste Analyse](your-first-analysis.md)). Dasselbe gilt für `functionalSuitability` und `technicalSuitability`, die beiden Eignungsdimensionen, die klassischerweise eine TIME-Platzierung steuern.
+
 ## Der Zwei-Fragen-Test vor dem Hinzufügen eines Feldes
 
-Bevor Sie ein einziges benutzerdefiniertes Feld hinzufügen, fragen Sie sich:
+Wenn Sie tatsächlich ein Feld benötigen, das wirklich nicht im Metamodell vorhanden ist, fragen Sie sich:
 
 1. **Werde ich nach diesem Feld filtern, gruppieren oder berichten?** Wenn nein, gehört es in die Beschreibung oder ein Tag — nicht in ein Feld.
 2. **Wird auf jeder Karte dieses Typs dieselbe Antwort benötigt?** Wenn nein, ist es eine Beziehung oder ein Anhang, kein Feld.
 
 Wenn Sie nicht beide Fragen mit „ja" beantworten können, fügen Sie das Feld nicht hinzu.
 
-## Durchgearbeitetes Beispiel: Eine TIME-Disposition hinzufügen
+## Wenn Sie wirklich ein benutzerdefiniertes Feld benötigen
 
-Für eine Anwendungsportfolio-Rationalisierung benötigen Sie eine einzige Entscheidung pro Anwendung: **T**olerieren / **I**nvestieren / **M**igrieren / **E**liminieren (das **TIME**-Framework, populär gemacht von Gartner). Das integrierte Metamodell liefert kein `timeDisposition`-Feld aus, daher ist dies einer der seltenen Fälle, in denen das Hinzufügen eines benutzerdefinierten Feldes die richtige Wahl ist.
+Für den seltenen Fall, dass tatsächlich ein neues Feld benötigt wird (z. B. ein `cloudReadiness`-Flag, eine regulatorische Klassifizierung, ein Kundensegment-Marker), lautet der Arbeitsablauf:
 
-Wir werden es als `single_select`-Feld auf dem Typ `Application` hinzufügen, mit vier farbcodierten Optionen, Gewicht 1, sodass es zur Datenqualität beiträgt.
-
-### Schritt 1 — Öffnen Sie den Typ-Editor
-
-1. Gehen Sie zu **Admin → Metamodell**.
-2. Klicken Sie auf die Typ-Karte **Application**.
-3. Die Typ-Schublade öffnet sich rechts. Wechseln Sie zum Tab **Fields**.
-
-### Schritt 2 — Fügen Sie das Feld hinzu
-
-1. Wählen Sie den Abschnitt, in dem das Feld landen soll (oder erstellen Sie einen neuen Abschnitt namens „Portfolio Decision").
-2. Klicken Sie auf **+ Feld hinzufügen** in diesem Abschnitt.
+1. Gehen Sie zu **Admin → Metamodell**, klicken Sie auf den Typ und wechseln Sie zum Tab **Fields**.
+2. Wählen Sie den Abschnitt (oder erstellen Sie einen neuen) und klicken Sie auf **+ Feld hinzufügen**.
 3. Füllen Sie aus:
-    - **Key**: `timeDisposition`  *(Lower-CamelCase, keine Leerzeichen, wird der Attribut-Schlüssel im JSON)*
-    - **Label**: *Portfolio Disposition (TIME)*
-    - **Type**: `single_select`
-    - **Weight**: `1`  *(trägt zum Datenqualitäts-Score bei)*
-    - **Required**: lassen Sie **aus** — Required würde die Genehmigung jeder bestehenden Karte blockieren.
-4. Fügen Sie die vier Optionen hinzu:
+    - **Key** in Lower-CamelCase (z. B. `cloudReadiness`) — wird zum Attribut-Schlüssel im JSON und in Formeln.
+    - **Label** (und eine Übersetzung für jede von Ihnen unterstützte Sprache — sonst sehen nicht-englische Benutzer den rohen Schlüssel).
+    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Weight** — `0`, um es aus der Datenqualität auszuschließen, `1`+, um es einzubeziehen und zu gewichten.
+    - **Required** — lassen Sie es beim ersten Rollout **aus**; Required blockiert die Genehmigung jeder bestehenden Karte.
+4. Bei Select-Typen fügen Sie die Optionen hinzu (Key + Label + Farbe) und übersetzen Sie jede Option.
+5. Speichern.
 
-    | Key | Label | Farbe |
-    |-----|-------|--------|
-    | `tolerate` | Tolerieren | grau / neutral |
-    | `invest` | Investieren | grün |
-    | `migrate` | Migrieren | bernstein |
-    | `eliminate` | Eliminieren | rot |
-
-5. **Fügen Sie Übersetzungen** für das Label und jede Option in jeder von Ihnen unterstützten Sprache hinzu — Seite 4 von [Admin → Metamodell](../admin/metamodel.md) behandelt den Übersetzungseditor. Wird dies übersprungen, sehen nicht-englische Benutzer „timeDisposition" wörtlich.
-6. Speichern.
-
-### Schritt 3 — Prüfen, dass es funktioniert
-
-1. Öffnen Sie eine beliebige Application-Karte. Das neue Feld erscheint in seinem Abschnitt, leer.
-2. Wählen Sie einen Wert, speichern Sie. Der Datenqualitätsring sollte um einige Prozent steigen.
-3. Zurück im **Inventar** ist das Feld nun im Tab **Columns** und als Filter verfügbar — Sie können Anwendungen bereits nach TIME filtern.
-
-Das war's. Ein Feld, zehn Minuten, sofort nützlich.
+Das Feld ist sofort im **Inventar** (Columns, Filter), in der Kartendetailansicht und in **Berechnungen**-Formeln als `<fieldKey>` verfügbar. Vollständige Referenz: [Admin → Metamodell](../admin/metamodel.md).
 
 ## Alternative: Verwenden Sie stattdessen eine Tag-Gruppe
 
@@ -69,8 +61,6 @@ Verwenden Sie ein benutzerdefiniertes Feld, wenn:
 - Sie ihn in die Datenqualität gewichten möchten.
 - Es ein kontrolliertes Vokabular ist, das sich nicht oft ändert.
 
-Die TIME-Disposition gehört in das Lager der benutzerdefinierten Felder, weil wir sie auf der nächsten Seite als Farbachse des Portfolio-Berichts verwenden werden.
-
 ## Zu vermeidende Anti-Patterns
 
 Dies sind die häufigsten Metamodell-Fehler in ersten Rollouts:
@@ -80,6 +70,9 @@ Dies sind die häufigsten Metamodell-Fehler in ersten Rollouts:
 
 !!! warning "Fügen Sie nicht am ersten Tag 30 benutzerdefinierte Felder hinzu"
     Jedes benutzerdefinierte Feld fügt der Datenerfassung Reibung hinzu und verwässert den Datenqualitäts-Score. Fügen Sie ein Feld hinzu, verwenden Sie es einen Monat lang, fügen Sie dann das nächste hinzu.
+
+!!! warning "Duplizieren Sie keine integrierten Felder"
+    Bevor Sie `timeDisposition`, `funcFit`, `techFit` oder `appBusinessValue` hinzufügen, prüfen Sie die bestehende Feldliste — wahrscheinlich existiert bereits ein gleichwertiges integriertes Feld (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplikate teilen Ihre Daten auf und brechen Berichte.
 
 !!! warning "Machen Sie neue Felder nicht am ersten Tag `required`"
     `Required` blockiert die Genehmigung für jede bestehende Karte, die keinen Wert hat. Machen Sie ein Feld erst dann required, **nachdem** Sie es für 80 %+ der Population ausgefüllt haben.
@@ -93,12 +86,12 @@ Dies sind häufige Erweiterungen im zweiten Durchgang, aber **fügen Sie sie nic
 
 | Bedarf | Wo hinzufügen | Typ |
 |------|-------------|------|
-| Business-Value-Bewertung | Application | `single_select` (High/Medium/Low) — treibt die Y-Achse des Portfolio-Berichts an |
-| Bewertung der technischen Eignung | Application | `single_select` — treibt die X-Achse an |
 | Cloud-Bereitschaft | Application | `single_select` (Ready / Needs refactor / Stays on-prem) |
+| Customer-facing-Flag | Application | `boolean` |
+| Regulatorische Klassifizierung | Application, DataObject | `multiple_select` (GDPR, PCI-DSS, …) |
 | Verlustrisikokategorie | Application, IT Component | `single_select` (Single point of failure usw.) |
-| Kostenaufteilung | Application | `cost`-Felder für `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| Kostenaufteilung | Application | zusätzliche `cost`-Felder für `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Jede besteht den Zwei-Fragen-Test für Portfolio-Analytik. Jede ist auch ein guter Kandidat für eine berechnete Formel anstelle manueller Eingabe — was auf der nächsten Seite behandelt wird.
+Jede besteht den Zwei-Fragen-Test für Portfolio-Analytik. Mehrere davon sind auch gute Kandidaten für eine **berechnete** Formel anstelle manueller Eingabe — was die nächste Seite mit `timeModel` selbst als durchgearbeitetem Beispiel behandelt.
 
 Weiter: [Ihre erste Analyse: Anwendungsharmonisierung](your-first-analysis.md).

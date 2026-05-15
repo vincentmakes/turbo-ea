@@ -4,56 +4,48 @@ O metamodelo do Turbo EA é totalmente **configurável pelo administrador** — 
 
 As equipes que têm sucesso personalizam o metamodelo **apenas quando os campos padrão não conseguem responder à sua pergunta**. As equipes que fracassam gastam seu primeiro mês renomeando `Application` para `Solution`, adicionando 30 campos personalizados e nunca chegam a um relatório funcional.
 
+## O que já existe no metamodelo
+
+Antes de adicionar qualquer coisa, conheça o que você já tem. O tipo de card **Application** integrado vem com estes campos prontos para uso (entre outros):
+
+| Campo integrado | Tipo | Para que serve |
+|-----------------|------|----------------|
+| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
+| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
+| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
+| `timeModel` | `single_select` (obrigatório) | **Tolerar / Investir / Migrar / Eliminar** — a disposição canônica TIME do Gartner |
+| `riskLevel` | `single_select` | Low / Medium / High / Critical |
+| `businessValue` | `single_select` | Conduz o eixo Y do Relatório de Portfólio |
+| `costTotalAnnual` | `cost` | Custo anual total |
+| `lifecycle.*` | datas | Plan / Phase In / Active / Phase Out / End of Life |
+
+Tudo o que uma Racionalização do Portfólio de Aplicações precisa já está lá, incluindo o **TIME Model**. Você não precisa adicionar um campo TIME — você o preenche (manualmente ou via um cálculo, veja [Sua Primeira Análise](your-first-analysis.md)). O mesmo vale para `functionalSuitability` e `technicalSuitability`, as duas dimensões de adequação que classicamente conduzem o posicionamento TIME.
+
 ## O teste das duas perguntas antes de adicionar um campo
 
-Antes de adicionar um único campo personalizado, pergunte-se:
+Quando você de fato se vir precisando de um campo que genuinamente não está no metamodelo, pergunte-se:
 
 1. **Vou filtrar, agrupar ou relatar sobre este campo?** Se não, ele pertence à descrição ou a uma tag — não a um campo.
 2. **A mesma resposta é necessária em cada card deste tipo?** Se não, é uma relação ou um anexo, não um campo.
 
 Se você não consegue responder "sim" a ambas, não adicione o campo.
 
-## Exemplo prático: adicionar uma disposição TIME
+## Se você realmente precisa de um campo personalizado
 
-Para uma Racionalização do Portfólio de Aplicações, você precisa de uma única decisão por aplicação: **T**olerar / **I**nvestir / **M**igrar / **E**liminar (o framework **TIME**, popularizado pelo Gartner). O metamodelo padrão não vem com um campo `timeDisposition`, então este é um dos raros casos em que adicionar um campo personalizado é a escolha certa.
+Para o caso raro em que um campo genuinamente novo é necessário (por exemplo, uma flag `cloudReadiness`, uma classificação regulatória, um marcador de segmento de cliente), o fluxo é:
 
-Vamos adicioná-lo como um campo `single_select` no tipo `Application`, com quatro opções codificadas por cor, peso 1 para que contribua para a qualidade de dados.
-
-### Etapa 1 — Abra o editor de tipos
-
-1. Vá para **Admin → Metamodelo**.
-2. Clique no card do tipo **Application**.
-3. A gaveta do tipo abre à direita. Mude para a aba **Campos**.
-
-### Etapa 2 — Adicione o campo
-
-1. Escolha a seção onde você quer que o campo apareça (ou crie uma nova seção chamada "Decisão de Portfólio").
-2. Clique em **+ Adicionar campo** nessa seção.
+1. Vá para **Admin → Metamodelo**, clique no tipo, mude para a aba **Campos**.
+2. Escolha a seção (ou crie uma nova) e clique em **+ Adicionar campo**.
 3. Preencha:
-    - **Chave**: `timeDisposition`  *(camelCase, sem espaços, torna-se a chave do atributo no JSON)*
-    - **Rótulo**: *Disposição de Portfólio (TIME)*
-    - **Tipo**: `single_select`
-    - **Peso**: `1`  *(contribui para a pontuação de Qualidade de Dados)*
-    - **Obrigatório**: deixe **desligado** — obrigatório bloquearia a aprovação de todo card existente.
-4. Adicione as quatro opções:
+    - **Chave** em lower camel-case (por exemplo, `cloudReadiness`) — torna-se a chave do atributo no JSON e nas fórmulas.
+    - **Rótulo** (e uma tradução para cada localidade que você suporta — usuários não anglófonos verão a chave bruta caso contrário).
+    - **Tipo** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Peso** — `0` para excluir da Qualidade de Dados, `1`+ para incluir e ponderar.
+    - **Obrigatório** — deixe **desligado** para o primeiro rollout; obrigatório bloqueia a aprovação de todo card existente.
+4. Para tipos select, adicione as opções (chave + rótulo + cor) e traduza cada opção.
+5. Salve.
 
-    | Chave | Rótulo | Cor |
-    |-------|--------|-----|
-    | `tolerate` | Tolerar | cinza / neutro |
-    | `invest` | Investir | verde |
-    | `migrate` | Migrar | âmbar |
-    | `eliminate` | Eliminar | vermelho |
-
-5. **Adicione traduções** para o rótulo e cada opção em cada localidade que você suporta — a página 4 de [Admin → Metamodelo](../admin/metamodel.md) cobre o editor de traduções. Pular isso significa que usuários não anglófonos verão "timeDisposition" literalmente.
-6. Salve.
-
-### Etapa 3 — Confirme que funciona
-
-1. Abra qualquer card de Aplicação. O novo campo aparece em sua seção, vazio.
-2. Escolha um valor, salve. O anel de Qualidade de Dados deve subir alguns por cento.
-3. De volta ao **Inventário**, o campo agora está disponível na aba **Colunas** e como filtro — você já pode filtrar aplicações por TIME.
-
-É isso. Um campo, dez minutos, imediatamente útil.
+O campo fica imediatamente disponível no **Inventário** (Colunas, filtros), no Detalhe do Card e em fórmulas de **Cálculos** como `<fieldKey>`. Referência completa: [Admin → Metamodelo](../admin/metamodel.md).
 
 ## Alternativa: usar um Grupo de Tags
 
@@ -69,8 +61,6 @@ Use um campo personalizado quando:
 - Você quer que seja ponderado na Qualidade de Dados.
 - É um vocabulário controlado que não mudará com frequência.
 
-A disposição TIME está no campo personalizado porque a usaremos como eixo de cor do Relatório de Portfólio na próxima página.
-
 ## Antipadrões a evitar
 
 Estes são os erros mais comuns de metamodelo em primeiros rollouts:
@@ -80,6 +70,9 @@ Estes são os erros mais comuns de metamodelo em primeiros rollouts:
 
 !!! warning "Não adicione 30 campos personalizados no primeiro dia"
     Cada campo personalizado adiciona atrito à coleta de dados e dilui a pontuação de Qualidade de Dados. Adicione um campo, use-o por um mês, depois adicione o próximo.
+
+!!! warning "Não duplique campos integrados"
+    Antes de adicionar `timeDisposition`, `funcFit`, `techFit` ou `appBusinessValue`, verifique a lista de campos existentes — provavelmente um campo integrado equivalente já existe (`timeModel`, `functionalSuitability`, `technicalSuitability`, `businessValue`). Duplicatas dividem seus dados e quebram relatórios.
 
 !!! warning "Não torne novos campos `required` no primeiro dia"
     `Required` bloqueia a aprovação para todo card existente que não tenha um valor. Torne um campo obrigatório somente **depois** de tê-lo preenchido em 80%+ da população.
@@ -93,12 +86,12 @@ Estas são extensões comuns de segundo passe, mas **não as adicione até que v
 
 | Necessidade | Onde adicionar | Tipo |
 |-------------|---------------|------|
-| Avaliação de valor de negócio | Application | `single_select` (Alto/Médio/Baixo) — conduz o eixo Y do Relatório de Portfólio |
-| Avaliação de adequação técnica | Application | `single_select` — conduz o eixo X |
 | Prontidão para nuvem | Application | `single_select` (Pronto / Precisa refatorar / Fica on-premise) |
+| Flag de voltado ao cliente | Application | `boolean` |
+| Classificação regulatória | Application, DataObject | `multiple_select` (GDPR, PCI-DSS, …) |
 | Categoria de risco de perda | Application, IT Component | `single_select` (Ponto único de falha, etc.) |
-| Divisão de custos | Application | Campos `cost` para `costRunTotalAnnual`, `costChangeTotalAnnual` |
+| Divisão de custos | Application | Campos `cost` adicionais para `costRunTotalAnnual`, `costChangeTotalAnnual` |
 
-Cada um passa no teste das duas perguntas para análises de portfólio. Cada um também é um bom candidato para uma fórmula calculada em vez de entrada manual — que é o que a próxima página cobre.
+Cada um passa no teste das duas perguntas para análises de portfólio. Vários deles também são bons candidatos para uma fórmula **calculada** em vez de entrada manual — que é o que a próxima página cobre, usando o próprio `timeModel` como exemplo prático.
 
 Próximo: [Sua primeira análise: Harmonização de Aplicações](your-first-analysis.md).

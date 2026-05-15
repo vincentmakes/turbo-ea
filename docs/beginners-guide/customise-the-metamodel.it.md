@@ -4,56 +4,48 @@ Il metamodello di Turbo EA è completamente **configurabile da amministratore** 
 
 I team che hanno successo personalizzano il metamodello **solo quando i campi di default non possono rispondere alla loro domanda**. I team che falliscono passano il primo mese a rinominare `Application` in `Solution`, aggiungendo 30 campi personalizzati, senza mai arrivare a un report funzionante.
 
+## Cosa è già nel metamodello
+
+Prima di aggiungere qualcosa, conoscere ciò di cui già si dispone. Il tipo di card **Application** integrato include questi campi out of the box (tra gli altri):
+
+| Campo integrato | Tipo | A cosa serve |
+|-----------------|------|--------------|
+| `businessCriticality` | `single_select` | Mission-critical / Important / Useful / Marginal |
+| `functionalSuitability` | `single_select` | Perfect / Appropriate / Insufficient / Unreasonable |
+| `technicalSuitability` | `single_select` | Fully Appropriate / Adequate / Unreasonable / Inappropriate |
+| `timeModel` | `single_select` (required) | **Tolerate / Invest / Migrate / Eliminate** — la canonica disposizione TIME di Gartner |
+| `riskLevel` | `single_select` | Low / Medium / High / Critical |
+| `businessValue` | `single_select` | Guida l'asse Y del Portfolio Report |
+| `costTotalAnnual` | `cost` | Costo annuale totale |
+| `lifecycle.*` | date | Plan / Phase In / Active / Phase Out / End of Life |
+
+Tutto ciò che serve a una Razionalizzazione del portfolio applicativo è già lì, incluso il **TIME Model**. Non occorre aggiungere un campo TIME — lo si compila (manualmente o tramite un calcolo, vedere [La prima analisi](your-first-analysis.md)). Lo stesso vale per `functionalSuitability` e `technicalSuitability`, le due dimensioni di idoneità che guidano classicamente un posizionamento TIME.
+
 ## Il test delle due domande prima di aggiungere un campo
 
-Prima di aggiungere un singolo campo personalizzato, chiedersi:
+Quando ci si trova davvero a dover aggiungere un campo che non è nel metamodello, chiedersi:
 
 1. **Filtrerò, raggrupperò o farò report su questo campo?** Se no, appartiene alla descrizione o a un tag — non a un campo.
 2. **La stessa risposta serve su ogni card di questo tipo?** Se no, è una relazione o un allegato, non un campo.
 
 Se non si può rispondere "sì" a entrambe, non aggiungere il campo.
 
-## Esempio pratico: aggiungere una disposizione TIME
+## Se serve davvero un campo personalizzato
 
-Per una Razionalizzazione del portfolio applicativo serve una singola decisione per applicazione: **T**olerate / **I**nvest / **M**igrate / **E**liminate (il framework **TIME**, reso popolare da Gartner). Il metamodello integrato non include un campo `timeDisposition`, quindi questo è uno dei rari casi in cui aggiungere un campo personalizzato è la scelta giusta.
+Per il raro caso in cui occorra un campo genuinamente nuovo (ad es. un flag `cloudReadiness`, una classificazione regolatoria, un marcatore di segmento cliente), il flusso è:
 
-Lo aggiungeremo come campo `single_select` sul tipo `Application`, con quattro opzioni codificate a colore, peso 1 in modo che contribuisca alla qualità dei dati.
-
-### Passo 1 — Aprire l'editor del tipo
-
-1. Andare in **Admin → Metamodello**.
-2. Cliccare sulla card del tipo **Application**.
-3. Il drawer del tipo si apre sulla destra. Passare alla tab **Campi**.
-
-### Passo 2 — Aggiungere il campo
-
-1. Scegliere la sezione in cui far comparire il campo (o creare una nuova sezione chiamata "Decisione di Portfolio").
-2. Cliccare **+ Aggiungi campo** in quella sezione.
+1. Andare in **Admin → Metamodello**, cliccare sul tipo, passare alla tab **Campi**.
+2. Scegliere la sezione (o crearne una nuova) e cliccare **+ Aggiungi campo**.
 3. Compilare:
-    - **Key**: `timeDisposition`  *(lower camel-case, senza spazi, diventa la chiave attributo in JSON)*
-    - **Label**: *Disposizione di Portfolio (TIME)*
-    - **Type**: `single_select`
-    - **Weight**: `1`  *(contribuisce al punteggio di Data Quality)*
-    - **Required**: lasciare **off** — required bloccherebbe l'approvazione di ogni card esistente.
-4. Aggiungere le quattro opzioni:
+    - **Key** in lower camel-case (ad es. `cloudReadiness`) — diventa la chiave attributo in JSON e nelle formule.
+    - **Label** (e una traduzione per ogni locale supportato — altrimenti gli utenti non anglofoni vedranno la chiave grezza).
+    - **Type** — `text`, `number`, `cost`, `boolean`, `date`, `url`, `single_select`, `multiple_select`.
+    - **Weight** — `0` per escludere dalla Data Quality, `1`+ per includerlo e pesarlo.
+    - **Required** — lasciare **off** per il primo rollout; required blocca l'approvazione di ogni card esistente.
+4. Per i tipi select, aggiungere le opzioni (key + label + colore) e tradurre ciascuna opzione.
+5. Salvare.
 
-    | Key | Label | Colore |
-    |-----|-------|--------|
-    | `tolerate` | Tollerare | grigio / neutro |
-    | `invest` | Investire | verde |
-    | `migrate` | Migrare | ambra |
-    | `eliminate` | Eliminare | rosso |
-
-5. **Aggiungere le traduzioni** per la label e per ogni opzione in ogni locale supportato — la pagina 4 di [Admin → Metamodello](../admin/metamodel.md) descrive l'editor di traduzioni. Saltare questo passaggio significa che gli utenti non anglofoni vedranno "timeDisposition" tale e quale.
-6. Salvare.
-
-### Passo 3 — Verificare che funzioni
-
-1. Aprire una qualsiasi card Applicazione. Il nuovo campo appare nella sua sezione, vuoto.
-2. Scegliere un valore, salvare. L'anello della Data Quality dovrebbe aumentare di qualche punto percentuale.
-3. Tornati in **Inventario**, il campo è ora disponibile nella tab **Colonne** e come filtro — è già possibile filtrare le applicazioni per TIME.
-
-Tutto qui. Un campo, dieci minuti, immediatamente utile.
+Il campo è immediatamente disponibile in **Inventario** (Colonne, filtri), sul Dettaglio della card e nelle formule dei **Calcoli** come `<fieldKey>`. Riferimento completo: [Admin → Metamodello](../admin/metamodel.md).
 
 ## Alternativa: usare un Tag Group
 

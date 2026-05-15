@@ -35,56 +35,58 @@ For high-judgement mappings (or when a workshop with the Application Owner is in
 !!! tip "Best practice"
     The first pass mapping is fast and rough. The second pass — done with the Application Owner reviewing — is what makes the data trustworthy. Plan for both.
 
-## Step 2 — Pick how you'll fill the TIME field
+## Step 2 — Pick how you'll fill the TIME Model
 
-You have two options. Pick one (or use both, with calculation as the default and manual override for exceptions):
+The built-in **TIME Model** field on Application (`timeModel`, required, four options: `tolerate` / `invest` / `migrate` / `eliminate`) is the decision column that drives the rest of the analysis. You have two ways to populate it.
 
 ### Option A — Manual TIME entry (recommended for the first pass)
 
-You added a single-select `timeDisposition` field on the previous page. Use it. With the Application Owner in a one-hour workshop you can typically classify 30–50 applications:
+With the Application Owner in a one-hour workshop you can typically classify 30–50 applications:
 
 - **Tolerate** — works, low cost, not a strategic differentiator. Leave alone.
 - **Invest** — strategic, growth area, fund improvements.
 - **Migrate** — replace or move to a new platform within the planning horizon.
 - **Eliminate** — duplicate, end-of-life, decommission.
 
-Use the inventory **Grid Edit** mode with the `timeDisposition` column visible to do this at speed.
+Use the inventory **Grid Edit** mode with the **TIME Model** column visible to capture decisions at speed.
 
 ### Option B — Calculated TIME via a formula
 
-If you want a starting recommendation that the owners then validate, the [Calculations](../admin/calculations.md) feature can derive a default TIME value from cost and lifecycle data.
+If you want a starting recommendation that the owners then validate, the [Calculations](../admin/calculations.md) feature can derive a default TIME value from the two built-in suitability dimensions — `functionalSuitability` (does it do what the business needs?) and `technicalSuitability` (is the underlying tech sound?). This is the canonical Gartner TIME quadrant.
 
-Example formula on the `timeDisposition` field of the `Application` type:
+Set up the calculation under **Admin → Metamodel → Calculations** with **Target type = `Application`**, **Target field = `timeModel`**, and the formula:
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-What it does:
+What it does — the four-quadrant placement:
 
-- Applications reaching end-of-life within a year → **Eliminate**.
-- High-spend strategic apps → **Invest**.
-- Low-cost utility apps → **Tolerate**.
-- Everything else → **Migrate** (the default needing human review).
+| Functional fit | Technical fit | → TIME |
+|---------------|--------------|--------|
+| High | High | **Invest** — strategic, sound — fund growth |
+| High | Low | **Migrate** — business needs it but the tech is rotting — replace |
+| Low | High | **Tolerate** — runs fine but business value is fading — leave alone |
+| Low | Low | **Eliminate** — neither needed nor sound — decommission |
 
-The formula runs automatically every time a card is saved, and Turbo EA marks the field read-only with a "calculated" badge so users can't accidentally drift from the rule.
+The formula runs automatically every time a card is saved, and Turbo EA marks `timeModel` read-only with a "calculated" badge so users can't accidentally drift from the rule. The same example is documented (and copy-pasteable) in [Admin → Calculations](../admin/calculations.md#example-formulas).
 
 !!! warning "Don't"
     A calculated TIME is a **starting hypothesis**, not a verdict. Either review every result with the owner before trusting it, or turn the calculation off and rely on manual entry once the workshop is done.
 
-The hybrid pattern: keep the calculation on while you're building the inventory, turn it off for the workshop, switch the field back to manual editing for the final decisions.
+The hybrid pattern: keep the calculation on while you're building the inventory and you mostly have suitability data; turn it off for the validation workshop; then leave it off so manual decisions stick.
 
 ## Step 3 — Run the Portfolio Report
 
 1. Go to **Reports → Portfolio**.
 2. Configure the axes:
     - **Card type**: `Application`
-    - **X axis**: a measure of technical fitness if you have one (else cost split, age, or lifecycle).
-    - **Y axis**: a measure of business value (else `costTotalAnnual` as a stand-in).
+    - **X axis**: `technicalSuitability` (the built-in technical-fit field).
+    - **Y axis**: `functionalSuitability` or `businessValue` (built-in business-fit fields).
     - **Size**: `costTotalAnnual` — the bigger the spend, the bigger the bubble.
-    - **Colour**: `timeDisposition` — this is what makes the report decision-ready.
+    - **Colour**: `timeModel` — this is what makes the report decision-ready.
 3. Save the configuration as a named view ("Application Portfolio — Sales Domain") so you can come back to it.
 
 What to look for:

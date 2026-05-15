@@ -72,6 +72,15 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
+**TIME Model placement from suitability dimensions** (the canonical Gartner four-quadrant TIME on the built-in `timeModel` field of the `Application` card type — target field = `timeModel`):
+```
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
+```
+
+This is the working example referenced by the [EA Beginner's Guide](../beginners-guide/your-first-analysis.md#option-b--calculated-time-via-a-formula).
+
 **Comments** are supported using `#`:
 ```
 # Calculate weighted risk score
