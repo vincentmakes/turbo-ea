@@ -21,6 +21,9 @@ Lead-time gated recurrence for mitigation tasks. Recurring control reviews stop 
 - **Demo seed showcases the gated behaviour.** The NIS2 OT tabletop (quarterly) and GDPR re-attest (annual) demo tasks carry explicit `lead_time_days` of 7 and 14 respectively. With due dates 30+ days out, they land as `scheduled` on a fresh `SEED_DEMO=true` install — no spurious Todo on the demo admin's list.
 - **Completing or skipping a `scheduled` cycle now returns a clearer 409 error** ("Occurrence is still scheduled — activate it before completing or skipping.") instead of the generic "already scheduled".
 
+### Fixed
+- **Completed mitigation cycles now stay visible in the assignee's Done tab.** Previously, marking an occurrence done (or skipping it) hard-deleted the linked system Todo, which made the work vanish from `/todos` entirely. The Todo is now flipped to `status="done"` instead — falls out of the open-todos badge but remains in the user's "Done" tab, matching the lifecycle of a regular manually-completed Todo. Task deletion still wipes every linked Todo (open and done) to avoid stranded references.
+
 ## [1.13.1] - 2026-05-15
 
 Iteration polish on the task-driven mitigation feature: human-readable task IDs, both target and completion dates visible per cycle, bounded inline history with full-history export, and a true XLSX register export carrying mitigation tasks on a second sheet.

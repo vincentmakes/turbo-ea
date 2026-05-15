@@ -269,7 +269,7 @@ async def test_cannot_create_task_on_closed_risk(client, db, env):
 # ---------------------------------------------------------------------------
 
 
-async def test_complete_one_shot_deactivates_task_and_closes_todo(client, db, env):
+async def test_complete_one_shot_deactivates_task_and_keeps_done_todo(client, db, env):
     risk = env["risk"]
     create = await client.post(
         _api(risk),
@@ -294,6 +294,9 @@ async def test_complete_one_shot_deactivates_task_and_closes_todo(client, db, en
     assert closed_occ["completed_by"] == str(env["admin"].id)
     assert closed_occ["owner_at_completion"] == str(env["admin"].id)
 
+    # The system Todo stays around with status="done" so the assignee's
+    # Done tab on /todos shows the completed mitigation cycle. It only
+    # gets purged if the task itself is deleted (delete_task_todo).
     todos = (
         (
             await db.execute(
@@ -303,7 +306,8 @@ async def test_complete_one_shot_deactivates_task_and_closes_todo(client, db, en
         .scalars()
         .all()
     )
-    assert len(todos) == 0
+    assert len(todos) == 1
+    assert todos[0].status == "done"
 
 
 async def test_complete_recurring_rolls_next_occurrence_forward(client, db, env):
@@ -339,7 +343,8 @@ async def test_complete_recurring_rolls_next_occurrence_forward(client, db, env)
     # New occurrence is re-assigned to the current task owner.
     assert by_seq[1]["assigned_owner_id"] == str(env["admin"].id)
 
-    # Fresh Todo on owner for the new cycle.
+    # Owner now has two Todos: the previous cycle marked done (kept for
+    # the Done tab) and a fresh open Todo for the next cycle.
     todos = (
         (
             await db.execute(
@@ -349,7 +354,8 @@ async def test_complete_recurring_rolls_next_occurrence_forward(client, db, env)
         .scalars()
         .all()
     )
-    assert len(todos) == 1
+    statuses = sorted(t.status for t in todos)
+    assert statuses == ["done", "open"]
 
 
 async def test_complete_recurring_clamps_short_month_correctly(client, db, env):
@@ -720,9 +726,12 @@ async def test_complete_recurring_when_next_cycle_outside_window_yields_schedule
     assert by_seq[1]["status"] == "scheduled"
     assert by_seq[1]["activated_at"] is None
 
-    # Only the closed Todo remains — no Todo for the scheduled cycle.
+    # Exactly one Todo survives: the closed cycle's row, kept as
+    # status="done" so the assignee's Done tab shows it. The scheduled
+    # cycle owns no Todo (cycle is dormant until the lead window opens).
     todos = (await db.execute(select(Todo).where(Todo.is_system.is_(True)))).scalars().all()
-    assert todos == []
+    assert len(todos) == 1
+    assert todos[0].status == "done"
 
 
 async def test_cannot_complete_scheduled_occurrence(client, db, env):

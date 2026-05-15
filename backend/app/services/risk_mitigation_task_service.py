@@ -290,19 +290,40 @@ async def sync_occurrence_todo(
     previous_assigned_owner: uuid.UUID | None,
     notify_on_change: bool = True,
 ) -> None:
-    """Keep one ``is_system`` Todo per open occurrence.
+    """Keep one ``is_system`` Todo per occurrence in sync with state.
 
-    * Occurrence status ``open`` + assignee set → upsert a Todo.
-    * Occurrence status ``scheduled`` → delete any Todo (cycle is dormant
-      and must not show up in the assignee's Todo list yet).
-    * Occurrence status terminal (``done`` / ``skipped``) → delete the Todo.
-    * Occurrence open + no assignee → delete the Todo (no recipient).
-    * When ``assigned_owner_id`` changes, fire a ``task_assigned``
-      notification to the new owner (whitelisted for self-assignment).
+    * Occurrence ``open`` + assignee set → upsert a Todo with status
+      ``open`` (shows up in the assignee's "Open" tab on ``/todos``).
+    * Occurrence terminal (``done`` / ``skipped``) → mark the existing
+      Todo as ``done`` so it falls out of the open-todos badge count
+      but stays visible in the assignee's "Done" tab. Mirrors the
+      lifecycle of a regular manually-completed Todo.
+    * Occurrence ``scheduled`` (dormant) → delete any Todo. The cycle
+      is invisible to the assignee until the daily promotion loop
+      activates it.
+    * Occurrence ``open`` + no assignee → delete the Todo (no recipient).
+    * When ``assigned_owner_id`` changes on an open occurrence, fire a
+      ``task_assigned`` notification to the new owner (whitelisted for
+      self-assignment).
+
+    Task deletion takes the destructive path via ``delete_task_todo``,
+    which wipes every Todo linked to the task — including the historical
+    ``done`` rows — so the assignee doesn't keep references to a task
+    that no longer exists.
     """
     link = _occurrence_link(risk.id, task.id, occurrence.id)
     existing = await _existing_todo_for_occurrence(db, link)
 
+    if occurrence.status in ("done", "skipped"):
+        # Keep the row so the assignee's Done tab carries a history of
+        # closed mitigation cycles. We don't reassign or rewrite the
+        # description — those snapshots reflect who carried the work and
+        # what the cycle was about at the moment it closed.
+        if existing is not None:
+            existing.status = "done"
+        return
+
+    # "scheduled" or "open"-but-unassigned: no Todo should exist.
     if occurrence.status != "open" or occurrence.assigned_owner_id is None:
         if existing is not None:
             await db.delete(existing)
