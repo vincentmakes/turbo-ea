@@ -33,17 +33,17 @@ Elija el camino que coincida con su fuente de datos. Puede mezclarlos — import
 
 ### Camino A — Importación Excel / CSV (recomendada para la mayoría de los inicios)
 
-Si sus aplicaciones viven en una hoja de cálculo (o puede exportarlas desde un CMDB), este es el camino más rápido.
+Si sus aplicaciones viven en una hoja de cálculo (o puede exportarlas desde un CMDB), este es el camino más rápido. **No empiece elaborando la hoja a mano** — deje que Turbo EA le proporcione la plantilla.
 
-1. Vaya a **Inventario**, haga clic en **Importar** en la barra de herramientas superior derecha.
-2. Arrastre un archivo `.xlsx`. Turbo EA lee la primera fila como encabezados de columna.
-3. Mapee columnas a campos de la ficha. Los obligatorios son **Nombre** y **Tipo** (establezca Tipo en `Application` para cada fila, o incluya una columna `type`).
-4. Previsualice el informe de validación — el diálogo de importación le muestra exactamente qué filas crearán nuevas fichas, cuáles actualizarán fichas existentes (coincidencia por nombre o ID) y cuáles fallarán.
-5. Ejecute la importación.
+1. **Cree primero una ficha de Aplicación ficticia de forma manual**. Vaya a **Inventario → + Crear**, Tipo = `Application`, póngale un nombre como *«_TEMPLATE — eliminar»*. Rellene los cinco campos mínimos (descripción, ciclo de vida, propietario, coste) para que la exportación contenga valores reales que sirvan de ejemplo.
+2. **Filtre el inventario por Tipo = `Application`** y haga clic en **Exportar** en la barra de herramientas. Obtendrá un archivo `.xlsx` con una fila de datos reales y una columna por campo — esa es su plantilla. Los encabezados de columna coinciden con las claves de campo que espera el importador.
+3. **Edite la hoja sin conexión**: mantenga la estructura de columnas, sustituya la fila única por todas sus aplicaciones reales y elimine la fila ficticia al final (o déjela — eliminará la ficha de Turbo EA tras la importación).
+4. **Importe el archivo editado**: **Inventario → Importar**, arrastre el `.xlsx`. El informe de validación le muestra exactamente qué filas crearán nuevas fichas, cuáles actualizarán fichas existentes (coincidencia por nombre o ID) y cuáles fallarán.
+5. Ejecute la importación y archive la ficha `_TEMPLATE`.
 
 Referencia completa: [Inventario → Importación Excel](../guide/inventory.md#excel-import).
 
-**Consejo para la primera importación:** incluya solo los cinco campos mínimos, más una columna para el correo electrónico del Propietario de Negocio (el importador intentará hacerlo coincidir con usuarios existentes). Omita todo lo demás. Puede hacer una segunda importación más tarde con más columnas.
+**Consejo para la primera importación:** incluya solo los cinco campos mínimos, más una columna para el correo electrónico del Propietario de Negocio (el importador intentará hacerlo coincidir con usuarios existentes). Omita todo lo demás. Puede hacer una segunda importación más tarde con más columnas repitiendo el bucle exportar-editar-importar.
 
 ### Camino B — Sincronización con ServiceNow
 

@@ -33,17 +33,17 @@ Choisissez le chemin qui correspond à votre source de données. Vous pouvez les
 
 ### Chemin A — Import Excel / CSV (recommandé pour la plupart des démarrages)
 
-Si vos applications sont dans un tableur (ou si vous pouvez les exporter d'une CMDB), c'est le chemin le plus rapide.
+Si vos applications sont dans un tableur (ou si vous pouvez les exporter d'une CMDB), c'est le chemin le plus rapide. **Ne commencez pas par fabriquer la feuille à la main** — laissez Turbo EA vous fournir le modèle.
 
-1. Allez dans **Inventaire**, cliquez sur **Import** dans la barre d'outils en haut à droite.
-2. Glissez-déposez un fichier `.xlsx`. Turbo EA lit la première ligne comme en-têtes de colonnes.
-3. Mappez les colonnes vers les champs des fiches. Les obligatoires sont **Nom** et **Type** (fixez Type à `Application` pour chaque ligne, ou incluez une colonne `type`).
-4. Visualisez le rapport de validation — la boîte de dialogue d'import vous montre exactement quelles lignes créeront de nouvelles fiches, lesquelles mettront à jour des fiches existantes (appariées par nom ou ID) et lesquelles échoueront.
-5. Lancez l'import.
+1. **Créez d'abord une fiche Application factice manuellement**. Allez dans **Inventaire → + Créer**, Type = `Application`, nommez-la par exemple *« _TEMPLATE — à supprimer »*. Remplissez les cinq champs minimums (description, cycle de vie, responsable, coût) afin que l'export contienne des valeurs réelles servant d'exemple.
+2. **Filtrez l'inventaire sur Type = `Application`** et cliquez sur **Export** dans la barre d'outils. Vous obtenez un fichier `.xlsx` contenant une ligne de données réelles et une colonne par champ — c'est votre modèle. Les en-têtes de colonnes correspondent aux clés de champ attendues par l'importateur.
+3. **Modifiez la feuille hors ligne** : conservez la structure des colonnes, remplacez la ligne unique par l'ensemble de vos applications réelles et supprimez la ligne factice à la fin (ou laissez-la — vous supprimerez la fiche de Turbo EA après l'import).
+4. **Importez le fichier modifié** : **Inventaire → Import**, glissez-déposez le `.xlsx`. Le rapport de validation vous montre exactement quelles lignes créeront de nouvelles fiches, lesquelles mettront à jour des fiches existantes (appariées par nom ou ID) et lesquelles échoueront.
+5. Lancez l'import, puis archivez la fiche `_TEMPLATE`.
 
 Référence complète : [Inventaire → Import Excel](../guide/inventory.md#excel-import).
 
-**Astuce pour le premier import :** incluez uniquement les cinq champs minimums, plus une colonne pour l'e-mail de l'Application Owner (l'importateur tentera de l'apparier avec les utilisateurs existants). Laissez le reste de côté. Vous pourrez faire un second import plus tard avec davantage de colonnes.
+**Astuce pour le premier import :** incluez uniquement les cinq champs minimums, plus une colonne pour l'e-mail de l'Application Owner (l'importateur tentera de l'apparier avec les utilisateurs existants). Laissez le reste de côté. Vous pourrez faire un second import plus tard avec davantage de colonnes en répétant la boucle export-édition-import.
 
 ### Chemin B — Synchronisation ServiceNow
 

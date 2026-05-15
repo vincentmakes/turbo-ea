@@ -33,17 +33,17 @@ Pick the path that matches your data source. You can mix them — import the bul
 
 ### Path A — Excel / CSV import (recommended for most starts)
 
-If your applications live in a spreadsheet (or you can export them from a CMDB), this is the fastest path.
+If your applications live in a spreadsheet (or you can export them from a CMDB), this is the fastest path. **Don't start by hand-crafting the spreadsheet** — let Turbo EA give you the template.
 
-1. Go to **Inventory**, click **Import** in the top-right toolbar.
-2. Drag in an `.xlsx` file. Turbo EA reads the first row as column headers.
-3. Map columns to card fields. The required ones are **Name** and **Type** (set Type to `Application` for every row, or include a `type` column).
-4. Preview the validation report — the import dialog shows you exactly which rows will create new cards, which will update existing cards (matched by name or ID), and which will fail.
-5. Run the import.
+1. **Create one dummy Application card manually**. Go to **Inventory → + Create**, type = `Application`, name something like *"_TEMPLATE — delete me"*. Fill in the five minimum fields (description, lifecycle, owner, cost) so the export contains real values you can use as examples.
+2. **Filter the inventory to Type = `Application`** and click **Export** in the toolbar. You get an `.xlsx` file with one row of real data and a column per field — that's your template. The column headers match the field keys the importer expects.
+3. **Edit the spreadsheet offline**: keep the column structure, replace the single row with all your real applications, and delete the dummy row at the end (or leave it — you'll remove the card from Turbo EA after the import).
+4. **Import the edited file**: **Inventory → Import**, drag in the `.xlsx`. The validation report shows you exactly which rows will create new cards, which will update existing cards (matched by name or ID), and which will fail.
+5. Run the import, then archive the `_TEMPLATE` card.
 
 Full reference: [Inventory → Excel Import](../guide/inventory.md#excel-import).
 
-**Tip for first import:** include just the five minimum fields, plus a column for Business Owner email (the importer will try to match it to existing users). Skip everything else. You can do a second import later with more columns.
+**Tip for first import:** include just the five minimum fields, plus a column for Business Owner email (the importer will try to match it to existing users). Skip everything else. You can do a second import later with more columns by repeating the export-edit-import loop.
 
 ### Path B — ServiceNow sync
 

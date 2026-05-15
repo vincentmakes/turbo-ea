@@ -33,17 +33,17 @@ Wählen Sie den Pfad, der zu Ihrer Datenquelle passt. Sie können sie mischen �
 
 ### Pfad A — Excel-/CSV-Import (für die meisten Starts empfohlen)
 
-Wenn Ihre Anwendungen in einer Tabellenkalkulation leben (oder Sie sie aus einer CMDB exportieren können), ist dies der schnellste Weg.
+Wenn Ihre Anwendungen in einer Tabellenkalkulation leben (oder Sie sie aus einer CMDB exportieren können), ist dies der schnellste Weg. **Erstellen Sie die Tabelle nicht von Hand** — lassen Sie Turbo EA Ihnen die Vorlage liefern.
 
-1. Gehen Sie zu **Inventar**, klicken Sie auf **Importieren** in der Symbolleiste oben rechts.
-2. Ziehen Sie eine `.xlsx`-Datei hinein. Turbo EA liest die erste Zeile als Spaltenüberschriften.
-3. Ordnen Sie Spalten Kartenfeldern zu. Die erforderlichen sind **Name** und **Type** (setzen Sie Type auf `Application` für jede Zeile oder fügen Sie eine `type`-Spalte ein).
-4. Sehen Sie sich den Validierungsbericht in der Vorschau an — der Importdialog zeigt Ihnen genau, welche Zeilen neue Karten erstellen, welche bestehende Karten aktualisieren (anhand von Name oder ID) und welche fehlschlagen werden.
-5. Führen Sie den Import aus.
+1. **Erstellen Sie zunächst manuell eine Dummy-Anwendungskarte**. Gehen Sie zu **Inventar → + Erstellen**, Type = `Application`, geben Sie einen Namen wie *„_TEMPLATE — bitte löschen"* ein. Füllen Sie die fünf Mindestfelder aus (Beschreibung, Lebenszyklus, Verantwortlicher, Kosten), damit der Export reale Beispielwerte enthält.
+2. **Filtern Sie das Inventar nach Type = `Application`** und klicken Sie auf **Exportieren** in der Symbolleiste. Sie erhalten eine `.xlsx`-Datei mit einer Zeile echter Daten und einer Spalte pro Feld — das ist Ihre Vorlage. Die Spaltenüberschriften entsprechen den Feldschlüsseln, die der Importer erwartet.
+3. **Bearbeiten Sie die Tabelle offline**: Behalten Sie die Spaltenstruktur bei, ersetzen Sie die einzelne Zeile durch alle Ihre echten Anwendungen und löschen Sie am Ende die Dummy-Zeile (oder lassen Sie sie stehen — Sie entfernen die Karte nach dem Import aus Turbo EA).
+4. **Importieren Sie die bearbeitete Datei**: **Inventar → Importieren**, ziehen Sie die `.xlsx` hinein. Der Validierungsbericht zeigt Ihnen genau, welche Zeilen neue Karten erstellen, welche bestehende Karten aktualisieren (anhand von Name oder ID) und welche fehlschlagen werden.
+5. Führen Sie den Import aus und archivieren Sie anschliessend die `_TEMPLATE`-Karte.
 
 Vollständige Referenz: [Inventar → Excel-Import](../guide/inventory.md#excel-import).
 
-**Tipp für den ersten Import:** Fügen Sie nur die fünf Mindestfelder sowie eine Spalte für die E-Mail-Adresse des Business Owners hinzu (der Importer versucht, sie bestehenden Benutzern zuzuordnen). Lassen Sie alles andere aus. Sie können später einen zweiten Import mit weiteren Spalten durchführen.
+**Tipp für den ersten Import:** Fügen Sie nur die fünf Mindestfelder sowie eine Spalte für die E-Mail-Adresse des Business Owners hinzu (der Importer versucht, sie bestehenden Benutzern zuzuordnen). Lassen Sie alles andere aus. Sie können später einen zweiten Import mit weiteren Spalten durchführen, indem Sie die Export-Bearbeiten-Import-Schleife wiederholen.
 
 ### Pfad B — ServiceNow-Synchronisierung
 

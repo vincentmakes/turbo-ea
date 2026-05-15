@@ -33,17 +33,17 @@ Escolha o caminho que combina com sua fonte de dados. Você pode misturá-los �
 
 ### Caminho A — Importação Excel / CSV (recomendado para a maioria dos inícios)
 
-Se suas aplicações estão em uma planilha (ou você pode exportá-las de um CMDB), este é o caminho mais rápido.
+Se suas aplicações estão em uma planilha (ou você pode exportá-las de um CMDB), este é o caminho mais rápido. **Não comece montando a planilha à mão** — deixe o Turbo EA fornecer o modelo.
 
-1. Vá para **Inventário**, clique em **Importar** na barra de ferramentas superior direita.
-2. Arraste um arquivo `.xlsx`. O Turbo EA lê a primeira linha como cabeçalhos de coluna.
-3. Mapeie as colunas para os campos do card. Os obrigatórios são **Nome** e **Tipo** (defina Tipo como `Application` para cada linha, ou inclua uma coluna `type`).
-4. Visualize o relatório de validação — o diálogo de importação mostra exatamente quais linhas criarão novos cards, quais atualizarão cards existentes (correspondidos por nome ou ID) e quais falharão.
-5. Execute a importação.
+1. **Crie primeiro um card de Application fictício manualmente**. Vá para **Inventário → + Criar**, Tipo = `Application`, dê um nome como *"_TEMPLATE — apagar"*. Preencha os cinco campos mínimos (descrição, ciclo de vida, dono, custo) para que a exportação contenha valores reais que sirvam de exemplo.
+2. **Filtre o inventário por Tipo = `Application`** e clique em **Exportar** na barra de ferramentas. Você obtém um arquivo `.xlsx` com uma linha de dados reais e uma coluna por campo — esse é o seu modelo. Os cabeçalhos de coluna correspondem às chaves de campo que o importador espera.
+3. **Edite a planilha offline**: preserve a estrutura das colunas, substitua a linha única por todas as suas aplicações reais e remova a linha fictícia no final (ou deixe-a — você remove o card do Turbo EA após a importação).
+4. **Importe o arquivo editado**: **Inventário → Importar**, arraste o `.xlsx`. O relatório de validação mostra exatamente quais linhas criarão novos cards, quais atualizarão cards existentes (correspondidos por nome ou ID) e quais falharão.
+5. Execute a importação e, em seguida, arquive o card `_TEMPLATE`.
 
 Referência completa: [Inventário → Importação de Excel](../guide/inventory.md#excel-import).
 
-**Dica para a primeira importação:** inclua apenas os cinco campos mínimos, mais uma coluna para o e-mail do Dono de Negócio (o importador tentará casá-lo com usuários existentes). Pule todo o resto. Você pode fazer uma segunda importação depois com mais colunas.
+**Dica para a primeira importação:** inclua apenas os cinco campos mínimos, mais uma coluna para o e-mail do Dono de Negócio (o importador tentará casá-lo com usuários existentes). Pule todo o resto. Você pode fazer uma segunda importação depois com mais colunas repetindo o ciclo exportar-editar-importar.
 
 ### Caminho B — Sincronização com ServiceNow
 

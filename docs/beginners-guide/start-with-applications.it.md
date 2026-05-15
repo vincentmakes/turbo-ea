@@ -33,17 +33,17 @@ Scegliere il percorso che corrisponde alla fonte dati. Si possono anche combinar
 
 ### Percorso A — Import Excel / CSV (consigliato per la maggior parte degli avvii)
 
-Se le applicazioni vivono in un foglio di calcolo (o sono esportabili da una CMDB), questo è il percorso più rapido.
+Se le applicazioni vivono in un foglio di calcolo (o sono esportabili da una CMDB), questo è il percorso più rapido. **Non partire costruendo il foglio a mano** — lasciare che sia Turbo EA a fornire il template.
 
-1. Andare in **Inventario**, cliccare **Importa** nella barra in alto a destra.
-2. Trascinare un file `.xlsx`. Turbo EA legge la prima riga come intestazione di colonna.
-3. Mappare le colonne sui campi della card. Quelle obbligatorie sono **Name** e **Type** (impostare Type a `Application` per ogni riga, oppure includere una colonna `type`).
-4. Visualizzare l'anteprima del report di validazione — il dialog di import mostra esattamente quali righe creeranno nuove card, quali aggiorneranno card esistenti (corrispondenza per nome o ID) e quali falliranno.
-5. Eseguire l'import.
+1. **Creare prima una card Application fittizia manualmente**. Andare in **Inventario → + Crea**, Type = `Application`, dare un nome tipo *«_TEMPLATE — da eliminare»*. Compilare i cinque campi minimi (descrizione, ciclo di vita, owner, costo) in modo che l'export contenga valori reali da usare come esempio.
+2. **Filtrare l'inventario per Type = `Application`** e cliccare **Esporta** nella barra in alto. Si ottiene un file `.xlsx` con una riga di dati reali e una colonna per campo — questo è il template. Le intestazioni di colonna corrispondono alle chiavi di campo che l'importer si aspetta.
+3. **Modificare il foglio offline**: mantenere la struttura delle colonne, sostituire la singola riga con tutte le applicazioni reali ed eliminare la riga fittizia alla fine (oppure lasciarla — si rimuoverà la card da Turbo EA dopo l'import).
+4. **Importare il file modificato**: **Inventario → Importa**, trascinare il `.xlsx`. Il report di validazione mostra esattamente quali righe creeranno nuove card, quali aggiorneranno card esistenti (corrispondenza per nome o ID) e quali falliranno.
+5. Eseguire l'import, poi archiviare la card `_TEMPLATE`.
 
 Riferimento completo: [Inventario → Import Excel](../guide/inventory.md#excel-import).
 
-**Suggerimento per il primo import:** includere solo i cinque campi minimi, più una colonna per l'email del Business Owner (l'importatore proverà ad abbinarla agli utenti esistenti). Saltare tutto il resto. Si può fare un secondo import più avanti con più colonne.
+**Suggerimento per il primo import:** includere solo i cinque campi minimi, più una colonna per l'email del Business Owner (l'importatore proverà ad abbinarla agli utenti esistenti). Saltare tutto il resto. Si può fare un secondo import più avanti con più colonne ripetendo il ciclo export-modifica-import.
 
 ### Percorso B — Sincronizzazione ServiceNow
 
