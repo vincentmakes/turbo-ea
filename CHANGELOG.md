@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.16.1] - 2026-05-15
+
+Security hygiene pass on the published Docker images. Drops an unused C library that was the sole remaining source of open Trivy alerts on the backend image, and prunes three legacy per-service Dockerfiles that drifted from the canonical multi-stage `Dockerfile`.
+
+### Removed
+- **`libpq` from the backend Docker image.** The runtime stage of the backend image had been carrying the PostgreSQL client C library defensively since the project's first Docker setup, but the codebase only uses **`asyncpg`** — a pure-Python driver that doesn't link against libpq. A repository-wide grep confirmed zero references to `psycopg` or `libpq` under `backend/app/`, `backend/alembic/`, or `backend/pyproject.toml`, so the package was dead weight. `libpq-dev` is dropped from the corresponding `backend-build` stage for symmetry. This closes 11 open Trivy alerts on `libpq 18.3-r0` (CVE-2026-6472..6478, CVE-2026-6479, CVE-2026-6575, CVE-2026-6637, CVE-2026-6638) at the root — the surface no longer exists rather than being patched.
+- **Orphaned per-service Dockerfiles `backend/Dockerfile`, `frontend/Dockerfile`, `mcp-server/Dockerfile`.** These three files predated the consolidation into a single multi-target root `Dockerfile` and had since drifted out of date (missing the `apk upgrade --no-cache` hardening pass that every target in the root file carries). A grep across the repo confirmed none of them are referenced by any compose file, GitHub Actions workflow, Makefile, script, or documentation page — both the GHCR publish workflow (`.github/workflows/docker-publish.yml`) and the dev compose override (`dev/docker-compose.dev.yml`) build exclusively against `Dockerfile` with `target:` selectors. Deleting them eliminates a confusing parallel source of truth and prevents future contributors from updating the wrong file.
+
 ## [1.16.0] - 2026-05-15
 
 The Card Detail → Stakeholders picker is replaced with a searchable Autocomplete that scales to large user bases and lets card owners invite a brand-new user inline, LeanIX-style, without bouncing to the admin area.

@@ -3,7 +3,7 @@ ARG APP_GID=1000
 
 FROM python:3.12-alpine AS backend-build
 
-RUN apk add --no-cache gcc musl-dev libpq-dev
+RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
@@ -22,7 +22,7 @@ FROM python:3.12-alpine AS backend
 ARG APP_UID
 ARG APP_GID
 
-RUN apk upgrade --no-cache && apk add --no-cache libpq && rm -rf /var/cache/apk/*
+RUN apk upgrade --no-cache && rm -rf /var/cache/apk/*
 RUN addgroup -g ${APP_GID} -S appgroup && adduser -S -D -u ${APP_UID} -G appgroup appuser
 
 WORKDIR /app
