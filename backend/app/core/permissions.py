@@ -203,6 +203,16 @@ APP_PERMISSIONS: dict[str, dict] = {
             ),
         },
     },
+    "users": {
+        "label": "Users",
+        "permissions": {
+            "users.invite": (
+                "Invite a new user from a stakeholder or owner picker. "
+                "Invitees are restricted to non-privileged roles (member, viewer); "
+                "elevated roles still require admin.users."
+            ),
+        },
+    },
     "admin": {
         "label": "Admin",
         "permissions": {
@@ -339,6 +349,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "ai.portfolio_insights": True,
     "costs.view": True,
     "notifications.manage": True,
+    "users.invite": True,
     "admin.users": False,
     "admin.roles": False,
     "admin.metamodel": False,
@@ -410,6 +421,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "ai.portfolio_insights": True,
     "costs.view": True,
     "notifications.manage": True,
+    "users.invite": False,
     "admin.users": False,
     "admin.roles": False,
     "admin.metamodel": False,
@@ -481,6 +493,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "ai.portfolio_insights": False,
     "costs.view": False,
     "notifications.manage": True,
+    "users.invite": False,
     "admin.users": False,
     "admin.roles": False,
     "admin.metamodel": False,

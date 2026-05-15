@@ -159,6 +159,94 @@ class TestCreateUser:
 
 
 # -------------------------------------------------------------------
+# POST /users  (delegated invitation via users.invite)
+# -------------------------------------------------------------------
+
+
+class TestInviteUser:
+    """The ``users.invite`` permission is the delegated form of ``admin.users``.
+
+    It lets non-admin holders create new users from the stakeholder/owner
+    picker, but the backend still gates the role they can assign — only
+    ``member`` and ``viewer``. Elevated roles (admin, bpm_admin, custom
+    elevated roles) still require ``admin.users``.
+    """
+
+    async def test_users_invite_can_create_member(self, client, db, users_env):
+        # Build a non-admin role that holds users.invite but not admin.users.
+        await create_role(
+            db,
+            key="inviter",
+            label="Inviter",
+            permissions={**MEMBER_PERMISSIONS, "users.invite": True},
+        )
+        inviter = await create_user(db, email="inviter@test.com", role="inviter")
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "invitee@test.com",
+                "display_name": "Invitee",
+                "password": "Pass1234",
+                "role": "member",
+            },
+            headers=auth_headers(inviter),
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["email"] == "invitee@test.com"
+        assert resp.json()["role"] == "member"
+
+    async def test_users_invite_blocked_from_elevated_role(self, client, db, users_env):
+        await create_role(
+            db,
+            key="inviter2",
+            label="Inviter2",
+            permissions={**MEMBER_PERMISSIONS, "users.invite": True},
+        )
+        inviter = await create_user(db, email="inviter2@test.com", role="inviter2")
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "escalation@test.com",
+                "display_name": "Escalation",
+                "password": "Pass1234",
+                "role": "admin",
+            },
+            headers=auth_headers(inviter),
+        )
+        assert resp.status_code == 403
+        assert "admin.users" in resp.json()["detail"]
+
+    async def test_admin_can_still_invite_any_role(self, client, db, users_env):
+        admin = users_env["admin"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "new-admin@test.com",
+                "display_name": "New Admin",
+                "password": "Pass1234",
+                "role": "admin",
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["role"] == "admin"
+
+    async def test_viewer_without_invite_permission_still_403(self, client, db, users_env):
+        viewer = users_env["viewer"]
+        resp = await client.post(
+            "/api/v1/users",
+            json={
+                "email": "blocked2@test.com",
+                "display_name": "Blocked2",
+                "password": "Pass1234",
+                "role": "viewer",
+            },
+            headers=auth_headers(viewer),
+        )
+        assert resp.status_code == 403
+
+
+# -------------------------------------------------------------------
 # PATCH /users/{id}  (update)
 # -------------------------------------------------------------------
 

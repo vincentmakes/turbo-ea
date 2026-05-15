@@ -277,18 +277,38 @@ async def get_user(
     return _user_response(u)
 
 
+INVITE_ALLOWED_ROLES: set[str] = {"member", "viewer"}
+
+
 @router.post("", status_code=201)
 async def create_user(
     body: UserCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await PermissionService.require_permission(db, current_user, "admin.users")
+    # admin.users grants full create-any-role power; users.invite is the
+    # delegated variant for stakeholder/owner pickers and is gated to
+    # non-privileged roles below.
+    is_admin = await PermissionService.check_permission(db, current_user, "admin.users")
+    can_invite = is_admin or await PermissionService.check_permission(
+        db, current_user, "users.invite"
+    )
+    if not can_invite:
+        raise HTTPException(403, "Insufficient permissions")
 
     # Validate role key exists in roles table
     role_result = await db.execute(select(Role).where(Role.key == body.role))
     if not role_result.scalar_one_or_none():
         raise HTTPException(400, f"Unknown role '{body.role}'")
+
+    # Privilege-escalation guard: a users.invite holder without admin.users
+    # may only create users with non-privileged roles.
+    if not is_admin and body.role not in INVITE_ALLOWED_ROLES:
+        raise HTTPException(
+            403,
+            f"Inviting users with role '{body.role}' requires admin.users. "
+            f"Allowed delegated roles: {sorted(INVITE_ALLOWED_ROLES)}",
+        )
 
     email = body.email.lower().strip()
 

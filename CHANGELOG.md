@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.16.0] - 2026-05-15
+
+The Card Detail → Stakeholders picker is replaced with a searchable Autocomplete that scales to large user bases and lets card owners invite a brand-new user inline, LeanIX-style, without bouncing to the admin area.
+
+### Added
+- **Search-by-name-or-email stakeholder picker.** The two `Select` dropdowns on the Stakeholders tab become MUI `Autocomplete`s — typing matches both display name and email substring (case-insensitive), and every option renders the user's email as a muted secondary line so people with similar names can be told apart. Users already assigned to the chosen role are hidden from the list rather than letting the add round-trip 409 on duplicates. The same `/users` endpoint backs the picker, so no extra round-trip is paid at boot.
+- **Inline "Invite new user" flow on the stakeholder picker.** When the typed text passes a basic email check, doesn't match any existing user, and the current account holds the new `users.invite` permission, an "Invite «…» as a new user" row is appended to the dropdown. Selecting it reveals a small inline form (display name, editable email, "Send invitation email" checkbox) directly under the picker — clicking **Invite & add** creates the user via `POST /users` and immediately attaches them as a stakeholder in one continuous flow, mirroring LeanIX's invite-from-context UX.
+- **New `users.invite` permission.** Delegated form of `admin.users` granted by default to `admin` (via the wildcard) and `bpm_admin`. The backend's `POST /users` endpoint now accepts either `admin.users` or `users.invite`, with a privilege-escalation guard that restricts `users.invite` holders to creating `member` or `viewer` accounts only — elevated roles still require full `admin.users`. Existing seeded `bpm_admin` rows are upgraded via Alembic migration `088_grant_users_invite_to_bpm_admin.py` (drift-aware: only touches rows missing the key, so admin customisations are preserved).
+
 ## [1.15.0] - 2026-05-15
 
 The admin user list now reuses the Inventory grid experience — same AG Grid Quartz styling, same resizable filter sidebar, and a column picker. The pending invitations table below the grid is unchanged.
