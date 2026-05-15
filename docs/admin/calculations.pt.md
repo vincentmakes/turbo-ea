@@ -72,6 +72,15 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
+**Posicionamento TIME Model a partir de dimensões de adequação** (o TIME canônico do Gartner de quatro quadrantes no campo integrado `timeModel` do tipo de card `Application` — campo alvo = `timeModel`):
+```
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
+```
+
+Este é o exemplo prático referenciado pelo [Guia do Iniciante em EA](../beginners-guide/your-first-analysis.md#opcao-b--time-calculado-via-uma-formula).
+
 **Comentários** são suportados usando `#`:
 ```
 # Calcular pontuação de risco ponderada

@@ -72,6 +72,15 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
+**基于适配性维度的 TIME 模型定位**（`Application` 卡片类型内置 `timeModel` 字段上经典的 Gartner 四象限 TIME——目标字段 = `timeModel`）：
+```
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
+```
+
+这是 [EA 新手指南](../beginners-guide/your-first-analysis.md#option-b--calculated-time-via-a-formula)所引用的工作示例。
+
 支持使用 `#` 添加**注释**：
 ```
 # Calculate weighted risk score
