@@ -72,6 +72,15 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
 
+**Размещение в TIME Model по измерениям пригодности** (канонический четырёхквадрантник TIME от Gartner на встроенном поле `timeModel` типа карточки `Application` — target field = `timeModel`):
+```
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
+```
+
+Это рабочий пример, на который ссылается [Руководство для начинающих EA](../beginners-guide/your-first-analysis.md#option-b--calculated-time-via-a-formula).
+
 **Комментарии** поддерживаются с помощью `#`:
 ```
 # Вычислить взвешенную оценку риска

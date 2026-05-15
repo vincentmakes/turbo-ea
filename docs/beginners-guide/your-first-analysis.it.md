@@ -35,56 +35,58 @@ Per mappature ad alto giudizio (o quando è coinvolto un workshop con l'Applicat
 !!! tip "Buona pratica"
     La mappatura al primo passaggio è veloce e grezza. Il secondo passaggio — fatto con l'Application Owner che rivede — è ciò che rende i dati affidabili. Pianificare entrambi.
 
-## Passo 2 — Scegliere come compilare il campo TIME
+## Passo 2 — Scegliere come compilare il TIME Model
 
-Ci sono due opzioni. Sceglierne una (o usarle entrambe, con il calcolo come default e l'override manuale per le eccezioni):
+Il campo integrato **TIME Model** su Application (`timeModel`, required, quattro opzioni: `tolerate` / `invest` / `migrate` / `eliminate`) è la colonna decisionale che guida il resto dell'analisi. Esistono due modi per popolarlo.
 
 ### Opzione A — Inserimento manuale del TIME (consigliato per il primo passaggio)
 
-Nella pagina precedente è stato aggiunto un campo single-select `timeDisposition`. Usarlo. Con l'Application Owner in un workshop di un'ora si possono in genere classificare 30–50 applicazioni:
+Con l'Application Owner in un workshop di un'ora si possono in genere classificare 30–50 applicazioni:
 
-- **Tolerate** — funziona, basso costo, non un differenziatore strategico. Lasciar stare.
-- **Invest** — strategica, area di crescita, finanziare miglioramenti.
-- **Migrate** — sostituire o spostare su una nuova piattaforma entro l'orizzonte di pianificazione.
-- **Eliminate** — duplicata, end-of-life, dismettere.
+- **Tollerare** — funziona, basso costo, non un differenziatore strategico. Lasciar stare.
+- **Investire** — strategica, area di crescita, finanziare miglioramenti.
+- **Migrare** — sostituire o spostare su una nuova piattaforma entro l'orizzonte di pianificazione.
+- **Eliminare** — duplicata, end-of-life, dismettere.
 
-Usare la modalità **Grid Edit** dell'inventario con la colonna `timeDisposition` visibile per farlo velocemente.
+Usare la modalità **Grid Edit** dell'inventario con la colonna **TIME Model** visibile per catturare le decisioni in velocità.
 
 ### Opzione B — TIME calcolato tramite formula
 
-Per ottenere una raccomandazione iniziale che gli owner poi validano, la funzionalità [Calcoli](../admin/calculations.md) può derivare un valore TIME di default da costo e dati del ciclo di vita.
+Per ottenere una raccomandazione iniziale che gli owner poi validano, la funzionalità [Calcoli](../admin/calculations.md) può derivare un valore TIME di default dalle due dimensioni di idoneità integrate — `functionalSuitability` (fa ciò di cui il business ha bisogno?) e `technicalSuitability` (la tecnologia sottostante è sana?). È il canonico quadrante TIME di Gartner.
 
-Formula esempio sul campo `timeDisposition` del tipo `Application`:
+Impostare il calcolo in **Admin → Metamodello → Calcoli** con **Tipo target = `Application`**, **Campo target = `timeModel`** e la formula:
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-Cosa fa:
+Cosa fa — il posizionamento a quattro quadranti:
 
-- Applicazioni che raggiungono l'end-of-life entro un anno → **Eliminate**.
-- App strategiche ad alta spesa → **Invest**.
-- App utility a basso costo → **Tolerate**.
-- Tutto il resto → **Migrate** (il default che richiede revisione umana).
+| Idoneità funzionale | Idoneità tecnica | → TIME |
+|---------------------|------------------|--------|
+| Alta | Alta | **Investire** — strategica, sana — finanziare la crescita |
+| Alta | Bassa | **Migrare** — il business ne ha bisogno ma la tecnologia sta marcendo — sostituire |
+| Bassa | Alta | **Tollerare** — funziona bene ma il valore di business sta svanendo — lasciar stare |
+| Bassa | Bassa | **Eliminare** — né necessaria né sana — dismettere |
 
-La formula viene eseguita automaticamente ogni volta che una card viene salvata, e Turbo EA marca il campo come read-only con un badge "calculated" così gli utenti non possono accidentalmente deviare dalla regola.
+La formula viene eseguita automaticamente ogni volta che una card viene salvata, e Turbo EA marca `timeModel` come read-only con un badge "calculated" così gli utenti non possono accidentalmente deviare dalla regola. Lo stesso esempio è documentato (e pronto da copiare) in [Admin → Calcoli](../admin/calculations.md#formule-di-esempio).
 
 !!! warning "Da evitare"
     Un TIME calcolato è un'**ipotesi di partenza**, non un verdetto. O si rivede ogni risultato con l'owner prima di fidarsi, oppure si disattiva il calcolo e ci si affida all'inserimento manuale una volta concluso il workshop.
 
-Il pattern ibrido: tenere il calcolo attivo mentre si costruisce l'inventario, disattivarlo per il workshop, riportare il campo all'editing manuale per le decisioni finali.
+Il pattern ibrido: tenere il calcolo attivo mentre si costruisce l'inventario e si hanno per lo più dati di idoneità; disattivarlo per il workshop di validazione; poi lasciarlo disattivato in modo che le decisioni manuali restino.
 
 ## Passo 3 — Eseguire il Portfolio Report
 
 1. Andare in **Report → Portfolio**.
 2. Configurare gli assi:
     - **Tipo di card**: `Application`
-    - **Asse X**: una misura di idoneità tecnica se disponibile (altrimenti suddivisione dei costi, età o ciclo di vita).
-    - **Asse Y**: una misura di valore di business (altrimenti `costTotalAnnual` come surrogato).
+    - **Asse X**: `technicalSuitability` (il campo integrato di idoneità tecnica).
+    - **Asse Y**: `functionalSuitability` o `businessValue` (campi integrati di idoneità di business).
     - **Size**: `costTotalAnnual` — maggiore la spesa, maggiore la bolla.
-    - **Colore**: `timeDisposition` — è questo che rende il report pronto per la decisione.
+    - **Colore**: `timeModel` — è questo che rende il report pronto per la decisione.
 3. Salvare la configurazione come vista nominata ("Portfolio Applicativo — Dominio Vendite") in modo da poterci tornare.
 
 Cosa cercare:

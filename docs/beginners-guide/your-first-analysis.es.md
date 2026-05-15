@@ -83,10 +83,10 @@ El patrón híbrido: mantenga el cálculo activado mientras construye el inventa
 1. Vaya a **Informes → Portafolio**.
 2. Configure los ejes:
     - **Tipo de ficha**: `Application`
-    - **Eje X**: una medida de aptitud técnica si tiene una (de lo contrario, división de costos, antigüedad o ciclo de vida).
-    - **Eje Y**: una medida de valor de negocio (de lo contrario, `costTotalAnnual` como sustituto).
+    - **Eje X**: `technicalSuitability` (el campo integrado de aptitud técnica).
+    - **Eje Y**: `functionalSuitability` o `businessValue` (campos integrados de aptitud al negocio).
     - **Tamaño**: `costTotalAnnual` — cuanto mayor sea el gasto, mayor será la burbuja.
-    - **Color**: `timeDisposition` — esto es lo que hace que el informe esté listo para la decisión.
+    - **Color**: `timeModel` — esto es lo que hace que el informe esté listo para la decisión.
 3. Guarde la configuración como una vista nombrada ("Portafolio de Aplicaciones — Dominio de Ventas") para que pueda volver a ella.
 
 Qué buscar:

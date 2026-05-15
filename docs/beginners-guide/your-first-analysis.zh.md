@@ -35,56 +35,58 @@
 !!! tip "最佳实践"
     第一遍映射快速而粗糙。第二遍——与应用负责人一起评审——才是让数据值得信赖的关键。请为两遍都做规划。
 
-## 步骤 2——选择如何填充 TIME 字段
+## 步骤 2——选择如何填充 TIME 模型
 
-您有两个选项。选一个（或两者并用，以计算为默认值并对异常做手动覆盖）：
+Application 上的内置 **TIME 模型**字段（`timeModel`，必填，四个选项：`tolerate` / `invest` / `migrate` / `eliminate`）是驱动后续分析的决策列。您有两种方式来填充它。
 
 ### 选项 A——手动录入 TIME（推荐用于第一遍）
 
-您在上一页添加了一个 `single_select` 的 `timeDisposition` 字段。直接使用它。与应用负责人开一场一小时的工作坊，通常可以分类 30–50 个应用：
+与应用负责人开一场一小时的工作坊，通常可以分类 30–50 个应用：
 
 - **Tolerate**——能用、成本低、并非战略差异化要素。维持现状。
 - **Invest**——具有战略意义、增长领域，资助其改进。
 - **Migrate**——在规划周期内替换或迁移到新平台。
 - **Eliminate**——重复、生命周期结束、退役。
 
-可以使用资产清单的**网格编辑**模式，并显示 `timeDisposition` 列，以快速完成这项工作。
+可以使用资产清单的**网格编辑**模式，并显示 **TIME 模型**列，以快速完成这项决策。
 
 ### 选项 B——通过公式计算 TIME
 
-如果您希望得到一个供负责人随后校验的起步建议，[计算字段](../admin/calculations.md)功能可以根据成本和生命周期数据推导出 TIME 的默认值。
+如果您希望得到一个供负责人随后校验的起步建议，[计算字段](../admin/calculations.md)功能可以根据两个内置的适配性维度——`functionalSuitability`（它是否满足业务所需？）和 `technicalSuitability`（底层技术是否扎实？）——推导出默认的 TIME 值。这就是经典的 Gartner TIME 四象限。
 
-在 `Application` 类型的 `timeDisposition` 字段上的示例公式：
+在**管理员 → 元模型 → 计算**下设置该计算，**目标类型 = `Application`**，**目标字段 = `timeModel`**，公式为：
 
 ```
-IF(lifecycle_endOfLife <= TODAY() + 365, "eliminate",
-   IF(costTotalAnnual > 500000, "invest",
-      IF(costTotalAnnual < 50000, "tolerate", "migrate")))
+IF(functionalSuitability in ["perfect", "appropriate"],
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "invest", "migrate"),
+   IF(technicalSuitability in ["fullyAppropriate", "adequate"], "tolerate", "eliminate"))
 ```
 
-它的作用：
+它的作用——四象限定位：
 
-- 在一年内将达到生命周期结束的应用 → **Eliminate**。
-- 高投入的战略应用 → **Invest**。
-- 低成本的工具型应用 → **Tolerate**。
-- 其他一切 → **Migrate**（默认值，需要人工评审）。
+| 业务适配度 | 技术适配度 | → TIME |
+|---------------|--------------|--------|
+| 高 | 高 | **Invest**——具备战略意义且技术扎实——资助增长 |
+| 高 | 低 | **Migrate**——业务需要它但技术正在腐烂——更换 |
+| 低 | 高 | **Tolerate**——运行良好但业务价值正在衰退——维持现状 |
+| 低 | 低 | **Eliminate**——既不需要也不扎实——退役 |
 
-每次卡片被保存时该公式都会自动运行，Turbo EA 会将该字段标记为只读并附带「calculated」徽章，使用户不会意外偏离该规则。
+每次卡片被保存时该公式都会自动运行，Turbo EA 会将 `timeModel` 标记为只读并附带「calculated」徽章，使用户不会意外偏离该规则。同一示例也已记录（并可复制粘贴）在[管理员 → 计算](../admin/calculations.md#example-formulas)中。
 
 !!! warning "请勿这么做"
     计算出的 TIME 是一个**起步假设**，而不是裁定结果。要么在采信前与负责人逐项评审，要么在工作坊完成后关闭计算，依赖手动录入。
 
-混合模式：在构建资产清单时保持计算开启，工作坊时关闭计算，把字段切回手动编辑用于最终决策。
+混合模式：在构建资产清单且您主要拥有适配性数据时保持计算开启；在评审工作坊期间关闭计算；之后让它保持关闭，使手动决策得以保留。
 
 ## 步骤 3——运行组合报告
 
 1. 进入**报告 → 组合**。
 2. 配置坐标轴：
     - **卡片类型**：`Application`
-    - **X 轴**：技术适配度的度量指标（如有），否则使用成本拆分、年限或生命周期。
-    - **Y 轴**：业务价值的度量指标（否则用 `costTotalAnnual` 代替）。
+    - **X 轴**：`technicalSuitability`（内置的技术适配度字段）。
+    - **Y 轴**：`functionalSuitability` 或 `businessValue`（内置的业务适配度字段）。
     - **大小**：`costTotalAnnual`——支出越大，气泡越大。
-    - **颜色**：`timeDisposition`——这能让报告真正具备决策导向。
+    - **颜色**：`timeModel`——这能让报告真正具备决策导向。
 3. 把配置保存为一个命名视图（「应用组合——销售领域」），以便后续回来查看。
 
 观察要点：
