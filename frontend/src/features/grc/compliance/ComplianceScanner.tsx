@@ -36,11 +36,11 @@ import type {
   ComplianceRegulation,
   ComplianceStatus,
   RegulationKey,
-  SecurityActiveRuns,
-  SecurityScanRun,
+  ActiveComplianceRuns,
+  ComplianceScanRun,
   TurboLensComplianceBundle,
   TurboLensComplianceFinding,
-  TurboLensSecurityOverview,
+  ComplianceOverview,
 } from "@/types";
 import ComplianceHeatmap from "./ComplianceHeatmap";
 import ComplianceGrid from "@/features/grc/compliance/ComplianceGrid";
@@ -161,7 +161,7 @@ export default function ComplianceScanner() {
 
   // ── View state ─────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState(0);
-  const [overview, setOverview] = useState<TurboLensSecurityOverview | null>(null);
+  const [overview, setOverview] = useState<ComplianceOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [compliance, setCompliance] = useState<TurboLensComplianceBundle[]>([]);
   const [complianceLoading, setComplianceLoading] = useState(true);
@@ -282,7 +282,7 @@ export default function ComplianceScanner() {
   const loadOverview = useCallback(async () => {
     setOverviewLoading(true);
     try {
-      const data = await api.get<TurboLensSecurityOverview>("/compliance/overview");
+      const data = await api.get<ComplianceOverview>("/compliance/overview");
       setOverview(data);
     } catch (e) {
       setOverview(null);
@@ -339,7 +339,7 @@ export default function ComplianceScanner() {
     let cancelled = false;
     (async () => {
       try {
-        const active = await api.get<SecurityActiveRuns>(
+        const active = await api.get<ActiveComplianceRuns>(
           "/compliance/active-runs",
         );
         if (cancelled) return;
@@ -619,7 +619,7 @@ export default function ComplianceScanner() {
         </Box>
       );
     }
-    const complianceRun: SecurityScanRun = overview?.compliance_run ?? {
+    const complianceRun: ComplianceScanRun = overview?.compliance_run ?? {
       run_id: null,
       status: null,
       started_at: null,
@@ -723,7 +723,7 @@ export default function ComplianceScanner() {
   }
 
   function renderKpisAndCharts(
-    overview: TurboLensSecurityOverview,
+    overview: ComplianceOverview,
     avgCompliance: number,
   ) {
     return (

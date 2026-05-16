@@ -1566,7 +1566,7 @@ export interface ScanProgress {
   updated_at?: string;
 }
 
-export interface SecurityScanRun {
+export interface ComplianceScanRun {
   run_id: string | null;
   status: string | null;
   started_at: string | null;
@@ -1576,13 +1576,13 @@ export interface SecurityScanRun {
   summary: Record<string, unknown> | null;
 }
 
-export interface TurboLensSecurityOverview {
-  compliance_run: SecurityScanRun;
+export interface ComplianceOverview {
+  compliance_run: ComplianceScanRun;
   compliance_scores: Record<string, number>;
   compliance_by_status: Record<string, Record<string, number>>;
 }
 
-export interface SecurityActiveRuns {
+export interface ActiveComplianceRuns {
   compliance: TurboLensAnalysisRun | null;
 }
 

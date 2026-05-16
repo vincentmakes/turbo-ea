@@ -14,13 +14,13 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { formatDateTimeWith, getCachedDateFormat } from "@/hooks/useDateFormat";
-import type { SecurityScanRun } from "@/types";
+import type { ComplianceScanRun } from "@/types";
 
 interface Props {
   title: string;
   description: string;
   icon: string;
-  run: SecurityScanRun | null;
+  run: ComplianceScanRun | null;
   running: boolean;
   onRun: () => void;
   buttonLabel: string;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ComplianceScanCard from "./ComplianceScanCard";
-import type { SecurityScanRun } from "@/types";
+import type { ComplianceScanRun } from "@/types";
 
 function renderCard(props: Partial<Parameters<typeof ComplianceScanCard>[0]>) {
   const defaults: Parameters<typeof ComplianceScanCard>[0] = {
@@ -28,7 +28,7 @@ describe("ComplianceScanCard", () => {
   });
 
   it("shows the run button disabled and a progress bar while running", () => {
-    const run: SecurityScanRun = {
+    const run: ComplianceScanRun = {
       run_id: "abc",
       status: "running",
       started_at: "2026-04-21T10:00:00Z",
@@ -53,7 +53,7 @@ describe("ComplianceScanCard", () => {
   });
 
   it("renders last-scan timestamp and summary when a completed run is available", () => {
-    const run: SecurityScanRun = {
+    const run: ComplianceScanRun = {
       run_id: "abc",
       status: "completed",
       started_at: "2026-04-21T09:00:00Z",
