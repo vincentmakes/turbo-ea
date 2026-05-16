@@ -5,20 +5,6 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.17.1] - 2026-05-16
-
-Close priority gaps in the user manual and restructure the User Guide navigation so the docs match the live product. Docs-only release.
-
-### Changed
-- **User Guide navigation regrouped.** The flat 19-item User Guide is reorganised into four sub-sections — **Core** (Dashboard / Inventory / Card Details / Notifications), **Reports & Analysis** (Reports / Saved Reports / Diagrams / TurboLens AI), **Modules** (PPM / BPM / EA Delivery / GRC), **Reference Catalogues** (Capability / Process / Value Stream / Principles) — plus Tasks & Surveys. **Risk Register and Compliance now nest under GRC** as `Modules → GRC → Overview / Risk Register / Compliance`, matching the `/grc?tab=...` URL structure (the old `/ea-delivery/risks` route already hard-redirects to `/grc?tab=risk`). Per-locale translations cover Core, Reports & Analysis, Modules, Reference Catalogues, Overview and Risk Register for all seven non-English locales.
-- **New Compliance user-manual page** at `docs/guide/compliance.md` (8 locales). Consolidates the Compliance content that previously sprawled across `grc.md` and `turbolens.md` and makes explicit that compliance findings can be **authored manually** by reviewers, **not only** produced by AI scans — the two sources share one register, one lifecycle, one promote-to-Risk flow, and bulk actions work on either kind.
-- **GRC and TurboLens pages slimmed to point at the new Compliance page** instead of duplicating the lifecycle, manual-create dialog, scan workflow, EU AI Act semantic detector, and promote-to-Risk loop (8 locales each).
-- **Card Detail → Stakeholders refresh** (8 locales). Documents the searchable Autocomplete (name + email substring), the inline "Invite «email» as a new user" mini-form, and the new `users.invite` permission with its privilege-escalation guard. Also adds the auto-hide rule for the per-card Risks and Compliance tabs.
-- **Admin → Users page** (8 locales) now describes the AG Grid Quartz layout and the persistent filter sidebar (search, role chips, status, auth method, "Pending password setup only" toggle, columns picker; state persisted in `localStorage` under `turboea_usersAdmin`).
-- **Admin → Settings page** (8 locales) rewritten as the seven-tab hub it actually is: **General**, **Authentication**, **AI**, **EOL**, **Web Portals**, **ServiceNow**, **TurboLens**. The previously-undocumented **TurboLens settings tab** is described (enabled regulations, analysis polling cadence, result cache TTL).
-- **Capability Catalogue** (8 locales) — adds the **Macro Capabilities** (Level 0) tier above L1: `MC-` prefixed `catalogueId`, `attributes.capabilityLevel = "Macro"`, hierarchy depth limit relaxed from 5 to 6, and the rule that macros never match existing cards by name (only by `catalogueId`).
-- **Glossary** (8 locales) — adds entries for *Mitigation Task*, *Mitigation Task Occurrence*, *Lead Time (Mitigation Task)*, *Compliance Finding*, *Macro Capability*, and *Layered Dependency View (LDV)*.
-
 ## [1.17.0] - 2026-05-16
 
 Admin user management gains bulk operations: an XLSX export, an Excel import with optional invite-email-on-create, and a multi-select toolbar that batch-changes role, activates / deactivates, and deletes selected users.
