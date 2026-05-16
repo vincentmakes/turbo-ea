@@ -112,6 +112,6 @@ Le même onglet Conformité apparaît aussi sur le Détail de la fiche (auto-mas
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | voir [Registre des risques § Permissions](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | voir [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | voir [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` contrôle la visibilité de la route GRC elle-même — sans elle, l'entrée du menu supérieur est masquée. Chaque onglet impose en plus sa permission propre au domaine, de sorte qu'un visualiseur peut consulter le registre sans pouvoir déclencher un scan LLM, par exemple.

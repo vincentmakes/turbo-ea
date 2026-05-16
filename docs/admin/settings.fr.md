@@ -100,7 +100,7 @@ Activez ou désactivez le module **Gouvernance, Risque et Conformité** (GRC). L
 - L'élément de navigation **GRC** est masqué pour tous les utilisateurs
 - L'espace `/grc` (principes de Gouvernance et ADRs, registre des risques, constats de conformité) devient inaccessible et affiche le placeholder standard « module désactivé » pour toute personne arrivant par un lien direct
 - Les onglets **Risques** et **Conformité** dans le détail des fiches sont masqués, afin que les fiches individuelles ne fassent plus apparaître de données GRC non plus
-- Les risques et les constats de conformité restent dans la base de données — les permissions sous-jacentes `risks.*` et `security_compliance.*` sont inchangées, de sorte que les données sont préservées et réapparaissent telles quelles si le module est réactivé
+- Les risques et les constats de conformité restent dans la base de données — les permissions sous-jacentes `risks.*` et `compliance.*` sont inchangées, de sorte que les données sont préservées et réapparaissent telles quelles si le module est réactivé
 
 Voir le [guide GRC](../guide/grc.md) pour la référence complète des fonctionnalités.
 

@@ -227,7 +227,7 @@ Compliance-Befunde können auch **manuell erfasst** werden, ohne dass ein KI-Pro
 
 Alle Analyseläufe werden unter **TurboLens > Verlauf** nachverfolgt und zeigen:
 
-- Analysetyp (Herstelleranalyse, Herstellerauflösung, Duplikaterkennung, Modernisierung, Architekt, security_compliance)
+- Analysetyp (Herstelleranalyse, Herstellerauflösung, Duplikaterkennung, Modernisierung, Architekt, compliance)
 - Status (läuft, abgeschlossen, fehlgeschlagen)
 - Start- und Abschlusszeitstempel
 - Fehlermeldungen (falls vorhanden)

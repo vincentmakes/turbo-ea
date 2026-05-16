@@ -193,7 +193,7 @@ The server exposes 25 read-only tools grouped into six clusters.
 | Tool | Description |
 |------|-------------|
 | `list_compliance_findings` | Compliance findings bundled by regulation |
-| `get_security_overview` | Compliance scores + per-regulation status matrix + last-scan metadata |
+| `get_compliance_overview` | Compliance scores + per-regulation status matrix + last-scan metadata |
 
 **Governance & Delivery**
 

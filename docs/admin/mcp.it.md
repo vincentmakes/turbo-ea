@@ -193,7 +193,7 @@ Il server espone 25 strumenti in sola lettura raggruppati in sei cluster.
 | Strumento | Descrizione |
 |-----------|-------------|
 | `list_compliance_findings` | Riscontri di conformità raggruppati per regolamento |
-| `get_security_overview` | Punteggi di conformità + matrice di stato per regolamento + metadati dell'ultima scansione |
+| `get_compliance_overview` | Punteggi di conformità + matrice di stato per regolamento + metadati dell'ultima scansione |
 
 **Governance & Consegna**
 

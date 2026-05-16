@@ -112,6 +112,6 @@ ADR 支持正式签署流程：
 | `grc.view` | admin、bpm_admin、member、viewer |
 | `grc.manage` | admin、bpm_admin、member |
 | `risks.view` / `risks.manage` | 参见[风险登记册 § 权限](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | 参见[TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | 参见[TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` 控制 GRC 路由本身的可见性——若缺少该权限，顶部导航中的入口会被隐藏。每个标签页另外强制其领域专有权限，因而一名查看者可以阅读登记册而无法触发 LLM 扫描，举例而言。

@@ -112,6 +112,6 @@ La stessa scheda Conformità appare anche nel Dettaglio della card (auto-nascost
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | vedi [Registro dei rischi § Permessi](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | vedi [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | vedi [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` controlla la visibilità della rotta GRC stessa — senza di esso, la voce del menu superiore è nascosta. Ogni scheda inoltre impone il proprio permesso di dominio, così che una visualizzatrice possa leggere il registro senza poter avviare una scansione LLM, ad esempio.

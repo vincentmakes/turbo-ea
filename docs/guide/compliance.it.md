@@ -12,8 +12,8 @@ La scheda **Conformità** del [modulo GRC](grc.md) all'indirizzo `/grc?tab=compl
 
 | Fonte | Chi la crea | Quando usarla |
 |-------|-------------|---------------|
-| **Manuale** | Un utente con `security_compliance.manage` clicca **+ Nuova rilevazione** nella griglia Conformità | Obblighi derivanti da audit, lacune segnalate esternamente, attestazioni di terze parti, qualsiasi cosa che si vuole tracciare che una scansione LLM non farebbe emergere |
-| **Scansione IA** (TurboLens) | Un utente con `security_compliance.manage` avvia una scansione dalla toolbar Conformità | Analisi periodica delle lacune del paesaggio contro le regolamentazioni abilitate |
+| **Manuale** | Un utente con `compliance.manage` clicca **+ Nuova rilevazione** nella griglia Conformità | Obblighi derivanti da audit, lacune segnalate esternamente, attestazioni di terze parti, qualsiasi cosa che si vuole tracciare che una scansione LLM non farebbe emergere |
+| **Scansione IA** (TurboLens) | Un utente con `compliance.manage` avvia una scansione dalla toolbar Conformità | Analisi periodica delle lacune del paesaggio contro le regolamentazioni abilitate |
 
 I due percorsi condividono lo stesso modello dati e ciclo di vita. Una scansione non cancella né sovrascrive mai una rilevazione manuale, e una rilevazione inserita manualmente può essere promossa a un Rischio, retro-propagata dalla chiusura di un Rischio e bulk-aktionata esattamente come una rilevata da IA.
 
@@ -34,7 +34,7 @@ Clicca **+ Nuova rilevazione** nella toolbar Conformità per aprire il dialogo d
 | **Card collegata** | Opzionale — restringere la rilevazione a una specifica Applicazione, Componente IT o altra card. |
 | **Rischio collegato** | Opzionale — pre-collegare a un Rischio esistente se uno già traccia questa lacuna. |
 
-`security_compliance.manage` è richiesto per creare, modificare, ritirare o bulk-azionare rilevazioni. `security_compliance.view` basta per leggere il registro e triagiare dalla scheda Conformità a livello di card.
+`compliance.manage` è richiesto per creare, modificare, ritirare o bulk-azionare rilevazioni. `compliance.view` basta per leggere il registro e triagiare dalla scheda Conformità a livello di card.
 
 ## Eseguire una scansione IA
 
@@ -70,7 +70,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (settato automaticamente alla promozione in Rischio)
 ```
 
-Le transizioni sono limitate agli utenti con `security_compliance.manage`. Il motore impone le transizioni lato server e rifiuta mosse illegali con un errore chiaro.
+Le transizioni sono limitate agli utenti con `compliance.manage`. Il motore impone le transizioni lato server e rifiuta mosse illegali con un errore chiaro.
 
 `risk_tracked` non viene mai settato a mano — viene scritto automaticamente quando clicchi **Crea rischio** su una rilevazione, e pulito dal motore di retro-propagazione del Rischio quando il Rischio collegato si chiude.
 
@@ -88,7 +88,7 @@ Quando il Rischio collegato raggiunge in seguito `mitigated`, `monitoring`, `clo
 
 La griglia Conformità rispecchia quella di [Inventario](inventory.md): barra laterale di filtri con switch di visibilità delle colonne, ordinamento persistito, ricerca full-text e un pannello di dettaglio per rilevazione.
 
-Quando `security_compliance.manage` è concesso, la griglia espone selezione multipla consapevole dei filtri. Spunta la checkbox dell'header per selezionare ogni riga che corrisponda ai filtri attivi e poi usa la toolbar fissa:
+Quando `compliance.manage` è concesso, la griglia espone selezione multipla consapevole dei filtri. Spunta la checkbox dell'header per selezionare ogni riga che corrisponda ai filtri attivi e poi usa la toolbar fissa:
 
 - **Modifica decisione** — transizione in batch di ogni rilevazione selezionata a uno stato scelto (es. marcare un gruppo di rilevazioni come `not_applicable` dopo una revisione di scope). Le transizioni illegali vengono superficiate per riga in un riepilogo di successo parziale invece di far fallire l'intero batch.
 - **Elimina** — rimuovere permanentemente rilevazioni (usato per ripulire rilevazioni da una regolamentazione che da allora hai disabilitato).
@@ -103,7 +103,7 @@ La scheda Conformità mostra anche un **KPI complessivo di conformità** in cima
 
 ![Dettaglio della card — scheda Conformità](../assets/img/it/56_card_compliance_tab.png)
 
-Le card in scope di qualsiasi rilevazione espongono anche una scheda **Conformità** sulla loro pagina di dettaglio (governata da `security_compliance.view`). Elenca ogni rilevazione attualmente collegata alla card con le stesse azioni Riconosci / Accetta / **Crea rischio** / **Apri rischio** della vista GRC — in modo che un Application Owner possa triagiare le proprie rilevazioni senza lasciare la card. La stessa regola di auto-nascondimento si applica alla scheda **Rischi** nel dettaglio della card: entrambe le schede appaiono solo quando la card ha effettivamente elementi collegati, in modo che le card senza attività GRC non si trascinino schede vuote.
+Le card in scope di qualsiasi rilevazione espongono anche una scheda **Conformità** sulla loro pagina di dettaglio (governata da `compliance.view`). Elenca ogni rilevazione attualmente collegata alla card con le stesse azioni Riconosci / Accetta / **Crea rischio** / **Apri rischio** della vista GRC — in modo che un Application Owner possa triagiare le proprie rilevazioni senza lasciare la card. La stessa regola di auto-nascondimento si applica alla scheda **Rischi** nel dettaglio della card: entrambe le schede appaiono solo quando la card ha effettivamente elementi collegati, in modo che le card senza attività GRC non si trascinino schede vuote.
 
 ## Dati demo
 
@@ -113,7 +113,7 @@ Le card in scope di qualsiasi rilevazione espongono anche una scheda **Conformit
 
 | Permesso | Ruoli predefiniti |
 |----------|-------------------|
-| `security_compliance.view` | admin, bpm_admin, member, viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin, bpm_admin, member, viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` regola l'accesso in lettura al registro, alla scheda Conformità per card e ai KPI della panoramica. `security_compliance.manage` è necessario per creare o modificare rilevazioni, cambiarne lo stato, eseguire scansioni, bulk-azionare, promuovere a un Rischio o cancellare una rilevazione.
+`compliance.view` regola l'accesso in lettura al registro, alla scheda Conformità per card e ai KPI della panoramica. `compliance.manage` è necessario per creare o modificare rilevazioni, cambiarne lo stato, eseguire scansioni, bulk-azionare, promuovere a un Rischio o cancellare una rilevazione.

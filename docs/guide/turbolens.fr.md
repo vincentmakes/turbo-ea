@@ -227,7 +227,7 @@ Les constats de conformité peuvent aussi être **saisis manuellement** sans qu'
 
 Toutes les exécutions d'analyse sont suivies dans **TurboLens > Historique**, affichant :
 
-- Type d'analyse (analyse des fournisseurs, résolution des fournisseurs, détection des doublons, modernisation, architecte, security_compliance)
+- Type d'analyse (analyse des fournisseurs, résolution des fournisseurs, détection des doublons, modernisation, architecte, compliance)
 - Statut (en cours, terminé, échoué)
 - Horodatages de début et de fin
 - Messages d'erreur (le cas échéant)

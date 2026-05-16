@@ -100,7 +100,7 @@ Toggle the **Governance, Risk and Compliance** module on or off. When disabled:
 - The **GRC** navigation item is hidden from all users
 - The `/grc` workspace (Governance principles and ADRs, Risk Register, Compliance findings) is unreachable and shows the standard "module disabled" placeholder for anyone with a direct link
 - The **Risks** and **Compliance** tabs on Card Detail are hidden, so individual cards no longer surface GRC data either
-- Risks and compliance findings remain in the database — the underlying `risks.*` and `security_compliance.*` permissions are unchanged, so the data is preserved and re-appears unchanged if the module is re-enabled
+- Risks and compliance findings remain in the database — the underlying `risks.*` and `compliance.*` permissions are unchanged, so the data is preserved and re-appears unchanged if the module is re-enabled
 
 See the [GRC guide](../guide/grc.md) for the full feature reference.
 

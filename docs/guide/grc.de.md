@@ -112,6 +112,6 @@ Derselbe Compliance-Reiter erscheint auch auf den Kartendetails (automatisch aus
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | siehe [Risikoregister § Berechtigungen](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | siehe [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | siehe [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` steuert die Sichtbarkeit der GRC-Route selbst — ohne diese Berechtigung wird der Eintrag im Top-Menü ausgeblendet. Jeder Reiter erzwingt zusätzlich seine domänenspezifische Berechtigung, sodass etwa eine Viewerin das Register lesen kann, ohne einen LLM-Scan auslösen zu dürfen.

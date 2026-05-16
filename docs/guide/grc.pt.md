@@ -112,6 +112,6 @@ A mesma aba Conformidade também aparece no Detalhe do card (auto-ocultada quand
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | ver [Registro de riscos § Permissões](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` controla a visibilidade da própria rota GRC — sem ele, a entrada do menu superior fica oculta. Cada aba ainda impõe sua própria permissão de domínio, de modo que uma visualizadora possa ler o registro sem poder disparar uma varredura LLM, por exemplo.

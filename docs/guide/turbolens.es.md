@@ -227,7 +227,7 @@ Los hallazgos de cumplimiento también pueden ser **redactados manualmente** sin
 
 Todas las ejecuciones de análisis se rastrean en **TurboLens > History**, mostrando:
 
-- Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto, security_compliance)
+- Tipo de análisis (análisis de proveedores, resolución de proveedores, detección de duplicados, modernización, arquitecto, compliance)
 - Estado (en ejecución, completado, fallido)
 - Marcas de tiempo de inicio y finalización
 - Mensajes de error (si los hubiera)

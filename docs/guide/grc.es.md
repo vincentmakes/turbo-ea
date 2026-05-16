@@ -112,6 +112,6 @@ La misma pestaña Cumplimiento también aparece en el Detalle de la ficha (auto-
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | ver [Registro de riesgos § Permisos](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | ver [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` controla la visibilidad de la propia ruta GRC — sin él, la entrada del menú superior queda oculta. Cada pestaña además exige su permiso de dominio, de modo que una visualizadora puede leer el registro sin poder disparar un escaneo LLM, por ejemplo.

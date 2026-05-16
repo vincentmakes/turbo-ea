@@ -193,7 +193,7 @@ Le serveur expose 25 outils en lecture seule, regroupés en six clusters.
 | Outil | Description |
 |-------|-------------|
 | `list_compliance_findings` | Constats de conformité regroupés par régulation |
-| `get_security_overview` | Scores de conformité + matrice de statut par régulation + métadonnées du dernier scan |
+| `get_compliance_overview` | Scores de conformité + matrice de statut par régulation + métadonnées du dernier scan |
 
 **Gouvernance & Livraison**
 

@@ -12,8 +12,8 @@ L'onglet **Conformité** du [module GRC](grc.md) à `/grc?tab=compliance` est un
 
 | Source | Qui le crée | Quand utiliser |
 |--------|-------------|----------------|
-| **Manuel** | Un utilisateur avec `security_compliance.manage` clique **+ Nouveau constat** dans la grille Conformité | Obligations issues d'audit, lacunes rapportées en externe, attestations de tiers, tout ce que vous voulez suivre qu'un scan LLM ne ferait pas surgir |
-| **Scan IA** (TurboLens) | Un utilisateur avec `security_compliance.manage` déclenche un scan depuis la barre d'outils Conformité | Analyse périodique des lacunes du paysage contre les réglementations activées |
+| **Manuel** | Un utilisateur avec `compliance.manage` clique **+ Nouveau constat** dans la grille Conformité | Obligations issues d'audit, lacunes rapportées en externe, attestations de tiers, tout ce que vous voulez suivre qu'un scan LLM ne ferait pas surgir |
+| **Scan IA** (TurboLens) | Un utilisateur avec `compliance.manage` déclenche un scan depuis la barre d'outils Conformité | Analyse périodique des lacunes du paysage contre les réglementations activées |
 
 Les deux chemins partagent le même modèle de données et le même cycle de vie. Un scan ne supprime ni ne remplace jamais un constat manuel, et un constat saisi manuellement peut être promu en Risque, propagé en retour depuis la clôture d'un Risque et bulk-actionné exactement comme un constat détecté par IA.
 
@@ -34,7 +34,7 @@ Cliquez **+ Nouveau constat** dans la barre d'outils Conformité pour ouvrir le 
 | **Carte liée** | Optionnel — restreindre le constat à une Application, un Composant IT ou une autre carte spécifique. |
 | **Risque lié** | Optionnel — pré-lier à un Risque existant si l'un suit déjà cette lacune. |
 
-`security_compliance.manage` est requis pour créer, modifier, retirer ou bulk-actionner des constats. `security_compliance.view` suffit pour lire le registre et trier depuis l'onglet Conformité d'une fiche.
+`compliance.manage` est requis pour créer, modifier, retirer ou bulk-actionner des constats. `compliance.view` suffit pour lire le registre et trier depuis l'onglet Conformité d'une fiche.
 
 ## Exécuter un scan IA
 
@@ -70,7 +70,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (positionné automatiquement lors d'une promotion en Risque)
 ```
 
-Les transitions sont restreintes aux utilisateurs ayant `security_compliance.manage`. Le moteur impose les transitions côté serveur et rejette les mouvements illégaux avec une erreur claire.
+Les transitions sont restreintes aux utilisateurs ayant `compliance.manage`. Le moteur impose les transitions côté serveur et rejette les mouvements illégaux avec une erreur claire.
 
 `risk_tracked` n'est jamais positionné à la main — il est écrit automatiquement quand vous cliquez **Créer un risque** sur un constat, et nettoyé par le moteur de rétro-propagation du Risque quand le Risque lié se clôt.
 
@@ -88,7 +88,7 @@ Lorsque le Risque lié atteint plus tard `mitigated`, `monitoring`, `closed` ou 
 
 La grille Conformité reflète celle de l'[Inventaire](inventory.md) : barre latérale de filtres avec bascules de visibilité de colonnes, tri persisté, recherche plein texte et un tiroir de détail par constat.
 
-Quand `security_compliance.manage` est accordé, la grille expose la multi-sélection consciente des filtres. Cochez la case du header pour sélectionner toutes les lignes correspondant aux filtres actifs, puis utilisez la barre d'outils épinglée :
+Quand `compliance.manage` est accordé, la grille expose la multi-sélection consciente des filtres. Cochez la case du header pour sélectionner toutes les lignes correspondant aux filtres actifs, puis utilisez la barre d'outils épinglée :
 
 - **Modifier la décision** — transition par lot de chaque constat sélectionné vers un état choisi (p.ex. marquer un lot de constats comme `not_applicable` après une revue de périmètre). Les transitions illégales sont surfacées par-ligne dans un résumé de succès partiel au lieu de faire échouer tout le lot.
 - **Supprimer** — supprimer définitivement des constats (utilisé pour nettoyer les constats d'une réglementation depuis désactivée).
@@ -103,7 +103,7 @@ L'onglet Conformité affiche aussi un **KPI global de conformité** en haut de p
 
 ![Détail de la fiche — onglet Conformité](../assets/img/fr/56_card_compliance_tab.png)
 
-Les fiches dans le périmètre de n'importe quel constat exposent aussi un onglet **Conformité** sur leur page de détail (gouverné par `security_compliance.view`). Il liste chaque constat actuellement lié à la fiche avec les mêmes actions Acquitter / Accepter / **Créer un risque** / **Ouvrir le risque** que la vue GRC — de sorte qu'un Application Owner peut trier ses propres constats sans quitter la fiche. La même règle d'auto-masquage s'applique à l'onglet **Risques** dans le détail de la fiche : les deux onglets n'apparaissent que lorsque la fiche a effectivement des éléments liés, de sorte que les fiches sans activité GRC ne traînent pas d'onglets vides.
+Les fiches dans le périmètre de n'importe quel constat exposent aussi un onglet **Conformité** sur leur page de détail (gouverné par `compliance.view`). Il liste chaque constat actuellement lié à la fiche avec les mêmes actions Acquitter / Accepter / **Créer un risque** / **Ouvrir le risque** que la vue GRC — de sorte qu'un Application Owner peut trier ses propres constats sans quitter la fiche. La même règle d'auto-masquage s'applique à l'onglet **Risques** dans le détail de la fiche : les deux onglets n'apparaissent que lorsque la fiche a effectivement des éléments liés, de sorte que les fiches sans activité GRC ne traînent pas d'onglets vides.
 
 ## Données de démo
 
@@ -113,7 +113,7 @@ Les fiches dans le périmètre de n'importe quel constat exposent aussi un ongle
 
 | Permission | Rôles par défaut |
 |------------|------------------|
-| `security_compliance.view` | admin, bpm_admin, member, viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin, bpm_admin, member, viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` régit l'accès en lecture au registre, à l'onglet Conformité par fiche et aux KPIs de la vue d'ensemble. `security_compliance.manage` est nécessaire pour créer ou modifier des constats, changer leur statut, lancer des scans, bulk-actionner, promouvoir vers un Risque ou supprimer un constat.
+`compliance.view` régit l'accès en lecture au registre, à l'onglet Conformité par fiche et aux KPIs de la vue d'ensemble. `compliance.manage` est nécessaire pour créer ou modifier des constats, changer leur statut, lancer des scans, bulk-actionner, promouvoir vers un Risque ou supprimer un constat.

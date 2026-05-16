@@ -227,7 +227,7 @@ Le rilevazioni di conformità possono anche essere **scritte manualmente** senza
 
 Tutte le esecuzioni di analisi sono tracciate in **TurboLens > Cronologia**, con le seguenti informazioni:
 
-- Tipo di analisi (analisi fornitori, risoluzione fornitori, rilevamento duplicati, modernizzazione, architetto, security_compliance)
+- Tipo di analisi (analisi fornitori, risoluzione fornitori, rilevamento duplicati, modernizzazione, architetto, compliance)
 - Stato (in esecuzione, completata, fallita)
 - Timestamp di inizio e completamento
 - Messaggi di errore (se presenti)

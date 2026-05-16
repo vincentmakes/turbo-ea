@@ -51,7 +51,7 @@ When working on this codebase, follow these conventions:
 - It provides **read-only** AI tool access to EA data via the [Model Context Protocol](https://modelcontextprotocol.io/) (FastMCP library).
 - **Two transport modes**: HTTP/SSE (production, via Docker `--profile mcp`) and stdio (local testing with Claude Desktop).
 - **Authentication**: In HTTP mode, users authenticate via OAuth 2.1 delegated to the Turbo EA SSO provider. The MCP server resolves OAuth tokens to Turbo EA JWTs. In stdio mode, `TURBO_EA_EMAIL`/`TURBO_EA_PASSWORD` env vars are used for direct login.
-- **Tools are read-only**: 25 tools across six clusters. **Cards & metamodel**: `search_cards`, `get_card`, `get_card_relations`, `get_card_hierarchy`, `list_card_types`, `get_relation_types`. **Dashboards**: `get_dashboard`, `get_landscape`. **GRC (Risk Register)**: `list_risks`, `get_risk`, `get_risk_metrics`, `get_card_risks`. **GRC (Compliance)**: `list_compliance_findings`, `get_security_overview`. **Governance & Delivery**: `list_principles`, `list_adrs`, `get_adr`, `list_soaws`. **Reports**: `get_portfolio_report`, `get_cost_treemap`, `get_capability_heatmap`, `get_data_quality_report`. **Card context**: `get_card_stakeholders`, `get_card_comments`, `get_card_documents`. Do not add mutating tools without careful security review.
+- **Tools are read-only**: 25 tools across six clusters. **Cards & metamodel**: `search_cards`, `get_card`, `get_card_relations`, `get_card_hierarchy`, `list_card_types`, `get_relation_types`. **Dashboards**: `get_dashboard`, `get_landscape`. **GRC (Risk Register)**: `list_risks`, `get_risk`, `get_risk_metrics`, `get_card_risks`. **GRC (Compliance)**: `list_compliance_findings`, `get_compliance_overview`. **Governance & Delivery**: `list_principles`, `list_adrs`, `get_adr`, `list_soaws`. **Reports**: `get_portfolio_report`, `get_cost_treemap`, `get_capability_heatmap`, `get_data_quality_report`. **Card context**: `get_card_stakeholders`, `get_card_comments`, `get_card_documents`. Do not add mutating tools without careful security review.
 - **All data access respects RBAC**: The user's JWT is passed through to the backend API, so permission checks are enforced server-side.
 - **Config** is in `mcp-server/turbo_ea_mcp/config.py` — reads from env vars (`TURBO_EA_URL`, `TURBO_EA_PUBLIC_URL`, `MCP_PUBLIC_URL`, `MCP_PORT`).
 - **Tests** live in `mcp-server/tests/` and use `pytest` + `pytest-asyncio`. Run with `cd mcp-server && pip install -e ".[dev]" && pytest`.
@@ -1120,7 +1120,7 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (22 groups, 50+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `security_compliance.*` (view + manage for TurboLens Security & Compliance), `risks.*` (view + manage for the EA Risk Register), `ai.*`, `admin.*`
+**App-level permissions** (22 groups, 50+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `compliance.*` (view + manage for TurboLens Security & Compliance), `risks.*` (view + manage for the EA Risk Register), `ai.*`, `admin.*`
 
 **Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
 
@@ -1236,7 +1236,7 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `turbolens_vendor_hierarchy` | `TurboLensVendorHierarchy` | Resolved canonical vendor tree (parent-child, aliases, confidence) |
 | `turbolens_duplicate_clusters` | `TurboLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
 | `turbolens_modernization_assessments` | `TurboLensModernization` | Modernization opportunities with effort, priority, current tech |
-| `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors, progress JSONB). Used by all TurboLens analyses including the `security_compliance` compliance scanner. |
+| `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors, progress JSONB). Used by all TurboLens analyses including the `compliance` compliance scanner. |
 | `turbolens_compliance_findings` | `TurboLensComplianceFinding` | Compliance gap / attestation per regulation (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001). Carries article, category, requirement, status, severity, gap, evidence, remediation, `ai_detected` flag for semantically-identified AI cards, and optional `risk_id`. |
 
 ### Backend Services
@@ -1293,10 +1293,10 @@ The Architecture AI follows a 5-step guided wizard:
 | GET | `/assessments/{id}` | `turbolens.view` | Get assessment details |
 | GET | `/analysis-runs` | `turbolens.view` | Analysis run history |
 | GET | `/analysis-runs/{run_id}` | `turbolens.view` | Get specific run with results (or progress while still running) |
-| POST | `/security/compliance-scan` | `security_compliance.manage` | Trigger compliance scan with optional `regulations[]` filter (background task) |
-| GET | `/security/active-runs` | `security_compliance.view` | Return the currently-running compliance scan so the UI can reattach polling after a refresh |
-| GET | `/security/overview` | `security_compliance.view` | KPIs: compliance scores + per-regulation status matrix, last-run metadata |
-| GET | `/security/compliance` | `security_compliance.view` | Compliance findings grouped by regulation with per-regulation scores |
+| POST | `/security/compliance-scan` | `compliance.manage` | Trigger compliance scan with optional `regulations[]` filter (background task) |
+| GET | `/security/active-runs` | `compliance.view` | Return the currently-running compliance scan so the UI can reattach polling after a refresh |
+| GET | `/security/overview` | `compliance.view` | KPIs: compliance scores + per-regulation status matrix, last-run metadata |
+| GET | `/security/compliance` | `compliance.view` | Compliance findings grouped by regulation with per-regulation scores |
 
 ### Risk Register API (`/risks` + `/cards/{id}/risks`)
 
@@ -1312,7 +1312,7 @@ TOGAF-aligned Risk Register mounted at `/api/v1/risks`, plus a card sub-route fo
 | DELETE | `/risks/{id}` | `risks.manage` | Delete risk + clean up the owner's system Todo |
 | POST | `/risks/{id}/cards` | `risks.manage` | Link one or more cards (idempotent) |
 | DELETE | `/risks/{id}/cards/{card_id}` | `risks.manage` | Unlink a single card |
-| POST | `/risks/promote/compliance/{finding_id}` | `risks.manage` + `security_compliance.view` | Promote a compliance finding to a risk (idempotent — returns existing one if already promoted). Seeds title, description, category, probability/impact, links the finding's card, and **spawns a one-shot mitigation task from the finding's remediation text**. |
+| POST | `/risks/promote/compliance/{finding_id}` | `risks.manage` + `compliance.view` | Promote a compliance finding to a risk (idempotent — returns existing one if already promoted). Seeds title, description, category, probability/impact, links the finding's card, and **spawns a one-shot mitigation task from the finding's remediation text**. |
 | GET | `/cards/{id}/risks` | `risks.view` | All risks linked to a card (used by CardDetail → Risks tab) |
 | GET | `/risks/{id}/mitigation-tasks` | `risks.view` | List mitigation tasks for a risk (with full per-task occurrence history). |
 | POST | `/risks/{id}/mitigation-tasks` | `risks.manage` | Create a mitigation task. Auto-creates occurrence #1 and a system Todo on the assignee. |

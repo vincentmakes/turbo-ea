@@ -100,7 +100,7 @@ Attivate/disattivate il modulo **Governance, Rischio e Conformità** (GRC). Quan
 - L'elemento di navigazione **GRC** è nascosto a tutti gli utenti
 - Lo spazio `/grc` (Principi di Governance e ADR, Registro dei Rischi, finding di Conformità) non è raggiungibile e mostra il placeholder standard «modulo disabilitato» per chi arriva da un link diretto
 - Le schede **Rischi** e **Conformità** nel dettaglio della card vengono nascoste, così le singole card non espongono più dati GRC
-- I rischi e i finding di conformità rimangono nel database — i permessi sottostanti `risks.*` e `security_compliance.*` restano invariati, quindi i dati si conservano e ricompaiono invariati se il modulo viene riabilitato
+- I rischi e i finding di conformità rimangono nel database — i permessi sottostanti `risks.*` e `compliance.*` restano invariati, quindi i dati si conservano e ricompaiono invariati se il modulo viene riabilitato
 
 Consultate la [guida GRC](../guide/grc.md) per il riferimento completo delle funzionalità.
 

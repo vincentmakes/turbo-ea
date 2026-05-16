@@ -193,7 +193,7 @@ O servidor expõe 25 ferramentas somente leitura agrupadas em seis clusters.
 | Ferramenta | Descrição |
 |------------|-----------|
 | `list_compliance_findings` | Achados de conformidade agrupados por regulação |
-| `get_security_overview` | Pontuações de conformidade + matriz de status por regulação + metadados da última varredura |
+| `get_compliance_overview` | Pontuações de conformidade + matriz de status por regulação + metadados da última varredura |
 
 **Governança & Entrega**
 

@@ -227,7 +227,7 @@ AI формирует несколько вариантов решения, ка
 
 Все запуски анализа отслеживаются в **TurboLens > History** и отображают:
 
-- Тип анализа (vendor analysis, vendor resolution, duplicate detection, modernization, architect, security_compliance)
+- Тип анализа (vendor analysis, vendor resolution, duplicate detection, modernization, architect, compliance)
 - Статус (running, completed, failed)
 - Временны́е метки начала и завершения
 - Сообщения об ошибках (при наличии)

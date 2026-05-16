@@ -12,8 +12,8 @@ Der **Compliance**-Reiter des [GRC-Moduls](grc.md) unter `/grc?tab=compliance` i
 
 | Quelle | Wer erstellt sie | Wann verwenden |
 |--------|------------------|----------------|
-| **Manuell** | Eine Nutzerin mit `security_compliance.manage` klickt **+ Neuer Befund** in der Compliance-Tabelle | Audit-getriebene Verpflichtungen, extern gemeldete Lücken, Drittparteien-Attestierungen, alles was getrackt werden soll und ein LLM-Scan nicht auftauchen würde |
-| **KI-Scan** (TurboLens) | Eine Nutzerin mit `security_compliance.manage` löst einen Scan aus der Compliance-Symbolleiste aus | Periodische Landschafts-Lückenanalyse gegen die aktivierten Regulierungen |
+| **Manuell** | Eine Nutzerin mit `compliance.manage` klickt **+ Neuer Befund** in der Compliance-Tabelle | Audit-getriebene Verpflichtungen, extern gemeldete Lücken, Drittparteien-Attestierungen, alles was getrackt werden soll und ein LLM-Scan nicht auftauchen würde |
+| **KI-Scan** (TurboLens) | Eine Nutzerin mit `compliance.manage` löst einen Scan aus der Compliance-Symbolleiste aus | Periodische Landschafts-Lückenanalyse gegen die aktivierten Regulierungen |
 
 Die zwei Wege teilen dasselbe Datenmodell und denselben Lebenszyklus. Ein Scan löscht oder überschreibt niemals einen manuellen Befund, und ein manuell erfasster Befund kann zu einem Risiko überführt werden, von einem Risiko-Schluss zurückpropagiert und bulk-aktioniert werden — exakt wie ein KI-erkannter.
 
@@ -34,7 +34,7 @@ Klick **+ Neuer Befund** in der Compliance-Symbolleiste, um den Erstellungsdialo
 | **Verknüpfte Karte** | Optional — den Befund auf eine bestimmte Anwendung, IT-Komponente oder andere Karte beziehen. |
 | **Verknüpftes Risiko** | Optional — vorab mit einem bestehenden Risiko verknüpfen, falls eines die Lücke bereits verfolgt. |
 
-`security_compliance.manage` ist erforderlich, um Befunde zu erstellen, zu bearbeiten, stillzulegen oder bulk-zu-aktionieren. `security_compliance.view` reicht, um das Register zu lesen und vom kartenseitigen Compliance-Reiter zu triagieren.
+`compliance.manage` ist erforderlich, um Befunde zu erstellen, zu bearbeiten, stillzulegen oder bulk-zu-aktionieren. `compliance.view` reicht, um das Register zu lesen und vom kartenseitigen Compliance-Reiter zu triagieren.
 
 ## Einen KI-Scan ausführen
 
@@ -70,7 +70,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (automatisch bei Überführung in Risiko gesetzt)
 ```
 
-Übergänge sind auf Nutzer mit `security_compliance.manage` beschränkt. Die Engine erzwingt Übergänge serverseitig und lehnt illegale Bewegungen mit klarem Fehler ab.
+Übergänge sind auf Nutzer mit `compliance.manage` beschränkt. Die Engine erzwingt Übergänge serverseitig und lehnt illegale Bewegungen mit klarem Fehler ab.
 
 `risk_tracked` wird nie manuell gesetzt — es wird automatisch geschrieben, wenn du **Risiko erstellen** auf einem Befund klickst, und vom Risiko-Rückpropagations-Engine geleert, wenn das verknüpfte Risiko schließt.
 
@@ -88,7 +88,7 @@ Wenn das verknüpfte Risiko später `mitigated`, `monitoring`, `closed` oder `ac
 
 Die Compliance-Tabelle spiegelt die [Inventar](inventory.md)-Tabelle: Filter-Sidebar mit Spaltensichtbarkeits-Schaltern, persistierte Sortierung, Volltextsuche und eine Detail-Schublade pro Befund.
 
-Mit `security_compliance.manage` exponiert die Tabelle filter-bewusste Mehrfachauswahl. Tick die Header-Checkbox, um jede Zeile auszuwählen, die den aktiven Filtern entspricht, und nutze dann die fixierte Symbolleiste:
+Mit `compliance.manage` exponiert die Tabelle filter-bewusste Mehrfachauswahl. Tick die Header-Checkbox, um jede Zeile auszuwählen, die den aktiven Filtern entspricht, und nutze dann die fixierte Symbolleiste:
 
 - **Entscheidung bearbeiten** — Batch-Transition jeden ausgewählten Befund in einen gewählten Zustand (z.B. einen Schwung Befunde als `not_applicable` markieren nach einer Scope-Überprüfung). Illegale Übergänge werden pro Zeile in einer Teil-Erfolg-Zusammenfassung gemeldet statt die gesamte Batch fehlschlagen zu lassen.
 - **Löschen** — Befunde permanent entfernen (verwendet, um Befunde aus einer seitdem deaktivierten Regulierung aufzuräumen).
@@ -103,7 +103,7 @@ Der Compliance-Reiter zeigt zudem oben auf der Seite einen **Gesamt-Compliance-K
 
 ![Kartendetail — Compliance-Reiter](../assets/img/de/56_card_compliance_tab.png)
 
-Karten, die im Scope eines beliebigen Befunds liegen, exponieren ebenfalls einen **Compliance**-Reiter auf ihrer Detailseite (durch `security_compliance.view` gesteuert). Er listet jeden mit der Karte verknüpften Befund mit denselben Aktionen Acknowledge / Accept / **Risiko erstellen** / **Risiko öffnen** wie die GRC-Ansicht — sodass ein Application Owner seine eigenen Befunde triagieren kann, ohne die Karte zu verlassen. Dieselbe Auto-Ausblende-Regel gilt für den **Risiken**-Reiter in den Kartendetails: beide Reiter erscheinen nur, wenn die Karte tatsächlich verknüpfte Einträge hat, sodass Karten ohne GRC-Aktivität keine leeren Reiter mitschleppen.
+Karten, die im Scope eines beliebigen Befunds liegen, exponieren ebenfalls einen **Compliance**-Reiter auf ihrer Detailseite (durch `compliance.view` gesteuert). Er listet jeden mit der Karte verknüpften Befund mit denselben Aktionen Acknowledge / Accept / **Risiko erstellen** / **Risiko öffnen** wie die GRC-Ansicht — sodass ein Application Owner seine eigenen Befunde triagieren kann, ohne die Karte zu verlassen. Dieselbe Auto-Ausblende-Regel gilt für den **Risiken**-Reiter in den Kartendetails: beide Reiter erscheinen nur, wenn die Karte tatsächlich verknüpfte Einträge hat, sodass Karten ohne GRC-Aktivität keine leeren Reiter mitschleppen.
 
 ## Demo-Daten
 
@@ -113,7 +113,7 @@ Karten, die im Scope eines beliebigen Befunds liegen, exponieren ebenfalls einen
 
 | Berechtigung | Standardrollen |
 |--------------|----------------|
-| `security_compliance.view` | admin, bpm_admin, member, viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin, bpm_admin, member, viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` regelt den Lesezugriff auf das Register, den kartenseitigen Compliance-Reiter und die Übersichts-KPIs. `security_compliance.manage` ist erforderlich, um Befunde zu erstellen oder zu bearbeiten, ihren Status zu ändern, Scans auszuführen, bulk-zu-aktionieren, zu einem Risiko zu überführen oder einen Befund zu löschen.
+`compliance.view` regelt den Lesezugriff auf das Register, den kartenseitigen Compliance-Reiter und die Übersichts-KPIs. `compliance.manage` ist erforderlich, um Befunde zu erstellen oder zu bearbeiten, ihren Status zu ändern, Scans auszuführen, bulk-zu-aktionieren, zu einem Risiko zu überführen oder einen Befund zu löschen.

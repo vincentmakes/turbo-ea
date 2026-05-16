@@ -11,8 +11,8 @@ The **Compliance** tab of the [GRC module](grc.md) at `/grc?tab=compliance` is a
 
 | Source | Who creates it | When to use |
 |--------|----------------|-------------|
-| **Manual** | A user with `security_compliance.manage` clicks **+ New finding** on the Compliance grid | Audit-led obligations, externally-reported gaps, third-party attestations, anything you want tracked that an LLM scan would not surface |
-| **AI scan** (TurboLens) | A user with `security_compliance.manage` triggers a scan from the Compliance toolbar | Periodic landscape gap analysis against the enabled regulations |
+| **Manual** | A user with `compliance.manage` clicks **+ New finding** on the Compliance grid | Audit-led obligations, externally-reported gaps, third-party attestations, anything you want tracked that an LLM scan would not surface |
+| **AI scan** (TurboLens) | A user with `compliance.manage` triggers a scan from the Compliance toolbar | Periodic landscape gap analysis against the enabled regulations |
 
 The two paths share the same data model and lifecycle. A scan never deletes or overrides a manual finding, and a manually-entered finding can be promoted to a Risk, propagated back from a Risk close, and bulk-acted on exactly like an AI-detected one.
 
@@ -33,7 +33,7 @@ Click **+ New finding** in the Compliance toolbar to open the create dialog. Req
 | **Linked card** | Optional — scope the finding to a specific Application, IT Component or other card. |
 | **Linked risk** | Optional — pre-link to an existing Risk if one is already tracking this gap. |
 
-`security_compliance.manage` is required to create, edit, retire or bulk-act on findings. `security_compliance.view` is enough to read the register and triage from the card-level Compliance tab.
+`compliance.manage` is required to create, edit, retire or bulk-act on findings. `compliance.view` is enough to read the register and triage from the card-level Compliance tab.
 
 ## Running an AI scan
 
@@ -69,7 +69,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (set automatically on promote-to-Risk)
 ```
 
-Transitions are restricted to users with `security_compliance.manage`. The engine enforces transitions server-side and rejects illegal moves with a clear error.
+Transitions are restricted to users with `compliance.manage`. The engine enforces transitions server-side and rejects illegal moves with a clear error.
 
 `risk_tracked` is never set by hand — it is written automatically when you click **Create risk** on a finding and is cleared by the Risk back-propagation engine when the linked Risk closes.
 
@@ -87,7 +87,7 @@ When the linked Risk later reaches `mitigated`, `monitoring`, `closed` or `accep
 
 The Compliance grid mirrors the [Inventory](inventory.md) grid: filter sidebar with column visibility toggles, persisted sort, full-text search, and a detail drawer per finding.
 
-When `security_compliance.manage` is granted, the grid exposes filter-aware multi-select. Tick the header checkbox to select every row matching the active filters, then use the sticky toolbar:
+When `compliance.manage` is granted, the grid exposes filter-aware multi-select. Tick the header checkbox to select every row matching the active filters, then use the sticky toolbar:
 
 - **Edit decision** — batch-transition every selected finding to a chosen state (e.g. mark a swathe of findings as `not_applicable` after a scope review). Illegal transitions are surfaced per-row in a partial-success summary instead of failing the entire batch.
 - **Delete** — permanently remove findings (used to clean up findings from a regulation you've since disabled).
@@ -102,7 +102,7 @@ The Compliance tab also shows a top-of-page **overall compliance KPI** and a com
 
 ![Card detail — Compliance tab](../assets/img/en/56_card_compliance_tab.png)
 
-Cards that are in scope of any finding also surface a **Compliance** tab on their detail page (gated on `security_compliance.view`). It lists every finding currently linked to the card with the same Acknowledge / Accept / **Create risk** / **Open risk** actions as the GRC view, so an Application owner can triage their own findings without leaving the card. The same auto-hide rule applies to the **Risks** tab on Card Detail: both tabs only appear when the card actually has linked items, so cards with no GRC activity don't carry empty tabs.
+Cards that are in scope of any finding also surface a **Compliance** tab on their detail page (gated on `compliance.view`). It lists every finding currently linked to the card with the same Acknowledge / Accept / **Create risk** / **Open risk** actions as the GRC view, so an Application owner can triage their own findings without leaving the card. The same auto-hide rule applies to the **Risks** tab on Card Detail: both tabs only appear when the card actually has linked items, so cards with no GRC activity don't carry empty tabs.
 
 ## Demo data
 
@@ -112,7 +112,7 @@ Cards that are in scope of any finding also surface a **Compliance** tab on thei
 
 | Permission | Default roles |
 |------------|---------------|
-| `security_compliance.view` | admin, bpm_admin, member, viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin, bpm_admin, member, viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` gates read access to the register, the per-card Compliance tab and the overview KPIs. `security_compliance.manage` is needed to create or edit findings, change their status, run scans, bulk-act, promote to a Risk, or delete a finding.
+`compliance.view` gates read access to the register, the per-card Compliance tab and the overview KPIs. `compliance.manage` is needed to create or edit findings, change their status, run scans, bulk-act, promote to a Risk, or delete a finding.

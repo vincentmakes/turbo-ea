@@ -7976,7 +7976,7 @@
           "source_type": {
             "enum": [
               "manual",
-              "security_compliance"
+              "compliance"
             ],
             "title": "Source Type",
             "type": "string"
@@ -27996,7 +27996,7 @@
     },
     "/api/v1/turbolens/security/compliance-findings": {
       "post": {
-        "description": "Manually create a compliance finding (auditor / analyst entry).\n\nCreates a synthetic \"manual\" :class:`TurboLensAnalysisRun` row to\nsatisfy the FK (``run_id`` is non-null), computes ``finding_key``\nvia the same recipe as the scanner so a later re-scan can upsert\ncleanly, and persists the finding with ``decision='new'`` and\n``ai_detected=False``. Requires ``security_compliance.manage``.",
+        "description": "Manually create a compliance finding (auditor / analyst entry).\n\nCreates a synthetic \"manual\" :class:`TurboLensAnalysisRun` row to\nsatisfy the FK (``run_id`` is non-null), computes ``finding_key``\nvia the same recipe as the scanner so a later re-scan can upsert\ncleanly, and persists the finding with ``decision='new'`` and\n``ai_detected=False``. Requires ``compliance.manage``.",
         "operationId": "create_compliance_finding_manual_api_v1_turbolens_security_compliance_findings_post",
         "requestBody": {
           "content": {
@@ -28038,7 +28038,7 @@
     },
     "/api/v1/turbolens/security/compliance-findings/bulk": {
       "delete": {
-        "description": "Bulk-delete compliance findings.\n\nSame permission gate as the single-row delete (``security_compliance.manage``,\ngranted to admin only by default). The linked Risk on any row is NOT\ncascaded \u2014 Risks are independent records once promoted. Missing ids\nare reported in ``skipped`` with ``reason=\"not_found\"`` rather than\nfailing the whole batch.",
+        "description": "Bulk-delete compliance findings.\n\nSame permission gate as the single-row delete (``compliance.manage``,\ngranted to admin only by default). The linked Risk on any row is NOT\ncascaded \u2014 Risks are independent records once promoted. Missing ids\nare reported in ``skipped`` with ``reason=\"not_found\"`` rather than\nfailing the whole batch.",
         "operationId": "bulk_delete_compliance_findings_api_v1_turbolens_security_compliance_findings_bulk_delete",
         "requestBody": {
           "content": {
@@ -28120,7 +28120,7 @@
     },
     "/api/v1/turbolens/security/compliance-findings/{finding_id}": {
       "delete": {
-        "description": "Permanently delete a compliance finding.\n\nAdmin-grade action gated by ``security_compliance.manage`` (granted\nonly to the admin role by default). The linked Risk (if any) is\nNOT cascaded \u2014 risks are independent records once promoted; the\nfinding's row is simply removed. The next compliance scan will\nre-emit the finding if the LLM still reports it for the same\ncard+regulation+article+requirement.",
+        "description": "Permanently delete a compliance finding.\n\nAdmin-grade action gated by ``compliance.manage`` (granted\nonly to the admin role by default). The linked Risk (if any) is\nNOT cascaded \u2014 risks are independent records once promoted; the\nfinding's row is simply removed. The next compliance scan will\nre-emit the finding if the LLM still reports it for the same\ncard+regulation+article+requirement.",
         "operationId": "delete_compliance_finding_api_v1_turbolens_security_compliance_findings__finding_id__delete",
         "parameters": [
           {

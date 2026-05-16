@@ -12,8 +12,8 @@ La pestaña **Cumplimiento** del [módulo GRC](grc.md) en `/grc?tab=compliance` 
 
 | Fuente | Quién lo crea | Cuándo usar |
 |--------|---------------|-------------|
-| **Manual** | Un usuario con `security_compliance.manage` hace clic en **+ Nuevo hallazgo** en la cuadrícula de Cumplimiento | Obligaciones derivadas de auditorías, brechas reportadas externamente, atestaciones de terceros, cualquier cosa que se quiera rastrear que un escaneo LLM no haría aflorar |
-| **Escaneo IA** (TurboLens) | Un usuario con `security_compliance.manage` dispara un escaneo desde la barra de herramientas de Cumplimiento | Análisis de brechas periódico del paisaje contra las regulaciones habilitadas |
+| **Manual** | Un usuario con `compliance.manage` hace clic en **+ Nuevo hallazgo** en la cuadrícula de Cumplimiento | Obligaciones derivadas de auditorías, brechas reportadas externamente, atestaciones de terceros, cualquier cosa que se quiera rastrear que un escaneo LLM no haría aflorar |
+| **Escaneo IA** (TurboLens) | Un usuario con `compliance.manage` dispara un escaneo desde la barra de herramientas de Cumplimiento | Análisis de brechas periódico del paisaje contra las regulaciones habilitadas |
 
 Las dos vías comparten el mismo modelo de datos y ciclo de vida. Un escaneo nunca borra ni anula un hallazgo manual, y un hallazgo introducido manualmente puede ser promovido a un Riesgo, propagado de vuelta desde un cierre de Riesgo y bulk-actionado exactamente como uno detectado por IA.
 
@@ -34,7 +34,7 @@ Haz clic en **+ Nuevo hallazgo** en la barra de herramientas de Cumplimiento par
 | **Tarjeta vinculada** | Opcional — limitar el hallazgo a una Aplicación, Componente IT u otra tarjeta específica. |
 | **Riesgo vinculado** | Opcional — pre-vincular a un Riesgo existente si uno ya rastrea esta brecha. |
 
-`security_compliance.manage` es requerido para crear, editar, retirar o bulk-actionar hallazgos. `security_compliance.view` basta para leer el registro y triagear desde la pestaña Cumplimiento a nivel de tarjeta.
+`compliance.manage` es requerido para crear, editar, retirar o bulk-actionar hallazgos. `compliance.view` basta para leer el registro y triagear desde la pestaña Cumplimiento a nivel de tarjeta.
 
 ## Ejecutar un escaneo IA
 
@@ -70,7 +70,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      (establecido automáticamente al promover a Riesgo)
 ```
 
-Las transiciones están restringidas a usuarios con `security_compliance.manage`. El motor impone las transiciones del lado servidor y rechaza movimientos ilegales con un error claro.
+Las transiciones están restringidas a usuarios con `compliance.manage`. El motor impone las transiciones del lado servidor y rechaza movimientos ilegales con un error claro.
 
 `risk_tracked` nunca se establece a mano — se escribe automáticamente cuando haces clic en **Crear riesgo** en un hallazgo, y es limpiado por el motor de retropropagación del Riesgo cuando el Riesgo vinculado se cierra.
 
@@ -88,7 +88,7 @@ Cuando el Riesgo vinculado alcanza más tarde `mitigated`, `monitoring`, `closed
 
 La cuadrícula de Cumplimiento refleja la de [Inventario](inventory.md): barra lateral de filtros con conmutadores de visibilidad de columnas, orden persistido, búsqueda de texto completo y un panel de detalle por hallazgo.
 
-Cuando se concede `security_compliance.manage`, la cuadrícula expone selección múltiple consciente de filtros. Marca la casilla del encabezado para seleccionar todas las filas que coincidan con los filtros activos y luego usa la barra de herramientas fija:
+Cuando se concede `compliance.manage`, la cuadrícula expone selección múltiple consciente de filtros. Marca la casilla del encabezado para seleccionar todas las filas que coincidan con los filtros activos y luego usa la barra de herramientas fija:
 
 - **Editar decisión** — transición en lote de cada hallazgo seleccionado a un estado elegido (p.ej. marcar un grupo de hallazgos como `not_applicable` tras una revisión de alcance). Las transiciones ilegales se reportan por fila en un resumen de éxito parcial en lugar de hacer fracasar todo el lote.
 - **Eliminar** — eliminar hallazgos permanentemente (usado para limpiar hallazgos de una regulación que has deshabilitado desde entonces).
@@ -103,7 +103,7 @@ La pestaña Cumplimiento también muestra un **KPI global de cumplimiento** en l
 
 ![Detalle de la ficha — pestaña Cumplimiento](../assets/img/es/56_card_compliance_tab.png)
 
-Las fichas dentro del alcance de cualquier hallazgo también muestran una pestaña **Cumplimiento** en su página de detalle (gobernada por `security_compliance.view`). Lista cada hallazgo actualmente vinculado a la ficha con las mismas acciones Reconocer / Aceptar / **Crear riesgo** / **Abrir riesgo** que la vista GRC — de modo que un Application Owner pueda clasificar sus propios hallazgos sin salir de la ficha. La misma regla de ocultamiento automático se aplica a la pestaña **Riesgos** en el detalle de la ficha: ambas pestañas solo aparecen cuando la ficha realmente tiene elementos vinculados, de modo que las fichas sin actividad GRC no arrastran pestañas vacías.
+Las fichas dentro del alcance de cualquier hallazgo también muestran una pestaña **Cumplimiento** en su página de detalle (gobernada por `compliance.view`). Lista cada hallazgo actualmente vinculado a la ficha con las mismas acciones Reconocer / Aceptar / **Crear riesgo** / **Abrir riesgo** que la vista GRC — de modo que un Application Owner pueda clasificar sus propios hallazgos sin salir de la ficha. La misma regla de ocultamiento automático se aplica a la pestaña **Riesgos** en el detalle de la ficha: ambas pestañas solo aparecen cuando la ficha realmente tiene elementos vinculados, de modo que las fichas sin actividad GRC no arrastran pestañas vacías.
 
 ## Datos de demo
 
@@ -113,7 +113,7 @@ Las fichas dentro del alcance de cualquier hallazgo también muestran una pesta�
 
 | Permiso | Roles por defecto |
 |---------|-------------------|
-| `security_compliance.view` | admin, bpm_admin, member, viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin, bpm_admin, member, viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` rige el acceso de lectura al registro, la pestaña Cumplimiento por tarjeta y los KPIs de la vista general. `security_compliance.manage` es necesario para crear o editar hallazgos, cambiar su estado, ejecutar escaneos, bulk-actionar, promover a un Riesgo o eliminar un hallazgo.
+`compliance.view` rige el acceso de lectura al registro, la pestaña Cumplimiento por tarjeta y los KPIs de la vista general. `compliance.manage` es necesario para crear o editar hallazgos, cambiar su estado, ejecutar escaneos, bulk-actionar, promover a un Riesgo o eliminar un hallazgo.

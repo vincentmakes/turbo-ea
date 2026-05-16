@@ -251,7 +251,7 @@ async def list_risks(
         owner_id: Filter to risks owned by a specific user UUID.
         card_id: Filter to risks linked to a specific card UUID.
         source_type: How the risk was raised — 'manual',
-            'security_compliance'.
+            'compliance'.
         search: Free-text search across title, description and reference.
         overdue: When true, only return risks past their target resolution
             date that aren't already closed/accepted.
@@ -349,7 +349,7 @@ async def list_compliance_findings(
         return "Error: Not authenticated. Please reconnect."
     client = TurboEAClient(token)
     data = await client.get(
-        "/turbolens/security/compliance",
+        "/compliance/compliance",
         params=_compact(
             {
                 "regulation": regulation,
@@ -362,14 +362,14 @@ async def list_compliance_findings(
 
 
 @mcp.tool()
-async def get_security_overview() -> str:
+async def get_compliance_overview() -> str:
     """Compliance scores + per-regulation status matrix for the Compliance
     dashboard, plus metadata about the last completed scan."""
     token = await _get_current_token()
     if not token:
         return "Error: Not authenticated. Please reconnect."
     client = TurboEAClient(token)
-    data = await client.get("/turbolens/security/overview")
+    data = await client.get("/compliance/overview")
     return _fmt(data)
 
 

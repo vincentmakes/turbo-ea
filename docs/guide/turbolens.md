@@ -227,7 +227,7 @@ Compliance findings can also be **authored manually** without an AI provider con
 
 All analysis runs are tracked in **TurboLens > History**, showing:
 
-- Analysis type (vendor analysis, vendor resolution, duplicate detection, modernization, architect, security_compliance)
+- Analysis type (vendor analysis, vendor resolution, duplicate detection, modernization, architect, compliance)
 - Status (running, completed, failed)
 - Start and completion timestamps
 - Error messages (if any)
@@ -238,5 +238,5 @@ All analysis runs are tracked in **TurboLens > History**, showing:
 |------------|-------------|
 | `turbolens.view` | View analysis results (granted to admin, bpm_admin, member) |
 | `turbolens.manage` | Trigger analyses (granted to admin) |
-| `security_compliance.view` | View compliance findings (granted to admin, bpm_admin, member, viewer) |
-| `security_compliance.manage` | Trigger compliance scans and update finding status (granted to admin) |
+| `compliance.view` | View compliance findings (granted to admin, bpm_admin, member, viewer) |
+| `compliance.manage` | Trigger compliance scans and update finding status (granted to admin) |

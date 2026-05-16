@@ -227,7 +227,7 @@ As descobertas de conformidade também podem ser **redigidas manualmente** sem u
 
 Todas as execuções de análise são registadas em **TurboLens > Histórico**, mostrando:
 
-- Tipo de análise (análise de fornecedores, resolução de fornecedores, deteção de duplicados, modernização, arquiteto, security_compliance)
+- Tipo de análise (análise de fornecedores, resolução de fornecedores, deteção de duplicados, modernização, arquiteto, compliance)
 - Estado (em execução, concluída, com falha)
 - Timestamps de início e de conclusão
 - Mensagens de erro (se existirem)

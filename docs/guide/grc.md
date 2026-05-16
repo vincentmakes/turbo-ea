@@ -119,6 +119,6 @@ The same Compliance tab also appears on Card Detail (auto-hides when the card ha
 | `grc.view` | admin, bpm_admin, member, viewer |
 | `grc.manage` | admin, bpm_admin, member |
 | `risks.view` / `risks.manage` | see [Risk Register § Permissions](risks.md) |
-| `security_compliance.view` / `security_compliance.manage` | see [TurboLens § Security & Compliance](turbolens.md) |
+| `compliance.view` / `compliance.manage` | see [TurboLens § Security & Compliance](turbolens.md) |
 
 `grc.view` controls visibility of the GRC route itself — without it the top-nav entry is hidden. Each tab additionally enforces its domain-specific permission so a viewer can read the register without being able to trigger an LLM scan, for example.

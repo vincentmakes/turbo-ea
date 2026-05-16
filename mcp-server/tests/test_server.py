@@ -262,16 +262,16 @@ class TestGrcTools:
             )
         _assert_called_with(
             mock,
-            "/turbolens/security/compliance",
+            "/compliance/compliance",
             params={"regulation": "gdpr", "include_auto_resolved": "true"},
         )
 
     @pytest.mark.asyncio
-    async def test_get_security_overview(self, fake_token):
+    async def test_get_compliance_overview(self, fake_token):
         patcher, mock = _patched_get({"kpis": {}, "matrix": []})
         with patcher:
-            await server.get_security_overview()
-        _assert_called_with(mock, "/turbolens/security/overview")
+            await server.get_compliance_overview()
+        _assert_called_with(mock, "/compliance/overview")
 
 
 class TestGovernanceTools:

@@ -193,7 +193,7 @@ Der Server stellt 25 schreibgeschützte Werkzeuge in sechs Gruppen bereit.
 | Werkzeug | Beschreibung |
 |----------|-------------|
 | `list_compliance_findings` | Compliance-Befunde gebündelt nach Regulierung |
-| `get_security_overview` | Compliance-Scores + Statusmatrix pro Regulierung + Metadaten des letzten Scans |
+| `get_compliance_overview` | Compliance-Scores + Statusmatrix pro Regulierung + Metadaten des letzten Scans |
 
 **Governance & Bereitstellung**
 

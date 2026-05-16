@@ -12,8 +12,8 @@
 
 | 来源 | 谁创建 | 何时使用 |
 |------|--------|----------|
-| **手工** | 拥有 `security_compliance.manage` 的用户在合规网格点击 **+ 新建发现** | 审计驱动的义务、外部报告的差距、第三方鉴证，任何你想跟踪而 LLM 扫描不会发现的内容 |
-| **AI 扫描**（TurboLens） | 拥有 `security_compliance.manage` 的用户从合规工具栏触发扫描 | 针对已启用法规的周期性全景差距分析 |
+| **手工** | 拥有 `compliance.manage` 的用户在合规网格点击 **+ 新建发现** | 审计驱动的义务、外部报告的差距、第三方鉴证，任何你想跟踪而 LLM 扫描不会发现的内容 |
+| **AI 扫描**（TurboLens） | 拥有 `compliance.manage` 的用户从合规工具栏触发扫描 | 针对已启用法规的周期性全景差距分析 |
 
 两条路径共享相同的数据模型和生命周期。扫描永远不会删除或覆盖手工发现，手工录入的发现可以提升为风险、从风险关闭回传，并以与 AI 检测到的发现完全相同的方式进行批量操作。
 
@@ -34,7 +34,7 @@
 | **关联卡片** | 可选 — 将发现限定到特定的应用、IT 组件或其他卡片。 |
 | **关联风险** | 可选 — 如果已有一个风险在跟踪该差距，预先关联。 |
 
-创建、编辑、撤回或批量操作发现需要 `security_compliance.manage`。读取登记册以及在卡片级合规标签页中分诊只需 `security_compliance.view`。
+创建、编辑、撤回或批量操作发现需要 `compliance.manage`。读取登记册以及在卡片级合规标签页中分诊只需 `compliance.view`。
 
 ## 运行 AI 扫描
 
@@ -70,7 +70,7 @@ new → in_review → mitigated → verified
                       ↘ risk_tracked      （提升为风险时自动设置）
 ```
 
-状态转换限定给拥有 `security_compliance.manage` 的用户。引擎在服务器端强制执行转换，对非法移动会以清晰的错误拒绝。
+状态转换限定给拥有 `compliance.manage` 的用户。引擎在服务器端强制执行转换，对非法移动会以清晰的错误拒绝。
 
 `risk_tracked` 永远不会手动设置 — 它在你点击发现上的 **创建风险** 时自动写入，并在关联风险关闭时由风险回传引擎清除。
 
@@ -88,7 +88,7 @@ new → in_review → mitigated → verified
 
 合规网格镜像 [资产清单](inventory.md) 网格：带列可见性开关的过滤侧栏、持久化排序、全文搜索，以及每条发现一个详情抽屉。
 
-授予 `security_compliance.manage` 时，网格暴露过滤感知的多选。勾选表头复选框选中所有与活动过滤器匹配的行，然后使用固定工具栏：
+授予 `compliance.manage` 时，网格暴露过滤感知的多选。勾选表头复选框选中所有与活动过滤器匹配的行，然后使用固定工具栏：
 
 - **编辑决策** — 将每条选中的发现批量转换到所选状态（例如范围审查后将一批发现标记为 `not_applicable`）。非法转换在部分成功摘要中按行浮现，而不是让整个批次失败。
 - **删除** — 永久移除发现（用于清理你已禁用法规的发现）。
@@ -103,7 +103,7 @@ new → in_review → mitigated → verified
 
 ![卡片详情 — 合规标签页](../assets/img/zh/56_card_compliance_tab.png)
 
-任何发现作用域内的卡片也会在其详情页上暴露一个 **合规** 标签页（受 `security_compliance.view` 控制）。它列出当前与该卡片关联的每条发现，提供与 GRC 视图相同的确认 / 接受 / **创建风险** / **打开风险** 操作 — 这样应用负责人可以不离开卡片就分诊自己的发现。同样的自动隐藏规则适用于卡片详情中的 **风险** 标签页：只有当卡片确实有关联条目时，两个标签页才会出现，使没有 GRC 活动的卡片不会拖着空标签页。
+任何发现作用域内的卡片也会在其详情页上暴露一个 **合规** 标签页（受 `compliance.view` 控制）。它列出当前与该卡片关联的每条发现，提供与 GRC 视图相同的确认 / 接受 / **创建风险** / **打开风险** 操作 — 这样应用负责人可以不离开卡片就分诊自己的发现。同样的自动隐藏规则适用于卡片详情中的 **风险** 标签页：只有当卡片确实有关联条目时，两个标签页才会出现，使没有 GRC 活动的卡片不会拖着空标签页。
 
 ## 演示数据
 
@@ -113,7 +113,7 @@ new → in_review → mitigated → verified
 
 | 权限 | 默认角色 |
 |------|----------|
-| `security_compliance.view` | admin、bpm_admin、member、viewer |
-| `security_compliance.manage` | admin |
+| `compliance.view` | admin、bpm_admin、member、viewer |
+| `compliance.manage` | admin |
 
-`security_compliance.view` 控制对登记册、按卡片合规标签页和概览 KPI 的读访问。创建或编辑发现、更改其状态、运行扫描、批量操作、提升到风险或删除发现需要 `security_compliance.manage`。
+`compliance.view` 控制对登记册、按卡片合规标签页和概览 KPI 的读访问。创建或编辑发现、更改其状态、运行扫描、批量操作、提升到风险或删除发现需要 `compliance.manage`。
