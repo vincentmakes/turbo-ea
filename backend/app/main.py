@@ -561,8 +561,7 @@ async def lifespan(app: FastAPI):
             result = await seed_security_demo_data(db)
             if not result.get("skipped"):
                 print(
-                    f"[seed_security] Seeded {result.get('cve_findings', 0)} CVE findings, "
-                    f"{result['compliance_findings']} compliance findings, "
+                    f"[seed_security] Seeded {result['compliance_findings']} compliance findings, "
                     f"{result['analysis_runs']} analysis runs"
                 )
             else:
