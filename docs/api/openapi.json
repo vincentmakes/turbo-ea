@@ -10360,6 +10360,70 @@
         "title": "UiPreferencesUpdate",
         "type": "object"
       },
+      "UserBulkDelete": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "title": "UserBulkDelete",
+        "type": "object"
+      },
+      "UserBulkUpdate": {
+        "properties": {
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ids",
+            "type": "array"
+          },
+          "updates": {
+            "$ref": "#/components/schemas/UserBulkUpdateFields"
+          }
+        },
+        "required": [
+          "ids",
+          "updates"
+        ],
+        "title": "UserBulkUpdate",
+        "type": "object"
+      },
+      "UserBulkUpdateFields": {
+        "properties": {
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "UserBulkUpdateFields",
+        "type": "object"
+      },
       "UserCreate": {
         "properties": {
           "display_name": {
@@ -28454,6 +28518,86 @@
           }
         },
         "summary": "Create User",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/bulk": {
+      "patch": {
+        "description": "Admin only \u2014 bulk update role and/or is_active for many users at once.\n\nOnly `role` and `is_active` are bulk-editable. Email, password, locale and\nauth_provider are per-user identity / sensitive fields and stay one-by-one.",
+        "operationId": "bulk_update_users_api_v1_users_bulk_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserBulkUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Update Users",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/bulk-delete": {
+      "post": {
+        "description": "Admin only \u2014 hard-delete many users at once.\n\nMatches the single-row constraint in the admin UI: only deactivated users\ncan be deleted. Active users in the selection are skipped and surfaced in\nthe response so the admin can deactivate them first.",
+        "operationId": "bulk_delete_users_api_v1_users_bulk_delete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserBulkDelete"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Delete Users",
         "tags": [
           "users"
         ]

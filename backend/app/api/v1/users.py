@@ -55,6 +55,20 @@ class InvitationCreate(BaseModel):
     send_email: bool = False
 
 
+class UserBulkUpdateFields(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
+
+
+class UserBulkUpdate(BaseModel):
+    ids: list[str]
+    updates: UserBulkUpdateFields
+
+
+class UserBulkDelete(BaseModel):
+    ids: list[str]
+
+
 def _user_response(u: User) -> dict:
     return {
         "id": str(u.id),
@@ -257,6 +271,136 @@ async def update_ui_preferences(
     current_user.ui_preferences = prefs
     await db.commit()
     return prefs
+
+
+@router.patch("/bulk")
+async def bulk_update_users(
+    body: UserBulkUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — bulk update role and/or is_active for many users at once.
+
+    Only `role` and `is_active` are bulk-editable. Email, password, locale and
+    auth_provider are per-user identity / sensitive fields and stay one-by-one.
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    data = body.updates.model_dump(exclude_unset=True)
+    if not data:
+        raise HTTPException(400, "No updates provided")
+    if not body.ids:
+        raise HTTPException(400, "No user ids provided")
+
+    if "role" in data:
+        role_result = await db.execute(select(Role).where(Role.key == data["role"]))
+        if not role_result.scalar_one_or_none():
+            raise HTTPException(400, f"Unknown role '{data['role']}'")
+
+    try:
+        target_uuids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, f"Invalid user id: {exc}") from exc
+
+    result = await db.execute(select(User).where(User.id.in_(target_uuids)))
+    users = result.scalars().all()
+    if not users:
+        raise HTTPException(404, "No matching users found")
+
+    # Guard against losing the last admin via bulk role change or deactivation.
+    # We evaluate the *post-change* state and refuse if zero active admins
+    # would remain.
+    needs_admin_guard = ("role" in data and data["role"] != "admin") or (
+        "is_active" in data and data["is_active"] is False
+    )
+    if needs_admin_guard:
+        target_ids_set = {u.id for u in users}
+        all_admins_result = await db.execute(
+            select(User).where(User.role == "admin", User.is_active.is_(True))
+        )
+        remaining_admins = 0
+        for admin_user in all_admins_result.scalars().all():
+            if admin_user.id in target_ids_set:
+                still_admin = data.get("role", admin_user.role) == "admin"
+                still_active = data.get("is_active", admin_user.is_active)
+                if still_admin and still_active:
+                    remaining_admins += 1
+            else:
+                remaining_admins += 1
+        if remaining_admins < 1:
+            raise HTTPException(
+                400,
+                "Bulk change would leave no active admin. "
+                "Keep at least one user with the admin role and active status.",
+            )
+
+    for u in users:
+        for field, value in data.items():
+            setattr(u, field, value)
+
+    await db.commit()
+
+    refreshed = await db.execute(select(User).where(User.id.in_(target_uuids)))
+    return [_user_response(u) for u in refreshed.scalars().all()]
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_users(
+    body: UserBulkDelete,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Admin only — hard-delete many users at once.
+
+    Matches the single-row constraint in the admin UI: only deactivated users
+    can be deleted. Active users in the selection are skipped and surfaced in
+    the response so the admin can deactivate them first.
+    """
+    await PermissionService.require_permission(db, current_user, "admin.users")
+
+    if not body.ids:
+        raise HTTPException(400, "No user ids provided")
+
+    try:
+        target_uuids = [uuid.UUID(i) for i in body.ids]
+    except ValueError as exc:
+        raise HTTPException(400, f"Invalid user id: {exc}") from exc
+
+    result = await db.execute(select(User).where(User.id.in_(target_uuids)))
+    users = result.scalars().all()
+
+    skipped: list[dict[str, str]] = []
+    deletable: list[User] = []
+    for u in users:
+        if u.id == current_user.id:
+            skipped.append({"id": str(u.id), "reason": "Cannot delete your own account"})
+            continue
+        if u.is_active:
+            skipped.append({"id": str(u.id), "reason": "User is active — deactivate first"})
+            continue
+        deletable.append(u)
+
+    # Block removing the last active admin even via bulk-delete (defense in
+    # depth: deactivated admins can theoretically still be reactivated, but
+    # leaving zero admin *rows* would be irrecoverable).
+    admin_count_result = await db.execute(select(func.count(User.id)).where(User.role == "admin"))
+    total_admins = admin_count_result.scalar() or 0
+    deletable_admin_ids = {u.id for u in deletable if u.role == "admin"}
+    if total_admins - len(deletable_admin_ids) < 1 and deletable_admin_ids:
+        raise HTTPException(
+            400,
+            "Bulk delete would remove the last admin user. "
+            "Keep at least one user with the admin role.",
+        )
+
+    deleted_count = 0
+    for u in deletable:
+        await db.execute(delete(SsoInvitation).where(SsoInvitation.email == u.email))
+        await db.delete(u)
+        deleted_count += 1
+
+    await db.commit()
+    return {"deleted": deleted_count, "skipped": skipped}
 
 
 # ---------------------------------------------------------------------------

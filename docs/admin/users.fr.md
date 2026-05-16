@@ -53,6 +53,40 @@ Si un utilisateur possède déjà un compte local et que votre organisation acti
 4. Cliquez sur **Sauvegarder les modifications**
 5. L'utilisateur peut maintenant se connecter via SSO. Son compte sera automatiquement lié lors de la première connexion SSO
 
+#### Opérations en masse
+
+Cochez les cases en début de ligne pour sélectionner plusieurs utilisateurs. Une barre d'outils s'affiche au-dessus du tableau avec les actions suivantes :
+
+- **Changer de rôle** — appliquer un rôle unique à tous les utilisateurs sélectionnés
+- **Activer** / **Désactiver** — basculer `is_active` pour la sélection
+- **Supprimer** — supprimer définitivement les utilisateurs sélectionnés (seuls les utilisateurs désactivés sont supprimés ; les utilisateurs actifs présents dans la sélection sont ignorés avec un message explicatif)
+
+Le garde-fou « dernier administrateur » s'applique : un changement de rôle en masse qui laisserait zéro administrateur actif est refusé. Il en va de même pour la désactivation ou la suppression du dernier administrateur.
+
+#### Importer des utilisateurs depuis un tableur
+
+1. Cliquez sur le bouton **Importer** (en haut à droite). L'assistant s'ouvre avec une zone glisser-déposer pour les fichiers `.xlsx`.
+2. Déposez ou choisissez un fichier Excel. Les colonnes attendues sont :
+
+   | Colonne | Obligatoire | Description |
+   |---------|-------------|-------------|
+   | `email` | Oui | Sert d'identité de l'utilisateur (insensible à la casse). |
+   | `display_name` | Oui | Le nom complet affiché dans l'application. |
+   | `role` | Non | Clé de rôle (ex. `admin`, `member`, `viewer`). Par défaut `viewer` si vide. |
+   | `password` | Non | Comptes locaux uniquement. Laissez vide pour permettre aux invités de définir leur mot de passe via le lien d'invitation. |
+   | `locale` | Non | Langue de l'interface (ex. `en`, `de`, `fr`). |
+   | `is_active` | Non | `TRUE` / `FALSE` — remplace l'indicateur actif pour les utilisateurs existants. |
+
+3. L'assistant valide le fichier et affiche un rapport : lignes à créer, lignes à mettre à jour (avec un comparatif champ par champ), erreurs bloquant l'import et avertissements non bloquants.
+4. Si de nouvelles lignes sont présentes, activez **Envoyer des e-mails d'invitation aux nouveaux utilisateurs**. Lorsqu'elle est activée, chaque nouvel utilisateur reçoit un e-mail d'invitation avec un lien de connexion ou de définition de mot de passe.
+5. Cliquez sur **Importer** pour appliquer. Une barre de progression affiche le statut ligne par ligne ; l'écran final liste les créations, mises à jour et échecs.
+
+La façon la plus rapide de démarrer est de cliquer d'abord sur **Exporter**, de modifier le fichier `.xlsx` obtenu, puis de réimporter le même fichier — l'assistant détectera les e-mails existants comme des mises à jour plutôt que des créations.
+
+#### Exporter la liste des utilisateurs
+
+Cliquez sur le bouton **Exporter** (en haut à droite) pour télécharger la liste filtrée des utilisateurs au format Excel (`users_export_YYYY-MM-DD_HHMM.xlsx`). L'export respecte les filtres et termes de recherche définis dans la barre latérale, ce qui permet de restreindre l'export à un sous-ensemble (par ex. uniquement les utilisateurs invités, ou un seul rôle).
+
 #### Invitations en attente
 
 Sous le tableau des utilisateurs, une section **Invitations en attente** affiche toutes les invitations qui n'ont pas encore été acceptées. Chaque invitation montre l'e-mail, le rôle pré-attribué et la date d'invitation. Vous pouvez revoquer une invitation en cliquant sur l'icône de suppression.

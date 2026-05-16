@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { AgGridReact } from "ag-grid-react";
-import type { ColDef } from "ag-grid-community";
+import type { ColDef, GridApi } from "ag-grid-community";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Tabs from "@mui/material/Tabs";
@@ -40,6 +40,10 @@ import UsersFilterSidebar, {
   DEFAULT_USER_COLUMNS,
   type UserFilters,
 } from "./UsersFilterSidebar";
+import UserImportDialog from "./users/UserImportDialog";
+import BulkActionsToolbar from "./users/BulkActionsToolbar";
+import BulkRoleDialog from "./users/BulkRoleDialog";
+import { exportUsersToXlsx } from "./users/userExcelExport";
 
 interface InviteFormState {
   email: string;
@@ -124,6 +128,14 @@ export default function UsersAdmin() {
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
+
+  // Bulk selection + import/export
+  const gridApiRef = useRef<GridApi<User> | null>(null);
+  const filteredUsersRef = useRef<User[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkRoleOpen, setBulkRoleOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Roles
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -248,6 +260,97 @@ export default function UsersAdmin() {
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common:errors.generic"));
     }
+  }, [t]);
+
+  // --- Bulk actions ---
+  const clearSelection = useCallback(() => {
+    gridApiRef.current?.deselectAll();
+    setSelectedIds([]);
+  }, []);
+
+  const handleBulkRoleConfirm = useCallback(
+    async (roleKey: string) => {
+      setBulkBusy(true);
+      try {
+        const updated = await api.patch<User[]>("/users/bulk", {
+          ids: selectedIds,
+          updates: { role: roleKey },
+        });
+        const byId = new Map(updated.map((u) => [u.id, u]));
+        setUsers((prev) => prev.map((u) => byId.get(u.id) ?? u));
+        setSuccess(t("users.bulk.changeRoleSuccess", { count: updated.length }));
+        clearSelection();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selectedIds, clearSelection, t],
+  );
+
+  const handleBulkSetActive = useCallback(
+    async (isActive: boolean) => {
+      if (selectedIds.length === 0) return;
+      setBulkBusy(true);
+      try {
+        const updated = await api.patch<User[]>("/users/bulk", {
+          ids: selectedIds,
+          updates: { is_active: isActive },
+        });
+        const byId = new Map(updated.map((u) => [u.id, u]));
+        setUsers((prev) => prev.map((u) => byId.get(u.id) ?? u));
+        setSuccess(
+          isActive
+            ? t("users.bulk.activateSuccess", { count: updated.length })
+            : t("users.bulk.deactivateSuccess", { count: updated.length }),
+        );
+        clearSelection();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("common:errors.generic"));
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [selectedIds, clearSelection, t],
+  );
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(
+      t("users.bulk.confirmDelete", { count: selectedIds.length }),
+    );
+    if (!confirmed) return;
+    setBulkBusy(true);
+    try {
+      const res = await api.post<{
+        deleted: number;
+        skipped: { id: string; reason: string }[];
+      }>("/users/bulk-delete", { ids: selectedIds });
+      const skippedIds = new Set(res.skipped.map((s) => s.id));
+      setUsers((prev) => prev.filter((u) => skippedIds.has(u.id) || !selectedIds.includes(u.id)));
+      if (res.skipped.length > 0) {
+        setWarning(
+          t("users.bulk.deleteSkipped", {
+            deleted: res.deleted,
+            skipped: res.skipped.length,
+          }),
+        );
+      } else {
+        setSuccess(t("users.bulk.deleteSuccess", { count: res.deleted }));
+      }
+      clearSelection();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common:errors.generic"));
+    } finally {
+      setBulkBusy(false);
+    }
+  }, [selectedIds, clearSelection, t]);
+
+  const handleExport = useCallback(() => {
+    const list = filteredUsersRef.current;
+    exportUsersToXlsx(list);
+    setSuccess(t("users.exportSuccess", { count: list.length }));
   }, [t]);
 
   // --- Invite dialog ---
@@ -456,6 +559,11 @@ export default function UsersAdmin() {
     });
   }, [users, filters, userStatus, getInvitation]);
 
+  // Keep the export handler's snapshot in sync with the latest filtered list
+  useEffect(() => {
+    filteredUsersRef.current = filteredUsers;
+  }, [filteredUsers]);
+
   const handleResetColumns = useCallback(() => {
     setSelectedColumns(new Set(DEFAULT_USER_COLUMNS));
   }, []);
@@ -463,6 +571,20 @@ export default function UsersAdmin() {
   /* ---- AG Grid column defs ---- */
   const columnDefs = useMemo<ColDef<User>[]>(
     () => [
+      {
+        headerName: "",
+        field: "id",
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+        headerCheckboxSelectionFilteredOnly: true,
+        width: 44,
+        pinned: "left",
+        sortable: false,
+        filter: false,
+        resizable: false,
+        suppressMovable: true,
+        suppressHeaderMenuButton: true,
+      },
       {
         field: "display_name",
         headerName: t("users.columns.name"),
@@ -848,6 +970,21 @@ export default function UsersAdmin() {
             />
             <Box sx={{ flex: 1 }} />
             <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="download" size={20} />}
+              onClick={handleExport}
+              disabled={filteredUsers.length === 0}
+            >
+              {t("users.export")}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<MaterialSymbol icon="upload" size={20} />}
+              onClick={() => setImportOpen(true)}
+            >
+              {t("users.import.button")}
+            </Button>
+            <Button
               variant="contained"
               startIcon={<MaterialSymbol icon="person_add" size={20} />}
               onClick={openInvite}
@@ -855,6 +992,17 @@ export default function UsersAdmin() {
               {t("users.inviteUser")}
             </Button>
           </Box>
+
+          {/* Bulk actions */}
+          <BulkActionsToolbar
+            selectedCount={selectedIds.length}
+            busy={bulkBusy}
+            onChangeRole={() => setBulkRoleOpen(true)}
+            onActivate={() => handleBulkSetActive(true)}
+            onDeactivate={() => handleBulkSetActive(false)}
+            onDelete={handleBulkDelete}
+            onClear={clearSelection}
+          />
 
           {/* Banners */}
           {error && (
@@ -908,10 +1056,40 @@ export default function UsersAdmin() {
                 loading={loading}
                 animateRows
                 rowHeight={48}
+                rowSelection="multiple"
+                suppressRowClickSelection
+                onGridReady={(params) => {
+                  gridApiRef.current = params.api;
+                }}
+                onSelectionChanged={(e: { api: GridApi<User> }) => {
+                  const rows = e.api.getSelectedRows();
+                  setSelectedIds(rows.map((r) => r.id));
+                }}
                 overlayNoRowsTemplate={`<span style="padding: 12px;">${t("users.noUsers")}</span>`}
               />
             </Box>
           </Paper>
+
+          {/* Bulk role-change dialog */}
+          <BulkRoleDialog
+            open={bulkRoleOpen}
+            onClose={() => setBulkRoleOpen(false)}
+            onConfirm={handleBulkRoleConfirm}
+            roles={roles}
+            selectedCount={selectedIds.length}
+          />
+
+          {/* Import dialog */}
+          <UserImportDialog
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            onComplete={() => {
+              fetchUsers();
+              fetchInvitations();
+            }}
+            existingUsers={users}
+            roles={roles}
+          />
 
           {/* Invite User Dialog */}
           <Dialog

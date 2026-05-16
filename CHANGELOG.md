@@ -5,6 +5,16 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.17.0] - 2026-05-16
+
+Admin user management gains bulk operations: an XLSX export, an Excel import with optional invite-email-on-create, and a multi-select toolbar that batch-changes role, activates / deactivates, and deletes selected users.
+
+### Added
+- **Export users to XLSX.** The `/admin/users` toolbar gains an **Export** button that downloads the currently filtered user list as `users_export_YYYY-MM-DD_HHMM.xlsx` (email, display_name, role, is_active, auth_provider, locale, last_login, created_at). Client-side via the bundled `xlsx` library — no new backend endpoint.
+- **Import users from XLSX with optional invite.** A new **Import** button opens a four-step wizard (upload → validation report → progress → done) that mirrors the Inventory import dialog. Required columns: `email`, `display_name`. Optional: `role` (defaults to `viewer`), `locale`, `password`, `is_active`. Existing emails are detected as updates (with a per-field diff preview); new emails become creates. A single **Send invite emails to new users** checkbox in the report step controls whether every new row triggers the existing `POST /users` invite-email path.
+- **Bulk actions toolbar on the users grid.** Checking rows in the grid reveals a sticky toolbar with **Change role**, **Activate**, **Deactivate**, **Delete** buttons. Role and active-state changes route through a new `PATCH /users/bulk` endpoint; deletes route through `POST /users/bulk-delete`. Both are gated by `admin.users`.
+- **Last-admin safeguard on bulk endpoints.** `PATCH /users/bulk` refuses changes that would leave zero active admins; `POST /users/bulk-delete` refuses deletions that would remove the last admin row entirely, and skips active users in the selection with a per-row `{id, reason}` payload so the UI can show what was not deleted (active users must be deactivated first, matching the single-row constraint).
+
 ## [1.16.1] - 2026-05-15
 
 Security hygiene pass on the published Docker images. Drops an unused C library that was the sole remaining source of open Trivy alerts on the backend image, and prunes three legacy per-service Dockerfiles that drifted from the canonical multi-stage `Dockerfile`.

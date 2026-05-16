@@ -53,6 +53,40 @@ Se um usuário já possui uma conta local e sua organização habilita SSO, o us
 4. Clique em **Salvar Alterações**
 5. O usuário agora pode fazer login via SSO. Sua conta será automaticamente vinculada no primeiro login SSO
 
+#### Operações em massa
+
+Use as caixas de seleção das linhas na tabela de usuários para selecionar vários usuários de uma vez. Acima da tabela aparece uma barra de ações com as seguintes opções:
+
+- **Alterar função** — atribuir uma única função a todos os usuários selecionados
+- **Ativar** / **Desativar** — alternar `is_active` para a seleção
+- **Excluir** — excluir permanentemente os usuários selecionados (apenas usuários desativados são removidos; os usuários ativos na seleção são ignorados com uma explicação)
+
+A salvaguarda do «último administrador» se aplica: alterações de função em massa que deixariam zero administradores ativos são recusadas. O mesmo vale para a desativação ou exclusão do último administrador.
+
+#### Importar usuários a partir de uma planilha
+
+1. Clique no botão **Importar** (no canto superior direito). O assistente abre com uma área de arrastar e soltar para arquivos `.xlsx`.
+2. Solte ou selecione um arquivo do Excel. As colunas esperadas são:
+
+   | Coluna | Obrigatória | Descrição |
+   |--------|-------------|-----------|
+   | `email` | Sim | Usado como identidade do usuário (não diferencia maiúsculas/minúsculas). |
+   | `display_name` | Sim | Nome completo exibido na aplicação. |
+   | `role` | Não | Chave da função (ex.: `admin`, `member`, `viewer`). Padrão `viewer` quando vazio. |
+   | `password` | Não | Apenas contas locais. Deixe em branco para que os convidados definam sua senha pelo link do convite. |
+   | `locale` | Não | Idioma da interface (ex.: `en`, `de`, `fr`). |
+   | `is_active` | Não | `TRUE` / `FALSE` — substitui o indicador ativo em usuários existentes. |
+
+3. O assistente valida o arquivo e mostra um relatório: linhas a criar, linhas a atualizar (com um diff por campo), erros que bloqueiam a importação e avisos que não a bloqueiam.
+4. Se houver linhas novas, ative **Enviar e-mails de convite para novos usuários**. Quando ativado, cada novo usuário recebe um e-mail de convite com um link de entrada ou de definição de senha.
+5. Clique em **Importar** para aplicar. Uma barra de progresso mostra o status por linha; a tela final lista criações, atualizações e falhas.
+
+A forma mais rápida de começar é clicar primeiro em **Exportar**, editar o `.xlsx` resultante e reimportar o mesmo arquivo — o assistente detectará os e-mails existentes como atualizações em vez de criações.
+
+#### Exportar a lista de usuários
+
+Clique no botão **Exportar** (no canto superior direito) para baixar a lista de usuários atualmente filtrada como um arquivo do Excel (`users_export_YYYY-MM-DD_HHMM.xlsx`). A exportação respeita os filtros e termos de pesquisa definidos na barra lateral, então você pode limitar a exportação a um subconjunto (por exemplo, apenas os usuários convidados, ou apenas um único papel).
+
 #### Convites Pendentes
 
 Abaixo da tabela de usuários, uma seção de **Convites Pendentes** mostra todos os convites que ainda não foram aceitos. Cada convite mostra o e-mail, papel pré-atribuído e data do convite. Você pode revogar um convite clicando no ícone de exclusão.
