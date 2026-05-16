@@ -53,6 +53,40 @@ Wenn ein Benutzer bereits ein lokales Konto hat und Ihre Organisation SSO aktivi
 4. Klicken Sie auf **Änderungen speichern**
 5. Der Benutzer kann sich nun per SSO anmelden. Sein Konto wird bei der ersten SSO-Anmeldung automatisch verknüpft
 
+#### Massenoperationen
+
+Verwenden Sie die Zeilen-Kontrollkästchen in der Benutzertabelle, um mehrere Benutzer gleichzeitig auszuwählen. Über der Tabelle erscheint eine Werkzeugleiste mit folgenden Aktionen:
+
+- **Rolle ändern** — eine einzige Rolle auf alle ausgewählten Benutzer anwenden
+- **Aktivieren** / **Deaktivieren** — `is_active` für die Auswahl umschalten
+- **Löschen** — ausgewählte Benutzer endgültig entfernen (nur deaktivierte Benutzer werden gelöscht; aktive Benutzer in der Auswahl werden mit einer Erklärung übersprungen)
+
+Die «Letzter Administrator»-Sicherung gilt: Massen-Rollenänderungen, die keinen aktiven Administrator übrig lassen würden, werden abgelehnt. Das Gleiche gilt für das Deaktivieren oder Löschen des letzten Administrators.
+
+#### Benutzer aus einer Tabelle importieren
+
+1. Klicken Sie auf die Schaltfläche **Importieren** (oben rechts). Der Assistent öffnet sich mit einem Drag-and-Drop-Bereich für `.xlsx`-Dateien.
+2. Ziehen Sie eine Excel-Datei oder wählen Sie sie aus. Die erwarteten Spalten sind:
+
+   | Spalte | Erforderlich | Beschreibung |
+   |--------|--------------|--------------|
+   | `email` | Ja | Wird als Identität des Benutzers verwendet (Groß-/Kleinschreibung unerheblich). |
+   | `display_name` | Ja | Der vollständige Name, der in der Anwendung angezeigt wird. |
+   | `role` | Nein | Rollen-Schlüssel (z. B. `admin`, `member`, `viewer`). Standard ist `viewer`, wenn leer. |
+   | `password` | Nein | Nur für lokale Konten. Leer lassen, damit Eingeladene ihr Passwort über den Einladungslink selbst festlegen. |
+   | `locale` | Nein | UI-Sprache (z. B. `en`, `de`, `fr`). |
+   | `is_active` | Nein | `TRUE` / `FALSE` — überschreibt das Aktiv-Kennzeichen vorhandener Benutzer. |
+
+3. Der Assistent validiert die Datei und zeigt einen Bericht: zu erstellende Zeilen, zu aktualisierende Zeilen (mit Feldvergleich), Fehler, die den Import blockieren, und Warnungen, die ihn nicht blockieren.
+4. Bei neuen Zeilen können Sie **Einladungs-E-Mails an neue Benutzer senden** aktivieren. Wenn aktiv, erhält jeder neue Benutzer eine Einladungs-E-Mail mit einem Anmelde- oder Passwort-Einrichtungslink.
+5. Klicken Sie auf **Importieren**, um die Änderungen anzuwenden. Ein Fortschrittsbalken zeigt den Status pro Zeile; der Abschlussbildschirm listet Erstellungen, Aktualisierungen und Fehler auf.
+
+Der schnellste Einstieg ist, zuerst **Exportieren** zu klicken, die resultierende `.xlsx` zu bearbeiten und dieselbe Datei erneut zu importieren — der Assistent erkennt vorhandene E-Mails als Aktualisierungen statt als Neuanlagen.
+
+#### Benutzerliste exportieren
+
+Klicken Sie auf die Schaltfläche **Exportieren** (oben rechts), um die aktuell gefilterte Benutzerliste als Excel-Datei (`users_export_YYYY-MM-DD_HHMM.xlsx`) herunterzuladen. Der Export berücksichtigt alle Filter und Suchbegriffe der Seitenleiste, sodass Sie den Export auf eine Teilmenge eingrenzen können (z. B. nur eingeladene Benutzer oder nur eine bestimmte Rolle).
+
 #### Ausstehende Einladungen
 
 Unterhalb der Benutzertabelle zeigt ein Abschnitt **Ausstehende Einladungen** alle Einladungen, die noch nicht angenommen wurden. Jede Einladung zeigt die E-Mail, die zugewiesene Rolle und das Einladungsdatum. Sie können eine Einladung durch Klicken auf das Löschsymbol widerrufen.
