@@ -75,7 +75,7 @@
   "portfolio.noAppsEmpty": "No applications found. Create applications to see the portfolio.",
   "portfolio.noAppsInGroup": "No applications in this group",
   "portfolio.noItemsFiltered": "No {{type}} match current filters.",
-  "portfolio.noItemsEmpty": "No {{type}} found. Create {{type}} to see the portfolio.",
+  "portfolio.noItemsEmpty": "No {{type}} found. Create some to see the portfolio.",
   "portfolio.noItemsInGroup": "No {{type}} in this group",
   "portfolio.apps_one": "{{count}} app",
   "portfolio.apps_other": "{{count}} apps",
