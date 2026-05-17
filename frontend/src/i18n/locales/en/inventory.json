@@ -32,6 +32,8 @@
   "filter.title": "Filters",
   "filter.expand": "Expand filters",
   "filter.searchPlaceholder": "Search cards...",
+  "filter.mineStakeholder": "Only cards I'm a stakeholder on",
+  "filter.mineStakeholderHint": "Restrict the list to cards where you hold at least one stakeholder role.",
   "filter.searchEllipsis": "Search…",
   "filter.types": "Types",
   "filter.subtypes": "Subtypes",

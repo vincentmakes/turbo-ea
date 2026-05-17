@@ -23,6 +23,7 @@
   "actions.download": "Descargar",
   "actions.upload": "Subir",
   "actions.refresh": "Actualizar",
+  "actions.review": "Revisar",
   "actions.apply": "Aplicar",
   "actions.reset": "Restablecer",
   "actions.submit": "Enviar",

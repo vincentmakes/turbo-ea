@@ -58,6 +58,11 @@ export interface Filters {
   attributes: Record<string, string | string[]>; // select fields → string[], text/number → string
   relations: Record<string, string[]>; // relTypeKey → related card names (multi-select)
   tagIds: string[]; // selected tag ids (OR within a group, AND across groups)
+  // Restricts the result to cards related to the current user. Currently only
+  // `"stakeholder"` (cards the user holds at least one stakeholder role on)
+  // is wired up — kept as a string union so we can add more scopes (creator,
+  // both, …) without changing every call site.
+  mineScope: "stakeholder" | null;
 }
 
 interface Props {
@@ -260,7 +265,7 @@ export default function InventoryFilterSidebar({
   }, [relationsMap, relevantRelTypes]);
 
   const clearAll = () =>
-    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [] });
+    onFiltersChange({ types: [], search: "", subtypes: [], lifecyclePhases: [], dataQualityMin: null, approvalStatuses: [], showArchived: false, attributes: {}, relations: {}, tagIds: [], mineScope: null });
 
   const activeCount =
     filters.types.length +
@@ -272,7 +277,8 @@ export default function InventoryFilterSidebar({
     (filters.showArchived ? 1 : 0) +
     Object.keys(filters.attributes).length +
     Object.keys(filters.relations || {}).length +
-    (filters.tagIds?.length ?? 0);
+    (filters.tagIds?.length ?? 0) +
+    (filters.mineScope ? 1 : 0);
 
   // Check if columns differ from default
   const columnsChanged = useMemo(() => {
@@ -326,6 +332,7 @@ export default function InventoryFilterSidebar({
         attributes: filters.attributes,
         relations: filters.relations,
         tagIds: filters.tagIds,
+        mineScope: filters.mineScope,
       },
       columns: Array.from(selectedColumns),
       visibility: dialogVisibility,
@@ -357,6 +364,7 @@ export default function InventoryFilterSidebar({
         attributes: f.attributes || {},
         relations: f.relations || {},
         tagIds: f.tagIds || [],
+        mineScope: f.mineScope ?? null,
       });
     }
     // Restore saved columns if present
@@ -571,6 +579,45 @@ export default function InventoryFilterSidebar({
                   }}
                 />
               </Collapse>
+
+              {/* Scope: only cards I'm a stakeholder on */}
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1,
+                  px: 1,
+                  py: 0.75,
+                  mb: 1.5,
+                  borderRadius: 1,
+                  bgcolor: filters.mineScope === "stakeholder" ? "action.selected" : "transparent",
+                }}
+              >
+                <MaterialSymbol icon="person" size={16} />
+                <FormControlLabel
+                  sx={{ flex: 1, mr: 0, ml: 0.5 }}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={filters.mineScope === "stakeholder"}
+                      onChange={(e) =>
+                        onFiltersChange({
+                          ...filters,
+                          mineScope: e.target.checked ? "stakeholder" : null,
+                        })
+                      }
+                    />
+                  }
+                  label={
+                    <Tooltip title={t("filter.mineStakeholderHint") as string}>
+                      <Typography variant="body2">
+                        {t("filter.mineStakeholder")}
+                      </Typography>
+                    </Tooltip>
+                  }
+                  labelPlacement="start"
+                />
+              </Box>
 
               {/* Card Types */}
               <SectionHeader

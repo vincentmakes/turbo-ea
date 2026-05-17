@@ -208,6 +208,70 @@ class TestListCards:
         )
         assert response.status_code == 200
 
+    async def test_mine_stakeholder_filters_to_stakeholder_cards(self, client, db, cards_env):
+        """`mine=stakeholder` must restrict to cards the caller is a stakeholder on.
+
+        Combined with `approval_status=BROKEN` it powers the Dashboard
+        "broken card you're responsible for" deep-link.
+        """
+        from app.models.stakeholder import Stakeholder
+
+        admin = cards_env["admin"]
+        member = cards_env["member"]
+
+        # Two broken cards, but member is only a stakeholder on one of them.
+        mine_broken = await create_card(
+            db,
+            card_type="Application",
+            name="Mine Broken",
+            user_id=admin.id,
+            approval_status="BROKEN",
+        )
+        await create_card(
+            db,
+            card_type="Application",
+            name="Other Broken",
+            user_id=admin.id,
+            approval_status="BROKEN",
+        )
+        # A non-broken card member is a stakeholder on — must be excluded by approval filter.
+        mine_draft = await create_card(
+            db,
+            card_type="Application",
+            name="Mine Draft",
+            user_id=admin.id,
+            approval_status="DRAFT",
+        )
+        db.add(Stakeholder(card_id=mine_broken.id, user_id=member.id, role="responsible"))
+        db.add(Stakeholder(card_id=mine_draft.id, user_id=member.id, role="responsible"))
+        await db.flush()
+
+        # mine=stakeholder alone → both mine cards.
+        response = await client.get(
+            "/api/v1/cards?mine=stakeholder",
+            headers=auth_headers(member),
+        )
+        assert response.status_code == 200
+        names = {item["name"] for item in response.json()["items"]}
+        assert names == {"Mine Broken", "Mine Draft"}
+
+        # mine=stakeholder + approval_status=BROKEN → only Mine Broken.
+        response = await client.get(
+            "/api/v1/cards?mine=stakeholder&approval_status=BROKEN",
+            headers=auth_headers(member),
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["name"] == "Mine Broken"
+
+    async def test_mine_rejects_unknown_value(self, client, db, cards_env):
+        response = await client.get(
+            "/api/v1/cards?mine=bogus",
+            headers=auth_headers(cards_env["member"]),
+        )
+        assert response.status_code == 422
+
 
 # ---------------------------------------------------------------------------
 # PATCH /cards/{id}  (update)

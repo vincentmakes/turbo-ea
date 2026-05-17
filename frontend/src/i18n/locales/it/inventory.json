@@ -32,6 +32,8 @@
   "filter.title": "Filtri",
   "filter.expand": "Espandi filtri",
   "filter.searchPlaceholder": "Cerca schede...",
+  "filter.mineStakeholder": "Solo schede di cui sono stakeholder",
+  "filter.mineStakeholderHint": "Limita l'elenco alle schede su cui hai almeno un ruolo di stakeholder.",
   "filter.searchEllipsis": "Cerca…",
   "filter.types": "Tipi",
   "filter.subtypes": "Sottotipi",

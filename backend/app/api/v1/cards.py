@@ -406,6 +406,15 @@ async def list_cards(
     search: str | None = Query(None, max_length=200),
     parent_id: str | None = Query(None),
     approval_status: str | None = Query(None),
+    mine: str | None = Query(
+        None,
+        pattern="^(stakeholder)$",
+        description=(
+            "Scope the result to cards related to the current user. "
+            "`stakeholder` keeps only cards on which the user holds at least "
+            "one stakeholder role."
+        ),
+    ),
     ids: str | None = Query(
         None,
         description=(
@@ -471,6 +480,10 @@ async def list_cards(
         statuses = [s.strip() for s in approval_status.split(",") if s.strip()]
         q = q.where(Card.approval_status.in_(statuses))
         count_q = count_q.where(Card.approval_status.in_(statuses))
+    if mine == "stakeholder":
+        mine_cards_sq = select(Stakeholder.card_id).where(Stakeholder.user_id == user.id).distinct()
+        q = q.where(Card.id.in_(mine_cards_sq))
+        count_q = count_q.where(Card.id.in_(mine_cards_sq))
 
     # Sorting — H9: whitelist sort columns
     if sort_by not in _ALLOWED_SORT_COLUMNS:

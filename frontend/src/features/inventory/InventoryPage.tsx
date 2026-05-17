@@ -197,6 +197,7 @@ export default function InventoryPage() {
     // URL params take precedence over localStorage
     const hasUrlParams = searchParams.has("type") || searchParams.has("search") ||
       searchParams.has("approval_status") || searchParams.has("show_archived") ||
+      searchParams.has("mine") ||
       Array.from(searchParams.keys()).some((k) => k.startsWith("attr_"));
 
     if (hasUrlParams) {
@@ -217,6 +218,7 @@ export default function InventoryPage() {
         attributes,
         relations: {},
         tagIds: [],
+        mineScope: searchParams.get("mine") === "stakeholder" ? "stakeholder" : null,
       };
     }
 
@@ -234,6 +236,7 @@ export default function InventoryPage() {
         attributes: saved.filters.attributes || {},
         relations: saved.filters.relations || {},
         tagIds: saved.filters.tagIds || [],
+        mineScope: saved.filters.mineScope ?? null,
       };
     }
 
@@ -248,6 +251,7 @@ export default function InventoryPage() {
       attributes: {},
       relations: {},
       tagIds: [],
+      mineScope: null,
     };
   });
 
@@ -502,6 +506,9 @@ export default function InventoryPage() {
       if (filters.showArchived) {
         params.set("status", "ARCHIVED");
       }
+      if (filters.mineScope) {
+        params.set("mine", filters.mineScope);
+      }
       params.set("page_size", "10000");
       const res = await api.get<CardListResponse>(
         `/cards?${params}`
@@ -511,7 +518,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived]);
+  }, [filters.types, filters.search, filters.approvalStatuses, filters.showArchived, filters.mineScope]);
 
   useEffect(() => {
     loadData();

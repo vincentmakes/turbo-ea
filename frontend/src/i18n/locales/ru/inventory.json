@@ -32,6 +32,8 @@
   "filter.title": "Фильтры",
   "filter.expand": "Развернуть фильтры",
   "filter.searchPlaceholder": "Поиск карточек...",
+  "filter.mineStakeholder": "Только карточки, где я заинтересованная сторона",
+  "filter.mineStakeholderHint": "Ограничить список карточками, в которых у вас есть хотя бы одна роль заинтересованной стороны.",
   "filter.searchEllipsis": "Поиск…",
   "filter.types": "Типы",
   "filter.subtypes": "Подтипы",

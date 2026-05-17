@@ -32,6 +32,8 @@
   "filter.title": "筛选",
   "filter.expand": "展开筛选",
   "filter.searchPlaceholder": "搜索卡片...",
+  "filter.mineStakeholder": "仅显示我作为干系人的卡片",
+  "filter.mineStakeholderHint": "将列表限制为您至少拥有一个干系人角色的卡片。",
   "filter.searchEllipsis": "搜索…",
   "filter.types": "类型",
   "filter.subtypes": "子类型",

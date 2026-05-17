@@ -23,6 +23,7 @@
   "actions.download": "下载",
   "actions.upload": "上传",
   "actions.refresh": "刷新",
+  "actions.review": "查看",
   "actions.apply": "应用",
   "actions.reset": "重置",
   "actions.submit": "提交",
