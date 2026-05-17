@@ -92,7 +92,7 @@ L'inventario utilizza una tabella dati **AG Grid** con funzionalità avanzate:
 3. Opzionalmente, cliccate su **Suggerisci con AI** per generare automaticamente una descrizione (vedi [Suggerimenti di descrizione AI](#suggerimenti-di-descrizione-ai) di seguito)
 4. Cliccate su **CREA**
 
-## Suggerimenti di descrizione AI
+## Suggerimenti di descrizione AI { #ai-description-suggestions }
 
 Turbo EA può utilizzare l'**AI per generare una descrizione** per qualsiasi card. Questo funziona sia nella finestra di creazione card che nelle pagine di dettaglio delle card esistenti.
 
@@ -137,7 +137,7 @@ Le viste salvate appaiono nel pannello laterale dei filtri. Cliccate su qualsias
 - **Condivise con me** — Viste condivise da altri con voi
 - **Viste pubbliche** — Viste disponibili per tutti
 
-## Importazione / Esportazione Excel
+## Importazione / Esportazione Excel { #excel-import }
 
 Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro Excel a più fogli** che ricostruisce un intero sotto-paesaggio — schede di qualsiasi numero di tipi e le relazioni tra di esse — senza dover mai copiare un UUID.
 

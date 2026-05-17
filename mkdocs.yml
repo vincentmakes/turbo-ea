@@ -65,6 +65,13 @@ plugins:
             Getting Started: Primeros pasos
             Installation & Setup: Instalación y configuración
             Accessing the Platform: Acceso a la plataforma
+            EA Beginner's Guide: Guía para principiantes EA
+            Your First 30 Days: Sus primeros 30 días
+            Plan Your Rollout: Planifique su despliegue
+            Start with Applications: Empiece por las aplicaciones
+            Leverage Reference Catalogues: Aproveche los catálogos de referencia
+            Customise the Metamodel: Personalice el metamodelo
+            Your First Analysis: Su primer análisis
             User Guide: Guía del usuario
             Core: Esencial
             Reports & Analysis: Informes y análisis
@@ -118,6 +125,13 @@ plugins:
             Getting Started: Erste Schritte
             Installation & Setup: Installation und Einrichtung
             Accessing the Platform: Zugang zur Plattform
+            EA Beginner's Guide: EA-Einsteigerhandbuch
+            Your First 30 Days: Ihre ersten 30 Tage
+            Plan Your Rollout: Planen Sie Ihren Rollout
+            Start with Applications: Mit Anwendungen beginnen
+            Leverage Reference Catalogues: Referenzkataloge nutzen
+            Customise the Metamodel: Metamodell anpassen
+            Your First Analysis: Ihre erste Analyse
             User Guide: Benutzerhandbuch
             Core: Grundlagen
             Reports & Analysis: Berichte und Analyse
@@ -171,6 +185,13 @@ plugins:
             Getting Started: Premiers pas
             Installation & Setup: Installation et configuration
             Accessing the Platform: Accès à la plateforme
+            EA Beginner's Guide: Guide du débutant EA
+            Your First 30 Days: Vos 30 premiers jours
+            Plan Your Rollout: Planifiez votre déploiement
+            Start with Applications: Commencez par les applications
+            Leverage Reference Catalogues: Tirez parti des catalogues de référence
+            Customise the Metamodel: Personnalisez le métamodèle
+            Your First Analysis: Votre première analyse
             User Guide: Guide utilisateur
             Core: Essentiel
             Reports & Analysis: Rapports et analyses
@@ -224,6 +245,13 @@ plugins:
             Getting Started: Per iniziare
             Installation & Setup: Installazione e configurazione
             Accessing the Platform: Accesso alla piattaforma
+            EA Beginner's Guide: Guida per principianti EA
+            Your First 30 Days: I tuoi primi 30 giorni
+            Plan Your Rollout: Pianifica il rollout
+            Start with Applications: Inizia dalle applicazioni
+            Leverage Reference Catalogues: Sfrutta i cataloghi di riferimento
+            Customise the Metamodel: Personalizza il metamodello
+            Your First Analysis: La tua prima analisi
             User Guide: Guida utente
             Core: Essenziale
             Reports & Analysis: Report e analisi
@@ -277,6 +305,13 @@ plugins:
             Getting Started: Primeiros passos
             Installation & Setup: Instalação e configuração
             Accessing the Platform: Acesso à plataforma
+            EA Beginner's Guide: Guia para iniciantes EA
+            Your First 30 Days: Seus primeiros 30 dias
+            Plan Your Rollout: Planeje sua implantação
+            Start with Applications: Comece pelas aplicações
+            Leverage Reference Catalogues: Aproveite os catálogos de referência
+            Customise the Metamodel: Personalize o metamodelo
+            Your First Analysis: Sua primeira análise
             User Guide: Guia do usuário
             Core: Essencial
             Reports & Analysis: Relatórios e análises
@@ -330,6 +365,13 @@ plugins:
             Getting Started: 快速开始
             Installation & Setup: 安装与配置
             Accessing the Platform: 访问平台
+            EA Beginner's Guide: EA 入门指南
+            Your First 30 Days: 您的前 30 天
+            Plan Your Rollout: 规划您的部署
+            Start with Applications: 从应用开始
+            Leverage Reference Catalogues: 善用参考目录
+            Customise the Metamodel: 轻量定制元模型
+            Your First Analysis: 您的第一次分析
             User Guide: 用户指南
             Core: 核心功能
             Reports & Analysis: 报告与分析
@@ -383,6 +425,13 @@ plugins:
             Getting Started: Начало работы
             Installation & Setup: Установка и настройка
             Accessing the Platform: Доступ к платформе
+            EA Beginner's Guide: Руководство для начинающих EA
+            Your First 30 Days: Первые 30 дней
+            Plan Your Rollout: Спланируйте внедрение
+            Start with Applications: Начните с приложений
+            Leverage Reference Catalogues: Используйте справочные каталоги
+            Customise the Metamodel: Лёгкая настройка метамодели
+            Your First Analysis: Ваш первый анализ
             User Guide: Руководство пользователя
             Core: Основное
             Reports & Analysis: Отчёты и анализ
@@ -462,6 +511,13 @@ nav:
   - Getting Started:
       - Installation & Setup: getting-started/setup.md
       - Accessing the Platform: getting-started/login.md
+  - EA Beginner's Guide:
+      - Your First 30 Days: beginners-guide/index.md
+      - Plan Your Rollout: beginners-guide/plan-your-rollout.md
+      - Start with Applications: beginners-guide/start-with-applications.md
+      - Leverage Reference Catalogues: beginners-guide/leverage-reference-catalogues.md
+      - Customise the Metamodel: beginners-guide/customise-the-metamodel.md
+      - Your First Analysis: beginners-guide/your-first-analysis.md
   - User Guide:
       - Core:
           - Dashboard: guide/dashboard.md

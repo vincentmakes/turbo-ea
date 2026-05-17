@@ -70,3 +70,6 @@
 | **合规发现** | 合规登记册中针对某项法规 × 条款的一行记录。可由审核员手工撰写，也可由 TurboLens AI 扫描产生；两种来源共享同一套生命周期，并可提升为风险 |
 | **宏能力** | 能力目录中位于 L1 之上的 Level-0 分组。以 `BusinessCapability` 卡片形式落入清单，`attributes.capabilityLevel = "Macro"`，`catalogueId` 以 `MC-` 为前缀。将层级深度限制放宽至 6 |
 | **分层依赖视图（LDV）** | Turbo EA 用于依赖图的自有表示法：卡片按四个 EA 层划分为泳道、按卡片类型着色，提议的卡片渲染为带虚线边框和绿色「NEW」徽章的节点。被依赖关系报告、卡片详情中的依赖关系部分以及 TurboLens Architect 的目标架构所使用 |
+| **TIME（Tolerate / Invest / Migrate / Eliminate）** | 一种针对应用的四象限组合分类框架，由 Gartner 推广。每个应用被标记为一种处置策略：Tolerate（维持现状）、Invest（投资改进）、Migrate（替换或迁移）或 Eliminate（退役）。在 Turbo EA 中通常作为应用卡片类型上的 `single_select` 字段添加，并用作组合报告的颜色轴 |
+| **应用组合合理化** | Turbo EA 上最常见的首个 EA 倡议：盘点范围内的应用，按业务价值与技术适配度对其分类，并赋予 TIME 处置策略，从而驱动合并、替换或退役决策 |
+| **Crawl-Walk-Run** | EA 入门指南中推荐的分阶段落地模式。Crawl = 缩小范围、仅应用、每张卡片五个字段。Walk = 增加能力映射和首个组合分析。Run = 扩展到流程、接口、数据以及高级模块 |

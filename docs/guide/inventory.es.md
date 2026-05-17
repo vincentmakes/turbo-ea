@@ -92,7 +92,7 @@ El inventario utiliza una tabla de datos **AG Grid** con funciones avanzadas:
 3. Opcionalmente, haga clic en **Sugerir con IA** para generar una descripción automáticamente (consulte [Sugerencias de Descripción con IA](#sugerencias-de-descripcion-con-ia) a continuación)
 4. Haga clic en **CREAR**
 
-## Sugerencias de Descripción con IA
+## Sugerencias de Descripción con IA { #ai-description-suggestions }
 
 Turbo EA puede usar **IA para generar una descripción** para cualquier ficha. Esto funciona tanto en el diálogo de creación de fichas como en las páginas de detalle de fichas existentes.
 
@@ -137,7 +137,7 @@ Las vistas guardadas aparecen en el panel lateral de filtros. Haga clic en cualq
 - **Compartidas conmigo** — Vistas que otros compartieron con usted
 - **Vistas Públicas** — Vistas disponibles para todos
 
-## Importación / Exportación Excel
+## Importación / Exportación Excel { #excel-import }
 
 Las importaciones y exportaciones del inventario usan un **libro Excel multi-hoja** que restituye un sub-paisaje completo — fichas de cualquier número de tipos más las relaciones entre ellas — sin necesidad de copiar nunca un UUID.
 

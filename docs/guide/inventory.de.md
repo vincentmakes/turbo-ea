@@ -92,7 +92,7 @@ Das Inventar verwendet eine **AG Grid**-Datentabelle mit leistungsstarken Funkti
 3. Optional: Klicken Sie auf **Mit KI vorschlagen**, um automatisch eine Beschreibung zu generieren (siehe [KI-Beschreibungsvorschläge](#ki-beschreibungsvorschläge) unten)
 4. Klicken Sie auf **ERSTELLEN**
 
-## KI-Beschreibungsvorschläge
+## KI-Beschreibungsvorschläge { #ai-description-suggestions }
 
 Turbo EA kann **KI verwenden, um eine Beschreibung** für jede Karte zu generieren. Dies funktioniert sowohl im Karte-erstellen-Dialog als auch auf bestehenden Kartendetailseiten.
 
@@ -137,7 +137,7 @@ Gespeicherte Ansichten erscheinen in der Seitenleiste des Filterpanels. Klicken 
 - **Mit mir geteilt** — Ansichten, die andere mit Ihnen geteilt haben
 - **Öffentliche Ansichten** — Ansichten, die für alle verfügbar sind
 
-## Excel-Import / -Export
+## Excel-Import / -Export { #excel-import }
 
 Inventar-Exporte und -Importe nutzen eine **mehrblättrige Excel-Arbeitsmappe**, die Ihre Landschaft samt Beziehungen vollständig zurück- und wieder einlesen kann — ohne dass Sie jemals eine UUID kopieren müssen.
 
