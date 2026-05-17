@@ -14439,6 +14439,25 @@
             }
           },
           {
+            "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
+            "in": "query",
+            "name": "mine",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(stakeholder)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Scope the result to cards related to the current user. `stakeholder` keeps only cards on which the user holds at least one stakeholder role.",
+              "title": "Mine"
+            }
+          },
+          {
             "description": "Comma-separated UUIDs to fetch in one round trip. Used by the diagram editor's view perspectives to recolor cells.",
             "in": "query",
             "name": "ids",

@@ -32,6 +32,8 @@
   "filter.title": "Filter",
   "filter.expand": "Filter aufklappen",
   "filter.searchPlaceholder": "Karten suchen...",
+  "filter.mineStakeholder": "Nur Karten, bei denen ich Stakeholder bin",
+  "filter.mineStakeholderHint": "Beschränkt die Liste auf Karten, in denen Sie mindestens eine Stakeholder-Rolle innehaben.",
   "filter.searchEllipsis": "Suchen…",
   "filter.types": "Typen",
   "filter.subtypes": "Subtypen",

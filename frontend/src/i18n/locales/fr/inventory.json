@@ -32,6 +32,8 @@
   "filter.title": "Filtres",
   "filter.expand": "Déplier les filtres",
   "filter.searchPlaceholder": "Rechercher des fiches…",
+  "filter.mineStakeholder": "Uniquement les fiches dont je suis partie prenante",
+  "filter.mineStakeholderHint": "Limite la liste aux fiches sur lesquelles vous détenez au moins un rôle de partie prenante.",
   "filter.searchEllipsis": "Rechercher…",
   "filter.types": "Types",
   "filter.subtypes": "Sous-types",

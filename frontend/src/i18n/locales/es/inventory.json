@@ -32,6 +32,8 @@
   "filter.title": "Filtros",
   "filter.expand": "Expandir filtros",
   "filter.searchPlaceholder": "Buscar fichas...",
+  "filter.mineStakeholder": "Solo fichas en las que soy parte interesada",
+  "filter.mineStakeholderHint": "Restringe la lista a las fichas en las que tienes al menos un rol de parte interesada.",
   "filter.searchEllipsis": "Buscar…",
   "filter.types": "Tipos",
   "filter.subtypes": "Subtipos",

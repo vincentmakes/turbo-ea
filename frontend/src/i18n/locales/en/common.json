@@ -23,6 +23,7 @@
   "actions.download": "Download",
   "actions.upload": "Upload",
   "actions.refresh": "Refresh",
+  "actions.review": "Review",
   "actions.apply": "Apply",
   "actions.reset": "Reset",
   "actions.submit": "Submit",

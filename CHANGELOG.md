@@ -5,6 +5,17 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.21.0] - 2026-05-17
+
+Dashboard "Needs my attention" redesign and a scoped inventory deep-link so the user actually lands on **their** broken cards.
+
+### Added
+- **Inventory: "Only cards I'm a stakeholder on" filter** in the filter sidebar, mirrored by a new `mine=stakeholder` query parameter on `GET /cards`. The filter persists with the other inventory filters and is included in saved views.
+
+### Changed
+- **Dashboard → Needs my attention** redesigned as a row of compact action cards — severity-coloured icon badge, count, label, and a "Review" affordance per item. Replaces the prior plain Alert + text-link layout.
+- **Dashboard → "broken card you're responsible for" link** now deep-links to `/inventory?approval_status=BROKEN&mine=stakeholder` so the inventory matches the dashboard counter. Previously it opened the inventory showing every broken card in the landscape, regardless of ownership.
+
 ## [1.20.1] - 2026-05-17
 
 Bug fixes for the Flexible Portfolio report introduced in 1.19.
