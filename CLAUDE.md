@@ -419,11 +419,20 @@ turbo-ea/
 │   │   │   ├── useAuth.ts             # Login/register/logout + token in sessionStorage
 │   │   │   ├── useMetamodel.ts        # Cached metamodel types + relation types
 │   │   │   ├── useEventStream.ts      # SSE subscription hook
-│   │   │   ├── useCurrency.ts         # Global currency format + symbol cache
+│   │   │   ├── useCurrency.ts         # Global currency format + symbol cache (singleton)
+│   │   │   ├── useDateFormat.ts       # Global date format (singleton)
+│   │   │   ├── useEnabledLocales.ts   # Active locale list from settings
+│   │   │   ├── useThemeMode.ts        # Light/dark mode preference
+│   │   │   ├── useAppTitle.ts         # Tab + browser title from settings
 │   │   │   ├── usePermissions.ts      # Effective permissions for current card
 │   │   │   ├── useCalculatedFields.ts # Track calculated fields per type
-│   │   │   ├── useBpmEnabled.ts       # BPM feature flag
-│   │   │   ├── usePpmEnabled.ts       # PPM feature flag
+│   │   │   ├── useResolveLabel.ts     # Metamodel label resolver (per-locale translations)
+│   │   │   ├── useBpmEnabled.ts       # BPM feature flag (singleton)
+│   │   │   ├── usePpmEnabled.ts       # PPM feature flag (singleton)
+│   │   │   ├── useGrcEnabled.ts       # GRC feature flag (singleton)
+│   │   │   ├── useTurboLensReady.ts   # TurboLens readiness (singleton)
+│   │   │   ├── useAiStatus.ts         # AI provider status (singleton)
+│   │   │   ├── useComplianceRegulations.ts # Compliance regulation catalogue
 │   │   │   ├── useSavedReport.ts      # Saved report caching
 │   │   │   ├── useThumbnailCapture.ts # SVG → PNG for report thumbnails
 │   │   │   └── useTimeline.ts         # Process timeline data
@@ -798,15 +807,28 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/cards` | Paginated list. Query: `type`, `status`, `search`, `parent_id`, `approval_status`, `page`, `page_size`, `sort_by`, `sort_dir` |
+| GET | `/cards/counts` | Counts by type / status / approval (lightweight, no card payload) |
+| GET | `/cards/my-created` | Cards created by the current user |
+| GET | `/cards/my-stakeholder` | Cards on which the current user holds a stakeholder role |
 | POST | `/cards` | Create card. Auto-computes data quality, runs calculations |
 | GET | `/cards/{id}` | Get card with tags + stakeholders |
 | PATCH | `/cards/{id}` | Update. Breaks approval on substantive changes, recalculates quality |
-| DELETE | `/cards/{id}` | Archives (soft-delete: status=ARCHIVED, sets archived_at). Auto-purged after 30 days |
+| DELETE | `/cards/{id}` | Permanent delete (hard delete) |
 | PATCH | `/cards/bulk` | Bulk update multiple cards |
+| POST | `/cards/bulk-archive` | Soft-delete: status=ARCHIVED, sets archived_at. Auto-purged after 30 days |
+| POST | `/cards/bulk-restore` | Restore archived cards |
+| POST | `/cards/bulk-delete` | Permanent delete of multiple cards |
+| POST | `/cards/{id}/archive` | Archive single card (with impact preview) |
+| GET | `/cards/{id}/archive-impact` | Preview cards that would be cascade-archived |
+| POST | `/cards/{id}/restore` | Restore single archived card |
+| GET | `/cards/{id}/restore-impact` | Preview cards that would be cascade-restored |
 | GET | `/cards/{id}/hierarchy` | Ancestors, children, computed level |
 | GET | `/cards/{id}/history` | Paginated event history |
+| GET | `/cards/{id}/relation-summary` | Per-relation-type counts + sample targets |
+| GET | `/cards/{id}/my-permissions` | Effective permissions for the current user on this card |
 | POST | `/cards/{id}/approval-status` | `?action=approve\|reject\|reset` |
 | GET | `/cards/export/csv` | Export as CSV. `?type=X` |
+| GET | `/cards/export/json` | Export as JSON |
 
 ### RBAC (`/roles`, `/stakeholder-roles`)
 
@@ -995,6 +1017,7 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 | `/inventory` | `InventoryPage` | AG Grid table with memoized configs |
 | `/cards/:id` | `CardDetail` | Modular detail: sections + tabs |
 | `/reports/portfolio` | `PortfolioReport` | Bubble/scatter chart |
+| `/reports/flexible-portfolio` | `FlexiblePortfolioReport` | Configurable multi-axis portfolio view |
 | `/reports/capability-map` | `CapabilityMapReport` | Heatmap of business capabilities |
 | `/reports/lifecycle` | `LifecycleReport` | Timeline visualization |
 | `/reports/dependencies` | `DependencyReport` | Network graph |
@@ -1003,16 +1026,29 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 | `/reports/data-quality` | `DataQualityReport` | Completeness dashboard |
 | `/reports/eol` | `EolReport` | End-of-Life status |
 | `/reports/saved` | `SavedReportsPage` | Saved report gallery |
-| `/ppm` | `PpmPortfolio` | PPM portfolio dashboard with Gantt chart |
+| `/ppm` | `PpmHome` | PPM portfolio dashboard with Gantt chart |
 | `/ppm/:id` | `PpmProjectDetail` | Initiative detail (overview, reports, cost, risks, tasks, gantt) |
 | `/bpm` | `BpmDashboard` | BPM maturity overview |
 | `/bpm/processes/:id/flow` | `ProcessFlowEditorPage` | BPMN editor with approval workflow |
 | `/diagrams` | `DiagramsPage` | Diagram gallery with thumbnails |
-| `/diagrams/:id` | `DiagramEditor` | DrawIO iframe editor |
-| `/ea-delivery` | `EADeliveryPage` | SoAW document list |
+| `/diagrams/:id` | `DiagramViewer` | DrawIO iframe viewer (read-only) |
+| `/diagrams/:id/edit` | `DiagramEditor` | DrawIO iframe editor (edit mode) |
+| `/ea-delivery` | redirect → `/reports/ea-delivery` | Backwards-compat redirect |
+| `/reports/ea-delivery` | `EaDeliveryReport` | EA delivery dashboard (SoAW + ADR rollup) |
 | `/ea-delivery/soaw/new` | `SoAWEditor` | Create new SoAW |
 | `/ea-delivery/soaw/:id` | `SoAWEditor` | Edit SoAW |
-| `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only preview |
+| `/ea-delivery/soaw/:id/preview` | `SoAWPreview` | Read-only SoAW preview |
+| `/ea-delivery/adr/new` | `ADREditor` | Create new ADR |
+| `/ea-delivery/adr/:id` | `ADREditor` | Edit ADR |
+| `/ea-delivery/adr/:id/preview` | `ADRPreview` | Read-only ADR preview |
+| `/grc` | `GrcPage` | GRC tabbed shell (risk / compliance / governance) |
+| `/grc/risks/:id` | `RiskDetailPage` | Risk detail page |
+| `/turbolens` | `TurboLensPage` | TurboLens AI tabs (dashboard / vendors / resolution / duplicates / architect / assessments / history) |
+| `/turbolens/assessments/:id` | `AssessmentViewer` | Read-only architecture-AI assessment |
+| `/capability-catalogue` | `CapabilityCataloguePage` | Industry capability reference (with Macro tier) |
+| `/principles-catalogue` | `PrinciplesCataloguePage` | Curated EA principles reference |
+| `/process-catalogue` | `ProcessCataloguePage` | Industry business process reference |
+| `/value-stream-catalogue` | `ValueStreamCataloguePage` | Value stream reference |
 | `/todos` | `TodosPage` | Todos + Surveys (tabbed) |
 | `/surveys/:surveyId/respond/:cardId` | `SurveyRespond` | Respond to survey |
 | `/portal/:slug` | `PortalViewer` | Public portal (no auth) |
@@ -1021,13 +1057,14 @@ All route-level pages use `lazy()` imports for code splitting. Auth pages (Login
 | `/admin/metamodel` | `MetamodelAdmin` | Card types + relations |
 | `/admin/users` | `UsersAdmin` | User management |
 | `/admin/settings` | `SettingsAdmin` | Logo, currency, SMTP, AI |
-| `/admin/eol` | `EolAdmin` | Mass EOL linking |
+| `/admin/eol` | redirect → `/admin/settings?tab=eol` | Mass EOL linking (under settings) |
 | `/admin/surveys` | `SurveysAdmin` | Survey management |
 | `/admin/surveys/new` | `SurveyBuilder` | Create survey |
 | `/admin/surveys/:id` | `SurveyBuilder` | Edit survey |
 | `/admin/surveys/:id/results` | `SurveyResults` | View/apply responses |
-| `/admin/web-portals` | `WebPortalsAdmin` | Portal management |
-| `/admin/servicenow` | `ServiceNowAdmin` | ServiceNow sync config |
+| `/admin/web-portals` | redirect → `/admin/settings?tab=web-portals` | Portal management (under settings) |
+| `/admin/servicenow` | redirect → `/admin/settings?tab=servicenow` | ServiceNow sync config (under settings) |
+| `/admin/turbolens` | redirect → `/admin/settings?tab=turbolens` | TurboLens config (under settings) |
 
 ### Key Patterns
 
@@ -1150,9 +1187,9 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (22 groups, 50+ keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `compliance.*` (view + manage for the GRC Compliance scanner — the CVE half of the old "Security & Compliance" tab was removed), `risks.*` (view + manage for the EA Risk Register), `ai.*`, `admin.*`
+**App-level permissions** (27 groups, 69 keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `compliance.*` (view + manage for the GRC Compliance scanner — the CVE half of the old "Security & Compliance" tab was removed), `risks.*` (view + manage for the EA Risk Register), `grc.*`, `costs.*`, `ai.*`, `users.*`, `admin.*`
 
-**Card-level permissions** (13 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`
+**Card-level permissions** (15 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`, `card.manage_adr_links`, `card.manage_diagram_links`
 
 ### Permission Checking (Backend)
 ```python
@@ -1267,7 +1304,8 @@ Native AI analysis module — originally ported from [ArchLens](https://github.c
 | `turbolens_duplicate_clusters` | `TurboLensDuplicateCluster` | Functional duplicate groups with evidence, recommendation, status |
 | `turbolens_modernization_assessments` | `TurboLensModernization` | Modernization opportunities with effort, priority, current tech |
 | `turbolens_analysis_runs` | `TurboLensAnalysisRun` | Analysis execution history (type, status, timestamps, errors, progress JSONB). Used by all TurboLens analyses including the `compliance` compliance scanner. |
-| `turbolens_compliance_findings` | `TurboLensComplianceFinding` | Compliance gap / attestation per regulation (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001). Carries article, category, requirement, status, severity, gap, evidence, remediation, `ai_detected` flag for semantically-identified AI cards, and optional `risk_id`. |
+| `turbolens_assessments` | `TurboLensAssessment` | Saved Architecture-AI wizard runs — requirement, selected objectives/capabilities, phase answers, chosen option, gaps + dependencies, target architecture payload. Surfaced by the `/turbolens` Assessments tab. |
+| `compliance_findings` | `TurboLensComplianceFinding` | Compliance gap / attestation per regulation (EU AI Act, GDPR, NIS2, DORA, SOC 2, ISO 27001). Carries article, category, requirement, status, severity, gap, evidence, remediation, `ai_detected` flag for semantically-identified AI cards, and optional `risk_id`. |
 
 ### Backend Services
 
@@ -1415,7 +1453,7 @@ Landscape-level risk register aligned to TOGAF ADM Phase G. Separate from `PpmRi
 | `risk_mitigation_tasks` | `RiskMitigationTask` | Owned mitigation activities attached to a risk. Each row carries a human-readable `reference` (`T-NNNNNN`, monotonic, `String(16)` — same shape as `risks.reference`). One-shot (default) or recurring (`recurrence_unit` = `days`/`weeks`/`months`/`years`, `recurrence_interval` ≥ 1). Carries title, description, current `owner_id`, `is_active` (flips false when a one-shot task completes), and **`lead_time_days`** (how many days before `due_date` the cycle is promoted from `scheduled` to `open` — smart per-unit defaults of 1/2/7/14 for daily/weekly/monthly/yearly, capped at half the cycle). |
 | `risk_mitigation_task_occurrences` | `RiskMitigationTaskOccurrence` | One row per scheduled instance of a task. Captures `sequence` (monotonic per task), `due_date`, `assigned_owner_id` (snapshot when the cycle opens), `status` (`scheduled` / `open` / `done` / `skipped`), **`activated_at`** (stamp when a scheduled cycle was promoted to open — NULL on cycles that were never gated), `completed_at` / `completed_by` / **`owner_at_completion`** (snapshot when the cycle closes — may differ from `assigned_owner_id` if the owner was changed mid-cycle), and `completion_notes`. Recurring tasks roll forward calendar-correctly on completion: `next_due = due_date + interval`, day-of-month clamped (Jan 31 + 1 month → Feb 28); the new cycle lands as `scheduled` if today is outside `due_date - lead_time_days`, `open` otherwise. |
 
-The `turbolens_compliance_findings` table also carries a nullable `risk_id` back-link so findings that have been promoted show **Open risk R-000123** instead of **Create risk** (idempotent promotion). Promoting a finding now spawns a one-shot mitigation task seeded from the finding's `remediation` text instead of writing free-text guidance into the dropped `mitigation` column.
+The `compliance_findings` table also carries a nullable `risk_id` back-link so findings that have been promoted show **Open risk R-000123** instead of **Create risk** (idempotent promotion). Promoting a finding now spawns a one-shot mitigation task seeded from the finding's `remediation` text instead of writing free-text guidance into the dropped `mitigation` column.
 
 ### Backend modules
 
