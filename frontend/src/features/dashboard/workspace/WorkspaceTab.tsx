@@ -98,10 +98,10 @@ export default function WorkspaceTab() {
           <MyPendingSurveysSection />
         </Grid>
         <Grid item xs={12} md={6}>
-          <RecentActivityOnMyCardsSection />
+          <MyCreatedSection createdCount={counters.created_count} />
         </Grid>
         <Grid item xs={12} md={6}>
-          <MyCreatedSection createdCount={counters.created_count} />
+          <RecentActivityOnMyCardsSection />
         </Grid>
       </Grid>
     </Box>
