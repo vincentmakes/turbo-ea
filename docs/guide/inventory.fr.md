@@ -92,7 +92,7 @@ L'inventaire utilise un tableau de données **AG Grid** avec des fonctionnalité
 3. Optionnellement, cliquez sur **Suggérer avec l'IA** pour générer automatiquement une description (voir [Suggestions de description par IA](#suggestions-de-description-par-ia) ci-dessous)
 4. Cliquez sur **CREER**
 
-## Suggestions de description par IA
+## Suggestions de description par IA { #ai-description-suggestions }
 
 Turbo EA peut utiliser l'**IA pour générer une description** pour n'importe quelle fiche. Cela fonctionne aussi bien dans la boîte de dialogue de création de fiche que sur les pages de détail des fiches existantes.
 
@@ -137,7 +137,7 @@ Les vues sauvegardées apparaissent dans la barre latérale du panneau de filtre
 - **Partagées avec moi** -- Vues que d'autres ont partagées avec vous
 - **Vues publiques** -- Vues disponibles pour tous
 
-## Import Excel
+## Import Excel { #excel-import }
 
 Cliquez sur **Importer** dans la barre d'outils pour créer ou mettre à jour des fiches en masse depuis un fichier Excel.
 

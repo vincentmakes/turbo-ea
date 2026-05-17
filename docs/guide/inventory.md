@@ -94,7 +94,7 @@ The inventory uses an **AG Grid** data table with powerful features:
 3. Optionally, click **Suggest with AI** to generate a description automatically (see [AI Description Suggestions](#ai-description-suggestions) below)
 4. Click **CREATE**
 
-## AI Description Suggestions
+## AI Description Suggestions { #ai-description-suggestions }
 
 Turbo EA can use **AI to generate a description** for any card. This works on both the Create Card dialog and existing card detail pages.
 
@@ -139,7 +139,7 @@ Saved views appear in the filter panel sidebar. Click any view to instantly appl
 - **Shared with Me** — Views others shared with you
 - **Public Views** — Views available to everyone
 
-## Excel Import
+## Excel Import { #excel-import }
 
 Click **Import** in the toolbar to bulk-create or update cards from an Excel file.
 

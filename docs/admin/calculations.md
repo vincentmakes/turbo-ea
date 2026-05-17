@@ -55,7 +55,7 @@ Formulas use a safe, sandboxed expression language. You can reference card attri
 | `FILTER(array, key, value)` | Filter items by field value | `FILTER(related_interfaces, "status", "ACTIVE")` |
 | `MAP_SCORE(value, mapping)` | Map categorical values to scores | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
 
-### Example Formulas
+### Example Formulas { #example-formulas }
 
 **Total annual cost from related applications:**
 ```
@@ -71,6 +71,29 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 ```
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
+
+**TIME Model placement (Tolerate / Invest / Migrate / Eliminate)** — the same example you'll see in the **Formula Reference** panel inside **Admin → Metamodel → Calculations** when creating a new calculation. Target type = `Application`, target field = `timeModel`. Assumes you have added two `single_select` fields named `businessFit` and `technicalFit` with options `excellent`, `adequate`, `insufficient`, `unreasonable`:
+```
+# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
+# Assumes single_select fields: businessFit and technicalFit
+# with options: excellent, adequate, insufficient, unreasonable.
+#
+# Scoring: Map each dimension to 1-4 numeric scale.
+# Business Fit  = Y-axis (how well does it serve the business?)
+# Technical Fit = X-axis (how healthy is the technology?)
+#
+# Quadrant logic (threshold at score 2.5):
+#   Invest    = high business + high technical
+#   Migrate   = high business + low technical
+#   Tolerate  = low business  + high technical
+#   Eliminate = low business  + low technical
+#
+bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+This is also the worked example referenced by the [EA Beginner's Guide](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation).
 
 **Comments** are supported using `#`:
 ```

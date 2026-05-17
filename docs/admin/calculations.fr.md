@@ -55,7 +55,7 @@ Les formules utilisent un langage d'expression sécurisé et isolé. Vous pouvez
 | `FILTER(tableau, cle, valeur)` | Filtrer les éléments par valeur de champ | `FILTER(related_interfaces, "status", "ACTIVE")` |
 | `MAP_SCORE(valeur, correspondance)` | Associer des valeurs catégorielles à des scores | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
 
-### Exemples de formules
+### Exemples de formules { #example-formulas }
 
 **Coût annuel total des applications liées :**
 ```
@@ -71,6 +71,29 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 ```
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
+
+**Placement TIME Model (Tolerate / Invest / Migrate / Eliminate)** — le même exemple que vous verrez dans le panneau **Formula Reference** dans **Admin → Métamodèle → Calculations** lors de la création d'un nouveau calcul. Type cible = `Application`, champ cible = `timeModel`. Suppose que vous avez ajouté deux champs `single_select` nommés `businessFit` et `technicalFit` avec les options `excellent`, `adequate`, `insufficient`, `unreasonable` :
+```
+# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
+# Assumes single_select fields: businessFit and technicalFit
+# with options: excellent, adequate, insufficient, unreasonable.
+#
+# Scoring: Map each dimension to 1-4 numeric scale.
+# Business Fit  = Y-axis (how well does it serve the business?)
+# Technical Fit = X-axis (how healthy is the technology?)
+#
+# Quadrant logic (threshold at score 2.5):
+#   Invest    = high business + high technical
+#   Migrate   = high business + low technical
+#   Tolerate  = low business  + high technical
+#   Eliminate = low business  + low technical
+#
+bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+C'est aussi l'exemple opérationnel référencé par le [Guide du débutant EA](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation).
 
 **Les commentaires** sont pris en charge avec `#` :
 ```

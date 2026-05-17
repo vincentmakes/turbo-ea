@@ -92,7 +92,7 @@ O inventário usa uma tabela de dados **AG Grid** com recursos poderosos:
 3. Opcionalmente, clique em **Sugerir com IA** para gerar uma descrição automaticamente (veja [Sugestões de Descrição com IA](#sugestoes-de-descricao-com-ia) abaixo)
 4. Clique em **CRIAR**
 
-## Sugestões de Descrição com IA
+## Sugestões de Descrição com IA { #ai-description-suggestions }
 
 O Turbo EA pode usar **IA para gerar uma descrição** para qualquer card. Isso funciona tanto no diálogo de Criação de Card quanto nas páginas de detalhe de cards existentes.
 
@@ -137,7 +137,7 @@ Visualizações salvas aparecem na barra lateral do painel de filtros. Clique em
 - **Compartilhadas Comigo** — Visualizações que outros compartilharam com você
 - **Visualizações Públicas** — Visualizações disponíveis para todos
 
-## Importação Excel
+## Importação Excel { #excel-import }
 
 Clique em **Importar** na barra de ferramentas para criar ou atualizar cards em massa a partir de um arquivo Excel.
 

@@ -55,7 +55,7 @@ Formeln verwenden eine sichere, sandboxed Ausdruckssprache. Sie können Kartenat
 | `FILTER(array, schlüssel, wert)` | Elemente nach Feldwert filtern | `FILTER(related_interfaces, "status", "ACTIVE")` |
 | `MAP_SCORE(wert, zuordnung)` | Kategoriale Werte auf Punktzahlen abbilden | `MAP_SCORE(criticality, {"high": 3, "medium": 2, "low": 1})` |
 
-### Formelbeispiele
+### Formelbeispiele { #example-formulas }
 
 **Gesamte jährliche Kosten aus verwandten Anwendungen:**
 ```
@@ -71,6 +71,29 @@ IF(riskLevel == "critical", 100, IF(riskLevel == "high", 75, IF(riskLevel == "me
 ```
 COUNT(FILTER(related_interfaces, "status", "ACTIVE"))
 ```
+
+**TIME-Model-Platzierung (Tolerate / Invest / Migrate / Eliminate)** — dasselbe Beispiel, das Sie im Panel **Formelreferenz** unter **Admin → Metamodell → Berechnungen** beim Anlegen einer neuen Berechnung sehen. Zieltyp = `Application`, Zielfeld = `timeModel`. Setzt voraus, dass Sie zwei `single_select`-Felder namens `businessFit` und `technicalFit` mit den Optionen `excellent`, `adequate`, `insufficient`, `unreasonable` hinzugefügt haben:
+```
+# ── TIME Model (Tolerate / Invest / Migrate / Eliminate) ──
+# Assumes single_select fields: businessFit and technicalFit
+# with options: excellent, adequate, insufficient, unreasonable.
+#
+# Scoring: Map each dimension to 1-4 numeric scale.
+# Business Fit  = Y-axis (how well does it serve the business?)
+# Technical Fit = X-axis (how healthy is the technology?)
+#
+# Quadrant logic (threshold at score 2.5):
+#   Invest    = high business + high technical
+#   Migrate   = high business + low technical
+#   Tolerate  = low business  + high technical
+#   Eliminate = low business  + low technical
+#
+bf = MAP_SCORE(data.businessFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+tf = MAP_SCORE(data.technicalFit, {"excellent": 4, "adequate": 3, "insufficient": 2, "unreasonable": 1})
+IF(bf is None or tf is None, None, IF(bf >= 2.5, IF(tf >= 2.5, "invest", "migrate"), IF(tf >= 2.5, "tolerate", "eliminate")))
+```
+
+Dies ist auch das durchgearbeitete Beispiel, das im [EA-Einsteigerleitfaden](../beginners-guide/customise-the-metamodel.md#option-derive-a-field-automatically-with-a-calculation) referenziert wird.
 
 **Kommentare** werden mit `#` unterstützt:
 ```
