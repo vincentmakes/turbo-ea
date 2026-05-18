@@ -147,9 +147,6 @@
   "sync.acceptUpdate": "Accept update from inventory",
   "sync.allInSync": "Everything is in sync.",
 
-  "cardSidebar.search": "Search...",
-  "cardSidebar.insertTooltip": "Click to insert \"{{name}}\" into diagram",
-  "cardSidebar.loadingMore": "Loading more ({{loaded}} of {{total}})...",
 
   "cardPicker.title": "Insert Card",
   "cardPicker.search": "Search cards...",
