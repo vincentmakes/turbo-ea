@@ -1,5 +1,6 @@
 {
   "detail.title": "Detalle de ficha",
+  "detail.backToTop": "Volver arriba",
   "detail.archivedBanner": "Esta ficha está archivada.",
   "detail.purgeWarning_one": "Será eliminada permanentemente en {{count}} día.",
   "detail.purgeWarning_other": "Será eliminada permanentemente en {{count}} días.",

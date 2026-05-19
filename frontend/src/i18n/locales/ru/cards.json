@@ -1,5 +1,6 @@
 {
   "detail.title": "Карточка",
+  "detail.backToTop": "Наверх",
   "detail.archivedBanner": "Эта карточка архивирована.",
   "detail.purgeWarning_one": "Она будет безвозвратно удалена через {{count}} день.",
   "detail.purgeWarning_other": "Она будет безвозвратно удалена через {{count}} дней.",

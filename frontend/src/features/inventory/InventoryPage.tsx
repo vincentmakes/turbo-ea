@@ -48,6 +48,8 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import { api, ApiError } from "@/api/client";
 import { APPROVAL_STATUS_COLORS } from "@/theme/tokens";
+import TagPicker from "@/components/TagPicker";
+import TagsCellEditor from "@/features/inventory/TagsCellEditor";
 import type { Card, CardListResponse, FieldDef, Relation, RelationType, TagGroup, TagRef } from "@/types";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
@@ -696,6 +698,17 @@ export default function InventoryPage() {
       if (fieldDef?.readonly) return;
       const attrs = { ...card.attributes, [key]: event.newValue };
       await api.patch(`/cards/${card.id}`, { attributes: attrs });
+    } else if (field === "tags") {
+      const oldIds = new Set<string>((event.oldValue as TagRef[] | undefined ?? []).map((t) => t.id));
+      const newIds = new Set<string>((event.newValue as TagRef[] | undefined ?? []).map((t) => t.id));
+      const toAdd = [...newIds].filter((id) => !oldIds.has(id));
+      const toRemove = [...oldIds].filter((id) => !newIds.has(id));
+      if (toAdd.length > 0) {
+        await api.post(`/cards/${card.id}/tags`, toAdd);
+      }
+      for (const id of toRemove) {
+        await api.delete(`/cards/${card.id}/tags/${id}`);
+      }
     }
   };
 
@@ -764,6 +777,7 @@ export default function InventoryPage() {
     if (typeConfig?.subtypes && typeConfig.subtypes.length > 0) {
       fields.push({ key: "subtype", label: t("common:labels.subtype"), group: "core" });
     }
+    fields.push({ key: "tags", label: t("columns.tags"), group: "core" });
     if (typeConfig) {
       for (const section of typeConfig.fields_schema) {
         for (const field of section.fields) {
@@ -1039,6 +1053,50 @@ export default function InventoryPage() {
           ids: selectedIds,
           updates: { subtype: massEditValue || null },
         });
+      } else if (massEditField === "tags") {
+        const tagIds = Array.isArray(massEditValue) ? (massEditValue as string[]) : [];
+        if (tagIds.length === 0) {
+          setMassEditError(t("massEdit.tags.pickAtLeastOne"));
+          return;
+        }
+        const results = await Promise.allSettled(
+          selectedIds.map((id) => {
+            if (massEditRelMode === "add") {
+              return api.post(`/cards/${id}/tags`, tagIds);
+            }
+            return Promise.all(
+              tagIds.map((tagId) => api.delete(`/cards/${id}/tags/${tagId}`)),
+            );
+          }),
+        );
+        const blockers: typeof massEditBlockers = [];
+        let succeeded = 0;
+        results.forEach((r, i) => {
+          if (r.status === "fulfilled") {
+            succeeded += 1;
+            return;
+          }
+          const id = selectedIds[i];
+          const card = data.find((d) => d.id === id);
+          blockers.push({
+            id,
+            name: card?.name ?? id,
+            missingRelations: [],
+            missingTagGroups: [],
+            message:
+              r.reason instanceof Error ? r.reason.message : t("massEdit.failed"),
+          });
+        });
+        await loadData();
+        if (blockers.length === 0) {
+          setMassEditOpen(false);
+          setMassEditField("");
+          setMassEditValue("");
+          return;
+        }
+        setMassEditSucceeded(succeeded);
+        setMassEditBlockers(blockers);
+        return;
       } else if (massEditField.startsWith("attr_")) {
         const attrKey = massEditField.replace("attr_", "");
         const results = await Promise.allSettled(
@@ -1352,6 +1410,14 @@ export default function InventoryPage() {
         width: 200,
         sortable: false,
         hide: !selectedColumns.has("core_tags"),
+        editable: gridEditMode,
+        cellEditor: TagsCellEditor,
+        cellEditorPopup: true,
+        cellEditorParams: { groups: tagGroups, typeKey: selectedType || undefined },
+        valueSetter: (p: { data: Card; newValue: TagRef[] }) => {
+          p.data.tags = p.newValue || [];
+          return true;
+        },
         cellRenderer: (p: { value: TagRef[] }) => {
           const tags = p.value || [];
           if (tags.length === 0) return "";
@@ -1624,7 +1690,7 @@ export default function InventoryPage() {
     );
 
     return cols;
-  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally]);
+  }, [types, typeConfig, commonFields, gridEditMode, relevantRelTypes, relTypeGroupMap, relationsMap, selectedType, parentPaths, filters.showArchived, selectedColumns, userNameMap, t, formatDate, formatDateTime, canViewCostsGlobally, tagGroups]);
 
   // Render mass edit value input based on field type
   const renderMassEditInput = () => {
@@ -1654,6 +1720,43 @@ export default function InventoryPage() {
             ))}
           </Select>
         </FormControl>
+      );
+    }
+
+    if (massEditField === "tags") {
+      const ids = Array.isArray(massEditValue) ? (massEditValue as string[]) : [];
+      return (
+        <Box>
+          <ToggleButtonGroup
+            value={massEditRelMode}
+            exclusive
+            size="small"
+            onChange={(_, val) => { if (val) setMassEditRelMode(val); }}
+            sx={{ mb: 2 }}
+          >
+            <ToggleButton value="add" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="add" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.tags.add")}
+            </ToggleButton>
+            <ToggleButton value="remove" sx={{ textTransform: "none", px: 2 }}>
+              <MaterialSymbol icon="remove" size={16} style={{ marginRight: 6 }} />
+              {t("massEdit.tags.remove")}
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <TagPicker
+            groups={tagGroups}
+            value={ids}
+            onChange={(next) => setMassEditValue(next)}
+            typeKey={selectedType || undefined}
+            size="small"
+            label={t("columns.tags")}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: "block" }}>
+            {massEditRelMode === "add"
+              ? t("massEdit.tags.addHint", { count: selectedIds.length })
+              : t("massEdit.tags.removeHint", { count: selectedIds.length })}
+          </Typography>
+        </Box>
       );
     }
 

@@ -327,8 +327,9 @@ function RelationGroup({
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
   const verb = isSource
-    ? rml(rt.key, rt.translations, "label")
-    : rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label");
+    ? rml(rt.label || rt.key, rt.translations, "label")
+    : rml(rt.reverse_label || rt.label || rt.key, rt.translations, "reverse_label") ||
+      rml(rt.label || rt.key, rt.translations, "label");
 
   const handleDelete = async (relId: string) => {
     await api.delete(`/relations/${relId}`);
@@ -860,8 +861,9 @@ function RelationsSection({
               {hiddenRTs.map((rt) => {
                 const rtIsSource = rt.source_type_key === cardTypeKey;
                 const verb = rtIsSource
-                  ? rml(rt.key, rt.translations, "label")
-                  : rml(rt.key, rt.translations, "reverse_label") || rml(rt.key, rt.translations, "label");
+                  ? rml(rt.label || rt.key, rt.translations, "label")
+                  : rml(rt.reverse_label || rt.label || rt.key, rt.translations, "reverse_label") ||
+                    rml(rt.label || rt.key, rt.translations, "label");
                 const otherKey = rtIsSource ? rt.target_type_key : rt.source_type_key;
                 const other = getType(otherKey);
                 return (

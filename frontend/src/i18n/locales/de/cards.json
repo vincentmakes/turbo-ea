@@ -1,5 +1,6 @@
 {
   "detail.title": "Kartendetail",
+  "detail.backToTop": "Nach oben",
   "detail.archivedBanner": "Diese Karte ist archiviert.",
   "detail.purgeWarning_one": "Sie wird in {{count}} Tag endgültig gelöscht.",
   "detail.purgeWarning_other": "Sie wird in {{count}} Tagen endgültig gelöscht.",

@@ -1,5 +1,6 @@
 {
   "detail.title": "Détail de la fiche",
+  "detail.backToTop": "Retour en haut",
   "detail.archivedBanner": "Cette fiche est archivée.",
   "detail.purgeWarning_one": "Elle sera définitivement supprimée dans {{count}} jour.",
   "detail.purgeWarning_other": "Elle sera définitivement supprimée dans {{count}} jours.",

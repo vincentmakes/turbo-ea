@@ -8,6 +8,8 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
 import Snackbar from "@mui/material/Snackbar";
+import Fab from "@mui/material/Fab";
+import Fade from "@mui/material/Fade";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Alert from "@mui/material/Alert";
@@ -104,6 +106,13 @@ export default function CardDetail() {
     missing_relations: { key: string; label: string; side: "source" | "target"; other_type_key: string }[];
     missing_tag_groups: { id: string; name: string }[];
   } | null>(null);
+
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 300);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Fetch effective permissions for this card
   useEffect(() => {
@@ -753,6 +762,16 @@ export default function CardDetail() {
           </>
         }
       />
+      <Fade in={showScrollTop}>
+        <Fab
+          size="small"
+          aria-label={t("detail.backToTop")}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          sx={{ position: "fixed", bottom: 24, right: 24, zIndex: 200 }}
+        >
+          <MaterialSymbol icon="arrow_upward" size={20} />
+        </Fab>
+      </Fade>
     </Box>
   );
 }

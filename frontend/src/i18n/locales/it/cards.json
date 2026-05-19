@@ -1,5 +1,6 @@
 {
   "detail.title": "Dettaglio scheda",
+  "detail.backToTop": "Torna su",
   "detail.archivedBanner": "Questa scheda è archiviata.",
   "detail.purgeWarning_one": "Verrà eliminata definitivamente tra {{count}} giorno.",
   "detail.purgeWarning_other": "Verrà eliminata definitivamente tra {{count}} giorni.",

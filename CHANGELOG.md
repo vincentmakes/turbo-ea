@@ -5,6 +5,15 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.23.1] - 2026-05-19
+
+### Added
+- **Back-to-top arrow on the Card Detail page.** Long card pages (description + lifecycle + custom sections + hierarchy + relations + stakeholders + comments + todos + history) now show a floating arrow at the bottom-right after scrolling past ~300 px; one click smoothly returns to the top. Matches the existing pattern used on the reference catalogue pages.
+
+### Fixed
+- **Custom relation labels now show on card detail.** Creating a custom relation type with a human label (e.g. "manages") used to render the relation **key** (e.g. `myCustomRelation`) on the Card Detail page when the relation had no per-locale translations. The fallback chain now uses the configured `label` / `reverse_label` before falling back to the key, so customs read correctly and built-in relations also resolve correctly in English (the seed only ships German / French / Italian / Spanish / Portuguese / Chinese / Russian translations). [#576]
+- **Inventory: Tags column is now editable in grid edit mode and via Mass Edit.** Toggling grid edit mode and clicking a Tags cell opens an inline tag picker (respects per-group single / multi mode and per-type restrictions); changes persist via `POST` / `DELETE /cards/{id}/tags`. The Mass Edit dialog also gains a Tags option with Add / Remove modes for applying or stripping tags across the selection in one go. [#575]
+
 ## [1.23.0] - 2026-05-19
 
 LeanIX-style multi-sheet spreadsheet import / export with relations: a single workbook can now round-trip a sub-landscape — cards across any number of types plus the relations between them — without ever exposing UUIDs.
