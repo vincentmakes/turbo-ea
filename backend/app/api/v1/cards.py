@@ -69,6 +69,7 @@ from app.services import card_lifecycle, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
 from app.services.card_resolver import CardResolver
+from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -682,12 +683,14 @@ async def create_card(
 ):
     await PermissionService.require_permission(db, user, "inventory.create")
     await _validate_url_attributes(db, body.type, body.attributes or {})
+    parent_uuid = uuid.UUID(body.parent_id) if body.parent_id else None
+    await check_sibling_name_unique(db, type_key=body.type, parent_id=parent_uuid, name=body.name)
     card = Card(
         type=body.type,
         subtype=body.subtype,
         name=body.name,
         description=body.description,
-        parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
+        parent_id=parent_uuid,
         lifecycle=body.lifecycle or {},
         attributes=body.attributes or {},
         external_id=body.external_id,
@@ -868,6 +871,18 @@ async def bulk_create_cards(
                         )
                     else:
                         raise HTTPException(422, f"Parent not found for ref: {ref_str}")
+
+            # Block siblings with duplicate names — keeps the LeanIX-style
+            # name+path ref format unambiguous for re-imports. Existing
+            # duplicates from before this check are not touched; only new
+            # collisions are rejected. Per-row failure here doesn't roll
+            # back the rest of the batch.
+            await check_sibling_name_unique(
+                db,
+                type_key=r.type,
+                parent_id=resolved_parent,
+                name=r.name,
+            )
 
             card = Card(
                 type=r.type,
@@ -1693,6 +1708,29 @@ async def update_card(
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
         if new_pid != card.parent_id:
             await _check_hierarchy_depth(db, card, new_pid)
+
+    # Guard: sibling-name uniqueness when name or parent changes. Only
+    # fires when the requested final state would introduce a new
+    # collision — renaming a card to its own current name, or merely
+    # editing unrelated fields, never trips this check.
+    name_changed = "name" in updates and updates["name"] != card.name
+    pid_changed = "parent_id" in updates and (
+        (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None) != card.parent_id
+    )
+    if name_changed or pid_changed:
+        new_name = updates["name"] if "name" in updates else card.name
+        new_pid_final = (
+            (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None)
+            if "parent_id" in updates
+            else card.parent_id
+        )
+        await check_sibling_name_unique(
+            db,
+            type_key=card.type,
+            parent_id=new_pid_final,
+            name=new_name,
+            exclude_card_id=card.id,
+        )
 
     changes = {}
     for field, value in updates.items():

@@ -151,6 +151,10 @@ Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro E
 
 Le schede sono identificate per **nome** quando è univoco nel suo tipo, altrimenti per **`parent_path`** completo. Una cella di relazione può contenere `NexaCore ERP` direttamente se solo una Application ha quel nome; in caso di ambiguità usare `Sales / Customer Mgmt / CRM`.
 
+#### Univocità tra fratelli
+
+Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore.
+
 ### Celle di relazione in linea
 
 Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenco **separato da punti e virgola** (per esempio `NexaCore ERP; BillingApp`). Punto e virgola invece di virgola perché i nomi delle schede contengono spesso virgole (`Acme, Inc.`). All'interno di un nome, `/` e `\` vengono fatti precedere dall'escape `\/` e `\\` — l'esportatore lo gestisce automaticamente (es. `SAP S/4HANA` → `SAP S\/4HANA`). Le celle sono **dichiarative**: il loro contenuto sostituisce l'insieme delle relazioni in uscita di quel tipo dalla sorgente. Rimuovere un target elimina la relazione corrispondente; svuotare la cella le elimina tutte. Per retrocompatibilità, anche le celle separate da virgole (formato precedente) vengono accettate.

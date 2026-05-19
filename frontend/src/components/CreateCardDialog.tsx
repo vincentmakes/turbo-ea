@@ -30,7 +30,7 @@ import TagPicker from "@/components/TagPicker";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
-import { api } from "@/api/client";
+import { api, ApiError } from "@/api/client";
 import type {
   FieldDef,
   Card,
@@ -82,6 +82,9 @@ export default function CreateCardDialog({
   const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
   const [parentLoading, setParentLoading] = useState(false);
   const [name, setName] = useState("");
+  // Field-level error for the Name input — populated when the backend
+  // returns 409 on a sibling-name collision. Cleared when the user types.
+  const [nameError, setNameError] = useState("");
   const [description, setDescription] = useState("");
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
@@ -185,6 +188,7 @@ export default function CreateCardDialog({
       setParentInputValue("");
       setParentOptions([]);
       setName("");
+      setNameError("");
       setDescription("");
       setAttributes({});
       setLoading(false);
@@ -315,6 +319,7 @@ export default function CreateCardDialog({
     if (!selectedType || !name.trim()) return;
     setLoading(true);
     setError("");
+    setNameError("");
     try {
       const finalAttrs = { ...attributes };
       if (eolProduct && eolCycle) {
@@ -391,6 +396,18 @@ export default function CreateCardDialog({
       onClose();
       navigate(`/cards/${newId}`);
     } catch (err: unknown) {
+      // Surface the sibling-name collision (HTTP 409) on the Name field
+      // directly — it's a validation error on a single input, not a
+      // dialog-wide failure. Detail comes verbatim from the backend
+      // (`A {type} named "X" already exists at this level…`).
+      if (err instanceof ApiError && err.status === 409) {
+        const detail =
+          typeof err.detail === "string"
+            ? err.detail
+            : (err.detail as { detail?: string } | null)?.detail || err.message;
+        setNameError(detail);
+        return;
+      }
       const message =
         err instanceof Error ? err.message : t("create.failed");
       setError(message);
@@ -624,8 +641,13 @@ export default function CreateCardDialog({
           fullWidth
           label={t("common:labels.name")}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (nameError) setNameError("");
+          }}
           required
+          error={!!nameError}
+          helperText={nameError || undefined}
           sx={{ mb: 2 }}
         />
 

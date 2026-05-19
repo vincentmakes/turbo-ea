@@ -151,6 +151,10 @@ Les exports et imports d'inventaire utilisent un **classeur Excel multi-feuilles
 
 Les fiches sont identifiées par leur **nom** lorsqu'il est unique dans son type, sinon par leur **`parent_path`** complet. Une cellule de relation peut écrire `NexaCore ERP` directement si une seule Application porte ce nom ; en cas d'homonymie, on utilise `Sales / Customer Mgmt / CRM`.
 
+#### Unicité des fiches sœurs
+
+Parce que les fiches sont identifiées par nom + chemin, **deux fiches du même type ne peuvent pas partager à la fois le même parent et le même nom**. Les nouvelles fiches qui créeraient une telle collision sont rejetées à la création (dans la boîte de dialogue Créer, en renommage inline et lors de l'import Excel). Les doublons déjà présents en base, hérités d'imports ou de seeds antérieurs, restent intacts — vous pouvez modifier n'importe quel champ, mais re-créer un troisième doublon ou renommer une fiche pour recréer la collision est bloqué. La comparaison est insensible à la casse et aux espaces, comme le résolveur de l'import.
+
 ### Cellules de relation en ligne
 
 Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous forme de cibles **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations sortantes de ce type depuis la source. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées.

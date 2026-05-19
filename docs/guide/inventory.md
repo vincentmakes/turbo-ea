@@ -157,6 +157,10 @@ Cards are matched by **name** when unambiguous within their type, otherwise by t
 
 The same precedence drives card-update matching: rows with a UUID in the `id` column update that card; rows without an `id` are matched by `(type, parent_path, name)`; rows that don't match anything become new cards.
 
+#### Sibling-name uniqueness
+
+Because cards are identified by name + path, **two cards of the same type cannot share both a parent and a name**. New cards that would create such a collision are rejected at creation time (in the Create Card dialog, in the inline rename, and during spreadsheet import). Cards already in the database that share a name with a sibling — from earlier seed data or imports — are left untouched; you can edit any of their fields, but renaming one back into the collision (or creating a third) is blocked. The check is case- and whitespace-insensitive to match the importer's resolver.
+
 ### Inline relation cells
 
 On every card sheet, `rel:<relation_type_key>` columns let you express outgoing relations as **semicolon-separated** target references:
