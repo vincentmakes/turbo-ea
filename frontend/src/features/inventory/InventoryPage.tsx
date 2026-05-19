@@ -1865,7 +1865,7 @@ export default function InventoryPage() {
               <Tooltip title={t("common:actions.export")}>
                 <span>
                   <IconButton
-                    onClick={() => exportToExcel(filteredData, typeConfig, types, { canViewCosts: canViewCostsGlobally })}
+                    onClick={() => exportToExcel(filteredData, typeConfig, types, relationTypes, { canViewCosts: canViewCostsGlobally })}
                     disabled={filteredData.length === 0}
                     size="small"
                   >
@@ -1899,7 +1899,7 @@ export default function InventoryPage() {
                 variant="outlined"
                 color="inherit"
                 startIcon={<MaterialSymbol icon="download" size={18} />}
-                onClick={() => exportToExcel(filteredData, typeConfig, types, { canViewCosts: canViewCostsGlobally })}
+                onClick={() => exportToExcel(filteredData, typeConfig, types, relationTypes, { canViewCosts: canViewCostsGlobally })}
                 disabled={filteredData.length === 0}
                 sx={{ textTransform: "none" }}
               >
@@ -2301,6 +2301,7 @@ export default function InventoryPage() {
         onComplete={loadData}
         existingCards={data}
         allTypes={types}
+        relationTypes={relationTypes}
         preSelectedType={selectedType || undefined}
         tagGroups={tagGroups}
       />

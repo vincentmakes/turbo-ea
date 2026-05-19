@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,8 +14,17 @@ from app.models.card_type import CardType
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.user import User
-from app.schemas.relation import CardRef, RelationCreate, RelationResponse, RelationUpdate
+from app.schemas.relation import (
+    CardRef,
+    RelationBulkRequest,
+    RelationBulkResponse,
+    RelationBulkResult,
+    RelationCreate,
+    RelationResponse,
+    RelationUpdate,
+)
 from app.services.calculation_engine import run_calculations_for_card
+from app.services.card_resolver import CardResolver
 from app.services.cost_field_filter import cost_field_keys_from_relation_schema
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -343,3 +352,247 @@ async def delete_relation(
         await run_calculations_for_card(db, target_card)
 
     await db.commit()
+
+
+def _resolve_ref_input(
+    ref_input,
+    relation_type: RelationType,
+    *,
+    endpoint: str,
+    resolver: CardResolver,
+) -> uuid.UUID:
+    """Resolve a `RelationRefInput` to a card UUID, raising `HTTPException`
+    on ambiguity / miss / type-mismatch. `endpoint` is "source" or "target"
+    — used in error messages and to pick the correct type constraint from
+    the relation type definition."""
+    if ref_input.id:
+        try:
+            return uuid.UUID(ref_input.id)
+        except ValueError as exc:
+            raise HTTPException(422, f"Invalid {endpoint} UUID: {ref_input.id}") from exc
+
+    expected_type = (
+        relation_type.source_type_key if endpoint == "source" else relation_type.target_type_key
+    )
+    # Allow callers to omit type and inherit it from the relation type
+    # definition. If supplied, it must match — otherwise we silently
+    # cross-link types in a way the metamodel doesn't allow.
+    ref_type = ref_input.type or expected_type
+    if ref_input.type and ref_input.type != expected_type:
+        raise HTTPException(
+            422,
+            f"{endpoint.title()} type '{ref_input.type}' does not match relation type's "
+            f"expected {endpoint} '{expected_type}'",
+        )
+    if not ref_input.name:
+        raise HTTPException(422, f"{endpoint.title()} reference is missing a name")
+
+    ref_str = " / ".join(
+        [
+            *(s.replace("\\", "\\\\").replace("/", "\\/") for s in (ref_input.parent_path or [])),
+            ref_input.name.replace("\\", "\\\\").replace("/", "\\/"),
+        ]
+    )
+    outcome = resolver.resolve(ref_type, ref_str)
+    if outcome.status == "resolved" and outcome.card_id is not None:
+        return outcome.card_id
+    if outcome.status == "ambiguous":
+        hints = ", ".join(c.display_path for c in (outcome.candidates or [])[:3])
+        raise HTTPException(
+            422,
+            f"{endpoint.title()} reference is ambiguous ({ref_str}). Candidates: {hints}",
+        )
+    raise HTTPException(422, f"{endpoint.title()} not found: {ref_str}")
+
+
+@router.post("/bulk", response_model=RelationBulkResponse)
+async def bulk_relations(
+    body: RelationBulkRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Batched upsert/delete for relations. Used by the spreadsheet importer
+    to apply both inline `rel:<key>` columns and the explicit `Relations`
+    sheet in one round-trip.
+
+    Each operation independently succeeds or fails; failed rows do not
+    roll back successful ones unless every row fails. Source and target
+    may be referenced by UUID (when the importer has just created the card)
+    or by `(type, parent_path, name)` for human-readable round-trips.
+
+    Permission: `relations.manage`.
+    """
+    await PermissionService.require_permission(db, user, "relations.manage")
+
+    operations = list(body.operations)
+
+    # Preload every referenced relation type in one query.
+    rt_keys: set[str] = {op.type for op in operations}
+    rt_rows = await db.execute(select(RelationType).where(RelationType.key.in_(rt_keys)))
+    rt_by_key: dict[str, RelationType] = {rt.key: rt for rt in rt_rows.scalars().all()}
+
+    # Preload a resolver scoped to every type that may need name lookup —
+    # both the source_type_key and target_type_key of each referenced
+    # relation type, even if any individual operation supplies a UUID
+    # (we still want the resolver ready in case some operations don't).
+    type_keys: set[str] = set()
+    for rt in rt_by_key.values():
+        type_keys.add(rt.source_type_key)
+        type_keys.add(rt.target_type_key)
+    resolver = await CardResolver.load(db, type_keys)
+
+    results: list[RelationBulkResult] = []
+    upserted = 0
+    deleted = 0
+    failed = 0
+    impacted_cards: set[uuid.UUID] = set()
+    events_to_emit: list[tuple[str, Relation, Card | None, Card | None, dict | None]] = []
+
+    for op in operations:
+        try:
+            # Distinct name from the outer `for rt in rt_by_key.values()`
+            # loop above so mypy can keep the non-Optional narrowing intact.
+            rt_def = rt_by_key.get(op.type)
+            if rt_def is None:
+                raise HTTPException(422, f"Unknown relation type: {op.type}")
+            source_id = _resolve_ref_input(op.source, rt_def, endpoint="source", resolver=resolver)
+            target_id = _resolve_ref_input(op.target, rt_def, endpoint="target", resolver=resolver)
+
+            # Look up an existing relation of this (type, source, target).
+            existing = await db.execute(
+                select(Relation)
+                .where(
+                    Relation.type == op.type,
+                    Relation.source_id == source_id,
+                    Relation.target_id == target_id,
+                )
+                .options(selectinload(Relation.source), selectinload(Relation.target))
+            )
+            rel = existing.scalar_one_or_none()
+
+            if op.action == "delete":
+                if rel is None:
+                    results.append(RelationBulkResult(row_index=op.row_index, status="noop"))
+                    continue
+                source_card = await db.get(Card, rel.source_id)
+                target_card = await db.get(Card, rel.target_id)
+                events_to_emit.append(("relation.deleted", rel, source_card, target_card, None))
+                await db.delete(rel)
+                impacted_cards.add(source_id)
+                impacted_cards.add(target_id)
+                deleted += 1
+                results.append(RelationBulkResult(row_index=op.row_index, status="deleted"))
+                continue
+
+            # Upsert path.
+            if rel is None:
+                # Cardinality guards: 1:1 forbids a second relation of the
+                # same type from this source or to this target; 1:n forbids
+                # a second relation from the same source.
+                if rt_def.cardinality in ("1:1", "1:n"):
+                    existing_src = await db.scalar(
+                        select(func.count(Relation.id)).where(
+                            Relation.type == op.type, Relation.source_id == source_id
+                        )
+                    )
+                    if existing_src and existing_src > 0:
+                        raise HTTPException(
+                            422,
+                            f"Cardinality {rt_def.cardinality} forbids a second '{op.type}' "
+                            "relation from this source",
+                        )
+                if rt_def.cardinality == "1:1":
+                    existing_tgt = await db.scalar(
+                        select(func.count(Relation.id)).where(
+                            Relation.type == op.type, Relation.target_id == target_id
+                        )
+                    )
+                    if existing_tgt and existing_tgt > 0:
+                        raise HTTPException(
+                            422,
+                            f"Cardinality 1:1 forbids a second '{op.type}' relation to this target",
+                        )
+
+                rel = Relation(
+                    type=op.type,
+                    source_id=source_id,
+                    target_id=target_id,
+                    attributes=op.attributes or {},
+                    description=op.description,
+                )
+                db.add(rel)
+                await db.flush()
+                # Reload with source/target for the event payload.
+                refetched = await db.execute(
+                    select(Relation)
+                    .where(Relation.id == rel.id)
+                    .options(selectinload(Relation.source), selectinload(Relation.target))
+                )
+                rel = refetched.scalar_one()
+                events_to_emit.append(("relation.created", rel, rel.source, rel.target, None))
+            else:
+                changed: list[str] = []
+                if op.attributes is not None and op.attributes != (rel.attributes or {}):
+                    rel.attributes = op.attributes
+                    changed.append("attributes")
+                if op.description is not None and op.description != rel.description:
+                    rel.description = op.description
+                    changed.append("description")
+                if changed:
+                    events_to_emit.append(
+                        (
+                            "relation.updated",
+                            rel,
+                            rel.source,
+                            rel.target,
+                            {"fields": changed},
+                        )
+                    )
+
+            impacted_cards.add(source_id)
+            impacted_cards.add(target_id)
+            upserted += 1
+            results.append(
+                RelationBulkResult(
+                    row_index=op.row_index,
+                    status="upserted",
+                    relation_id=str(rel.id),
+                )
+            )
+
+        except HTTPException as exc:
+            failed += 1
+            results.append(
+                RelationBulkResult(row_index=op.row_index, status="failed", error=exc.detail)
+            )
+        except Exception as exc:  # noqa: BLE001 — surface anything to the user
+            failed += 1
+            results.append(
+                RelationBulkResult(row_index=op.row_index, status="failed", error=str(exc))
+            )
+
+    # Recalculate calculated fields on every card touched by the batch.
+    for cid in impacted_cards:
+        card = await db.get(Card, cid)
+        if card is not None:
+            await run_calculations_for_card(db, card)
+
+    # Emit all events after the writes settle so listeners see consistent
+    # state if they query back.
+    for event_type, rel, source_card, target_card, extra in events_to_emit:
+        await _emit_relation_events(
+            db,
+            event_type=event_type,
+            rel=rel,
+            source_card=source_card,
+            target_card=target_card,
+            actor_id=user.id,
+            extra=extra,
+        )
+
+    if failed > 0 and upserted == 0 and deleted == 0:
+        await db.rollback()
+    else:
+        await db.commit()
+
+    return RelationBulkResponse(results=results, upserted=upserted, deleted=deleted, failed=failed)

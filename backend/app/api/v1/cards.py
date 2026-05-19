@@ -32,6 +32,9 @@ from app.schemas.card import (
     CardArchiveResponse,
     CardBulkArchiveRequest,
     CardBulkArchiveResponse,
+    CardBulkCreateRequest,
+    CardBulkCreateResponse,
+    CardBulkCreateResult,
     CardBulkDeleteRequest,
     CardBulkDeleteResponse,
     CardBulkDeleteSkippedEntry,
@@ -45,6 +48,10 @@ from app.schemas.card import (
     CardDeleteRequest,
     CardDeleteResponse,
     CardListResponse,
+    CardRefCandidate,
+    CardRefResolveRequest,
+    CardRefResolveResponse,
+    CardRefResolveResult,
     CardRelationSummaryEntry,
     CardRelationSummaryHierarchy,
     CardRelationSummaryResponse,
@@ -61,6 +68,8 @@ from app.schemas.card import (
 from app.services import card_lifecycle, notification_service
 from app.services.calculation_engine import run_calculations_for_card
 from app.services.card_completeness import missing_mandatory
+from app.services.card_resolver import CardResolver
+from app.services.card_uniqueness import check_sibling_name_unique
 from app.services.cost_field_filter import cost_field_keys_from_card_schema
 from app.services.event_bus import event_bus
 from app.services.permission_service import PermissionService
@@ -674,12 +683,14 @@ async def create_card(
 ):
     await PermissionService.require_permission(db, user, "inventory.create")
     await _validate_url_attributes(db, body.type, body.attributes or {})
+    parent_uuid = uuid.UUID(body.parent_id) if body.parent_id else None
+    await check_sibling_name_unique(db, type_key=body.type, parent_id=parent_uuid, name=body.name)
     card = Card(
         type=body.type,
         subtype=body.subtype,
         name=body.name,
         description=body.description,
-        parent_id=uuid.UUID(body.parent_id) if body.parent_id else None,
+        parent_id=parent_uuid,
         lifecycle=body.lifecycle or {},
         attributes=body.attributes or {},
         external_id=body.external_id,
@@ -723,6 +734,268 @@ async def create_card(
     )
     card = result.scalar_one()
     return await _card_response_with_cost_check(db, user, card)
+
+
+def _path_key(type_key: str, parent_path: list[str] | None, name: str) -> str:
+    """Canonical lookup key shared with the importer's path matching.
+
+    Lower-cased so the matching stays case-insensitive, with `|` separating
+    the type from the path. Path is joined with `/` after the same escaping
+    used on export (`encodePathSegment()`)."""
+    path = parent_path or []
+    return f"{type_key.lower()}|{'/'.join(p.strip().lower() for p in path)}/{name.strip().lower()}"
+
+
+@router.post("/bulk-create", response_model=CardBulkCreateResponse)
+async def bulk_create_cards(
+    body: CardBulkCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Batched card creation for the spreadsheet importer.
+
+    Each row carries its own `row_index` so the caller can pair the
+    response back to its spreadsheet row. Parents may be referenced by
+    UUID (`parent_id`) or by `(parent_path, parent_name)` — the server
+    resolves names server-side against the existing inventory and against
+    other rows in the same request (which may not exist yet).
+
+    Rows are processed in topological order: parents come before children
+    so FK constraints never fire. If a row's parent cannot be resolved
+    even after every other row has been placed, it fails with a clear
+    `parent_not_resolved` error instead of producing an orphan card.
+
+    Single transaction per request — partial failures still roll back
+    succeeded rows in the same batch. Permission: `inventory.create`.
+    """
+    await PermissionService.require_permission(db, user, "inventory.create")
+
+    rows = list(body.cards)
+    by_index: dict[int, CardBulkCreateResult] = {}
+
+    # Build a resolver scoped to every type that might serve as a parent.
+    # That's any type referenced by a `parent_path/name` ref. We always
+    # include the rows' own types so resolution against the live DB works.
+    parent_types: set[str] = {r.type for r in rows}
+    resolver = await CardResolver.load(db, parent_types)
+
+    # Build a dep graph: each row → its parent row (if the parent is in the
+    # same batch). Rows that resolve their parent against the live DB or
+    # have no parent are roots in the topo sort.
+    parent_row_of: dict[int, int | None] = {}
+    for r in rows:
+        parent_row_idx: int | None = None
+        # Only look up a same-batch parent when the row didn't supply a UUID.
+        if r.parent_id is None and r.parent_name:
+            # Try exact `(parent_path, parent_name)` first, then bare name.
+            keys = [_path_key(r.type, r.parent_path or [], r.parent_name)]
+            # Same-name siblings may share a parent_path that includes the
+            # path segments — also try the bare-name index as a fallback.
+            keys.append(_path_key(r.type, [], r.parent_name))
+            for other in rows:
+                if other is r:
+                    continue
+                if other.type != r.type:
+                    continue
+                other_key = _path_key(other.type, other.parent_path or [], other.name)
+                if other_key in keys:
+                    parent_row_idx = other.row_index
+                    break
+        parent_row_of[r.row_index] = parent_row_idx
+
+    # Kahn's algorithm: produce a list of row_indices in topo order.
+    in_degree: dict[int, int] = {r.row_index: 0 for r in rows}
+    for child_idx, parent_idx in parent_row_of.items():
+        if parent_idx is not None and parent_idx in in_degree:
+            in_degree[child_idx] = 1
+    order: list[int] = [idx for idx, deg in in_degree.items() if deg == 0]
+    placed: set[int] = set(order)
+    # Build inverse: parent → children
+    children_of: dict[int, list[int]] = {}
+    for child_idx, parent_idx in parent_row_of.items():
+        if parent_idx is not None:
+            children_of.setdefault(parent_idx, []).append(child_idx)
+    cursor = 0
+    while cursor < len(order):
+        current = order[cursor]
+        cursor += 1
+        for child in children_of.get(current, []):
+            if child not in placed:
+                placed.add(child)
+                order.append(child)
+    # Any rows not placed have a parent cycle — fail them.
+    cycle_rows = [r.row_index for r in rows if r.row_index not in placed]
+
+    rows_by_index = {r.row_index: r for r in rows}
+    # Track created card ids by their `(type, parent_path, name)` so that
+    # child rows in the same batch can resolve their parent.
+    created_path_to_id: dict[str, uuid.UUID] = {}
+
+    for row_idx in order:
+        r = rows_by_index[row_idx]
+        try:
+            await _validate_url_attributes(db, r.type, r.attributes or {})
+
+            # Resolve parent_id.
+            resolved_parent: uuid.UUID | None = None
+            if r.parent_id:
+                try:
+                    resolved_parent = uuid.UUID(r.parent_id)
+                except ValueError as exc:
+                    raise HTTPException(422, f"Invalid parent_id UUID: {r.parent_id}") from exc
+            elif r.parent_name:
+                # Look up against same-batch created rows first.
+                ref_keys = [
+                    _path_key(r.type, r.parent_path or [], r.parent_name),
+                    _path_key(r.type, [], r.parent_name),
+                ]
+                for key in ref_keys:
+                    if key in created_path_to_id:
+                        resolved_parent = created_path_to_id[key]
+                        break
+                if resolved_parent is None:
+                    parent_path_segs = r.parent_path or []
+                    escaped_segs = [
+                        s.replace("\\", "\\\\").replace("/", "\\/") for s in parent_path_segs
+                    ]
+                    escaped_name = r.parent_name.replace("\\", "\\\\").replace("/", "\\/")
+                    ref_str = " / ".join([*escaped_segs, escaped_name])
+                    result = resolver.resolve(r.type, ref_str)
+                    if result.status == "resolved" and result.card_id is not None:
+                        resolved_parent = result.card_id
+                    elif result.status == "ambiguous":
+                        candidates = [c.display_path for c in (result.candidates or [])][:3]
+                        raise HTTPException(
+                            422,
+                            "Parent reference is ambiguous: " + ", ".join(candidates),
+                        )
+                    else:
+                        raise HTTPException(422, f"Parent not found for ref: {ref_str}")
+
+            # Block siblings with duplicate names — keeps the LeanIX-style
+            # name+path ref format unambiguous for re-imports. Existing
+            # duplicates from before this check are not touched; only new
+            # collisions are rejected. Per-row failure here doesn't roll
+            # back the rest of the batch.
+            await check_sibling_name_unique(
+                db,
+                type_key=r.type,
+                parent_id=resolved_parent,
+                name=r.name,
+            )
+
+            card = Card(
+                type=r.type,
+                subtype=r.subtype,
+                name=r.name,
+                description=r.description,
+                parent_id=resolved_parent,
+                lifecycle=r.lifecycle or {},
+                attributes=r.attributes or {},
+                external_id=r.external_id,
+                alias=r.alias,
+                approval_status=r.approval_status or "DRAFT",
+                created_by=user.id,
+                updated_by=user.id,
+            )
+            db.add(card)
+            await db.flush()
+
+            if card.parent_id:
+                await _check_hierarchy_depth(db, card, card.parent_id)
+            await _sync_capability_level(db, card)
+            card.data_quality = await _calc_data_quality(db, card)
+            ppm_excl = await _get_ppm_exclusions(db, card)
+            await run_calculations_for_card(db, card, exclude_fields=ppm_excl)
+
+            await event_bus.publish(
+                "card.created",
+                {"id": str(card.id), "type": card.type, "name": card.name},
+                db=db,
+                card_id=card.id,
+                user_id=user.id,
+            )
+
+            # Index this freshly-created card so subsequent rows can reference
+            # it as a parent (under both its full path and bare-name keys).
+            full_key = _path_key(r.type, r.parent_path or [], r.name)
+            bare_key = _path_key(r.type, [], r.name)
+            created_path_to_id[full_key] = card.id
+            created_path_to_id.setdefault(bare_key, card.id)
+
+            by_index[r.row_index] = CardBulkCreateResult(
+                row_index=r.row_index, status="created", id=str(card.id)
+            )
+        except HTTPException as exc:
+            by_index[r.row_index] = CardBulkCreateResult(
+                row_index=r.row_index, status="failed", error=exc.detail
+            )
+        except Exception as exc:  # noqa: BLE001 — surface anything to the user
+            by_index[r.row_index] = CardBulkCreateResult(
+                row_index=r.row_index, status="failed", error=str(exc)
+            )
+
+    for cycle_idx in cycle_rows:
+        by_index[cycle_idx] = CardBulkCreateResult(
+            row_index=cycle_idx,
+            status="failed",
+            error="Parent reference forms a cycle within the import batch",
+        )
+
+    results = [by_index[r.row_index] for r in rows]
+    created_count = sum(1 for r in results if r.status == "created")
+    failed_count = sum(1 for r in results if r.status == "failed")
+
+    if failed_count > 0 and created_count == 0:
+        # Nothing succeeded — roll back so we don't half-apply.
+        await db.rollback()
+    else:
+        await db.commit()
+
+    return CardBulkCreateResponse(results=results, created=created_count, failed=failed_count)
+
+
+@router.post("/resolve-refs", response_model=CardRefResolveResponse)
+async def resolve_card_refs(
+    body: CardRefResolveRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Resolve a batch of human-readable card references (`name` or
+    `parent_path/name`) to UUIDs in one round-trip.
+
+    Used by the spreadsheet importer's validation pass to surface
+    ambiguous or missing references **before** anything is written. Each
+    ref carries the originating `row` + `column` so the importer can
+    pin the result to the cell that produced it.
+
+    Returns one result per ref with status `resolved`, `ambiguous`, or
+    `missing`. Ambiguous results include up to a handful of candidate
+    paths so the UI can render a useful disambiguation hint.
+    """
+    await PermissionService.require_permission(db, user, "inventory.view")
+
+    type_keys: set[str] = {r.type for r in body.refs}
+    resolver = await CardResolver.load(db, type_keys)
+
+    results: list[CardRefResolveResult] = []
+    for ref in body.refs:
+        outcome = resolver.resolve(ref.type, ref.ref)
+        candidates_payload: list[CardRefCandidate] | None = None
+        if outcome.candidates:
+            candidates_payload = [
+                CardRefCandidate(id=str(c.id), path=c.display_path) for c in outcome.candidates[:5]
+            ]
+        results.append(
+            CardRefResolveResult(
+                row=ref.row,
+                column=ref.column,
+                status=outcome.status,
+                id=str(outcome.card_id) if outcome.card_id is not None else None,
+                candidates=candidates_payload,
+            )
+        )
+    return CardRefResolveResponse(results=results)
 
 
 @router.get("/counts", response_model=CardCountsResponse)
@@ -1435,6 +1708,29 @@ async def update_card(
         new_pid = uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None
         if new_pid != card.parent_id:
             await _check_hierarchy_depth(db, card, new_pid)
+
+    # Guard: sibling-name uniqueness when name or parent changes. Only
+    # fires when the requested final state would introduce a new
+    # collision — renaming a card to its own current name, or merely
+    # editing unrelated fields, never trips this check.
+    name_changed = "name" in updates and updates["name"] != card.name
+    pid_changed = "parent_id" in updates and (
+        (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None) != card.parent_id
+    )
+    if name_changed or pid_changed:
+        new_name = updates["name"] if "name" in updates else card.name
+        new_pid_final = (
+            (uuid.UUID(updates["parent_id"]) if updates["parent_id"] else None)
+            if "parent_id" in updates
+            else card.parent_id
+        )
+        await check_sibling_name_unique(
+            db,
+            type_key=card.type,
+            parent_id=new_pid_final,
+            name=new_name,
+            exclude_card_id=card.id,
+        )
 
     changes = {}
     for field, value in updates.items():

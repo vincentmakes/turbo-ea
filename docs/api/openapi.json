@@ -1322,6 +1322,234 @@
         "title": "CardBulkArchiveResponse",
         "type": "object"
       },
+      "CardBulkCreateItem": {
+        "description": "One row of a bulk-create request. Mirrors `CardCreate` plus an\noptional parent reference + a stable `row_index` so the caller can\npair the response back to its spreadsheet row.\n\nEither `parent_id` (UUID) or `parent_ref` may be supplied \u2014 never both.\nServer-side topological sort handles parents that are themselves rows\nin the same request (referenced by `parent_ref` and the row's own\n`(parent_path, name)` identity).",
+        "properties": {
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "approval_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approval Status"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "lifecycle": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lifecycle"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "parent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Name"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Path"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "subtype": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtype"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index",
+          "type",
+          "name"
+        ],
+        "title": "CardBulkCreateItem",
+        "type": "object"
+      },
+      "CardBulkCreateRequest": {
+        "properties": {
+          "cards": {
+            "items": {
+              "$ref": "#/components/schemas/CardBulkCreateItem"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Cards",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cards"
+        ],
+        "title": "CardBulkCreateRequest",
+        "type": "object"
+      },
+      "CardBulkCreateResponse": {
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CardBulkCreateResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results",
+          "created",
+          "failed"
+        ],
+        "title": "CardBulkCreateResponse",
+        "type": "object"
+      },
+      "CardBulkCreateResult": {
+        "description": "Per-row outcome. `id` is set on success, `error` on failure.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "created",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "CardBulkCreateResult",
+        "type": "object"
+      },
       "CardBulkDeleteRequest": {
         "properties": {
           "card_ids": {
@@ -1765,6 +1993,139 @@
           "name"
         ],
         "title": "CardRef",
+        "type": "object"
+      },
+      "CardRefCandidate": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path"
+        ],
+        "title": "CardRefCandidate",
+        "type": "object"
+      },
+      "CardRefInput": {
+        "description": "One ref to resolve, with `row` / `column` echoed back so the caller\ncan pin the result to the originating spreadsheet cell.\n\n`ref` is the user-typed string (`\"NexaCore ERP\"` or\n`\"Sales / Customer Mgmt / CRM\"`, using the same escape rules as\n`parent_path`). `type` is the expected card type for the lookup \u2014\ninferred by the importer from the relation type's `target_type_key`\n(for relation cells) or from the row's own `type` column (for parent\nrefs).",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "ref": {
+            "title": "Ref",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "type",
+          "ref"
+        ],
+        "title": "CardRefInput",
+        "type": "object"
+      },
+      "CardRefResolveRequest": {
+        "properties": {
+          "refs": {
+            "items": {
+              "$ref": "#/components/schemas/CardRefInput"
+            },
+            "maxItems": 5000,
+            "title": "Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "refs"
+        ],
+        "title": "CardRefResolveRequest",
+        "type": "object"
+      },
+      "CardRefResolveResponse": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CardRefResolveResult"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "results"
+        ],
+        "title": "CardRefResolveResponse",
+        "type": "object"
+      },
+      "CardRefResolveResult": {
+        "properties": {
+          "candidates": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CardRefCandidate"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidates"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "resolved",
+              "ambiguous",
+              "missing"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "status"
+        ],
+        "title": "CardRefResolveResult",
         "type": "object"
       },
       "CardRelationSummaryEntry": {
@@ -7336,6 +7697,160 @@
         "title": "RejectRequest",
         "type": "object"
       },
+      "RelationBulkOperation": {
+        "description": "One row of a bulk-relation request.",
+        "properties": {
+          "action": {
+            "default": "upsert",
+            "enum": [
+              "upsert",
+              "delete"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attributes"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/RelationRefInput"
+          },
+          "target": {
+            "$ref": "#/components/schemas/RelationRefInput"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index",
+          "type",
+          "source",
+          "target"
+        ],
+        "title": "RelationBulkOperation",
+        "type": "object"
+      },
+      "RelationBulkRequest": {
+        "properties": {
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/RelationBulkOperation"
+            },
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Operations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "operations"
+        ],
+        "title": "RelationBulkRequest",
+        "type": "object"
+      },
+      "RelationBulkResponse": {
+        "properties": {
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/RelationBulkResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "upserted": {
+            "title": "Upserted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "results",
+          "upserted",
+          "deleted",
+          "failed"
+        ],
+        "title": "RelationBulkResponse",
+        "type": "object"
+      },
+      "RelationBulkResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "relation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation Id"
+          },
+          "row_index": {
+            "title": "Row Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "upserted",
+              "deleted",
+              "noop",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row_index",
+          "status"
+        ],
+        "title": "RelationBulkResult",
+        "type": "object"
+      },
       "RelationCreate": {
         "properties": {
           "attributes": {
@@ -7380,6 +7895,60 @@
           "target_id"
         ],
         "title": "RelationCreate",
+        "type": "object"
+      },
+      "RelationRefInput": {
+        "description": "Either a resolved UUID or a name+path tuple. Exactly one of `id` or\n(`type` + `name`) must be supplied.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "parent_path": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Path"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type"
+          }
+        },
+        "title": "RelationRefInput",
         "type": "object"
       },
       "RelationResponse": {
@@ -14854,6 +15423,48 @@
         ]
       }
     },
+    "/api/v1/cards/bulk-create": {
+      "post": {
+        "description": "Batched card creation for the spreadsheet importer.\n\nEach row carries its own `row_index` so the caller can pair the\nresponse back to its spreadsheet row. Parents may be referenced by\nUUID (`parent_id`) or by `(parent_path, parent_name)` \u2014 the server\nresolves names server-side against the existing inventory and against\nother rows in the same request (which may not exist yet).\n\nRows are processed in topological order: parents come before children\nso FK constraints never fire. If a row's parent cannot be resolved\neven after every other row has been placed, it fails with a clear\n`parent_not_resolved` error instead of producing an orphan card.\n\nSingle transaction per request \u2014 partial failures still roll back\nsucceeded rows in the same batch. Permission: `inventory.create`.",
+        "operationId": "bulk_create_cards_api_v1_cards_bulk_create_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardBulkCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardBulkCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Create Cards",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
     "/api/v1/cards/bulk-delete": {
       "post": {
         "description": "Permanently delete many cards in a single transaction.\n\nMirrors `bulk_archive_cards`. Unlike archive, delete works on cards in any\nstatus (ACTIVE or ARCHIVED), so the only `skipped` reason is `not_found`\n(the card was already deleted by a sibling primary's cascade in the same\nbatch, or never existed).\n\nDescendants are deleted leaves-first to satisfy the self-FK on `parent_id`.",
@@ -15183,6 +15794,48 @@
           }
         },
         "summary": "List My Stakeholder Cards",
+        "tags": [
+          "cards"
+        ]
+      }
+    },
+    "/api/v1/cards/resolve-refs": {
+      "post": {
+        "description": "Resolve a batch of human-readable card references (`name` or\n`parent_path/name`) to UUIDs in one round-trip.\n\nUsed by the spreadsheet importer's validation pass to surface\nambiguous or missing references **before** anything is written. Each\nref carries the originating `row` + `column` so the importer can\npin the result to the cell that produced it.\n\nReturns one result per ref with status `resolved`, `ambiguous`, or\n`missing`. Ambiguous results include up to a handful of candidate\npaths so the UI can render a useful disambiguation hint.",
+        "operationId": "resolve_card_refs_api_v1_cards_resolve_refs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardRefResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardRefResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Resolve Card Refs",
         "tags": [
           "cards"
         ]
@@ -21455,6 +22108,48 @@
           }
         },
         "summary": "Create Relation",
+        "tags": [
+          "relations"
+        ]
+      }
+    },
+    "/api/v1/relations/bulk": {
+      "post": {
+        "description": "Batched upsert/delete for relations. Used by the spreadsheet importer\nto apply both inline `rel:<key>` columns and the explicit `Relations`\nsheet in one round-trip.\n\nEach operation independently succeeds or fails; failed rows do not\nroll back successful ones unless every row fails. Source and target\nmay be referenced by UUID (when the importer has just created the card)\nor by `(type, parent_path, name)` for human-readable round-trips.\n\nPermission: `relations.manage`.",
+        "operationId": "bulk_relations_api_v1_relations_bulk_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelationBulkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationBulkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bulk Relations",
         "tags": [
           "relations"
         ]

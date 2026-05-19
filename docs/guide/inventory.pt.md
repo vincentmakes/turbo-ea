@@ -137,24 +137,36 @@ Visualizações salvas aparecem na barra lateral do painel de filtros. Clique em
 - **Compartilhadas Comigo** — Visualizações que outros compartilharam com você
 - **Visualizações Públicas** — Visualizações disponíveis para todos
 
-## Importação Excel
+## Importação / Exportação Excel
 
-Clique em **Importar** na barra de ferramentas para criar ou atualizar cards em massa a partir de um arquivo Excel.
+As importações e exportações do inventário usam uma **pasta de trabalho Excel com várias planilhas** que reconstrói uma sub-paisagem inteira — cards de qualquer número de tipos e as relações entre eles — sem nunca exigir a cópia de um UUID.
 
-1. **Selecione um arquivo** — Arraste e solte um arquivo `.xlsx` ou clique para navegar
-2. **Escolha o tipo de card** — Opcionalmente restrinja a importação a um tipo específico
-3. **Validação** — O sistema analisa o arquivo e mostra um relatório de validação:
-   - Linhas que criarão novos cards
-   - Linhas que atualizarão cards existentes (correspondidos por nome ou ID)
-   - Avisos e erros
-4. **Importar** — Clique para prosseguir. Uma barra de progresso mostra o status em tempo real
-5. **Resultados** — Um resumo mostra quantos cards foram criados, atualizados ou falharam
+### Estrutura da pasta de trabalho
 
-## Exportação Excel
+- **Uma planilha por tipo de card** (Application, Business Capability, IT Component, …) com as colunas principais, as colunas `attr_<campo>`, as colunas de ciclo de vida e as colunas de relação `rel:<tipo_de_relação>`.
+- **Uma planilha `Relations`** para tipos de relação com atributos (custo, descrição…). As relações simples permanecem em linha na planilha do card de origem.
+- **Uma planilha `_Meta`** com a versão do formato da pasta de trabalho.
 
-Clique em **Exportar** para baixar a visualização atual do inventário como arquivo Excel:
+### Identificação sem GUIDs
 
-- **Exportação multi-tipo** — Exporta todos os cards visíveis com colunas principais (nome, tipo, descrição, subtipo, ciclo de vida, status de aprovação)
-- **Exportação de tipo único** — Quando filtrado para um tipo, a exportação inclui colunas expandidas de atributos personalizados (uma coluna por campo)
-- **Expansão do ciclo de vida** — Colunas separadas para cada data de fase do ciclo de vida (Planejamento, Implantação, Ativo, Desativação, Fim de Vida)
-- **Nome do arquivo com data** — O arquivo é nomeado com a data de exportação para fácil organização
+Os cards são identificados pelo **nome** quando este é único dentro do tipo, e caso contrário pelo **`parent_path`** completo. Uma célula de relação pode conter `NexaCore ERP` diretamente se apenas uma Application tiver esse nome; em caso de ambiguidade, use `Sales / Customer Mgmt / CRM`.
+
+#### Unicidade entre irmãos
+
+Como os cards são identificados por nome + caminho, **dois cards do mesmo tipo não podem partilhar simultaneamente o mesmo pai e o mesmo nome**. Novos cards que provocariam uma colisão são rejeitados na criação (na caixa Criar card, no renomear em linha e durante a importação de Excel). Duplicados já presentes na base de dados — herdados de seeds ou imports anteriores — permanecem intactos: pode editar qualquer campo, mas criar um terceiro duplicado ou renomear um card de volta à colisão é bloqueado. A verificação é insensível a maiúsculas/minúsculas e espaços, igual ao resolvedor do importador.
+
+### Células de relação em linha
+
+Cada coluna `rel:<tipo_de_relação>` expressa as relações de saída como uma lista **separada por ponto e vírgula** (por exemplo `NexaCore ERP; BillingApp`). Ponto e vírgula em vez de vírgula, porque os nomes de cards frequentemente contêm vírgulas (`Acme, Inc.`). Dentro de um nome, `/` e `\` são escapados como `\/` e `\\` — o exportador faz isso automaticamente (ex.: `SAP S/4HANA` → `SAP S\/4HANA`). As células são **declarativas**: o seu conteúdo substitui o conjunto de relações de saída desse tipo a partir da origem. Remover um destino elimina a relação correspondente; esvaziar a célula elimina todas. Por compatibilidade, células separadas por vírgulas (formato antigo) continuam a ser aceites.
+
+### Planilha `Relations`
+
+Para relações com atributos, use a planilha dedicada com as colunas `relation_type`, `source_ref`, `target_ref`, `action` (por defeito `upsert`, alternativamente `delete`), `attr_<campo>` e `description`.
+
+### Importar
+
+Clique em **Importar** na barra de ferramentas, solte a pasta de trabalho e verifique a pré-visualização antes de aplicar. Verá tanto os cards a criar / atualizar como as relações a adicionar / remover. Os erros (por exemplo, um destino ambíguo com os seus caminhos candidatos) bloqueiam a aplicação.
+
+### Exportar
+
+Clique em **Exportar**. O filtro atual determina o conteúdo: com um filtro de tipo único, uma planilha para esse tipo; sem filtro, uma planilha por tipo presente. Em todos os casos a pasta de trabalho inclui `Relations` e `_Meta` e pode ser reimportada sem perder atributos específicos do tipo.

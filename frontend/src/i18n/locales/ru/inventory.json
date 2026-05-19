@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Строка {{row}}: неизвестный тег «{{value}}» — проигнорирован",
   "import.warnings.idNotFoundCreating": "Строка {{row}}: id «{{id}}» отсутствует в этом экземпляре — будет создана новая карточка",
   "import.warnings.ambiguousParentPath": "Строка {{row}}: путь к родителю «{{path}}» соответствует нескольким карточкам — используется первое совпадение",
-  "import.warnings.readOnlyFieldIgnored": "Строка {{row}}: «{{field}}» — поле только для чтения, значение будет проигнорировано"
+  "import.warnings.readOnlyFieldIgnored": "Строка {{row}}: «{{field}}» — поле только для чтения, значение будет проигнорировано",
+  "import.relationsToAdd_one": "{{count}} связь будет добавлена",
+  "import.relationsToAdd_other": "{{count}} связей будет добавлено",
+  "import.relationsToRemove_one": "{{count}} связь будет удалена",
+  "import.relationsToRemove_other": "{{count}} связей будет удалено",
+  "import.relationsAddedCount_one": "{{count}} связь добавлена",
+  "import.relationsAddedCount_other": "{{count}} связей добавлено",
+  "import.relationsRemovedCount_one": "{{count}} связь удалена",
+  "import.relationsRemovedCount_other": "{{count}} связей удалено",
+  "import.formatVersionBanner": "Этот файл был экспортирован в другом формате книги (версия {{version}}). Перед применением внимательно проверьте различия.",
+  "import.errors.invalidRelationAction": "Строка {{row}}: недопустимое действие «{{action}}» (допустимы: upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "Цель связи «{{ref}}» ({{type}}) неоднозначна. Кандидаты: {{hints}}",
+  "import.errors.relationTargetMissing": "Цель связи «{{ref}}» ({{type}}) не соответствует ни одной карточке",
+  "import.errors.relationTypeRequired": "Поле relation_type обязательно",
+  "import.errors.unknownRelationType": "Неизвестный тип связи: {{type}}",
+  "import.warnings.formatVersionMismatch": "Версия формата книги {{version}} отличается от текущей. Некоторые поля могут не восстановиться корректно.",
+  "import.warnings.unknownRelationType": "Неизвестный тип связи «{{type}}» — столбец проигнорирован"
 }

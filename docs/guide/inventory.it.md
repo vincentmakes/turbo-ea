@@ -137,24 +137,36 @@ Le viste salvate appaiono nel pannello laterale dei filtri. Cliccate su qualsias
 - **Condivise con me** — Viste condivise da altri con voi
 - **Viste pubbliche** — Viste disponibili per tutti
 
-## Importazione Excel
+## Importazione / Esportazione Excel
 
-Cliccate su **Importa** nella barra degli strumenti per creare o aggiornare card in blocco da un file Excel.
+Le importazioni ed esportazioni dell'inventario usano una **cartella di lavoro Excel a più fogli** che ricostruisce un intero sotto-paesaggio — schede di qualsiasi numero di tipi e le relazioni tra di esse — senza dover mai copiare un UUID.
 
-1. **Selezionate un file** — Trascinate un file `.xlsx` o cliccate per sfogliare
-2. **Scegliete il tipo di card** — Opzionalmente limitate l'importazione a un tipo specifico
-3. **Validazione** — Il sistema analizza il file e mostra un rapporto di validazione:
-   - Righe che creeranno nuove card
-   - Righe che aggiorneranno card esistenti (corrispondenza per nome o ID)
-   - Avvisi ed errori
-4. **Importa** — Cliccate per procedere. Una barra di avanzamento mostra lo stato in tempo reale
-5. **Risultati** — Un riepilogo mostra quante card sono state create, aggiornate o fallite
+### Struttura della cartella di lavoro
 
-## Esportazione Excel
+- **Un foglio per ogni tipo di scheda** (Application, Business Capability, IT Component, …) con le colonne principali, le colonne `attr_<campo>`, le colonne di ciclo di vita e le colonne di relazione `rel:<tipo_di_relazione>`.
+- **Un foglio `Relations`** per i tipi di relazione che portano attributi (costo, descrizione, …). Le relazioni semplici restano in linea sul foglio della scheda di origine.
+- **Un foglio `_Meta`** con la versione del formato della cartella di lavoro.
 
-Cliccate su **Esporta** per scaricare la vista attuale dell'inventario come file Excel:
+### Identificazione senza GUID
 
-- **Esportazione multi-tipo** — Esporta tutte le card visibili con le colonne principali (nome, tipo, descrizione, sottotipo, ciclo di vita, stato di approvazione)
-- **Esportazione singolo tipo** — Quando filtrate per un tipo, l'esportazione include colonne espanse per gli attributi personalizzati (una colonna per campo)
-- **Espansione ciclo di vita** — Colonne separate per ogni data di fase del ciclo di vita (Plan, Phase In, Active, Phase Out, End of Life)
-- **Nome file con data** — Il file è nominato con la data di esportazione per una facile organizzazione
+Le schede sono identificate per **nome** quando è univoco nel suo tipo, altrimenti per **`parent_path`** completo. Una cella di relazione può contenere `NexaCore ERP` direttamente se solo una Application ha quel nome; in caso di ambiguità usare `Sales / Customer Mgmt / CRM`.
+
+#### Univocità tra fratelli
+
+Poiché le schede sono identificate per nome + percorso, **due schede dello stesso tipo non possono condividere contemporaneamente lo stesso genitore e lo stesso nome**. Le nuove schede che provocherebbero una collisione vengono rifiutate alla creazione (nella finestra di dialogo Crea, nel rinominamento in linea e durante l'importazione Excel). Eventuali duplicati già presenti nel database — ereditati da seed o import precedenti — restano intatti: potete modificarne qualsiasi campo, ma creare un terzo duplicato o rinominare una scheda riportandola in collisione viene bloccato. Il controllo è case- e whitespace-insensitive, come il risolutore dell'importatore.
+
+### Celle di relazione in linea
+
+Ogni colonna `rel:<tipo_di_relazione>` esprime le relazioni in uscita come elenco **separato da punti e virgola** (per esempio `NexaCore ERP; BillingApp`). Punto e virgola invece di virgola perché i nomi delle schede contengono spesso virgole (`Acme, Inc.`). All'interno di un nome, `/` e `\` vengono fatti precedere dall'escape `\/` e `\\` — l'esportatore lo gestisce automaticamente (es. `SAP S/4HANA` → `SAP S\/4HANA`). Le celle sono **dichiarative**: il loro contenuto sostituisce l'insieme delle relazioni in uscita di quel tipo dalla sorgente. Rimuovere un target elimina la relazione corrispondente; svuotare la cella le elimina tutte. Per retrocompatibilità, anche le celle separate da virgole (formato precedente) vengono accettate.
+
+### Foglio `Relations`
+
+Per relazioni con attributi, usate il foglio dedicato con le colonne `relation_type`, `source_ref`, `target_ref`, `action` (predefinito `upsert`, in alternativa `delete`), `attr_<campo>` e `description`.
+
+### Importare
+
+Cliccate su **Importa** nella barra degli strumenti, rilasciate la cartella di lavoro e verificate l'anteprima prima di applicare. Vedrete sia le schede da creare / aggiornare sia le relazioni da aggiungere / rimuovere. Gli errori (per esempio, un target ambiguo con i suoi percorsi candidati) bloccano l'applicazione.
+
+### Esportare
+
+Cliccate su **Esporta**. Il filtro corrente determina il contenuto: con un filtro per tipo singolo, un foglio per quel tipo; senza filtro, un foglio per ogni tipo presente. In ogni caso la cartella di lavoro include `Relations` e `_Meta` e può essere reimportata senza perdere gli attributi specifici del tipo.

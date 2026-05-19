@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Ligne {{row}} : tag inconnu « {{value}} » — ignoré",
   "import.warnings.idNotFoundCreating": "Ligne {{row}} : l’id « {{id}} » n’existe pas dans cette instance — création d’une nouvelle fiche",
   "import.warnings.ambiguousParentPath": "Ligne {{row}} : le chemin parent « {{path}} » correspond à plusieurs fiches — la première correspondance est utilisée",
-  "import.warnings.readOnlyFieldIgnored": "Ligne {{row}} : « {{field}} » est un champ en lecture seule — la valeur sera ignorée"
+  "import.warnings.readOnlyFieldIgnored": "Ligne {{row}} : « {{field}} » est un champ en lecture seule — la valeur sera ignorée",
+  "import.relationsToAdd_one": "{{count}} relation à ajouter",
+  "import.relationsToAdd_other": "{{count}} relations à ajouter",
+  "import.relationsToRemove_one": "{{count}} relation à supprimer",
+  "import.relationsToRemove_other": "{{count}} relations à supprimer",
+  "import.relationsAddedCount_one": "{{count}} relation ajoutée",
+  "import.relationsAddedCount_other": "{{count}} relations ajoutées",
+  "import.relationsRemovedCount_one": "{{count}} relation supprimée",
+  "import.relationsRemovedCount_other": "{{count}} relations supprimées",
+  "import.formatVersionBanner": "Ce fichier a été exporté avec un autre format de classeur (version {{version}}). Vérifiez attentivement les différences avant d’appliquer.",
+  "import.errors.invalidRelationAction": "Ligne {{row}} : action « {{action}} » invalide (valides : upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "La cible « {{ref}} » ({{type}}) est ambiguë. Candidats : {{hints}}",
+  "import.errors.relationTargetMissing": "La cible « {{ref}} » ({{type}}) ne correspond à aucune fiche",
+  "import.errors.relationTypeRequired": "relation_type est requis",
+  "import.errors.unknownRelationType": "Type de relation inconnu : {{type}}",
+  "import.warnings.formatVersionMismatch": "La version du format de classeur {{version}} diffère de la version actuelle. Certains champs peuvent ne pas être restaurés correctement.",
+  "import.warnings.unknownRelationType": "Type de relation inconnu « {{type}} » — colonne ignorée"
 }

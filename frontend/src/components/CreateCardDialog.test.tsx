@@ -26,6 +26,17 @@ vi.mock("react-router-dom", async () => {
 
 vi.mock("@/api/client", () => ({
   api: { get: vi.fn().mockResolvedValue({}), post: vi.fn().mockResolvedValue({}) },
+  // Re-export the ApiError class so the dialog can `instanceof` against it.
+  ApiError: class ApiError extends Error {
+    status: number;
+    detail: unknown;
+    constructor(message: string, status: number, detail: unknown) {
+      super(message);
+      this.name = "ApiError";
+      this.status = status;
+      this.detail = detail;
+    }
+  },
 }));
 
 vi.mock("@/hooks/useMetamodel", () => ({
@@ -248,6 +259,30 @@ describe("CreateCardDialog", () => {
     await waitFor(() => {
       expect(screen.getByText("Duplicate name")).toBeInTheDocument();
     });
+  });
+
+  it("surfaces a 409 sibling-name collision on the Name field, not as a dialog toast", async () => {
+    // The backend's uniqueness check returns 409 with a human-readable
+    // detail. The dialog must route it to the Name TextField's helperText
+    // (so the user can correct in place) instead of the generic Alert.
+    const { ApiError } = await import("@/api/client");
+    const user = userEvent.setup();
+    const detail =
+      'A Application named "ERP" already exists at this level (existing card: abc-123).';
+    onCreate.mockRejectedValueOnce(new ApiError(detail, 409, detail));
+
+    renderDialog({ initialType: "Objective" });
+
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "ERP");
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // The detail must appear in the form (as helperText), once.
+    await waitFor(() => {
+      expect(screen.getByText(detail)).toBeInTheDocument();
+    });
+    // And it must clear the moment the user edits the name.
+    await user.type(screen.getByRole("textbox", { name: /name/i }), "2");
+    expect(screen.queryByText(detail)).not.toBeInTheDocument();
   });
 
   it("renders required fields from schema", () => {

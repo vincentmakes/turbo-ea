@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Row {{row}}: unknown tag \"{{value}}\" — ignored",
   "import.warnings.idNotFoundCreating": "Row {{row}}: id \"{{id}}\" doesn't exist in this instance — creating as a new card",
   "import.warnings.ambiguousParentPath": "Row {{row}}: parent path \"{{path}}\" matches multiple cards — using the first match",
-  "import.warnings.readOnlyFieldIgnored": "Row {{row}}: \"{{field}}\" is a read-only field — value will be ignored"
+  "import.warnings.readOnlyFieldIgnored": "Row {{row}}: \"{{field}}\" is a read-only field — value will be ignored",
+  "import.relationsToAdd_one": "{{count}} relation to add",
+  "import.relationsToAdd_other": "{{count}} relations to add",
+  "import.relationsToRemove_one": "{{count}} relation to remove",
+  "import.relationsToRemove_other": "{{count}} relations to remove",
+  "import.relationsAddedCount_one": "{{count}} relation added",
+  "import.relationsAddedCount_other": "{{count}} relations added",
+  "import.relationsRemovedCount_one": "{{count}} relation removed",
+  "import.relationsRemovedCount_other": "{{count}} relations removed",
+  "import.formatVersionBanner": "This file was exported with a different workbook format (version {{version}}). Review the diff carefully before applying.",
+  "import.errors.invalidRelationAction": "Row {{row}}: invalid action \"{{action}}\" (valid: upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "Relation target \"{{ref}}\" ({{type}}) is ambiguous. Candidates: {{hints}}",
+  "import.errors.relationTargetMissing": "Relation target \"{{ref}}\" ({{type}}) doesn't match any card",
+  "import.errors.relationTypeRequired": "relation_type is required",
+  "import.errors.unknownRelationType": "Unknown relation type: {{type}}",
+  "import.warnings.formatVersionMismatch": "Workbook format version {{version}} differs from the current version. Some fields may not round-trip cleanly.",
+  "import.warnings.unknownRelationType": "Unknown relation type \"{{type}}\" — column ignored"
 }

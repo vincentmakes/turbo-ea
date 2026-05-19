@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Zeile {{row}}: unbekannter Tag „{{value}}“ — ignoriert",
   "import.warnings.idNotFoundCreating": "Zeile {{row}}: ID „{{id}}“ existiert in dieser Instanz nicht — wird als neue Karte angelegt",
   "import.warnings.ambiguousParentPath": "Zeile {{row}}: Elternpfad „{{path}}“ trifft auf mehrere Karten zu — der erste Treffer wird verwendet",
-  "import.warnings.readOnlyFieldIgnored": "Zeile {{row}}: „{{field}}“ ist ein schreibgeschütztes Feld — Wert wird ignoriert"
+  "import.warnings.readOnlyFieldIgnored": "Zeile {{row}}: „{{field}}“ ist ein schreibgeschütztes Feld — Wert wird ignoriert",
+  "import.relationsToAdd_one": "{{count}} Beziehung hinzuzufügen",
+  "import.relationsToAdd_other": "{{count}} Beziehungen hinzuzufügen",
+  "import.relationsToRemove_one": "{{count}} Beziehung zu entfernen",
+  "import.relationsToRemove_other": "{{count}} Beziehungen zu entfernen",
+  "import.relationsAddedCount_one": "{{count}} Beziehung hinzugefügt",
+  "import.relationsAddedCount_other": "{{count}} Beziehungen hinzugefügt",
+  "import.relationsRemovedCount_one": "{{count}} Beziehung entfernt",
+  "import.relationsRemovedCount_other": "{{count}} Beziehungen entfernt",
+  "import.formatVersionBanner": "Diese Datei wurde mit einem anderen Arbeitsmappenformat exportiert (Version {{version}}). Bitte prüfen Sie die Änderungen sorgfältig.",
+  "import.errors.invalidRelationAction": "Zeile {{row}}: ungültige Aktion „{{action}}“ (gültig: upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "Beziehungsziel „{{ref}}“ ({{type}}) ist mehrdeutig. Kandidaten: {{hints}}",
+  "import.errors.relationTargetMissing": "Beziehungsziel „{{ref}}“ ({{type}}) entspricht keiner Karte",
+  "import.errors.relationTypeRequired": "relation_type ist erforderlich",
+  "import.errors.unknownRelationType": "Unbekannter Beziehungstyp: {{type}}",
+  "import.warnings.formatVersionMismatch": "Arbeitsmappen-Formatversion {{version}} weicht von der aktuellen Version ab. Einige Felder werden möglicherweise nicht korrekt zurückgeschrieben.",
+  "import.warnings.unknownRelationType": "Unbekannter Beziehungstyp „{{type}}“ — Spalte ignoriert"
 }

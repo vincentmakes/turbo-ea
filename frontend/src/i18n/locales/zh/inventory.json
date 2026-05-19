@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "第 {{row}} 行：未知标签「{{value}}」— 已忽略",
   "import.warnings.idNotFoundCreating": "第 {{row}} 行：此实例中不存在 id「{{id}}」— 将作为新卡片创建",
   "import.warnings.ambiguousParentPath": "第 {{row}} 行：父级路径「{{path}}」匹配到多张卡片 — 将使用第一个匹配项",
-  "import.warnings.readOnlyFieldIgnored": "第 {{row}} 行：「{{field}}」是只读字段 — 值将被忽略"
+  "import.warnings.readOnlyFieldIgnored": "第 {{row}} 行：「{{field}}」是只读字段 — 值将被忽略",
+  "import.relationsToAdd_one": "待添加关系 {{count}} 个",
+  "import.relationsToAdd_other": "待添加关系 {{count}} 个",
+  "import.relationsToRemove_one": "待移除关系 {{count}} 个",
+  "import.relationsToRemove_other": "待移除关系 {{count}} 个",
+  "import.relationsAddedCount_one": "已添加关系 {{count}} 个",
+  "import.relationsAddedCount_other": "已添加关系 {{count}} 个",
+  "import.relationsRemovedCount_one": "已移除关系 {{count}} 个",
+  "import.relationsRemovedCount_other": "已移除关系 {{count}} 个",
+  "import.formatVersionBanner": "此文件使用了不同的工作簿格式（版本 {{version}}）。请仔细检查差异后再应用。",
+  "import.errors.invalidRelationAction": "第 {{row}} 行：无效操作「{{action}}」（有效值：upsert、delete）",
+  "import.errors.relationTargetAmbiguous": "关系目标「{{ref}}」（{{type}}）不明确。候选：{{hints}}",
+  "import.errors.relationTargetMissing": "关系目标「{{ref}}」（{{type}}）未匹配到任何卡片",
+  "import.errors.relationTypeRequired": "需要 relation_type",
+  "import.errors.unknownRelationType": "未知关系类型：{{type}}",
+  "import.warnings.formatVersionMismatch": "工作簿格式版本 {{version}} 与当前版本不一致。某些字段可能无法完整往返。",
+  "import.warnings.unknownRelationType": "未知关系类型「{{type}}」— 已忽略该列"
 }

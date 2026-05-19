@@ -308,3 +308,108 @@ class CardRestoreRequest(BaseModel):
 class CardRestoreResponse(BaseModel):
     primary: CardResponse
     restored_passenger_ids: list[str]
+
+
+# ----------------------------------------------------------------------------
+# Spreadsheet bulk-import schemas.
+#
+# Used by `POST /cards/bulk-create` and `POST /cards/resolve-refs`. Parents
+# can be expressed either by UUID (legacy / same-instance round-trips) or
+# by `(parent_path[], parent_name)` so the server resolves names → ids in
+# one transaction. The same `(parent_path[], parent_name)` shape is reused
+# for relation source/target refs.
+# ----------------------------------------------------------------------------
+
+
+class CardBulkCreateItem(BaseModel):
+    """One row of a bulk-create request. Mirrors `CardCreate` plus an
+    optional parent reference + a stable `row_index` so the caller can
+    pair the response back to its spreadsheet row.
+
+    Either `parent_id` (UUID) or `parent_ref` may be supplied — never both.
+    Server-side topological sort handles parents that are themselves rows
+    in the same request (referenced by `parent_ref` and the row's own
+    `(parent_path, name)` identity).
+    """
+
+    row_index: int
+    type: str
+    subtype: str | None = None
+    name: str
+    description: str | None = None
+    parent_id: str | None = None
+    parent_path: list[str] | None = None
+    parent_name: str | None = None
+    lifecycle: dict | None = None
+    attributes: dict | None = None
+    external_id: str | None = None
+    alias: str | None = None
+    approval_status: str | None = None
+
+    @field_validator("lifecycle")
+    @classmethod
+    def validate_lifecycle(cls, v: dict | None) -> dict | None:
+        return _validate_jsonb_dict(v, "lifecycle")
+
+    @field_validator("attributes")
+    @classmethod
+    def validate_attributes(cls, v: dict | None) -> dict | None:
+        return _validate_jsonb_dict(v, "attributes")
+
+
+class CardBulkCreateRequest(BaseModel):
+    cards: list[CardBulkCreateItem] = Field(..., min_length=1, max_length=2000)
+
+
+class CardBulkCreateResult(BaseModel):
+    """Per-row outcome. `id` is set on success, `error` on failure."""
+
+    row_index: int
+    status: Literal["created", "failed"]
+    id: str | None = None
+    error: str | None = None
+
+
+class CardBulkCreateResponse(BaseModel):
+    results: list[CardBulkCreateResult]
+    created: int
+    failed: int
+
+
+class CardRefInput(BaseModel):
+    """One ref to resolve, with `row` / `column` echoed back so the caller
+    can pin the result to the originating spreadsheet cell.
+
+    `ref` is the user-typed string (`"NexaCore ERP"` or
+    `"Sales / Customer Mgmt / CRM"`, using the same escape rules as
+    `parent_path`). `type` is the expected card type for the lookup —
+    inferred by the importer from the relation type's `target_type_key`
+    (for relation cells) or from the row's own `type` column (for parent
+    refs).
+    """
+
+    row: int
+    column: str
+    type: str
+    ref: str
+
+
+class CardRefCandidate(BaseModel):
+    id: str
+    path: str  # human-readable `parent_path / name` for the disambig hint
+
+
+class CardRefResolveResult(BaseModel):
+    row: int
+    column: str
+    status: Literal["resolved", "ambiguous", "missing"]
+    id: str | None = None
+    candidates: list[CardRefCandidate] | None = None
+
+
+class CardRefResolveRequest(BaseModel):
+    refs: list[CardRefInput] = Field(..., max_length=5000)
+
+
+class CardRefResolveResponse(BaseModel):
+    results: list[CardRefResolveResult]

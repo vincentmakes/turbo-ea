@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Riga {{row}}: tag sconosciuto «{{value}}» — ignorato",
   "import.warnings.idNotFoundCreating": "Riga {{row}}: l’id «{{id}}» non esiste in questa istanza — verrà creata come nuova scheda",
   "import.warnings.ambiguousParentPath": "Riga {{row}}: il percorso del genitore «{{path}}» corrisponde a più schede — viene usato il primo risultato",
-  "import.warnings.readOnlyFieldIgnored": "Riga {{row}}: «{{field}}» è un campo di sola lettura — il valore verrà ignorato"
+  "import.warnings.readOnlyFieldIgnored": "Riga {{row}}: «{{field}}» è un campo di sola lettura — il valore verrà ignorato",
+  "import.relationsToAdd_one": "{{count}} relazione da aggiungere",
+  "import.relationsToAdd_other": "{{count}} relazioni da aggiungere",
+  "import.relationsToRemove_one": "{{count}} relazione da rimuovere",
+  "import.relationsToRemove_other": "{{count}} relazioni da rimuovere",
+  "import.relationsAddedCount_one": "{{count}} relazione aggiunta",
+  "import.relationsAddedCount_other": "{{count}} relazioni aggiunte",
+  "import.relationsRemovedCount_one": "{{count}} relazione rimossa",
+  "import.relationsRemovedCount_other": "{{count}} relazioni rimosse",
+  "import.formatVersionBanner": "Questo file è stato esportato con un formato di cartella di lavoro diverso (versione {{version}}). Controlla attentamente le differenze prima di applicare.",
+  "import.errors.invalidRelationAction": "Riga {{row}}: azione «{{action}}» non valida (valide: upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "Destinazione della relazione «{{ref}}» ({{type}}) ambigua. Candidati: {{hints}}",
+  "import.errors.relationTargetMissing": "Destinazione della relazione «{{ref}}» ({{type}}) non corrisponde a nessuna scheda",
+  "import.errors.relationTypeRequired": "relation_type è obbligatorio",
+  "import.errors.unknownRelationType": "Tipo di relazione sconosciuto: {{type}}",
+  "import.warnings.formatVersionMismatch": "La versione del formato della cartella di lavoro {{version}} è diversa da quella corrente. Alcuni campi potrebbero non essere ripristinati correttamente.",
+  "import.warnings.unknownRelationType": "Tipo di relazione sconosciuto «{{type}}» — colonna ignorata"
 }

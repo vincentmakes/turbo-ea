@@ -137,24 +137,36 @@ Gespeicherte Ansichten erscheinen in der Seitenleiste des Filterpanels. Klicken 
 - **Mit mir geteilt** — Ansichten, die andere mit Ihnen geteilt haben
 - **Öffentliche Ansichten** — Ansichten, die für alle verfügbar sind
 
-## Excel-Import
+## Excel-Import / -Export
 
-Klicken Sie auf **Import** in der Werkzeugleiste, um Karten aus einer Excel-Datei massenhaft zu erstellen oder zu aktualisieren.
+Inventar-Exporte und -Importe nutzen eine **mehrblättrige Excel-Arbeitsmappe**, die Ihre Landschaft samt Beziehungen vollständig zurück- und wieder einlesen kann — ohne dass Sie jemals eine UUID kopieren müssen.
 
-1. **Datei auswählen** — Eine `.xlsx`-Datei per Drag & Drop ablegen oder zum Durchsuchen klicken
-2. **Kartentyp wählen** — Optional den Import auf einen bestimmten Typ beschränken
-3. **Validierung** — Das System analysiert die Datei und zeigt einen Validierungsbericht:
-   - Zeilen, die neue Karten erstellen werden
-   - Zeilen, die bestehende Karten aktualisieren werden (nach Name oder ID zugeordnet)
-   - Warnungen und Fehler
-4. **Import** — Klicken Sie zum Fortfahren. Ein Fortschrittsbalken zeigt den Echtzeitstatus
-5. **Ergebnisse** — Eine Zusammenfassung zeigt, wie viele Karten erstellt, aktualisiert oder fehlgeschlagen sind
+### Aufbau der Arbeitsmappe
 
-## Excel-Export
+- **Ein Blatt pro Kartentyp** (Application, Business Capability, IT Component, …) mit Kernspalten, `attr_<feld>`-Spalten, Lebenszyklusspalten und `rel:<beziehungstyp>`-Beziehungsspalten.
+- **Ein `Relations`-Blatt** für Beziehungstypen, die Attribute tragen (z. B. Kosten, Beschreibung). Einfache Beziehungen werden inline auf dem Kartenblatt abgebildet.
+- **Ein `_Meta`-Blatt** mit der Formatversion der Arbeitsmappe.
 
-Klicken Sie auf **Export**, um die aktuelle Inventaransicht als Excel-Datei herunterzuladen:
+### Karten ohne GUIDs identifizieren
 
-- **Multi-Typ-Export** — Exportiert alle sichtbaren Karten mit Kernspalten (Name, Typ, Beschreibung, Subtyp, Lebenszyklus, Genehmigungsstatus)
-- **Einzeltyp-Export** — Bei Filterung auf einen Typ enthält der Export erweiterte benutzerdefinierte Attributspalten (eine Spalte pro Feld)
-- **Lebenszyklus-Erweiterung** — Separate Spalten für jedes Lebenszyklusphase-Datum (Planung, Einführung, Aktiv, Auslauf, Lebensende)
-- **Datumsstempel im Dateinamen** — Die Datei wird mit dem Exportdatum benannt für einfache Organisation
+Karten werden über den **Namen** identifiziert, sofern dieser innerhalb des Typs eindeutig ist, ansonsten über den vollen **`parent_path`**. Eine Beziehungszelle kann z. B. `NexaCore ERP` direkt enthalten, wenn nur eine Application diesen Namen trägt; bei mehrdeutigem Namen verwenden Sie `Sales / Customer Mgmt / CRM`.
+
+#### Eindeutigkeit unter Geschwistern
+
+Da Karten über Name + Pfad identifiziert werden, **dürfen zwei Karten desselben Typs nicht gleichzeitig denselben Elternknoten und denselben Namen haben**. Neue Karten, die eine solche Kollision erzeugen würden, werden bei der Erstellung abgelehnt (im Dialog "Karte erstellen", beim Inline-Umbenennen und beim Tabellenkalkulations-Import). Bereits in der Datenbank vorhandene Duplikate aus früheren Seeds oder Importen bleiben unberührt — Sie können alle ihre Felder bearbeiten, aber das erneute Erzeugen oder Zurückbenennen in den Kollisionszustand wird blockiert. Die Prüfung ist groß-/kleinschreibungs- und whitespace-unempfindlich, passend zum Resolver des Importers.
+
+### Inline-Beziehungszellen
+
+Auf jedem Kartenblatt drücken `rel:<beziehungstyp>`-Spalten ausgehende Beziehungen als **semikolongetrennte** Zielreferenzen aus (z. B. `NexaCore ERP; BillingApp`). Semikolons statt Kommas, weil Kartennamen häufig Kommas enthalten (etwa `Acme, Inc.`). `/` und `\` innerhalb eines Namens werden als `\/` bzw. `\\` maskiert — der Exporter erledigt das automatisch (z. B. `SAP S/4HANA` → `SAP S\/4HANA`). Zellen sind **deklarativ**: Der Inhalt ersetzt die vollständige Menge ausgehender Beziehungen dieses Typs vom Quellobjekt. Wird ein Ziel aus der Liste entfernt, wird die Beziehung gelöscht; eine leere Zelle löscht alle. Aus Kompatibilitätsgründen werden auch kommagetrennte Zellen (älteres Format) akzeptiert.
+
+### `Relations`-Blatt
+
+Für Beziehungen mit Attributen (z. B. jährliche Kosten) verwenden Sie das dedizierte `Relations`-Blatt mit den Spalten `relation_type`, `source_ref`, `target_ref`, `action` (Standard `upsert`, alternativ `delete`), `attr_<feld>` und `description`.
+
+### Importieren
+
+Klicken Sie in der Werkzeugleiste auf **Import**, ziehen Sie die Arbeitsmappe in den Dialog und prüfen Sie die Vorschau, bevor Sie anwenden. Sie sehen sowohl die zu erzeugenden/aktualisierenden Karten als auch die hinzuzufügenden/zu entfernenden Beziehungen. Fehler (z. B. mehrdeutige Beziehungsziele mit Kandidatenpfaden) blockieren das Anwenden.
+
+### Exportieren
+
+Klicken Sie in der Werkzeugleiste auf **Export**. Der aktuelle Grid-Filter bestimmt den Inhalt: Bei Einzeltyp-Filter ein Blatt für diesen Typ, sonst ein Blatt pro vorhandenem Typ, jeweils zusätzlich mit `Relations` und `_Meta`. Die Datei ist vollständig editierbar und kann ohne Verlust von typspezifischen Attributen wieder importiert werden.

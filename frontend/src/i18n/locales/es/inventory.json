@@ -199,5 +199,21 @@
   "import.warnings.unknownTag": "Fila {{row}}: etiqueta desconocida «{{value}}» — ignorada",
   "import.warnings.idNotFoundCreating": "Fila {{row}}: el id «{{id}}» no existe en esta instancia — se creará como ficha nueva",
   "import.warnings.ambiguousParentPath": "Fila {{row}}: la ruta del padre «{{path}}» coincide con varias fichas — se usa la primera coincidencia",
-  "import.warnings.readOnlyFieldIgnored": "Fila {{row}}: «{{field}}» es un campo de solo lectura — el valor se ignorará"
+  "import.warnings.readOnlyFieldIgnored": "Fila {{row}}: «{{field}}» es un campo de solo lectura — el valor se ignorará",
+  "import.relationsToAdd_one": "{{count}} relación por añadir",
+  "import.relationsToAdd_other": "{{count}} relaciones por añadir",
+  "import.relationsToRemove_one": "{{count}} relación por eliminar",
+  "import.relationsToRemove_other": "{{count}} relaciones por eliminar",
+  "import.relationsAddedCount_one": "{{count}} relación añadida",
+  "import.relationsAddedCount_other": "{{count}} relaciones añadidas",
+  "import.relationsRemovedCount_one": "{{count}} relación eliminada",
+  "import.relationsRemovedCount_other": "{{count}} relaciones eliminadas",
+  "import.formatVersionBanner": "Este archivo se exportó con otro formato de libro (versión {{version}}). Revise las diferencias con atención antes de aplicar.",
+  "import.errors.invalidRelationAction": "Fila {{row}}: acción «{{action}}» no válida (válidas: upsert, delete)",
+  "import.errors.relationTargetAmbiguous": "El destino «{{ref}}» ({{type}}) es ambiguo. Candidatos: {{hints}}",
+  "import.errors.relationTargetMissing": "El destino «{{ref}}» ({{type}}) no coincide con ninguna ficha",
+  "import.errors.relationTypeRequired": "relation_type es obligatorio",
+  "import.errors.unknownRelationType": "Tipo de relación desconocido: {{type}}",
+  "import.warnings.formatVersionMismatch": "La versión del formato del libro {{version}} difiere de la actual. Algunos campos pueden no recuperarse correctamente.",
+  "import.warnings.unknownRelationType": "Tipo de relación desconocido «{{type}}» — columna ignorada"
 }

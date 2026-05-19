@@ -17,12 +17,14 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import MaterialSymbol from "@/components/MaterialSymbol";
-import type { Card, CardType, TagGroup } from "@/types";
+import { api } from "@/api/client";
 import { useCalculatedFields } from "@/hooks/useCalculatedFields";
+import type { Card, CardType, Relation, RelationType, TagGroup } from "@/types";
+
 import {
-  parseWorkbook,
-  validateImport,
-  executeImport,
+  executeMultiSheetImport,
+  parseWorkbookSheets,
+  validateMultiSheet,
   type ImportReport,
   type ImportResult,
 } from "./excelImport";
@@ -33,6 +35,7 @@ interface ImportDialogProps {
   onComplete: () => void;
   existingCards: Card[];
   allTypes: CardType[];
+  relationTypes: RelationType[];
   preSelectedType?: string;
   tagGroups?: TagGroup[];
 }
@@ -45,6 +48,7 @@ export default function ImportDialog({
   onComplete,
   existingCards,
   allTypes,
+  relationTypes,
   preSelectedType,
   tagGroups = [],
 }: ImportDialogProps) {
@@ -88,11 +92,21 @@ export default function ImportDialog({
     setFileName(file.name);
     try {
       const buffer = await file.arrayBuffer();
-      const rows = parseWorkbook(buffer);
-      const rpt = validateImport(
-        rows,
+      const parsed = parseWorkbookSheets(buffer, allTypes);
+      // Fetch existing relations so we can compute relation diffs.
+      // We pull all relations once — bulk filter happens client-side.
+      let existingRelations: Relation[] = [];
+      try {
+        existingRelations = await api.get<Relation[]>("/relations");
+      } catch {
+        existingRelations = [];
+      }
+      const rpt = await validateMultiSheet(
+        parsed,
         existingCards,
         allTypes,
+        relationTypes,
+        existingRelations,
         preSelectedType,
         tagGroups,
         calculatedFields,
@@ -118,10 +132,12 @@ export default function ImportDialog({
   const handleImport = async () => {
     if (!report) return;
     setStep("progress");
-    setProgressTotal(report.creates.length + report.updates.length);
+    setProgressTotal(
+      report.creates.length + report.updates.length + report.relationOps.length,
+    );
     setProgress(0);
 
-    const res = await executeImport(report, (done, total) => {
+    const res = await executeMultiSheetImport(report, (done, total) => {
       setProgress(done);
       setProgressTotal(total);
     });
@@ -205,6 +221,17 @@ export default function ImportDialog({
               {report.skipped > 0 && `, ${t("import.skippedRows", { count: report.skipped })}`}
             </Typography>
 
+            {/* Format version banner — surfaces when the file was exported
+                from an older Turbo EA version. Non-blocking — the user
+                can still proceed but we want them to eyeball the diff. */}
+            {report.meta?.formatVersion && report.meta.formatVersion !== "2" && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {t("import.formatVersionBanner", {
+                  version: report.meta.formatVersion,
+                })}
+              </Alert>
+            )}
+
             {/* Summary chips */}
             <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
               <Chip
@@ -221,6 +248,32 @@ export default function ImportDialog({
                 variant="outlined"
                 size="small"
               />
+              {(() => {
+                const ups = report.relationOps.filter((o) => o.action === "upsert").length;
+                const dels = report.relationOps.filter((o) => o.action === "delete").length;
+                return (
+                  <>
+                    {ups > 0 && (
+                      <Chip
+                        icon={<MaterialSymbol icon="link" size={16} />}
+                        label={t("import.relationsToAdd", { count: ups })}
+                        color="success"
+                        variant="outlined"
+                        size="small"
+                      />
+                    )}
+                    {dels > 0 && (
+                      <Chip
+                        icon={<MaterialSymbol icon="link_off" size={16} />}
+                        label={t("import.relationsToRemove", { count: dels })}
+                        color="warning"
+                        variant="outlined"
+                        size="small"
+                      />
+                    )}
+                  </>
+                );
+              })()}
               {report.errors.length > 0 && (
                 <Chip
                   icon={<MaterialSymbol icon="error" size={16} />}
@@ -353,7 +406,9 @@ export default function ImportDialog({
 
             {/* No errors — ready */}
             {report.errors.length === 0 &&
-              (report.creates.length > 0 || report.updates.length > 0) && (
+              (report.creates.length > 0 ||
+                report.updates.length > 0 ||
+                report.relationOps.length > 0) && (
                 <Alert severity="success">
                   {t("import.validationPassed")}
                 </Alert>
@@ -362,7 +417,8 @@ export default function ImportDialog({
             {/* No data */}
             {report.errors.length === 0 &&
               report.creates.length === 0 &&
-              report.updates.length === 0 && (
+              report.updates.length === 0 &&
+              report.relationOps.length === 0 && (
                 <Alert severity="info">{t("import.noRows")}</Alert>
               )}
           </>
@@ -399,15 +455,37 @@ export default function ImportDialog({
               </Typography>
             </Box>
 
-            <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mb: 2 }}>
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "center", mb: 2, flexWrap: "wrap" }}>
               {result.created > 0 && (
                 <Chip label={t("import.createdCount", { count: result.created })} color="success" size="small" />
               )}
               {result.updated > 0 && (
                 <Chip label={t("import.updatedCount", { count: result.updated })} color="info" size="small" />
               )}
-              {result.failed > 0 && (
-                <Chip label={t("import.failedCount", { count: result.failed })} color="error" size="small" />
+              {result.relationsUpserted > 0 && (
+                <Chip
+                  label={t("import.relationsAddedCount", { count: result.relationsUpserted })}
+                  color="success"
+                  size="small"
+                  icon={<MaterialSymbol icon="link" size={14} />}
+                />
+              )}
+              {result.relationsDeleted > 0 && (
+                <Chip
+                  label={t("import.relationsRemovedCount", { count: result.relationsDeleted })}
+                  color="warning"
+                  size="small"
+                  icon={<MaterialSymbol icon="link_off" size={14} />}
+                />
+              )}
+              {(result.failed > 0 || result.relationsFailed > 0) && (
+                <Chip
+                  label={t("import.failedCount", {
+                    count: result.failed + result.relationsFailed,
+                  })}
+                  color="error"
+                  size="small"
+                />
               )}
             </Box>
 
@@ -456,11 +534,17 @@ export default function ImportDialog({
               disabled={
                 !report ||
                 report.errors.length > 0 ||
-                (report.creates.length === 0 && report.updates.length === 0)
+                (report.creates.length === 0 &&
+                  report.updates.length === 0 &&
+                  report.relationOps.length === 0)
               }
               startIcon={<MaterialSymbol icon="upload" size={18} />}
             >
-              {t("import.importRows", { count: report ? report.creates.length + report.updates.length : 0 })}
+              {t("import.importRows", {
+                count: report
+                  ? report.creates.length + report.updates.length + report.relationOps.length
+                  : 0,
+              })}
             </Button>
           </>
         )}

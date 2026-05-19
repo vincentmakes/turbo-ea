@@ -137,24 +137,36 @@ Las vistas guardadas aparecen en el panel lateral de filtros. Haga clic en cualq
 - **Compartidas conmigo** — Vistas que otros compartieron con usted
 - **Vistas Públicas** — Vistas disponibles para todos
 
-## Importación desde Excel
+## Importación / Exportación Excel
 
-Haga clic en **Importar** en la barra de herramientas para crear o actualizar fichas de forma masiva desde un archivo Excel.
+Las importaciones y exportaciones del inventario usan un **libro Excel multi-hoja** que restituye un sub-paisaje completo — fichas de cualquier número de tipos más las relaciones entre ellas — sin necesidad de copiar nunca un UUID.
 
-1. **Seleccionar un archivo** — Arrastre y suelte un archivo `.xlsx` o haga clic para explorar
-2. **Elegir el tipo de ficha** — Opcionalmente, restrinja la importación a un tipo específico
-3. **Validación** — El sistema analiza el archivo y muestra un informe de validación:
-   - Filas que crearán nuevas fichas
-   - Filas que actualizarán fichas existentes (emparejadas por nombre o ID)
-   - Advertencias y errores
-4. **Importar** — Haga clic para continuar. Una barra de progreso muestra el estado en tiempo real
-5. **Resultados** — Un resumen muestra cuántas fichas fueron creadas, actualizadas o fallaron
+### Estructura del libro
 
-## Exportación a Excel
+- **Una hoja por tipo de ficha** (Application, Business Capability, IT Component, …) con sus columnas principales, sus columnas `attr_<campo>`, las columnas de ciclo de vida y las columnas de relaciones `rel:<tipo_de_relación>`.
+- **Una hoja `Relations`** para los tipos de relación que llevan atributos (coste, descripción…). Las relaciones simples permanecen en línea en la hoja de la ficha origen.
+- **Una hoja `_Meta`** con la versión del formato del libro.
 
-Haga clic en **Exportar** para descargar la vista actual del inventario como un archivo Excel:
+### Identificación sin GUIDs
 
-- **Exportación multi-tipo** — Exporta todas las fichas visibles con columnas principales (nombre, tipo, descripción, subtipo, ciclo de vida, estado de aprobación)
-- **Exportación de tipo único** — Cuando se filtra por un solo tipo, la exportación incluye columnas expandidas de atributos personalizados (una columna por campo)
-- **Expansión del ciclo de vida** — Columnas separadas para cada fecha de fase del ciclo de vida (Plan, Fase de Entrada, Activo, Fase de Salida, Fin de Vida)
-- **Nombre de archivo con fecha** — El archivo se nombra con la fecha de exportación para facilitar la organización
+Las fichas se identifican por **nombre** cuando es único dentro de su tipo, y en caso contrario por el **`parent_path`** completo. Una celda de relación puede contener `NexaCore ERP` directamente si solo una Application tiene ese nombre; en caso de ambigüedad se usa `Sales / Customer Mgmt / CRM`.
+
+#### Unicidad entre hermanos
+
+Como las fichas se identifican por nombre + ruta, **dos fichas del mismo tipo no pueden compartir a la vez el mismo padre y el mismo nombre**. Las fichas nuevas que provocarían una colisión se rechazan al crearse (en el diálogo Crear ficha, al renombrar en línea y durante la importación de Excel). Los duplicados ya existentes en la base de datos, heredados de importaciones o seeds antiguos, se mantienen intactos: puede editar cualquier campo, pero crear un tercer duplicado o renombrar una ficha de vuelta a la colisión está bloqueado. La comprobación es insensible a mayúsculas y espacios, igual que el resolutor del importador.
+
+### Celdas de relación en línea
+
+Cada columna `rel:<tipo_de_relación>` expresa las relaciones salientes como una lista **separada por punto y coma** (por ejemplo `NexaCore ERP; BillingApp`). Punto y coma en lugar de coma, porque los nombres de las fichas suelen contener comas (`Acme, Inc.`). Dentro de un nombre, `/` y `\` se escapan como `\/` y `\\` — el exportador lo hace automáticamente (p. ej. `SAP S/4HANA` → `SAP S\/4HANA`). Las celdas son **declarativas**: su contenido reemplaza el conjunto de relaciones salientes de ese tipo desde el origen. Eliminar un destino elimina la relación correspondiente; vaciar la celda elimina todas. Por compatibilidad, las celdas separadas por comas (formato antiguo) también se aceptan.
+
+### Hoja `Relations`
+
+Para relaciones con atributos, use la hoja dedicada con las columnas `relation_type`, `source_ref`, `target_ref`, `action` (por defecto `upsert`, alternativamente `delete`), `attr_<campo>` y `description`.
+
+### Importar
+
+Haga clic en **Importar** en la barra de herramientas, suelte el libro y revise la vista previa antes de aplicar. Verá tanto las fichas a crear / actualizar como las relaciones a añadir / eliminar. Los errores (por ejemplo, un destino ambiguo con sus rutas candidatas) bloquean la aplicación.
+
+### Exportar
+
+Haga clic en **Exportar**. El filtro activo determina el contenido: con un filtro de tipo único, una hoja para ese tipo; sin filtro, una hoja por tipo presente. En todos los casos el libro incluye `Relations` y `_Meta` y puede reimportarse sin perder atributos específicos del tipo.

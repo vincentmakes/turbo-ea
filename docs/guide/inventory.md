@@ -139,24 +139,73 @@ Saved views appear in the filter panel sidebar. Click any view to instantly appl
 - **Shared with Me** — Views others shared with you
 - **Public Views** — Views available to everyone
 
-## Excel Import
+## Excel Import / Export
 
-Click **Import** in the toolbar to bulk-create or update cards from an Excel file.
+Inventory exports and imports use a **multi-sheet Excel workbook** that round-trips your landscape — cards across any number of types plus the relations between them — without ever requiring you to copy a UUID.
 
-1. **Select a file** — Drag and drop an `.xlsx` file or click to browse
-2. **Choose the card type** — Optionally restrict the import to a specific type
-3. **Validation** — The system analyzes the file and shows a validation report:
-   - Rows that will create new cards
-   - Rows that will update existing cards (matched by name or ID)
-   - Warnings and errors
-4. **Import** — Click to proceed. A progress bar shows real-time status
-5. **Results** — A summary shows how many cards were created, updated, or failed
+### Workbook layout
 
-## Excel Export
+A single export produces:
 
-Click **Export** to download the current inventory view as an Excel file:
+- **One sheet per card type** present in the export (Application, Business Capability, IT Component, …). Each sheet carries the type's core columns, its custom `attr_<field_key>` columns, its lifecycle columns, and its `rel:<relation_type_key>` relation columns.
+- **A `Relations` sheet** for relation types that carry attributes (e.g. cost, description). Simple relations live inline on the card sheet; attribute-bearing relations live here.
+- **A `_Meta` sheet** carrying the workbook format version. The importer reads it to detect older formats and prints a banner.
 
-- **Multi-type export** — Exports all visible cards with core columns (name, type, description, subtype, lifecycle, approval status)
-- **Single-type export** — When filtered to one type, the export includes expanded custom attribute columns (one column per field)
-- **Lifecycle expansion** — Separate columns for each lifecycle phase date (Plan, Phase In, Active, Phase Out, End of Life)
-- **Date-stamped filename** — The file is named with the export date for easy organization
+### Identifying cards (no GUIDs needed)
+
+Cards are matched by **name** when unambiguous within their type, otherwise by their full **`parent_path`**. A relation cell can list `NexaCore ERP` directly when only one Application has that name; if two do, the cell needs `Sales / Customer Mgmt / CRM` (the same path format the `parent_path` column uses on the card sheets, with `\` and `/` escapes for names that contain those characters).
+
+The same precedence drives card-update matching: rows with a UUID in the `id` column update that card; rows without an `id` are matched by `(type, parent_path, name)`; rows that don't match anything become new cards.
+
+#### Sibling-name uniqueness
+
+Because cards are identified by name + path, **two cards of the same type cannot share both a parent and a name**. New cards that would create such a collision are rejected at creation time (in the Create Card dialog, in the inline rename, and during spreadsheet import). Cards already in the database that share a name with a sibling — from earlier seed data or imports — are left untouched; you can edit any of their fields, but renaming one back into the collision (or creating a third) is blocked. The check is case- and whitespace-insensitive to match the importer's resolver.
+
+### Inline relation cells
+
+On every card sheet, `rel:<relation_type_key>` columns let you express outgoing relations as **semicolon-separated** target references:
+
+```text
+rel:supports     →  NexaCore ERP; BillingApp; Salesforce
+rel:depends_on   →  Sales / Customer Mgmt / CRM
+```
+
+Semicolons (not commas) separate targets because card names commonly contain `,` (e.g. `Acme, Inc.`). Inside a name, `/` and `\` must be escaped as `\/` and `\\` — the importer reads the cell with the same rules as `parent_path`, so a name like `SAP S/4HANA` is written as `SAP S\/4HANA`. The exporter does this for you automatically; only hand-typed cells need the escapes.
+
+Cells are **declarative**: the set of targets in the cell becomes the complete set of outgoing relations of that type from that source after import. **Removing a target from the list drops that relation**; emptying the cell drops them all. Omitting the column entirely (no `rel:supports` column at all) leaves existing relations untouched.
+
+For backwards compatibility, the importer also accepts comma-separated cells (workbooks exported before this convention). A cell containing any `;` is always treated as semicolon-separated.
+
+### Relations sheet
+
+For relations that carry attributes (e.g. annual cost on an `Application` → `IT Component` link), use the dedicated `Relations` sheet:
+
+| relation_type | source_ref | target_ref | action | attr_costTotalAnnual | description |
+|---------------|------------|------------|--------|----------------------|-------------|
+| app_to_itc    | NexaCore ERP | Oracle Database | upsert | 25000 | Production tier |
+| app_to_itc    | OldApp | DB | delete |  |  |
+
+`action` defaults to `upsert`. A row with `action = delete` removes that specific relation.
+
+### Importing
+
+Click **Import** in the toolbar, drop the workbook, and review the preview before applying. The preview shows:
+
+- **Cards to create / update** — same as before
+- **Relations to add / remove** — every relation operation queued by the workbook
+- **Errors and warnings** — including ambiguous relation targets (with candidate paths so you can disambiguate)
+
+Errors block the apply. Warnings (e.g. unknown tag, format version mismatch) don't.
+
+### Exporting
+
+Click **Export** in the toolbar. The current grid filter determines the contents:
+
+- **Single-type filter active** → one card sheet for that type, plus the Relations sheet for any attribute-bearing relations, plus `_Meta`.
+- **No filter or multi-type filter** → one sheet per type present, plus the Relations sheet, plus `_Meta`. The workbook is fully editable and can be re-imported without losing per-type attributes.
+
+### Round-trip tips
+
+- Edit the workbook in Excel, save as `.xlsx`, re-import. Cards land via `(type, parent_path, name)` matching even if you didn't keep the `id` column.
+- Renaming a card breaks the name-based match. Keep the `id` column populated when you plan to rename and re-import in the same workbook.
+- New cards that reference each other (parent-child or relation source-target) work in either order — the server topologically sorts before applying.

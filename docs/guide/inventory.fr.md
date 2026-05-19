@@ -137,24 +137,36 @@ Les vues sauvegardées apparaissent dans la barre latérale du panneau de filtre
 - **Partagées avec moi** -- Vues que d'autres ont partagées avec vous
 - **Vues publiques** -- Vues disponibles pour tous
 
-## Import Excel
+## Import / Export Excel
 
-Cliquez sur **Importer** dans la barre d'outils pour créer ou mettre à jour des fiches en masse depuis un fichier Excel.
+Les exports et imports d'inventaire utilisent un **classeur Excel multi-feuilles** qui restitue l'intégralité d'un sous-paysage — fiches de tous types et relations entre elles — sans jamais exiger de copier un UUID.
 
-1. **Sélectionnez un fichier** -- Glissez-déposez un fichier `.xlsx` ou cliquez pour parcourir
-2. **Choisissez le type de fiche** -- Optionnellement, restreignez l'import à un type spécifique
-3. **Validation** -- Le système analyse le fichier et affiche un rapport de validation :
-   - Lignes qui vont créer de nouvelles fiches
-   - Lignes qui vont mettre à jour des fiches existantes (correspondance par nom ou ID)
-   - Avertissements et erreurs
-4. **Importer** -- Cliquez pour continuer. Une barre de progression affiche le statut en temps réel
-5. **Résultats** -- Un résumé indique combien de fiches ont été créées, mises à jour ou ont échoué
+### Structure du classeur
 
-## Export Excel
+- **Une feuille par type de fiche** (Application, Business Capability, IT Component, …) avec ses colonnes principales, ses `attr_<champ>`, ses colonnes de cycle de vie, et ses colonnes `rel:<type_de_relation>`.
+- **Une feuille `Relations`** pour les types de relation qui portent des attributs (coût, description, …). Les relations simples restent en ligne sur la feuille de la fiche source.
+- **Une feuille `_Meta`** contenant la version du format du classeur.
 
-Cliquez sur **Exporter** pour télécharger la vue actuelle de l'inventaire sous forme de fichier Excel :
+### Identification sans GUID
 
-- **Export multi-types** -- Exporte toutes les fiches visibles avec les colonnes principales (nom, type, description, sous-type, cycle de vie, statut d'approbation)
-- **Export mono-type** -- Lorsque filtré sur un seul type, l'export inclut les colonnes d'attributs personnalisés développées (une colonne par champ)
-- **Développement du cycle de vie** -- Colonnes séparées pour chaque date de phase du cycle de vie (Planification, Mise en service, Actif, Retrait progressif, Fin de vie)
-- **Nom de fichier daté** -- Le fichier est nommé avec la date d'export pour une organisation facile
+Les fiches sont identifiées par leur **nom** lorsqu'il est unique dans son type, sinon par leur **`parent_path`** complet. Une cellule de relation peut écrire `NexaCore ERP` directement si une seule Application porte ce nom ; en cas d'homonymie, on utilise `Sales / Customer Mgmt / CRM`.
+
+#### Unicité des fiches sœurs
+
+Parce que les fiches sont identifiées par nom + chemin, **deux fiches du même type ne peuvent pas partager à la fois le même parent et le même nom**. Les nouvelles fiches qui créeraient une telle collision sont rejetées à la création (dans la boîte de dialogue Créer, en renommage inline et lors de l'import Excel). Les doublons déjà présents en base, hérités d'imports ou de seeds antérieurs, restent intacts — vous pouvez modifier n'importe quel champ, mais re-créer un troisième doublon ou renommer une fiche pour recréer la collision est bloqué. La comparaison est insensible à la casse et aux espaces, comme le résolveur de l'import.
+
+### Cellules de relation en ligne
+
+Chaque colonne `rel:<type_de_relation>` exprime les relations sortantes sous forme de cibles **séparées par des points-virgules** (par exemple `NexaCore ERP; BillingApp`). Point-virgule plutôt que virgule, car les noms de fiches contiennent souvent des virgules (`Acme, Inc.`). À l'intérieur d'un nom, `/` et `\` sont échappés en `\/` et `\\` — l'exporteur s'en charge automatiquement (par ex. `SAP S/4HANA` → `SAP S\/4HANA`). Les cellules sont **déclaratives** : leur contenu remplace l'ensemble des relations sortantes de ce type depuis la source. Retirer une cible supprime la relation correspondante ; vider la cellule les supprime toutes. Pour rétrocompatibilité, les cellules séparées par des virgules (ancien format) restent acceptées.
+
+### Feuille `Relations`
+
+Pour les relations avec attributs, utilisez la feuille dédiée `Relations` avec les colonnes `relation_type`, `source_ref`, `target_ref`, `action` (par défaut `upsert`, sinon `delete`), `attr_<champ>` et `description`.
+
+### Import
+
+Cliquez sur **Importer** dans la barre d'outils, déposez le classeur et vérifiez l'aperçu avant d'appliquer. Vous voyez à la fois les fiches à créer / mettre à jour et les relations à ajouter / supprimer. Les erreurs (par exemple, une cible ambiguë avec ses chemins candidats) bloquent l'application.
+
+### Export
+
+Cliquez sur **Exporter**. Le filtre courant détermine le contenu : avec un filtre mono-type, une seule feuille de cartes ; sans filtre, une feuille par type présent. Dans tous les cas, le classeur inclut `Relations` et `_Meta` et peut être réimporté sans perdre les attributs spécifiques au type.
