@@ -378,6 +378,7 @@
   "settings.tabs.ai": "AI",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migration",
   "settings.section.appearance": "Appearance",
   "settings.section.modules": "Modules",
   "settings.section.authentication": "Authentication",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "Reviewer is analysing the finding.",
   "compliance_decision_help_mitigated": "Remediation applied; awaiting verification.",
   "compliance_decision_help_verified": "Confirmed compliant. Closed.",
-  "compliance_decision_help_not_applicable": "Out of scope for this finding."
+  "compliance_decision_help_not_applicable": "Out of scope for this finding.",
+  "migration.kind.card": "Cards",
+  "migration.kind.relation": "Relations",
+  "migration.kind.tag": "Tags",
+  "migration.kind.tag_group": "Tag groups",
+  "migration.kind.card_tag": "Card-tag links",
+  "migration.kind.metamodel_type": "New types",
+  "migration.kind.metamodel_field": "Custom fields",
+  "migration.kind.metamodel_relation_type": "New relations",
+  "migration.kind.user": "Users",
+  "migration.kind.subscription": "Subscriptions",
+  "migration.kind.document": "Documents",
+  "migration.kind.comment": "Comments"
 }

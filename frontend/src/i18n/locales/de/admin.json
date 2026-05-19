@@ -378,6 +378,7 @@
   "settings.tabs.ai": "KI",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migration",
   "settings.section.appearance": "Erscheinungsbild",
   "settings.section.modules": "Module",
   "settings.section.authentication": "Authentifizierung",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "Prüfer analysiert den Befund.",
   "compliance_decision_help_mitigated": "Behebung angewendet; wartet auf Verifizierung.",
   "compliance_decision_help_verified": "Konform bestätigt. Geschlossen.",
-  "compliance_decision_help_not_applicable": "Nicht im Geltungsbereich dieses Befunds."
+  "compliance_decision_help_not_applicable": "Nicht im Geltungsbereich dieses Befunds.",
+  "migration.kind.card": "Karten",
+  "migration.kind.relation": "Beziehungen",
+  "migration.kind.tag": "Tags",
+  "migration.kind.tag_group": "Tag-Gruppen",
+  "migration.kind.card_tag": "Karten-Tag-Verknüpfungen",
+  "migration.kind.metamodel_type": "Neue Typen",
+  "migration.kind.metamodel_field": "Eigene Felder",
+  "migration.kind.metamodel_relation_type": "Neue Beziehungen",
+  "migration.kind.user": "Benutzer",
+  "migration.kind.subscription": "Abonnements",
+  "migration.kind.document": "Dokumente",
+  "migration.kind.comment": "Kommentare"
 }

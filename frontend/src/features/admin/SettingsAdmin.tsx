@@ -40,8 +40,18 @@ const WebPortalsAdmin = lazy(() => import("./WebPortalsAdmin"));
 const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
+const MigrationAdmin = lazy(() => import("./MigrationAdmin"));
 
-const TAB_KEYS = ["general", "authentication", "ai", "eol", "web-portals", "servicenow", "turbolens"];
+const TAB_KEYS = [
+  "general",
+  "authentication",
+  "ai",
+  "eol",
+  "web-portals",
+  "servicenow",
+  "turbolens",
+  "migration",
+];
 
 function TabLoader() {
   return (
@@ -1256,6 +1266,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.webPortals"),
     t("settings.tabs.servicenow"),
     t("settings.tabs.turbolens"),
+    t("settings.tabs.migration"),
   ];
 
   const handleTabChange = (_: React.SyntheticEvent, newIndex: number) => {
@@ -1317,6 +1328,11 @@ export default function SettingsAdmin() {
       {tabIndex === 6 && (
         <Suspense fallback={<TabLoader />}>
           <TurboLensAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 7 && (
+        <Suspense fallback={<TabLoader />}>
+          <MigrationAdmin />
         </Suspense>
       )}
     </Box>

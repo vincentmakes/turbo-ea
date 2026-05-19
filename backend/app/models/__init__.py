@@ -14,6 +14,7 @@ from app.models.ea_principle import EAPrinciple
 from app.models.event import Event
 from app.models.file_attachment import FileAttachment
 from app.models.kpi_snapshot import KpiSnapshot
+from app.models.leanix import LeanixIdentityMap, LeanixMigration, LeanixStagedRecord
 from app.models.notification import Notification
 from app.models.ppm_cost_line import PpmBudgetLine, PpmCostLine
 from app.models.ppm_dependency import PpmDependency
@@ -98,6 +99,9 @@ __all__ = [
     "Diagram",
     "SoAW",
     "KpiSnapshot",
+    "LeanixIdentityMap",
+    "LeanixMigration",
+    "LeanixStagedRecord",
     "Notification",
     "PpmBudgetLine",
     "PpmCostLine",

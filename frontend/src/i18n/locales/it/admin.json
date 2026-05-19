@@ -378,6 +378,7 @@
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migrazione",
   "settings.section.appearance": "Aspetto",
   "settings.section.modules": "Moduli",
   "settings.section.authentication": "Autenticazione",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "Il revisore sta analizzando il riscontro.",
   "compliance_decision_help_mitigated": "Rimedio applicato; in attesa di verifica.",
   "compliance_decision_help_verified": "Conformità confermata. Chiuso.",
-  "compliance_decision_help_not_applicable": "Fuori scopo per questo riscontro."
+  "compliance_decision_help_not_applicable": "Fuori scopo per questo riscontro.",
+  "migration.kind.card": "Schede",
+  "migration.kind.relation": "Relazioni",
+  "migration.kind.tag": "Tag",
+  "migration.kind.tag_group": "Gruppi di tag",
+  "migration.kind.card_tag": "Collegamenti scheda-tag",
+  "migration.kind.metamodel_type": "Nuovi tipi",
+  "migration.kind.metamodel_field": "Campi personalizzati",
+  "migration.kind.metamodel_relation_type": "Nuove relazioni",
+  "migration.kind.user": "Utenti",
+  "migration.kind.subscription": "Iscrizioni",
+  "migration.kind.document": "Documenti",
+  "migration.kind.comment": "Commenti"
 }

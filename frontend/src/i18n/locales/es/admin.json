@@ -378,6 +378,7 @@
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migración",
   "settings.section.appearance": "Apariencia",
   "settings.section.modules": "Módulos",
   "settings.section.authentication": "Autenticación",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "El revisor está analizando el hallazgo.",
   "compliance_decision_help_mitigated": "Remediación aplicada; pendiente de verificación.",
   "compliance_decision_help_verified": "Conformidad confirmada. Cerrado.",
-  "compliance_decision_help_not_applicable": "Fuera del alcance para este hallazgo."
+  "compliance_decision_help_not_applicable": "Fuera del alcance para este hallazgo.",
+  "migration.kind.card": "Tarjetas",
+  "migration.kind.relation": "Relaciones",
+  "migration.kind.tag": "Etiquetas",
+  "migration.kind.tag_group": "Grupos de etiquetas",
+  "migration.kind.card_tag": "Vínculos tarjeta-etiqueta",
+  "migration.kind.metamodel_type": "Nuevos tipos",
+  "migration.kind.metamodel_field": "Campos personalizados",
+  "migration.kind.metamodel_relation_type": "Nuevas relaciones",
+  "migration.kind.user": "Usuarios",
+  "migration.kind.subscription": "Suscripciones",
+  "migration.kind.document": "Documentos",
+  "migration.kind.comment": "Comentarios"
 }

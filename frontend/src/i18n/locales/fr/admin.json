@@ -378,6 +378,7 @@
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migration",
   "settings.section.appearance": "Apparence",
   "settings.section.modules": "Modules",
   "settings.section.authentication": "Authentification",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "Le réviseur analyse le constat.",
   "compliance_decision_help_mitigated": "Remédiation appliquée; attente de vérification.",
   "compliance_decision_help_verified": "Conformité confirmée. Clos.",
-  "compliance_decision_help_not_applicable": "Hors champ pour ce constat."
+  "compliance_decision_help_not_applicable": "Hors champ pour ce constat.",
+  "migration.kind.card": "Cartes",
+  "migration.kind.relation": "Relations",
+  "migration.kind.tag": "Tags",
+  "migration.kind.tag_group": "Groupes de tags",
+  "migration.kind.card_tag": "Liens carte-tag",
+  "migration.kind.metamodel_type": "Nouveaux types",
+  "migration.kind.metamodel_field": "Champs personnalisés",
+  "migration.kind.metamodel_relation_type": "Nouvelles relations",
+  "migration.kind.user": "Utilisateurs",
+  "migration.kind.subscription": "Abonnements",
+  "migration.kind.document": "Documents",
+  "migration.kind.comment": "Commentaires"
 }

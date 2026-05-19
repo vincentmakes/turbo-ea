@@ -703,6 +703,30 @@
         "title": "Body_upload_logo_api_v1_settings_logo_post",
         "type": "object"
       },
+      "Body_upload_snapshot_api_v1_migration_leanix_upload_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "include_archived": {
+            "default": false,
+            "title": "Include Archived",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "file"
+        ],
+        "title": "Body_upload_snapshot_api_v1_migration_leanix_upload_post",
+        "type": "object"
+      },
       "BookmarkCreate": {
         "properties": {
           "card_type": {
@@ -4625,6 +4649,144 @@
         "title": "McpSettingsPayload",
         "type": "object"
       },
+      "MigrationOut": {
+        "properties": {
+          "applied_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "file_hash": {
+            "title": "File Hash",
+            "type": "string"
+          },
+          "file_size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "metamodel_diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metamodel Diff"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "parsed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed At"
+          },
+          "snapshot_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot Version"
+          },
+          "stats": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stats"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "file_hash",
+          "file_size",
+          "snapshot_version",
+          "stats",
+          "metamodel_diff",
+          "error_message",
+          "parsed_at",
+          "applied_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "MigrationOut",
+        "type": "object"
+      },
       "MitigationTaskCreate": {
         "description": "Payload for ``POST /risks/{risk_id}/mitigation-tasks``.\n\n``lead_time_days`` is optional on create \u2014 when omitted the service\nlayer picks a smart default per ``recurrence_unit`` (1 / 2 / 7 / 14\nfor daily / weekly / monthly / yearly, capped at half the cycle so\nthe lead window never overlaps the previous occurrence). One-shot\ntasks default to 0 because there is no roll-forward to gate.",
         "properties": {
@@ -7298,6 +7460,37 @@
         "title": "PpmWbsUpdate",
         "type": "object"
       },
+      "PreviewPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/app__api__v1__migration__StagedRecordOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "offset",
+          "limit"
+        ],
+        "title": "PreviewPage",
+        "type": "object"
+      },
       "PrincipleCreate": {
         "properties": {
           "description": {
@@ -9609,91 +9802,6 @@
         "title": "SsoSettingsPayload",
         "type": "object"
       },
-      "StagedRecordOut": {
-        "properties": {
-          "action": {
-            "title": "Action",
-            "type": "string"
-          },
-          "card_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Card Id"
-          },
-          "created_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created At"
-          },
-          "diff": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Diff"
-          },
-          "error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error Message"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "snow_data": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Snow Data"
-          },
-          "snow_sys_id": {
-            "title": "Snow Sys Id",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "snow_sys_id",
-          "action",
-          "status"
-        ],
-        "title": "StagedRecordOut",
-        "type": "object"
-      },
       "StakeholderCreate": {
         "properties": {
           "role": {
@@ -11668,6 +11776,173 @@
           }
         },
         "title": "WebPortalUpdate",
+        "type": "object"
+      },
+      "app__api__v1__migration__StagedRecordOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "card_type_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Type Key"
+          },
+          "diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diff"
+          },
+          "entity_kind": {
+            "title": "Entity Kind",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "leanix_id": {
+            "title": "Leanix Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          }
+        },
+        "required": [
+          "id",
+          "entity_kind",
+          "leanix_id",
+          "card_type_key",
+          "action",
+          "status",
+          "diff",
+          "error_message",
+          "target_id"
+        ],
+        "title": "StagedRecordOut",
+        "type": "object"
+      },
+      "app__api__v1__servicenow__StagedRecordOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "card_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "diff": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diff"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "snow_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snow Data"
+          },
+          "snow_sys_id": {
+            "title": "Snow Sys Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "snow_sys_id",
+          "action",
+          "status"
+        ],
+        "title": "StagedRecordOut",
         "type": "object"
       }
     }
@@ -19839,6 +20114,346 @@
         ]
       }
     },
+    "/api/v1/migration/leanix": {
+      "get": {
+        "operationId": "list_migrations_api_v1_migration_leanix_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MigrationOut"
+                  },
+                  "title": "Response List Migrations Api V1 Migration Leanix Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Migrations",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/leanix/upload": {
+      "post": {
+        "operationId": "upload_snapshot_api_v1_migration_leanix_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_snapshot_api_v1_migration_leanix_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Snapshot",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/leanix/{migration_id}": {
+      "delete": {
+        "operationId": "delete_migration_api_v1_migration_leanix__migration_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Migration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Migration",
+        "tags": [
+          "Migration"
+        ]
+      },
+      "get": {
+        "operationId": "get_migration_api_v1_migration_leanix__migration_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Migration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Migration",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/leanix/{migration_id}/apply": {
+      "post": {
+        "operationId": "apply_migration_endpoint_api_v1_migration_leanix__migration_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Migration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MigrationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Migration Endpoint",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/leanix/{migration_id}/errors.csv": {
+      "get": {
+        "description": "CSV report of every staged row in `error` status for this migration.",
+        "operationId": "download_error_report_api_v1_migration_leanix__migration_id__errors_csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Migration Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download Error Report",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
+    "/api/v1/migration/leanix/{migration_id}/preview": {
+      "get": {
+        "operationId": "preview_migration_api_v1_migration_leanix__migration_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "migration_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Migration Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "card / relation / tag / ...",
+            "in": "query",
+            "name": "entity_kind",
+            "required": false,
+            "schema": {
+              "default": "card",
+              "description": "card / relation / tag / ...",
+              "title": "Entity Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "card_type_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Card Type Key"
+            }
+          },
+          {
+            "description": "filter by action: create/update/skip/conflict",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "filter by action: create/update/skip/conflict",
+              "title": "Action"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Migration",
+        "tags": [
+          "Migration"
+        ]
+      }
+    },
     "/api/v1/mitigation-tasks/{task_id}": {
       "delete": {
         "operationId": "delete_mitigation_task_api_v1_mitigation_tasks__task_id__delete",
@@ -25542,7 +26157,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/StagedRecordOut"
+                    "$ref": "#/components/schemas/app__api__v1__servicenow__StagedRecordOut"
                   },
                   "title": "Response List Staged Records Api V1 Servicenow Sync Runs  Run Id  Staged Get",
                   "type": "array"

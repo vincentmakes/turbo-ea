@@ -378,6 +378,7 @@
   "settings.tabs.ai": "ИИ",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Миграция",
   "settings.section.appearance": "Внешний вид",
   "settings.section.modules": "Модули",
   "settings.section.authentication": "Аутентификация",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "Проверяющий анализирует находку.",
   "compliance_decision_help_mitigated": "Меры применены; ожидается проверка.",
   "compliance_decision_help_verified": "Соответствие подтверждено. Закрыто.",
-  "compliance_decision_help_not_applicable": "Вне области для этой находки."
+  "compliance_decision_help_not_applicable": "Вне области для этой находки.",
+  "migration.kind.card": "Карточки",
+  "migration.kind.relation": "Отношения",
+  "migration.kind.tag": "Теги",
+  "migration.kind.tag_group": "Группы тегов",
+  "migration.kind.card_tag": "Связи карточка-тег",
+  "migration.kind.metamodel_type": "Новые типы",
+  "migration.kind.metamodel_field": "Пользовательские поля",
+  "migration.kind.metamodel_relation_type": "Новые отношения",
+  "migration.kind.user": "Пользователи",
+  "migration.kind.subscription": "Подписки",
+  "migration.kind.document": "Документы",
+  "migration.kind.comment": "Комментарии"
 }

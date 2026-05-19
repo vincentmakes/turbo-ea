@@ -378,6 +378,7 @@
   "settings.tabs.ai": "AI",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "迁移",
   "settings.section.appearance": "外观",
   "settings.section.modules": "模块",
   "settings.section.authentication": "认证",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "审核员正在分析此发现。",
   "compliance_decision_help_mitigated": "修复已应用，等待验证。",
   "compliance_decision_help_verified": "已确认合规，已关闭。",
-  "compliance_decision_help_not_applicable": "此发现不在范围内。"
+  "compliance_decision_help_not_applicable": "此发现不在范围内。",
+  "migration.kind.card": "卡片",
+  "migration.kind.relation": "关系",
+  "migration.kind.tag": "标签",
+  "migration.kind.tag_group": "标签组",
+  "migration.kind.card_tag": "卡片-标签链接",
+  "migration.kind.metamodel_type": "新类型",
+  "migration.kind.metamodel_field": "自定义字段",
+  "migration.kind.metamodel_relation_type": "新关系",
+  "migration.kind.user": "用户",
+  "migration.kind.subscription": "订阅",
+  "migration.kind.document": "文档",
+  "migration.kind.comment": "评论"
 }

@@ -20,6 +20,7 @@ from app.api.v1 import (
     favorites,
     file_attachments,
     metamodel,
+    migration,
     notifications,
     ppm,
     ppm_reports,
@@ -75,6 +76,7 @@ api_router.include_router(roles.router)
 api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
+api_router.include_router(migration.router)
 api_router.include_router(turbolens.router)
 api_router.include_router(turbolens.cards_router)
 api_router.include_router(turbolens.compliance_router)

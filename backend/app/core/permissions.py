@@ -222,6 +222,12 @@ APP_PERMISSIONS: dict[str, dict] = {
             "admin.settings": "Manage app settings (email, logo, SSO)",
             "admin.mcp": "Manage MCP integration settings (AI tool access)",
             "admin.events": "View audit trail and event stream",
+            "admin.migrate": (
+                "Run platform migration imports (e.g., LeanIX workspace snapshot). "
+                "Lets the holder extend the metamodel and bulk-create cards, "
+                "users, relations, tags, stakeholders, and documents in a "
+                "single staged + reviewable operation."
+            ),
         },
     },
 }
@@ -356,6 +362,7 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.migrate": False,
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
@@ -428,6 +435,7 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.migrate": False,
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
@@ -500,6 +508,7 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.settings": False,
     "admin.mcp": False,
     "admin.events": False,
+    "admin.migrate": False,
 }
 
 # ---------------------------------------------------------------------------

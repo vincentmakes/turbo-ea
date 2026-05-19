@@ -378,6 +378,7 @@
   "settings.tabs.ai": "IA",
   "settings.tabs.servicenow": "ServiceNow",
   "settings.tabs.turbolens": "TurboLens",
+  "settings.tabs.migration": "Migração",
   "settings.section.appearance": "Aparência",
   "settings.section.modules": "Módulos",
   "settings.section.authentication": "Autenticação",
@@ -1381,5 +1382,17 @@
   "compliance_decision_help_in_review": "O revisor está analisando o achado.",
   "compliance_decision_help_mitigated": "Remediação aplicada; aguardando verificação.",
   "compliance_decision_help_verified": "Conformidade confirmada. Fechado.",
-  "compliance_decision_help_not_applicable": "Fora do escopo deste achado."
+  "compliance_decision_help_not_applicable": "Fora do escopo deste achado.",
+  "migration.kind.card": "Cartões",
+  "migration.kind.relation": "Relações",
+  "migration.kind.tag": "Tags",
+  "migration.kind.tag_group": "Grupos de tags",
+  "migration.kind.card_tag": "Vínculos cartão-tag",
+  "migration.kind.metamodel_type": "Novos tipos",
+  "migration.kind.metamodel_field": "Campos personalizados",
+  "migration.kind.metamodel_relation_type": "Novas relações",
+  "migration.kind.user": "Usuários",
+  "migration.kind.subscription": "Assinaturas",
+  "migration.kind.document": "Documentos",
+  "migration.kind.comment": "Comentários"
 }
