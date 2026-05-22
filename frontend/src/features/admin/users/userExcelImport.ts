@@ -21,6 +21,7 @@ export interface ParsedUserRow {
   role: string;
   password?: string;
   locale?: string;
+  auth_provider?: "local" | "sso";
   existing?: User;
   changes?: Record<string, { old: unknown; new: unknown }>;
 }
@@ -138,6 +139,31 @@ export function validateUserImport(
     const password = s(raw.password) || undefined;
     const locale = s(raw.locale) || undefined;
 
+    // Optional `auth_provider` column from the export sheet. When set,
+    // forwards to the backend so a row tagged «local» lands as a local
+    // account even in SSO-enabled tenants (and vice versa). Empty cells
+    // fall back to the backend's heuristic (local iff a password is set).
+    const providerRaw = s(raw.auth_provider).toLowerCase();
+    let authProvider: "local" | "sso" | undefined;
+    if (providerRaw === "local" || providerRaw === "sso") {
+      authProvider = providerRaw;
+    } else if (providerRaw) {
+      errors.push({
+        row: rowNum,
+        column: "auth_provider",
+        message: `Row ${rowNum}: auth_provider must be 'local' or 'sso' (got '${providerRaw}')`,
+      });
+      return;
+    }
+    if (authProvider === "local" && !password && !usersByEmail.has(email)) {
+      errors.push({
+        row: rowNum,
+        column: "password",
+        message: `Row ${rowNum}: a password is required when auth_provider is 'local'`,
+      });
+      return;
+    }
+
     const existing = usersByEmail.get(email);
 
     if (existing) {
@@ -186,6 +212,7 @@ export function validateUserImport(
         role,
         password,
         locale,
+        auth_provider: authProvider,
       });
     }
   });
@@ -229,6 +256,7 @@ export async function executeUserImport(
         password: row.password || null,
         role: row.role,
         send_email: sendInvites,
+        ...(row.auth_provider ? { auth_provider: row.auth_provider } : {}),
       });
       result.created++;
       if (sendInvites && created.email_error) {

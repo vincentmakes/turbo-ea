@@ -28,6 +28,12 @@ class UserCreate(BaseModel):
     password: str | None = None
     role: str = "member"
     send_email: bool = False
+    # Optional — when set, forces the auth provider on the new user.
+    # When None, falls back to the legacy heuristic (local iff a password is
+    # supplied). The import flow forwards the auth_provider column so a row
+    # explicitly tagged «local» (with a password) lands as a local account
+    # even in SSO-enabled tenants, and vice versa (#584 follow-up).
+    auth_provider: Literal["local", "sso"] | None = None
 
 
 class UserUpdate(BaseModel):
@@ -465,28 +471,40 @@ async def create_user(
     if existing_inv.scalar_one_or_none():
         raise HTTPException(409, "An invitation for this email already exists")
 
-    # Password is required when SSO is not enabled — local accounts cannot exist
-    # in a pending-setup state (the email-link flow was a footgun: the User row
-    # showed «Pending Setup» and the paired SsoInvitation lingered in the admin
-    # list with no way for the user to actually complete setup). SSO-enabled
-    # mode still allows creating users without a password since they'll
-    # authenticate via SSO.
+    # Decide the auth provider for the new user. When the caller passes an
+    # explicit value (e.g. the import flow forwarding the `auth_provider`
+    # column from the sheet), honour it; otherwise fall back to the legacy
+    # heuristic (local iff a password is supplied).
     sso_cfg = await _get_sso_config(db)
     sso_enabled = sso_cfg.get("enabled", False)
-    if not body.password and not sso_enabled:
-        raise HTTPException(
-            400,
-            "A password is required when creating a local account. "
-            "Enable SSO or set a password for the new user.",
-        )
+
+    if body.auth_provider == "local":
+        auth_provider = "local"
+        if not body.password:
+            raise HTTPException(
+                400,
+                "A password is required when creating a local account. "
+                "Set a password or mark the user as SSO.",
+            )
+    elif body.auth_provider == "sso":
+        auth_provider = "sso"
+        if not sso_enabled:
+            raise HTTPException(
+                400,
+                "Cannot create an SSO account when SSO is disabled. "
+                "Enable SSO in admin settings first.",
+            )
+    else:
+        # Legacy heuristic — no explicit provider passed.
+        if not body.password and not sso_enabled:
+            raise HTTPException(
+                400,
+                "A password is required when creating a local account. "
+                "Enable SSO or set a password for the new user.",
+            )
+        auth_provider = "sso" if not body.password else "local"
 
     pw_hash = hash_password(body.password) if body.password else None
-    # When SSO is enabled and the admin invites without a password, the user
-    # will sign in via SSO. Mark the User as auth_provider="sso" up front so
-    # the SSO callback's "link existing user" branch can attach the
-    # `sso_subject_id` on first sign-in — otherwise the callback would hit
-    # the auth_provider=="local" guard and refuse with 409.
-    auth_provider = "sso" if not body.password else "local"
 
     u = User(
         email=email,

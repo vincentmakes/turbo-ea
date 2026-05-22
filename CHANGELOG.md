@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 - **User import respects «send invites» checkbox.** Importing users via Admin → Users & Roles with the *send invites* box unchecked no longer flags the new accounts as **Invited** and no longer adds them to the pending invitations list — regardless of whether SSO is enabled. The role is stored on the user row, so SSO sign-in still picks up the right role on first login (#584).
+- **User import honours the `auth_provider` column.** The user-import sheet's `auth_provider` column (`local` or `sso`) is now forwarded to the backend, so a row tagged «local» lands as a local account even in SSO-enabled tenants (and a row tagged «sso» lands as SSO even with a password column). When the column is blank the previous heuristic still applies (local iff a password is set). Local rows without a password are flagged in the validation step before submit (#584).
 - **Application Title applied on public pages.** The browser tab title now shows the admin-configured Application Title on every public route — Web Portals (`/portal/:slug`) and the public auth pages (set-password, forgot/reset-password, SSO callback) — instead of the static «Turbo EA» fallback. Title-sync was hoisted to the App root so the next public page someone adds inherits the same behaviour automatically (#590).
 
 ## [1.25.0] - 2026-05-22

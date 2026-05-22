@@ -196,4 +196,64 @@ describe("validateUserImport", () => {
     expect(rpt.skipped).toBe(1);
     expect(rpt.creates).toHaveLength(1);
   });
+
+  it("forwards auth_provider from the sheet for new users", () => {
+    const rpt = validateUserImport(
+      [
+        {
+          email: "carol@example.com",
+          display_name: "Carol",
+          role: "member",
+          password: "StrongPass1",
+          auth_provider: "local",
+        },
+        {
+          email: "dave@example.com",
+          display_name: "Dave",
+          role: "member",
+          auth_provider: "sso",
+        },
+      ],
+      [],
+      ROLES,
+    );
+    expect(rpt.errors).toHaveLength(0);
+    expect(rpt.creates).toHaveLength(2);
+    expect(rpt.creates[0].auth_provider).toBe("local");
+    expect(rpt.creates[1].auth_provider).toBe("sso");
+  });
+
+  it("rejects unknown auth_provider values", () => {
+    const rpt = validateUserImport(
+      [
+        {
+          email: "eve@example.com",
+          display_name: "Eve",
+          role: "viewer",
+          auth_provider: "ldap",
+        },
+      ],
+      [],
+      ROLES,
+    );
+    expect(rpt.errors.some((e) => e.column === "auth_provider")).toBe(true);
+    expect(rpt.creates).toHaveLength(0);
+  });
+
+  it("rejects auth_provider=local with no password on a new user", () => {
+    const rpt = validateUserImport(
+      [
+        {
+          email: "frank@example.com",
+          display_name: "Frank",
+          role: "viewer",
+          auth_provider: "local",
+        },
+      ],
+      [],
+      ROLES,
+    );
+    expect(rpt.errors.some((e) => e.column === "password")).toBe(true);
+    expect(rpt.creates).toHaveLength(0);
+  });
 });
