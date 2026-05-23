@@ -145,6 +145,7 @@ async def list_batches(
     tool_name: str | None = Query(None),
     origin: str | None = Query(None),
     since: datetime | None = Query(None),
+    until: datetime | None = Query(None),
     limit: int = Query(50, ge=1, le=200),
 ) -> list[MutationBatchOut]:
     await PermissionService.require_permission(db, user, "admin.events")
@@ -157,6 +158,10 @@ async def list_batches(
         q = q.where(MutationBatch.origin == origin)
     if since:
         q = q.where(MutationBatch.created_at >= since)
+    if until:
+        # Inclusive end of the user-picked range — pair `until` with `since`
+        # to filter "everything that happened between X and Y".
+        q = q.where(MutationBatch.created_at <= until)
     q = q.limit(limit)
     batches = list((await db.execute(q)).scalars().all())
 
