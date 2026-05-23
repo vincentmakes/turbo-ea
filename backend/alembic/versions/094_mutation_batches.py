@@ -109,8 +109,12 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_events_batch_id", table_name="events")
-    op.drop_constraint("fk_events_batch_id", "events", type_="foreignkey")
+    # ``Base.metadata.create_all`` (used on fresh DBs and by the
+    # migration-rollback CI job) auto-generates the FK with a different
+    # name than the one Alembic chose on the upgrade path, so naming
+    # the constraint here would mismatch on either side. Postgres
+    # auto-drops the FK when the column is dropped — same with the
+    # index — so a plain ``drop_column`` is the portable downgrade.
     op.drop_column("events", "batch_id")
 
     op.drop_index("ix_mutation_batches_origin_created", table_name="mutation_batches")

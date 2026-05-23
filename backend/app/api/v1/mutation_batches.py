@@ -70,11 +70,10 @@ def _origin() -> str:
 
 
 def _actor_name_for(batch: MutationBatch, users_by_id: dict) -> str | None:
-    return (
-        users_by_id.get(batch.actor_user_id).display_name
-        if batch.actor_user_id and batch.actor_user_id in users_by_id
-        else None
-    )
+    if not batch.actor_user_id:
+        return None
+    user = users_by_id.get(batch.actor_user_id)
+    return user.display_name if user else None
 
 
 # Above this row count, the open call issues a confirm token that the
