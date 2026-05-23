@@ -33,6 +33,23 @@ request_batch_id: ContextVar[uuid.UUID | None] = ContextVar("request_batch_id", 
 # the audit log's Tool column.
 request_endpoint: ContextVar[str | None] = ContextVar("request_endpoint", default=None)
 
+# Event types whose ``publish()`` calls should NOT lazy-create an
+# auto-batch. Notifications fire once per recipient per relevant write —
+# the underlying card / relation / ADR / risk write that triggered them is
+# already captured by its own event under the same request, so the
+# notification event alone would just create a noisy duplicate batch. The
+# ``event.stream.`` / ``kpi.`` prefixes are reserved for any future
+# per-user UI-state events (none today). MCP-driven publishes are
+# unaffected — they always carry an explicit batch_id and short-circuit
+# the lazy branch entirely.
+_NO_AUTO_BATCH_PREFIXES: frozenset[str] = frozenset(
+    {
+        "notification.",
+        "kpi.",
+        "event.stream.",
+    }
+)
+
 
 class EventBus:
     def __init__(self) -> None:
@@ -63,7 +80,11 @@ class EventBus:
         # contextvar so any subsequent publish in the same request
         # shares it. MCP requests already set request_batch_id via the
         # X-Turbo-EA-Batch header, so they short-circuit this branch.
-        if effective_batch_id is None and db is not None:
+        if (
+            effective_batch_id is None
+            and db is not None
+            and not any(event_type.startswith(p) for p in _NO_AUTO_BATCH_PREFIXES)
+        ):
             from app.models.mutation_batch import MutationBatch
 
             endpoint = request_endpoint.get()

@@ -30,6 +30,13 @@ class Settings:
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "turboea")
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "turboea")
 
+    # Audit-log (mutation_batches) retention. The hourly purge loop
+    # deletes batches whose ``created_at`` is older than this; events
+    # under those batches keep their rows but lose the ``batch_id``
+    # link (FK is ON DELETE SET NULL on the events table). Tune via
+    # the ``MUTATION_BATCH_RETENTION_DAYS`` env var.
+    MUTATION_BATCH_RETENTION_DAYS: int = int(os.getenv("MUTATION_BATCH_RETENTION_DAYS", "15"))
+
     RESET_DB: bool = os.getenv("RESET_DB", "").lower() in ("1", "true", "yes")
     SEED_DEMO: bool = os.getenv("SEED_DEMO", "").lower() in ("1", "true", "yes")
     SEED_BPM: bool = os.getenv("SEED_BPM", "").lower() in ("1", "true", "yes")

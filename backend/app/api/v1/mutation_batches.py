@@ -46,6 +46,7 @@ from app.schemas.mutation_batch import (
     MutationBatchCommit,
     MutationBatchEvent,
     MutationBatchHistory,
+    MutationBatchListPage,
     MutationBatchOpen,
     MutationBatchOut,
 )
@@ -137,7 +138,7 @@ async def close_batch(
     return MutationBatchOut(**batch_to_dict(batch, actor_display_name=user.display_name))
 
 
-@router.get("", response_model=list[MutationBatchOut])
+@router.get("", response_model=MutationBatchListPage)
 async def list_batches(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -146,23 +147,45 @@ async def list_batches(
     origin: str | None = Query(None),
     since: datetime | None = Query(None),
     until: datetime | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
-) -> list[MutationBatchOut]:
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+) -> MutationBatchListPage:
+    """List mutation batches with filtering + pagination.
+
+    Returns a ``{items, total, page, page_size}`` envelope (mirrors the
+    rest of the read endpoints, e.g. ``GET /cards``). The audit-log UI
+    uses the ``total`` to drive AG Grid's pagination footer; the
+    background purge keeps ``mutation_batches`` bounded by
+    ``MUTATION_BATCH_RETENTION_DAYS`` so this never has to scan an
+    unbounded table.
+    """
+    from sqlalchemy import func
+
     await PermissionService.require_permission(db, user, "admin.events")
-    q = select(MutationBatch).order_by(MutationBatch.created_at.desc())
+    filters = []
     if actor_user_id:
-        q = q.where(MutationBatch.actor_user_id == actor_user_id)
+        filters.append(MutationBatch.actor_user_id == actor_user_id)
     if tool_name:
-        q = q.where(MutationBatch.tool_name == tool_name)
+        filters.append(MutationBatch.tool_name == tool_name)
     if origin:
-        q = q.where(MutationBatch.origin == origin)
+        filters.append(MutationBatch.origin == origin)
     if since:
-        q = q.where(MutationBatch.created_at >= since)
+        filters.append(MutationBatch.created_at >= since)
     if until:
         # Inclusive end of the user-picked range — pair `until` with `since`
         # to filter "everything that happened between X and Y".
-        q = q.where(MutationBatch.created_at <= until)
-    q = q.limit(limit)
+        filters.append(MutationBatch.created_at <= until)
+
+    base = select(MutationBatch)
+    count_q = select(func.count()).select_from(MutationBatch)
+    for f in filters:
+        base = base.where(f)
+        count_q = count_q.where(f)
+
+    total = int((await db.execute(count_q)).scalar_one() or 0)
+
+    offset = (page - 1) * page_size
+    q = base.order_by(MutationBatch.created_at.desc()).offset(offset).limit(page_size)
     batches = list((await db.execute(q)).scalars().all())
 
     actor_ids = {b.actor_user_id for b in batches if b.actor_user_id is not None}
@@ -171,10 +194,16 @@ async def list_batches(
         rows = await db.execute(select(User).where(User.id.in_(actor_ids)))
         users_by_id = {u.id: u for u in rows.scalars().all()}
 
-    return [
+    items = [
         MutationBatchOut(**batch_to_dict(b, actor_display_name=_actor_name_for(b, users_by_id)))
         for b in batches
     ]
+    return MutationBatchListPage(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/{batch_id}", response_model=MutationBatchOut)

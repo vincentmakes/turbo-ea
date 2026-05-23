@@ -20,7 +20,12 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import FormControl from "@mui/material/FormControl";
 import IconButton from "@mui/material/IconButton";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Pagination from "@mui/material/Pagination";
+import Select from "@mui/material/Select";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -46,11 +51,14 @@ import type { AuditBatch } from "./AuditLogTypes";
 
 const ALL_AUDIT_COLUMN_IDS = AUDIT_GRID_COLUMNS.map((c) => c.id);
 const AUDIT_PREFS_STORAGE_KEY = "turboea.auditlog.prefs";
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;
+const DEFAULT_PAGE_SIZE = 50;
 
 interface AuditPrefs {
   filtersCollapsed: boolean;
   sidebarWidth: number;
   visibleColumns: string[];
+  pageSize: number;
 }
 
 function loadAuditPrefs(): AuditPrefs {
@@ -58,6 +66,7 @@ function loadAuditPrefs(): AuditPrefs {
     filtersCollapsed: false,
     sidebarWidth: 280,
     visibleColumns: ALL_AUDIT_COLUMN_IDS,
+    pageSize: DEFAULT_PAGE_SIZE,
   };
   try {
     const raw = localStorage.getItem(AUDIT_PREFS_STORAGE_KEY);
@@ -79,6 +88,11 @@ function loadAuditPrefs(): AuditPrefs {
               ]),
             )
           : ALL_AUDIT_COLUMN_IDS,
+      pageSize:
+        typeof parsed.pageSize === "number" &&
+        (PAGE_SIZE_OPTIONS as readonly number[]).includes(parsed.pageSize)
+          ? parsed.pageSize
+          : DEFAULT_PAGE_SIZE,
     };
   } catch {
     return defaults;
@@ -105,6 +119,7 @@ export default function AuditLogAdmin() {
   const initialPrefs = useMemo(() => loadAuditPrefs(), []);
 
   const [batches, setBatches] = useState<AuditBatch[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<AuditLogFilters>(EMPTY_AUDIT_FILTERS);
@@ -117,6 +132,12 @@ export default function AuditLogAdmin() {
     new Set(initialPrefs.visibleColumns),
   );
 
+  // Server-side pagination. AG Grid Community lacks the enterprise
+  // server-side row model, so we drive page changes ourselves and let
+  // the grid render whichever page it just received.
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPrefs.pageSize);
+
   const [drawerBatch, setDrawerBatch] = useState<AuditBatch | null>(null);
 
   // Persist prefs on any change.
@@ -125,19 +146,29 @@ export default function AuditLogAdmin() {
       filtersCollapsed: sidebarCollapsed,
       sidebarWidth,
       visibleColumns: Array.from(visibleColumns),
+      pageSize,
     });
-  }, [sidebarCollapsed, sidebarWidth, visibleColumns]);
+  }, [sidebarCollapsed, sidebarWidth, visibleColumns, pageSize]);
 
   const resetVisibleColumns = useCallback(() => {
     setVisibleColumns(new Set(ALL_AUDIT_COLUMN_IDS));
   }, []);
+
+  // Reset to page 1 whenever a filter or page-size changes — otherwise
+  // the user can land on "page 5 of 3 results" after a stricter filter.
+  useEffect(() => {
+    setPage(1);
+  }, [filters, pageSize]);
 
   // ── Data fetch ─────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ limit: "200" });
+      const params = new URLSearchParams({
+        page: String(page),
+        page_size: String(pageSize),
+      });
       // Single-value filters that the backend supports natively.
       if (filters.origins.length === 1) params.set("origin", filters.origins[0]);
       if (filters.toolName.trim())
@@ -153,16 +184,20 @@ export default function AuditLogAdmin() {
         end.setHours(23, 59, 59, 999);
         params.set("until", end.toISOString());
       }
-      const data = await api.get<AuditBatch[]>(
-        `/mutation-batches?${params.toString()}`,
-      );
-      setBatches(data);
+      const data = await api.get<{
+        items: AuditBatch[];
+        total: number;
+        page: number;
+        page_size: number;
+      }>(`/mutation-batches?${params.toString()}`);
+      setBatches(data.items);
+      setTotal(data.total);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, page, pageSize]);
 
   useEffect(() => {
     load();
@@ -390,7 +425,7 @@ export default function AuditLogAdmin() {
             direction="row"
             alignItems="center"
             justifyContent="space-between"
-            sx={{ mb: 1.5 }}
+            sx={{ mb: 1.5, flexWrap: "wrap", gap: 1 }}
           >
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Typography variant="subtitle1" fontWeight={700}>
@@ -398,10 +433,44 @@ export default function AuditLogAdmin() {
               </Typography>
               <Chip
                 size="small"
-                label={`${filteredRows.length} batch${filteredRows.length === 1 ? "" : "es"}`}
+                label={
+                  total === 0
+                    ? "No batches"
+                    : `${(page - 1) * pageSize + 1}–${Math.min(
+                        page * pageSize,
+                        total,
+                      )} of ${total}`
+                }
                 sx={{ bgcolor: "action.hover", fontWeight: 500 }}
               />
+              <Tooltip
+                title="The audit log keeps the most recent 15 days of activity. Older batches are purged automatically by a background job. Events themselves stay in the per-card History tab."
+                placement="right"
+              >
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<MaterialSymbol icon="schedule" size={14} />}
+                  label="15-day retention"
+                  sx={{ fontWeight: 500 }}
+                />
+              </Tooltip>
             </Stack>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel id="audit-page-size-label">Per page</InputLabel>
+              <Select
+                labelId="audit-page-size-label"
+                label="Per page"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <MenuItem key={n} value={n}>
+                    {n}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Stack>
 
           <Box
@@ -421,6 +490,24 @@ export default function AuditLogAdmin() {
               }}
             />
           </Box>
+
+          {total > pageSize && (
+            <Stack
+              direction="row"
+              justifyContent="center"
+              sx={{ mt: 1.5 }}
+            >
+              <Pagination
+                count={Math.max(1, Math.ceil(total / pageSize))}
+                page={page}
+                onChange={(_, p) => setPage(p)}
+                size="small"
+                shape="rounded"
+                showFirstButton
+                showLastButton
+              />
+            </Stack>
+          )}
         </Box>
       </Box>
 

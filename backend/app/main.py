@@ -43,6 +43,47 @@ _KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
 _TASK_PROMOTION_HOUR_UTC = 3  # Promote scheduled task occurrences at 03:00 UTC
 
 
+async def _purge_mutation_batches_loop() -> None:
+    """Background loop that permanently deletes mutation_batches rows
+    older than ``settings.MUTATION_BATCH_RETENTION_DAYS`` (default 15).
+
+    Events that reference the deleted batches keep their rows — the FK
+    on ``events.batch_id`` is ``ON DELETE SET NULL`` (migration 094) so
+    the per-card History tab and other event readers stay intact. The
+    audit log just loses the handle to roll those old batches back,
+    which is the point of retention.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import delete
+
+    from app.database import async_session
+    from app.models.mutation_batch import MutationBatch
+
+    while True:
+        try:
+            await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
+            retention_days = max(1, settings.MUTATION_BATCH_RETENTION_DAYS)
+            cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+            async with async_session() as db:
+                result = await db.execute(
+                    delete(MutationBatch).where(MutationBatch.created_at <= cutoff)
+                )
+                deleted = result.rowcount or 0
+                if deleted:
+                    await db.commit()
+                    logger.info(
+                        "Auto-purged %d mutation batch(es) older than %s (%d-day retention).",
+                        deleted,
+                        cutoff.isoformat(),
+                        retention_days,
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Error in mutation-batch purge loop")
+
+
 async def _purge_archived_cards_loop() -> None:
     """Background loop that permanently deletes cards archived for 30+ days."""
     from datetime import datetime, timedelta, timezone
@@ -576,6 +617,12 @@ async def lifespan(app: FastAPI):
     # Start background task for auto-purging archived cards after 30 days
     purge_task = asyncio.create_task(_purge_archived_cards_loop())
 
+    # Audit-log retention loop — deletes mutation_batches older than the
+    # configured window (default 15 days). Same cadence as the archived-
+    # card purge; events with batch_id pointing at the deleted rows just
+    # have their batch_id NULLed (FK is ON DELETE SET NULL).
+    batch_purge_task = asyncio.create_task(_purge_mutation_batches_loop())
+
     # Capture an initial KPI baseline (no-op if table already has rows) and
     # start the daily snapshot loop that powers dashboard trend indicators.
     await _ensure_initial_kpi_snapshot()
@@ -591,6 +638,11 @@ async def lifespan(app: FastAPI):
     purge_task.cancel()
     try:
         await purge_task
+    except asyncio.CancelledError:
+        pass
+    batch_purge_task.cancel()
+    try:
+        await batch_purge_task
     except asyncio.CancelledError:
         pass
     kpi_task.cancel()

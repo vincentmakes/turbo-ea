@@ -125,10 +125,16 @@ async def test_list_batches_requires_admin_events(client, admin_user, db, member
     resp = await client.get("/api/v1/mutation-batches", headers=auth_headers(member))
     assert resp.status_code == 403
 
-    # Admin → 200 with at least the batch we opened
+    # Admin → 200 with at least the batch we opened. The list endpoint
+    # returns a `{items, total, page, page_size}` envelope so the audit-
+    # log UI can paginate; assert against `items`.
     resp = await client.get("/api/v1/mutation-batches", headers=auth_headers(admin_user))
     assert resp.status_code == 200
-    assert len(resp.json()) >= 1
+    payload = resp.json()
+    assert payload["page"] == 1
+    assert payload["page_size"] == 50
+    assert payload["total"] >= 1
+    assert len(payload["items"]) >= 1
 
 
 @pytest.mark.asyncio

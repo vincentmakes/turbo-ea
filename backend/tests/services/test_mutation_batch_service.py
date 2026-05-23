@@ -52,3 +52,48 @@ def test_verify_rejects_expired_token():
     # 1 second past the TTL → reject
     batch = _fake_batch(token=token, age=CONFIRM_TOKEN_TTL + timedelta(seconds=1))
     assert verify_confirm_token(batch, token) is False
+
+
+# ── Auto-batch skiplist ──────────────────────────────────────────────────
+
+
+def test_auto_batch_skiplist_contains_notifications():
+    """Notifications publish on every write that mentions a stake-held
+    card — high volume, low signal. The underlying card / relation /
+    ADR write is already audited under its own event, so the
+    notification's own batch would be a noisy duplicate."""
+    from app.services.event_bus import _NO_AUTO_BATCH_PREFIXES
+
+    assert "notification." in _NO_AUTO_BATCH_PREFIXES
+
+
+def test_auto_batch_skiplist_keeps_audit_relevant_writes():
+    """High-signal write event types must NOT be in the skiplist so
+    they still create auto-batches when published from web/api."""
+    from app.services.event_bus import _NO_AUTO_BATCH_PREFIXES
+
+    high_signal_types = [
+        "card.created",
+        "card.updated",
+        "card.archived",
+        "card.restored",
+        "relation.created",
+        "relation.upserted",
+        "relation.deleted",
+        "adr.signed",
+        "adr.rejected",
+        "soaw.signed",
+        "risk.added",
+        "comment.created",
+        "document.added",
+        "stakeholder.added",
+        "process_diagram.saved",
+        "process_flow.approved",
+        # Rollback events must stay captured — they're the inverse-op
+        # records admins specifically want to see.
+        "rollback.delete_card",
+    ]
+    for et in high_signal_types:
+        assert not any(et.startswith(p) for p in _NO_AUTO_BATCH_PREFIXES), (
+            f"{et} should NOT be skipped — it's audit-relevant"
+        )

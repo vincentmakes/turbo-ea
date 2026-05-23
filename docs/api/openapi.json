@@ -5539,6 +5539,38 @@
         "title": "MutationBatchHistory",
         "type": "object"
       },
+      "MutationBatchListPage": {
+        "description": "Paginated response for ``GET /mutation-batches``. Mirrors the\n``{items, total, page, page_size}`` envelope used by ``GET /cards``\nand the rest of the paginated read endpoints.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MutationBatchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "MutationBatchListPage",
+        "type": "object"
+      },
       "MutationBatchOpen": {
         "description": "Open a batch before a mutating tool wrapper performs writes.",
         "properties": {
@@ -21323,6 +21355,7 @@
     },
     "/api/v1/mutation-batches": {
       "get": {
+        "description": "List mutation batches with filtering + pagination.\n\nReturns a ``{items, total, page, page_size}`` envelope (mirrors the\nrest of the read endpoints, e.g. ``GET /cards``). The audit-log UI\nuses the ``total`` to drive AG Grid's pagination footer; the\nbackground purge keeps ``mutation_batches`` bounded by\n``MUTATION_BATCH_RETENTION_DAYS`` so this never has to scan an\nunbounded table.",
         "operationId": "list_batches_api_v1_mutation_batches_get",
         "parameters": [
           {
@@ -21410,13 +21443,24 @@
           },
           {
             "in": "query",
-            "name": "limit",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
             "required": false,
             "schema": {
               "default": 50,
               "maximum": 200,
               "minimum": 1,
-              "title": "Limit",
+              "title": "Page Size",
               "type": "integer"
             }
           }
@@ -21426,11 +21470,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/MutationBatchOut"
-                  },
-                  "title": "Response List Batches Api V1 Mutation Batches Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/MutationBatchListPage"
                 }
               }
             },

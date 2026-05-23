@@ -54,3 +54,14 @@ class MutationBatchHistory(BaseModel):
 
     batch: MutationBatchOut
     events: list[MutationBatchEvent]
+
+
+class MutationBatchListPage(BaseModel):
+    """Paginated response for ``GET /mutation-batches``. Mirrors the
+    ``{items, total, page, page_size}`` envelope used by ``GET /cards``
+    and the rest of the paginated read endpoints."""
+
+    items: list[MutationBatchOut]
+    total: int
+    page: int
+    page_size: int
