@@ -28,3 +28,4 @@ class RelationType(Base, UUIDMixin, TimestampMixin):
     source_mandatory: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     target_visible: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     target_mandatory: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    plugin_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
