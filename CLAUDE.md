@@ -1659,6 +1659,8 @@ Single source of truth: `/VERSION` file at project root.
 
 ## Security
 
+This section covers the **runtime** security model of a deployed Turbo EA instance. For the **CI / supply-chain** side — what scanners cover what, Trivy/Scout/CodeQL/Dependabot wiring, allowlist procedures, image signing/verification — see [`.github/SECURITY_PIPELINE.md`](.github/SECURITY_PIPELINE.md).
+
 ### Startup Security
 - App **refuses to start** with default `SECRET_KEY` in non-development environments
 - In development mode, logs a warning about default key usage
