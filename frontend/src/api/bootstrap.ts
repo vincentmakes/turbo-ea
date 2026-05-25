@@ -23,6 +23,7 @@ import {
 import { invalidateAppTitle } from "@/hooks/useAppTitle";
 import { invalidateCurrency } from "@/hooks/useCurrency";
 import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
+import { invalidateArchiMateEnabled } from "@/hooks/useArchiMateEnabled";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
@@ -37,6 +38,7 @@ type BootstrapResponse = {
   app_title: string;
   bpm_enabled: boolean;
   ppm_enabled: boolean;
+  archimate_enabled: boolean;
   turbolens_enabled: boolean;
   grc_enabled: boolean;
   enabled_locales: string[];
@@ -77,6 +79,7 @@ export function primeBootstrap(): Promise<void> {
 
       invalidateBpmEnabled(r.bpm_enabled);
       invalidatePpmEnabled(r.ppm_enabled);
+      invalidateArchiMateEnabled(r.archimate_enabled);
       invalidateGrcEnabled(r.grc_enabled);
 
       const validLocales = r.enabled_locales.filter((l): l is SupportedLocale =>
