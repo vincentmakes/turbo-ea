@@ -1,0 +1,22 @@
+{
+  "name": "archimate-lang",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ArchiMate 3.2 Langium grammar and build-time metamodel codegen for Turbo EA",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "generate": "langium generate",
+    "codegen": "tsx src/codegen/generate-metamodel.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "langium": "^3.3.0"
+  },
+  "devDependencies": {
+    "langium-cli": "^3.3.0",
+    "typescript": "^5.6.0",
+    "tsx": "^4.19.0",
+    "vitest": "^2.0.0"
+  }
+}

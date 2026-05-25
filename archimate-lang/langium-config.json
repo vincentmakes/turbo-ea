@@ -1,0 +1,11 @@
+{
+  "projectName": "ArchiMate",
+  "languages": [
+    {
+      "id": "archimate",
+      "grammar": "src/grammar/archimate.langium",
+      "fileExtensions": [".archimate"]
+    }
+  ],
+  "out": "src/generated"
+}
