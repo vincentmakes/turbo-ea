@@ -1,0 +1,56 @@
+{
+  "pageTitle": "ArchiMate 图表",
+  "newDiagram": "新建 ArchiMate 图表",
+  "noDiagrams": "暂无 ArchiMate 图表",
+  "noDiagramsHint": "创建您的第一个图表以开始使用。",
+  "diagramName": "图表名称",
+  "create": "创建",
+  "cancel": "取消",
+  "backToDiagrams": "返回图表列表",
+  "autoLayout": "自动布局",
+  "selectRelationType": "选择关系类型",
+  "layer": {
+    "Business": "业务层",
+    "Application": "应用层",
+    "Technology": "技术层",
+    "Motivation": "动机层",
+    "Strategy": "战略层",
+    "Implementation": "实施层",
+    "Physical": "物理层",
+    "Composite": "复合层"
+  },
+  "relation": {
+    "arch_rel_Association": "关联",
+    "arch_rel_Composition": "组合",
+    "arch_rel_Aggregation": "聚合",
+    "arch_rel_Realization": "实现",
+    "arch_rel_Assignment": "分配",
+    "arch_rel_Serving": "服务",
+    "arch_rel_Access": "访问",
+    "arch_rel_Influence": "影响",
+    "arch_rel_Triggering": "触发",
+    "arch_rel_Flow": "流动",
+    "arch_rel_Specialization": "专化"
+  },
+  "export": {
+    "title": "导出 ArchiMate 模型",
+    "button": "导出 AMEFF",
+    "success": "模型导出成功"
+  },
+  "import": {
+    "title": "导入 ArchiMate 模型",
+    "button": "导入 AMEFF",
+    "success": "模型已导入：已创建 {{created}} 个，已跳过 {{skipped}} 个",
+    "error": "导入失败"
+  },
+  "admin": {
+    "title": "ArchiMate",
+    "enable": "启用 ArchiMate",
+    "disable": "禁用 ArchiMate",
+    "enabled": "ArchiMate 已启用",
+    "disabled": "ArchiMate 已禁用",
+    "seedDemo": "加载演示数据",
+    "dangerZone": "危险区域",
+    "hideAll": "禁用并隐藏所有 ArchiMate 类型"
+  }
+}

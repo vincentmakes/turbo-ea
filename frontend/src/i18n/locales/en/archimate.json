@@ -1,0 +1,56 @@
+{
+  "pageTitle": "ArchiMate Diagrams",
+  "newDiagram": "New ArchiMate Diagram",
+  "noDiagrams": "No ArchiMate diagrams yet",
+  "noDiagramsHint": "Create your first diagram to get started.",
+  "diagramName": "Diagram name",
+  "create": "Create",
+  "cancel": "Cancel",
+  "backToDiagrams": "Back to diagrams",
+  "autoLayout": "Auto Layout",
+  "selectRelationType": "Select Relation Type",
+  "layer": {
+    "Business": "Business",
+    "Application": "Application",
+    "Technology": "Technology",
+    "Motivation": "Motivation",
+    "Strategy": "Strategy",
+    "Implementation": "Implementation",
+    "Physical": "Physical",
+    "Composite": "Composite"
+  },
+  "relation": {
+    "arch_rel_Association": "Association",
+    "arch_rel_Composition": "Composition",
+    "arch_rel_Aggregation": "Aggregation",
+    "arch_rel_Realization": "Realization",
+    "arch_rel_Assignment": "Assignment",
+    "arch_rel_Serving": "Serving",
+    "arch_rel_Access": "Access",
+    "arch_rel_Influence": "Influence",
+    "arch_rel_Triggering": "Triggering",
+    "arch_rel_Flow": "Flow",
+    "arch_rel_Specialization": "Specialization"
+  },
+  "export": {
+    "title": "Export ArchiMate Model",
+    "button": "Export AMEFF",
+    "success": "Model exported successfully"
+  },
+  "import": {
+    "title": "Import ArchiMate Model",
+    "button": "Import AMEFF",
+    "success": "Model imported: {{created}} created, {{skipped}} skipped",
+    "error": "Import failed"
+  },
+  "admin": {
+    "title": "ArchiMate",
+    "enable": "Enable ArchiMate",
+    "disable": "Disable ArchiMate",
+    "enabled": "ArchiMate is enabled",
+    "disabled": "ArchiMate is disabled",
+    "seedDemo": "Seed Demo Data",
+    "dangerZone": "Danger Zone",
+    "hideAll": "Disable and hide all ArchiMate types"
+  }
+}

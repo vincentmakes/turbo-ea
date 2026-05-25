@@ -1,0 +1,56 @@
+{
+  "pageTitle": "Диаграммы ArchiMate",
+  "newDiagram": "Новая диаграмма ArchiMate",
+  "noDiagrams": "Диаграмм ArchiMate пока нет",
+  "noDiagramsHint": "Создайте первую диаграмму для начала работы.",
+  "diagramName": "Название диаграммы",
+  "create": "Создать",
+  "cancel": "Отмена",
+  "backToDiagrams": "Назад к диаграммам",
+  "autoLayout": "Авторазметка",
+  "selectRelationType": "Выберите тип отношения",
+  "layer": {
+    "Business": "Бизнес",
+    "Application": "Приложение",
+    "Technology": "Технологии",
+    "Motivation": "Мотивация",
+    "Strategy": "Стратегия",
+    "Implementation": "Реализация",
+    "Physical": "Физический",
+    "Composite": "Составной"
+  },
+  "relation": {
+    "arch_rel_Association": "Ассоциация",
+    "arch_rel_Composition": "Композиция",
+    "arch_rel_Aggregation": "Агрегация",
+    "arch_rel_Realization": "Реализация",
+    "arch_rel_Assignment": "Назначение",
+    "arch_rel_Serving": "Обслуживание",
+    "arch_rel_Access": "Доступ",
+    "arch_rel_Influence": "Влияние",
+    "arch_rel_Triggering": "Запуск",
+    "arch_rel_Flow": "Поток",
+    "arch_rel_Specialization": "Специализация"
+  },
+  "export": {
+    "title": "Экспорт модели ArchiMate",
+    "button": "Экспортировать AMEFF",
+    "success": "Модель успешно экспортирована"
+  },
+  "import": {
+    "title": "Импорт модели ArchiMate",
+    "button": "Импортировать AMEFF",
+    "success": "Модель импортирована: создано {{created}}, пропущено {{skipped}}",
+    "error": "Ошибка импорта"
+  },
+  "admin": {
+    "title": "ArchiMate",
+    "enable": "Включить ArchiMate",
+    "disable": "Отключить ArchiMate",
+    "enabled": "ArchiMate включён",
+    "disabled": "ArchiMate отключён",
+    "seedDemo": "Загрузить демо-данные",
+    "dangerZone": "Опасная зона",
+    "hideAll": "Отключить и скрыть все типы ArchiMate"
+  }
+}

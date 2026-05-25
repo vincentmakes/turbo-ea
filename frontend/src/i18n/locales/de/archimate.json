@@ -1,0 +1,56 @@
+{
+  "pageTitle": "ArchiMate-Diagramme",
+  "newDiagram": "Neues ArchiMate-Diagramm",
+  "noDiagrams": "Noch keine ArchiMate-Diagramme",
+  "noDiagramsHint": "Erstellen Sie Ihr erstes Diagramm, um loszulegen.",
+  "diagramName": "Diagrammname",
+  "create": "Erstellen",
+  "cancel": "Abbrechen",
+  "backToDiagrams": "Zurück zu den Diagrammen",
+  "autoLayout": "Auto-Layout",
+  "selectRelationType": "Beziehungstyp auswählen",
+  "layer": {
+    "Business": "Business",
+    "Application": "Anwendung",
+    "Technology": "Technologie",
+    "Motivation": "Motivation",
+    "Strategy": "Strategie",
+    "Implementation": "Implementierung",
+    "Physical": "Physisch",
+    "Composite": "Zusammengesetzt"
+  },
+  "relation": {
+    "arch_rel_Association": "Assoziation",
+    "arch_rel_Composition": "Komposition",
+    "arch_rel_Aggregation": "Aggregation",
+    "arch_rel_Realization": "Realisierung",
+    "arch_rel_Assignment": "Zuweisung",
+    "arch_rel_Serving": "Bedienung",
+    "arch_rel_Access": "Zugriff",
+    "arch_rel_Influence": "Einfluss",
+    "arch_rel_Triggering": "Auslösung",
+    "arch_rel_Flow": "Fluss",
+    "arch_rel_Specialization": "Spezialisierung"
+  },
+  "export": {
+    "title": "ArchiMate-Modell exportieren",
+    "button": "AMEFF exportieren",
+    "success": "Modell erfolgreich exportiert"
+  },
+  "import": {
+    "title": "ArchiMate-Modell importieren",
+    "button": "AMEFF importieren",
+    "success": "Modell importiert: {{created}} erstellt, {{skipped}} übersprungen",
+    "error": "Import fehlgeschlagen"
+  },
+  "admin": {
+    "title": "ArchiMate",
+    "enable": "ArchiMate aktivieren",
+    "disable": "ArchiMate deaktivieren",
+    "enabled": "ArchiMate ist aktiviert",
+    "disabled": "ArchiMate ist deaktiviert",
+    "seedDemo": "Demodaten einspielen",
+    "dangerZone": "Gefahrenzone",
+    "hideAll": "Alle ArchiMate-Typen deaktivieren und ausblenden"
+  }
+}

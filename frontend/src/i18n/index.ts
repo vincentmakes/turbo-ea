@@ -17,6 +17,7 @@ import deliveryEn from "./locales/en/delivery.json";
 import grcEn from "./locales/en/grc.json";
 import notificationsEn from "./locales/en/notifications.json";
 import validationEn from "./locales/en/validation.json";
+import archimateEn from "./locales/en/archimate.json";
 
 // French
 import commonFr from "./locales/fr/common.json";
@@ -33,6 +34,7 @@ import deliveryFr from "./locales/fr/delivery.json";
 import grcFr from "./locales/fr/grc.json";
 import notificationsFr from "./locales/fr/notifications.json";
 import validationFr from "./locales/fr/validation.json";
+import archimateFr from "./locales/fr/archimate.json";
 
 // Spanish
 import commonEs from "./locales/es/common.json";
@@ -49,6 +51,7 @@ import deliveryEs from "./locales/es/delivery.json";
 import grcEs from "./locales/es/grc.json";
 import notificationsEs from "./locales/es/notifications.json";
 import validationEs from "./locales/es/validation.json";
+import archimateEs from "./locales/es/archimate.json";
 
 // Italian
 import commonIt from "./locales/it/common.json";
@@ -65,6 +68,7 @@ import deliveryIt from "./locales/it/delivery.json";
 import grcIt from "./locales/it/grc.json";
 import notificationsIt from "./locales/it/notifications.json";
 import validationIt from "./locales/it/validation.json";
+import archimateIt from "./locales/it/archimate.json";
 
 // Portuguese
 import commonPt from "./locales/pt/common.json";
@@ -81,6 +85,7 @@ import deliveryPt from "./locales/pt/delivery.json";
 import grcPt from "./locales/pt/grc.json";
 import notificationsPt from "./locales/pt/notifications.json";
 import validationPt from "./locales/pt/validation.json";
+import archimatePt from "./locales/pt/archimate.json";
 
 // Chinese
 import commonZh from "./locales/zh/common.json";
@@ -97,6 +102,7 @@ import deliveryZh from "./locales/zh/delivery.json";
 import grcZh from "./locales/zh/grc.json";
 import notificationsZh from "./locales/zh/notifications.json";
 import validationZh from "./locales/zh/validation.json";
+import archimateZh from "./locales/zh/archimate.json";
 
 // German
 import commonDe from "./locales/de/common.json";
@@ -113,6 +119,7 @@ import deliveryDe from "./locales/de/delivery.json";
 import grcDe from "./locales/de/grc.json";
 import notificationsDe from "./locales/de/notifications.json";
 import validationDe from "./locales/de/validation.json";
+import archimateDe from "./locales/de/archimate.json";
 
 // Russian
 import commonRu from "./locales/ru/common.json";
@@ -129,6 +136,7 @@ import deliveryRu from "./locales/ru/delivery.json";
 import grcRu from "./locales/ru/grc.json";
 import notificationsRu from "./locales/ru/notifications.json";
 import validationRu from "./locales/ru/validation.json";
+import archimateRu from "./locales/ru/archimate.json";
 
 export const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru"] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -164,6 +172,7 @@ i18n
         grc: grcEn,
         notifications: notificationsEn,
         validation: validationEn,
+        archimate: archimateEn,
       },
       fr: {
         common: commonFr,
@@ -180,6 +189,7 @@ i18n
         grc: grcFr,
         notifications: notificationsFr,
         validation: validationFr,
+        archimate: archimateFr,
       },
       es: {
         common: commonEs,
@@ -196,6 +206,7 @@ i18n
         grc: grcEs,
         notifications: notificationsEs,
         validation: validationEs,
+        archimate: archimateEs,
       },
       it: {
         common: commonIt,
@@ -212,6 +223,7 @@ i18n
         grc: grcIt,
         notifications: notificationsIt,
         validation: validationIt,
+        archimate: archimateIt,
       },
       pt: {
         common: commonPt,
@@ -228,6 +240,7 @@ i18n
         grc: grcPt,
         notifications: notificationsPt,
         validation: validationPt,
+        archimate: archimatePt,
       },
       zh: {
         common: commonZh,
@@ -244,6 +257,7 @@ i18n
         grc: grcZh,
         notifications: notificationsZh,
         validation: validationZh,
+        archimate: archimateZh,
       },
       de: {
         common: commonDe,
@@ -260,6 +274,7 @@ i18n
         grc: grcDe,
         notifications: notificationsDe,
         validation: validationDe,
+        archimate: archimateDe,
       },
       ru: {
         common: commonRu,
@@ -276,6 +291,7 @@ i18n
         grc: grcRu,
         notifications: notificationsRu,
         validation: validationRu,
+        archimate: archimateRu,
       },
     },
     fallbackLng: "en",
