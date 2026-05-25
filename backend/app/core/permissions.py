@@ -73,6 +73,13 @@ APP_PERMISSIONS: dict[str, dict] = {
             "ppm.manage": "Create and manage status reports and tasks",
         },
     },
+    "archimate": {
+        "label": "ArchiMate",
+        "permissions": {
+            "archimate.view": "View ArchiMate diagrams and elements",
+            "archimate.manage": "Create, edit, and delete ArchiMate diagrams and elements",
+        },
+    },
     "reports": {
         "label": "Reports",
         "permissions": {
@@ -351,6 +358,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "archimate.view": True,
+    "archimate.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -424,6 +433,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": True,
     "grc.view": True,
     "grc.manage": True,
+    "archimate.view": True,
+    "archimate.manage": True,
     "ai.suggest": True,
     "ai.portfolio_insights": True,
     "costs.view": True,
@@ -497,6 +508,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "risks.manage": False,
     "grc.view": True,
     "grc.manage": False,
+    "archimate.view": True,
+    "archimate.manage": False,
     "ai.suggest": False,
     "ai.portfolio_insights": False,
     "costs.view": False,
