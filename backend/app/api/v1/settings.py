@@ -167,6 +167,7 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "app_title": (general.get("app_title") or "").strip() or DEFAULT_APP_TITLE,
         "bpm_enabled": general.get("bpmEnabled", True),
         "ppm_enabled": general.get("ppmEnabled", False),
+        "archimate_enabled": general.get("archiMateEnabled", False),
         "turbolens_enabled": general.get("turboLensEnabled", True),
         "grc_enabled": general.get("grcEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
@@ -557,6 +558,58 @@ async def update_grc_enabled(
     general = dict(row.general_settings or {})
     general["grcEnabled"] = body.enabled
     row.general_settings = general
+
+    await db.commit()
+    return {"ok": True}
+
+
+class ArchiMateEnabledPayload(BaseModel):
+    enabled: bool
+
+
+@router.get("/archimate-enabled")
+async def get_archimate_enabled(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — returns whether the ArchiMate module is enabled."""
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"enabled": general.get("archiMateEnabled", False)}
+
+
+@router.patch("/archimate-enabled")
+async def update_archimate_enabled(
+    body: ArchiMateEnabledPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — enable or disable the ArchiMate module.
+
+    Enabling triggers the ArchiMate metamodel seed. Disabling sets is_hidden
+    on all arch_* card and relation types so they disappear platform-wide.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["archiMateEnabled"] = body.enabled
+    row.general_settings = general
+
+    hide = not body.enabled
+
+    if body.enabled:
+        from app.plugins.archimate.seed import seed_archimate_metamodel
+
+        await seed_archimate_metamodel(db)
+
+    arch_ct_result = await db.execute(select(CardType).where(CardType.plugin_id == "archimate"))
+    for ct in arch_ct_result.scalars().all():
+        ct.is_hidden = hide
+
+    arch_rt_result = await db.execute(
+        select(RelationType).where(RelationType.plugin_id == "archimate")
+    )
+    for rt in arch_rt_result.scalars().all():
+        rt.is_hidden = hide
 
     await db.commit()
     return {"ok": True}
