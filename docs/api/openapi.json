@@ -423,6 +423,59 @@
         "title": "AiSuggestResponse",
         "type": "object"
       },
+      "AmeffExportRequest": {
+        "properties": {
+          "card_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Card Ids"
+          },
+          "name": {
+            "default": "ArchiMate Model",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "title": "AmeffExportRequest",
+        "type": "object"
+      },
+      "AmeffImportResponse": {
+        "properties": {
+          "elements_created": {
+            "title": "Elements Created",
+            "type": "integer"
+          },
+          "elements_skipped": {
+            "title": "Elements Skipped",
+            "type": "integer"
+          },
+          "model_name": {
+            "title": "Model Name",
+            "type": "string"
+          },
+          "relationships_created": {
+            "title": "Relationships Created",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "model_name",
+          "elements_created",
+          "elements_skipped",
+          "relationships_created"
+        ],
+        "title": "AmeffImportResponse",
+        "type": "object"
+      },
       "AppTitlePayload": {
         "properties": {
           "app_title": {
@@ -449,6 +502,19 @@
           "response_ids"
         ],
         "title": "ApplyBody",
+        "type": "object"
+      },
+      "ArchiMateEnabledPayload": {
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ArchiMateEnabledPayload",
         "type": "object"
       },
       "ArchiveImpactCardRef": {
@@ -634,6 +700,20 @@
           "related_cards"
         ],
         "title": "ArchiveImpactResponse",
+        "type": "object"
+      },
+      "Body_import_archimate_model_api_v1_archimate_import_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_import_archimate_model_api_v1_archimate_import_post",
         "type": "object"
       },
       "Body_import_bpmn_api_v1_bpm_processes__process_id__diagram_import_post": {
@@ -13268,6 +13348,88 @@
         "summary": "Suggest",
         "tags": [
           "AI Suggestions"
+        ]
+      }
+    },
+    "/api/v1/archimate/export": {
+      "post": {
+        "description": "Export ArchiMate elements and relations as AMEFF XML.\n\nReturns the AMEFF XML file as a download. Optionally restrict to specific\ncard IDs via the card_ids list; omit to export all arch_* cards.",
+        "operationId": "export_archimate_model_api_v1_archimate_export_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmeffExportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Export Archimate Model",
+        "tags": [
+          "archimate"
+        ]
+      }
+    },
+    "/api/v1/archimate/import": {
+      "post": {
+        "description": "Import an AMEFF XML file, creating arch_* cards and relations.\n\nIdempotent: elements already present (matched by their AMEFF identifier\nstored in card.attributes.ameff_identifier) are skipped.\n\nRequires archimate.manage permission.",
+        "operationId": "import_archimate_model_api_v1_archimate_import_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_import_archimate_model_api_v1_archimate_import_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmeffImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Archimate Model",
+        "tags": [
+          "archimate"
         ]
       }
     },
@@ -27290,6 +27452,64 @@
           }
         },
         "summary": "Update App Title",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/archimate-enabled": {
+      "get": {
+        "description": "Public endpoint \u2014 returns whether the ArchiMate module is enabled.",
+        "operationId": "get_archimate_enabled_api_v1_settings_archimate_enabled_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Archimate Enabled",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 enable or disable the ArchiMate module.\n\nEnabling triggers the ArchiMate metamodel seed. Disabling sets is_hidden\non all arch_* card and relation types so they disappear platform-wide.",
+        "operationId": "update_archimate_enabled_api_v1_settings_archimate_enabled_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiMateEnabledPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Archimate Enabled",
         "tags": [
           "settings"
         ]
