@@ -196,7 +196,7 @@ function FieldValue({
     if (opt) {
       return (
         <Chip
-          label={rl(opt.key, opt.translations)}
+          label={rl(opt.label || opt.key, opt.translations)}
           size="small"
           sx={{
             height: 26,
@@ -222,7 +222,7 @@ function FieldValue({
           return (
             <Chip
               key={v}
-              label={opt ? rl(opt.key, opt.translations) : v}
+              label={opt ? rl(opt.label || opt.key, opt.translations) : v}
               size="small"
               sx={{
                 height: 24,
@@ -646,7 +646,7 @@ export default function PortalViewer() {
                 <MenuItem value="">{t("labels.all")}</MenuItem>
                 {field.options!.map((opt) => (
                   <MenuItem key={opt.key} value={opt.key}>
-                    {rl(opt.key, opt.translations)}
+                    {rl(opt.label || opt.key, opt.translations)}
                   </MenuItem>
                 ))}
               </TextField>

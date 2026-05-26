@@ -37,7 +37,7 @@ function formatValue(
     const optLabel = (key: unknown) => {
       const opt = opts.find((o) => o.key === key);
       if (!opt) return String(key);
-      return rl ? rl(opt.key, opt.translations) : (opt.label ?? opt.key);
+      return rl ? rl(opt.label || opt.key, opt.translations) : (opt.label ?? opt.key);
     };
     if (Array.isArray(val)) {
       return val.map(optLabel).join(", ");
@@ -174,7 +174,7 @@ export default function SurveyRespond() {
           </MenuItem>
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.key, opt.translations)}
+              {rl(opt.label || opt.key, opt.translations)}
             </MenuItem>
           ))}
         </TextField>
@@ -194,7 +194,7 @@ export default function SurveyRespond() {
         >
           {field.options.map((opt) => (
             <MenuItem key={opt.key} value={opt.key}>
-              {rl(opt.key, opt.translations)}
+              {rl(opt.label || opt.key, opt.translations)}
             </MenuItem>
           ))}
         </TextField>

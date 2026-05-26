@@ -5,6 +5,21 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.30.3] - 2026-05-26
+
+### Changed
+- **Multi-select fields on Card Detail are now obvious to use.** The previous editor opened a plain dropdown with no indication that multiple values could be chosen, no marker on already-selected options, and chips that couldn't be removed without re-opening the dropdown. Each option in the dropdown now shows a checkbox (so multi-select is visually obvious and currently-picked options are flagged), the selected-value chips on the closed control are coloured per the option's metamodel color and carry a delete (✕) button so a value can be removed in one click without re-opening the menu, and an empty editor shows a "Select one or more…" hint instead of a blank box. New i18n key `common:labels.selectMultiple` added in all 8 supported locales.
+
+## [1.30.2] - 2026-05-26
+
+### Fixed
+- **Picking a color in the metamodel field editor no longer locks the main Save button.** When adding a Multiple Select field, clicking **Save** inside the per-option color picker could leave the surrounding "Add field" dialog's main Save button greyed out — making it impossible to commit the new field. The shared `ColorPicker` component's internal Save / Cancel buttons now explicitly carry `type="button"` (pinned against HTML's `type="submit"` default) and the click handlers call `preventDefault()` + `stopPropagation()` before mutating state, so the click is fully scoped to "set the color and close the popover" and cannot leak to the parent dialog. The same isolation also applies to clicks on recent-color swatches and on the trigger swatch itself. Saving a color now does just that — save a color. Fixes the second issue raised on [#611](https://github.com/vincentmakes/turbo-ea/issues/611).
+
+## [1.30.1] - 2026-05-26
+
+### Fixed
+- **Custom select-field options now show the label, not the key.** When an admin added a new `single_select` or `multiple_select` field via the metamodel admin UI, the rendered chips on cards, in the inventory grid, in the inventory filter sidebar, on the create-card dialog, on public web portals, and in survey responses all displayed the option's internal `key` instead of the user-entered `label`. The shared `useResolveLabel` helper was being called with `opt.key` as the fallback, but admin-created options carry no `translations` map — so the fallback was always returned. Every render site now uses `opt.label || opt.key` as the fallback. The inventory grid additionally gained a `cellRenderer` for `multiple_select` columns, which used to fall through to the default value-getter and render the raw array of keys. Fixes [#611](https://github.com/vincentmakes/turbo-ea/issues/611).
+
 ## [1.30.0] - 2026-05-26
 
 ### Added

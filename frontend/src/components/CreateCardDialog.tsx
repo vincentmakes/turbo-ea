@@ -444,7 +444,7 @@ export default function CreateCardDialog({
                         }}
                       />
                     )}
-                    {rl(opt.key, opt.translations)}
+                    {rl(opt.label || opt.key, opt.translations)}
                   </Box>
                 </MenuItem>
               ))}

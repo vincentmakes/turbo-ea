@@ -806,7 +806,7 @@ export default function InventoryFilterSidebar({
                                       return (
                                         <Chip
                                           key={v}
-                                          label={opt ? rl(opt.key, opt.translations) : v}
+                                          label={opt ? rl(opt.label || opt.key, opt.translations) : v}
                                           size="small"
                                           sx={{
                                             height: 20, fontSize: 12,
@@ -846,7 +846,7 @@ export default function InventoryFilterSidebar({
                                       {opt.color && (
                                         <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
                                       )}
-                                      {rl(opt.key, opt.translations)}
+                                      {rl(opt.label || opt.key, opt.translations)}
                                     </Box>
                                   </MenuItem>
                                 ))}

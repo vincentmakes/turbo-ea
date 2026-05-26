@@ -72,6 +72,7 @@
   "labels.yes": "Yes",
   "labels.no": "No",
   "labels.none": "None",
+  "labels.selectMultiple": "Select one or more…",
   "labels.all": "All",
   "labels.loading": "Loading...",
   "labels.noResults": "No results",

@@ -72,6 +72,7 @@
   "labels.yes": "Да",
   "labels.no": "Нет",
   "labels.none": "Нет",
+  "labels.selectMultiple": "Выберите один или несколько…",
   "labels.all": "Все",
   "labels.loading": "Загрузка...",
   "labels.noResults": "Нет результатов",

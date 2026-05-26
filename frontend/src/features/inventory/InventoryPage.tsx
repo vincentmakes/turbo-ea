@@ -1513,7 +1513,7 @@ export default function InventoryPage() {
                     return opt ? (
                       <Chip
                         size="small"
-                        label={rl(opt.key, opt.translations)}
+                        label={rl(opt.label || opt.key, opt.translations)}
                         sx={
                           opt.color
                             ? { bgcolor: opt.color, color: "#fff" }
@@ -1522,6 +1522,28 @@ export default function InventoryPage() {
                       />
                     ) : (
                       p.value || ""
+                    );
+                  },
+                }
+              : {}),
+            ...(field.type === "multiple_select" && field.options
+              ? {
+                  cellRenderer: (p: { value: unknown }) => {
+                    const arr = Array.isArray(p.value) ? p.value : [];
+                    return (
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        {arr.map((v) => {
+                          const opt = field.options?.find((o) => o.key === v);
+                          return (
+                            <Chip
+                              key={String(v)}
+                              size="small"
+                              label={opt ? rl(opt.label || opt.key, opt.translations) : String(v)}
+                              sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+                            />
+                          );
+                        })}
+                      </Box>
                     );
                   },
                 }
@@ -1555,11 +1577,33 @@ export default function InventoryPage() {
                   return opt ? (
                     <Chip
                       size="small"
-                      label={rl(opt.key, opt.translations)}
+                      label={rl(opt.label || opt.key, opt.translations)}
                       sx={opt.color ? { bgcolor: opt.color, color: "#fff" } : {}}
                     />
                   ) : (
                     p.value || ""
+                  );
+                },
+              }
+            : {}),
+          ...(field.type === "multiple_select" && field.options
+            ? {
+                cellRenderer: (p: { value: unknown }) => {
+                  const arr = Array.isArray(p.value) ? p.value : [];
+                  return (
+                    <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                      {arr.map((v) => {
+                        const opt = field.options?.find((o) => o.key === v);
+                        return (
+                          <Chip
+                            key={String(v)}
+                            size="small"
+                            label={opt ? rl(opt.label || opt.key, opt.translations) : String(v)}
+                            sx={opt?.color ? { bgcolor: opt.color, color: "#fff" } : {}}
+                          />
+                        );
+                      })}
+                    </Box>
                   );
                 },
               }
@@ -1859,7 +1903,7 @@ export default function InventoryPage() {
               <MenuItem key={opt.key} value={opt.key}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {opt.color && <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />}
-                  {rl(opt.key, opt.translations)}
+                  {rl(opt.label || opt.key, opt.translations)}
                 </Box>
               </MenuItem>
             ))}

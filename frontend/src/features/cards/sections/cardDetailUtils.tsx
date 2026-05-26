@@ -3,6 +3,7 @@ import Typography from "@mui/material/Typography";
 import Chip from "@mui/material/Chip";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
+import Checkbox from "@mui/material/Checkbox";
 import FormControl from "@mui/material/FormControl";
 import InputLabel from "@mui/material/InputLabel";
 import FormControlLabel from "@mui/material/FormControlLabel";
@@ -166,7 +167,7 @@ export function FieldValue({
     const strVal = typeof value === "string" ? value : safeString(value);
     const opt = field.options.find((o) => o.key === strVal);
     return opt ? (
-      <Chip size="small" label={rl(opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+      <Chip size="small" label={rl(opt.label || opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
     ) : (
       <Tooltip title={t("utils.unknownOption", { key: strVal })}>
         <Chip size="small" label={strVal} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
@@ -183,7 +184,7 @@ export function FieldValue({
           const key = typeof v === "string" ? v : safeString(v);
           const opt = field.options!.find((o) => o.key === key);
           return opt ? (
-            <Chip key={key + i} size="small" label={rl(opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
+            <Chip key={key + i} size="small" label={rl(opt.label || opt.key, opt.translations)} sx={{ ...SELECT_CHIP_BASE, width: w, ...(opt.color ? { bgcolor: opt.color, color: "#fff" } : {}) }} />
           ) : (
             <Chip key={key + i} size="small" label={key} variant="outlined" color="warning" sx={{ ...SELECT_CHIP_BASE, width: w }} />
           );
@@ -285,7 +286,7 @@ export function FieldEditor({
                       }}
                     />
                   )}
-                  {rl(opt.key, opt.translations)}
+                  {rl(opt.label || opt.key, opt.translations)}
                 </Box>
               </MenuItem>
             ))}
@@ -294,36 +295,64 @@ export function FieldEditor({
       );
     case "multiple_select": {
       const arrVal: string[] = Array.isArray(value) ? value.map((v) => typeof v === "string" ? v : safeString(v)) : (strVal ? [strVal] : []);
+      const labelText = rl(field.key, field.translations);
       return (
         <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>{rl(field.key, field.translations)}</InputLabel>
+          <InputLabel>{labelText}</InputLabel>
           <Select
             multiple
             value={arrVal}
-            label={rl(field.key, field.translations)}
+            label={labelText}
             onChange={(e) => {
               const v = e.target.value;
               onChange(typeof v === "string" ? v.split(",") : v);
             }}
-            renderValue={(selected) => (
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                {(selected as string[]).map((key) => {
-                  const opt = field.options?.find((o) => o.key === key);
-                  return <Chip key={key} size="small" label={opt ? rl(opt.key, opt.translations) : key} sx={{ height: 22 }} />;
-                })}
-              </Box>
-            )}
-          >
-            {field.options?.map((opt) => (
-              <MenuItem key={opt.key} value={opt.key}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  {opt.color && (
-                    <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
-                  )}
-                  {rl(opt.key, opt.translations)}
+            displayEmpty
+            renderValue={(selected) => {
+              const arr = selected as string[];
+              if (arr.length === 0) {
+                return (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                    {t("common:labels.selectMultiple", { defaultValue: "Select one or more…" })}
+                  </Typography>
+                );
+              }
+              return (
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                  {arr.map((key) => {
+                    const opt = field.options?.find((o) => o.key === key);
+                    return (
+                      <Chip
+                        key={key}
+                        size="small"
+                        label={opt ? rl(opt.label || opt.key, opt.translations) : key}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onDelete={() => onChange(arrVal.filter((v) => v !== key))}
+                        sx={{
+                          height: 22,
+                          ...(opt?.color ? { bgcolor: opt.color, color: "#fff", "& .MuiChip-deleteIcon": { color: "rgba(255,255,255,0.85)" } } : {}),
+                        }}
+                      />
+                    );
+                  })}
                 </Box>
-              </MenuItem>
-            ))}
+              );
+            }}
+          >
+            {field.options?.map((opt) => {
+              const checked = arrVal.includes(opt.key);
+              return (
+                <MenuItem key={opt.key} value={opt.key}>
+                  <Checkbox size="small" checked={checked} sx={{ p: 0.5, mr: 1 }} />
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    {opt.color && (
+                      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: opt.color }} />
+                    )}
+                    {rl(opt.label || opt.key, opt.translations)}
+                  </Box>
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
       );

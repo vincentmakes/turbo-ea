@@ -72,6 +72,7 @@
   "labels.yes": "Oui",
   "labels.no": "Non",
   "labels.none": "Aucun",
+  "labels.selectMultiple": "Sélectionner une ou plusieurs options…",
   "labels.all": "Tous",
   "labels.loading": "Chargement…",
   "labels.noResults": "Aucun résultat",
