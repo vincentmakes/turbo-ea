@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - **Migration "Map imported fields" tab now reads the auto-mapped column list from the source adapter.** The info banner at the top of the metamodel-field tab used to enumerate LeanIX-specific column names (`displayName`, `qualitySeal`, …) directly in the React tree. Future Ardoq / HOPEX / BiZZdesign adapters would have had to either ship those LeanIX names or carry a frontend patch. The list now lives on each `MigrationSource` adapter as an `auto_mapped_columns: tuple[tuple[str, str], ...]` table and is returned by `GET /migration/{id}/field-mappings`, so the frontend renders whatever the adapter declares. LeanIX continues to declare the same eight columns as before — no behavioural change for existing users.
+- **User-manual migration page brought in sync with the new admin UI.** The "Platform migration" page (`docs/admin/migration.md` plus all 7 locale variants) now documents the per-tab filter pills, the resolved card-name column on the Cards tab, the conflict-reason text in the Note column, the per-field mapping selector (with the four outcomes: new custom field / map to TEA field / map to lifecycle phase / skip), the read-only "auto-mapped core columns" banner, the pre-apply conflict warning + confirmation dialog, the dedicated `conflicts` chip in the post-apply result, and the LeanIX Full Snapshot vs GraphQL CSV email-delimiter behaviour. Text-only update — screenshots stay deferred until the screenshot script is re-run as a batch.
 
 ## [1.30.3] - 2026-05-26
 

@@ -32,11 +32,23 @@ In LeanIX, open **Administration → Export → Full Snapshot**. This produces a
     - `create` — will be added to Turbo EA
     - `update` — exists already; diff-fields will be merged
     - `skip` — exists already with no changes
-    - `conflict` — endpoint missing, type unmapped, or built-in collision — see the *Note* column for the reason
+    - `conflict` — endpoint missing, type unmapped, built-in collision, malformed email, etc. — see the *Note* column for the full reason text
 
-    The **New types**, **Custom fields**, and **New relations** tabs surface tenant-customised metamodel from your LeanIX workspace. By default, these are accepted as-is and create matching non-built-in card types / fields / relation types in Turbo EA. For finer control, edit the proposed key/label/type in the staged-record JSON before applying.
+    Each tab shows a row of **filter pills** above the table — one pill per card type when applicable, otherwise per action — so you can narrow a large list (hundreds of cards, tens of fact-sheet types) to one slice at a time. The Cards tab shows the resolved **card name** alongside the source UUID. The Note column renders the full conflict reason, and update rows show the changed field names with a tooltip spelling out the `old → new` transition.
 
-3. **Apply** when you are satisfied. The apply pipeline runs 12 dependency-ordered passes (metamodel types → metamodel fields → metamodel relation types → users → cards → tag groups → tags → card-tag links → relations → subscriptions → documents → comments) inside individual savepoints — one failing row does not poison the rest of the import. Status moves through `applying → applied` (or `failed` if errors cross the safety threshold).
+    The **New types**, **Custom fields**, and **New relations** tabs surface tenant-customised metamodel from your source workspace. By default, these are accepted as-is and create matching non-built-in card types / fields / relation types in Turbo EA.
+
+3. **Map imported fields** (optional, in the **Custom fields** tab). For each source-platform custom column, pick one of three outcomes from the dropdown next to the row:
+    - **Import as new custom field** (default) — the column lands as a new attribute on the target card type, under a synthetic *Imported from {source}* section.
+    - **Map to an existing Turbo EA field** — route the value onto a built-in field on the target card type (e.g. send LeanIX `businessCriticality` to TEA's own `businessCriticality` slot). The metamodel-field row is then skipped at apply time, so no orphan column is created.
+    - **Map to a lifecycle phase** — for date columns, route the value onto the standard `plan` / `phaseIn` / `active` / `phaseOut` / `endOfLife` slot in `card.lifecycle`. Date / datetime values are auto-coerced to `YYYY-MM-DD` (the `T00:00:00` suffix that some platforms write for datetime cells is stripped); unparseable values are dropped so they can't corrupt the lifecycle map.
+    - **Do not import this field** — the column is skipped entirely, both as an attribute and as a metamodel field.
+
+    The mapping is per-migration and can be edited any time the status is `parsed` or `previewed`. Source-platform core columns the adapter routes directly into Turbo EA standard slots (e.g. LeanIX `name`, `displayName`, `description`, `status`, `category → subtype`, `lifecycle:*`, `qualitySeal`, `completion`) are listed at the top of the tab in a read-only info banner — those have no mapping decision to make.
+
+4. **Apply** when you are satisfied. The apply pipeline runs 12 dependency-ordered passes (metamodel types → metamodel fields → metamodel relation types → users → cards → tag groups → tags → card-tag links → relations → subscriptions → documents → comments) inside individual savepoints — one failing row does not poison the rest of the import. Status moves through `applying → applied` (or `failed` if errors cross the safety threshold).
+
+    If the parsed snapshot contains any **conflict** rows, a warning banner appears above the staging tabs (with clickable chips that jump to the affected tab) and clicking **Apply** opens a confirmation dialog spelling out which kinds carry conflicts. You have to explicitly acknowledge that the conflicted rows will be skipped before the apply runs. The post-apply *Apply result* shows a dedicated *conflicts* chip alongside *created / updated / skipped / errors* — conflicts are not silent skips, they're a first-class outcome the admin sees in the migration history.
 
 ## What gets imported
 
@@ -85,7 +97,8 @@ This page is gated by the `admin.migrate` permission. Only the **admin** role ho
 
 - **One in-progress migration per `(file_hash, source_type)` pair.** Re-uploading the exact same bytes for the same source while a migration is still active returns the existing migration record (the SHA-256 hash + source key is the natural idempotency key). Delete the migration record first if you really want a fresh ingest of the same file. Uploading the same hash under a different source key (if you ever do) lands as a separate migration.
 - **Large workspaces** (10k+ fact sheets): the parser is streaming, but the apply pipeline writes rows in one transaction per pass. Plan ~15 minutes for very large imports.
-- **Custom fields, values, and tags are tolerated, not pre-mapped.** Any LeanIX column that isn't in Turbo EA's built-in metamodel lands on the imported card's `attributes` map verbatim and is surfaced in the **Custom fields** tab so an admin can promote it. Same for tenant-defined tag groups and for relation types LeanIX customers have added (e.g. `lxSystemSystem*`, `*Lx*Dora*`, `microservice*`, `eSGCapability*`) — they appear in the **New types** / **New relations** tabs unchanged, ready for an admin decision.
+- **Custom fields, values, and tags are tolerated, not pre-mapped.** Any LeanIX column that isn't in Turbo EA's built-in metamodel lands on the imported card's `attributes` map verbatim and is surfaced in the **Custom fields** tab so an admin can promote it (route it to an existing TEA field, a lifecycle phase, or skip it — see *Map imported fields* in the workflow above). Same for tenant-defined tag groups and for relation types source platforms have added (e.g. `lxSystemSystem*`, `*Lx*Dora*`, `microservice*`, `eSGCapability*`) — they appear in the **New types** / **New relations** tabs unchanged, ready for an admin decision.
+- **Subscription emails can use either delimiter.** The LeanIX "Full Snapshot" export delimits emails inside `subscriptions:<RoleType>[:<RoleName>]` cells with `;`; the GraphQL CSV export uses `,`. The parser accepts either. Rows whose email is malformed (missing `@`, or an unsplit delimiter slipped through) are staged as `conflict` with a clear reason instead of being created as bogus users — fix the source export and re-upload.
 
 ## Cleanup
 

@@ -22,11 +22,23 @@ No LeanIX, abra **Administration → Export → Full Snapshot**. Isso produz uma
     - `create` — será adicionada ao Turbo EA
     - `update` — já existe; os campos do diff serão mesclados
     - `skip` — já existe sem alterações
-    - `conflict` — endpoint faltante, tipo não mapeado ou colisão com built-in — veja a coluna *Note* para o motivo
+    - `conflict` — endpoint faltante, tipo não mapeado, colisão com built-in, e-mail malformado, etc. — veja a coluna *Note* para o motivo completo
 
-    As abas **Novos tipos**, **Campos personalizados** e **Novas relações** exibem o metamodelo personalizado do tenant do seu workspace LeanIX. Por padrão são aceitas como estão e criam tipos de card / campos / tipos de relação não-built-in correspondentes no Turbo EA. Para controle mais fino, edite a chave/rótulo/tipo propostos no JSON do registro staged antes de aplicar.
+    Cada aba exibe acima da tabela uma linha de **pílulas de filtro** — uma por tipo de card quando aplicável, senão por ação — para reduzir uma lista longa (centenas de cards, dezenas de tipos de fact sheet) a uma fatia por vez. A aba **Cards** exibe o **nome** do card resolvido ao lado do UUID de origem. A coluna *Note* mostra o motivo completo do conflito; as linhas `update` listam os nomes de campo alterados com um tooltip que detalha a transição `antigo → novo`.
 
-3. **Aplicar** quando estiver satisfeito. O pipeline de apply executa 12 passagens ordenadas por dependências (tipos do metamodelo → campos do metamodelo → tipos de relação do metamodelo → usuários → cards → grupos de tags → tags → vínculos card-tag → relações → assinaturas → documentos → comentários) em savepoints individuais — uma linha com falha não envenena o restante do import. O status avança de `applying → applied` (ou `failed` se os erros cruzarem o limite de segurança).
+    As abas **Novos tipos**, **Campos personalizados** e **Novas relações** exibem o metamodelo personalizado do tenant do seu workspace de origem. Por padrão são aceitas como estão e criam tipos de card / campos / tipos de relação não-built-in correspondentes no Turbo EA.
+
+3. **Mapear os campos importados** (opcional, na aba **Campos personalizados**). Para cada coluna personalizada da plataforma de origem, escolha uma de três opções no menu suspenso ao lado da linha:
+    - **Importar como novo campo personalizado** (padrão) — a coluna aterrissa como novo atributo no tipo de card destino, sob uma seção sintética *Imported from {source}*.
+    - **Mapear para um campo Turbo EA existente** — o valor é roteado para um campo built-in do tipo de card destino (ex.: enviar `businessCriticality` do LeanIX para o slot `businessCriticality` próprio do TEA). A linha do campo de metamodelo é então ignorada no apply, portanto nenhuma coluna órfã é criada.
+    - **Mapear para uma fase de ciclo de vida** — para colunas de data, o valor é roteado para o slot padrão `plan` / `phaseIn` / `active` / `phaseOut` / `endOfLife` em `card.lifecycle`. Valores de data/datetime são auto-convertidos para `YYYY-MM-DD` (o sufixo `T00:00:00` que algumas plataformas escrevem em células datetime é removido); valores não-parseáveis são descartados para não corromper o mapa de lifecycle.
+    - **Não importar este campo** — a coluna é completamente ignorada, nem como atributo nem como campo de metamodelo.
+
+    O mapeamento é por migração e pode ser editado enquanto o status for `parsed` ou `previewed`. As colunas-base da plataforma de origem que o adaptador roteia diretamente para os slots padrão do Turbo EA (ex.: LeanIX `name`, `displayName`, `description`, `status`, `category → subtype`, `lifecycle:*`, `qualitySeal`, `completion`) são listadas no topo da aba em um banner informativo somente-leitura — não há decisão de mapeamento a tomar.
+
+4. **Aplicar** quando estiver satisfeito. O pipeline de apply executa 12 passagens ordenadas por dependências (tipos do metamodelo → campos do metamodelo → tipos de relação do metamodelo → usuários → cards → grupos de tags → tags → vínculos card-tag → relações → assinaturas → documentos → comentários) em savepoints individuais — uma linha com falha não envenena o restante do import. O status avança de `applying → applied` (ou `failed` se os erros cruzarem o limite de segurança).
+
+    Se o snapshot analisado contiver linhas em **conflict**, um banner de aviso aparece acima das abas de staging (com chips clicáveis que saltam para a aba afetada) e clicar em **Aplicar** abre um diálogo de confirmação detalhando quais tipos carregam conflitos. Você precisa reconhecer explicitamente que as linhas em conflito serão ignoradas antes do apply executar. O *Resultado do apply* posterior mostra um chip *conflitos* dedicado ao lado de *criados / atualizados / ignorados / erros* — conflitos não são skips silenciosos, são um resultado de primeira ordem visível no histórico de migração.
 
 ## O que é importado
 
@@ -75,7 +87,8 @@ Esta página é controlada pela permissão `admin.migrate`. Por padrão apenas o
 
 - **Uma migração em andamento por hash de arquivo.** Recarregar exatamente os mesmos bytes enquanto uma migração para esse hash ainda está ativa retorna o registro de migração existente (o hash SHA-256 é a chave natural de idempotência). Apague o registro de migração primeiro se realmente quiser ingerir o mesmo arquivo novamente.
 - **Workspaces grandes** (10k+ fact sheets): o parser é em streaming, mas o pipeline de apply escreve linhas em uma transação por passagem. Planeje ~15 minutos para imports muito grandes.
-- **Campos, valores e tags personalizados são tolerados, não pré-mapeados.** Qualquer coluna do LeanIX que não esteja no metamodelo built-in do Turbo EA aterrissa verbatim no mapa `attributes` do card importado e aparece na aba **Campos personalizados** para que um admin possa promovê-la. O mesmo vale para grupos de tags definidos pelo tenant e tipos de relação adicionados pelos clientes do LeanIX (ex.: `lxSystemSystem*`, `*Lx*Dora*`, `microservice*`, `eSGCapability*`) — aparecem inalterados nas abas **Novos tipos** / **Novas relações**, prontos para decisão do admin.
+- **Campos, valores e tags personalizados são tolerados, não pré-mapeados.** Qualquer coluna do LeanIX que não esteja no metamodelo built-in do Turbo EA aterrissa verbatim no mapa `attributes` do card importado e aparece na aba **Campos personalizados** para que um admin possa tratá-la (roteá-la para um campo TEA existente, para uma fase de ciclo de vida, ou ignorá-la — veja *Mapear os campos importados* no fluxo acima). O mesmo vale para grupos de tags definidos pelo tenant e tipos de relação adicionados pelas plataformas de origem (ex.: `lxSystemSystem*`, `*Lx*Dora*`, `microservice*`, `eSGCapability*`) — aparecem inalterados nas abas **Novos tipos** / **Novas relações**, prontos para decisão do admin.
+- **E-mails de assinatura aceitam ambos os separadores.** O export «Full Snapshot» do LeanIX separa e-mails em células `subscriptions:<RoleType>[:<RoleName>]` com `;`; o export GraphQL CSV usa `,`. O parser aceita qualquer um. Linhas com e-mail malformado (sem `@`, ou separador não dividido) são staged como `conflict` com motivo claro em vez de criadas como usuários falsos — corrija o export de origem e recarregue.
 
 ## Limpeza
 
