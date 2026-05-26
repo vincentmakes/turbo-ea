@@ -4,8 +4,8 @@ Enables the parallel metamodel plugin architecture (e.g., ArchiMate).
 Rows seeded by a plugin carry plugin_id = "archimate" (or "uml", etc.).
 All existing rows remain with plugin_id = NULL — no effect on existing data.
 
-Revision ID: 093a
-Revises: 092
+Revision ID: 096
+Revises: 095
 Create Date: 2026-05-25
 """
 
@@ -17,8 +17,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "093a"
-down_revision: Union[str, None] = "092"
+revision: str = "096"
+down_revision: Union[str, None] = "095"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
