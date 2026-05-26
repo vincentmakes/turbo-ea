@@ -136,8 +136,13 @@ test.describe("GRC — Compliance tab", () => {
   test("Run compliance scan button is present", async ({ page }) => {
     // The scan button requires AI to be configured. If AI is not configured,
     // an info banner is shown instead — skip the test in that case.
-    const aiNotConfigured = page.getByText(/AI is not configured/i);
-    if (await aiNotConfigured.isVisible({ timeout: 3000 }).catch(() => false)) {
+    const aiBannerFound = await page
+      .getByText(/AI is not configured/i)
+      .waitFor({ state: "visible", timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+
+    if (aiBannerFound) {
       test.skip();
       return;
     }

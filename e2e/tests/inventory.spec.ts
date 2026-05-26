@@ -24,18 +24,25 @@ test.describe("Inventory", () => {
 
   test("shows card names in the grid (demo: SAP S/4HANA)", async ({ page }) => {
     // SAP S/4HANA is in the demo seed as an Application card
-    // Use link locator instead of gridcell — AG Grid virtual scrolling may not render
-    // all cells, but links within visible rows are always in the DOM.
-    const link = page.getByRole("link", { name: "SAP S/4HANA" });
+    // AG Grid virtual scrolling only renders visible rows. SAP S/4HANA is
+    // alphabetically far down the list, so we search for it via the filter.
+    const searchInput = page
+      .getByRole("searchbox")
+      .or(page.getByPlaceholder(/search|filter/i))
+      .first();
+    await searchInput.fill("SAP S/4HANA");
+    await page.waitForTimeout(600); // debounce
+
+    const link = page.getByRole("link", { name: /^SAP S\/4HANA$/ });
     await expect(link).toBeVisible({ timeout: 10000 });
   });
 
   test("filter sidebar: typing in search reduces visible rows", async ({ page }) => {
-    // Wait for the grid to be populated with data before counting initial rows
-    await expect(page.getByText(/items$/).first()).toBeVisible({ timeout: 10000 });
+    // Wait for at least one data row to render in the grid
+    const rows = page.locator("[role='row']").filter({ hasNot: page.locator("[role='columnheader']") });
+    await expect(rows.first()).toBeVisible({ timeout: 10000 });
 
     // Count initial rows
-    const rows = page.locator("[role='row']").filter({ hasNot: page.locator("[role='columnheader']") });
     const initialCount = await rows.count();
     expect(initialCount).toBeGreaterThan(0);
 
