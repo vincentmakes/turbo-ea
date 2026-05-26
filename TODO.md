@@ -39,5 +39,8 @@ Add a `MIGRATE_ARCHIMATE_UNIQUE` flag that, when set to true at startup (or trig
 ## Notes
 - The migration is destructive — it removes all standard Turbo EA (non-ArchiMate) data. Users should be warned.
 - `MIGRATE_ARCHIMATE_UNIQUE` only takes effect at startup. The API endpoint is for admin-triggered runs at runtime.
-- Standard Turbo EA seed (SEED_DEMO) still runs first. Then the ArchiMate seed runs. Then the migration flag is checked — this ordering ensures ArchiMate data exists before the purge.
-- For the admin button: since this deletes a lot of stuff, we should add a confirmation dialog with the counts preview before executing.
+- Standard Turbo EA seed (SEED_DEMO) still runs first. Then the ArchiMate metamodel is re-seeded inside `migrate_archimate_unique()` before deletion.
+- For the admin button: since this deletes a lot of stuff, we added a confirmation dialog.
+- **Important**: `MIGRATE_ARCHIMATE_UNIQUE` must be added to `docker-compose.yml` backend env vars to be passed to the container.
+- **Bugfix**: Standard types have `plugin_id=NULL`. PostgreSQL `NULL != 'archimate'` = NULL (falsy), so the WHERE clause must use `or_(plugin_id == None, plugin_id != 'archimate')`.
+- Commits: `db4e5777` (feat), `f29c7b55` (fixes), `554d6269` (chore: cleanup)
