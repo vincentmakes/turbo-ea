@@ -206,6 +206,7 @@ function AppRoutes() {
                 <Route path="/archimate" element={<ModuleGate module="archimate"><ArchimateDiagramsPage /></ModuleGate>} />
                 <Route path="/archimate/:id/edit" element={<ModuleGate module="archimate"><ArchimateDiagramEditor /></ModuleGate>} />
                 <Route path="/admin/turbolens" element={<Navigate to="/admin/settings?tab=turbolens" />} />
+                <Route path="/admin/archimate" element={<Navigate to="/admin/settings?tab=archimate" />} />
                 <Route path="/capability-catalogue" element={<CapabilityCataloguePage />} />
                 <Route path="/process-catalogue" element={<ProcessCataloguePage />} />
                 <Route path="/value-stream-catalogue" element={<ValueStreamCataloguePage />} />

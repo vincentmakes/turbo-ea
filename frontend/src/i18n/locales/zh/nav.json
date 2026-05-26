@@ -49,5 +49,6 @@
   "userMenu.principlesCatalogue": "原则目录",
   "userMenu.referenceCatalogues": "参考目录",
   "userMenu.processCatalogue": "流程目录",
-  "userMenu.valueStreamCatalogue": "价值流目录"
+  "userMenu.valueStreamCatalogue": "价值流目录",
+  "archimate": "ArchiMate"
 }

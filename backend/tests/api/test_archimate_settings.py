@@ -63,9 +63,10 @@ class TestArchiMateFeatureFlag:
         assert data["archimate_enabled"] is False
 
     async def test_disabling_hides_archimate_types(self, client, db, archimate_env):
+        from sqlalchemy import select
+
         from app.models.card_type import CardType
         from app.plugins.archimate.seed import seed_archimate_metamodel
-        from sqlalchemy import select
 
         await seed_archimate_metamodel(db)
         await db.commit()

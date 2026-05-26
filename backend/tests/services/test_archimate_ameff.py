@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-import pytest
-
 from app.plugins.archimate.ameff import (
     AMEFF_NS,
     export_model_to_ameff,
@@ -231,10 +229,11 @@ class TestAmeffExport:
 
 class TestAmeffImport:
     async def test_import_creates_cards(self, db):
+        from sqlalchemy import select
+
         from app.models.card import Card
         from app.plugins.archimate.seed import seed_archimate_metamodel
         from app.services.seed import seed_metamodel
-        from sqlalchemy import select
 
         await seed_metamodel(db)
         await seed_archimate_metamodel(db)
@@ -244,15 +243,18 @@ class TestAmeffImport:
         assert result["relationships_created"] == 2
 
         cards = await db.execute(
-            select(Card).where(Card.attributes["ameff_identifier"].astext.in_(["elem-001", "elem-002", "elem-003"]))
+            select(Card).where(
+                Card.attributes["ameff_identifier"].astext.in_(["elem-001", "elem-002", "elem-003"])
+            )
         )
         assert len(cards.scalars().all()) == 3
 
     async def test_import_sets_correct_card_type(self, db):
+        from sqlalchemy import select
+
         from app.models.card import Card
         from app.plugins.archimate.seed import seed_archimate_metamodel
         from app.services.seed import seed_metamodel
-        from sqlalchemy import select
 
         await seed_metamodel(db)
         await seed_archimate_metamodel(db)

@@ -49,5 +49,6 @@
   "userMenu.principlesCatalogue": "Каталог принципов",
   "userMenu.referenceCatalogues": "Справочные каталоги",
   "userMenu.processCatalogue": "Каталог процессов",
-  "userMenu.valueStreamCatalogue": "Каталог потоков создания ценности"
+  "userMenu.valueStreamCatalogue": "Каталог потоков создания ценности",
+  "archimate": "ArchiMate"
 }

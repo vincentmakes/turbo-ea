@@ -49,5 +49,6 @@
   "userMenu.principlesCatalogue": "Catalogue de principes",
   "userMenu.referenceCatalogues": "Catalogues de référence",
   "userMenu.processCatalogue": "Catalogue de processus",
-  "userMenu.valueStreamCatalogue": "Catalogue de chaînes de valeur"
+  "userMenu.valueStreamCatalogue": "Catalogue de chaînes de valeur",
+  "archimate": "ArchiMate"
 }

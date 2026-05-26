@@ -608,6 +608,19 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_security] Skipped: {result.get('reason', 'unknown')}")
 
+    if settings.SEED_DEMO or settings.SEED_ARCHIMATE:
+        from app.plugins.archimate.seed_demo import seed_archimate_demo
+
+        async with async_session() as db:
+            result = await seed_archimate_demo(db)
+            if result["cards_created"] or result["relations_created"]:
+                print(
+                    f"[seed_archimate] Seeded {result['cards_created']} ArchiMate cards, "
+                    f"{result['relations_created']} relations"
+                )
+            else:
+                print(f"[seed_archimate] Skipped: {result['cards_skipped']} cards already exist")
+
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
     if settings.AI_AUTO_CONFIGURE:

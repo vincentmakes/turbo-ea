@@ -49,5 +49,6 @@
   "userMenu.principlesCatalogue": "Prinzipienkatalog",
   "userMenu.referenceCatalogues": "Referenzkataloge",
   "userMenu.processCatalogue": "Prozesskatalog",
-  "userMenu.valueStreamCatalogue": "Wertstrom-Katalog"
+  "userMenu.valueStreamCatalogue": "Wertstrom-Katalog",
+  "archimate": "ArchiMate"
 }

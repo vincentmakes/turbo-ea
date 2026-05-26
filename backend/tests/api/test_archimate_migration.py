@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-from sqlalchemy import inspect, text
+from sqlalchemy import text
 
 
 class TestPluginIdMigration:
@@ -32,7 +31,6 @@ class TestPluginIdMigration:
         assert row.is_nullable == "YES", "plugin_id should be nullable"
 
     async def test_existing_card_types_have_null_plugin_id(self, db):
-        from app.models.card_type import CardType
 
         result = await db.execute(
             text("SELECT COUNT(*) FROM card_types WHERE plugin_id IS NOT NULL")

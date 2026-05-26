@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 
 from app.models.card_type import CardType
 from app.models.relation_type import RelationType
@@ -19,9 +19,7 @@ class TestArchiMateSeedCardTypes:
 
     async def test_all_types_have_arch_prefix(self, db):
         await seed_archimate_metamodel(db)
-        result = await db.execute(
-            select(CardType.key).where(CardType.plugin_id == "archimate")
-        )
+        result = await db.execute(select(CardType.key).where(CardType.plugin_id == "archimate"))
         keys = [row[0] for row in result.all()]
         assert all(k.startswith("arch_") for k in keys)
 
@@ -35,9 +33,7 @@ class TestArchiMateSeedCardTypes:
 
     async def test_all_types_are_not_built_in(self, db):
         await seed_archimate_metamodel(db)
-        result = await db.execute(
-            select(CardType).where(CardType.plugin_id == "archimate")
-        )
+        result = await db.execute(select(CardType).where(CardType.plugin_id == "archimate"))
         for ct in result.scalars().all():
             assert ct.built_in is False
 
