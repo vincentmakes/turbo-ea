@@ -41,7 +41,6 @@ const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 const MigrationAdmin = lazy(() => import("./MigrationAdmin"));
-<<<<<<< HEAD
 const AuditLogAdmin = lazy(() => import("./AuditLogAdmin"));
 const ArchiMateAdmin = lazy(() => import("./ArchiMateAdmin"));
 
