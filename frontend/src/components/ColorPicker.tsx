@@ -79,7 +79,9 @@ export default function ColorPicker({
     }
   }, [open, value]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback((event?: React.MouseEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     onChange(draft);
     // Push to recent (deduplicate, most recent first)
     const updated = [draft, ...recent.filter((c) => c !== draft)].slice(0, MAX_RECENT);
@@ -88,12 +90,20 @@ export default function ColorPicker({
     setAnchorEl(null);
   }, [draft, onChange, recent]);
 
-  const handleCancel = useCallback(() => {
+  const handleCancel = useCallback((event?: React.MouseEvent | object) => {
+    if (event && "preventDefault" in event && typeof event.preventDefault === "function") {
+      (event as React.MouseEvent).preventDefault();
+    }
+    if (event && "stopPropagation" in event && typeof event.stopPropagation === "function") {
+      (event as React.MouseEvent).stopPropagation();
+    }
     setDraft(value);
     setAnchorEl(null);
   }, [value]);
 
-  const handleRecentClick = (color: string) => {
+  const handleRecentClick = (event: React.MouseEvent, color: string) => {
+    event.preventDefault();
+    event.stopPropagation();
     setDraft(color);
   };
 
@@ -109,6 +119,8 @@ export default function ColorPicker({
           opacity: disabled ? 0.5 : 1,
         }}
         onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
           if (!disabled) setAnchorEl(e.currentTarget);
         }}
       >
@@ -171,7 +183,7 @@ export default function ColorPicker({
                 {recent.map((c) => (
                   <Tooltip key={c} title={c} placement="top" arrow>
                     <Box
-                      onClick={() => handleRecentClick(c)}
+                      onClick={(e) => handleRecentClick(e, c)}
                       sx={{
                         width: 18,
                         height: 18,
@@ -209,10 +221,10 @@ export default function ColorPicker({
               pt: 0.5,
             }}
           >
-            <Button size="small" onClick={handleCancel}>
+            <Button type="button" size="small" onClick={handleCancel}>
               {t("actions.cancel")}
             </Button>
-            <Button size="small" variant="contained" onClick={handleSave}>
+            <Button type="button" size="small" variant="contained" onClick={handleSave}>
               {t("actions.save")}
             </Button>
           </Box>

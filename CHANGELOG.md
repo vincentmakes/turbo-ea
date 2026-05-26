@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.30.2] - 2026-05-26
+
+### Fixed
+- **Picking a color in the metamodel field editor no longer locks the main Save button.** When adding a Multiple Select field, clicking **Save** inside the per-option color picker could leave the surrounding "Add field" dialog's main Save button greyed out — making it impossible to commit the new field. The shared `ColorPicker` component's internal Save / Cancel buttons now explicitly carry `type="button"` (pinned against HTML's `type="submit"` default) and the click handlers call `preventDefault()` + `stopPropagation()` before mutating state, so the click is fully scoped to "set the color and close the popover" and cannot leak to the parent dialog. The same isolation also applies to clicks on recent-color swatches and on the trigger swatch itself. Saving a color now does just that — save a color. Fixes the second issue raised on [#611](https://github.com/vincentmakes/turbo-ea/issues/611).
+
 ## [1.30.1] - 2026-05-26
 
 ### Fixed
