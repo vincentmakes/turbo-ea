@@ -43,6 +43,7 @@ class Settings:
     SEED_PPM: bool = os.getenv("SEED_PPM", "").lower() in ("1", "true", "yes")
     SEED_SECURITY: bool = os.getenv("SEED_SECURITY", "").lower() in ("1", "true", "yes")
     SEED_ARCHIMATE: bool = os.getenv("SEED_ARCHIMATE", "").lower() in ("1", "true", "yes")
+    MIGRATE_ARCHIMATE_UNIQUE: bool = os.getenv("MIGRATE_ARCHIMATE_UNIQUE", "").lower() in ("1", "true", "yes")
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))

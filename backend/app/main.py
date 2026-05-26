@@ -621,6 +621,19 @@ async def lifespan(app: FastAPI):
             else:
                 print(f"[seed_archimate] Skipped: {result['cards_skipped']} cards already exist")
 
+    # Migrate to ArchiMate-only — strip all non-ArchiMate data
+    if settings.MIGRATE_ARCHIMATE_UNIQUE:
+        from app.plugins.archimate.migrate_unique import migrate_archimate_unique
+
+        async with async_session() as db:
+            counts = await migrate_archimate_unique(db)
+            print(
+                f"[migrate_archimate_unique] Removed {counts['cards_deleted']} cards, "
+                f"{counts['relations_deleted']} relations, "
+                f"{counts['card_types_deleted']} card types, "
+                f"{counts['relation_types_deleted']} relation types"
+            )
+
     # Auto-configure bundled Ollama AI when AI_AUTO_CONFIGURE=true
     ollama_task = None
     if settings.AI_AUTO_CONFIGURE:
