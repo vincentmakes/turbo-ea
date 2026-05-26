@@ -97,24 +97,80 @@ async def apply_migration(
 # ---------------------------------------------------------------------------
 
 
+# Lifecycle-target sentinel must stay in lockstep with
+# ``LIFECYCLE_TARGET_PREFIX`` in ``app.api.v1.migration``.
+_LIFECYCLE_PREFIX = "__lifecycle__:"
+
+
+def _coerce_lifecycle_date(value: Any) -> str | None:
+    """Coerce an arbitrary attribute value into a ``YYYY-MM-DD`` string.
+
+    Card lifecycle slots are date-only ISO strings (see how the LeanIX
+    parser writes them in ``xlsx_parser._coerce_datetime``). When the
+    admin maps a custom date / datetime / text column onto a lifecycle
+    phase, the value may arrive as ``"2027-06-30"``, ``"2027-06-30T00:00:00"``,
+    ``"2027-06-30T00:00:00+00:00"``, an ``int`` timestamp, or a parser
+    fallback string. We accept the first 10 chars of any ISO-shaped
+    string (that's the ``YYYY-MM-DD`` prefix); empty / unparseable
+    values are dropped so they don't pollute the lifecycle map.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        s = value.strip()
+        if not s:
+            return None
+        # ISO 8601 strings always start with YYYY-MM-DD; anything else
+        # (free text, "TBD", a vendor name) is not a valid lifecycle
+        # date and is silently dropped.
+        head = s[:10]
+        if len(head) == 10 and head[4] == "-" and head[7] == "-":
+            return head
+        return None
+    # Datetimes / dates that survived JSON serialisation as objects
+    # (very rare on the staging path, but handle it for safety).
+    iso = getattr(value, "isoformat", None)
+    if callable(iso):
+        try:
+            return str(iso())[:10]
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
 def _remap_attributes(
     attributes: dict[str, Any],
     mapping: dict[str, str],
-) -> dict[str, Any]:
+    *,
+    lifecycle: dict[str, str] | None = None,
+) -> tuple[dict[str, Any], dict[str, str]]:
     """Rewrite attribute keys using the admin's per-type field mapping.
 
-    Empty string / ``None`` / missing key in the mapping passes through
-    unchanged. The literal ``"__skip__"`` target drops the value (admin
-    explicitly opted out of importing this field). Last-write-wins if
-    two source keys map onto the same TEA key.
+    Returns the rewritten ``attributes`` dict and a (possibly extended)
+    ``lifecycle`` dict — admins can route a custom date attribute onto
+    a standard lifecycle phase via the ``__lifecycle__:<phase>``
+    sentinel key. Empty string / ``None`` / missing key in the mapping
+    passes through unchanged. The literal ``"__skip__"`` target drops
+    the value. Lifecycle-targeted values that don't parse as
+    ``YYYY-MM-DD`` are dropped silently (better than corrupting the
+    lifecycle slot with garbage). Last-write-wins if two source keys
+    map onto the same TEA key.
     """
-    out: dict[str, Any] = {}
+    out_attrs: dict[str, Any] = {}
+    out_lifecycle: dict[str, str] = dict(lifecycle or {})
     for native_key, value in attributes.items():
         target = mapping.get(native_key)
         if target == "__skip__":
             continue
-        out[target or native_key] = value
-    return out
+        if target and target.startswith(_LIFECYCLE_PREFIX):
+            phase = target[len(_LIFECYCLE_PREFIX) :]
+            coerced = _coerce_lifecycle_date(value)
+            if coerced and phase:
+                out_lifecycle[phase] = coerced
+            # Either way the value never lands back in ``attributes``.
+            continue
+        out_attrs[target or native_key] = value
+    return out_attrs, out_lifecycle
 
 
 async def _apply_card_pass(
@@ -194,14 +250,24 @@ async def _apply_single_card(
     native_type = raw.get("type")
     # Honour the per-migration field mapping: rewrite custom-field keys
     # (still in their native source names inside ``attributes``) to the
-    # admin's chosen Turbo EA field keys. Unmapped keys pass through
-    # unchanged and land as new custom attributes via the metamodel pass.
+    # admin's chosen Turbo EA field keys. Custom date columns routed
+    # onto a standard lifecycle phase via the ``__lifecycle__:<phase>``
+    # sentinel get coerced to ``YYYY-MM-DD`` and folded into
+    # ``payload['lifecycle']`` instead of staying in ``attributes``.
+    # Unmapped keys pass through unchanged and land as new custom
+    # attributes via the metamodel pass.
     if field_mappings and native_type:
         mapping_for_type = field_mappings.get(native_type) or {}
         if mapping_for_type and payload.get("attributes"):
+            new_attrs, new_lifecycle = _remap_attributes(
+                payload["attributes"],
+                mapping_for_type,
+                lifecycle=payload.get("lifecycle") or {},
+            )
             payload = {
                 **payload,
-                "attributes": _remap_attributes(payload["attributes"], mapping_for_type),
+                "attributes": new_attrs,
+                "lifecycle": new_lifecycle,
             }
     parent_id = await _resolve_parent_card_id(db, staged)
 

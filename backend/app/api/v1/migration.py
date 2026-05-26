@@ -362,6 +362,36 @@ class FieldMappingUpdate(BaseModel):
     field_mappings: dict[str, dict[str, str]]
 
 
+# Standard Turbo EA lifecycle phases — mirrors ``frontend/src/features/
+# cards/sections/cardDetailUtils.tsx`` ``PHASES``. Exposed as
+# additional mapping targets keyed ``__lifecycle__:<phase>`` so admins
+# can route a LeanIX custom date field (e.g.
+# ``lxVendorLifecycle:endOfLife``) onto the standard ``endOfLife``
+# slot in ``card.lifecycle`` instead of landing it as a generic
+# custom date attribute. The apply pipeline detects the prefix and
+# coerces the value to ``YYYY-MM-DD`` before persisting.
+_LIFECYCLE_PHASES: tuple[tuple[str, str], ...] = (
+    ("plan", "Plan"),
+    ("phaseIn", "Phase In"),
+    ("active", "Active"),
+    ("phaseOut", "Phase Out"),
+    ("endOfLife", "End of Life"),
+)
+LIFECYCLE_TARGET_PREFIX = "__lifecycle__:"
+
+
+def _lifecycle_targets() -> list[TargetFieldOption]:
+    return [
+        TargetFieldOption(
+            key=f"{LIFECYCLE_TARGET_PREFIX}{phase}",
+            label=label,
+            type="date",
+            section="Lifecycle",
+        )
+        for phase, label in _LIFECYCLE_PHASES
+    ]
+
+
 def _collect_fields_schema_targets(card_type: CardType) -> list[TargetFieldOption]:
     """Flatten ``fields_schema`` into a list of selectable target fields.
 
@@ -469,13 +499,21 @@ async def get_field_mappings(
         ).scalar_one_or_none()
         if ct is None:
             # Custom (yet-to-be-created) target type — no built-in
-            # targets to offer. Still surface the block so the admin
-            # sees the source fields, but with an empty target list.
+            # ``fields_schema`` targets, but the lifecycle slots are
+            # available on every card regardless of type, so still
+            # offer those.
             available: list[TargetFieldOption] = []
             target_label = target_type
         else:
             available = _collect_fields_schema_targets(ct)
             target_label = ct.label or target_type
+        # Lifecycle phases are universal — append once per block so the
+        # admin can route a custom date column (e.g.
+        # ``lxVendorLifecycle:endOfLife``) onto a standard phase. Sort
+        # the schema fields alphabetically by label, then the lifecycle
+        # slots in canonical order at the end so they're easy to find.
+        available_sorted = sorted(available, key=lambda o: o.label.lower())
+        available_sorted.extend(_lifecycle_targets())
 
         out.append(
             FieldMappingTypeBlock(
@@ -483,7 +521,7 @@ async def get_field_mappings(
                 target_tea_type=target_type,
                 target_type_label=target_label,
                 source_fields=sorted(field_rows, key=lambda r: r.source_field_key.lower()),
-                available_targets=sorted(available, key=lambda o: o.label.lower()),
+                available_targets=available_sorted,
             )
         )
 
