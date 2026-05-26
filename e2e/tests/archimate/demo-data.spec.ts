@@ -109,29 +109,41 @@ test.describe("ArchiMate demo data", () => {
     const token = await loginAsAdmin(context, BASE_URL);
     await enableArchiMate(context.request, BASE_URL, token);
 
-    // Verify standard types exist before migration
     const beforeResp = await page.request.get(`${BASE_URL}/api/v1/metamodel/types`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const beforeTypes = await beforeResp.json();
     const beforeStandard = beforeTypes.filter((t: { key: string }) => !t.key.startsWith("arch_"));
-    expect(beforeStandard.length).toBeGreaterThan(0);
 
-    // Trigger migration
-    const migrateResp = await page.request.post(
-      `${BASE_URL}/api/v1/settings/archimate-migrate-unique`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    expect(migrateResp.ok()).toBe(true);
-    const result = await migrateResp.json();
+    // Determine if migration already ran at startup
+    const alreadyMigrated = beforeStandard.length === 0;
 
-    // Should have deleted non-ArchiMate data
-    expect(result.cards_deleted).toBeGreaterThan(0);
-    expect(result.card_types_deleted).toBeGreaterThan(0);
+    if (alreadyMigrated) {
+      // Instance is already ArchiMate-only (MIGRATE_ARCHIMATE_UNIQUE=true at startup).
+      // Verify the endpoint still works when called again (idempotent).
+      const migrateResp = await page.request.post(
+        `${BASE_URL}/api/v1/settings/archimate-migrate-unique`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      expect(migrateResp.ok()).toBe(true);
+      const result = await migrateResp.json();
+      // Should be idempotent — nothing left to delete
+      expect(result.cards_deleted).toBe(0);
+      expect(result.card_types_deleted).toBe(0);
+    } else {
+      // Standard types exist — trigger migration and verify
+      const migrateResp = await page.request.post(
+        `${BASE_URL}/api/v1/settings/archimate-migrate-unique`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      expect(migrateResp.ok()).toBe(true);
+      const result = await migrateResp.json();
 
-    // Verify standard types are gone after migration
+      expect(result.cards_deleted).toBeGreaterThan(0);
+      expect(result.card_types_deleted).toBeGreaterThan(0);
+    }
+
+    // Verify standard types are gone after migration (regardless of initial state)
     const afterResp = await page.request.get(`${BASE_URL}/api/v1/metamodel/types`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -142,9 +154,5 @@ test.describe("ArchiMate demo data", () => {
     // Verify ArchiMate types are still present
     const archTypes = afterTypes.filter((t: { key: string }) => t.key.startsWith("arch_"));
     expect(archTypes.length).toBeGreaterThan(0);
-
-    // Cleanup — restore standard data by recreating containers
-    // No cleanup needed for the test — the next test suite run will
-    // start from a fresh container.
   });
 });

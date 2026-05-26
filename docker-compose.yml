@@ -50,6 +50,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@turboea.local}
       SMTP_TLS: ${SMTP_TLS:-true}
+      MIGRATE_ARCHIMATE_UNIQUE: ${MIGRATE_ARCHIMATE_UNIQUE:-false}
       AI_PROVIDER_URL: ${AI_PROVIDER_URL:-}
       AI_MODEL: ${AI_MODEL:-}
       AI_SEARCH_PROVIDER: ${AI_SEARCH_PROVIDER:-duckduckgo}
