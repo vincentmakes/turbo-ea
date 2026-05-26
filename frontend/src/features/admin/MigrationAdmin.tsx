@@ -529,7 +529,7 @@ export default function MigrationAdmin() {
         onSubmit={handleUpload}
       />
 
-      <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth="md" fullWidth>
+      <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth="lg" fullWidth>
         <DialogTitle>
           {selected?.name}
           {selected && (
@@ -833,8 +833,8 @@ function FieldMappingPanel({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-        <Box>
+      <Stack direction="row" alignItems="flex-start" spacing={2} sx={{ mb: 1 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="subtitle2">
             {t("migration.mapping.title", "Map imported fields")}
           </Typography>
@@ -850,9 +850,8 @@ function FieldMappingPanel({
           variant="contained"
           onClick={onSave}
           disabled={!dirty || saving}
-          startIcon={
-            saving ? <CircularProgress size={14} /> : <MaterialSymbol icon="save" />
-          }
+          startIcon={saving ? <CircularProgress size={14} /> : <MaterialSymbol icon="save" />}
+          sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
         >
           {t("migration.mapping.save", "Save mappings")}
         </Button>
@@ -863,89 +862,136 @@ function FieldMappingPanel({
         </Alert>
       )}
 
-      {options.blocks.map((block) => (
-        <Box key={`${block.native_type}->${block.target_tea_type}`} sx={{ mb: 1.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            {block.native_type} → {block.target_type_label}
-          </Typography>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ width: "40%" }}>
-                  {t("migration.mapping.col.sourceField", "Source field")}
-                </TableCell>
-                <TableCell sx={{ width: "20%" }}>
-                  {t("migration.mapping.col.sourceType", "Source type")}
-                </TableCell>
-                <TableCell sx={{ width: "40%" }}>
-                  {t("migration.mapping.col.target", "Map to Turbo EA field")}
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {block.source_fields.map((row) => {
-                const value = draft[block.native_type]?.[row.source_field_key] || "";
-                return (
-                  <TableRow key={row.source_field_key} hover>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {row.label || row.source_field_key}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        <code>{row.source_field_key}</code>
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        label={row.native_data_type || row.tea_type || "—"}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormControl fullWidth size="small">
-                        <Select
-                          displayEmpty
-                          value={value}
-                          onChange={(e) =>
-                            setOne(block.native_type, row.source_field_key, String(e.target.value))
-                          }
-                        >
-                          <MenuItem value="">
-                            <em>
-                              {t(
-                                "migration.mapping.option.newCustom",
-                                "(Import as new custom field — default)",
-                              )}
-                            </em>
-                          </MenuItem>
-                          <MenuItem value={SKIP_VALUE}>
-                            <em>
-                              {t("migration.mapping.option.skip", "(Do not import this field)")}
-                            </em>
-                          </MenuItem>
-                          {block.available_targets.map((opt) => (
-                            <MenuItem key={opt.key} value={opt.key}>
-                              {opt.label}
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                sx={{ ml: 1 }}
-                              >
-                                {opt.section ? `· ${opt.section}` : ""} · {opt.type}
-                              </Typography>
+      {options.blocks.map((block) => {
+        const targetByKey = new Map(block.available_targets.map((o) => [o.key, o]));
+        return (
+          <Box key={`${block.native_type}->${block.target_tea_type}`} sx={{ mb: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              {block.native_type} → {block.target_type_label}
+            </Typography>
+            <Table size="small" sx={{ tableLayout: "fixed" }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ width: "38%" }}>
+                    {t("migration.mapping.col.sourceField", "Source field")}
+                  </TableCell>
+                  <TableCell sx={{ width: "14%" }}>
+                    {t("migration.mapping.col.sourceType", "Source type")}
+                  </TableCell>
+                  <TableCell sx={{ width: "48%" }}>
+                    {t("migration.mapping.col.target", "Map to Turbo EA field")}
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {block.source_fields.map((row) => {
+                  const value = draft[block.native_type]?.[row.source_field_key] || "";
+                  return (
+                    <TableRow key={row.source_field_key} hover>
+                      <TableCell sx={{ wordBreak: "break-word" }}>
+                        <Typography variant="body2">
+                          {row.label || row.source_field_key}
+                        </Typography>
+                        {row.label && row.label !== row.source_field_key && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ wordBreak: "break-all" }}
+                          >
+                            <code>{row.source_field_key}</code>
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={row.native_data_type || row.tea_type || "—"}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <FormControl fullWidth size="small">
+                          <Select
+                            displayEmpty
+                            value={value}
+                            onChange={(e) =>
+                              setOne(
+                                block.native_type,
+                                row.source_field_key,
+                                String(e.target.value),
+                              )
+                            }
+                            renderValue={(selected) => {
+                              const s = String(selected || "");
+                              if (s === "") {
+                                return (
+                                  <Box
+                                    component="em"
+                                    sx={{ color: "text.secondary", fontStyle: "italic" }}
+                                  >
+                                    {t(
+                                      "migration.mapping.option.newCustom",
+                                      "(Import as new custom field — default)",
+                                    )}
+                                  </Box>
+                                );
+                              }
+                              if (s === SKIP_VALUE) {
+                                return (
+                                  <Box
+                                    component="em"
+                                    sx={{ color: "text.secondary", fontStyle: "italic" }}
+                                  >
+                                    {t(
+                                      "migration.mapping.option.skip",
+                                      "(Do not import this field)",
+                                    )}
+                                  </Box>
+                                );
+                              }
+                              const opt = targetByKey.get(s);
+                              return opt ? opt.label : s;
+                            }}
+                          >
+                            <MenuItem value="">
+                              <em>
+                                {t(
+                                  "migration.mapping.option.newCustom",
+                                  "(Import as new custom field — default)",
+                                )}
+                              </em>
                             </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
-      ))}
+                            <MenuItem value={SKIP_VALUE}>
+                              <em>
+                                {t(
+                                  "migration.mapping.option.skip",
+                                  "(Do not import this field)",
+                                )}
+                              </em>
+                            </MenuItem>
+                            {block.available_targets.map((opt) => (
+                              <MenuItem
+                                key={opt.key}
+                                value={opt.key}
+                                sx={{ flexDirection: "column", alignItems: "flex-start", py: 0.75 }}
+                              >
+                                <Typography variant="body2">{opt.label}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {[opt.section, opt.type].filter(Boolean).join(" · ")}
+                                </Typography>
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </Box>
+        );
+      })}
     </Paper>
   );
 }
