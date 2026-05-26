@@ -1,46 +1,39 @@
 # TODO
 
 ## Goal
-Add a `MIGRATE_ARCHIMATE_UNIQUE` flag that, when set to true at startup (or triggered from the admin settings UI), deletes all non-ArchiMate demo cards/relations (the standard Turbo EA seed data) and hides their card types, leaving only the ArchiMate metamodel + demo data visible. This makes the instance "ArchiMate-only".
+Deploy everything in Docker from local source, recreating from scratch with demo data (including ArchiMate) on port 8920 in development mode, without MCP or Ollama profiles.
 
 ## Tasks
 
-### 1. Add `MIGRATE_ARCHIMATE_UNIQUE` env var to backend config
-- [x] Add `MIGRATE_ARCHIMATE_UNIQUE: bool` to `backend/app/config.py` (reads from env, same pattern as `SEED_ARCHIMATE`)
-- [x] Add to `.env.example` with a comment explaining the flag
+### 0. Pull latest source from Git
+- [x] Fetch origin, rebase to get 8 latest ArchiMate commits
+- [x] Verify on-disk files match origin/claude/archimate-turbo-plugin-nThe2
 
-### 2. Create the migration service function
-- [x] In `backend/app/plugins/archimate/migrate_unique.py`, create `migrate_archimate_unique(db)` that:
-  - Deletes all `cards` where the `type` does NOT start with `arch_` (i.e., non-ArchiMate cards)
-  - Deletes all `relations` where either source or target card type doesn't start with `arch_`
-  - Deletes all `card_types` where `plugin_id != 'archimate'`
-  - Deletes all `relation_types` where `plugin_id != 'archimate'`
-  - Leaves ArchiMate card types, relation types, cards, and relations intact
-  - DB-level CASCADE handles related rows (comments, tags, stakeholders, events, etc.)
+### 1. Clean up `.env` file
+- [x] Remove duplicate `HOST_PORT` lines (keep `8920`)
+- [x] Remove duplicate `ENVIRONMENT` lines (keep `development`)
+- [x] Set `RESET_DB=true` to force a fresh database on startup
+- [x] Set `SEED_DEMO=true`, `SEED_BPM=true`, `SEED_PPM=true` (clean, non-duplicate)
+- [x] Keep `MIGRATE_ARCHIMATE_UNIQUE=true` as requested
+- [x] Clean up orphaned/bogus comment lines that shadowed actual values
 
-### 3. Wire into startup lifecycle in `main.py`
-- [x] After the ArchiMate seed block in `backend/app/main.py`, check `settings.MIGRATE_ARCHIMATE_UNIQUE` and call the migration function
-- [x] Should run after `SEED_ARCHIMATE` has finished seeding data
+### 2. Tear down existing Docker stack
+- [x] Run `docker compose -p turboea down -v` to remove containers and the `postgres_data` volume
+- [x] Run `docker compose build --no-cache` to force-fresh images (not cached layers)
+- [x] Optionally prune dangling images to reclaim space
 
-### 4. Add admin settings API endpoint to trigger migration
-- [x] In `backend/app/api/v1/settings.py`, add `POST /settings/archimate-migrate-unique`
-- [x] Requires `archimate.manage` permission
-- [x] Returns count of deleted items: `{cards_deleted, relations_deleted, card_types_deleted, relation_types_deleted}`
+### 3. Build and start everything from source
+- [x] Run `docker compose -f docker-compose.yml -f dev/docker-compose.dev.yml up -d` (no `--profile` flags)
+- [x] Wait for all services (db, backend, frontend, nginx) to become healthy
+- [x] Verify fresh image SHAs (frontend: `0130cdc0ed92`, backend: `e2eb50a4a913`)
 
-### 5. Add frontend UI button in ArchiMate admin panel
-- [x] In `frontend/src/features/admin/ArchiMateAdmin.tsx`, add a "Migrate to ArchiMate-only" button section with warning styling
-- [x] Show a confirmation dialog before executing
-- [x] Show a snackbar with the result counts
-- [x] Disable the button when ArchiMate is disabled or migration is in progress
-
-### 6. Update E2E tests
-- [x] Add test for the migration endpoint in `e2e/tests/archimate/demo-data.spec.ts` — verifies standard types exist before, migration deletes them, ArchiMate types survive
+### 4. Verify the deployment
+- [x] Smoke-test `GET http://localhost:8920/api/health` returns version `1.25.0`
+- [x] Smoke-test `GET http://localhost:8920` returns the Turbo EA frontend (login page)
+- [x] Confirm demo data was seeded (first registered user gets admin role)
 
 ## Notes
-- The migration is destructive — it removes all standard Turbo EA (non-ArchiMate) data. Users should be warned.
-- `MIGRATE_ARCHIMATE_UNIQUE` only takes effect at startup. The API endpoint is for admin-triggered runs at runtime.
-- Standard Turbo EA seed (SEED_DEMO) still runs first. Then the ArchiMate metamodel is re-seeded inside `migrate_archimate_unique()` before deletion.
-- For the admin button: since this deletes a lot of stuff, we added a confirmation dialog.
-- **Important**: `MIGRATE_ARCHIMATE_UNIQUE` must be added to `docker-compose.yml` backend env vars to be passed to the container.
-- **Bugfix**: Standard types have `plugin_id=NULL`. PostgreSQL `NULL != 'archimate'` = NULL (falsy), so the WHERE clause must use `or_(plugin_id == None, plugin_id != 'archimate')`.
-- Commits: `db4e5777` (feat), `f29c7b55` (fixes), `554d6269` (chore: cleanup)
+- Fresh database: `RESET_DB=true` will drop all tables and re-seed on first startup.
+- ArchiMate unique mode: after seeding, non-ArchiMate data (standard card types, cards, relations) will be stripped, leaving only ArchiMate elements visible.
+- Builder will use the root `Dockerfile` with multi-stage targets (`db`, `backend`, `frontend`, `nginx`).
+- No MCP or AI/Ollama profiles will be started — they remain available via `--profile mcp` or `--profile ai` later.
