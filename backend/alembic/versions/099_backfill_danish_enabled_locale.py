@@ -13,26 +13,32 @@ full locale list as ``app_settings.general_settings -> enabledLocales``
 the next request continues to mask ``da`` even though the constant now
 exposes it.
 
-This migration walks the singleton ``app_settings`` row and:
+This migration walks the singleton ``app_settings`` row in Python:
 
-- if ``enabledLocales`` exists AND ``da`` is not in it, appends ``"da"``
-  to the list and writes it back.
-- if ``enabledLocales`` exists AND the admin has explicitly disabled a
-  locale (list shorter than the historical 8), still appends ``da`` —
-  we treat the addition of a new built-in locale as "enabled by
-  default" and let the admin disable it again from the UI if needed.
-- if the key is absent, do nothing (the runtime fallback already
-  exposes all of ``SUPPORTED_LOCALES``).
+- if ``enabledLocales`` is a list AND ``da`` is missing, append it.
+- otherwise (key absent, value not a list, or already includes ``da``),
+  leave the row alone.
 
-Idempotent: re-running is a no-op. Source-agnostic: this is the same
-pattern any future locale addition can reuse — just bump the locale
-literal.
+Idempotent: re-running is a no-op. Source-agnostic: any future locale
+addition can copy this file and bump the literal.
+
+Implementation note: an earlier attempt used a single JSONB UPDATE with
+``:locale::text`` bind params and the ``?`` / ``@>`` / ``||``
+operators. SQLAlchemy's named-parameter scanner inside ``text()`` and
+PostgreSQL's ``?`` JSONB operator share the same lexical territory
+closely enough that the combination tripped up the migration runner in
+CI (the upgrade kept rolling back, sending the container into a restart
+loop). The Python-side variant below sidesteps both the operator
+overlap and the bind-param gymnastics — at the cost of an extra round
+trip per ``app_settings`` row, which is fine because that table holds
+at most one row.
 
 Revision ID: 099
 Revises: 098
 Create Date: 2026-05-28
 """
 
+import json
 from typing import Sequence, Union
 
 from sqlalchemy.sql import text
@@ -47,48 +53,43 @@ depends_on: Union[str, Sequence[str], None] = None
 NEW_LOCALE = "da"
 
 
-def upgrade() -> None:
+def _patched(settings: dict, *, add: bool) -> dict | None:
+    """Return a copy of ``settings`` with ``NEW_LOCALE`` added or removed.
+
+    Returns ``None`` when no change is needed so the caller can skip the
+    UPDATE entirely.
+    """
+    locales = settings.get("enabledLocales")
+    if not isinstance(locales, list):
+        return None
+    if add and NEW_LOCALE not in locales:
+        new_locales = list(locales) + [NEW_LOCALE]
+    elif not add and NEW_LOCALE in locales:
+        new_locales = [loc for loc in locales if loc != NEW_LOCALE]
+    else:
+        return None
+    return {**settings, "enabledLocales": new_locales}
+
+
+def _apply(add: bool) -> None:
     conn = op.get_bind()
-    # JSONB array append, guarded by a "not already present" check. The
-    # ``general_settings`` column is JSONB and ``enabledLocales`` is the
-    # nested array we care about.
-    conn.execute(
-        text(
-            """
-            UPDATE app_settings
-            SET general_settings = jsonb_set(
-                general_settings,
-                '{enabledLocales}',
-                COALESCE(general_settings -> 'enabledLocales', '[]'::jsonb)
-                    || to_jsonb(:locale::text)
-            )
-            WHERE general_settings ? 'enabledLocales'
-              AND NOT (general_settings -> 'enabledLocales' @> to_jsonb(:locale::text))
-            """
-        ),
-        {"locale": NEW_LOCALE},
-    )
+    rows = conn.execute(text("SELECT id, general_settings FROM app_settings")).fetchall()
+    for row in rows:
+        settings = row.general_settings or {}
+        if not isinstance(settings, dict):
+            continue
+        patched = _patched(settings, add=add)
+        if patched is None:
+            continue
+        conn.execute(
+            text("UPDATE app_settings SET general_settings = CAST(:s AS jsonb) WHERE id = :id"),
+            {"s": json.dumps(patched), "id": row.id},
+        )
+
+
+def upgrade() -> None:
+    _apply(add=True)
 
 
 def downgrade() -> None:
-    # Drop ``da`` from any stored list. Mirrors upgrade's idempotency.
-    conn = op.get_bind()
-    conn.execute(
-        text(
-            """
-            UPDATE app_settings
-            SET general_settings = jsonb_set(
-                general_settings,
-                '{enabledLocales}',
-                (
-                    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-                    FROM jsonb_array_elements(general_settings -> 'enabledLocales') elem
-                    WHERE elem <> to_jsonb(:locale::text)
-                )
-            )
-            WHERE general_settings ? 'enabledLocales'
-              AND general_settings -> 'enabledLocales' @> to_jsonb(:locale::text)
-            """
-        ),
-        {"locale": NEW_LOCALE},
-    )
+    _apply(add=False)
