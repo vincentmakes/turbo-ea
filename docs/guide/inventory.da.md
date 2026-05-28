@@ -1,6 +1,6 @@
 # Lager
 
-**Lageret** er hjertet i Turbo EA. Her listes alle **kort** (komponenter) i virksomheds­arkitekturen: applications, processer, forretningskompetencer, organisationer, leverandører, grænseflader og mere.
+**Lageret** er hjertet i Turbo EA. Her listes alle **kort** (komponenter) i virksomheds­arkitekturen: applikationer, processer, forretningskompetencer, organisationer, leverandører, grænseflader og mere.
 
 ![Lager-visning med filterpanel](../assets/img/en/23_inventory_filters.png)
 
@@ -10,23 +10,23 @@
 
 Det venstre sidepanel lader dig **filtrere** kort efter forskellige kriterier:
 
-- **Search** — Friform tekstsøgning på tværs af kortnavne
-- **Types** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
-- **Subtypes** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
-- **Approval Status** — Draft, Approved, Broken eller Rejected
-- **Lifecycle** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
-- **Data Quality** — Tærskel-baseret filtrering: Good (80%+), Medium (50–79%), Poor (under 50%)
+- **Søg** — Friform tekstsøgning på tværs af kortnavne
+- **Typer** — Filtrer efter en eller flere korttyper: Objective, Platform, Initiative, Organization, Business Capability, Business Context, Business Process, Application, Interface, Data Object, IT Component, Tech Category, Provider, System
+- **Undertyper** — Når en type er valgt, kan du filtrere yderligere efter undertype (f.eks. Application → Business Application, Microservice, AI Agent, Deployment)
+- **Godkendelsesstatus** — Draft, Approved, Broken eller Rejected
+- **Livscyklus** — Filtrer efter livscyklus-fase: Plan, Phase In, Active, Phase Out, End of Life
+- **Datakvalitet** — Tærskel-baseret filtrering: Good (80%+), Medium (50–79%), Poor (under 50%)
 - **Tags** — Filtrer efter tags fra en hvilken som helst tag-gruppe
-- **Relations** — Filtrer efter relaterede kort på tværs af relations­typer
-- **Custom attributes** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)
-- **Show archived only** — Skift for at se arkiverede (soft-deleted) kort
-- **Clear all** — Nulstil alle aktive filtre på én gang
+- **Relationer** — Filtrer efter relaterede kort på tværs af relations­typer
+- **Brugerdefinerede attributter** — Filtrer efter værdier i brugerdefinerede felter (tekstsøgning, select-muligheder)
+- **Vis kun arkiverede** — Skift for at se arkiverede (soft-deleted) kort
+- **Ryd alle** — Nulstil alle aktive filtre på én gang
 
 Et **aktivt-filter-tæller**-badge viser, hvor mange filtre der aktuelt er anvendt.
 
-### Columns-fane
+### Kolonner-fane
 
-**Columns**-fanen i sidepanelet lader dig vælge, hvilke yderligere kolonner der skal vises i gitteret. Tilgængelige kolonner ændres dynamisk baseret på de valgte korttyper:
+**Kolonner**-fanen i sidepanelet lader dig vælge, hvilke yderligere kolonner der skal vises i gitteret. Tilgængelige kolonner ændres dynamisk baseret på de valgte korttyper:
 
 - **Enkelt type valgt** — Alle egenskabsfelter defineret for den type er tilgængelige, plus relations­kolonner og metadata-kolonner
 - **Flere typer valgt** — Kun felter, der er **fælles på tværs af alle valgte typer**, er tilgængelige
@@ -39,15 +39,15 @@ Kolonner er grupperet i fire kategorier:
 | **Standardkolonner** | Altid-aktive kolonner: Type, Name, Path, Description, Subtype, Lifecycle, Approval Status, Data Quality. Afmarker en hvilken som helst af disse for at skjule dem fra gitteret — nyttigt ved stramning af en gemt visning til bare de kolonner, du faktisk bruger. |
 | **Metadata** | Created, Modified, Created by, Modified by |
 | **Attributes** | Brugerdefinerede felter defineret i metamodellen (text, number, cost, date, select, osv.) |
-| **Relations** | Relaterede korttyper (f.eks. Applications linket til en Business Capability) |
+| **Relationer** | Relaterede korttyper (f.eks. applikationer linket til en Business Capability) |
 
 Kolonnen **Path** viser kortets hierarki-brødkrumme (f.eks. `North America / Sales / Inside Sales`) uden at inkludere kortets eget navn, så du kan beholde både Name og Path på skærmen samtidig.
 
-Hver kategori har et **Select all**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.
+Hver kategori har et **Vælg alle**-afkrydsningsfelt til hurtigt at skifte alle kolonner i den gruppe. Et søgefelt øverst lader dig finde specifikke kolonner efter navn. Badget på hver sektionsoverskrift viser, hvor mange kolonner fra den gruppe der aktuelt er synlige.
 
-Når en korttype vælges første gang, er **alle egenskabs- og relations­kolonner aktiveret som standard**. Du kan derefter afmarkere kolonner, du ikke har brug for. En **Reset**-knap nederst på Columns-fanen gendanner standard-kolonnevalget.
+Når en korttype vælges første gang, er **alle egenskabs- og relations­kolonner aktiveret som standard**. Du kan derefter afmarkere kolonner, du ikke har brug for. En **Nulstil**-knap nederst på Kolonner-fanen gendanner standard-kolonnevalget.
 
-En **ændrings-indikator-prik** vises på Columns-fanens overskrift, når kolonnevalget afviger fra standarderne. Den samme indikator vises på **Filters**-fanen, når filtre er aktive, hvilket gør det let med et øjekast at se, hvilke indstillinger der er ændret.
+En **ændrings-indikator-prik** vises på Kolonner-fanens overskrift, når kolonnevalget afviger fra standarderne. Den samme indikator vises på **Filtre**-fanen, når filtre er aktive, hvilket gør det let med et øjekast at se, hvilke indstillinger der er ændret.
 
 Dit kolonnevalg, aktive filtre og sorteringsrækkefølge **gemmes automatisk** i din browser. Når du vender tilbage til lager-siden, gendannes din tidligere konfiguration. Gemte visninger (bogmærker) bevarer også det fulde kolonnevalg, så når du skifter mellem visninger, gendannes præcis de kolonner, du havde konfigureret.
 

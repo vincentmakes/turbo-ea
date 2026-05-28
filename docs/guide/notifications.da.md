@@ -9,7 +9,7 @@ Turbo EA holder dig informeret om ændringer i kort, opgaver og dokumenter, der 
 Hver notifikation viser:
 
 - **Ikon**, der angiver notifikationstypen
-- **Sammendrag** af hvad der skete (f.eks. "En todo blev tildelt dig på SAP S/4HANA")
+- **Sammendrag** af hvad der skete (f.eks. "En opgave blev tildelt dig på SAP S/4HANA")
 - **Tid** siden notifikationen blev oprettet (f.eks. "5 minutter siden")
 
 Klik på en hvilken som helst notifikation for at navigere direkte til det relevante kort eller dokument. Notifikationer markeres automatisk som læst, når du ser dem.
@@ -18,7 +18,7 @@ Klik på en hvilken som helst notifikation for at navigere direkte til det relev
 
 | Type | Udløser |
 |------|---------|
-| **Todo tildelt** | En todo er tildelt dig |
+| **Opgave tildelt** | En opgave er tildelt dig |
 | **Kort opdateret** | Et kort, du er interessent på, opdateres |
 | **Kommentar tilføjet** | En ny kommentar postes på et kort, du er interessent på |
 | **Godkendelsesstatus ændret** | Et korts godkendelsesstatus ændres (godkendt, afvist, brudt) |

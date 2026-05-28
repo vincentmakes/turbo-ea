@@ -44,9 +44,9 @@ Vælg, hvordan datoer vises i hele applikationen. Det valgte format gælder for 
 
 ### Aktiverede sprog
 
-Slå til, hvilke sprog der er tilgængelige for brugere i deres sprogvælger. Alle otte understøttede lokaliteter kan aktiveres eller deaktiveres individuelt:
+Slå til, hvilke sprog der er tilgængelige for brugere i deres sprogvælger. Alle ni understøttede lokaliteter kan aktiveres eller deaktiveres individuelt:
 
-- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский
+- English, Deutsch, Français, Español, Italiano, Português, 中文, Русский, Dansk
 
 Mindst ét sprog skal forblive aktiveret til enhver tid.
 
