@@ -12,9 +12,15 @@ class RelationType(Base, UUIDMixin, TimestampMixin):
 
     __tablename__ = "relation_types"
 
-    key: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    label: Mapped[str] = mapped_column(String(200), nullable=False)
-    reverse_label: Mapped[str | None] = mapped_column(String(200))
+    # Built-in TEA keys are short (``relAppToBC``, …) but the migration
+    # apply pipeline materialises custom source relation types using the
+    # source's native name as the key. LeanIX in particular surfaces
+    # synthetic concatenated names like ``proposedSolutionToApp…`` that
+    # exceed 100 chars, so TEXT — source-agnostic, mirrors the staging
+    # treatment in migration 097.
+    key: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(Text, nullable=False)
+    reverse_label: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
     source_type_key: Mapped[str] = mapped_column(String(100), nullable=False)
     target_type_key: Mapped[str] = mapped_column(String(100), nullable=False)

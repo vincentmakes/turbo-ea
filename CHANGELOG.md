@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.30.6] - 2026-05-28
+
+### Fixed
+- **Inventory filter sidebar now shows card types added after the page was loaded.** Importing a snapshot via the migration importer (or any flow that creates a new card / relation type via the admin) landed the new rows in the backend metamodel but the in-memory snapshot cached by `useMetamodel` was never invalidated — so the Inventory page's filter sidebar (and CreateCardDialog, report axes, every other consumer) silently kept showing the old built-in list until the user did a hard browser refresh. `MigrationAdmin` now drops the cached snapshot via a new top-level `invalidateCache()` export on `useMetamodel`, and the hook broadcasts the fresh snapshot to every mounted consumer in the same tick — no remount required. The same broadcast retroactively improves `MetamodelAdmin`'s existing `refresh()` call (manually re-categorizing an imported type to a standard EA layer now also flows live).
+- **Migration importer no longer crashes when a source export contains a relation type whose native name exceeds 100 characters.** The bug surfaced as a `StringDataRightTruncationError` against `value too long for type character varying(100)` and aborted the whole import — first in the staging layer, then (once staging was fixed) in the apply layer. Three columns doubled as catch-alls for free-form source-derived type keys but were still sized for short TEA-controlled keys: `staged_records.card_type_key` (migration 097), and `relation_types.key` / `relation_types.label` / `relation_types.reverse_label` / `relations.type` (migration 098). All are now `TEXT`, mirroring the precedent set by migration 095 for `source_id`. Source-agnostic — every current and future migration adapter (LeanIX today; Ardoq, HOPEX, BiZZdesign, Avolution Abacus, …) inherits the headroom without touching adapter code. Card-type-key columns elsewhere stay at `VARCHAR(100)` because adapters always map source card types to short TEA-controlled keys via `TYPE_MAPPING`.
+
 ## [1.30.5] - 2026-05-28
 
 ### Fixed

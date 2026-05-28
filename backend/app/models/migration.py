@@ -112,7 +112,12 @@ class StagedRecord(UUIDMixin, Base):
     # routinely exceed 255 chars on real snapshots, so this is TEXT.
     source_id: Mapped[str] = mapped_column(Text, nullable=False)
     source_data: Mapped[dict | None] = mapped_column(JSONB, default=dict)
-    card_type_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # Stores either a TEA card type key (short, controlled) or a relation
+    # type key (free-form, derived from the source platform). Custom
+    # tenant-defined relation types on real exports routinely produce
+    # concatenated synthetic names longer than 100 chars, so TEXT — same
+    # rationale as ``source_id`` in migration 095.
+    card_type_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     action: Mapped[str] = mapped_column(String(20), default="create")
     diff: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

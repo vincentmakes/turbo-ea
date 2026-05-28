@@ -33,6 +33,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import MaterialSymbol from "@/components/MaterialSymbol";
+import { invalidateCache as invalidateMetamodelCache } from "@/hooks/useMetamodel";
 
 // Admin surface for the platform-migration importer. Lives under
 // Settings → Migration. End-to-end flow: pick a source platform, upload
@@ -315,6 +316,12 @@ export default function MigrationAdmin() {
       setError(null);
       try {
         await api.post<Migration>(`/migration/${m.id}/apply`);
+        // Imports routinely land brand-new card / relation types into the
+        // metamodel. Drop the cached snapshot in `useMetamodel` and broadcast
+        // the fresh one so every mounted consumer (Inventory's filter sidebar,
+        // CreateCardDialog, report axes, …) picks them up without a full page
+        // refresh.
+        await invalidateMetamodelCache();
         loadList();
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));

@@ -115,4 +115,36 @@ describe("useMetamodel", () => {
     expect(appRels.map((r) => r.key)).toContain("app_to_itc");
     expect(appRels.map((r) => r.key)).toContain("org_to_app");
   });
+
+  it("invalidateCache broadcasts fresh data to already-mounted consumers", async () => {
+    const initial = [{ key: "Application", label: "Application" }];
+    const updated = [
+      { key: "Application", label: "Application" },
+      // Imitates a migration apply landing a custom type into the metamodel
+      // after a sidebar / dialog is already mounted with the initial snapshot.
+      { key: "Subscriptions", label: "Subscriptions" },
+    ];
+
+    vi.mocked(api.get)
+      // Initial mount: GET /metamodel/types, GET /metamodel/relation-types
+      .mockResolvedValueOnce(initial)
+      .mockResolvedValueOnce([])
+      // After invalidate: re-fetch
+      .mockResolvedValueOnce(updated)
+      .mockResolvedValueOnce([]);
+
+    const mod = await import("./useMetamodel");
+    const { result } = renderHook(() => mod.useMetamodel());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    expect(result.current.types).toEqual(initial);
+
+    await mod.invalidateCache();
+
+    await waitFor(() => {
+      expect(result.current.types).toEqual(updated);
+    });
+  });
 });
