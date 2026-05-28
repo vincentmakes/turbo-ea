@@ -248,6 +248,7 @@
   "tabs.risks": "Risici",
   "tabs.compliance": "Compliance",
   "tabs.history": "Historik",
+  "tabs.newActivity": "Ny aktivitet siden dit sidste besøg",
   "compliance.cardTab.title": "Compliance-fund",
   "compliance.cardTab.empty": "Ingen compliance-fund registreret for dette kort. Kør en scanning fra GRC → Compliance for at generere fund.",
   "compliance.cardTab.includeResolved": "Inkludér auto-løste",

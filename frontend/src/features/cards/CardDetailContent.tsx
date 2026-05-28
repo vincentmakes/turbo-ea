@@ -5,6 +5,7 @@ import MuiCard from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
+import Badge from "@mui/material/Badge";
 import { useTranslation } from "react-i18next";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import EolLinkSection from "@/components/EolLinkSection";
@@ -15,6 +16,7 @@ import { useCalculatedFields } from "@/hooks/useCalculatedFields";
 import { useCurrency } from "@/hooks/useCurrency";
 import { usePpmEnabled } from "@/hooks/usePpmEnabled";
 import { useGrcEnabled } from "@/hooks/useGrcEnabled";
+import { useCardTabActivity } from "@/hooks/useCardTabActivity";
 import { api } from "@/api/client";
 import {
   DescriptionSection,
@@ -384,6 +386,52 @@ export default function CardDetailContent({
   // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
   const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
 
+  const { hasUpdates, noteVisit } = useCardTabActivity(card.id, user?.id);
+
+  const tabKeyForIndex = (idx: number): string | null => {
+    if (idx === 0) return "card";
+    if (isBpm && idx === 1) return "processFlow";
+    if (isBpm && idx === 2) return "assessments";
+    if (isSoaw && idx === soawTabIdx) return "soaw";
+    if (idx === commentsIdx) return "comments";
+    if (idx === todosIdx) return "todos";
+    if (idx === stakeholdersIdx) return "stakeholders";
+    if (idx === resourcesIdx) return "resources";
+    if (showRisksTab && idx === risksIdx) return "risks";
+    if (showComplianceTab && idx === complianceIdx) return "compliance";
+    if (idx === historyIdx) return "history";
+    if (isPpm && idx === ppmTabIdx) return "ppm";
+    return null;
+  };
+
+  // Note which tabs the user has opened during this visit. The dots stay
+  // visible for the whole visit — noteVisit buffers the timestamps and the
+  // hook flushes them to localStorage on unmount / beforeunload so the
+  // *next* visit starts fresh. PPM tab is excluded — clicking it navigates
+  // away rather than rendering inline.
+  useEffect(() => {
+    const key = tabKeyForIndex(tab);
+    if (key && key !== "ppm") noteVisit(key);
+    // tabKeyForIndex captures index offsets; re-running when any of them shift
+    // keeps the active key in sync.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, card.id, isBpm, isSoaw, showRisksTab, showComplianceTab, noteVisit]);
+
+  const renderTabLabel = (key: string, label: string) => {
+    if (!hasUpdates(key)) return label;
+    return (
+      <Badge
+        variant="dot"
+        color="primary"
+        title={t("tabs.newActivity")}
+        slotProps={{ badge: { "aria-hidden": "true" } }}
+        sx={{ "& .MuiBadge-dot": { right: -6, top: 6 } }}
+      >
+        {label}
+      </Badge>
+    );
+  };
+
   return (
     <>
       {beforeTabs}
@@ -402,18 +450,20 @@ export default function CardDetailContent({
         allowScrollButtonsMobile
         sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}
       >
-        <Tab label={t("tabs.card")} />
-        {isBpm && <Tab label={t("tabs.processFlow")} />}
-        {isBpm && <Tab label={t("tabs.assessments")} />}
-        {isSoaw && <Tab label={t("tabs.soaw")} />}
-        <Tab label={t("tabs.comments")} />
-        <Tab label={t("tabs.todos")} />
-        <Tab label={t("tabs.stakeholders")} />
-        <Tab label={t("tabs.resources")} />
-        {showRisksTab && <Tab label={t("tabs.risks")} />}
-        {showComplianceTab && <Tab label={t("tabs.compliance")} />}
-        <Tab label={t("tabs.history")} />
-        {isPpm && <Tab label={t("tabs.ppm")} />}
+        <Tab label={renderTabLabel("card", t("tabs.card"))} />
+        {isBpm && <Tab label={renderTabLabel("processFlow", t("tabs.processFlow"))} />}
+        {isBpm && <Tab label={renderTabLabel("assessments", t("tabs.assessments"))} />}
+        {isSoaw && <Tab label={renderTabLabel("soaw", t("tabs.soaw"))} />}
+        <Tab label={renderTabLabel("comments", t("tabs.comments"))} />
+        <Tab label={renderTabLabel("todos", t("tabs.todos"))} />
+        <Tab label={renderTabLabel("stakeholders", t("tabs.stakeholders"))} />
+        <Tab label={renderTabLabel("resources", t("tabs.resources"))} />
+        {showRisksTab && <Tab label={renderTabLabel("risks", t("tabs.risks"))} />}
+        {showComplianceTab && (
+          <Tab label={renderTabLabel("compliance", t("tabs.compliance"))} />
+        )}
+        <Tab label={renderTabLabel("history", t("tabs.history"))} />
+        {isPpm && <Tab label={renderTabLabel("ppm", t("tabs.ppm"))} />}
       </Tabs>
 
       {tab === 0 && (

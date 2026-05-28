@@ -247,6 +247,7 @@
   "tabs.resources": "资源",
   "tabs.risks": "风险",
   "tabs.history": "历史",
+  "tabs.newActivity": "自上次访问以来的新活动",
   "resources.architectureDecisions": "架构决策",
   "resources.fileAttachments": "文件附件",
   "resources.documentLinks": "文档链接",

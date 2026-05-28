@@ -247,6 +247,7 @@
   "tabs.resources": "Recursos",
   "tabs.risks": "Riscos",
   "tabs.history": "Histórico",
+  "tabs.newActivity": "Nova atividade desde sua última visita",
   "resources.architectureDecisions": "Decisões de arquitetura",
   "resources.fileAttachments": "Anexos de arquivo",
   "resources.documentLinks": "Links de documentos",

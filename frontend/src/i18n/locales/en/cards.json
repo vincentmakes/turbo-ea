@@ -248,6 +248,7 @@
   "tabs.risks": "Risks",
   "tabs.compliance": "Compliance",
   "tabs.history": "History",
+  "tabs.newActivity": "New activity since your last visit",
   "compliance.cardTab.title": "Compliance findings",
   "compliance.cardTab.empty": "No compliance findings recorded for this card. Run a scan from GRC → Compliance to generate findings.",
   "compliance.cardTab.includeResolved": "Include auto-resolved",

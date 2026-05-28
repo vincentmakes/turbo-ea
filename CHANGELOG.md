@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.33.0] - 2026-05-28
+
+### Added
+- **"New activity" dot on Card Detail tabs.** When you revisit a card, tabs whose data has changed since your first visit now carry a small dot next to the label, so you can tell at a glance whether Comments, Stakeholders, Resources, Risks, or the Card tab itself has anything new. The dot is suppressed on first-ever visits to a card (nothing is "new" if you've never looked before), suppressed for events you authored yourself (your own changes never dot themselves), and stays visible for the entire visit — including on the Card tab you land on — only clearing on the *next* visit after you've actually been there. Fully client-side — a per-card first-visit baseline and per-tab "last seen" timestamps live in `localStorage`, flushed on unmount / `beforeunload`, capped to the 200 most-recently-opened cards via LRU eviction — and re-uses the existing `GET /cards/{id}/history` endpoint without any backend or schema changes. The History tab itself is intentionally never dotted (it's the audit log of everything). Fulfills [#607](https://github.com/vincentmakes/turbo-ea/discussions/607).
+
 ## [1.32.0] - 2026-05-28
 
 ### Added
