@@ -114,6 +114,22 @@ import grcDe from "./locales/de/grc.json";
 import notificationsDe from "./locales/de/notifications.json";
 import validationDe from "./locales/de/validation.json";
 
+// Danish
+import commonDa from "./locales/da/common.json";
+import authDa from "./locales/da/auth.json";
+import navDa from "./locales/da/nav.json";
+import inventoryDa from "./locales/da/inventory.json";
+import cardsDa from "./locales/da/cards.json";
+import reportsDa from "./locales/da/reports.json";
+import adminDa from "./locales/da/admin.json";
+import bpmDa from "./locales/da/bpm.json";
+import ppmDa from "./locales/da/ppm.json";
+import diagramsDa from "./locales/da/diagrams.json";
+import deliveryDa from "./locales/da/delivery.json";
+import grcDa from "./locales/da/grc.json";
+import notificationsDa from "./locales/da/notifications.json";
+import validationDa from "./locales/da/validation.json";
+
 // Russian
 import commonRu from "./locales/ru/common.json";
 import authRu from "./locales/ru/auth.json";
@@ -130,7 +146,17 @@ import grcRu from "./locales/ru/grc.json";
 import notificationsRu from "./locales/ru/notifications.json";
 import validationRu from "./locales/ru/validation.json";
 
-export const SUPPORTED_LOCALES = ["en", "de", "fr", "es", "it", "pt", "zh", "ru"] as const;
+export const SUPPORTED_LOCALES = [
+  "en",
+  "de",
+  "fr",
+  "es",
+  "it",
+  "pt",
+  "zh",
+  "ru",
+  "da",
+] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const LOCALE_LABELS: Record<SupportedLocale, string> = {
@@ -142,6 +168,7 @@ export const LOCALE_LABELS: Record<SupportedLocale, string> = {
   pt: "Português",
   zh: "中文",
   ru: "Русский",
+  da: "Dansk",
 };
 
 i18n
@@ -276,6 +303,22 @@ i18n
         grc: grcRu,
         notifications: notificationsRu,
         validation: validationRu,
+      },
+      da: {
+        common: commonDa,
+        auth: authDa,
+        nav: navDa,
+        inventory: inventoryDa,
+        cards: cardsDa,
+        reports: reportsDa,
+        admin: adminDa,
+        bpm: bpmDa,
+        ppm: ppmDa,
+        diagrams: diagramsDa,
+        delivery: deliveryDa,
+        grc: grcDa,
+        notifications: notificationsDa,
+        validation: validationDa,
       },
     },
     fallbackLng: "en",

@@ -1,0 +1,16 @@
+{
+  "required": "Dette felt er påkrævet",
+  "invalidEmail": "Ugyldig e-mailadresse",
+  "tooLong": "For langt (maks. {{max}} tegn)",
+  "tooShort": "For kort (min. {{min}} tegn)",
+  "invalidUrl": "Ugyldig URL",
+
+  "key.mustStartWithLetter": "Skal starte med et bogstav",
+  "key.noUnderscores": "Understreger er ikke tilladt — brug camelCase",
+  "key.noSpaces": "Mellemrum er ikke tilladt — brug camelCase",
+  "key.noAccents": "Tegn med accent er ikke tilladt",
+  "key.lettersAndDigitsOnly": "Kun bogstaver og tal tilladt (camelCase)",
+  "key.cannotChange": "Nøglen kan ikke ændres efter oprettelse",
+  "key.valid": "Gyldig nøgle",
+  "key.hint": "Kun bogstaver og tal, ingen separatorer (f.eks. businessFit eller ApplicationToITComponent)"
+}

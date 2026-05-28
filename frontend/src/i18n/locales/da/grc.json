@@ -1,0 +1,59 @@
+{
+  "page": {
+    "title": "GRC",
+    "subtitle": "Governance, risiko og compliance"
+  },
+  "tabs": {
+    "governance": "Governance",
+    "risk": "Risiko",
+    "compliance": "Compliance"
+  },
+  "governance": {
+    "subtabs": {
+      "principles": "Principper",
+      "decisions": "Beslutninger"
+    },
+    "principles": {
+      "title": "Arkitekturprincipper",
+      "empty": "Ingen aktive principper endnu. Definér dem under Administration › Metamodel.",
+      "rationale": "Begrundelse",
+      "implications": "Konsekvenser"
+    },
+    "decisions": {
+      "title": "Arkitekturbeslutninger",
+      "empty": "Ingen arkitekturbeslutninger registreret endnu.",
+      "status": "Status",
+      "open": "Åbn",
+      "create": "Ny beslutning"
+    }
+  },
+  "compliance": {
+    "aiRequired": {
+      "title": "AI-udbyder er ikke konfigureret",
+      "body": "Compliance-scanning drives af en LLM — hver regulering vurderes ved at kalde den konfigurerede AI-udbyder mod dit landskab. Uden en udbyder gennemføres scanninger med det samme, men alle fund falder tilbage til «AI er ikke konfigureret», så vi skjuler scanneren, indtil den kan udføre nyttigt arbejde.",
+      "regulations": "Dækkede reguleringer: EU AI Act · GDPR · NIS2 · DORA · SOC 2 · ISO 27001.",
+      "configureCta": "Konfigurér AI-udbyder",
+      "contactAdmin": "Bed en administrator om at konfigurere en AI-udbyder under Administration › Indstillinger › AI for at aktivere compliance-scanning."
+    }
+  },
+  "soaw": {
+    "tab": "SoAW",
+    "title": "Statements of Architecture Work",
+    "subtitle": "Omfang, tilgang og godkendelse for dette initiativ",
+    "empty": "Ingen SoAW'er endnu. Opret en for at indfange omfang, tilgang og godkendelse for dette initiativ.",
+    "create": "Ny SoAW",
+    "columns": {
+      "title": "Titel",
+      "status": "Status",
+      "revision": "Revision",
+      "updated": "Opdateret",
+      "author": "Forfatter"
+    },
+    "actions": {
+      "open": "Åbn",
+      "preview": "Forhåndsvisning",
+      "delete": "Slet"
+    },
+    "confirmDelete": "Slet denne SoAW? Dette kan ikke fortrydes."
+  }
+}

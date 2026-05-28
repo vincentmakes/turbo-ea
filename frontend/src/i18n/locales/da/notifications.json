@@ -1,0 +1,22 @@
+{
+  "title": "Notifikationer",
+  "markAllRead": "Markér alle som læst",
+  "noNotifications": "Ingen notifikationer",
+
+  "preferences.title": "Notifikationsindstillinger",
+  "preferences.description": "Vælg hvilke notifikationer du vil modtage og hvordan.",
+  "preferences.notification": "Notifikation",
+  "preferences.inApp": "I appen",
+  "preferences.email": "E-mail",
+  "preferences.saving": "Gemmer...",
+  "preferences.loadFailed": "Kunne ikke indlæse indstillinger",
+  "preferences.saveFailed": "Kunne ikke gemme indstillinger",
+  "preferences.todoAssigned": "Opgave tildelt",
+  "preferences.taskAssigned": "PPM-opgave tildelt",
+  "preferences.cardUpdated": "Kort opdateret",
+  "preferences.commentAdded": "Kommentar tilføjet",
+  "preferences.approvalStatusChanged": "Godkendelsesstatus ændret",
+  "preferences.soawSignRequested": "Anmodning om SoAW-underskrift",
+  "preferences.soawSigned": "SoAW underskrevet",
+  "preferences.surveyRequest": "Anmodning om undersøgelse"
+}

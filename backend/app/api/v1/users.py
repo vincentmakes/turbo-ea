@@ -19,7 +19,7 @@ from app.services.permission_service import PermissionService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-SUPPORTED_LOCALES = {"en", "de", "fr", "es", "it", "pt", "zh", "ru"}
+SUPPORTED_LOCALES = {"en", "de", "fr", "es", "it", "pt", "zh", "ru", "da"}
 
 
 class UserCreate(BaseModel):

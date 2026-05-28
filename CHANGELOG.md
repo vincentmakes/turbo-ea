@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.31.0] - 2026-05-28
+
+### Added
+- **Danish (Dansk) locale across UI, metamodel, and documentation.** Adds `da` as the ninth supported language. Frontend i18n carries Danish translations for all 14 namespaces (admin, auth, bpm, cards, common, delivery, diagrams, grc, inventory, nav, notifications, ppm, reports, validation); the built-in metamodel seed (`seed.py`) gets Danish strings on every card type, subtype, field, section, option, and relation type / reverse label; the backend's enabled-locales allow-list (`settings.py`) accepts `da`; and the MkDocs user manual builds a full `/da/` site with translated nav, glossary, getting-started, beginners-guide, guide/, admin/, and reference/ pages. Existing installs see Danish appear in the locale picker on next deploy without a backfill migration — the seed-only metamodel translations are additive and fall back to English for any drift. Screenshots remain English in this pass.
+
 ## [1.30.6] - 2026-05-28
 
 ### Fixed

@@ -477,6 +477,66 @@ plugins:
             Glossary: Глоссарий
             Compatibility Policy: Политика совместимости
             Releases: Релизы
+        - locale: da
+          name: Dansk
+          build: true
+          nav_translations:
+            Home: Hjem
+            Getting Started: Kom godt i gang
+            Installation & Setup: Installation og opsætning
+            Accessing the Platform: Adgang til platformen
+            EA Beginner's Guide: EA-begyndervejledning
+            Your First 30 Days: Dine første 30 dage
+            Plan Your Rollout: Planlæg din udrulning
+            Start with Applications: Start med applikationer
+            Leverage Reference Catalogues: Udnyt referencekataloger
+            Customise the Metamodel: Tilpas metamodellen
+            Your First Analysis: Din første analyse
+            User Guide: Brugervejledning
+            Core: Kerne
+            Reports & Analysis: Rapporter og analyse
+            Modules: Moduler
+            Reference Catalogues: Referencekataloger
+            Overview: Oversigt
+            Compliance: Compliance
+            Dashboard: Dashboard
+            Inventory: Lager
+            Card Details: Kortdetaljer
+            Reports: Rapporter
+            Saved Reports: Gemte rapporter
+            PPM: PPM
+            BPM: BPM
+            TurboLens AI: TurboLens AI
+            Diagrams: Diagrammer
+            EA Delivery: EA-levering
+            GRC: GRC
+            Risk Register: Risikoregister
+            Tasks & Surveys: Opgaver og undersøgelser
+            Notifications: Notifikationer
+            Capability Catalogue: Kompetencekatalog
+            Process Catalogue: Proceskatalog
+            Value Stream Catalogue: Værdistrømskatalog
+            Principles Catalogue: Principkatalog
+            Administration: Administration
+            General Settings: Generelle indstillinger
+            Metamodel: Metamodel
+            Calculations: Beregninger
+            Tags: Tags
+            Users & Roles: Brugere og roller
+            Authentication & SSO: Autentificering og SSO
+            AI Capabilities: AI-funktioner
+            MCP Integration: MCP-integration
+            API Reference: API-reference
+            End-of-Life (EOL): Udløb (EOL)
+            Surveys: Undersøgelser
+            Web Portals: Web-portaler
+            ServiceNow Integration: ServiceNow-integration
+            Platform Migration: Platformsmigrering
+            Supply Chain: Forsyningskæde
+            Reference: Reference
+            Glossary: Ordliste
+            Compatibility Policy: Kompatibilitetspolitik
+            Releases: Udgivelser
 
   - search:
       lang:
@@ -487,6 +547,7 @@ plugins:
         - it
         - pt
         - ru
+        - da
 
 # ---------------------------------------------------------------------------
 # Markdown extensions
@@ -606,6 +667,9 @@ extra:
     - name: Русский
       link: /ru/
       lang: ru
+    - name: Dansk
+      link: /da/
+      lang: da
 
   # Optional: version banner
   # version:
