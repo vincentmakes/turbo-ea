@@ -386,7 +386,7 @@ export default function CardDetailContent({
   // SoAW tab index = 1 when Initiative (no BPM); slots in right after Card.
   const soawTabIdx = isSoaw ? 1 + bpmOffset : -1;
 
-  const { hasUpdates, markSeen } = useCardTabActivity(card.id);
+  const { hasUpdates, noteVisit } = useCardTabActivity(card.id, user?.id);
 
   const tabKeyForIndex = (idx: number): string | null => {
     if (idx === 0) return "card";
@@ -404,15 +404,18 @@ export default function CardDetailContent({
     return null;
   };
 
-  // Mark the visible tab as seen on mount and whenever it changes. PPM tab is
-  // excluded — clicking it navigates away rather than rendering inline.
+  // Note which tabs the user has opened during this visit. The dots stay
+  // visible for the whole visit — noteVisit buffers the timestamps and the
+  // hook flushes them to localStorage on unmount / beforeunload so the
+  // *next* visit starts fresh. PPM tab is excluded — clicking it navigates
+  // away rather than rendering inline.
   useEffect(() => {
     const key = tabKeyForIndex(tab);
-    if (key && key !== "ppm") markSeen(key);
+    if (key && key !== "ppm") noteVisit(key);
     // tabKeyForIndex captures index offsets; re-running when any of them shift
     // keeps the active key in sync.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, card.id, isBpm, isSoaw, showRisksTab, showComplianceTab, markSeen]);
+  }, [tab, card.id, isBpm, isSoaw, showRisksTab, showComplianceTab, noteVisit]);
 
   const renderTabLabel = (key: string, label: string) => {
     if (!hasUpdates(key)) return label;

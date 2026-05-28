@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { EventEntry } from "@/types";
 
@@ -77,17 +77,26 @@ function getCardEntry(store: StoreShape, cardId: string): Record<string, string>
 
 export interface UseCardTabActivity {
   hasUpdates: (tabKey: string) => boolean;
-  markSeen: (tabKey: string) => void;
+  /**
+   * Note that the user has opened a tab during this visit. The persisted
+   * lastSeen timestamp is NOT written immediately — it's buffered and
+   * flushed on unmount or before the page unloads, so the dot stays
+   * visible for the duration of the current visit.
+   */
+  noteVisit: (tabKey: string) => void;
 }
 
-export function useCardTabActivity(cardId: string): UseCardTabActivity {
+export function useCardTabActivity(
+  cardId: string,
+  currentUserId?: string,
+): UseCardTabActivity {
   const [latestActivity, setLatestActivity] = useState<Record<string, string>>({});
-  const [seenVersion, setSeenVersion] = useState(0);
 
-  // Stamp the card's first-visit baseline once, when the hook mounts for a
-  // card that has never been visited before. Tabs the user has never opened
-  // fall back to this timestamp for the "what counts as new" comparison.
-  useEffect(() => {
+  // Snapshot the persisted entry once per cardId, stamping a first-visit
+  // baseline if absent. Dots are frozen against this snapshot for the
+  // duration of the visit — clicking a dotted tab does NOT clear it until
+  // the user actually leaves the card.
+  const snapshot = useMemo(() => {
     const store = readStore();
     const entry = getCardEntry(store, cardId);
     if (!entry[FIRST_VISIT_KEY]) {
@@ -95,8 +104,38 @@ export function useCardTabActivity(cardId: string): UseCardTabActivity {
       store[cardId] = entry;
       bumpLru(store, cardId);
       writeStore(store);
-      setSeenVersion((n) => n + 1);
     }
+    return { ...entry };
+  }, [cardId]);
+
+  // Tabs the user opens during this visit. Flushed to lastSeen on unmount
+  // or beforeunload so the next visit starts fresh.
+  const pendingRef = useRef<Set<string>>(new Set());
+
+  // beforeunload covers tab close / reload; the cleanup covers in-app
+  // navigation and cardId changes mid-instance. Each effect captures its
+  // own cardId, so a cardId change cleanly flushes to the prior card.
+  useEffect(() => {
+    const target = cardId;
+    const pending = pendingRef.current;
+    const flush = () => {
+      if (pending.size === 0) return;
+      const store = readStore();
+      const entry = getCardEntry(store, target);
+      const now = new Date().toISOString();
+      for (const tab of pending) entry[tab] = now;
+      store[target] = entry;
+      bumpLru(store, target);
+      writeStore(store);
+      pending.clear();
+    };
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+      // Start fresh for the next cardId.
+      pendingRef.current = new Set();
+    };
   }, [cardId]);
 
   useEffect(() => {
@@ -111,6 +150,8 @@ export function useCardTabActivity(cardId: string): UseCardTabActivity {
         const latest: Record<string, string> = {};
         for (const e of events) {
           if (!e.created_at) continue;
+          // Skip the user's own events — own changes never dot themselves.
+          if (currentUserId && e.user_id === currentUserId) continue;
           const tabKey = EVENT_TAB_MAP[e.event_type];
           if (!tabKey) continue;
           const current = latest[tabKey];
@@ -126,40 +167,27 @@ export function useCardTabActivity(cardId: string): UseCardTabActivity {
     return () => {
       cancelled = true;
     };
-  }, [cardId]);
-
-  const cardEntry = useMemo(() => {
-    return getCardEntry(readStore(), cardId);
-    // seenVersion intentionally in deps: markSeen bumps it to force re-read.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardId, seenVersion]);
+  }, [cardId, currentUserId]);
 
   const hasUpdates = useCallback(
     (tabKey: string): boolean => {
-      const firstVisit = cardEntry[FIRST_VISIT_KEY];
+      const firstVisit = snapshot[FIRST_VISIT_KEY];
       if (!firstVisit) return false; // card has never been visited
       const latest = latestActivity[tabKey];
       if (!latest) return false;
-      // Tabs the user has explicitly opened use that timestamp; otherwise
-      // fall back to the card-wide first-visit baseline.
-      const baseline = cardEntry[tabKey] || firstVisit;
+      // Tabs the user has explicitly opened on a prior visit use that
+      // timestamp; otherwise fall back to the card-wide first-visit
+      // baseline. Pending in-session visits are deliberately NOT consulted
+      // here so the dot stays visible until the user leaves.
+      const baseline = snapshot[tabKey] || firstVisit;
       return latest > baseline;
     },
-    [latestActivity, cardEntry],
+    [latestActivity, snapshot],
   );
 
-  const markSeen = useCallback(
-    (tabKey: string) => {
-      const store = readStore();
-      const existing = getCardEntry(store, cardId);
-      existing[tabKey] = new Date().toISOString();
-      store[cardId] = existing;
-      bumpLru(store, cardId);
-      writeStore(store);
-      setSeenVersion((n) => n + 1);
-    },
-    [cardId],
-  );
+  const noteVisit = useCallback((tabKey: string) => {
+    pendingRef.current.add(tabKey);
+  }, []);
 
-  return { hasUpdates, markSeen };
+  return { hasUpdates, noteVisit };
 }
