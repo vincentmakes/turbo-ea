@@ -86,11 +86,17 @@ async def badge_counts(
 ):
     """Return counts for nav-bar badge dots: open todos and pending surveys."""
     await PermissionService.require_permission(db, user, "notifications.manage")
+    # Count only open todos *assigned to* the user — the badge represents
+    # "things I need to do". Todos the user created for someone else live on
+    # the "Created by me" tab but must not inflate this actionable count.
+    # Scheduled (dormant recurring) occurrences are excluded by the open
+    # filter and surface under the Tasks page's "Upcoming" filter instead.
+    # Matches the dashboard's open-todos list (also assigned-only).
     open_todos = (
         await db.execute(
             select(func.count(Todo.id)).where(
                 Todo.status == "open",
-                (Todo.assigned_to == user.id) | (Todo.created_by == user.id),
+                Todo.assigned_to == user.id,
             )
         )
     ).scalar() or 0

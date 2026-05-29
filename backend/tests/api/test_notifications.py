@@ -177,3 +177,54 @@ class TestMarkAllRead:
         )
         assert resp.status_code == 200
         assert resp.json()["marked"] >= 2
+
+
+# ---------------------------------------------------------------
+# GET /notifications/badge-counts
+# ---------------------------------------------------------------
+
+
+class TestBadgeCounts:
+    async def test_open_todos_count_is_assigned_only(self, client, db, notif_env):
+        """The badge counts open todos assigned to the user, not ones they
+        merely created for someone else, and excludes scheduled occurrences."""
+        admin = notif_env["admin"]
+        viewer = notif_env["viewer"]
+        card = notif_env["card"]
+
+        from app.models.todo import Todo
+
+        # Assigned to admin + open → counts (2 of these).
+        db.add(Todo(card_id=card.id, description="A", status="open", assigned_to=admin.id))
+        db.add(Todo(card_id=card.id, description="B", status="open", assigned_to=admin.id))
+        # Created by admin but assigned to viewer → must NOT count.
+        db.add(
+            Todo(
+                card_id=card.id,
+                description="C",
+                status="open",
+                created_by=admin.id,
+                assigned_to=viewer.id,
+            )
+        )
+        # Assigned to admin but done → must NOT count.
+        db.add(Todo(card_id=card.id, description="D", status="done", assigned_to=admin.id))
+        # Scheduled (dormant recurring) assigned to admin → must NOT count.
+        db.add(
+            Todo(
+                card_id=card.id,
+                description="E",
+                status="scheduled",
+                assigned_to=admin.id,
+                recurrence_unit="months",
+                recurrence_interval=6,
+            )
+        )
+        await db.flush()
+
+        resp = await client.get(
+            "/api/v1/notifications/badge-counts",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["open_todos"] == 2

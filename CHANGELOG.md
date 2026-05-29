@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 - **Recurring todos on cards.** When adding a todo to a card you can now switch on "Repeats" and choose a cadence (every N days / weeks / months / years) — ideal for regular activities like "have this card reviewed every 6 months". Completing a recurring todo automatically spawns the next occurrence on the calendar-correct due date. Far-future occurrences stay quietly "scheduled" (hidden from your open list and the nav badge, no notification) until a configurable lead-time window opens, then surface as a normal todo; you can also activate one early. The Tasks page gains an **Upcoming** filter so you can always see your scheduled recurring pipeline. Reuses the recurrence engine built for risk mitigation tasks. Fulfills [#588](https://github.com/vincentmakes/turbo-ea/discussions/588).
 
+### Fixed
+- **Todo nav badge now counts only todos assigned to you.** Previously it also counted open todos you created for other people, inflating the number above what your Tasks list actually shows. The badge now matches the dashboard's open-todos list and the "Assigned to me" tab.
+
 ## [1.33.0] - 2026-05-28
 
 ### Added
