@@ -166,7 +166,7 @@ export default function RiskFilterSidebar({
   onVisibleColumnsChange,
   onResetColumns,
 }: Props) {
-  const { t } = useTranslation(["delivery", "common"]);
+  const { t } = useTranslation(["grc", "common"]);
 
   const [tab, setTab] = useState<0 | 1>(0);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({

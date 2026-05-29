@@ -38,7 +38,7 @@ export default function RiskMatrix({
   probabilityAxisLabel,
   impactAxisLabel,
 }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
 
   return (
     <Box sx={{ mt: 1 }}>
@@ -94,7 +94,7 @@ function RiskMatrixRow({
   onSelect?: (selection: RiskMatrixSelection | null) => void;
   highlight?: RiskMatrixSelection | null;
 }) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   return (
     <>
       <Box

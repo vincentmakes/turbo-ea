@@ -12,7 +12,7 @@ import { riskLevelSwatch } from "./riskMatrixColors";
 const LEVELS: RiskLevel[] = ["critical", "high", "medium", "low"];
 
 export default function RiskMatrixLegend() {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   return (
     <Box
       sx={{

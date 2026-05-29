@@ -72,7 +72,7 @@ export default function FindingDetailDrawer({
 }: Props) {
   const { t } = useTranslation("admin");
   const { t: tCards } = useTranslation("cards");
-  const { t: tDelivery } = useTranslation("delivery");
+  const { t: tRisks } = useTranslation("grc");
   const { byKey: regulationsByKey } = useComplianceRegulations();
 
   const [saving, setSaving] = useState<string | null>(null);
@@ -285,7 +285,7 @@ export default function FindingDetailDrawer({
                   startIcon={<MaterialSymbol icon="open_in_new" size={16} />}
                   onClick={() => onOpenRisk(finding.risk_id!)}
                 >
-                  {tDelivery("risks.openRisk", {
+                  {tRisks("risks.openRisk", {
                     reference: finding.risk_reference ?? finding.risk_id,
                   })}
                 </Button>
@@ -301,7 +301,7 @@ export default function FindingDetailDrawer({
                   startIcon={<MaterialSymbol icon="policy" size={16} />}
                   onClick={() => onPromoteToRisk(finding)}
                 >
-                  {tDelivery("risks.createRisk")}
+                  {tRisks("risks.createRisk")}
                 </Button>
               )
             )}

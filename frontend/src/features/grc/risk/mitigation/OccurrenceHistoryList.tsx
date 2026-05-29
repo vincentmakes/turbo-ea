@@ -42,7 +42,7 @@ export default function OccurrenceHistoryList({
   leadTimeDays,
   hideCycleLabel = false,
 }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const { formatDate, formatDateTime } = useDateFormat();
   const [expanded, setExpanded] = useState(false);
 

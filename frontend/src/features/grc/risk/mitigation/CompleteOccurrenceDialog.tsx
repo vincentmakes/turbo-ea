@@ -35,7 +35,7 @@ export default function CompleteOccurrenceDialog({
   onClose,
   onSubmit,
 }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 

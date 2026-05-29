@@ -61,7 +61,7 @@ interface Props {
 }
 
 export default function CreateRiskDialog({ open, seed, onClose, onCreated }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const { t: tCommon } = useTranslation("common");
 
   const [title, setTitle] = useState("");

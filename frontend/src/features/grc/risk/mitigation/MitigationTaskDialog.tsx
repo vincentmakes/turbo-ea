@@ -59,7 +59,7 @@ export default function MitigationTaskDialog({
   onClose,
   onSubmit,
 }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");

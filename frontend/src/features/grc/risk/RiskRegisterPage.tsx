@@ -159,7 +159,7 @@ function saveRiskPrefs(p: RiskPrefs) {
 // ---------------------------------------------------------------------------
 
 export default function RiskRegisterPage() {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const navigate = useNavigate();
   const { mode } = useThemeMode();
   const { formatDate } = useDateFormat();

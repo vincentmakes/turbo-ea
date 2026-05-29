@@ -39,7 +39,7 @@ interface RiskImportDialogProps {
 type Step = "upload" | "preview" | "done";
 
 export default function RiskImportDialog({ open, onClose, onComplete }: RiskImportDialogProps) {
-  const { t } = useTranslation(["delivery", "common"]);
+  const { t } = useTranslation(["grc", "common"]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<Step>("upload");
   const [fileName, setFileName] = useState("");
@@ -80,7 +80,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
       const buffer = await file.arrayBuffer();
       const parsed = parseRiskWorkbook(buffer);
       if (parsed.length === 0) {
-        setError(t("delivery:risks.import.emptyFile", { defaultValue: "No rows found in the file." }));
+        setError(t("grc:risks.import.emptyFile", { defaultValue: "No rows found in the file." }));
         return;
       }
       setItems(parsed);
@@ -95,7 +95,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
       setError(
         e instanceof ApiError
           ? e.message
-          : t("delivery:risks.import.parseError", {
+          : t("grc:risks.import.parseError", {
               defaultValue: "Could not read the spreadsheet. Make sure it is a valid .xlsx file.",
             }),
       );
@@ -139,7 +139,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {t("delivery:risks.import.title", { defaultValue: "Import risks" })}
+        {t("grc:risks.import.title", { defaultValue: "Import risks" })}
       </DialogTitle>
       <DialogContent dividers>
         {error && (
@@ -151,7 +151,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
         {step === "upload" && (
           <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
-              {t("delivery:risks.import.intro", {
+              {t("grc:risks.import.intro", {
                 defaultValue:
                   "Upload an .xlsx file to create risks in bulk. Each row becomes a new risk; rows whose reference already matches an existing risk are skipped. Owners are matched by email and cards by exact name — anything that can't be matched is skipped with a warning.",
               })}
@@ -165,7 +165,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                 sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}
               >
                 <MaterialSymbol icon="download" size={18} />
-                {t("delivery:risks.import.downloadTemplate", {
+                {t("grc:risks.import.downloadTemplate", {
                   defaultValue: "Download template",
                 })}
               </Link>
@@ -178,8 +178,8 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
               sx={{ textTransform: "none", py: 2 }}
             >
               {busy
-                ? t("delivery:risks.import.parsing", { defaultValue: "Reading file…" })
-                : t("delivery:risks.import.chooseFile", { defaultValue: "Choose .xlsx file" })}
+                ? t("grc:risks.import.parsing", { defaultValue: "Reading file…" })
+                : t("grc:risks.import.chooseFile", { defaultValue: "Choose .xlsx file" })}
             </Button>
             {fileName && (
               <Typography variant="caption" color="text.secondary">
@@ -206,7 +206,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                 color="success"
                 variant="outlined"
                 icon={<MaterialSymbol icon="add_circle" size={16} />}
-                label={t("delivery:risks.import.willCreate", {
+                label={t("grc:risks.import.willCreate", {
                   count: preview.created,
                   defaultValue: "{{count}} to create",
                 })}
@@ -216,7 +216,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                   color="error"
                   variant="outlined"
                   icon={<MaterialSymbol icon="error" size={16} />}
-                  label={t("delivery:risks.import.willFail", {
+                  label={t("grc:risks.import.willFail", {
                     count: preview.failed,
                     defaultValue: "{{count}} with errors",
                   })}
@@ -227,7 +227,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                   color="default"
                   variant="outlined"
                   icon={<MaterialSymbol icon="skip_next" size={16} />}
-                  label={t("delivery:risks.import.willSkip", {
+                  label={t("grc:risks.import.willSkip", {
                     count: preview.skipped,
                     defaultValue: "{{count}} already exist (skipped)",
                   })}
@@ -238,7 +238,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                   color="warning"
                   variant="outlined"
                   icon={<MaterialSymbol icon="warning" size={16} />}
-                  label={t("delivery:risks.import.warningCount", {
+                  label={t("grc:risks.import.warningCount", {
                     count: previewWarnings.length,
                     defaultValue: "{{count}} warnings",
                   })}
@@ -248,7 +248,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
 
             {preview.failed > 0 && (
               <Alert severity="error">
-                {t("delivery:risks.import.errorsBlock", {
+                {t("grc:risks.import.errorsBlock", {
                   defaultValue:
                     "Some rows have errors and will be skipped. Fix them and re-upload, or import the valid rows only.",
                 })}
@@ -268,7 +268,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                     {previewErrors.map((r) => (
                       <ListItem key={r.row_index} disableGutters>
                         <ListItemText
-                          primary={t("delivery:risks.import.rowLabel", {
+                          primary={t("grc:risks.import.rowLabel", {
                             row: r.row_index + 1,
                             defaultValue: "Row {{row}}",
                           })}
@@ -283,7 +283,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
 
             {previewWarnings.length > 0 && (
               <Alert severity="warning">
-                {t("delivery:risks.import.warningsBlock", {
+                {t("grc:risks.import.warningsBlock", {
                   defaultValue:
                     "Some owners or cards couldn't be matched. The risks will still import without them.",
                 })}
@@ -303,7 +303,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                     {previewWarnings.map((w, i) => (
                       <ListItem key={`${w.row}-${i}`} disableGutters>
                         <ListItemText
-                          primary={t("delivery:risks.import.rowLabel", {
+                          primary={t("grc:risks.import.rowLabel", {
                             row: w.row + 1,
                             defaultValue: "Row {{row}}",
                           })}
@@ -318,7 +318,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
 
             {previewSkipped.length > 0 && (
               <Alert severity="info">
-                {t("delivery:risks.import.skippedBlock", {
+                {t("grc:risks.import.skippedBlock", {
                   defaultValue:
                     "Rows whose reference already matches an existing risk are skipped — the importer never updates existing risks.",
                 })}
@@ -338,7 +338,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
                     {previewSkipped.map((r) => (
                       <ListItem key={r.row_index} disableGutters>
                         <ListItemText
-                          primary={t("delivery:risks.import.rowLabel", {
+                          primary={t("grc:risks.import.rowLabel", {
                             row: r.row_index + 1,
                             defaultValue: "Row {{row}}",
                           })}
@@ -361,14 +361,14 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
               color={result.failed > 0 ? "warning.main" : "success.main"}
             />
             <Typography variant="h6">
-              {t("delivery:risks.import.doneTitle", {
+              {t("grc:risks.import.doneTitle", {
                 count: result.created,
                 defaultValue: "Imported {{count}} risks",
               })}
             </Typography>
             {result.skipped > 0 && (
               <Typography variant="body2" color="text.secondary">
-                {t("delivery:risks.import.doneSkipped", {
+                {t("grc:risks.import.doneSkipped", {
                   count: result.skipped,
                   defaultValue: "{{count}} rows were skipped (already exist).",
                 })}
@@ -376,7 +376,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
             )}
             {result.failed > 0 && (
               <Typography variant="body2" color="text.secondary">
-                {t("delivery:risks.import.doneFailed", {
+                {t("grc:risks.import.doneFailed", {
                   count: result.failed,
                   defaultValue: "{{count}} rows were skipped due to errors.",
                 })}
@@ -405,7 +405,7 @@ export default function RiskImportDialog({ open, onClose, onComplete }: RiskImpo
             startIcon={<MaterialSymbol icon="upload" size={18} />}
             sx={{ textTransform: "none" }}
           >
-            {t("delivery:risks.import.apply", {
+            {t("grc:risks.import.apply", {
               count: preview?.created ?? 0,
               defaultValue: "Import {{count}} risks",
             })}

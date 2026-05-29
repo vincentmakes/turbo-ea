@@ -173,7 +173,7 @@ const SIDE_ACTIONS: Record<RiskStatus, SideAction[]> = {
 };
 
 export default function RiskDetailPage() {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const { t: tCommon } = useTranslation("common");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();

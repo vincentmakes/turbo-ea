@@ -116,7 +116,7 @@ export default function MitigationTasksPanel({
   currentUserId,
   onSummaryChange,
 }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const { formatDate, formatDateTime } = useDateFormat();
 
   const [tasks, setTasks] = useState<MitigationTask[]>([]);

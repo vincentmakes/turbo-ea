@@ -36,7 +36,7 @@ interface Props {
 }
 
 export default function RisksTab({ cardId }: Props) {
-  const { t } = useTranslation("delivery");
+  const { t } = useTranslation("grc");
   const navigate = useNavigate();
 
   const [risks, setRisks] = useState<Risk[]>([]);
