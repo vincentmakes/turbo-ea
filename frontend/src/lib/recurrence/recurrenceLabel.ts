@@ -3,8 +3,11 @@
  *
  * Returns a translation-aware human label like "One-shot",
  * "Every week", or "Every 6 months". The caller passes a translation
- * function `t` already bound to the right namespace ("delivery"), so
- * this helper is pure (no react-i18next dependency) and unit-testable.
+ * function `t` already bound to the right namespace, plus an optional
+ * `keyPrefix` so the same helper serves both the Risk Mitigation Tasks
+ * UI (`risks.tasks.recurrence`, the default) and recurring card todos
+ * (`todos.recurrence`). Pure (no react-i18next dependency) and
+ * unit-testable.
  */
 import type { RecurrenceUnit } from "@/types";
 
@@ -14,15 +17,16 @@ export function formatRecurrence(
   unit: RecurrenceUnit,
   interval: number,
   t: TFn,
+  keyPrefix = "risks.tasks.recurrence",
 ): string {
   if (unit === "none") {
-    return t("risks.tasks.recurrence.oneShot");
+    return t(`${keyPrefix}.oneShot`);
   }
   const count = Math.max(1, interval);
   if (count === 1) {
-    return t(`risks.tasks.recurrence.${unit}_one`);
+    return t(`${keyPrefix}.${unit}_one`);
   }
-  return t(`risks.tasks.recurrence.${unit}_other`, { count });
+  return t(`${keyPrefix}.${unit}_other`, { count });
 }
 
 export const RECURRENCE_UNIT_OPTIONS: RecurrenceUnit[] = [

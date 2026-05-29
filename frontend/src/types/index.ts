@@ -371,6 +371,12 @@ export interface Todo {
   created_by?: string;
   due_date?: string;
   created_at?: string;
+  // Recurrence (card todos). series_id groups occurrences of one
+  // recurring todo; recurrence_unit "none" means a plain one-shot todo.
+  series_id?: string;
+  recurrence_unit?: RecurrenceUnit;
+  recurrence_interval?: number;
+  lead_time_days?: number;
 }
 
 export interface TagGroup {

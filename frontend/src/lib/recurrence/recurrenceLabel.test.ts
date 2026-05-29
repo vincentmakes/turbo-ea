@@ -32,4 +32,14 @@ describe("formatRecurrence", () => {
     expect(formatRecurrence("days", 0, t)).toBe("risks.tasks.recurrence.days_one");
     expect(formatRecurrence("weeks", -3, t)).toBe("risks.tasks.recurrence.weeks_one");
   });
+
+  it("honours a custom keyPrefix (recurring todos)", () => {
+    expect(formatRecurrence("none", 1, t, "todos.recurrence")).toBe("todos.recurrence.oneShot");
+    expect(formatRecurrence("months", 1, t, "todos.recurrence")).toBe(
+      "todos.recurrence.months_one",
+    );
+    expect(formatRecurrence("months", 6, t, "todos.recurrence")).toBe(
+      "todos.recurrence.months_other:6",
+    );
+  });
 });

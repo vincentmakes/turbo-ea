@@ -4,6 +4,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.risk_mitigation_task import MAX_LEAD_TIME_DAYS, RecurrenceUnitLiteral
+
 
 class StakeholderCreate(BaseModel):
     user_id: str
@@ -37,6 +39,13 @@ class TodoCreate(BaseModel):
     description: str
     assigned_to: str | None = None
     due_date: str | None = None
+    # Recurrence (card todos only). ``recurrence_unit == "none"`` (the
+    # default) creates an ordinary one-shot todo. ``lead_time_days`` is
+    # optional — when omitted on a recurring todo the server picks a smart
+    # per-unit default (see ``recurrence.default_lead_time_days``).
+    recurrence_unit: RecurrenceUnitLiteral = "none"
+    recurrence_interval: int = Field(default=1, ge=1, le=365)
+    lead_time_days: int | None = Field(default=None, ge=0, le=MAX_LEAD_TIME_DAYS)
 
 
 class TodoUpdate(BaseModel):
@@ -44,6 +53,9 @@ class TodoUpdate(BaseModel):
     status: str | None = None
     assigned_to: str | None = None
     due_date: str | None = None
+    recurrence_unit: RecurrenceUnitLiteral | None = None
+    recurrence_interval: int | None = Field(default=None, ge=1, le=365)
+    lead_time_days: int | None = Field(default=None, ge=0, le=MAX_LEAD_TIME_DAYS)
 
 
 class TodoResponse(BaseModel):
@@ -56,6 +68,10 @@ class TodoResponse(BaseModel):
     created_by: str | None = None
     due_date: str | None = None
     created_at: datetime | None = None
+    series_id: str | None = None
+    recurrence_unit: str = "none"
+    recurrence_interval: int = 1
+    lead_time_days: int = 0
 
     model_config = {"from_attributes": True}
 

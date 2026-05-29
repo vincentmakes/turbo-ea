@@ -39,6 +39,14 @@ Cada tarea registra:
 | **Fecha de vencimiento** | Fecha límite opcional |
 | **Ficha** | La ficha vinculada (opcional) |
 
+### Tareas recurrentes
+
+Al crear una tarea desde la pestaña **Todos** de una ficha, active **Repetir** para convertirla en una tarea recurrente — ideal para actividades regulares como «revisar esta ficha cada 6 meses». Elija con qué frecuencia se repite (cada *N* días, semanas, meses o años).
+
+- **Avance automático** — Cuando marca una tarea recurrente como completada, la siguiente repetición se crea automáticamente con su fecha de vencimiento desplazada según la cadencia (correcta en el calendario, de modo que una revisión de fin de mes se mantiene a fin de mes).
+- **Tiempo de anticipación** — Una repetición lejana permanece **Programada** (oculta de su lista de abiertas, sin notificación) hasta que se abre su ventana de anticipación; entonces se convierte en una tarea abierta normal y notifica al responsable. El tiempo de anticipación tiene valores por defecto sensatos según la cadencia y se puede ajustar.
+- **Activar antes** — Haga clic en el icono de evento próximo de una tarea programada para activarla de inmediato si desea hacer la revisión con antelación.
+
 ## Mis Encuestas
 
 La pestaña **Encuestas** muestra todas las encuestas de mantenimiento de datos que necesitan su respuesta. Las encuestas son creadas por administradores para recopilar información de las partes interesadas sobre fichas específicas (ver [Administración de Encuestas](../admin/surveys.es.md)).

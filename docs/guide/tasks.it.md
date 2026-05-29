@@ -39,6 +39,14 @@ Ogni todo traccia:
 | **Data di scadenza** | Scadenza opzionale |
 | **Card** | La card collegata (opzionale) |
 
+### Todo ricorrenti
+
+Quando crei un todo dalla scheda **Todo** di una card, attiva **Ripeti** per renderlo ricorrente — ideale per attività regolari come «far revisionare questa card ogni 6 mesi». Scegli ogni quanto si ripete (ogni *N* giorni, settimane, mesi o anni).
+
+- **Avanzamento automatico** — Quando contrassegni un todo ricorrente come completato, la prossima occorrenza viene creata automaticamente con la data di scadenza spostata in base alla cadenza (corretta sul calendario, così una revisione di fine mese resta a fine mese).
+- **Tempo di anticipo** — Un'occorrenza lontana resta **Pianificata** (nascosta dall'elenco aperto, senza notifica) finché non si apre la sua finestra di anticipo; poi diventa un normale todo aperto e notifica il responsabile. Il tempo di anticipo ha valori predefiniti sensati per cadenza ed è regolabile.
+- **Attiva in anticipo** — Clicca sull'icona dell'evento imminente di un todo pianificato per attivarlo subito se vuoi fare la revisione in anticipo.
+
 ## I miei sondaggi
 
 La scheda **Sondaggi** mostra tutti i sondaggi di manutenzione dati che necessitano della vostra risposta. I sondaggi sono creati dagli amministratori per raccogliere informazioni dagli stakeholder su card specifiche (vedi [Amministrazione sondaggi](../admin/surveys.md)).

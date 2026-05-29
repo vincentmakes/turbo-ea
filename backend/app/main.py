@@ -193,20 +193,22 @@ async def _kpi_snapshot_loop() -> None:
 
 
 async def _promote_recurring_tasks_loop() -> None:
-    """Daily background loop that flips eligible ``scheduled`` task
-    occurrences to ``open`` once their lead-time window opens.
+    """Daily background loop that flips eligible ``scheduled`` recurring
+    items to ``open`` once their lead-time window opens.
 
-    Runs once per UTC day at ``_TASK_PROMOTION_HOUR_UTC`` (03:00). Each
-    promotion creates the assignee's system Todo, fires the
-    ``task_assigned`` notification, and emits a
-    ``risk_mitigation_task.activated`` event onto the per-card history
-    timeline. The promotion service is idempotent on already-open
-    occurrences, so a transient restart that doubles a tick is safe.
+    Covers both risk mitigation-task occurrences and recurring card todos
+    in the same pass. Runs once per UTC day at ``_TASK_PROMOTION_HOUR_UTC``
+    (03:00). Each promotion fires the relevant ``task_assigned`` /
+    ``todo_assigned`` notification (and, for tasks, the system Todo +
+    ``risk_mitigation_task.activated`` event). Both promotion services are
+    idempotent on already-open rows, so a transient restart that doubles a
+    tick is safe.
     """
     from datetime import datetime, timedelta, timezone
 
     from app.database import async_session
     from app.services.risk_mitigation_task_service import promote_scheduled_occurrences
+    from app.services.todo_recurrence_service import promote_scheduled_todos
 
     while True:
         try:
@@ -218,16 +220,22 @@ async def _promote_recurring_tasks_loop() -> None:
 
             async with async_session() as db:
                 promoted = await promote_scheduled_occurrences(db)
+                promoted_todos = await promote_scheduled_todos(db)
                 await db.commit()
                 if promoted:
                     logger.info(
                         "Promoted %d scheduled mitigation task occurrence(s) to open",
                         promoted,
                     )
+                if promoted_todos:
+                    logger.info(
+                        "Promoted %d scheduled recurring todo(s) to open",
+                        promoted_todos,
+                    )
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("Error in mitigation task promotion loop")
+            logger.exception("Error in recurring item promotion loop")
             # Same backoff pattern as the KPI loop — avoid a tight retry
             # spiral if the DB is unavailable.
             await asyncio.sleep(3600)

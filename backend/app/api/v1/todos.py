@@ -13,8 +13,9 @@ from app.database import get_db
 from app.models.todo import Todo
 from app.models.user import User
 from app.schemas.common import TodoCreate, TodoUpdate
-from app.services import notification_service
+from app.services import notification_service, todo_recurrence_service
 from app.services.permission_service import PermissionService
+from app.services.recurrence import default_lead_time_days
 
 router = APIRouter(tags=["todos"])
 
@@ -34,6 +35,10 @@ def _todo_to_dict(t: Todo) -> dict:
         "created_by": str(t.created_by) if t.created_by else None,
         "due_date": str(t.due_date) if t.due_date else None,
         "created_at": t.created_at.isoformat() if t.created_at else None,
+        "series_id": str(t.series_id) if t.series_id else None,
+        "recurrence_unit": t.recurrence_unit,
+        "recurrence_interval": t.recurrence_interval,
+        "lead_time_days": t.lead_time_days,
     }
 
 
@@ -98,12 +103,25 @@ async def create_todo(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    recurring = body.recurrence_unit != "none"
+    # First occurrence always opens immediately — the user just created the
+    # todo intending to act on it. Lead-time gating only applies to the
+    # rolled-forward occurrences spawned on completion.
+    lead_time_days = (
+        body.lead_time_days
+        if body.lead_time_days is not None
+        else default_lead_time_days(body.recurrence_unit, body.recurrence_interval)
+    )
     todo = Todo(
         card_id=uuid.UUID(card_id),
         description=body.description,
         assigned_to=uuid.UUID(body.assigned_to) if body.assigned_to else None,
         created_by=user.id,
         due_date=date.fromisoformat(body.due_date) if body.due_date else None,
+        series_id=uuid.uuid4() if recurring else None,
+        recurrence_unit=body.recurrence_unit,
+        recurrence_interval=body.recurrence_interval,
+        lead_time_days=lead_time_days if recurring else 0,
     )
     db.add(todo)
     await db.flush()
@@ -156,6 +174,17 @@ async def update_todo(
             "This action must be completed from its linked page",
         )
 
+    # A scheduled (dormant) recurring occurrence isn't actionable yet — it
+    # must be promoted to open first (via the daily loop or POST .../promote).
+    if todo.status == "scheduled" and update_data.get("status") == "done":
+        raise HTTPException(409, "Activate the scheduled todo before completing it")
+
+    was_open_recurring = (
+        update_data.get("status") == "done"
+        and todo.status != "done"
+        and todo_recurrence_service.is_recurring(todo)
+    )
+
     old_assignee = todo.assigned_to
     for field, value in update_data.items():
         if field == "assigned_to" and value is not None:
@@ -164,6 +193,10 @@ async def update_todo(
             value = date.fromisoformat(value)
         setattr(todo, field, value)
     await db.flush()
+
+    # Completing a recurring todo spawns the next occurrence in the series.
+    if was_open_recurring:
+        await todo_recurrence_service.roll_forward(db, todo=todo, actor_id=user.id)
 
     # Notify new assignee if assignment changed (even if self-assigned)
     new_assignee = todo.assigned_to
@@ -178,6 +211,57 @@ async def update_todo(
             data={"todo_id": todo_id},
             card_id=todo.card_id,
         )
+
+    await db.commit()
+    result = await db.execute(
+        select(Todo)
+        .where(Todo.id == todo.id)
+        .options(selectinload(Todo.card), selectinload(Todo.assignee))
+    )
+    todo = result.scalar_one()
+    return _todo_to_dict(todo)
+
+
+@router.post("/todos/{todo_id}/promote")
+async def promote_todo(
+    todo_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Manually activate a scheduled recurring todo ("do the review early").
+
+    Short-circuits the wait for the daily promotion loop. Idempotent on
+    todos that are already open.
+    """
+    result = await db.execute(select(Todo).where(Todo.id == uuid.UUID(todo_id)))
+    todo = result.scalar_one_or_none()
+    if not todo:
+        raise HTTPException(404, "Todo not found")
+
+    if todo.assigned_to != user.id and todo.created_by != user.id:
+        if not await PermissionService.has_app_permission(db, user, "admin.todos"):
+            raise HTTPException(403, "Not enough permissions")
+
+    if todo.status == "open":
+        # Already actionable — nothing to do.
+        pass
+    elif todo.status != "scheduled":
+        raise HTTPException(409, "Only scheduled todos can be promoted")
+    else:
+        todo.status = "open"
+        await db.flush()
+        if todo.assigned_to:
+            await notification_service.create_notification(
+                db,
+                user_id=todo.assigned_to,
+                notif_type="todo_assigned",
+                title="Recurring Todo Due",
+                message=f'A recurring todo is due: "{todo.description[:80]}"',
+                link="/todos",
+                data={"todo_id": str(todo.id)},
+                card_id=todo.card_id,
+                actor_id=user.id,
+            )
 
     await db.commit()
     result = await db.execute(

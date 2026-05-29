@@ -20,7 +20,7 @@ import Typography from "@mui/material/Typography";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useDateFormat } from "@/hooks/useDateFormat";
 import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
-import { activationDate } from "./leadTime";
+import { activationDate } from "@/lib/recurrence/leadTime";
 
 interface Props {
   occurrences: MitigationTaskOccurrence[];

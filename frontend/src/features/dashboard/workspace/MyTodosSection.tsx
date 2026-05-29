@@ -7,6 +7,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Typography from "@mui/material/Typography";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
+import MaterialSymbol from "@/components/MaterialSymbol";
 import SectionPaper, { EmptyState, ViewAllLink } from "./SectionPaper";
 
 interface TodoRow {
@@ -16,6 +17,7 @@ interface TodoRow {
   description: string;
   status: string;
   due_date: string | null;
+  recurrence_unit?: string;
 }
 
 const MAX_VISIBLE = 6;
@@ -77,6 +79,14 @@ export default function MyTodosSection() {
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
                   {todo.description}
                 </Typography>
+                {todo.recurrence_unit && todo.recurrence_unit !== "none" && (
+                  <MaterialSymbol
+                    icon="repeat"
+                    size={16}
+                    color="#888"
+                    style={{ flexShrink: 0 }}
+                  />
+                )}
                 {overdue && (
                   <Chip
                     size="small"

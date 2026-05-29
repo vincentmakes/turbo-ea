@@ -39,6 +39,14 @@ Hver opgave sporer:
 | **Forfaldsdato** | Valgfri deadline |
 | **Kort** | Det tilknyttede kort (valgfrit) |
 
+### Tilbagevendende opgaver
+
+Når du opretter en opgave fra et korts **Todos**-fane, kan du slå **Gentag** til for at gøre den tilbagevendende — ideelt til regelmæssige aktiviteter som «få dette kort gennemgået hver 6. måned». Vælg, hvor ofte den gentages (hver *N* dage, uger, måneder eller år).
+
+- **Automatisk fremrulning** — Når du markerer en tilbagevendende opgave som færdig, oprettes den næste forekomst automatisk med forfaldsdatoen forskudt efter kadencen (kalenderkorrekt, så en gennemgang ved månedens udgang forbliver ved månedens udgang).
+- **Varslingstid** — En fjern fremtidig forekomst forbliver **Planlagt** (skjult fra din liste over åbne, uden notifikation), indtil dens varslingsvindue åbner; derefter bliver den til en normal åben opgave og giver den ansvarlige besked. Varslingstiden har fornuftige standardværdier pr. kadence og kan justeres.
+- **Aktivér tidligt** — Klik på ikonet for kommende begivenhed på en planlagt opgave for at aktivere den med det samme, hvis du vil foretage gennemgangen før tid.
+
 ## Mine undersøgelser
 
 Fanen **Undersøgelser** viser alle datavedligeholdelsesundersøgelser, der kræver dit svar. Undersøgelser oprettes af administratorer for at indsamle information fra interessenter om specifikke kort (se [Undersøgelsesadministration](../admin/surveys.md)).

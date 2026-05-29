@@ -11125,6 +11125,38 @@
               }
             ],
             "title": "Due Date"
+          },
+          "lead_time_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Time Days"
+          },
+          "recurrence_interval": {
+            "default": 1,
+            "maximum": 365.0,
+            "minimum": 1.0,
+            "title": "Recurrence Interval",
+            "type": "integer"
+          },
+          "recurrence_unit": {
+            "default": "none",
+            "enum": [
+              "none",
+              "days",
+              "weeks",
+              "months",
+              "years"
+            ],
+            "title": "Recurrence Unit",
+            "type": "string"
           }
         },
         "required": [
@@ -11167,6 +11199,50 @@
               }
             ],
             "title": "Due Date"
+          },
+          "lead_time_days": {
+            "anyOf": [
+              {
+                "maximum": 3650.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lead Time Days"
+          },
+          "recurrence_interval": {
+            "anyOf": [
+              {
+                "maximum": 365.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence Interval"
+          },
+          "recurrence_unit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "none",
+                  "days",
+                  "weeks",
+                  "months",
+                  "years"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recurrence Unit"
           },
           "status": {
             "anyOf": [
@@ -30486,6 +30562,47 @@
           }
         },
         "summary": "Update Todo",
+        "tags": [
+          "todos"
+        ]
+      }
+    },
+    "/api/v1/todos/{todo_id}/promote": {
+      "post": {
+        "description": "Manually activate a scheduled recurring todo (\"do the review early\").\n\nShort-circuits the wait for the daily promotion loop. Idempotent on\ntodos that are already open.",
+        "operationId": "promote_todo_api_v1_todos__todo_id__promote_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "todo_id",
+            "required": true,
+            "schema": {
+              "title": "Todo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Promote Todo",
         "tags": [
           "todos"
         ]

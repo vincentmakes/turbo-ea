@@ -21,7 +21,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { api } from "@/api/client";
 import { useDateFormat } from "@/hooks/useDateFormat";
-import type { Todo, MySurveyItem } from "@/types";
+import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
+import type { RecurrenceUnit, Todo, MySurveyItem } from "@/types";
 
 function compareByDueDateAsc(a: Todo, b: Todo): number {
   // Sort by due date ascending so the most urgent items (overdue first,
@@ -46,7 +47,7 @@ function isOverdue(todo: Todo): boolean {
 type StatusFilter = "open" | "done" | "all";
 
 function TodosPanel() {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation(["common", "cards"]);
   const navigate = useNavigate();
   const { formatDate } = useDateFormat();
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -69,6 +70,13 @@ function TodosPanel() {
   const showAssignee = tab === 1;
 
   const toggleStatus = async (todo: Todo) => {
+    // A scheduled (dormant) recurring occurrence isn't completable yet —
+    // activate it first.
+    if (todo.status === "scheduled") {
+      await api.post(`/todos/${todo.id}/promote`, {});
+      setTodos(todos.map((td) => (td.id === todo.id ? { ...td, status: "open" } : td)));
+      return;
+    }
     const newStatus = todo.status === "open" ? "done" : "open";
     await api.patch(`/todos/${todo.id}`, { status: newStatus });
     setTodos(todos.map((td) => (td.id === todo.id ? { ...td, status: newStatus } : td)));
@@ -129,9 +137,16 @@ function TodosPanel() {
                   size="small"
                   onClick={() => toggleStatus(todo)}
                   sx={{ mr: 1 }}
+                  title={todo.status === "scheduled" ? t("cards:todos.activateNow") : undefined}
                 >
                   <MaterialSymbol
-                    icon={todo.status === "done" ? "check_circle" : "radio_button_unchecked"}
+                    icon={
+                      todo.status === "scheduled"
+                        ? "event_upcoming"
+                        : todo.status === "done"
+                          ? "check_circle"
+                          : "radio_button_unchecked"
+                    }
                     size={22}
                     color={todo.status === "done" ? "#4caf50" : "#999"}
                   />
@@ -190,6 +205,30 @@ function TodosPanel() {
                             ? t("todos.assignedTo", { name: todo.assignee_name })
                             : t("todos.unassigned")
                         }
+                        sx={{ height: 20, fontSize: "0.7rem" }}
+                      />
+                    )}
+                    {todo.recurrence_unit && todo.recurrence_unit !== "none" && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        icon={<MaterialSymbol icon="repeat" size={14} />}
+                        label={formatRecurrence(
+                          todo.recurrence_unit as RecurrenceUnit,
+                          todo.recurrence_interval ?? 1,
+                          t,
+                          "cards:todos.recurrence",
+                        )}
+                        sx={{ height: 20, fontSize: "0.7rem" }}
+                      />
+                    )}
+                    {todo.status === "scheduled" && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        color="info"
+                        icon={<MaterialSymbol icon="schedule" size={14} />}
+                        label={t("cards:todos.scheduled")}
                         sx={{ height: 20, fontSize: "0.7rem" }}
                       />
                     )}

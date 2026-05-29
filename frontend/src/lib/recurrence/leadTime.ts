@@ -1,9 +1,10 @@
 /**
  * Mirror of the backend `default_lead_time_days` helper in
- * `app/services/risk_mitigation_task_service.py`. Used by the
- * MitigationTaskDialog to suggest a sensible default when the user
- * toggles recurrence on or changes the unit / interval — the value
- * the server would have picked if no `lead_time_days` was supplied.
+ * `app/services/recurrence.py`. Used by the recurrence dialogs (risk
+ * mitigation tasks and recurring card todos) to suggest a sensible
+ * default when the user toggles recurrence on or changes the unit /
+ * interval — the value the server would have picked if no
+ * `lead_time_days` was supplied.
  *
  * Picked so the assignee gets a useful reminder window without sitting
  * on an open Todo for the bulk of the cycle. Capped at half the cycle

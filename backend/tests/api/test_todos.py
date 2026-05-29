@@ -205,6 +205,144 @@ class TestUpdateTodo:
 
 
 # ---------------------------------------------------------------
+# Recurrence
+# ---------------------------------------------------------------
+
+
+class TestRecurringTodo:
+    async def test_create_recurring_first_occurrence_is_open(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        resp = await client.post(
+            f"/api/v1/cards/{card.id}/todos",
+            json={
+                "description": "Review access rights",
+                "assigned_to": str(admin.id),
+                "due_date": "2026-06-01",
+                "recurrence_unit": "months",
+                "recurrence_interval": 6,
+            },
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        # First occurrence always opens immediately regardless of lead window.
+        assert data["status"] == "open"
+        assert data["recurrence_unit"] == "months"
+        assert data["recurrence_interval"] == 6
+        assert data["series_id"] is not None
+        # Smart default lead time for monthly cadence is 7.
+        assert data["lead_time_days"] == 7
+
+    async def test_complete_recurring_spawns_next(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        create = await client.post(
+            f"/api/v1/cards/{card.id}/todos",
+            json={
+                "description": "Monthly review",
+                "assigned_to": str(admin.id),
+                "due_date": "2026-06-01",
+                "recurrence_unit": "months",
+                "recurrence_interval": 1,
+            },
+            headers=auth_headers(admin),
+        )
+        first = create.json()
+        series_id = first["series_id"]
+
+        patch = await client.patch(
+            f"/api/v1/todos/{first['id']}",
+            json={"status": "done"},
+            headers=auth_headers(admin),
+        )
+        assert patch.status_code == 200
+        assert patch.json()["status"] == "done"
+
+        # A new occurrence in the same series should now exist on the card.
+        listing = await client.get(
+            f"/api/v1/cards/{card.id}/todos",
+            headers=auth_headers(admin),
+        )
+        rows = listing.json()
+        same_series = [r for r in rows if r["series_id"] == series_id]
+        assert len(same_series) == 2
+        new_rows = [r for r in same_series if r["status"] in ("open", "scheduled")]
+        assert len(new_rows) == 1
+        assert new_rows[0]["due_date"] == "2026-07-01"
+
+    async def test_one_shot_complete_does_not_spawn(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        create = await client.post(
+            f"/api/v1/cards/{card.id}/todos",
+            json={"description": "Just once"},
+            headers=auth_headers(admin),
+        )
+        first = create.json()
+        await client.patch(
+            f"/api/v1/todos/{first['id']}",
+            json={"status": "done"},
+            headers=auth_headers(admin),
+        )
+        listing = await client.get(
+            f"/api/v1/cards/{card.id}/todos",
+            headers=auth_headers(admin),
+        )
+        assert len(listing.json()) == 1
+
+    async def test_scheduled_todo_cannot_be_completed(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        from app.models.todo import Todo
+
+        todo = Todo(
+            card_id=card.id,
+            description="Future review",
+            status="scheduled",
+            created_by=admin.id,
+            assigned_to=admin.id,
+            recurrence_unit="months",
+            recurrence_interval=6,
+            lead_time_days=7,
+        )
+        db.add(todo)
+        await db.flush()
+
+        resp = await client.patch(
+            f"/api/v1/todos/{todo.id}",
+            json={"status": "done"},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 409
+
+    async def test_promote_scheduled_todo(self, client, db, todos_env):
+        admin = todos_env["admin"]
+        card = todos_env["card"]
+        from app.models.todo import Todo
+
+        todo = Todo(
+            card_id=card.id,
+            description="Promote me",
+            status="scheduled",
+            created_by=admin.id,
+            assigned_to=admin.id,
+            recurrence_unit="months",
+            recurrence_interval=6,
+            lead_time_days=7,
+        )
+        db.add(todo)
+        await db.flush()
+
+        resp = await client.post(
+            f"/api/v1/todos/{todo.id}/promote",
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "open"
+
+
+# ---------------------------------------------------------------
 # DELETE /todos/{id}
 # ---------------------------------------------------------------
 

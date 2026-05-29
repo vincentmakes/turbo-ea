@@ -29,12 +29,12 @@ import type { MitigationTask, MitigationTaskOccurrence } from "@/types";
 import CompleteOccurrenceDialog, {
   type CompleteMode,
 } from "./CompleteOccurrenceDialog";
-import { activationDate } from "./leadTime";
+import { activationDate } from "@/lib/recurrence/leadTime";
 import MitigationTaskDialog, {
   type MitigationTaskDialogPayload,
 } from "./MitigationTaskDialog";
 import OccurrenceHistoryList from "./OccurrenceHistoryList";
-import { formatRecurrence } from "./recurrenceLabel";
+import { formatRecurrence } from "@/lib/recurrence/recurrenceLabel";
 import { exportTaskHistory } from "./taskHistoryExport";
 
 interface UserOption {
