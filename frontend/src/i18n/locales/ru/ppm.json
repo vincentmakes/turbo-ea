@@ -120,7 +120,7 @@
   "reporter": "Докладчик",
   "projectCount_one": "{{count}} проект",
   "projectCount_other": "{{count}} проектов",
-  "gantt": "Gantt",
+  "gantt": "Гантт",
   "wbs": "Структура декомпозиции работ",
   "addWbs": "Добавить рабочий пакет",
   "editWbs": "Редактировать рабочий пакет",

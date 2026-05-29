@@ -1,10 +1,8 @@
 {
-  "page.title": "Business Process Management",
-
+  "page.title": "Forretningsprocesstyring",
   "tabs.processNavigator": "Procesnavigator",
   "tabs.dashboard": "Dashboard",
   "tabs.reports": "Rapporter",
-
   "dashboard.totalProcesses": "Processer i alt",
   "dashboard.diagramCoverage": "Diagramdækning ({{with}}/{{total}})",
   "dashboard.highRisk": "Høj risiko",
@@ -19,7 +17,6 @@
   "dashboard.maturity": "Modenhed",
   "dashboard.loadFailed": "Kunne ikke indlæse BPM-dashboardet.",
   "dashboard.allProcesses": "Alle processer",
-
   "flowTab.processFlow": "Procesflow",
   "flowTab.revisionLabel": "Revision {{revision}}",
   "flowTab.revisionApprovedBy": "Revision {{revision}} — godkendt af {{name}} den {{date}}",
@@ -84,7 +81,6 @@
   "flowTab.drafts": "Kladder",
   "flowTab.elementUpdated": "Element opdateret",
   "flowTab.elementUpdateFailed": "Kunne ikke opdatere element",
-
   "assessment.title": "Procesvurderinger",
   "assessment.newAssessment": "Ny vurdering",
   "assessment.assessor": "Vurderer",
@@ -109,7 +105,7 @@
   "assessment.helpAutomationDesc": "Graden af procestrin udført af systemer kontra mennesker. Overvej straight-through processing, RPA-dækning, manuelle berøringspunkter, undtagelsesrate. Referencer: BPMN-automatisering, Hyperautomation.",
   "assessment.helpOverallTitle": "Samlet",
   "assessment.helpOverallDesc": "Holistisk procesmodenhedsscore. Brug CMMI-stil-ankre: 1 Indledende, 2 Styret, 3 Defineret, 4 Kvantitativt styret, 5 Optimerende.",
-  "assessment.helpBestPracticesTitle": "Best practices",
+  "assessment.helpBestPracticesTitle": "Bedste praksis",
   "assessment.helpBestPractice1": "Forankr scorer i evidens (KPI'er, revisionsresultater, observationer) — ikke holdninger.",
   "assessment.helpBestPractice2": "Vurdér hver dimension uafhængigt, før du udleder den samlede score.",
   "assessment.helpBestPractice3": "Brug en kalibreringssession med mindst én forretnings- og én IT-interessent.",
@@ -118,19 +114,15 @@
   "assessment.helpReferencesTitle": "Reference-rammeværker",
   "assessment.helpReferences": "APQC Process Classification Framework, CMMI, Lean Six Sigma, BPMN 2.0, COBIT, ISO 9001, TOGAF Business Architecture.",
   "assessment.helpButton": "Vurderingsguide",
-
   "templates.startYourDiagram": "Start dit procesdiagram",
   "templates.importBpmnFile": "Importér eksisterende BPMN-fil...",
-
   "viewer.unnamed": "(unavngivet)",
   "viewer.automated": "Automatiseret",
-
   "linker.linkToEA": "Tilknyt «{{name}}» til EA",
   "linker.application": "Applikation",
   "linker.dataObject": "Dataobjekt",
   "linker.itComponent": "IT-komponent",
   "linker.saving": "Gemmer...",
-
   "reports.processMap": "Proceskort",
   "reports.capabilityProcess": "Kompetence × proces",
   "reports.processApplication": "Proces × applikation",
@@ -154,7 +146,6 @@
   "reports.elementsCount_one": "{{count}} element",
   "reports.elementsCount_other": "{{count}} elementer",
   "reports.lane": "Bane",
-
   "navigator.overlayType": "Type",
   "navigator.overlayMaturity": "Modenhed",
   "navigator.overlayAutomation": "Automatisering",
@@ -212,7 +203,6 @@
   "navigator.coreProcesses": "Kerneprocesser",
   "navigator.supportProcesses": "Støtteprocesser",
   "navigator.noProcessesDefined": "Ingen {{type}} defineret",
-
   "modeler.save": "Gem",
   "modeler.saving": "Gemmer...",
   "modeler.draft": "Kladde",

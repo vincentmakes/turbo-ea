@@ -120,7 +120,7 @@
   "reporter": "报告人",
   "projectCount_one": "{{count}} 个项目",
   "projectCount_other": "{{count}} 个项目",
-  "gantt": "Gantt",
+  "gantt": "甘特图",
   "wbs": "工作分解结构",
   "addWbs": "添加工作包",
   "editWbs": "编辑工作包",

@@ -152,7 +152,7 @@
   "dependency.target": "Цель",
   "dependency.stats": "{{nodes}} узлов · {{relations}} связей",
   "dependency.treeView": "Древовидный вид",
-  "dependency.ldvView": "Layered Dependency View",
+  "dependency.ldvView": "Слоистое представление зависимостей",
   "dependency.ldvNoData": "Нет данных о зависимостях. Измените фильтр типа или создайте связи между карточками.",
   "dependency.home": "Вернуться к выбору карточек",
   "dependency.previousCard": "Предыдущая карточка",

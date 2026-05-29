@@ -210,7 +210,7 @@
   "portal.noResultsHint": "Intente ajustar su búsqueda o filtros.",
   "portal.searchPlaceholder": "Buscar {{label}}...",
   "portal.itemCount_one": "{{count}} {{label}}",
-  "portal.itemCount_other": "{{count}} {{label}}s",
+  "portal.itemCount_other": "{{count}} {{label}}",
   "portal.sortNameAsc": "Nombre A-Z",
   "portal.sortNameDesc": "Nombre Z-A",
   "portal.sortRecentlyUpdated": "Actualizados recientemente",

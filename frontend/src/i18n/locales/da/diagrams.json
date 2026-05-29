@@ -1,6 +1,5 @@
 {
   "page.title": "Diagrammer",
-
   "gallery.newDiagram": "Nyt diagram",
   "gallery.editDiagram": "Redigér diagram",
   "gallery.empty": "Ingen diagrammer endnu. Opret et for at komme i gang.",
@@ -18,12 +17,10 @@
   "gallery.menu.renameEdit": "Omdøb / redigér",
   "gallery.delete.title": "Slet diagram",
   "gallery.delete.confirm": "Er du sikker på, at du vil slette <strong>{{name}}</strong>? Denne handling kan ikke fortrydes.",
-
   "viewer.title": "Diagramviser",
   "viewer.notFound": "Diagram ikke fundet",
   "viewer.toolbar.edit": "Redigér",
   "viewer.toolbar.editTooltip": "Åbn diagrammet i editoren",
-
   "editor.title": "Diagrameditor",
   "editor.notFound": "Diagram ikke fundet",
   "editor.saved": "Diagram gemt",
@@ -119,7 +116,6 @@
   "editor.expandMenu.showDependency": "Vis afhængighed",
   "editor.expandMenu.drillDown": "Bor ned",
   "editor.expandMenu.rollUp": "Rul op",
-
   "sync.title": "Synkronisér",
   "sync.pushAll": "Send alle ({{count}})",
   "sync.checkUpdates": "Tjek opdateringer",
@@ -146,12 +142,9 @@
   "sync.inventoryChanged": "Lager ændret",
   "sync.acceptUpdate": "Acceptér opdatering fra lageret",
   "sync.allInSync": "Alt er synkroniseret.",
-
-
   "cardPicker.title": "Indsæt kort",
   "cardPicker.search": "Søg kort...",
   "cardPicker.selectOrSearch": "Vælg en type eller søg for at gennemse",
-
   "insertDialog.titleMulti": "Indsæt kort",
   "insertDialog.titleSingle": "Vælg et kort",
   "insertDialog.typeFilter": "Type",
@@ -171,22 +164,18 @@
   "insertDialog.insertAllConfirm": "Bekræft: indsæt alle",
   "insertDialog.confirmInsertAll_one": "Klik igen for at indsætte {{count}} kort",
   "insertDialog.confirmInsertAll_other": "Klik igen for at indsætte {{count}} kort",
-
   "viewSelector.button": "Visning: {{view}}",
   "viewSelector.cardType": "Kortfarver",
   "viewSelector.approvalStatus": "Godkendelsesstatus",
   "viewSelector.fieldsOnCard": "Felter på kortet",
-
   "legend.applied_one": "{{count}} celle farvet",
   "legend.applied_other": "{{count}} celler farvet",
   "legend.reset": "Nulstil til kortfarver",
-
   "createOnDiagram.title": "Opret kort",
   "createOnDiagram.descriptionOptional": "Beskrivelse (valgfri)",
   "createOnDiagram.pendingHintPre": "Tilføjes til diagrammet som afventende",
   "createOnDiagram.pendingHintPost": "Synkronisér for at gemme det i lageret.",
   "createOnDiagram.addToDiagram": "Tilføj til diagram",
-
   "relationPicker.title": "Vælg relationstype",
   "relationPicker.noValidTypes": "Der findes ingen gyldige relationstyper mellem disse to korttyper i metamodellen."
 }

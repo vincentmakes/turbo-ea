@@ -152,7 +152,7 @@
   "dependency.target": "Destinazione",
   "dependency.stats": "{{nodes}} nodi · {{relations}} relazioni",
   "dependency.treeView": "Vista ad albero",
-  "dependency.ldvView": "Layered Dependency View",
+  "dependency.ldvView": "Vista delle dipendenze a livelli",
   "dependency.ldvNoData": "Nessun dato sulle dipendenze. Regola il filtro per tipo o crea relazioni tra le schede.",
   "dependency.home": "Torna al selettore di schede",
   "dependency.previousCard": "Scheda precedente",

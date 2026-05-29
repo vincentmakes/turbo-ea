@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.36.0] - 2026-05-29
+
+### Fixed
+- **Filled in missing UI translations across all languages.** A large backlog of interface strings — concentrated in the Card Detail archive/delete/restore dialogs, the Admin settings / SSO / ServiceNow / compliance screens, EA Delivery, reports, and BPM/PPM — had only ever been written in English and fell back to English in German, French, Spanish, Italian, Portuguese, Chinese, Russian, and Danish. All of these are now properly translated (~530 strings), so switching the interface language no longer leaves stray English labels. Brand names, acronyms, and standard/regulation names (e.g. GDPR, ISO 27001) are intentionally left untranslated.
+
 ## [1.35.0] - 2026-05-29
 
 ### Added

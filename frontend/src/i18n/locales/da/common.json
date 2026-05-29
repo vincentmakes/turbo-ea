@@ -52,7 +52,7 @@
   "status.pending": "Afventer",
   "status.published": "Udgivet",
   "status.completed": "Afsluttet",
-  "lifecycle.plan": "Plan",
+  "lifecycle.plan": "Planlagt",
   "lifecycle.phaseIn": "Indfasning",
   "lifecycle.active": "Aktiv",
   "lifecycle.phaseOut": "Udfasning",
