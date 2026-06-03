@@ -137,7 +137,7 @@ Isso é útil para identificar lacunas de cobertura (capacidades sem aplicaçõe
 
 ![Relatório de Qualidade dos Dados](../assets/img/pt/33_relatorio_qualidade_dados.png)
 
-O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostra quão bem seus dados de arquitetura estão preenchidos. Baseado nos pesos dos campos configurados no metamodelo:
+O **Relatório de Qualidade dos Dados** é um **painel de completude** que mostra quão bem seus dados de arquitetura estão preenchidos. Baseado nos níveis de importância configurados na aba **Qualidade dos dados** de cada tipo de card (cada campo mais os fatores integrados Descrição, Ciclo de vida, Relações obrigatórias e Etiquetas obrigatórias):
 
 - **Pontuação geral** — Qualidade média dos dados em todos os cards
 - **Por tipo** — Detalhamento mostrando quais tipos de card têm melhor/pior completude

@@ -74,7 +74,7 @@ La importancia de cada factor se establece con un control deslizante simple de c
 
 El panel enumera los cuatro **factores integrados** —**Descripción**, **Ciclo de vida** (si hay alguna fecha de ciclo de vida establecida), **Relaciones obligatorias** y **Etiquetas obligatorias**— seguidos de cada campo agrupado por su sección, todos con el mismo control deslizante. Por ejemplo, establezca el **Ciclo de vida** en *Ignorar* para un tipo cuyas tarjetas legítimamente nunca llevan fechas, para que no se penalicen.
 
-Una barra de **composición de la puntuación** en la parte superior del panel muestra la proporción de cada factor en la puntuación máxima posible, para ver de un vistazo qué factores dominan. En el diseño de la tarjeta, cada campo también muestra una pequeña insignia con su nivel actual.
+Una barra de **composición de la puntuación** en la parte superior del panel muestra la proporción de cada factor en la puntuación máxima posible, para ver de un vistazo qué factores dominan. En el diseño de la tarjeta de la pestaña **Main**, cada campo —y las secciones integradas Descripción, Ciclo de vida y Relaciones— muestra una pequeña insignia con su nivel actual, para ver la ponderación sin salir de esa pestaña.
 
 Cambiar cualquier importancia vuelve a puntuar inmediatamente todas las tarjetas existentes de ese tipo. Los campos nuevos son *Normal* de forma predeterminada, por lo que cuentan para la puntuación en cuanto los agrega.
 

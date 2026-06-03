@@ -137,7 +137,7 @@ Ceci est utile pour identifier les lacunes de couverture (capacités sans applic
 
 ![Rapport Qualité des données](../assets/img/fr/33_rapport_qualite_donnees.png)
 
-Le **Rapport Qualité des données** est un **tableau de bord de complétude** qui montre à quel point vos données d'architecture sont bien renseignées. Basé sur les poids des champs configurés dans le métamodèle :
+Le **Rapport Qualité des données** est un **tableau de bord de complétude** qui montre à quel point vos données d'architecture sont bien renseignées. Basé sur les niveaux d'importance configurés dans l'onglet **Qualité des données** de chaque type de fiche (chaque champ ainsi que les facteurs intégrés Description, Cycle de vie, Relations obligatoires et Étiquettes obligatoires) :
 
 - **Score global** -- Qualité moyenne des données sur toutes les fiches
 - **Par type** -- Ventilation montrant quels types de fiches ont la meilleure/pire complétude

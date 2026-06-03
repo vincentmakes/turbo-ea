@@ -137,7 +137,7 @@ Dies ist nützlich zur Identifizierung von Abdeckungslücken (Fähigkeiten ohne 
 
 ![Datenqualitätsbericht](../assets/img/de/33_bericht_datenqualitaet.png)
 
-Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeigt, wie gut Ihre Architekturdaten ausgefüllt sind. Basierend auf den im Metamodell konfigurierten Feldgewichtungen:
+Der **Datenqualitätsbericht** ist ein **Vollständigkeits-Dashboard**, das zeigt, wie gut Ihre Architekturdaten ausgefüllt sind. Basierend auf den Wichtigkeiten, die in der Registerkarte **Datenqualität** jedes Kartentyps konfiguriert sind (jedes Feld sowie die integrierten Faktoren Beschreibung, Lebenszyklus, Pflichtbeziehungen und Pflicht-Tags):
 
 - **Gesamtbewertung** — Durchschnittliche Datenqualität über alle Karten
 - **Nach Typ** — Aufschlüsselung, die zeigt, welche Kartentypen die beste/schlechteste Vollständigkeit haben

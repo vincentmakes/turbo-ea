@@ -74,7 +74,7 @@ A importância de cada fator é definida com um controle deslizante simples de q
 
 O painel lista os quatro **fatores integrados** — **Descrição**, **Ciclo de vida** (se alguma data de ciclo de vida estiver definida), **Relações obrigatórias** e **Etiquetas obrigatórias** — seguidos de cada campo agrupado pela sua seção, cada um com o mesmo controle deslizante. Por exemplo, defina o **Ciclo de vida** como *Ignorar* para um tipo cujos cards legitimamente nunca têm datas, para que não sejam penalizados.
 
-Uma barra de **composição da pontuação** no topo do painel mostra a parcela de cada fator na pontuação máxima possível, para ver rapidamente quais fatores dominam. No layout do card, cada campo também mostra um pequeno selo com o seu nível atual.
+Uma barra de **composição da pontuação** no topo do painel mostra a parcela de cada fator na pontuação máxima possível, para ver rapidamente quais fatores dominam. No layout do card da aba **Principal**, cada campo — e as seções integradas Descrição, Ciclo de vida e Relações — mostra um pequeno selo com o seu nível atual, para ver a ponderação sem sair dessa aba.
 
 Alterar qualquer importância recalcula imediatamente a pontuação de todos os cards existentes desse tipo. Os campos novos são *Normal* por padrão, portanto contam para a pontuação assim que você os adiciona.
 

@@ -74,7 +74,7 @@ Die Wichtigkeit jedes Faktors wird mit einem einfachen Schieberegler über vier 
 
 Der Bereich listet die vier **integrierten Faktoren** – **Beschreibung**, **Lebenszyklus** (ob ein Lebenszyklusdatum gesetzt ist), **Pflichtbeziehungen** und **Pflicht-Tags** – gefolgt von jedem Feld, gruppiert nach seinem Abschnitt, jeweils mit demselben Schieberegler. Setzen Sie zum Beispiel den **Lebenszyklus** auf *Ignorieren* für einen Typ, dessen Karten berechtigterweise nie Datumsangaben tragen, damit sie nicht abgewertet werden.
 
-Ein Balken zur **Wertzusammensetzung** oben im Bereich zeigt den Anteil jedes Faktors am maximal möglichen Wert, sodass Sie auf einen Blick sehen, welche Faktoren dominieren. Im Karten-Layout zeigt jedes Feld zusätzlich ein kleines Abzeichen mit seiner aktuellen Stufennummer.
+Ein Balken zur **Wertzusammensetzung** oben im Bereich zeigt den Anteil jedes Faktors am maximal möglichen Wert, sodass Sie auf einen Blick sehen, welche Faktoren dominieren. Im Karten-Layout der Registerkarte **Allgemein** zeigt jedes Feld – sowie die integrierten Abschnitte Beschreibung, Lebenszyklus und Beziehungen – ein kleines Abzeichen mit seiner aktuellen Stufennummer, sodass Sie die Gewichtung sehen, ohne die Registerkarte zu verlassen.
 
 Das Ändern einer Wichtigkeit bewertet sofort jede vorhandene Karte dieses Typs neu. Neue Felder sind standardmäßig *Normal* und zählen somit zur Bewertung, sobald Sie sie hinzufügen.
 

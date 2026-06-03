@@ -74,7 +74,7 @@ L'importance de chaque facteur se règle avec un simple curseur à quatre niveau
 
 Le panneau liste les quatre **facteurs intégrés** – **Description**, **Cycle de vie** (selon qu'une date de cycle de vie est renseignée), **Relations obligatoires** et **Étiquettes obligatoires** – suivis de chaque champ regroupé par section, avec le même curseur. Par exemple, réglez le **Cycle de vie** sur *Ignorer* pour un type dont les fiches ne portent légitimement jamais de dates, afin qu'elles ne soient pas pénalisées.
 
-Une barre de **composition du score** en haut du panneau montre la part de chaque facteur dans le score maximal possible, pour voir d'un coup d'œil quels facteurs dominent. Dans la mise en page de la fiche, chaque champ affiche également un petit badge avec son niveau actuel.
+Une barre de **composition du score** en haut du panneau montre la part de chaque facteur dans le score maximal possible, pour voir d'un coup d'œil quels facteurs dominent. Dans la mise en page de la fiche de l'onglet **Principal**, chaque champ – ainsi que les sections intégrées Description, Cycle de vie et Relations – affiche un petit badge avec son niveau actuel, pour voir la pondération sans quitter cet onglet.
 
 Modifier une importance recalcule immédiatement le score de chaque fiche existante de ce type. Les nouveaux champs sont *Normale* par défaut et comptent donc dans le score dès que vous les ajoutez.
 

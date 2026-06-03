@@ -137,7 +137,7 @@ Dette er nyttigt til at identificere dækningshuller (kompetencer uden understø
 
 ![Datakvalitetsrapport](../assets/img/en/33_report_data_quality.png)
 
-**Datakvalitetsrapporten** er et **fuldstændigheds-dashboard**, der viser, hvor godt dine arkitekturdata er udfyldt. Baseret på felt-vægte konfigureret i metamodellen:
+**Datakvalitetsrapporten** er et **fuldstændigheds-dashboard**, der viser, hvor godt dine arkitekturdata er udfyldt. Baseret på de vigtighedsniveauer, der er konfigureret i fanen **Datakvalitet** for hver korttype (hvert felt plus de indbyggede faktorer Beskrivelse, Livscyklus, obligatoriske relationer og obligatoriske tags):
 
 - **Samlet score** — Gennemsnitlig datakvalitet på tværs af alle kort
 - **Efter type** — Nedbrydning, der viser hvilke korttyper der har den bedste/dårligste fuldstændighed

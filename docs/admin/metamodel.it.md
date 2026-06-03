@@ -74,7 +74,7 @@ L'importanza di ciascun fattore si imposta con un semplice cursore a quattro liv
 
 Il pannello elenca i quattro **fattori integrati** — **Descrizione**, **Ciclo di vita** (se è impostata almeno una data del ciclo di vita), **Relazioni obbligatorie** e **Tag obbligatori** — seguiti da ogni campo raggruppato per sezione, ciascuno con lo stesso cursore. Ad esempio, imposta il **Ciclo di vita** su *Ignora* per un tipo le cui card legittimamente non riportano mai date, così da non penalizzarle.
 
-Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card, ogni campo mostra anche un piccolo badge con il livello attuale.
+Una barra di **composizione del punteggio** in cima al pannello mostra la quota di ciascun fattore sul punteggio massimo possibile, per vedere a colpo d'occhio quali fattori dominano. Nel layout della card della scheda **Generale**, ogni campo — e le sezioni integrate Descrizione, Ciclo di vita e Relazioni — mostra un piccolo badge con il livello attuale, per vedere la ponderazione senza lasciare quella scheda.
 
 La modifica di qualsiasi importanza ricalcola immediatamente il punteggio di ogni card esistente di quel tipo. I nuovi campi sono *Normale* per impostazione predefinita e quindi contano per il punteggio non appena li aggiungi.
 

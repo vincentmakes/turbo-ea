@@ -137,7 +137,7 @@ This is useful for identifying coverage gaps (capabilities with no supporting ap
 
 ![Data Quality Report](../assets/img/en/33_report_data_quality.png)
 
-The **Data Quality Report** is a **completeness dashboard** that shows how well your architecture data is filled in. Based on field weights configured in the metamodel:
+The **Data Quality Report** is a **completeness dashboard** that shows how well your architecture data is filled in. Based on the importance weights configured in each card type's **Data quality** tab (each field plus the built-in Description, Lifecycle, mandatory Relations and mandatory Tags factors):
 
 - **Overall score** — Average data quality across all cards
 - **By type** — Breakdown showing which card types have the best/worst completeness
