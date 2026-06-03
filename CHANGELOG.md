@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.39.1] - 2026-06-03
+
+### Security
+- **Updated `react-router-dom` to 7.16.0** to remediate three advisories affecting the bundled 7.13.0: a client-side XSS in the unstable RSC redirect API ([GHSA-8646-j5j9-6r62](https://github.com/advisories/GHSA-8646-j5j9-6r62), CVSS 8.0), an unauthenticated RCE via the vendored turbo-stream deserialiser ([GHSA-49rj-9fvp-4h2h](https://github.com/advisories/GHSA-49rj-9fvp-4h2h)), and a protocol-relative open redirect ([GHSA-2j2x-hqr9-3h42](https://github.com/advisories/GHSA-2j2x-hqr9-3h42)). The bump stays within the v7 line and is API-compatible.
+
 ## [1.39.0] - 2026-06-03
 
 ### Added
