@@ -1554,7 +1554,7 @@ export default function DiagramEditor() {
       }
 
       const cols = Math.min(4, cards.length);
-      const cellW = 200;
+      const cellW = 230;
       const cellH = 80;
       let insertedCount = 0;
       for (let i = 0; i < cards.length; i++) {

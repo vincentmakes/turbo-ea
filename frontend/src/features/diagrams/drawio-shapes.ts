@@ -139,7 +139,7 @@ export function buildCardCellData(opts: InsertCardOpts): CardCellData {
     cardType,
     x,
     y,
-    width: 180,
+    width: 210,
     height: 60,
     style,
   };
@@ -307,7 +307,7 @@ export function insertPendingCard(
       obj,
       opts.x,
       opts.y,
-      180,
+      210,
       60,
       buildPendingStyle(opts.color, opts.icon),
     );
@@ -591,7 +591,7 @@ const CHEVRON_OVERLAY = `data:image/svg+xml,${encodeURIComponent(
     '</svg>',
 )}`;
 
-const CHILD_CARD_W = 160;
+const CHILD_CARD_W = 190;
 const CHILD_CARD_H = 40;
 const CHILD_GAP_Y = 10;
 const CHILD_GAP_X = 60;
@@ -2850,7 +2850,7 @@ export function drillDownInto(
   // Layout constants tuned to feel like LeanIX's container drill-down.
   const HEADER = 28;
   const PAD = 12;
-  const CHILD_W = 150;
+  const CHILD_W = 180;
   const CHILD_H = 50;
   const GAP = 10;
 
@@ -2991,7 +2991,7 @@ export function rollUpInto(
   // missing ones are freshly inserted.
   const HEADER = 28;
   const PAD = 12;
-  const CHILD_W = 150;
+  const CHILD_W = 180;
   const CHILD_H = 50;
   const GAP = 10;
   const count = 1 + siblings.length;
