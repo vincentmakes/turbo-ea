@@ -22,6 +22,8 @@ Use el diálogo **Insertar tarjetas** (desde la barra de herramientas o el menú
 
 El mismo diálogo se abre en modo de selección única para **Cambiar tarjeta vinculada** y **Vincular a tarjeta existente**.
 
+Cada tarjeta en el lienzo muestra su **icono de tipo de tarjeta** como un pequeño glifo blanco en la esquina superior izquierda, junto al color del tipo — de modo que el tipo de una tarjeta se transmite tanto por el icono como por el color. Esto coincide con los iconos usados en toda la aplicación y mejora la legibilidad para usuarios daltónicos. El icono aparece en las tarjetas insertadas a partir de ahora; las formas de diagramas anteriores no cambian hasta que se reinsertan.
+
 ### Acciones del clic derecho
 
 - **Tarjetas sincronizadas**: *Abrir tarjeta*, *Cambiar tarjeta vinculada*, *Desvincular tarjeta*, *Quitar del diagrama*.

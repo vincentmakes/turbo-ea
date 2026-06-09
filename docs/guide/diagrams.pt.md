@@ -22,6 +22,8 @@ Use a caixa de diálogo **Inserir cartões** (a partir da barra de ferramentas o
 
 A mesma caixa abre em modo seleção única para **Mudar cartão vinculado** e **Vincular a cartão existente**.
 
+Cada cartão na tela mostra o seu **ícone de tipo de cartão** como um pequeno glifo branco no canto superior esquerdo, ao lado da cor do tipo — assim o tipo de um cartão é transmitido tanto pelo ícone quanto pela cor. Isso corresponde aos ícones usados em toda a aplicação e melhora a legibilidade para utilizadores daltónicos. O ícone aparece nos cartões inseridos a partir de agora; as formas em diagramas mais antigos permanecem inalteradas até serem reinseridas.
+
 ### Ações do clique direito
 
 - **Cartões sincronizados**: *Abrir cartão*, *Mudar cartão vinculado*, *Desvincular cartão*, *Remover do diagrama*.

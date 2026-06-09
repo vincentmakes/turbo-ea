@@ -22,6 +22,8 @@ Utilisez le dialogue **Insérer des fiches** (depuis la barre d'outils ou le men
 
 Le même dialogue s'ouvre en mode sélection unique pour **Changer la fiche liée** et **Lier à une fiche existante**.
 
+Chaque fiche sur le canevas affiche son **icône de type de fiche** sous la forme d'un petit glyphe blanc dans le coin supérieur gauche, à côté de la couleur du type — le type d'une fiche est ainsi indiqué à la fois par l'icône et par la couleur. Cela correspond aux icônes utilisées dans toute l'application et améliore la lisibilité pour les utilisateurs daltoniens. L'icône apparaît sur les fiches insérées à partir de maintenant ; les formes des diagrammes plus anciens restent inchangées jusqu'à leur réinsertion.
+
 ### Actions du clic droit
 
 - **Fiches synchronisées** : *Ouvrir la fiche*, *Changer la fiche liée*, *Délier la fiche*, *Retirer du diagramme*.

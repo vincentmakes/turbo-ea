@@ -22,6 +22,8 @@ Brug dialogen **Insert Cards** (åbnes fra værktøjslinjen eller højrekliks-me
 
 Den samme dialog åbnes i enkeltvalgstilstand for **Change Linked Card** og **Link to Existing Card**.
 
+Hvert kort på lærredet viser sit **korttype-ikon** som en lille hvid glyf i øverste venstre hjørne, ved siden af typefarven — så et korts type formidles af både ikon og farve. Det svarer til de ikoner, der bruges i hele appen, og forbedrer læsbarheden for farveblinde brugere. Ikonet vises på kort, der indsættes fra nu af; figurer på ældre diagrammer er uændrede, indtil de genindsættes.
+
 ### Højrekliks-handlinger
 
 - **Synkroniserede kort**: *Open Card*, *Change Linked Card*, *Unlink Card*, *Remove from diagram*.

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.40.0] - 2026-06-09
+
+### Added
+- **Card-type icons on diagram shapes.** Cards placed on a DrawIO diagram now show their card-type icon as a small white glyph in the top-left corner of the shape, in addition to the type colour. Following [#638](https://github.com/vincentmakes/turbo-ea/discussions/638), this gives a second, non-colour cue for a card's type — improving accessibility for colour-blind users. The icon is baked into the shape, so dragging, copying, or exporting it moves the icon with it. The icon set matches the metamodel icon picker, so custom card-type icons appear too. Shapes on previously-saved diagrams are unchanged; the icon is added to cards inserted from now on.
+
 ## [1.39.1] - 2026-06-03
 
 ### Security

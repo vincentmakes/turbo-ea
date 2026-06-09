@@ -22,6 +22,8 @@ Use the **Insert Cards** dialog (opened from the toolbar or the right-click menu
 
 The same dialog opens in single-select mode for **Change Linked Card** and **Link to Existing Card**.
 
+Each card on the canvas shows its **card-type icon** as a small white glyph in the top-left corner, next to the type colour — so a card's type is conveyed by both icon and colour. This matches the icons used across the app and improves readability for colour-blind users. The icon appears on cards inserted from now on; shapes on older diagrams are unchanged until re-inserted.
+
 ### Right-click actions
 
 - **Synced cards**: *Open Card*, *Change Linked Card*, *Unlink Card*, *Remove from diagram*.

@@ -772,6 +772,7 @@ export default function DiagramEditor() {
               name: other.name,
               type: other.type,
               color: ct?.color || "#999",
+              icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
             });
@@ -821,6 +822,11 @@ export default function DiagramEditor() {
    *  drill-down / roll-up child cells. */
   const colorForType = useCallback((typeKey: string): string => {
     return fsTypesRef.current.find((tp) => tp.key === typeKey)?.color || "#999";
+  }, []);
+
+  /** Card-type icon name for drill-down / roll-up child cells. */
+  const iconForType = useCallback((typeKey: string): string | undefined => {
+    return fsTypesRef.current.find((tp) => tp.key === typeKey)?.icon;
   }, []);
 
   /** Resolve a relation-type key (e.g. "appUsesItc") to its human-readable
@@ -880,6 +886,7 @@ export default function DiagramEditor() {
                 name: other.name,
                 type: other.type,
                 color: colorForType(other.type),
+                icon: iconForType(other.type),
                 relationType: r.type,
                 relationId: r.id,
               });
@@ -968,6 +975,7 @@ export default function DiagramEditor() {
             name: c.name,
             type: c.type,
             color: colorForType(c.type),
+            icon: iconForType(c.type),
           }));
         if (hChildren.length === 0) {
           setSnackMsg(t("editor.allChildrenAlreadyOnCanvas"));
@@ -1026,6 +1034,7 @@ export default function DiagramEditor() {
               name: s.name,
               type: s.type,
               color: colorForType(s.type),
+              icon: iconForType(s.type),
             },
           }));
         // Roll-up re-parents the current cell into the new container.
@@ -1101,6 +1110,7 @@ export default function DiagramEditor() {
               name: other.name,
               type: other.type,
               color: ct?.color || "#999",
+              icon: ct?.icon,
               relationType: r.type,
               relationId: r.id,
             });
@@ -1510,6 +1520,7 @@ export default function DiagramEditor() {
           cardType: card.type,
           name: card.name,
           color: ct.color,
+          icon: ct.icon,
         });
         if (ok) {
           const targetCellId = relinkTargetCellId;
@@ -1557,6 +1568,7 @@ export default function DiagramEditor() {
           cardType: c.type,
           name: c.name,
           color: ct.color,
+          icon: ct.icon,
           x,
           y,
         });
@@ -1748,6 +1760,7 @@ export default function DiagramEditor() {
           type: data.type,
           name: data.name,
           color,
+          icon: typeInfo?.icon,
         });
         if (ok) {
           // The shape was previously a plain DrawIO vertex with no cardId,
@@ -1778,6 +1791,7 @@ export default function DiagramEditor() {
         type: data.type,
         name: data.name,
         color,
+        icon: typeInfo?.icon,
         x,
         y,
       });

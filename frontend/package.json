@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "gen:diagram-icons": "node scripts/gen-diagram-icon-paths.mjs"
   },
   "dependencies": {
     "@bpmn-io/properties-panel": "^3.39.0",
@@ -51,6 +52,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
+    "@material-symbols/svg-400": "^0.44.12",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",
     "@testing-library/user-event": "^14.5.0",
