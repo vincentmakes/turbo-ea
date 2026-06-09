@@ -10,6 +10,8 @@ describe("buildCardCellData — card-type icon", () => {
     expect(style).toContain("shape=label");
     expect(style).toContain("imageAlign=left");
     expect(style).toContain("imageVerticalAlign=top");
+    // Reserve a left gutter so the label never overlaps the corner glyph.
+    expect(style).toContain("spacingLeft=24");
     const imageToken = style.split(";").find((p) => p.startsWith("image="));
     expect(imageToken).toBeDefined();
     expect(imageToken).toMatch(/^image=data:image\/svg\+xml,/);

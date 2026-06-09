@@ -60,9 +60,12 @@ function iconStyleParts(icon?: string): string[] {
     "imageVerticalAlign=top",
     "imageWidth=18",
     "imageHeight=18",
-    // `spacing` insets the image from the top-left corner in mxLabel; the card
-    // name keeps its default centered alignment, clear of the corner glyph.
+    // `spacing` insets the icon from the top-left corner; `spacingLeft`
+    // reserves a matching left gutter for the label so the (centered) card
+    // name is always laid out to the right of the glyph and never overlaps it,
+    // even when it wraps to several lines.
     "spacing=4",
+    "spacingLeft=24",
   ];
 }
 
