@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.1] - 2026-06-11
+
+### Fixed
+- **Manual `workflow_dispatch` republishes of the GHCR images now retag `:latest`.** The `docker-publish.yml` workflow uses `docker/metadata-action`'s `flavor: latest=auto`, which only retags `:latest` on push-to-default-branch and semver-tag events — NOT on `workflow_dispatch`. That meant manual rebuilds triggered to pick up fresh Alpine apk patches (the common pattern for clearing transient base-image OpenSSL CVEs surfaced by the daily Trivy scan) silently published the patched layers under `:main` / `:sha-XXX` while `:latest` — which `docker-compose.yml` and the daily security-scan workflow both consume — kept pointing at the previous unpatched merge. Two `type=raw` entries now additionally tag `:latest` when the workflow fires on `workflow_dispatch` from `main` or on the weekly `schedule`. No effect on regular merges to main (those still tag `:latest` via `latest=auto`).
+
 ## [1.41.0] - 2026-06-01
 
 ### Added

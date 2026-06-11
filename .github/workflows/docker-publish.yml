@@ -62,6 +62,14 @@ jobs:
         uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          # `latest=auto` only retags `:latest` on push-to-default-branch and
+          # semver-tag events — NOT on workflow_dispatch. That meant manual
+          # rebuilds (e.g. the apk-upgrade republishes we run to pull fresh
+          # Alpine OpenSSL fixes) silently published patched layers under
+          # `:main` / `:sha-XXX` while `:latest` (which docker-compose and
+          # the daily security scan both consume) kept pointing at the
+          # previous unpatched merge. The fix below additionally tags
+          # `:latest` on workflow_dispatch when run from main.
           flavor: latest=auto
           tags: |
             type=ref,event=branch
@@ -69,6 +77,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
+            type=raw,value=latest,enable=${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'schedule' }}
 
       - name: Build and push
         id: build
