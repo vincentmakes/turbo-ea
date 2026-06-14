@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.2] - 2026-06-14
+
+### Security
+- **Bumped the bundled `esbuild` to ≥ 0.28.1** to clear two GitHub/Dependabot advisories affecting the build toolchain: missing binary-integrity verification in the Deno module enabling RCE via `NPM_CONFIG_REGISTRY` ([GHSA-gv7w-rqvm-qjhr](https://github.com/advisories/GHSA-gv7w-rqvm-qjhr)) and a dev-server arbitrary file read on Windows ([GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr)). Both are build/dev-time only and do not affect the production runtime. The patched esbuild is incompatible with Vite 6, so Vite was upgraded to `^7.3.5` (with `@vitejs/plugin-react` `^4.7.0`); `npm audit` is now clean (0 vulnerabilities) and the full frontend build + test suite pass. Note: Vite 7's default build target moves to `baseline-widely-available` (modern evergreen browsers).
+
+### Fixed
+- **Custom favicon now applies on iOS.** The Apple touch icon link in the page head was hardcoded to the bundled default `/favicon.png`, so iOS Safari (tab, bookmark, and Home Screen icons) ignored an admin-uploaded custom favicon. It now resolves through the same dynamic `/api/v1/settings/favicon` endpoint as the standard browser-tab favicon. Note: iOS caches the Home Screen icon aggressively, so a site already added to the Home Screen may need to be removed and re-added once to pick up the new icon.
+
 ## [1.41.1] - 2026-06-11
 
 ### Fixed
