@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.2] - 2026-06-14
+
+### Fixed
+- **Custom favicon now applies on iOS.** The Apple touch icon link in the page head was hardcoded to the bundled default `/favicon.png`, so iOS Safari (tab, bookmark, and Home Screen icons) ignored an admin-uploaded custom favicon. It now resolves through the same dynamic `/api/v1/settings/favicon` endpoint as the standard browser-tab favicon. Note: iOS caches the Home Screen icon aggressively, so a site already added to the Home Screen may need to be removed and re-added once to pick up the new icon.
+
 ## [1.41.1] - 2026-06-11
 
 ### Fixed
