@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.3] - 2026-06-16
+
+### Security
+- **Cleared five newly-disclosed frontend dependency advisories so `npm audit` is clean again (0 vulnerabilities).** Bumped `dompurify` to `^3.4.10` (direct dependency) to fix a cluster of XSS advisories affecting `IN_PLACE` / cross-realm sanitization and Trusted Types config (e.g. [GHSA-x4vx-rjvf-j5p4](https://github.com/advisories/GHSA-x4vx-rjvf-j5p4), [GHSA-r47g-fvhr-h676](https://github.com/advisories/GHSA-r47g-fvhr-h676)), and pinned four transitive packages via `overrides`: `markdown-it` ≥ 14.2.0 (quadratic-complexity DoS in the smartquotes rule, [GHSA-6v5v-wf23-fmfq](https://github.com/advisories/GHSA-6v5v-wf23-fmfq); pulled in by TipTap via `prosemirror-markdown`), `form-data` ≥ 4.0.6 (CRLF injection via unescaped multipart field names, [CVE-2025-7783](https://github.com/advisories/GHSA-fjxv-7rqg-78g4); dev-only, via `jsdom`), `js-yaml` ≥ 4.2.0 (quadratic-complexity DoS in merge-key handling; dev-only, via `@eslint/eslintrc`), and `@babel/core` ≥ 7.29.7 (arbitrary file read via `sourceMappingURL` comment, [GHSA-4x5r-pxfx-6jf8](https://github.com/advisories/GHSA-4x5r-pxfx-6jf8); dev-only). `dompurify` and `markdown-it` are used at runtime, so the full frontend build and the 1243-test suite were re-run and pass. Backend `pip-audit` was already clean. All bumps stay within their consumers' semver ranges (no major upgrades).
+
 ## [1.41.2] - 2026-06-14
 
 ### Security
