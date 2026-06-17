@@ -203,6 +203,15 @@ ${nginx_https_ipv6_line}
 
     resolver 127.0.0.11 valid=30s;
 
+    # Resolve service hostnames through Docker's embedded DNS at request time
+    # (the resolver above only re-resolves when the upstream is a variable).
+    # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
+    # if backend/frontend are recreated (new IP) while this nginx keeps running
+    # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
+    # until nginx restarts. Variable upstreams + resolver avoid that.
+    set \$backend_upstream http://backend:8000;
+    set \$frontend_upstream http://frontend:8080;
+
     add_header X-Frame-Options \"SAMEORIGIN\" always;
     add_header X-Content-Type-Options \"nosniff\" always;
     add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
@@ -211,7 +220,7 @@ ${nginx_https_ipv6_line}
     add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;
 
     location /api/ {
-        proxy_pass http://backend:8000/api/;
+        proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -225,7 +234,7 @@ ${nginx_https_ipv6_line}
     }
 
     location = /api/docs {
-        proxy_pass http://backend:8000/api/docs;
+        proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -256,7 +265,7 @@ ${nginx_https_ipv6_line}
     }
 
     location = /drawio/index.html {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-store, no-transform\" always;
@@ -267,14 +276,14 @@ ${nginx_https_ipv6_line}
     }
 
     location ^~ /drawio/ {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
     }
 
     location / {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
@@ -297,6 +306,15 @@ ${nginx_http_ipv6_line}
 
     resolver 127.0.0.11 valid=30s;
 
+    # Resolve service hostnames through Docker's embedded DNS at request time
+    # (the resolver above only re-resolves when the upstream is a variable).
+    # A literal \"proxy_pass http://backend:8000\" caches the IP at startup, so
+    # if backend/frontend are recreated (new IP) while this nginx keeps running
+    # — e.g. after \"docker compose pull && up -d\" — every proxied request 502s
+    # until nginx restarts. Variable upstreams + resolver avoid that.
+    set \$backend_upstream http://backend:8000;
+    set \$frontend_upstream http://frontend:8080;
+
     add_header X-Frame-Options \"SAMEORIGIN\" always;
     add_header X-Content-Type-Options \"nosniff\" always;
     add_header Referrer-Policy \"strict-origin-when-cross-origin\" always;
@@ -304,7 +322,7 @@ ${nginx_http_ipv6_line}
     add_header X-XSS-Protection \"1; mode=block\" always;
 
     location /api/ {
-        proxy_pass http://backend:8000/api/;
+        proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -318,7 +336,7 @@ ${nginx_http_ipv6_line}
     }
 
     location = /api/docs {
-        proxy_pass http://backend:8000/api/docs;
+        proxy_pass \$backend_upstream\$request_uri;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -348,7 +366,7 @@ ${nginx_http_ipv6_line}
     }
 
     location = /drawio/index.html {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"no-store, no-transform\" always;
@@ -358,14 +376,14 @@ ${nginx_http_ipv6_line}
     }
 
     location ^~ /drawio/ {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         add_header X-Robots-Tag \"noindex, nofollow\" always;
         add_header Cache-Control \"public, no-transform, max-age=2592000\" always;
     }
 
     location / {
-        proxy_pass http://frontend:8080;
+        proxy_pass \$frontend_upstream\$request_uri;
         proxy_set_header Host \$host;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
