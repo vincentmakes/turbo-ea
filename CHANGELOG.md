@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.4] - 2026-06-17
+
+### Added
+- **More display currencies, including the Indonesian Rupiah (IDR).** Expanded the currency picker in Admin → Settings → General with a curated batch of widely-used ISO currencies: IDR, THB, MYR, PHP, VND, NZD, TWD, AED, SAR, ILS, QAR, CZK, HUF, RON, RUB, UAH, ARS, CLP, COP, EGP, NGN, PKR, and BDT. Amounts continue to format with the correct symbol and grouping automatically.
+
 ## [1.41.3] - 2026-06-16
 
 ### Security

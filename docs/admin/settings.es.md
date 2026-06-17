@@ -28,7 +28,7 @@ Cargue un icono de navegador personalizado (favicon). El cambio se aplicará en 
 
 ### Moneda
 
-Seleccione la moneda utilizada para los campos de costo en toda la plataforma. Esto afecta a cómo se formatean los valores de costo en las páginas de detalle de fichas, informes y exportaciones. Se admiten más de 20 monedas, incluyendo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, entre otras.
+Seleccione la moneda utilizada para los campos de costo en toda la plataforma. Esto afecta a cómo se formatean los valores de costo en las páginas de detalle de fichas, informes y exportaciones. Se admiten más de 40 monedas, incluyendo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, IDR, entre otras.
 
 ### Formato de fecha
 

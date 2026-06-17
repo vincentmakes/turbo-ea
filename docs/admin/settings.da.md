@@ -28,7 +28,7 @@ Upload et brugerdefineret browserikon (favicon). Ændringen træder i kraft ved 
 
 ### Valuta
 
-Vælg den valuta, der bruges til omkostningsfelter på tværs af platformen. Dette påvirker, hvordan omkostningsværdier formateres på kortdetaljesider, i rapporter og eksporter. Over 20 valutaer er understøttet, herunder USD, EUR, GBP, JPY, CNY, CHF, INR, BRL og flere.
+Vælg den valuta, der bruges til omkostningsfelter på tværs af platformen. Dette påvirker, hvordan omkostningsværdier formateres på kortdetaljesider, i rapporter og eksporter. Over 40 valutaer er understøttet, herunder USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, IDR og flere.
 
 ### Datoformat
 

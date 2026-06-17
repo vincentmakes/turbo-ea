@@ -28,7 +28,7 @@ Caricate un'icona personalizzata per il browser (favicon). La modifica ha effett
 
 ### Valuta
 
-Selezionate la valuta utilizzata per i campi costo in tutta la piattaforma. Questo influisce sulla formattazione dei valori di costo nelle pagine di dettaglio delle card, nei report e nelle esportazioni. Sono supportate oltre 20 valute, tra cui USD, EUR, GBP, JPY, CNY, CHF, INR, BRL e altre.
+Selezionate la valuta utilizzata per i campi costo in tutta la piattaforma. Questo influisce sulla formattazione dei valori di costo nelle pagine di dettaglio delle card, nei report e nelle esportazioni. Sono supportate oltre 40 valute, tra cui USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, IDR e altre.
 
 ### Formato data
 

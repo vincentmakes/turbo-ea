@@ -28,7 +28,7 @@ Faça upload de um ícone de navegador personalizado (favicon). A alteração en
 
 ### Moeda
 
-Selecione a moeda usada para campos de custo em toda a plataforma. Isso afeta como os valores de custo são formatados nas páginas de detalhe de cards, relatórios e exportações. Mais de 20 moedas são suportadas, incluindo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL e mais.
+Selecione a moeda usada para campos de custo em toda a plataforma. Isso afeta como os valores de custo são formatados nas páginas de detalhe de cards, relatórios e exportações. Mais de 40 moedas são suportadas, incluindo USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, IDR e mais.
 
 ### Formato de data
 

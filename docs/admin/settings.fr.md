@@ -28,7 +28,7 @@ Téléchargez une icône de navigateur personnalisée (favicon). Le changement p
 
 ### Devise
 
-Sélectionnez la devise utilisée pour les champs de coût dans toute la plateforme. Cela affecte la manière dont les valeurs de coût sont formatées dans les pages de détail des fiches, les rapports et les exports. Plus de 20 devises sont prises en charge, incluant USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, et plus.
+Sélectionnez la devise utilisée pour les champs de coût dans toute la plateforme. Cela affecte la manière dont les valeurs de coût sont formatées dans les pages de détail des fiches, les rapports et les exports. Plus de 40 devises sont prises en charge, incluant USD, EUR, GBP, JPY, CNY, CHF, INR, BRL, IDR, et plus.
 
 ### Format de date
 
