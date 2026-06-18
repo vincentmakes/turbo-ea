@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Soporta jerarquía (superior / subordinado)",
   "metamodel.supportsSuccessors": "Soporta linaje",
   "metamodel.createRelationType": "Crear tipo de relación",
+  "metamodel.relationSaveFailed": "No se pudo guardar el tipo de relación",
   "metamodel.sourceType": "Tipo de origen",
   "metamodel.targetType": "Tipo de destino",
   "metamodel.labelVerb": "Etiqueta (verbo, ej. \"usa\")",

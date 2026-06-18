@@ -129,6 +129,12 @@ Los tipos de relación definen las conexiones permitidas entre tipos de fichas. 
 
 Haga clic en **+ Nuevo Tipo de Relación** para crear una relación, o haga clic en una existente para editar sus etiquetas y atributos.
 
+### Atributos de relación
+
+Algunas relaciones incluyen atributos adicionales que se establecen en cada enlace individual en lugar de en el tipo de relación. Por ejemplo, la relación integrada **Organización → Aplicación** («utiliza») tiene un atributo **Tipo de uso**: establézcalo en **Propietario**, **Usuario** o **Parte interesada** en cada enlace. Así puede modelar una aplicación *propiedad de* una organización y *utilizada por* otras mediante un único tipo de relación. El valor elegido aparece como una etiqueta de color en la sección **Relaciones** de la tarjeta; establézcalo al añadir la relación o más tarde mediante el icono de edición en la fila de la relación.
+
+Solo puede existir un tipo de relación entre un par dado de tipos de tarjeta, así que utilice estos atributos para matizar el significado de un enlace en lugar de crear un segundo tipo de relación para el mismo origen y destino.
+
 ## Cálculos
 
 Los campos calculados usan fórmulas definidas por el administrador para calcular automáticamente valores cuando se guardan fichas. Ver [Cálculos](calculations.es.md) para la guía completa.

@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Поддержка иерархии (Родитель / Потомок)",
   "metamodel.supportsSuccessors": "Поддержка преемственности",
   "metamodel.createRelationType": "Создать тип связи",
+  "metamodel.relationSaveFailed": "Не удалось сохранить тип связи",
   "metamodel.sourceType": "Тип источника",
   "metamodel.targetType": "Тип цели",
   "metamodel.labelVerb": "Метка (глагол, напр. «использует»)",

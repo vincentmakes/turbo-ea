@@ -129,6 +129,12 @@ Beziehungstypen definieren die zulässigen Verbindungen zwischen Kartentypen. Je
 
 Klicken Sie auf **+ Neuer Beziehungstyp**, um eine Beziehung zu erstellen, oder klicken Sie auf einen bestehenden, um dessen Bezeichnungen und Attribute zu bearbeiten.
 
+### Beziehungsattribute
+
+Manche Beziehungen tragen zusätzliche Attribute, die Sie an jeder einzelnen Verknüpfung statt am Beziehungstyp festlegen. Beispielsweise hat die integrierte Beziehung **Organisation → Anwendung** („nutzt") ein Attribut **Nutzungstyp** — setzen Sie es je Verknüpfung auf **Eigentümer**, **Benutzer** oder **Stakeholder**. So können Sie eine Anwendung, die einer Organisation *gehört* und von anderen *genutzt* wird, über einen einzigen Beziehungstyp abbilden. Der gewählte Wert erscheint als farbiger Chip im Abschnitt **Beziehungen** der Karte; legen Sie ihn beim Hinzufügen der Beziehung fest oder später über das Bearbeiten-Symbol in der Beziehungszeile.
+
+Zwischen einem bestimmten Paar von Kartentypen kann nur ein Beziehungstyp existieren. Nutzen Sie daher diese Attribute, um die Bedeutung einer Verknüpfung zu präzisieren, anstatt einen zweiten Beziehungstyp für dasselbe Quell- und Zielpaar zu erstellen.
+
 ## Berechnungen
 
 Berechnete Felder verwenden vom Administrator definierte Formeln, um Werte automatisch zu berechnen, wenn Karten gespeichert werden. Siehe [Berechnungen](calculations.md) für die vollständige Anleitung.

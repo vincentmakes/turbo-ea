@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Understøtter hierarki (forælder/barn)",
   "metamodel.supportsSuccessors": "Understøtter slægtskab",
   "metamodel.createRelationType": "Opret relationstype",
+  "metamodel.relationSaveFailed": "Kunne ikke gemme relationstypen",
   "metamodel.sourceType": "Kildetype",
   "metamodel.targetType": "Måltype",
   "metamodel.labelVerb": "Label (verbum, f.eks. «bruger»)",

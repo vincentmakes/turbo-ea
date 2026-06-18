@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Supporte la hiérarchie (parent / enfant)",
   "metamodel.supportsSuccessors": "Prend en charge la lignée",
   "metamodel.createRelationType": "Créer un type de relation",
+  "metamodel.relationSaveFailed": "Échec de l'enregistrement du type de relation",
   "metamodel.sourceType": "Type source",
   "metamodel.targetType": "Type cible",
   "metamodel.labelVerb": "Libellé (verbe, ex. « utilise »)",

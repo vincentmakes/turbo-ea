@@ -5,6 +5,12 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.41.5] - 2026-06-18
+
+### Fixed
+- **Organization→Application relations can now be tagged as Owner, User, or Stakeholder.** The built-in "uses" relation between an Organization and an Application has always supported a *Usage Type* attribute, but installs created before it was added kept an empty attribute set, so no picker appeared — and the selected value was never shown even where it did. A migration now backfills the Usage Type options on existing installs (without touching admin customisations), the chosen value is shown as a coloured chip on each relation, and it can be set when adding the relation. This lets you model an application *owned by* one Organization and *used by* others without creating a second relation type.
+- **Relation-type creation/editing now reports errors instead of failing silently.** In Admin → Metamodel → Relation Types, a rejected create or edit (e.g. a duplicate key, or a second relation between the same two card types) previously did nothing visible — the dialog stayed open with no feedback. The error message is now shown in the dialog.
+
 ## [1.41.4] - 2026-06-17
 
 ### Added

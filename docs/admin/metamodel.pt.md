@@ -129,6 +129,12 @@ Tipos de relacionamento definem as conexões permitidas entre tipos de card. Cad
 
 Clique em **+ Novo Tipo de Relacionamento** para criar um relacionamento, ou clique em um existente para editar seus rótulos e atributos.
 
+### Atributos de relação
+
+Algumas relações incluem atributos adicionais que define em cada ligação individual em vez de no tipo de relação. Por exemplo, a relação integrada **Organização → Aplicação** («utiliza») tem um atributo **Tipo de utilização** — defina-o como **Proprietário**, **Utilizador** ou **Parte interessada** em cada ligação. Assim, pode modelar uma aplicação *propriedade de* uma organização e *utilizada por* outras através de um único tipo de relação. O valor escolhido aparece como um marcador colorido na secção **Relações** da carta; defina-o ao adicionar a relação ou mais tarde através do ícone de edição na linha da relação.
+
+Só pode existir um tipo de relação entre um determinado par de tipos de carta, por isso utilize estes atributos para qualificar o significado de uma ligação em vez de criar um segundo tipo de relação para a mesma origem e destino.
+
 ## Cálculos
 
 Campos calculados usam fórmulas definidas pelo administrador para computar automaticamente valores quando cards são salvos. Veja [Cálculos](calculations.md) para o guia completo.

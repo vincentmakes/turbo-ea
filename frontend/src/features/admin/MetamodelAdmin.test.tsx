@@ -278,4 +278,36 @@ describe("MetamodelAdmin", () => {
       expect(api.get).toHaveBeenCalledWith("/metamodel/relation-types?include_hidden=true");
     });
   });
+
+  it("shows an error and keeps the dialog open when creating a relation type fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.post).mockRejectedValueOnce(
+      new Error("A relation type from 'Application' to 'Objective' already exists."),
+    );
+    renderMetamodel();
+
+    // Open the create-relation dialog.
+    await user.click(screen.getByRole("tab", { name: /relation types/i }));
+    await user.click(await screen.findByRole("button", { name: /new relation/i }));
+    expect(await screen.findByText("Create Relation Type")).toBeInTheDocument();
+
+    // Pick source + target types.
+    await user.click(screen.getByRole("combobox", { name: /source type/i }));
+    await user.click(await screen.findByRole("option", { name: /application/i }));
+    await user.click(screen.getByRole("combobox", { name: /target type/i }));
+    await user.click(await screen.findByRole("option", { name: /objective/i }));
+
+    // Provide a valid (lowercase) key and a label so Create is enabled.
+    const keyInput = screen.getByTestId("key-input");
+    await user.clear(keyInput);
+    await user.type(keyInput, "owns");
+    await user.type(screen.getByRole("textbox", { name: /label \(verb/i }), "owns");
+
+    await user.click(screen.getByRole("button", { name: /^create$/i }));
+
+    // Error surfaces and the dialog stays open (no silent failure).
+    expect(await screen.findByText(/already exists/i)).toBeInTheDocument();
+    expect(screen.getByText("Create Relation Type")).toBeInTheDocument();
+    expect(api.post).toHaveBeenCalledTimes(1);
+  });
 });

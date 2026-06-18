@@ -27,11 +27,12 @@ import Popover from "@mui/material/Popover";
 import { useTranslation } from "react-i18next";
 import MaterialSymbol from "@/components/MaterialSymbol";
 import { useMetamodel } from "@/hooks/useMetamodel";
-import { useResolveMetaLabel } from "@/hooks/useResolveLabel";
+import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
   flowDirectionBadge,
+  relationAttributeBadge,
   hasRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
@@ -316,6 +317,7 @@ function RelationGroup({
 }) {
   const { t } = useTranslation(["cards", "common"]);
   const rml = useResolveMetaLabel();
+  const rl = useResolveLabel();
   const { getType } = useMetamodel();
   const navigate = useNavigate();
   const [inlineAddOpen, setInlineAddOpen] = useState(false);
@@ -374,32 +376,54 @@ function RelationGroup({
   const renderRow = (r: Relation) => {
     const other = r.source_id === fsId ? r.target : r.source;
     const oType = getType(other?.type ?? "");
-    const badge = flowDirectionBadge(rt, r.attributes as RelationAttributes | undefined);
+    const attrs = r.attributes as RelationAttributes | undefined;
+    const flowBadge = flowDirectionBadge(rt, attrs);
+    // Generic value badge for non-directional single-selects (e.g. usageType).
+    const attrBadge = relationAttributeBadge(rt, attrs);
+    const attrSet = !!flowBadge || !!attrBadge;
+    const editTooltip = flowBadge
+      ? t(`relations.flowDirection.${flowBadge.value}`)
+      : attrBadge
+        ? `${rl(attrBadge.fieldLabel, attrBadge.fieldTranslations)}: ${rl(
+            attrBadge.optionLabel,
+            attrBadge.optionTranslations,
+          )}`
+        : t("relations.editAttributes");
     return (
       <ListItem
         key={r.id}
         secondaryAction={
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            {attrBadge && (
+              <Chip
+                size="small"
+                label={rl(attrBadge.optionLabel, attrBadge.optionTranslations)}
+                sx={{
+                  height: 20,
+                  fontSize: "0.7rem",
+                  ...(attrBadge.color
+                    ? { bgcolor: attrBadge.color, color: "#fff" }
+                    : {}),
+                }}
+              />
+            )}
             {rtHasAttributes && canManageRelations && (
-              <Tooltip
-                title={t(
-                  badge
-                    ? `relations.flowDirection.${badge.value}`
-                    : "relations.setFlowDirection",
-                )}
-              >
+              <Tooltip title={editTooltip}>
                 <IconButton
                   size="small"
                   onClick={(e) => openAttrs(e, r)}
                   sx={{
-                    color: badge ? "primary.main" : "text.disabled",
-                    border: badge ? "none" : "1px dashed",
+                    color: attrSet ? "primary.main" : "text.disabled",
+                    border: attrSet ? "none" : "1px dashed",
                     borderColor: "divider",
                     borderRadius: 1,
                     px: 0.5,
                   }}
                 >
-                  <MaterialSymbol icon={badge ? badge.icon : "swap_horiz"} size={20} />
+                  <MaterialSymbol
+                    icon={flowBadge ? flowBadge.icon : attrBadge ? "edit" : "swap_horiz"}
+                    size={20}
+                  />
                 </IconButton>
               </Tooltip>
             )}

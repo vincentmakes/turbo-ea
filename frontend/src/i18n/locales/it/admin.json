@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Supporta gerarchia (Genitore / Figlio)",
   "metamodel.supportsSuccessors": "Supporta lignaggio",
   "metamodel.createRelationType": "Crea tipo di relazione",
+  "metamodel.relationSaveFailed": "Impossibile salvare il tipo di relazione",
   "metamodel.sourceType": "Tipo sorgente",
   "metamodel.targetType": "Tipo destinazione",
   "metamodel.labelVerb": "Etichetta (verbo, es. \"utilizza\")",

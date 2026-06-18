@@ -129,6 +129,12 @@ I tipi di relazione definiscono le connessioni consentite tra i tipi di card. Og
 
 Cliccate su **+ Nuovo tipo di relazione** per creare una relazione, o cliccate su una esistente per modificare le etichette e gli attributi.
 
+### Attributi della relazione
+
+Alcune relazioni includono attributi aggiuntivi che si impostano su ogni singolo collegamento anziché sul tipo di relazione. Ad esempio, la relazione integrata **Organizzazione → Applicazione** («utilizza») ha un attributo **Tipo di utilizzo**: impostatelo su **Proprietario**, **Utente** o **Stakeholder** per ogni collegamento. In questo modo potete modellare un'applicazione *di proprietà di* un'organizzazione e *utilizzata da* altre tramite un unico tipo di relazione. Il valore scelto appare come un chip colorato nella sezione **Relazioni** della card; impostatelo quando aggiungete la relazione, oppure in seguito tramite l'icona di modifica sulla riga della relazione.
+
+Tra una determinata coppia di tipi di card può esistere un solo tipo di relazione, quindi utilizzate questi attributi per qualificare il significato di un collegamento anziché creare un secondo tipo di relazione per la stessa origine e destinazione.
+
 ## Calcoli
 
 I campi calcolati utilizzano formule definite dall'amministratore per calcolare automaticamente i valori quando le card vengono salvate. Vedi [Calcoli](calculations.md) per la guida completa.

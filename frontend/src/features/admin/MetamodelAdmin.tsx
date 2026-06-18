@@ -112,6 +112,7 @@ export default function MetamodelAdmin() {
   /* --- Edit relation dialog --- */
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(null);
+  const [relError, setRelError] = useState<string | null>(null);
 
   /* --- Delete relation confirmation --- */
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
@@ -184,15 +185,21 @@ export default function MetamodelAdmin() {
   const handleCreateRelation = async () => {
     const finalKey = newRel.key || autoRelKey;
     const { translations: rawTrans, ...rest } = newRel;
-    await api.post("/metamodel/relation-types", {
-      ...rest,
-      key: finalKey,
-      attributes_schema: [],
-      built_in: false,
-      translations: cleanTranslations(rawTrans) || undefined,
-    });
+    try {
+      await api.post("/metamodel/relation-types", {
+        ...rest,
+        key: finalKey,
+        attributes_schema: [],
+        built_in: false,
+        translations: cleanTranslations(rawTrans) || undefined,
+      });
+    } catch (e) {
+      setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
+      return;
+    }
     refresh();
     setCreateRelOpen(false);
+    setRelError(null);
     setNewRel({
       key: "",
       label: "",
@@ -206,15 +213,21 @@ export default function MetamodelAdmin() {
 
   const handleUpdateRelation = async () => {
     if (!editRel) return;
-    await api.patch(`/metamodel/relation-types/${editRel.key}`, {
-      label: editRel.label,
-      reverse_label: editRel.reverse_label,
-      cardinality: editRel.cardinality,
-      translations: cleanTranslations(editRel.translations) || null,
-    });
+    try {
+      await api.patch(`/metamodel/relation-types/${editRel.key}`, {
+        label: editRel.label,
+        reverse_label: editRel.reverse_label,
+        cardinality: editRel.cardinality,
+        translations: cleanTranslations(editRel.translations) || null,
+      });
+    } catch (e) {
+      setRelError(e instanceof Error ? e.message : t("metamodel.relationSaveFailed"));
+      return;
+    }
     refresh();
     setEditRelOpen(false);
     setEditRel(null);
+    setRelError(null);
   };
 
   const promptDeleteRelation = (rt: RType) => {
@@ -270,6 +283,7 @@ export default function MetamodelAdmin() {
       cardinality: "1:n",
       translations: {},
     });
+    setRelError(null);
     setCreateRelOpen(true);
   };
 
@@ -668,6 +682,7 @@ export default function MetamodelAdmin() {
                             size="small"
                             onClick={() => {
                               setEditRel({ ...rt });
+                              setRelError(null);
                               setEditRelOpen(true);
                             }}
                           >
@@ -854,13 +869,21 @@ export default function MetamodelAdmin() {
       {/* ============================================================ */}
       <Dialog
         open={createRelOpen}
-        onClose={() => setCreateRelOpen(false)}
+        onClose={() => {
+          setCreateRelOpen(false);
+          setRelError(null);
+        }}
         maxWidth="sm"
         fullWidth
         disableRestoreFocus
       >
         <DialogTitle>{t("metamodel.createRelationType")}</DialogTitle>
         <DialogContent>
+          {relError && (
+            <Alert severity="error" sx={{ mt: 1, mb: 2 }} onClose={() => setRelError(null)}>
+              {relError}
+            </Alert>
+          )}
           <FormControl fullWidth sx={{ mt: 1, mb: 2 }}>
             <InputLabel>{t("metamodel.sourceType")}</InputLabel>
             <Select
@@ -1004,7 +1027,10 @@ export default function MetamodelAdmin() {
       {/* ============================================================ */}
       <Dialog
         open={editRelOpen}
-        onClose={() => setEditRelOpen(false)}
+        onClose={() => {
+          setEditRelOpen(false);
+          setRelError(null);
+        }}
         maxWidth="sm"
         fullWidth
         disableRestoreFocus
@@ -1013,6 +1039,11 @@ export default function MetamodelAdmin() {
         {editRel && (
           <>
             <DialogContent>
+              {relError && (
+                <Alert severity="error" sx={{ mt: 1, mb: 2 }} onClose={() => setRelError(null)}>
+                  {relError}
+                </Alert>
+              )}
               <Box
                 sx={{
                   display: "flex",

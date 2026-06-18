@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Supports Hierarchy (Parent / Child)",
   "metamodel.supportsSuccessors": "Supports Lineage",
   "metamodel.createRelationType": "Create Relation Type",
+  "metamodel.relationSaveFailed": "Failed to save relation type",
   "metamodel.sourceType": "Source Type",
   "metamodel.targetType": "Target Type",
   "metamodel.labelVerb": "Label (verb, e.g., \"uses\")",

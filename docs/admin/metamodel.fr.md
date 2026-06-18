@@ -129,6 +129,12 @@ Les types de relations définissent les connexions autorisées entre les types d
 
 Cliquez sur **+ Nouveau type de relation** pour créer une relation, ou cliquez sur un type existant pour modifier ses libellés et attributs.
 
+### Attributs de relation
+
+Certaines relations portent des attributs supplémentaires que vous définissez sur chaque lien plutôt que sur le type de relation. Par exemple, la relation intégrée **Organisation → Application** (« utilise ») possède un attribut **Type d'usage** — définissez-le sur **Propriétaire**, **Utilisateur** ou **Partie prenante** pour chaque lien. Vous pouvez ainsi modéliser une application *détenue par* une organisation et *utilisée par* d'autres au moyen d'un seul type de relation. La valeur choisie apparaît sous forme de puce colorée dans la section **Relations** de la fiche ; définissez-la lors de l'ajout de la relation, ou plus tard via l'icône de modification sur la ligne de la relation.
+
+Un seul type de relation peut exister entre une paire donnée de types de cartes ; utilisez donc ces attributs pour préciser le sens d'un lien plutôt que de créer un second type de relation pour les mêmes source et cible.
+
 ## Calculs
 
 Les champs calculés utilisent des formules définies par l'administrateur pour calculer automatiquement des valeurs lorsque les fiches sont sauvegardées. Voir [Calculs](calculations.md) pour le guide complet.

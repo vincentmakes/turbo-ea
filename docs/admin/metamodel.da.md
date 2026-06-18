@@ -129,6 +129,12 @@ Relationstyper definerer de tilladte forbindelser mellem korttyper. Hver relatio
 
 Klik på **+ Ny relationstype** for at oprette en relation, eller klik på en eksisterende for at redigere dens etiketter og egenskaber.
 
+### Relationsegenskaber
+
+Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link i stedet for på relationstypen. For eksempel har den indbyggede relation **Organisation → Applikation** (»bruger«) en **Brugstype**-egenskab — angiv den til **Ejer**, **Bruger** eller **Interessent** på hvert link. Dermed kan du modellere en applikation, der *ejes af* én organisation og *bruges af* andre, via en enkelt relationstype. Den valgte værdi vises som en farvet chip i kortets **Relationer**-sektion; angiv den, når du tilføjer relationen, eller senere via redigeringsikonet på relationsrækken.
+
+Der kan kun findes én relationstype mellem et givet par af korttyper, så brug disse egenskaber til at præcisere betydningen af et link i stedet for at oprette endnu en relationstype for den samme kilde og destination.
+
 ## Beregninger
 
 Beregnede felter bruger admin-definerede formler til automatisk at beregne værdier, når kort gemmes. Se [Beregninger](calculations.md) for den fulde vejledning.

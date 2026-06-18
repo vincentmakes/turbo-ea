@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Unterstützt Hierarchie (Über-/Untergeordnet)",
   "metamodel.supportsSuccessors": "Unterstützt Abstammung",
   "metamodel.createRelationType": "Beziehungstyp erstellen",
+  "metamodel.relationSaveFailed": "Beziehungstyp konnte nicht gespeichert werden",
   "metamodel.sourceType": "Quelltyp",
   "metamodel.targetType": "Zieltyp",
   "metamodel.labelVerb": "Bezeichnung (Verb, z. B. \"nutzt\")",

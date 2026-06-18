@@ -81,6 +81,7 @@
   "metamodel.supportsHierarchy": "Suporta hierarquia (pai / filho)",
   "metamodel.supportsSuccessors": "Suporta linhagem",
   "metamodel.createRelationType": "Criar tipo de relação",
+  "metamodel.relationSaveFailed": "Falha ao guardar o tipo de relação",
   "metamodel.sourceType": "Tipo de origem",
   "metamodel.targetType": "Tipo de destino",
   "metamodel.labelVerb": "Rótulo (verbo, ex: \"utiliza\")",

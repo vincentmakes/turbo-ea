@@ -193,3 +193,46 @@ export function flowDirectionBadge(
 export function hasRelationAttributes(relationType: RelationType | undefined): boolean {
   return !!relationType && (relationType.attributes_schema ?? []).length > 0;
 }
+
+export interface RelationAttributeBadge {
+  fieldKey: string;
+  fieldLabel: string;
+  fieldTranslations?: { [k: string]: string };
+  optionKey: string;
+  optionLabel: string;
+  optionTranslations?: { [k: string]: string };
+  color?: string;
+}
+
+/**
+ * Generic counterpart to {@link flowDirectionBadge}: for the first
+ * `single_select` attribute (other than `flowDirection`, which renders as a
+ * directional icon) that has a value set, returns the selected option so the
+ * caller can render it as a labelled chip (e.g. the `usageType`
+ * Owner / User / Stakeholder on Organization→Application relations). Labels are
+ * returned raw (with their `translations`) so the caller resolves them with the
+ * locale-aware label resolver. Returns null when nothing is set.
+ */
+export function relationAttributeBadge(
+  relationType: RelationType | undefined,
+  attributes: RelationAttributes | undefined,
+): RelationAttributeBadge | null {
+  if (!relationType) return null;
+  for (const field of relationType.attributes_schema ?? []) {
+    if (field.type !== "single_select" || field.key === "flowDirection") continue;
+    const v = attributes?.[field.key];
+    if (typeof v !== "string" || !v) continue;
+    const opt = (field.options ?? []).find((o) => o.key === v);
+    if (!opt) continue;
+    return {
+      fieldKey: field.key,
+      fieldLabel: field.label,
+      fieldTranslations: field.translations,
+      optionKey: opt.key,
+      optionLabel: opt.label,
+      optionTranslations: opt.translations,
+      color: opt.color,
+    };
+  }
+  return null;
+}
