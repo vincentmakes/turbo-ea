@@ -56,6 +56,19 @@ Selecione o mês em que o ano fiscal da sua organização começa (janeiro a dez
 
 O padrão é **janeiro** (ano civil = ano fiscal).
 
+## Gestão de dados
+
+Controle por quanto tempo as **fichas arquivadas** são mantidas antes de serem excluídas permanentemente.
+
+Quando uma ficha é arquivada, ela fica oculta no inventário, nos relatórios e nas relações, mas mantém todo o seu histórico e pode ser restaurada a qualquer momento antes da purga.
+
+| Campo | Descrição |
+|-------|-----------|
+| **Período de retenção (dias)** | Número de dias que uma ficha arquivada é mantida antes de ser excluída permanentemente. O padrão é **30**. |
+| **Manter fichas arquivadas indefinidamente** | Quando ativado (retenção definida como **0**), as fichas arquivadas nunca são excluídas automaticamente e são mantidas — com o seu histórico — indefinidamente. |
+
+A purga é executada de hora em hora e relê esta configuração a cada execução, portanto as alterações entram em vigor sem reiniciar a aplicação. Os avisos de arquivamento e as caixas de diálogo de confirmação refletem automaticamente o período configurado.
+
 ## E-mail (SMTP)
 
 Configure a entrega de e-mail para convites, notificações de pesquisas e outras mensagens do sistema.

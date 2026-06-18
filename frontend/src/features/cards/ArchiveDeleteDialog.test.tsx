@@ -22,6 +22,7 @@ vi.mock("@/api/client", () => ({
 }));
 
 import { api } from "@/api/client";
+import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 
 const baseImpact: ArchiveImpact = {
   child_count: 0,
@@ -35,6 +36,9 @@ const baseImpact: ArchiveImpact = {
 describe("ArchiveDeleteDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Prime the archived-card retention singleton so the dialog's hook never
+    // fires its own (mocked) GET and stays out of the per-test api.get queue.
+    invalidateArchiveRetentionDays(30);
   });
 
   it("renders without children/relations sections when impact is empty", async () => {

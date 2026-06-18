@@ -56,6 +56,19 @@ Sélectionnez le mois de début de l'exercice fiscal de votre organisation (janv
 
 La valeur par défaut est **janvier** (année civile = exercice fiscal).
 
+## Gestion des données
+
+Définissez la durée de conservation des **fiches archivées** avant leur suppression définitive.
+
+Lorsqu'une fiche est archivée, elle est masquée de l'inventaire, des rapports et des relations, mais conserve tout son historique et peut être restaurée à tout moment avant sa purge.
+
+| Champ | Description |
+|-------|-------------|
+| **Durée de conservation (jours)** | Nombre de jours pendant lesquels une fiche archivée est conservée avant sa suppression définitive. La valeur par défaut est **30**. |
+| **Conserver les fiches archivées indéfiniment** | Lorsque cette option est activée (conservation définie sur **0**), les fiches archivées ne sont jamais supprimées automatiquement et sont conservées — avec leur historique — indéfiniment. |
+
+La purge s'exécute toutes les heures et relit ce paramètre à chaque passage, de sorte que les modifications prennent effet sans redémarrer l'application. Les bannières d'archivage et les boîtes de dialogue de confirmation reflètent automatiquement la durée configurée.
+
 ## E-mail (SMTP)
 
 Configurez la livraison d'e-mails pour les e-mails d'invitation, les notifications d'enquête et autres messages système.

@@ -23,6 +23,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "@/api/client";
+import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import type {
   ArchiveImpact,
   ArchiveImpactRelatedCard,
@@ -91,6 +92,8 @@ function groupRelated(rows: ArchiveImpactRelatedCard[]): GroupedRelations[] {
 export default function ArchiveDeleteDialog(props: Props) {
   const { open, mode, scope, onClose, onConfirmed } = props;
   const { t } = useTranslation(["cards", "inventory", "common"]);
+  const { archiveRetentionDays } = useArchiveRetentionDays();
+  const keepsIndefinitely = archiveRetentionDays === 0;
   const [impact, setImpact] = useState<ArchiveImpact | null>(null);
   const [impactLoading, setImpactLoading] = useState(false);
   const [impactError, setImpactError] = useState("");
@@ -280,9 +283,11 @@ export default function ArchiveDeleteDialog(props: Props) {
               <Typography>
                 {t(
                   mode === "archive"
-                    ? "inventory:massArchive.confirmMessage"
+                    ? keepsIndefinitely
+                      ? "inventory:massArchive.confirmMessageIndefinite"
+                      : "inventory:massArchive.confirmMessage"
                     : "inventory:massDelete.confirmMessage",
-                  { count: selectedCount },
+                  { count: selectedCount, days: archiveRetentionDays },
                 )}
               </Typography>
             )}
@@ -324,8 +329,11 @@ export default function ArchiveDeleteDialog(props: Props) {
                     <FormHelperText sx={{ ml: 4, mt: -1 }}>
                       {t(
                         mode === "archive"
-                          ? "cards:detail.dialogs.children.cascadeHelpArchive"
+                          ? keepsIndefinitely
+                            ? "cards:detail.dialogs.children.cascadeHelpArchiveIndefinite"
+                            : "cards:detail.dialogs.children.cascadeHelpArchive"
                           : "cards:detail.dialogs.children.cascadeHelpDelete",
+                        { days: archiveRetentionDays },
                       )}
                     </FormHelperText>
                     <FormControlLabel

@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.42.0] - 2026-06-18
+
+### Added
+- **Configurable archived-card retention.** Admin → Settings → General now has a **Data management** section where administrators set how long archived cards are kept before they are permanently deleted (previously a fixed 30 days). Setting the value to **0 days** keeps archived cards — and their full history — indefinitely, so phased-out applications can be retained for the record while staying hidden from inventory and reports. The hourly purge job re-reads the setting each cycle (no restart needed), and the archive banners and confirmation dialogs now show the configured period instead of a hardcoded "30 days".
+
 ## [1.41.5] - 2026-06-18
 
 ### Fixed

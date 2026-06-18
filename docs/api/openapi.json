@@ -641,6 +641,19 @@
         "title": "ArchiveImpactResponse",
         "type": "object"
       },
+      "ArchiveRetentionPayload": {
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days"
+        ],
+        "title": "ArchiveRetentionPayload",
+        "type": "object"
+      },
       "AutoMappedColumn": {
         "description": "One source-platform column that the parser auto-routes to a TEA slot.\n\nSourced from the adapter's ``auto_mapped_columns`` table. Surfaced\nverbatim in the admin's \"Map imported fields\" tab so the admin can\nsee at a glance which native columns are already handled and don't\nneed an entry in the per-field list.",
         "properties": {
@@ -28093,6 +28106,64 @@
           }
         },
         "summary": "Update App Title",
+        "tags": [
+          "settings"
+        ]
+      }
+    },
+    "/api/v1/settings/archive-retention-days": {
+      "get": {
+        "description": "Public endpoint \u2014 days an archived card is kept before auto-purge.\n\n``0`` means archived cards are kept indefinitely (auto-purge disabled).",
+        "operationId": "get_archive_retention_days_api_v1_settings_archive_retention_days_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Archive Retention Days",
+        "tags": [
+          "settings"
+        ]
+      },
+      "patch": {
+        "description": "Admin endpoint \u2014 set how long archived cards are kept before auto-purge.\n\n``0`` disables auto-purge so archived cards (and their history) are kept\nindefinitely. The hourly purge loop re-reads this value each cycle, so the\nchange takes effect without a restart.",
+        "operationId": "update_archive_retention_days_api_v1_settings_archive_retention_days_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiveRetentionPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Archive Retention Days",
         "tags": [
           "settings"
         ]

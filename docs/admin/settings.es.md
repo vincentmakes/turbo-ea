@@ -56,6 +56,19 @@ Seleccione el mes en que comienza el año fiscal de su organización (enero a di
 
 El valor predeterminado es **enero** (año calendario = año fiscal).
 
+## Gestión de datos
+
+Controle cuánto tiempo se conservan las **fichas archivadas** antes de eliminarse permanentemente.
+
+Cuando una ficha se archiva, queda oculta en el inventario, los informes y las relaciones, pero conserva todo su historial y puede restaurarse en cualquier momento antes de su purga.
+
+| Campo | Descripción |
+|-------|-------------|
+| **Período de retención (días)** | Número de días que se conserva una ficha archivada antes de eliminarse permanentemente. El valor predeterminado es **30**. |
+| **Conservar las fichas archivadas indefinidamente** | Cuando se activa (retención establecida en **0**), las fichas archivadas nunca se eliminan automáticamente y se conservan —con su historial— indefinidamente. |
+
+La purga se ejecuta cada hora y vuelve a leer este ajuste en cada ejecución, por lo que los cambios surten efecto sin reiniciar la aplicación. Los avisos de archivado y los cuadros de diálogo de confirmación reflejan automáticamente el período configurado.
+
 ## Correo Electrónico (SMTP)
 
 Configure la entrega de correo electrónico para correos de invitación, notificaciones de encuestas y otros mensajes del sistema.

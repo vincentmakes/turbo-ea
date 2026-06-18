@@ -56,6 +56,19 @@ Selezionate il mese in cui inizia l'anno fiscale della vostra organizzazione (da
 
 Il valore predefinito è **gennaio** (anno solare = anno fiscale).
 
+## Gestione dei dati
+
+Controlla per quanto tempo le **schede archiviate** vengono conservate prima di essere eliminate definitivamente.
+
+Quando una scheda viene archiviata, è nascosta dall'inventario, dai report e dalle relazioni, ma mantiene la cronologia completa e può essere ripristinata in qualsiasi momento prima dell'eliminazione.
+
+| Campo | Descrizione |
+|-------|-------------|
+| **Periodo di conservazione (giorni)** | Numero di giorni per cui una scheda archiviata viene conservata prima di essere eliminata definitivamente. Il valore predefinito è **30**. |
+| **Conserva le schede archiviate a tempo indeterminato** | Se attivata (conservazione impostata su **0**), le schede archiviate non vengono mai eliminate automaticamente e vengono conservate — con la loro cronologia — a tempo indeterminato. |
+
+L'eliminazione viene eseguita ogni ora e rilegge questa impostazione a ogni esecuzione, quindi le modifiche hanno effetto senza riavviare l'applicazione. I banner di archiviazione e le finestre di conferma riflettono automaticamente il periodo configurato.
+
 ## Email (SMTP)
 
 Configurate la consegna delle email per email di invito, notifiche dei sondaggi e altri messaggi di sistema.

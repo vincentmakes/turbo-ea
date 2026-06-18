@@ -28,6 +28,7 @@ import RestoreDialog from "@/features/cards/RestoreDialog";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
+import { useArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { api, ApiError } from "@/api/client";
 import { DataQualityPill } from "@/features/cards/sections";
 import CardDetailContent from "@/features/cards/CardDetailContent";
@@ -66,6 +67,7 @@ export default function CardDetail() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { getType } = useMetamodel();
+  const { archiveRetentionDays } = useArchiveRetentionDays();
   const rml = useResolveMetaLabel();
   const rl = useResolveLabel();
   const [card, setCard] = useState<Card | null>(null);
@@ -403,9 +405,15 @@ export default function CardDetail() {
     setAiResponse(null);
   };
 
-  const daysUntilPurge = card.archived_at
-    ? Math.max(0, 30 - Math.floor((Date.now() - new Date(card.archived_at).getTime()) / 86400000))
-    : null;
+  // archiveRetentionDays === 0 means "keep indefinitely" — no purge countdown.
+  const daysUntilPurge =
+    card.archived_at && archiveRetentionDays > 0
+      ? Math.max(
+          0,
+          archiveRetentionDays -
+            Math.floor((Date.now() - new Date(card.archived_at).getTime()) / 86400000),
+        )
+      : null;
 
   return (
     <Box sx={{ maxWidth: 960, mx: "auto" }}>
@@ -778,7 +786,9 @@ export default function CardDetail() {
                   </Box>
                 }
               >
-                {t("detail.archivedBanner")}{daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
+                {t("detail.archivedBanner")}
+                {daysUntilPurge !== null && ` ${t("detail.purgeWarning", { count: daysUntilPurge })}`}
+                {archiveRetentionDays === 0 && ` ${t("detail.archivedIndefinite")}`}
               </Alert>
             )}
 

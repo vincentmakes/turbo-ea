@@ -37,7 +37,23 @@ def _alembic_upgrade_sync(sync_connection, alembic_cfg):
 
 
 _PURGE_INTERVAL_SECONDS = 3600  # Run once per hour
-_PURGE_RETENTION_DAYS = 30
+_PURGE_RETENTION_DAYS = 30  # Fallback when the admin setting is unset
+
+
+def _archive_purge_cutoff(retention_days, now):
+    """Return the purge cutoff datetime, or ``None`` to skip purging.
+
+    ``retention_days`` of ``0`` (or anything falsy/negative) means "keep
+    archived cards indefinitely" — auto-purge is disabled. Otherwise cards
+    archived on or before ``now - retention_days`` are eligible for purge.
+    """
+    from datetime import timedelta
+
+    if not retention_days or retention_days <= 0:
+        return None
+    return now - timedelta(days=retention_days)
+
+
 _OLLAMA_PULL_TIMEOUT = 600  # 10 minutes max for model pull
 _KPI_SNAPSHOT_HOUR_UTC = 2  # Capture daily snapshot at 02:00 UTC
 _TASK_PROMOTION_HOUR_UTC = 3  # Promote scheduled task occurrences at 03:00 UTC
@@ -85,20 +101,37 @@ async def _purge_mutation_batches_loop() -> None:
 
 
 async def _purge_archived_cards_loop() -> None:
-    """Background loop that permanently deletes cards archived for 30+ days."""
-    from datetime import datetime, timedelta, timezone
+    """Background loop that permanently deletes cards archived past the
+    admin-configured retention window.
+
+    The retention period is read fresh each cycle from the singleton
+    ``app_settings`` row (``general_settings.archiveRetentionDays``, default
+    30). A value of ``0`` disables auto-purge entirely so archived cards — and
+    their history — are kept indefinitely. Because it is re-read every cycle,
+    changing the setting takes effect without a restart.
+    """
+    from datetime import datetime, timezone
 
     from sqlalchemy import or_, select
 
     from app.database import async_session
+    from app.models.app_settings import AppSettings
     from app.models.card import Card
     from app.models.relation import Relation
 
     while True:
         try:
             await asyncio.sleep(_PURGE_INTERVAL_SECONDS)
-            cutoff = datetime.now(timezone.utc) - timedelta(days=_PURGE_RETENTION_DAYS)
             async with async_session() as db:
+                settings_row = (
+                    await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+                ).scalar_one_or_none()
+                general = (settings_row.general_settings if settings_row else None) or {}
+                retention_days = general.get("archiveRetentionDays", _PURGE_RETENTION_DAYS)
+                cutoff = _archive_purge_cutoff(retention_days, datetime.now(timezone.utc))
+                if cutoff is None:
+                    # Retention disabled (0) — keep archived cards indefinitely.
+                    continue
                 result = await db.execute(
                     select(Card).where(
                         Card.status == "ARCHIVED",

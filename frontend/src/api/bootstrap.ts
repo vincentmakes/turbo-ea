@@ -26,6 +26,7 @@ import { invalidateBpmEnabled } from "@/hooks/useBpmEnabled";
 import { invalidateComplianceRegulations } from "@/hooks/useComplianceRegulations";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidatePpmEnabled } from "@/hooks/usePpmEnabled";
+import { invalidateArchiveRetentionDays } from "@/hooks/useArchiveRetentionDays";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
 import { invalidateEnabledLocalesGlobal } from "@/hooks/useEnabledLocales";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
@@ -43,6 +44,7 @@ type BootstrapResponse = {
   file_uploads_enabled: boolean;
   enabled_locales: string[];
   fiscal_year_start: number;
+  archive_retention_days: number;
   bpm_row_order: string[];
   show_principles_tab: boolean;
   compliance_regulations: ComplianceRegulation[];
@@ -81,6 +83,10 @@ export function primeBootstrap(): Promise<void> {
       invalidatePpmEnabled(r.ppm_enabled);
       invalidateGrcEnabled(r.grc_enabled);
       invalidateFileUploadsEnabled(r.file_uploads_enabled);
+
+      if (typeof r.archive_retention_days === "number") {
+        invalidateArchiveRetentionDays(r.archive_retention_days);
+      }
 
       const validLocales = r.enabled_locales.filter((l): l is SupportedLocale =>
         (SUPPORTED_LOCALES as readonly string[]).includes(l),

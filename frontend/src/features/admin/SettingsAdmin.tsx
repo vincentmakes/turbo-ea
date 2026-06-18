@@ -30,6 +30,10 @@ import {
 import { invalidateAppTitle, DEFAULT_APP_TITLE } from "@/hooks/useAppTitle";
 import { invalidateGrcEnabled } from "@/hooks/useGrcEnabled";
 import { invalidateFileUploadsEnabled } from "@/hooks/useFileUploadsEnabled";
+import {
+  invalidateArchiveRetentionDays,
+  DEFAULT_ARCHIVE_RETENTION_DAYS,
+} from "@/hooks/useArchiveRetentionDays";
 import { invalidateLoginBranding } from "@/hooks/useLoginBranding";
 import { useMetamodel } from "@/hooks/useMetamodel";
 import { useEnabledLocales } from "@/hooks/useEnabledLocales";
@@ -213,6 +217,15 @@ function GeneralTab() {
   const [fiscalYearStart, setFiscalYearStart] = useState(1);
   const [savingFiscal, setSavingFiscal] = useState(false);
 
+  // Archived-card retention (days; 0 = keep indefinitely)
+  const [archiveRetentionDays, setArchiveRetentionDays] = useState<number>(
+    DEFAULT_ARCHIVE_RETENTION_DAYS,
+  );
+  const [archiveRetentionInput, setArchiveRetentionInput] = useState<string>(
+    String(DEFAULT_ARCHIVE_RETENTION_DAYS),
+  );
+  const [savingArchiveRetention, setSavingArchiveRetention] = useState(false);
+
   // Enabled locales state
   const { enabledLocales: cachedLocales, invalidateEnabledLocales } = useEnabledLocales();
   const [enabledLocales, setEnabledLocales] = useState<SupportedLocale[]>([...SUPPORTED_LOCALES]);
@@ -248,6 +261,7 @@ function GeneralTab() {
       api.get<{ locales: string[] }>("/settings/enabled-locales"),
       api.get<{ enabled: boolean }>("/settings/ppm-enabled"),
       api.get<{ month: number }>("/settings/fiscal-year-start"),
+      api.get<{ days: number }>("/settings/archive-retention-days"),
       api.get<{ app_title: string }>("/settings/app-title"),
       api.get<{ date_format: string }>("/settings/date-format"),
       api.get<{ enabled: boolean }>("/settings/grc-enabled"),
@@ -259,7 +273,7 @@ function GeneralTab() {
         login_help_link: string;
       }>("/settings/login-branding"),
     ])
-      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData]) => {
+      .then(([emailData, logoData, faviconData, currencyData, bpmData, localesData, ppmData, fiscalData, archiveRetentionData, appTitleData, dateFormatData, grcData, fileUploadsData, loginBrandingData]) => {
         setSmtpHost(emailData.smtp_host);
         setSmtpPort(emailData.smtp_port);
         setSmtpUser(emailData.smtp_user);
@@ -276,6 +290,8 @@ function GeneralTab() {
         setGrcEnabled(grcData.enabled);
         setFileUploadsEnabled(fileUploadsData.enabled);
         setFiscalYearStart(fiscalData.month);
+        setArchiveRetentionDays(archiveRetentionData.days);
+        setArchiveRetentionInput(String(archiveRetentionData.days));
         setAppTitle(appTitleData.app_title || DEFAULT_APP_TITLE);
         const fmt = (DATE_FORMAT_OPTIONS as string[]).includes(dateFormatData.date_format)
           ? (dateFormatData.date_format as DateFormatKey)
@@ -484,6 +500,29 @@ function GeneralTab() {
       setError(e instanceof Error ? e.message : t("common:errors.generic"));
     } finally {
       setSavingFiscal(false);
+    }
+  };
+
+  const MAX_ARCHIVE_RETENTION_DAYS = 3650;
+
+  const handleArchiveRetentionSave = async () => {
+    const parsed = Number(archiveRetentionInput);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > MAX_ARCHIVE_RETENTION_DAYS) {
+      setError(t("settings.dataManagement.invalid", { max: MAX_ARCHIVE_RETENTION_DAYS }));
+      return;
+    }
+    setSavingArchiveRetention(true);
+    setError("");
+    try {
+      await api.patch("/settings/archive-retention-days", { days: parsed });
+      setArchiveRetentionDays(parsed);
+      setArchiveRetentionInput(String(parsed));
+      invalidateArchiveRetentionDays(parsed);
+      setSnack(t("settings.dataManagement.savedSuccess"));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("common:errors.generic"));
+    } finally {
+      setSavingArchiveRetention(false);
     }
   };
 
@@ -1112,6 +1151,68 @@ function GeneralTab() {
               : t("settings.fileUploads.hidden")
           }
         />
+      </Paper>
+
+      {/* ── Data management ───────────────────────────────────────── */}
+      <SectionHeader>{t("settings.section.dataManagement")}</SectionHeader>
+
+      {/* Archived-card retention */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2, gap: 1 }}>
+          <MaterialSymbol icon="auto_delete" size={22} color="#555" />
+          <Typography variant="h6" fontWeight={600}>
+            {t("settings.dataManagement.title")}
+          </Typography>
+          <Chip
+            label={
+              archiveRetentionDays === 0
+                ? t("settings.dataManagement.indefiniteChip")
+                : t("settings.dataManagement.daysChip", { count: archiveRetentionDays })
+            }
+            size="small"
+            color={archiveRetentionDays === 0 ? "warning" : "default"}
+            sx={{ ml: 1 }}
+          />
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {t("settings.dataManagement.description")}
+        </Typography>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={archiveRetentionInput.trim() === "0"}
+              onChange={(e) =>
+                setArchiveRetentionInput(
+                  e.target.checked ? "0" : String(DEFAULT_ARCHIVE_RETENTION_DAYS),
+                )
+              }
+              disabled={savingArchiveRetention}
+            />
+          }
+          label={t("settings.dataManagement.keepIndefinitely")}
+        />
+        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2, mt: 1 }}>
+          <TextField
+            type="number"
+            size="small"
+            label={t("settings.dataManagement.retentionDays")}
+            value={archiveRetentionInput}
+            onChange={(e) => setArchiveRetentionInput(e.target.value)}
+            disabled={savingArchiveRetention || archiveRetentionInput.trim() === "0"}
+            inputProps={{ min: 0, max: 3650 }}
+            helperText={t("settings.dataManagement.retentionHelp")}
+            sx={{ minWidth: 220 }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<MaterialSymbol icon="save" size={18} />}
+            sx={{ textTransform: "none", mt: 0.25 }}
+            onClick={handleArchiveRetentionSave}
+            disabled={savingArchiveRetention || archiveRetentionInput === String(archiveRetentionDays)}
+          >
+            {savingArchiveRetention ? t("common:labels.loading") : t("common:actions.save")}
+          </Button>
+        </Box>
       </Paper>
 
       {/* ── Modules ───────────────────────────────────────────────── */}

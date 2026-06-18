@@ -323,3 +323,31 @@ class TestPurgeArchivedCards:
         # Recent card still exists
         result = await db.execute(select(Card).where(Card.id == recent_card.id))
         assert result.scalar_one_or_none() is not None
+
+
+class TestArchivePurgeCutoff:
+    """Unit tests for the pure retention-window helper (no DB)."""
+
+    def test_zero_retention_disables_purge(self):
+        from app.main import _archive_purge_cutoff
+
+        now = datetime.now(timezone.utc)
+        assert _archive_purge_cutoff(0, now) is None
+
+    def test_none_retention_disables_purge(self):
+        from app.main import _archive_purge_cutoff
+
+        now = datetime.now(timezone.utc)
+        assert _archive_purge_cutoff(None, now) is None
+
+    def test_negative_retention_disables_purge(self):
+        from app.main import _archive_purge_cutoff
+
+        now = datetime.now(timezone.utc)
+        assert _archive_purge_cutoff(-5, now) is None
+
+    def test_positive_retention_returns_cutoff(self):
+        from app.main import _archive_purge_cutoff
+
+        now = datetime.now(timezone.utc)
+        assert _archive_purge_cutoff(30, now) == now - timedelta(days=30)

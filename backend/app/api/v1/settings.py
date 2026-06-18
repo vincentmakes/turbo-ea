@@ -67,6 +67,12 @@ class SsoSettingsPayload(BaseModel):
 
 DEFAULT_CURRENCY = "USD"
 
+# Archived cards are auto-purged after this many days by default. ``0`` means
+# "keep indefinitely" (auto-purge disabled). Kept in sync with the
+# ``_PURGE_RETENTION_DAYS`` fallback in ``app.main``.
+DEFAULT_ARCHIVE_RETENTION_DAYS = 30
+MAX_ARCHIVE_RETENTION_DAYS = 3650  # ~10 years
+
 DEFAULT_DATE_FORMAT = "DD MMM YYYY"
 ALLOWED_DATE_FORMATS = {
     "MM/DD/YYYY",
@@ -173,6 +179,9 @@ async def get_bootstrap(db: AsyncSession = Depends(get_db)):
         "file_uploads_enabled": general.get("fileUploadsEnabled", True),
         "enabled_locales": general.get("enabledLocales", SUPPORTED_LOCALES),
         "fiscal_year_start": general.get("fiscalYearStart", 1),
+        "archive_retention_days": general.get(
+            "archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS
+        ),
         "bpm_row_order": general.get("bpmRowOrder", ["management", "core", "support"]),
         "show_principles_tab": general.get("showPrinciplesTab", True),
         "compliance_regulations": compliance_regulations,
@@ -693,6 +702,50 @@ async def update_fiscal_year_start(
     await db.commit()
 
     return {"month": body.month}
+
+
+class ArchiveRetentionPayload(BaseModel):
+    days: int  # number of days to keep archived cards; 0 = keep indefinitely
+
+
+@router.get("/archive-retention-days")
+async def get_archive_retention_days(db: AsyncSession = Depends(get_db)):
+    """Public endpoint — days an archived card is kept before auto-purge.
+
+    ``0`` means archived cards are kept indefinitely (auto-purge disabled).
+    """
+    result = await db.execute(select(AppSettings).where(AppSettings.id == "default"))
+    row = result.scalar_one_or_none()
+    general = (row.general_settings if row else None) or {}
+    return {"days": general.get("archiveRetentionDays", DEFAULT_ARCHIVE_RETENTION_DAYS)}
+
+
+@router.patch("/archive-retention-days")
+async def update_archive_retention_days(
+    body: ArchiveRetentionPayload,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Admin endpoint — set how long archived cards are kept before auto-purge.
+
+    ``0`` disables auto-purge so archived cards (and their history) are kept
+    indefinitely. The hourly purge loop re-reads this value each cycle, so the
+    change takes effect without a restart.
+    """
+    await PermissionService.require_permission(db, user, "admin.settings")
+    if body.days < 0 or body.days > MAX_ARCHIVE_RETENTION_DAYS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Days must be between 0 and {MAX_ARCHIVE_RETENTION_DAYS}",
+        )
+
+    row = await _get_or_create_row(db)
+    general = dict(row.general_settings or {})
+    general["archiveRetentionDays"] = body.days
+    row.general_settings = general
+    await db.commit()
+
+    return {"days": body.days}
 
 
 # ---------------------------------------------------------------------------

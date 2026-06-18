@@ -56,6 +56,19 @@ Select the month that begins your organization's fiscal year (January through De
 
 The default is **January** (calendar year = fiscal year).
 
+## Data management
+
+Control how long **archived cards** are retained before they are permanently deleted.
+
+When a card is archived it is hidden from the inventory, reports, and relations, but it keeps its full history and can be restored at any time before it is purged.
+
+| Field | Description |
+|-------|-------------|
+| **Retention period (days)** | Number of days an archived card is kept before it is permanently deleted. The default is **30**. |
+| **Keep archived cards indefinitely** | When enabled (retention set to **0**), archived cards are never auto-deleted and are retained — with their history — indefinitely. |
+
+The purge job runs hourly and re-reads this setting on each run, so changes take effect without restarting the application. Archive banners and confirmation dialogs reflect the configured period automatically.
+
 ## Email (SMTP)
 
 Configure email delivery for invitation emails, survey notifications, and other system messages.

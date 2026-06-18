@@ -56,6 +56,19 @@ Wählen Sie den Monat, in dem das Geschäftsjahr Ihrer Organisation beginnt (Jan
 
 Der Standardwert ist **Januar** (Kalenderjahr = Geschäftsjahr).
 
+## Datenverwaltung
+
+Legen Sie fest, wie lange **archivierte Karten** aufbewahrt werden, bevor sie endgültig gelöscht werden.
+
+Wenn eine Karte archiviert wird, ist sie im Inventar, in Berichten und in Beziehungen ausgeblendet, behält aber ihre vollständige Historie und kann jederzeit vor der Bereinigung wiederhergestellt werden.
+
+| Feld | Beschreibung |
+|------|--------------|
+| **Aufbewahrungsdauer (Tage)** | Anzahl der Tage, die eine archivierte Karte aufbewahrt wird, bevor sie endgültig gelöscht wird. Der Standardwert ist **30**. |
+| **Archivierte Karten unbegrenzt aufbewahren** | Wenn aktiviert (Aufbewahrung auf **0** gesetzt), werden archivierte Karten nie automatisch gelöscht und – mitsamt ihrer Historie – unbegrenzt aufbewahrt. |
+
+Die Bereinigung läuft stündlich und liest diese Einstellung bei jedem Durchlauf neu, sodass Änderungen ohne Neustart der Anwendung wirksam werden. Archiv-Banner und Bestätigungsdialoge zeigen die konfigurierte Dauer automatisch an.
+
 ## E-Mail (SMTP)
 
 Konfigurieren Sie die E-Mail-Zustellung für Einladungs-E-Mails, Umfragebenachrichtigungen und andere Systemnachrichten.

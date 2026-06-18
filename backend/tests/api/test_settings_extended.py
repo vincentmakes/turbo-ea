@@ -433,3 +433,73 @@ class TestEmailTestEndpoint:
         assert data["smtp_host"] == "smtp2.example.com"
         # Password still masked = still stored
         assert data["smtp_password"] == "••••••••"
+
+
+# -------------------------------------------------------------------
+# Archived-card retention endpoint
+# -------------------------------------------------------------------
+
+
+class TestArchiveRetentionDays:
+    async def test_get_default_is_30(self, client, db, ext_settings_env):
+        """Public endpoint defaults to 30 days when unset."""
+        resp = await client.get("/api/v1/settings/archive-retention-days")
+        assert resp.status_code == 200
+        assert resp.json()["days"] == 30
+
+    async def test_bootstrap_includes_retention(self, client, db, ext_settings_env):
+        resp = await client.get("/api/v1/settings/bootstrap")
+        assert resp.status_code == 200
+        assert resp.json()["archive_retention_days"] == 30
+
+    async def test_admin_can_set_retention(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/archive-retention-days",
+            json={"days": 90},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["days"] == 90
+
+        get_resp = await client.get("/api/v1/settings/archive-retention-days")
+        assert get_resp.json()["days"] == 90
+        boot = await client.get("/api/v1/settings/bootstrap")
+        assert boot.json()["archive_retention_days"] == 90
+
+    async def test_zero_means_indefinite(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/archive-retention-days",
+            json={"days": 0},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["days"] == 0
+
+    async def test_negative_rejected(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/archive-retention-days",
+            json={"days": -1},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+
+    async def test_over_max_rejected(self, client, db, ext_settings_env):
+        admin = ext_settings_env["admin"]
+        resp = await client.patch(
+            "/api/v1/settings/archive-retention-days",
+            json={"days": 4000},
+            headers=auth_headers(admin),
+        )
+        assert resp.status_code == 422
+
+    async def test_member_cannot_set_retention(self, client, db, ext_settings_env):
+        member = ext_settings_env["member"]
+        resp = await client.patch(
+            "/api/v1/settings/archive-retention-days",
+            json={"days": 90},
+            headers=auth_headers(member),
+        )
+        assert resp.status_code == 403

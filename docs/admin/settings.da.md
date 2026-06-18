@@ -56,6 +56,19 @@ Vælg den måned, der starter din organisations regnskabsår (januar til decembe
 
 Standarden er **januar** (kalenderår = regnskabsår).
 
+## Datahåndtering
+
+Styr, hvor længe **arkiverede kort** opbevares, før de slettes permanent.
+
+Når et kort arkiveres, skjules det fra oversigten, rapporter og relationer, men beholder hele sin historik og kan gendannes når som helst, før det udrenses.
+
+| Felt | Beskrivelse |
+|------|-------------|
+| **Opbevaringsperiode (dage)** | Antal dage, et arkiveret kort opbevares, før det slettes permanent. Standardværdien er **30**. |
+| **Behold arkiverede kort på ubestemt tid** | Når aktiveret (opbevaring sat til **0**), slettes arkiverede kort aldrig automatisk og opbevares — med deres historik — på ubestemt tid. |
+
+Udrensningen kører hver time og genindlæser denne indstilling ved hver kørsel, så ændringer træder i kraft uden at genstarte applikationen. Arkiveringsbannere og bekræftelsesdialoger afspejler automatisk den konfigurerede periode.
+
 ## E-mail (SMTP)
 
 Konfigurer e-maillevering til invitationsmails, undersøgelsesnotifikationer og andre systemmeddelelser.
