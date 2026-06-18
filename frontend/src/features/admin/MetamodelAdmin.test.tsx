@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import MetamodelAdmin from "./MetamodelAdmin";
 
@@ -291,16 +291,19 @@ describe("MetamodelAdmin", () => {
     await user.click(await screen.findByRole("button", { name: /new relation/i }));
     expect(await screen.findByText("Create Relation Type")).toBeInTheDocument();
 
-    // Pick source + target types.
-    await user.click(screen.getByRole("combobox", { name: /source type/i }));
+    // Pick source + target types. MUI renders Select as a combobox with an
+    // empty accessible name, so select by position: [source, target, cardinality].
+    const sourceSelect = screen.getAllByRole("combobox")[0];
+    await user.click(sourceSelect);
     await user.click(await screen.findByRole("option", { name: /application/i }));
-    await user.click(screen.getByRole("combobox", { name: /target type/i }));
+    const targetSelect = screen.getAllByRole("combobox")[1];
+    await user.click(targetSelect);
     await user.click(await screen.findByRole("option", { name: /objective/i }));
 
-    // Provide a valid (lowercase) key and a label so Create is enabled.
-    const keyInput = screen.getByTestId("key-input");
-    await user.clear(keyInput);
-    await user.type(keyInput, "owns");
+    // Provide a valid (lowercase) key and a label so Create is enabled. Set the
+    // key directly (selecting the target auto-fills an uppercase key the mock
+    // KeyInput rejects, and the controlled fallback fights clear()+type()).
+    fireEvent.change(screen.getByTestId("key-input"), { target: { value: "owns" } });
     await user.type(screen.getByRole("textbox", { name: /label \(verb/i }), "owns");
 
     await user.click(screen.getByRole("button", { name: /^create$/i }));
