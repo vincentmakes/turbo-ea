@@ -135,6 +135,15 @@ Algumas relações incluem atributos adicionais que define em cada ligação ind
 
 Só pode existir um tipo de relação entre um determinado par de tipos de carta, por isso utilize estes atributos para qualificar o significado de uma ligação em vez de criar um segundo tipo de relação para a mesma origem e destino.
 
+### Gerir valores de relação
+
+Clique no ícone **Gerir valores de relação** (etiqueta) numa linha de relação para editar os valores dos seus atributos de «tipo». Pode:
+
+- **Adicionar os seus próprios valores** a um seletor existente — por exemplo, um novo Tipo de utilização para além de Proprietário / Utilizador / Parte interessada.
+- **Adicionar um seletor de tipo totalmente novo** a uma relação que não tenha nenhum, através de **Adicionar tipo** — incluindo em relações integradas.
+
+Os valores integrados (Proprietário, Utilizador, Parte interessada, os valores de direção do fluxo…) estão **bloqueados**: não podem ser renomeados, recoloridos nem eliminados. No entanto, pode **ocultar** um valor integrado para que deixe de aparecer no seletor nas cartas — um valor já definido permanece visível. Os seus próprios valores são totalmente editáveis e removíveis.
+
 ## Cálculos
 
 Campos calculados usam fórmulas definidas pelo administrador para computar automaticamente valores quando cards são salvos. Veja [Cálculos](calculations.md) para o guia completo.

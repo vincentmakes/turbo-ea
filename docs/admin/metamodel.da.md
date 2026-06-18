@@ -135,6 +135,15 @@ Nogle relationer bærer ekstra egenskaber, som du angiver på hvert enkelt link 
 
 Der kan kun findes én relationstype mellem et givet par af korttyper, så brug disse egenskaber til at præcisere betydningen af et link i stedet for at oprette endnu en relationstype for den samme kilde og destination.
 
+### Administrer relationsværdier
+
+Klik på ikonet **Administrer relationsværdier** (etiket) på en relationsrække for at redigere værdierne for dens «type»-attributter. Du kan:
+
+- **Tilføje dine egne værdier** til en eksisterende vælger — for eksempel en ny brugstype ud over Ejer / Bruger / Interessent.
+- **Tilføje en helt ny type-vælger** til en relation, der ingen har, via **Tilføj type** — også på indbyggede relationer.
+
+Indbyggede værdier (Ejer, Bruger, Interessent, flowretningsværdierne …) er **låst**: de kan ikke omdøbes, omfarves eller slettes. Du kan dog **skjule** en indbygget værdi, så den ikke længere vises i vælgeren på kort — en allerede valgt værdi forbliver synlig. Dine egne værdier kan redigeres og fjernes frit.
+
 ## Beregninger
 
 Beregnede felter bruger admin-definerede formler til automatisk at beregne værdier, når kort gemmes. Se [Beregninger](calculations.md) for den fulde vejledning.

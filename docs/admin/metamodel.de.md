@@ -135,6 +135,15 @@ Manche Beziehungen tragen zusätzliche Attribute, die Sie an jeder einzelnen Ver
 
 Zwischen einem bestimmten Paar von Kartentypen kann nur ein Beziehungstyp existieren. Nutzen Sie daher diese Attribute, um die Bedeutung einer Verknüpfung zu präzisieren, anstatt einen zweiten Beziehungstyp für dasselbe Quell- und Zielpaar zu erstellen.
 
+### Beziehungswerte verwalten
+
+Klicken Sie auf das Symbol **Beziehungswerte verwalten** (Etikett) in einer Beziehungszeile, um die Werte ihrer „Typ"-Attribute zu bearbeiten. Sie können:
+
+- **Eigene Werte hinzufügen** zu einem vorhandenen Auswahlfeld — etwa einen neuen Nutzungstyp über Eigentümer / Benutzer / Stakeholder hinaus.
+- **Ein ganz neues Typ-Auswahlfeld hinzufügen** zu einer Beziehung, die keines hat, über **Typ hinzufügen** — auch bei integrierten Beziehungen.
+
+Integrierte Werte (Eigentümer, Benutzer, Stakeholder, die Flussrichtungswerte …) sind **gesperrt**: Sie können nicht umbenannt, umgefärbt oder gelöscht werden. Sie können einen integrierten Wert jedoch **ausblenden**, sodass er auf Karten nicht mehr im Auswahlfeld erscheint — ein bereits gesetzter Wert bleibt sichtbar. Ihre eigenen Werte sind vollständig bearbeitbar und entfernbar.
+
 ## Berechnungen
 
 Berechnete Felder verwenden vom Administrator definierte Formeln, um Werte automatisch zu berechnen, wenn Karten gespeichert werden. Siehe [Berechnungen](calculations.md) für die vollständige Anleitung.

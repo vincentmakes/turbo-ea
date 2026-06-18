@@ -135,6 +135,15 @@ Alcune relazioni includono attributi aggiuntivi che si impostano su ogni singolo
 
 Tra una determinata coppia di tipi di card può esistere un solo tipo di relazione, quindi utilizzate questi attributi per qualificare il significato di un collegamento anziché creare un secondo tipo di relazione per la stessa origine e destinazione.
 
+### Gestire i valori di relazione
+
+Cliccate sull'icona **Gestisci valori di relazione** (etichetta) su una riga di relazione per modificare i valori dei suoi attributi di «tipo». Potete:
+
+- **Aggiungere i vostri valori** a un selettore esistente — ad esempio un nuovo Tipo di utilizzo oltre a Proprietario / Utente / Stakeholder.
+- **Aggiungere un selettore di tipo completamente nuovo** a una relazione che non ne ha, tramite **Aggiungi tipo** — anche sulle relazioni integrate.
+
+I valori integrati (Proprietario, Utente, Stakeholder, i valori della direzione del flusso…) sono **bloccati**: non possono essere rinominati, ricolorati o eliminati. Potete però **nascondere** un valore integrato in modo che non compaia più nel selettore sulle card — un valore già impostato resta visibile. I vostri valori sono completamente modificabili ed eliminabili.
+
 ## Calcoli
 
 I campi calcolati utilizzano formule definite dall'amministratore per calcolare automaticamente i valori quando le card vengono salvate. Vedi [Calcoli](calculations.md) per la guida completa.

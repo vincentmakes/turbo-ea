@@ -135,6 +135,15 @@ Algunas relaciones incluyen atributos adicionales que se establecen en cada enla
 
 Solo puede existir un tipo de relación entre un par dado de tipos de tarjeta, así que utilice estos atributos para matizar el significado de un enlace en lugar de crear un segundo tipo de relación para el mismo origen y destino.
 
+### Gestionar valores de relación
+
+Haga clic en el icono **Gestionar valores de relación** (etiqueta) en una fila de relación para editar los valores de sus atributos de «tipo». Puede:
+
+- **Añadir sus propios valores** a un selector existente, por ejemplo un nuevo Tipo de uso más allá de Propietario / Usuario / Parte interesada.
+- **Añadir un selector de tipo completamente nuevo** a una relación que no tenga ninguno, mediante **Añadir tipo**, incluso en relaciones integradas.
+
+Los valores integrados (Propietario, Usuario, Parte interesada, los valores de dirección del flujo…) están **bloqueados**: no se pueden renombrar, recolorear ni eliminar. No obstante, puede **ocultar** un valor integrado para que ya no aparezca en el selector de las fichas; un valor ya establecido permanece visible. Sus propios valores son totalmente editables y se pueden eliminar.
+
 ## Cálculos
 
 Los campos calculados usan fórmulas definidas por el administrador para calcular automáticamente valores cuando se guardan fichas. Ver [Cálculos](calculations.es.md) para la guía completa.

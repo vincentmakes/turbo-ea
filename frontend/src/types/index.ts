@@ -127,6 +127,11 @@ export interface FieldOption {
   label: string;
   color?: string;
   translations?: TranslationMap;
+  // Relation "type" values (e.g. usageType owner/user) carry these. Built-in
+  // values ship from the seed and are locked-but-hideable; custom values are
+  // fully editable. `hidden` removes a value from the picker without deleting it.
+  built_in?: boolean;
+  hidden?: boolean;
 }
 
 export interface FieldDef {
@@ -149,6 +154,10 @@ export interface FieldDef {
   group?: string;
   column?: 0 | 1;
   translations?: TranslationMap;
+  // Set on built-in relation attribute "dimensions" (e.g. usageType,
+  // flowDirection): the field definition is locked, but its options can be
+  // managed. Custom relation dimensions are fully editable.
+  built_in?: boolean;
 }
 
 export interface SubtypeDef {

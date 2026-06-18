@@ -135,6 +135,15 @@ Some relations carry extra attributes that you set on each individual link rathe
 
 Only one relation type can exist between a given pair of card types, so use these attributes to qualify the meaning of a link rather than creating a second relation type for the same source and target.
 
+### Managing relation values
+
+Click the **Manage relation values** (tag) icon on any relation row to edit the values of its "type" attributes. You can:
+
+- **Add your own values** to an existing picker — for example, a new Usage Type beyond Owner / User / Stakeholder.
+- **Add a brand-new type picker** to a relation that has none, using **Add type**, including on built-in relations.
+
+Built-in values (Owner, User, Stakeholder, the flow-direction values, …) are **locked**: they cannot be renamed, recoloured, or deleted. You can, however, **hide** a built-in value so it no longer appears in the picker on cards — an already-set value stays visible. Your own custom values are fully editable and can be removed.
+
 ## Calculations
 
 Calculated fields use admin-defined formulas to automatically compute values when cards are saved. See [Calculations](calculations.md) for the full guide.

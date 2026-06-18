@@ -86,6 +86,130 @@ def _serialize_relation_type(r: RelationType) -> dict:
     }
 
 
+# Fields of a built-in attribute *definition* (field or option) that admins may
+# never change. ``hidden`` is intentionally excluded — built-in values are
+# locked-but-hideable.
+_LOCKED_OPTION_FIELDS = ("key", "label", "color", "type", "translations", "options")
+
+
+def _sanitize_relation_attribute_schema(schema: object) -> list[dict]:
+    """Force ``built_in=False`` on anything a client submits.
+
+    A client must never be able to *mint* a built-in field/option (which would
+    make it un-editable to everyone else). Used on create and as the baseline
+    normaliser on update for non-built-in entries.
+    """
+    out: list[dict] = []
+    for field in schema if isinstance(schema, list) else []:
+        if not isinstance(field, dict):
+            continue
+        f = dict(field)
+        f["built_in"] = False
+        opts = f.get("options")
+        if isinstance(opts, list):
+            f["options"] = [{**o, "built_in": False} for o in opts if isinstance(o, dict)]
+        out.append(f)
+    return out
+
+
+def _merge_relation_attributes_schema(existing: object, incoming: object) -> list[dict]:
+    """Validate + merge an incoming ``attributes_schema`` against the stored one.
+
+    Built-in fields and options (``built_in=True`` on the stored entry) are
+    locked-but-hideable: they must remain present and unchanged except their
+    ``hidden`` flag may flip. Custom entries are fully editable, and any entry
+    that does not match a stored built-in key is forced ``built_in=False`` so a
+    client can never escalate a custom value into a locked one.
+
+    Raises ``HTTPException(403)`` when a built-in field/option is removed or its
+    locked attributes are mutated.
+    """
+    existing_list = existing if isinstance(existing, list) else []
+    incoming_list = incoming if isinstance(incoming, list) else []
+
+    existing_fields = {
+        f["key"]: f
+        for f in existing_list
+        if isinstance(f, dict) and f.get("built_in") and "key" in f
+    }
+
+    incoming_by_key = {f["key"]: f for f in incoming_list if isinstance(f, dict) and "key" in f}
+
+    # Every built-in field must survive the edit.
+    for fkey in existing_fields:
+        if fkey not in incoming_by_key:
+            raise HTTPException(403, f"Built-in relation attribute '{fkey}' cannot be removed.")
+
+    merged: list[dict] = []
+    for field in incoming_list:
+        if not isinstance(field, dict) or "key" not in field:
+            continue
+        base = existing_fields.get(field["key"])
+        if base is None:
+            # Custom field — fully editable, but normalise built_in to False.
+            f = dict(field)
+            f["built_in"] = False
+            opts = f.get("options")
+            if isinstance(opts, list):
+                f["options"] = [{**o, "built_in": False} for o in opts if isinstance(o, dict)]
+            merged.append(f)
+            continue
+
+        # Built-in field: locked definition; only options + hidden may evolve.
+        for attr in _LOCKED_OPTION_FIELDS:
+            if attr == "options":
+                continue
+            if field.get(attr) != base.get(attr):
+                raise HTTPException(
+                    403,
+                    f"Built-in relation attribute '{field['key']}' cannot be edited.",
+                )
+        f = dict(base)
+        f["built_in"] = True
+        merged.append(_merge_field_options(base, field, f))
+
+    return merged
+
+
+def _merge_field_options(base_field: dict, incoming_field: dict, target: dict) -> dict:
+    """Merge option lists for a built-in field: built-in options locked-but-
+    hideable, custom options free, new options forced ``built_in=False``."""
+    base_opts = {
+        o["key"]: o
+        for o in base_field.get("options", []) or []
+        if isinstance(o, dict) and o.get("built_in") and "key" in o
+    }
+    incoming_opts = incoming_field.get("options") or []
+    incoming_keys = {o["key"] for o in incoming_opts if isinstance(o, dict) and "key" in o}
+
+    for okey in base_opts:
+        if okey not in incoming_keys:
+            raise HTTPException(
+                403,
+                f"Built-in relation value '{okey}' cannot be removed (hide it instead).",
+            )
+
+    merged_opts: list[dict] = []
+    for opt in incoming_opts:
+        if not isinstance(opt, dict) or "key" not in opt:
+            continue
+        base_opt = base_opts.get(opt["key"])
+        if base_opt is None:
+            merged_opts.append({**opt, "built_in": False})
+            continue
+        # Built-in option: locked except `hidden`.
+        for attr in ("key", "label", "color", "translations"):
+            if opt.get(attr) != base_opt.get(attr):
+                raise HTTPException(
+                    403,
+                    f"Built-in relation value '{opt['key']}' cannot be edited (hide it instead).",
+                )
+        merged_opts.append({**base_opt, "built_in": True, "hidden": bool(opt.get("hidden", False))})
+
+    target["options"] = merged_opts
+    return target
+
+
 async def _cleanup_removed_fields_and_options(
     db: AsyncSession,
     type_key: str,
@@ -583,7 +707,7 @@ async def create_relation_type(
         source_type_key=body["source_type_key"],
         target_type_key=body["target_type_key"],
         cardinality=body.get("cardinality", "n:m"),
-        attributes_schema=body.get("attributes_schema", []),
+        attributes_schema=_sanitize_relation_attribute_schema(body.get("attributes_schema", [])),
         built_in=False,
         is_hidden=False,
         sort_order=body.get("sort_order", next_order),
@@ -662,7 +786,15 @@ async def update_relation_type(
         "target_mandatory",
     ]
     for field in updatable:
-        if field in body:
+        if field not in body:
+            continue
+        if field == "attributes_schema":
+            # Built-in attribute fields/options are locked-but-hideable; custom
+            # ones are free. Validates + sanitizes (raises 403 on locked edits).
+            r.attributes_schema = _merge_relation_attributes_schema(
+                r.attributes_schema or [], body["attributes_schema"]
+            )
+        else:
             setattr(r, field, body[field])
 
     await db.commit()

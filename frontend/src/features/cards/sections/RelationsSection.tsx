@@ -421,7 +421,7 @@ function RelationGroup({
                   }}
                 >
                   <MaterialSymbol
-                    icon={flowBadge ? flowBadge.icon : attrBadge ? "edit" : "swap_horiz"}
+                    icon={flowBadge ? flowBadge.icon : "label"}
                     size={20}
                   />
                 </IconButton>

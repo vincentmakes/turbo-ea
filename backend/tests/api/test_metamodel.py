@@ -550,3 +550,241 @@ class TestRestoreRelationType:
             headers=auth_headers(admin),
         )
         assert response.status_code == 400
+
+
+class TestRelationAttributeValues:
+    """Manage the relation 'type' picker (attributes_schema options).
+
+    Built-in fields/options are locked-but-hideable; custom ones are fully
+    editable; clients can never mint built-in entries.
+    """
+
+    BUILTIN_SCHEMA = [
+        {
+            "key": "usageType",
+            "label": "Usage Type",
+            "type": "single_select",
+            "built_in": True,
+            "options": [
+                {"key": "owner", "label": "Owner", "color": "#1976d2", "built_in": True},
+                {"key": "user", "label": "User", "color": "#66bb6a", "built_in": True},
+            ],
+        },
+    ]
+
+    async def _make_builtin_rel(self, db):
+        await create_card_type(db, key="Organization", label="Organization")
+        await create_card_type(db, key="Application", label="Application")
+        rt = await create_relation_type(
+            db,
+            key="relOrgToApp",
+            source_type_key="Organization",
+            target_type_key="Application",
+            built_in=True,
+        )
+        rt.attributes_schema = [dict(f) for f in self.BUILTIN_SCHEMA]
+        await db.flush()
+        return rt
+
+    def _schema_with(self, options):
+        return [
+            {
+                "key": "usageType",
+                "label": "Usage Type",
+                "type": "single_select",
+                "built_in": True,
+                "options": options,
+            }
+        ]
+
+    async def test_add_custom_value_to_builtin_field(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._make_builtin_rel(db)
+
+        new_opts = [
+            {"key": "owner", "label": "Owner", "color": "#1976d2", "built_in": True},
+            {"key": "user", "label": "User", "color": "#66bb6a", "built_in": True},
+            {"key": "operator", "label": "Operator", "color": "#9c27b0"},
+        ]
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"attributes_schema": self._schema_with(new_opts)},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        opts = response.json()["attributes_schema"][0]["options"]
+        by_key = {o["key"]: o for o in opts}
+        assert by_key["operator"]["built_in"] is False
+        assert by_key["owner"]["built_in"] is True
+        assert {"owner", "user", "operator"} <= set(by_key)
+
+    async def test_edit_builtin_value_label_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._make_builtin_rel(db)
+
+        bad_opts = [
+            {"key": "owner", "label": "Proprietor", "color": "#1976d2", "built_in": True},
+            {"key": "user", "label": "User", "color": "#66bb6a", "built_in": True},
+        ]
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"attributes_schema": self._schema_with(bad_opts)},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 403
+
+    async def test_remove_builtin_value_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._make_builtin_rel(db)
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={
+                "attributes_schema": self._schema_with(
+                    [{"key": "owner", "label": "Owner", "color": "#1976d2", "built_in": True}]
+                )
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 403
+
+    async def test_remove_builtin_field_rejected(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._make_builtin_rel(db)
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"attributes_schema": []},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 403
+
+    async def test_hide_builtin_value_allowed(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await self._make_builtin_rel(db)
+
+        hidden_opts = [
+            {"key": "owner", "label": "Owner", "color": "#1976d2", "built_in": True},
+            {
+                "key": "user",
+                "label": "User",
+                "color": "#66bb6a",
+                "built_in": True,
+                "hidden": True,
+            },
+        ]
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relOrgToApp",
+            json={"attributes_schema": self._schema_with(hidden_opts)},
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        opts = {o["key"]: o for o in response.json()["attributes_schema"][0]["options"]}
+        assert opts["user"]["hidden"] is True
+        assert opts["owner"].get("hidden", False) is False
+
+    async def test_add_new_dimension_to_relation_without_one(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="BusinessCapability", label="Business Capability")
+        await create_relation_type(
+            db,
+            key="relAppToBC",
+            source_type_key="Application",
+            target_type_key="BusinessCapability",
+            built_in=True,
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relAppToBC",
+            json={
+                "attributes_schema": [
+                    {
+                        "key": "supportType",
+                        "label": "Support Type",
+                        "type": "single_select",
+                        "options": [{"key": "primary", "label": "Primary"}],
+                    }
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        schema = response.json()["attributes_schema"]
+        assert schema[0]["key"] == "supportType"
+        assert schema[0]["built_in"] is False
+        assert schema[0]["options"][0]["built_in"] is False
+
+    async def test_client_cannot_mint_builtin_value(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="BusinessCapability", label="Business Capability")
+        await create_relation_type(
+            db,
+            key="relAppToBC",
+            source_type_key="Application",
+            target_type_key="BusinessCapability",
+            built_in=True,
+        )
+
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/relAppToBC",
+            json={
+                "attributes_schema": [
+                    {
+                        "key": "supportType",
+                        "label": "Support Type",
+                        "type": "single_select",
+                        "built_in": True,
+                        "options": [{"key": "primary", "label": "Primary", "built_in": True}],
+                    }
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        schema = response.json()["attributes_schema"]
+        assert schema[0]["built_in"] is False
+        assert schema[0]["options"][0]["built_in"] is False
+
+    async def test_custom_relation_values_fully_editable(self, client, db, metamodel_env):
+        admin = metamodel_env["admin"]
+        await create_card_type(db, key="Application", label="Application")
+        await create_card_type(db, key="ITComponent", label="IT Component")
+        rt = await create_relation_type(
+            db,
+            key="app_to_itc",
+            source_type_key="Application",
+            target_type_key="ITComponent",
+            built_in=False,
+        )
+        rt.attributes_schema = [
+            {
+                "key": "tier",
+                "label": "Tier",
+                "type": "single_select",
+                "built_in": False,
+                "options": [{"key": "a", "label": "A", "built_in": False}],
+            }
+        ]
+        await db.flush()
+
+        # Rename + remove the custom option freely.
+        response = await client.patch(
+            "/api/v1/metamodel/relation-types/app_to_itc",
+            json={
+                "attributes_schema": [
+                    {
+                        "key": "tier",
+                        "label": "Renamed Tier",
+                        "type": "single_select",
+                        "options": [{"key": "b", "label": "B"}],
+                    }
+                ]
+            },
+            headers=auth_headers(admin),
+        )
+        assert response.status_code == 200
+        schema = response.json()["attributes_schema"]
+        assert schema[0]["label"] == "Renamed Tier"
+        assert [o["key"] for o in schema[0]["options"]] == ["b"]

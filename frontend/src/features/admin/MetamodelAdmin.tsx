@@ -39,7 +39,7 @@ import type {
   MetamodelTranslations,
   TranslationMap,
 } from "@/types";
-import { TypeDetailDrawer, MetamodelGraph } from "./metamodel";
+import { TypeDetailDrawer, MetamodelGraph, RelationTypeValuesDialog } from "./metamodel";
 import { CATEGORIES, CARDINALITY_OPTIONS } from "./metamodel/constants";
 
 /** Remove empty-string entries from a TranslationMap. Returns undefined if all empty. */
@@ -113,6 +113,9 @@ export default function MetamodelAdmin() {
   const [editRelOpen, setEditRelOpen] = useState(false);
   const [editRel, setEditRel] = useState<(RType & { translations?: MetamodelTranslations }) | null>(null);
   const [relError, setRelError] = useState<string | null>(null);
+
+  /* --- Manage relation "type" values dialog --- */
+  const [valuesRel, setValuesRel] = useState<RType | null>(null);
 
   /* --- Delete relation confirmation --- */
   const [deleteRelConfirm, setDeleteRelConfirm] = useState<{
@@ -677,6 +680,11 @@ export default function MetamodelAdmin() {
                       </Tooltip>
                     ) : (
                       <>
+                        <Tooltip title={t("metamodel.manageRelationValues")}>
+                          <IconButton size="small" onClick={() => setValuesRel(rt)}>
+                            <MaterialSymbol icon="label" size={18} />
+                          </IconButton>
+                        </Tooltip>
                         <Tooltip title={t("common:actions.edit")}>
                           <IconButton
                             size="small"
@@ -759,6 +767,16 @@ export default function MetamodelAdmin() {
         onClose={() => setDrawerOpen(false)}
         onRefresh={refresh}
         onCreateRelation={(preKey) => openCreateRelation(preKey)}
+      />
+
+      {/* ============================================================ */}
+      {/*  Manage Relation Values Dialog                               */}
+      {/* ============================================================ */}
+      <RelationTypeValuesDialog
+        open={!!valuesRel}
+        relationType={valuesRel}
+        onClose={() => setValuesRel(null)}
+        onSaved={refresh}
       />
 
       {/* ============================================================ */}

@@ -135,6 +135,15 @@ Certaines relations portent des attributs supplémentaires que vous définissez 
 
 Un seul type de relation peut exister entre une paire donnée de types de cartes ; utilisez donc ces attributs pour préciser le sens d'un lien plutôt que de créer un second type de relation pour les mêmes source et cible.
 
+### Gérer les valeurs de relation
+
+Cliquez sur l'icône **Gérer les valeurs de relation** (étiquette) sur une ligne de relation pour modifier les valeurs de ses attributs « type ». Vous pouvez :
+
+- **Ajouter vos propres valeurs** à un sélecteur existant — par exemple un nouveau Type d'usage au-delà de Propriétaire / Utilisateur / Partie prenante.
+- **Ajouter un tout nouveau sélecteur de type** à une relation qui n'en a pas, via **Ajouter un type** — y compris sur les relations intégrées.
+
+Les valeurs intégrées (Propriétaire, Utilisateur, Partie prenante, les valeurs de sens du flux…) sont **verrouillées** : elles ne peuvent pas être renommées, recolorées ni supprimées. Vous pouvez toutefois **masquer** une valeur intégrée pour qu'elle n'apparaisse plus dans le sélecteur sur les cartes — une valeur déjà définie reste visible. Vos propres valeurs sont entièrement modifiables et supprimables.
+
 ## Calculs
 
 Les champs calculés utilisent des formules définies par l'administrateur pour calculer automatiquement des valeurs lorsque les fiches sont sauvegardées. Voir [Calculs](calculations.md) pour le guide complet.

@@ -83,8 +83,10 @@ function FieldInput({ field, relationType, value, onChange, rl, rml, t, disabled
   const label = rl(field.label, field.translations);
 
   if (field.type === "single_select") {
-    const options = field.options ?? [];
     const current = typeof value === "string" ? value : "";
+    // Hidden values are dropped from the picker, but a value already set on this
+    // relation stays selectable so the row still resolves its label/color.
+    const options = (field.options ?? []).filter((o) => !o.hidden || o.key === current);
     return (
       <FormControl size="small" fullWidth disabled={disabled}>
         <InputLabel>{label}</InputLabel>

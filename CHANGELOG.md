@@ -5,6 +5,14 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.43.0] - 2026-06-18
+
+### Added
+- **Manage relation "type" values from the metamodel admin.** Admin → Metamodel → Relation Types now has a **Manage relation values** action on every relation. Use it to add your own values to a relation's "type" picker (e.g. add a new Usage Type beyond Owner / User / Stakeholder on Organization→Application), or to add a brand-new type picker to a relation that has none — including built-in relations. Built-in values are locked (they can't be renamed, recoloured, or deleted) but can be **hidden** per install so they no longer appear in the picker, and custom values are fully editable.
+
+### Changed
+- **Clearer "type" icon on card relations.** A relation that carries a "type" value now shows a consistent tag icon instead of a double-arrow placeholder that looked like a flow-direction indicator. Hidden relation values no longer appear in the picker (an already-set value stays visible).
+
 ## [1.42.0] - 2026-06-18
 
 ### Added
