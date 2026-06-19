@@ -4788,17 +4788,6 @@ RELATIONS = [
                     {"key": "orchestrates", "label": "Orchestrates"},
                 ],
             },
-            {
-                "key": "criticality",
-                "label": "Criticality",
-                "type": "single_select",
-                "options": [
-                    {"key": "low", "label": "Low", "color": "#4caf50"},
-                    {"key": "medium", "label": "Medium", "color": "#ff9800"},
-                    {"key": "high", "label": "High", "color": "#f44336"},
-                    {"key": "critical", "label": "Critical", "color": "#b71c1c"},
-                ],
-            },
         ],
         "translations": {
             "label": {

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Removed
 - **Removed duplicated assessment attributes from relations.** Functional Suitability (Application → Business Capability), Technical Suitability (Application → IT Component) and Resource Classification (IT Component → Tech Category) were defined both on the card and on the relation; the relation copies have been removed so these assessments live only on the card. They no longer appear as relation "type" values.
+- **Removed Criticality from the Business Process → Application relation.** Criticality is a card-level attribute, not a relation type, so it no longer appears as a relation "type" value (the relation keeps its Usage type).
 
 ## [1.42.0] - 2026-06-18
 
