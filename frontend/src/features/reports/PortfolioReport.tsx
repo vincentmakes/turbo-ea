@@ -51,6 +51,7 @@ import {
   matchesFilters,
   parseDate,
   pickSelectFields,
+  relationMemberMatchesSubtypeFilters,
   relSubtypeComposite,
   REL_SUBTYPE_PREFIX,
   resolveColorBy,
@@ -123,6 +124,10 @@ function groupApps(
   mode: GroupByMode,
   selectFields: FieldDef[],
   groupableTypes: Record<string, { id: string; name: string; type: string }[]>,
+  // When grouping by a related type, only place a card under a member for which
+  // this returns true. Used to honour relation-subtype filters per group-member
+  // (e.g. "Owner" shows an app under an org only if that org owns it).
+  memberMatch?: (app: AppData, memberId: string) => boolean,
 ): { groups: GroupData[]; ungrouped: AppData[] } {
   if (mode.kind === "attribute") {
     const field = selectFields.find((f) => f.key === mode.fieldKey);
@@ -155,11 +160,14 @@ function groupApps(
 
   for (const m of members) buckets.set(m.id, []);
   for (const app of apps) {
+    const seen = new Set<string>();
     for (const rel of app.relations) {
-      if (rel.related_type === mode.typeKey && buckets.has(rel.related_id)) {
-        buckets.get(rel.related_id)!.push(app);
-        grouped.add(app.id);
-      }
+      if (rel.related_type !== mode.typeKey) continue;
+      if (!buckets.has(rel.related_id) || seen.has(rel.related_id)) continue;
+      if (memberMatch && !memberMatch(app, rel.related_id)) continue;
+      seen.add(rel.related_id);
+      buckets.get(rel.related_id)!.push(app);
+      grouped.add(app.id);
     }
   }
 
@@ -743,11 +751,20 @@ export default function PortfolioReport({
     return data.items.filter((a) => matchesFilters(a, filters));
   }, [data, filters]);
 
+  // When grouping by a related type, honour active relation-subtype filters
+  // per group-member, so a card lands only under the related cards whose
+  // relationship matches (e.g. "Owner" → only under orgs that own it).
+  const relMemberMatch = useCallback(
+    (app: AppData, memberId: string) =>
+      relationMemberMatchesSubtypeFilters(app, memberId, relSubtypeFilters, relSubtypes),
+    [relSubtypeFilters, relSubtypes],
+  );
+
   // Grouped data
   const { groups, ungrouped } = useMemo(() => {
     if (!data) return { groups: [], ungrouped: [] };
-    return groupApps(filteredApps, groupByMode, selectFields, data.groupable_types);
-  }, [filteredApps, groupByMode, selectFields, data]);
+    return groupApps(filteredApps, groupByMode, selectFields, data.groupable_types, relMemberMatch);
+  }, [filteredApps, groupByMode, selectFields, data, relMemberMatch]);
 
   // Color-by distribution for the ungrouped section
   const ungroupedColorSegments = useMemo(

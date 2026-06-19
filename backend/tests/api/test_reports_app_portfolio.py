@@ -384,14 +384,21 @@ class TestAppPortfolioRelationSubtypes:
 
     @pytest.fixture
     async def subtype_env(self, db, portfolio_env):
-        """A relation type carrying a single_select subtype + a relation that uses it."""
+        """A relation type carrying a single_select subtype + a relation that uses it.
+
+        Uses a dedicated related type (Vendor) so it doesn't collide with the
+        base env's Application↔Organization relation — the endpoint keeps one
+        relation type per related type, so a second one for the same pair would
+        be deduped out of the ``relation_types`` payload.
+        """
+        await create_card_type(db, key="Vendor", label="Vendor")
         await create_relation_type(
             db,
-            key="org_uses_app",
+            key="app_to_vendor",
             label="uses",
             reverse_label="is used by",
-            source_type_key="Organization",
-            target_type_key="Application",
+            source_type_key="Application",
+            target_type_key="Vendor",
             attributes_schema=[
                 {
                     "key": "usageType",
@@ -409,12 +416,12 @@ class TestAppPortfolioRelationSubtypes:
     async def test_relation_includes_attributes(self, client, db, subtype_env):
         admin = subtype_env["admin"]
         app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
-        org = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
+        vendor = await create_card(db, card_type="Vendor", name="Acme", user_id=admin.id)
         await create_relation(
             db,
-            type_key="org_uses_app",
-            source_id=org.id,
-            target_id=app.id,
+            type_key="app_to_vendor",
+            source_id=app.id,
+            target_id=vendor.id,
             attributes={"usageType": "owner"},
         )
 
@@ -429,8 +436,8 @@ class TestAppPortfolioRelationSubtypes:
     async def test_relation_without_attributes_returns_empty_dict(self, client, db, subtype_env):
         admin = subtype_env["admin"]
         app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
-        org = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
-        await create_relation(db, type_key="org_uses_app", source_id=org.id, target_id=app.id)
+        vendor = await create_card(db, card_type="Vendor", name="Acme", user_id=admin.id)
+        await create_relation(db, type_key="app_to_vendor", source_id=app.id, target_id=vendor.id)
 
         resp = await client.get(
             "/api/v1/reports/app-portfolio",
@@ -446,8 +453,8 @@ class TestAppPortfolioRelationSubtypes:
         )
         data = resp.json()
         by_key = {rt["key"]: rt for rt in data["relation_types"]}
-        assert "org_uses_app" in by_key
-        schema = by_key["org_uses_app"]["attributes_schema"]
+        assert "app_to_vendor" in by_key
+        schema = by_key["app_to_vendor"]["attributes_schema"]
         assert len(schema) == 1
         assert schema[0]["key"] == "usageType"
         option_keys = {o["key"] for o in schema[0]["options"]}

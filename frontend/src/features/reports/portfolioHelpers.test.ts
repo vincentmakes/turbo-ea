@@ -11,6 +11,7 @@ import {
   matchesFilters,
   MULTIPLE_COLOR,
   REL_SUBTYPE_PREFIX,
+  relationMemberMatchesSubtypeFilters,
   relSubtypeComposite,
   resolveColorBy,
   UNSET_COLOR,
@@ -258,5 +259,30 @@ describe("matchesFilters with relSubtypeFilters", () => {
     const a = app("a", [orgRel("user")]);
     const f = baseFilters({ relSubtypeFilters: { [usageSub.composite]: [] } });
     expect(matchesFilters(a, f)).toBe(true);
+  });
+});
+
+describe("relationMemberMatchesSubtypeFilters (per group-member)", () => {
+  // App owned by Org A, used by Org B.
+  const a = app("a", [orgRel("owner", "orgA"), orgRel("user", "orgB")]);
+
+  it("places the card under the member whose relation matches the filter", () => {
+    const filters = { [usageSub.composite]: ["owner"] };
+    expect(relationMemberMatchesSubtypeFilters(a, "orgA", filters, [usageSub])).toBe(true);
+    expect(relationMemberMatchesSubtypeFilters(a, "orgB", filters, [usageSub])).toBe(false);
+  });
+
+  it("passes every member when no subtype filter is active", () => {
+    expect(relationMemberMatchesSubtypeFilters(a, "orgB", {}, [usageSub])).toBe(true);
+    expect(
+      relationMemberMatchesSubtypeFilters(a, "orgB", { [usageSub.composite]: [] }, [usageSub]),
+    ).toBe(true);
+  });
+
+  it("matches EMPTY only for a member whose relation has no value", () => {
+    const b = app("b", [orgRel(undefined, "orgC"), orgRel("owner", "orgA")]);
+    const filters = { [usageSub.composite]: [EMPTY_FILTER_KEY] };
+    expect(relationMemberMatchesSubtypeFilters(b, "orgC", filters, [usageSub])).toBe(true);
+    expect(relationMemberMatchesSubtypeFilters(b, "orgA", filters, [usageSub])).toBe(false);
   });
 });

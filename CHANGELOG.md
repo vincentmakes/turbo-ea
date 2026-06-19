@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.44.1] - 2026-06-19
 
 ### Changed
-- **Relation subtypes in portfolios are now scoped to the grouping.** Colouring and filtering by a relation's "type" value (e.g. Usage Type) is offered only while you group by the matching related card type, so irrelevant subtype controls no longer appear. When grouped that way, each card is coloured by its relation to the specific group it sits under — an application that is a *User* of one organisation now shows as User there, instead of being mislabelled "Multiple" because it is owned by another organisation.
+- **Relation subtypes in portfolios are now scoped to the grouping.** Colouring and filtering by a relation's "type" value (e.g. Usage Type) is offered only while you group by the matching related card type, so irrelevant subtype controls no longer appear. When grouped that way, each card is coloured by — and filtered against — its relation to the specific group it sits under. Filtering "Owner" while grouped by Organization now shows, under each organisation, only the applications it owns (and hides organisations that own none), and an application that is a *User* of one organisation shows as User there instead of being mislabelled "Multiple" because it is owned by another.
 
 ## [1.44.0] - 2026-06-19
 

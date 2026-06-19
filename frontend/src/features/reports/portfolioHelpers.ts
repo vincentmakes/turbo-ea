@@ -328,6 +328,36 @@ export function buildColorLegend(
 /*  Filtering                                                         */
 /* ------------------------------------------------------------------ */
 
+/** Whether a card's relation to one specific related card (group member)
+ * satisfies the active relation-subtype filters. Used to place a card under a
+ * member only when *that* relationship matches — e.g. filtering "Owner" while
+ * grouped by Organization shows an app under an org only if that org owns it,
+ * not merely because some other org owns it. */
+export function relationMemberMatchesSubtypeFilters(
+  app: AppData,
+  memberId: string,
+  relSubtypeFilters: Record<string, string[]>,
+  relSubtypes: RelSubtype[],
+): boolean {
+  for (const [composite, vals] of Object.entries(relSubtypeFilters)) {
+    if (vals.length === 0) continue;
+    const sub = relSubtypes.find((s) => s.composite === composite);
+    if (!sub) continue;
+    const rels = app.relations.filter(
+      (r) => r.relation_type === sub.relTypeKey && r.related_id === memberId,
+    );
+    const wantEmpty = vals.includes(EMPTY_FILTER_KEY);
+    const realVals = vals.filter((x) => x !== EMPTY_FILTER_KEY);
+    const ok = rels.some((r) => {
+      const v = (r.attributes || {})[sub.fieldKey];
+      const empty = v === undefined || v === null || v === "";
+      return (wantEmpty && empty) || (typeof v === "string" && realVals.includes(v));
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
 export function matchesFilters(app: AppData, filters: FilterState): boolean {
   if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
   // Attribute filters
