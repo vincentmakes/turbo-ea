@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { auth, setToken, clearToken, setAuthenticated } from "@/api/client";
 import { primeBootstrap, resetBootstrap } from "@/api/bootstrap";
+import { stopEventStream } from "@/hooks/useEventStream";
 import i18n from "@/i18n";
 import type { User } from "@/types";
 
@@ -88,6 +89,7 @@ export function useAuth() {
       // Best-effort — clear local state regardless
     }
     clearToken();
+    stopEventStream();
     stopRefreshTimer();
     resetBootstrap();
     setUser(null);

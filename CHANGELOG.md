@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.2] - 2026-06-19
+
+### Fixed
+- **Data no longer fails to load as easily when several browser tabs are open.** Each tab previously opened two long-lived real-time event connections, which exhausted the browser's per-host connection limit at around three tabs and stalled all further requests until a tab was closed. Each tab now shares a single real-time event connection instead of two, doubling the number of tabs that can stay open (and halving the connection load on the server).
+
 ## [1.44.1] - 2026-06-19
 
 ### Changed

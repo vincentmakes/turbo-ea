@@ -1,87 +1,110 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useEventStream } from "./useEventStream";
+import { useEventStream, stopEventStream } from "./useEventStream";
 import { setAuthenticated } from "@/api/client";
 
 // ---------------------------------------------------------------------------
 // Mock EventSource globally
 // ---------------------------------------------------------------------------
 
-let mockInstance: {
+let esInstances: Array<{
   onmessage: ((e: { data: string }) => void) | null;
   onerror: (() => void) | null;
   close: ReturnType<typeof vi.fn>;
-};
+}> = [];
 
 const MockEventSource = vi.fn(function MockEventSource(this: unknown) {
-  mockInstance = {
-    onmessage: null,
-    onerror: null,
+  const inst = {
+    onmessage: null as ((e: { data: string }) => void) | null,
+    onerror: null as (() => void) | null,
     close: vi.fn(),
   };
-  return mockInstance;
+  esInstances.push(inst);
+  return inst;
 });
 
 vi.stubGlobal("EventSource", MockEventSource);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  esInstances = [];
+  // Reset the module-level singleton state between tests.
+  stopEventStream();
   setAuthenticated(false);
+});
+
+afterEach(() => {
+  stopEventStream();
 });
 
 describe("useEventStream", () => {
   it("creates EventSource with correct URL when authenticated", () => {
     setAuthenticated(true);
-    const onEvent = vi.fn();
 
-    renderHook(() => useEventStream(onEvent));
+    renderHook(() => useEventStream(vi.fn()));
 
     expect(MockEventSource).toHaveBeenCalledWith("/api/v1/events/stream");
   });
 
   it("does NOT create EventSource when not authenticated", () => {
-    const onEvent = vi.fn();
-
-    renderHook(() => useEventStream(onEvent));
+    renderHook(() => useEventStream(vi.fn()));
 
     expect(MockEventSource).not.toHaveBeenCalled();
   });
 
-  it("parses incoming messages and calls onEvent", () => {
+  it("shares a single EventSource across multiple consumers", () => {
     setAuthenticated(true);
-    const onEvent = vi.fn();
 
-    renderHook(() => useEventStream(onEvent));
+    renderHook(() => useEventStream(vi.fn()));
+    renderHook(() => useEventStream(vi.fn()));
 
-    // Simulate a message from the server
-    const payload = { type: "card.updated", card_id: "abc-123" };
-    mockInstance.onmessage!({ data: JSON.stringify(payload) });
+    expect(MockEventSource).toHaveBeenCalledTimes(1);
+  });
 
-    expect(onEvent).toHaveBeenCalledWith(payload);
+  it("dispatches incoming messages to all subscribers", () => {
+    setAuthenticated(true);
+    const a = vi.fn();
+    const b = vi.fn();
+
+    renderHook(() => useEventStream(a));
+    renderHook(() => useEventStream(b));
+
+    const payload = { event: "card.updated", card_id: "abc-123" };
+    esInstances[0].onmessage!({ data: JSON.stringify(payload) });
+
+    expect(a).toHaveBeenCalledWith(payload);
+    expect(b).toHaveBeenCalledWith(payload);
   });
 
   it("ignores messages with invalid JSON", () => {
     setAuthenticated(true);
-    const onEvent = vi.fn();
+    const cb = vi.fn();
 
-    renderHook(() => useEventStream(onEvent));
+    renderHook(() => useEventStream(cb));
 
-    // Should not throw
-    mockInstance.onmessage!({ data: "not valid json{" });
+    esInstances[0].onmessage!({ data: "not valid json{" });
 
-    expect(onEvent).not.toHaveBeenCalled();
+    expect(cb).not.toHaveBeenCalled();
   });
 
-  it("cleanup closes EventSource on unmount", () => {
+  it("does not close the shared connection when one consumer unmounts", () => {
     setAuthenticated(true);
-    const onEvent = vi.fn();
 
-    const { unmount } = renderHook(() => useEventStream(onEvent));
+    renderHook(() => useEventStream(vi.fn()));
+    const second = renderHook(() => useEventStream(vi.fn()));
 
-    expect(mockInstance.close).not.toHaveBeenCalled();
+    second.unmount();
 
-    unmount();
+    expect(esInstances[0].close).not.toHaveBeenCalled();
+  });
 
-    expect(mockInstance.close).toHaveBeenCalled();
+  it("stopEventStream closes the connection", () => {
+    setAuthenticated(true);
+
+    renderHook(() => useEventStream(vi.fn()));
+
+    stopEventStream();
+
+    expect(esInstances[0].close).toHaveBeenCalled();
   });
 });
