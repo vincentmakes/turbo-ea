@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.1] - 2026-06-19
+
+### Changed
+- **Relation subtypes in portfolios are now scoped to the grouping.** Colouring and filtering by a relation's "type" value (e.g. Usage Type) is offered only while you group by the matching related card type, so irrelevant subtype controls no longer appear. When grouped that way, each card is coloured by its relation to the specific group it sits under — an application that is a *User* of one organisation now shows as User there, instead of being mislabelled "Multiple" because it is owned by another organisation.
+
 ## [1.44.0] - 2026-06-19
 
 ### Added

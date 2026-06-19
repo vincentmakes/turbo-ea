@@ -33,7 +33,7 @@ Cambiar el tipo de tarjeta restablece las selecciones de agrupación, color y fi
 
 ### Subtipos de relación
 
-Cuando las relaciones de una tarjeta llevan un valor de «tipo» —por ejemplo el **tipo de uso** (Propietario / Usuario / Parte interesada) en las relaciones Organización→Aplicación, o el **tipo de soporte** en las relaciones Aplicación→Capacidad de negocio— puede colorear las tarjetas por ese valor y filtrar por él. Los subtipos de relación aparecen bajo el grupo **Subtipos de relación** en el desplegable *Colorear por* y como su propia fila de filtros, y solo se muestran cuando el tipo de tarjeta seleccionado realmente tiene relaciones con dichos valores. Una tarjeta vinculada mediante varias relaciones con valores distintos se muestra en un color neutro **Múltiples**.
+Cuando las relaciones de una tarjeta llevan un valor de «tipo» —por ejemplo el **tipo de uso** (Propietario / Usuario / Parte interesada) en las relaciones Organización→Aplicación, o el **tipo de soporte** en las relaciones Aplicación→Capacidad de negocio— puede colorear las tarjetas por ese valor y filtrar por él. **Agrupe el informe por el tipo de tarjeta relacionado** para usarlos (p. ej. *Agrupar por → Organización* para habilitar el *tipo de uso*): el subtipo aparece entonces bajo el grupo **Subtipos de relación** en el desplegable *Colorear por* y como su propia fila de filtros. Como cada tarjeta se muestra bajo una tarjeta relacionada, se colorea según *esa* relación: una aplicación que es *Usuario* de una organización aparece como Usuario ahí, aunque pertenezca a otra.
 
 ## Mapa de Capacidades
 

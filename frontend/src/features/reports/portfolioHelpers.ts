@@ -79,6 +79,10 @@ export interface RelSubtype {
   composite: string;
   relTypeKey: string;
   fieldKey: string;
+  /** The related card type this relation connects to (relation type's
+   * `other_type_key`). The portfolio only offers a subtype while grouping by
+   * this type, so each card chip maps to exactly one related card. */
+  relatedTypeKey: string;
   /** Direction-aware "uses · Usage Type" label. */
   comboLabel: string;
   /** Resolved (localised) options carried from the attribute schema. */
@@ -211,11 +215,14 @@ export function resolveColorBy(
 }
 
 /** Distinct, non-empty subtype values a card carries across its relations of
- * the given relation type. */
-function relSubtypeValues(app: AppData, sub: RelSubtype): string[] {
+ * the given relation type. When `memberId` is provided, only relations to that
+ * specific related card are considered — so a card grouped under one related
+ * card resolves to the single value of *that* relation. */
+function relSubtypeValues(app: AppData, sub: RelSubtype, memberId?: string): string[] {
   const values = new Set<string>();
   for (const r of app.relations) {
     if (r.relation_type !== sub.relTypeKey) continue;
+    if (memberId !== undefined && r.related_id !== memberId) continue;
     const v = (r.attributes || {})[sub.fieldKey];
     if (typeof v === "string" && v !== "") values.add(v);
   }
@@ -224,11 +231,14 @@ function relSubtypeValues(app: AppData, sub: RelSubtype): string[] {
 
 /** Resolve the colour/label bucket a single card falls into for the active
  * Color By. For relation subtypes: 0 values → unset, 1 value → that option,
- * ≥2 distinct values → the "Multiple" bucket. */
+ * ≥2 distinct values → the "Multiple" bucket. Pass `memberId` (the related
+ * card the chip is grouped under) to colour by that single relation instead of
+ * aggregating across all of the card's relations. */
 export function appColorBucket(
   app: AppData,
   res: ColorResolution,
   labels: ColorLabels,
+  memberId?: string,
 ): ColorBucket {
   if (res.kind === "none") {
     return { key: "__none__", color: DEFAULT_APP_COLOR, label: "", isUnset: false };
@@ -239,7 +249,7 @@ export function appColorBucket(
     const opt = res.field.options?.find((o) => o.key === val);
     return { key: val, color: opt?.color || UNSET_COLOR, label: opt?.label || val, isUnset: false };
   }
-  const values = relSubtypeValues(app, res.sub);
+  const values = relSubtypeValues(app, res.sub, memberId);
   if (values.length === 0) {
     return { key: "__unset__", color: UNSET_COLOR, label: labels.notSet, isUnset: true };
   }
@@ -251,30 +261,39 @@ export function appColorBucket(
   return { key: "__multiple__", color: MULTIPLE_COLOR, label: labels.multiple, isUnset: false };
 }
 
-export function getAppColor(app: AppData, res: ColorResolution, labels: ColorLabels): string {
-  return appColorBucket(app, res, labels).color;
+export function getAppColor(
+  app: AppData,
+  res: ColorResolution,
+  labels: ColorLabels,
+  memberId?: string,
+): string {
+  return appColorBucket(app, res, labels, memberId).color;
 }
 
 export function getAppColorLabel(
   app: AppData,
   res: ColorResolution,
   labels: ColorLabels,
+  memberId?: string,
 ): string | null {
   if (res.kind === "none") return null;
-  const bucket = appColorBucket(app, res, labels);
+  const bucket = appColorBucket(app, res, labels, memberId);
   return bucket.isUnset ? null : bucket.label;
 }
 
-/** Aggregate a set of cards into stacked-bar colour segments. */
+/** Aggregate a set of cards into stacked-bar colour segments. `memberId`
+ * scopes relation-subtype colouring to a single related card (see
+ * `appColorBucket`). */
 export function buildColorSegments(
   apps: AppData[],
   res: ColorResolution,
   labels: ColorLabels,
+  memberId?: string,
 ): { color: string; label: string; n: number }[] {
   if (res.kind === "none" || apps.length === 0) return [];
   const counts = new Map<string, { color: string; label: string; n: number }>();
   for (const app of apps) {
-    const b = appColorBucket(app, res, labels);
+    const b = appColorBucket(app, res, labels, memberId);
     if (!counts.has(b.key)) counts.set(b.key, { color: b.color, label: b.label, n: 0 });
     counts.get(b.key)!.n += 1;
   }

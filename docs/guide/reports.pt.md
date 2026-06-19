@@ -33,7 +33,7 @@ Alterar o tipo de cartão reinicia as seleções de agrupamento, cor e filtros (
 
 ### Subtipos de relação
 
-Quando as relações de um cartão têm um valor de «tipo» — por exemplo o **tipo de utilização** (Proprietário / Utilizador / Parte interessada) nas relações Organização→Aplicação, ou o **tipo de suporte** nas relações Aplicação→Capacidade de negócio — pode colorir os cartões por esse valor e filtrar por ele. Os subtipos de relação aparecem sob o grupo **Subtipos de relação** na lista *Colorir por* e como a sua própria linha de filtros, e só surgem quando o tipo de cartão selecionado tem efetivamente relações com tais valores. Um cartão ligado por várias relações com valores diferentes é apresentado numa cor neutra **Múltiplos**.
+Quando as relações de um cartão têm um valor de «tipo» — por exemplo o **tipo de utilização** (Proprietário / Utilizador / Parte interessada) nas relações Organização→Aplicação, ou o **tipo de suporte** nas relações Aplicação→Capacidade de negócio — pode colorir os cartões por esse valor e filtrar por ele. **Agrupe o relatório pelo tipo de cartão relacionado** para os usar (por ex. *Agrupar por → Organização* para ativar o *tipo de utilização*): o subtipo aparece então sob o grupo **Subtipos de relação** na lista *Colorir por* e como a sua própria linha de filtros. Como cada cartão é apresentado sob um cartão relacionado, é colorido segundo *essa* relação — uma aplicação que é *Utilizador* de uma organização aparece como Utilizador aí, mesmo que pertença a outra.
 
 ## Mapa de Capacidades
 

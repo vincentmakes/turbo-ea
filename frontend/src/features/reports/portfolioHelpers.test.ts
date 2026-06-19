@@ -55,6 +55,7 @@ const usageSub: RelSubtype = {
   composite: relSubtypeComposite("relOrgToApp", "usageType"),
   relTypeKey: "relOrgToApp",
   fieldKey: "usageType",
+  relatedTypeKey: "Organization",
   comboLabel: "is used by · Usage Type",
   options: usageTypeField.options!,
 };
@@ -63,10 +64,10 @@ function app(id: string, relations: AppData["relations"] = []): AppData {
   return { id, name: id, attributes: {}, relations, org_ids: [] };
 }
 
-function orgRel(usageType?: string): AppData["relations"][number] {
+function orgRel(usageType?: string, relatedId?: string): AppData["relations"][number] {
   return {
     relation_type: "relOrgToApp",
-    related_id: `org-${usageType ?? "none"}`,
+    related_id: relatedId ?? `org-${usageType ?? "none"}`,
     related_name: "Org",
     related_type: "Organization",
     attributes: usageType ? { usageType } : {},
@@ -139,6 +140,45 @@ describe("resolveColorBy / appColorBucket (relation subtype)", () => {
     expect(resolveColorBy(`${REL_SUBTYPE_PREFIX}nope::x`, [], [usageSub])).toEqual({
       kind: "none",
     });
+  });
+});
+
+describe("appColorBucket per group-member (memberId)", () => {
+  const res = resolveColorBy(`${REL_SUBTYPE_PREFIX}${usageSub.composite}`, [], [usageSub]);
+
+  // An app owned by Org A but used by Org B: under each group it should show
+  // the value of that specific relation — never the aggregate "Multiple".
+  const ownedAndUsed = app("a", [orgRel("owner", "orgA"), orgRel("user", "orgB")]);
+
+  it("colors by the relation to the given member (User under Org B)", () => {
+    const bucket = appColorBucket(ownedAndUsed, res, LABELS, "orgB");
+    expect(bucket.label).toBe("User");
+    expect(bucket.color).toBe("#66bb6a");
+    expect(getAppColor(ownedAndUsed, res, LABELS, "orgB")).toBe("#66bb6a");
+  });
+
+  it("colors by the relation to the other member (Owner under Org A)", () => {
+    expect(getAppColorLabel(ownedAndUsed, res, LABELS, "orgA")).toBe("Owner");
+  });
+
+  it("is unset when the card has no relation to that member", () => {
+    const bucket = appColorBucket(ownedAndUsed, res, LABELS, "orgZ");
+    expect(bucket.isUnset).toBe(true);
+    expect(getAppColorLabel(ownedAndUsed, res, LABELS, "orgZ")).toBeNull();
+  });
+
+  it("aggregates to Multiple only when no member is given", () => {
+    expect(appColorBucket(ownedAndUsed, res, LABELS).color).toBe(MULTIPLE_COLOR);
+  });
+
+  it("segments scoped to a member never produce a Multiple bucket", () => {
+    const apps = [
+      app("a", [orgRel("owner", "orgA"), orgRel("user", "orgB")]),
+      app("b", [orgRel("user", "orgB")]),
+    ];
+    const segs = buildColorSegments(apps, res, LABELS, "orgB");
+    const byLabel = Object.fromEntries(segs.map((s) => [s.label, s.n]));
+    expect(byLabel).toEqual({ User: 2 });
   });
 });
 

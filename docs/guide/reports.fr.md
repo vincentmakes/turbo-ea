@@ -33,7 +33,7 @@ Changer de type de carte réinitialise les sélections de regroupement, de color
 
 ### Sous-types de relation
 
-Lorsque les relations d'une carte portent une valeur de « type » — par exemple le **type d'utilisation** (Propriétaire / Utilisateur / Partie prenante) sur les relations Organisation→Application, ou le **type de support** sur les relations Application→Capacité métier — vous pouvez colorer les cartes selon cette valeur et filtrer dessus. Les sous-types de relation apparaissent sous le groupe **Sous-types de relation** dans la liste *Colorer par* ainsi que dans leur propre ligne de filtres, et ne s'affichent que si le type de carte sélectionné possède effectivement des relations portant de telles valeurs. Une carte liée par plusieurs relations aux valeurs différentes est affichée dans une couleur neutre **Multiples**.
+Lorsque les relations d'une carte portent une valeur de « type » — par exemple le **type d'utilisation** (Propriétaire / Utilisateur / Partie prenante) sur les relations Organisation→Application, ou le **type de support** sur les relations Application→Capacité métier — vous pouvez colorer les cartes selon cette valeur et filtrer dessus. **Groupez le rapport par le type de carte lié** pour les utiliser (par ex. *Grouper par → Organisation* pour débloquer le *type d'utilisation*) : le sous-type apparaît alors sous le groupe **Sous-types de relation** dans la liste *Colorer par* et dans sa propre ligne de filtres. Comme chaque carte est affichée sous une carte liée, elle est colorée selon *cette* relation — une application qui est *Utilisateur* d'une organisation s'affiche comme Utilisateur à cet endroit, même si elle appartient à une autre.
 
 ## Carte de capacités
 

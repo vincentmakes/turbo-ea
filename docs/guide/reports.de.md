@@ -33,7 +33,7 @@ Beim Wechsel des Kartentyps werden die Auswahl für Gruppierung, Färbung und Fi
 
 ### Beziehungs-Untertypen
 
-Wenn die Beziehungen einer Karte einen «Typ»-Wert tragen — etwa den **Verwendungstyp** (Eigentümer / Benutzer / Stakeholder) bei Beziehungen Organisation→Anwendung oder den **Unterstützungstyp** bei Beziehungen Anwendung→Geschäftsfähigkeit — können Sie die Karten danach einfärben und filtern. Beziehungs-Untertypen erscheinen in der Auswahl *Einfärben nach* unter der Gruppe **Beziehungs-Untertypen** sowie als eigene Filterzeile und werden nur angezeigt, wenn der gewählte Kartentyp tatsächlich Beziehungen mit solchen Werten besitzt. Eine Karte, die über mehrere Beziehungen mit unterschiedlichen Werten verknüpft ist, wird in einer neutralen Farbe **Mehrere** dargestellt.
+Wenn die Beziehungen einer Karte einen «Typ»-Wert tragen — etwa den **Verwendungstyp** (Eigentümer / Benutzer / Stakeholder) bei Beziehungen Organisation→Anwendung oder den **Unterstützungstyp** bei Beziehungen Anwendung→Geschäftsfähigkeit — können Sie die Karten danach einfärben und filtern. **Gruppieren Sie den Bericht nach dem verbundenen Kartentyp**, um sie zu nutzen (z. B. *Gruppieren nach → Organisation*, um den *Verwendungstyp* freizuschalten): Der Untertyp erscheint dann unter der Gruppe **Beziehungs-Untertypen** in der Auswahl *Einfärben nach* sowie als eigene Filterzeile. Da jede Karte unter einer verbundenen Karte angezeigt wird, wird sie nach *dieser* Beziehung eingefärbt — eine Anwendung, die *Benutzer* einer Organisation ist, erscheint dort als Benutzer, auch wenn sie einer anderen gehört.
 
 ## Fähigkeitskarte
 

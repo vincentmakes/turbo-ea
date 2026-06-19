@@ -33,7 +33,7 @@ Cambiare il tipo di scheda azzera le selezioni di raggruppamento, colore e filtr
 
 ### Sottotipi di relazione
 
-Quando le relazioni di una scheda portano un valore di «tipo» — ad esempio il **tipo di utilizzo** (Proprietario / Utente / Stakeholder) sulle relazioni Organizzazione→Applicazione, o il **tipo di supporto** sulle relazioni Applicazione→Capability di business — puoi colorare le schede in base a quel valore e filtrarle. I sottotipi di relazione compaiono sotto il gruppo **Sottotipi di relazione** nel menu *Colora per* e come riga di filtri dedicata, e vengono mostrati solo quando il tipo di scheda selezionato ha effettivamente relazioni con tali valori. Una scheda collegata tramite più relazioni con valori diversi viene mostrata in un colore neutro **Multipli**.
+Quando le relazioni di una scheda portano un valore di «tipo» — ad esempio il **tipo di utilizzo** (Proprietario / Utente / Stakeholder) sulle relazioni Organizzazione→Applicazione, o il **tipo di supporto** sulle relazioni Applicazione→Capability di business — puoi colorare le schede in base a quel valore e filtrarle. **Raggruppa il report per il tipo di scheda correlato** per usarli (ad es. *Raggruppa per → Organizzazione* per abilitare il *tipo di utilizzo*): il sottotipo compare quindi sotto il gruppo **Sottotipi di relazione** nel menu *Colora per* e come riga di filtri dedicata. Poiché ogni scheda è mostrata sotto una scheda correlata, viene colorata in base a *quella* relazione: un'applicazione che è *Utente* di un'organizzazione appare come Utente lì, anche se appartiene a un'altra.
 
 ## Mappa delle Capability
 

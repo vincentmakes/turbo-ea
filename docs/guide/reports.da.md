@@ -33,7 +33,7 @@ Ved skift af korttype ryddes valg af gruppering, farvelægning og filtre (de ref
 
 ### Relationsundertyper
 
-Når et korts relationer bærer en «type»-værdi — for eksempel **anvendelsestypen** (Ejer / Bruger / Interessent) på Organisation→Applikation-relationer eller **supporttypen** på Applikation→Forretningskapabilitet-relationer — kan du farve kortene efter den værdi og filtrere på den. Relationsundertyper vises under gruppen **Relationsundertyper** i *Farvelæg efter*-rullelisten og som deres egen filterrække, og de vises kun, når den valgte korttype faktisk har relationer med sådanne værdier. Et kort, der er forbundet via flere relationer med forskellige værdier, vises i en neutral **Flere**-farve.
+Når et korts relationer bærer en «type»-værdi — for eksempel **anvendelsestypen** (Ejer / Bruger / Interessent) på Organisation→Applikation-relationer eller **supporttypen** på Applikation→Forretningskapabilitet-relationer — kan du farve kortene efter den værdi og filtrere på den. **Gruppér rapporten efter den relaterede korttype** for at bruge dem (f.eks. *Gruppér efter → Organisation* for at låse op for *anvendelsestype*): undertypen vises derefter under gruppen **Relationsundertyper** i *Farvelæg efter*-rullelisten og som sin egen filterrække. Da hvert kort vises under ét relateret kort, farves det efter *den* relation — en applikation, der er *Bruger* af én organisation, vises som Bruger der, selv om den ejes af en anden.
 
 ## Kompetencekort
 

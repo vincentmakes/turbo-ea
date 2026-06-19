@@ -95,6 +95,8 @@ interface GroupData {
 interface DrawerData {
   label: string;
   apps: AppData[];
+  /** Related card id this group represents, for per-member subtype colouring. */
+  memberId?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -182,15 +184,17 @@ function AppChip({
   app,
   colorRes,
   colorLabels,
+  colorMemberId,
   onClick,
 }: {
   app: AppData;
   colorRes: ColorResolution;
   colorLabels: ColorLabels;
+  colorMemberId?: string;
   onClick: () => void;
 }) {
-  const color = getAppColor(app, colorRes, colorLabels);
-  const colorLabel = getAppColorLabel(app, colorRes, colorLabels);
+  const color = getAppColor(app, colorRes, colorLabels, colorMemberId);
+  const colorLabel = getAppColorLabel(app, colorRes, colorLabels, colorMemberId);
   const light = isLightColor(color);
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
@@ -221,6 +225,7 @@ function GroupCard({
   group,
   colorRes,
   colorLabels,
+  colorMemberId,
   onGroupClick,
   onAppClick,
   countLabel,
@@ -228,6 +233,8 @@ function GroupCard({
   group: GroupData;
   colorRes: ColorResolution;
   colorLabels: ColorLabels;
+  /** Related card id this group represents, when colouring per group-member. */
+  colorMemberId?: string;
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
   countLabel: (count: number) => string;
@@ -236,8 +243,8 @@ function GroupCard({
 
   /* Build color-by distribution for the stacked bar */
   const colorSegments = useMemo(
-    () => buildColorSegments(group.apps, colorRes, colorLabels),
-    [group.apps, colorRes, colorLabels],
+    () => buildColorSegments(group.apps, colorRes, colorLabels, colorMemberId),
+    [group.apps, colorRes, colorLabels, colorMemberId],
   );
 
   return (
@@ -324,6 +331,7 @@ function GroupCard({
                 app={app}
                 colorRes={colorRes}
                 colorLabels={colorLabels}
+                colorMemberId={colorMemberId}
                 onClick={() => onAppClick(app.id)}
               />
             ))}
@@ -525,9 +533,10 @@ export default function PortfolioReport({
   }, [data, rl]);
 
   // Relation subtypes — single_select attributes on relation types touching
-  // the current card type (e.g. "uses · Usage Type"). Drives the Color By and
-  // filter controls; empty when no such relation attributes exist.
-  const relSubtypes = useMemo<RelSubtype[]>(() => {
+  // the current card type (e.g. "is used by · Usage Type"), tagged with the
+  // related card type they connect to. The active subset (scoped to the
+  // current Group By, below) drives the Color By and filter controls.
+  const allRelSubtypes = useMemo<RelSubtype[]>(() => {
     if (!data) return [];
     return extractRelSubtypes(data.relation_types as RelTypeDef[], cardType).map(
       ({ relType, field }) => {
@@ -542,6 +551,7 @@ export default function PortfolioReport({
           composite: relSubtypeComposite(relType.key, field.key),
           relTypeKey: relType.key,
           fieldKey: field.key,
+          relatedTypeKey: relType.other_type_key,
           comboLabel: `${relLabel} · ${fieldLabel}`,
           options: (field.options ?? []).map((o) => ({
             ...o,
@@ -605,6 +615,15 @@ export default function PortfolioReport({
     return { kind: "relation", typeKey: groupByKey.slice(4) };
   }, [groupByKey]);
 
+  // Relation subtypes are only meaningful relative to a related card type, so
+  // we surface them only while grouping by that type. Each card chip then sits
+  // under exactly one related card (the group member), which lets us colour by
+  // that single relation rather than aggregating across all of them.
+  const relSubtypes = useMemo<RelSubtype[]>(() => {
+    if (groupByMode.kind !== "relation") return [];
+    return allRelSubtypes.filter((s) => s.relatedTypeKey === groupByMode.typeKey);
+  }, [allRelSubtypes, groupByMode]);
+
   // Color-by options: "none" + own single_select fields + relation subtypes.
   // Relation subtypes are keyed `rel:<composite>` so they never collide with a
   // card's own field key, and grouped under a "Relation Subtypes" subheader.
@@ -624,6 +643,28 @@ export default function PortfolioReport({
     }
     return opts;
   }, [selectFields, relSubtypes, t]);
+
+  // Changing Group By changes which relation subtypes are in scope. Drop any
+  // subtype filter that no longer applies, and reset a Color By that points at
+  // a now-unavailable subtype, so a stale selection can't linger invisibly.
+  useEffect(() => {
+    const valid = new Set(relSubtypes.map((s) => s.composite));
+    setRelSubtypeFilters((prev) => {
+      const next: Record<string, string[]> = {};
+      let changed = false;
+      for (const [k, v] of Object.entries(prev)) {
+        if (valid.has(k)) next[k] = v;
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+    if (
+      colorBy.startsWith(REL_SUBTYPE_PREFIX) &&
+      !relSubtypes.some((s) => `${REL_SUBTYPE_PREFIX}${s.composite}` === colorBy)
+    ) {
+      setColorBy(selectFields[0]?.key ?? "");
+    }
+  }, [relSubtypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
@@ -691,6 +732,10 @@ export default function PortfolioReport({
     () => ({ notSet: t("portfolio.notSet"), multiple: t("portfolio.multiple") }),
     [t],
   );
+  // When colouring by a relation subtype the report is, by construction,
+  // grouped by that subtype's related type — so each chip maps to one group
+  // member and is coloured by that single relation (no false "Multiple").
+  const perMemberColor = colorRes.kind === "rel";
 
   // Filtered apps
   const filteredApps = useMemo(() => {
@@ -825,7 +870,9 @@ export default function PortfolioReport({
   }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, search, tl.timelineDate, t]);
 
   const handleGroupClick = useCallback((g: GroupData) => {
-    setDrawer({ label: g.label, apps: g.apps });
+    // g.key is the related card id for relation groups — keep it so the drawer
+    // can colour chips per group-member when colouring by a relation subtype.
+    setDrawer({ label: g.label, apps: g.apps, memberId: g.key });
   }, []);
 
   // Build relation filter options from groupable_types
@@ -1548,6 +1595,7 @@ export default function PortfolioReport({
                       group={g}
                       colorRes={colorRes}
                       colorLabels={colorLabels}
+                      colorMemberId={perMemberColor ? g.key : undefined}
                       onGroupClick={handleGroupClick}
                       onAppClick={handleAppClick}
                       countLabel={countLabel}
@@ -1837,7 +1885,12 @@ export default function PortfolioReport({
                   const parts: string[] = [];
                   if (a.subtype) parts.push(a.subtype);
                   if (colorBy) {
-                    const lbl = getAppColorLabel(a, colorRes, colorLabels);
+                    const lbl = getAppColorLabel(
+                      a,
+                      colorRes,
+                      colorLabels,
+                      perMemberColor ? drawer.memberId : undefined,
+                    );
                     if (lbl) parts.push(lbl);
                   }
                   if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
@@ -1857,7 +1910,12 @@ export default function PortfolioReport({
                             width: 12,
                             height: 12,
                             borderRadius: "50%",
-                            bgcolor: getAppColor(a, colorRes, colorLabels),
+                            bgcolor: getAppColor(
+                              a,
+                              colorRes,
+                              colorLabels,
+                              perMemberColor ? drawer.memberId : undefined,
+                            ),
                             flexShrink: 0,
                             ml: 1,
                           }}

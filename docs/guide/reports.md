@@ -33,7 +33,7 @@ Switching the card type clears the group-by, colour-by, and filter selections (t
 
 ### Relation subtypes
 
-When a card's relations carry a "type" value — for example the **Usage Type** (Owner / User / Stakeholder) on Organization→Application relations, or the **Support Type** on Application→Business Capability relations — you can colour the cards by that value and filter on it. Relation subtypes appear under a **Relation Subtypes** group in the *Color by* dropdown and as their own filter row, and only show up when the selected card type actually has relations carrying such values. A card linked through several relations with differing values is shown in a neutral **Multiple** colour.
+When a card's relations carry a "type" value — for example the **Usage Type** (Owner / User / Stakeholder) on Organization→Application relations, or the **Support Type** on Application→Business Capability relations — you can colour the cards by that value and filter on it. **Group the report by the related card type** to use them (e.g. *Group by → Organization* to unlock *Usage Type*): the subtype then appears under a **Relation Subtypes** group in the *Color by* dropdown and as its own filter row. Because each card is shown under one related card, it is coloured by *that* relation — an application that is a *User* of one organisation shows as User there, even if it is owned by another.
 
 ## Capability Map
 
