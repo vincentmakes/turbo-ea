@@ -32,6 +32,7 @@ import PrinciplesAdmin from "@/features/admin/PrinciplesAdmin";
 import RegulationsAdmin from "@/features/admin/RegulationsAdmin";
 import TagsAdmin from "@/features/admin/TagsAdmin";
 import { useMetamodel } from "@/hooks/useMetamodel";
+import { useResolveLabel } from "@/hooks/useResolveLabel";
 import { api } from "@/api/client";
 import type {
   CardType as FSType,
@@ -72,6 +73,7 @@ function cleanTranslations(
 export default function MetamodelAdmin() {
   const { t } = useTranslation(["admin", "common"]);
   const { invalidateCache } = useMetamodel();
+  const rl = useResolveLabel();
 
   const [tab, setTab] = useState(0);
   const [types, setTypes] = useState<FSType[]>([]);
@@ -550,6 +552,11 @@ export default function MetamodelAdmin() {
           {displayRelationTypes.map((rt) => {
             const srcType = resolveType(rt.source_type_key);
             const tgtType = resolveType(rt.target_type_key);
+            // "Type" dimensions = the single_select pickers managed via the
+            // Manage relation values dialog. Surface their count as a badge.
+            const typeDims = (rt.attributes_schema ?? []).filter(
+              (f) => f.type === "single_select",
+            );
             return (
               <Card key={rt.key} sx={{ mb: 1, opacity: rt.is_hidden ? 0.5 : 1 }}>
                 <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -652,6 +659,21 @@ export default function MetamodelAdmin() {
                       variant="outlined"
                       sx={{ height: 22, fontSize: 11 }}
                     />
+                    {typeDims.length > 0 && (
+                      <Tooltip
+                        title={typeDims
+                          .map((f) => rl(f.label, f.translations))
+                          .join(", ")}
+                      >
+                        <Chip
+                          size="small"
+                          icon={<MaterialSymbol icon="sell" size={13} />}
+                          label={typeDims.length}
+                          variant="outlined"
+                          sx={{ height: 22, fontSize: 11 }}
+                        />
+                      </Tooltip>
+                    )}
                     {rt.built_in && (
                       <Chip
                         size="small"

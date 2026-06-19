@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.43.0] - 2026-06-18
 
 ### Added
-- **Manage relation "type" values from the metamodel admin.** Admin → Metamodel → Relation Types now has a **Manage relation values** action on every relation. Use it to add your own values to a relation's "type" picker (e.g. add a new Usage Type beyond Owner / User / Stakeholder on Organization→Application), or to add a brand-new type picker to a relation that has none — including built-in relations. Built-in values are locked (they can't be renamed, recoloured, or deleted) but can be **hidden** per install so they no longer appear in the picker, and custom values are fully editable.
+- **Manage relation "type" values from the metamodel admin.** Admin → Metamodel → Relation Types now has a **Manage relation values** action on every relation. Use it to add your own values to a relation's "type" picker (e.g. add a new Usage Type beyond Owner / User / Stakeholder on Organization→Application), or to add a brand-new type picker to a relation that has none — including built-in relations. Built-in values are locked (they can't be renamed, recoloured, or deleted) but can be **hidden** per install so they no longer appear in the picker, and custom values are fully editable. The relation list shows a small badge with the number of type pickers each relation has.
 
 ### Changed
 - **Clearer "type" icon on card relations.** A relation that carries a "type" value now shows a consistent tag icon instead of a double-arrow placeholder that looked like a flow-direction indicator. Hidden relation values no longer appear in the picker (an already-set value stays visible).
+- **Card relations show all of their type values.** When a relation carries more than one "type" value (e.g. a Business Process → Application relation with both a usage and a criticality), the card now displays a chip for each instead of only the first.
+
+### Removed
+- **Removed duplicated assessment attributes from relations.** Functional Suitability (Application → Business Capability), Technical Suitability (Application → IT Component) and Resource Classification (IT Component → Tech Category) were defined both on the card and on the relation; the relation copies have been removed so these assessments live only on the card. They no longer appear as relation "type" values.
 
 ## [1.42.0] - 2026-06-18
 

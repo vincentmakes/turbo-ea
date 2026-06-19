@@ -32,7 +32,7 @@ import { api } from "@/api/client";
 import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
   flowDirectionBadge,
-  relationAttributeBadge,
+  relationAttributeBadges,
   hasRelationAttributes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
@@ -378,35 +378,37 @@ function RelationGroup({
     const oType = getType(other?.type ?? "");
     const attrs = r.attributes as RelationAttributes | undefined;
     const flowBadge = flowDirectionBadge(rt, attrs);
-    // Generic value badge for non-directional single-selects (e.g. usageType).
-    const attrBadge = relationAttributeBadge(rt, attrs);
-    const attrSet = !!flowBadge || !!attrBadge;
+    // Generic value badges for non-directional single-selects (e.g. usageType,
+    // criticality) — a relation can carry several, so render one chip each.
+    const attrBadges = relationAttributeBadges(rt, attrs);
+    const attrSet = !!flowBadge || attrBadges.length > 0;
     const editTooltip = flowBadge
       ? t(`relations.flowDirection.${flowBadge.value}`)
-      : attrBadge
-        ? `${rl(attrBadge.fieldLabel, attrBadge.fieldTranslations)}: ${rl(
-            attrBadge.optionLabel,
-            attrBadge.optionTranslations,
-          )}`
+      : attrBadges.length > 0
+        ? attrBadges
+            .map(
+              (b) =>
+                `${rl(b.fieldLabel, b.fieldTranslations)}: ${rl(b.optionLabel, b.optionTranslations)}`,
+            )
+            .join(", ")
         : t("relations.editAttributes");
     return (
       <ListItem
         key={r.id}
         secondaryAction={
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-            {attrBadge && (
+            {attrBadges.map((b) => (
               <Chip
+                key={b.fieldKey}
                 size="small"
-                label={rl(attrBadge.optionLabel, attrBadge.optionTranslations)}
+                label={rl(b.optionLabel, b.optionTranslations)}
                 sx={{
                   height: 20,
                   fontSize: "0.7rem",
-                  ...(attrBadge.color
-                    ? { bgcolor: attrBadge.color, color: "#fff" }
-                    : {}),
+                  ...(b.color ? { bgcolor: b.color, color: "#fff" } : {}),
                 }}
               />
-            )}
+            ))}
             {rtHasAttributes && canManageRelations && (
               <Tooltip title={editTooltip}>
                 <IconButton

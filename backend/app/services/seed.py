@@ -4312,12 +4312,6 @@ RELATIONS = [
         "sort_order": 17,
         "attributes_schema": [
             {
-                "key": "functionalSuitability",
-                "label": "Functional Suitability",
-                "type": "single_select",
-                "options": FUNCTIONAL_SUITABILITY_OPTIONS,
-            },
-            {
                 "key": "supportType",
                 "label": "Support Type",
                 "type": "single_select",
@@ -4456,12 +4450,6 @@ RELATIONS = [
         "cardinality": "n:m",
         "sort_order": 21,
         "attributes_schema": [
-            {
-                "key": "technicalSuitability",
-                "label": "Technical Suitability",
-                "type": "single_select",
-                "options": TECHNICAL_SUITABILITY_OPTIONS,
-            },
             {"key": "costTotalAnnual", "label": "Annual Cost", "type": "cost"},
         ],
         "translations": {
@@ -4496,14 +4484,6 @@ RELATIONS = [
         "target_type_key": "TechCategory",
         "cardinality": "n:m",
         "sort_order": 23,
-        "attributes_schema": [
-            {
-                "key": "resourceClassification",
-                "label": "Resource Classification",
-                "type": "single_select",
-                "options": RESOURCE_CLASSIFICATION_OPTIONS,
-            },
-        ],
         "translations": {
             "label": {
                 "de": "gehört zu",

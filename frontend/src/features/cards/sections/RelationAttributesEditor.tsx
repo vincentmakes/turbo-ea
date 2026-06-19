@@ -207,26 +207,27 @@ export interface RelationAttributeBadge {
 }
 
 /**
- * Generic counterpart to {@link flowDirectionBadge}: for the first
+ * Generic counterpart to {@link flowDirectionBadge}: returns EVERY
  * `single_select` attribute (other than `flowDirection`, which renders as a
- * directional icon) that has a value set, returns the selected option so the
- * caller can render it as a labelled chip (e.g. the `usageType`
- * Owner / User / Stakeholder on Organization→Application relations). Labels are
- * returned raw (with their `translations`) so the caller resolves them with the
- * locale-aware label resolver. Returns null when nothing is set.
+ * directional icon) that has a value set, so the caller can render one labelled
+ * chip per value (e.g. both `usageType` and `criticality` on a
+ * BusinessProcess→Application relation). Labels are returned raw (with their
+ * `translations`) so the caller resolves them with the locale-aware label
+ * resolver. Returns an empty array when nothing is set.
  */
-export function relationAttributeBadge(
+export function relationAttributeBadges(
   relationType: RelationType | undefined,
   attributes: RelationAttributes | undefined,
-): RelationAttributeBadge | null {
-  if (!relationType) return null;
+): RelationAttributeBadge[] {
+  if (!relationType) return [];
+  const badges: RelationAttributeBadge[] = [];
   for (const field of relationType.attributes_schema ?? []) {
     if (field.type !== "single_select" || field.key === "flowDirection") continue;
     const v = attributes?.[field.key];
     if (typeof v !== "string" || !v) continue;
     const opt = (field.options ?? []).find((o) => o.key === v);
     if (!opt) continue;
-    return {
+    badges.push({
       fieldKey: field.key,
       fieldLabel: field.label,
       fieldTranslations: field.translations,
@@ -234,7 +235,7 @@ export function relationAttributeBadge(
       optionLabel: opt.label,
       optionTranslations: opt.translations,
       color: opt.color,
-    };
+    });
   }
-  return null;
+  return badges;
 }
