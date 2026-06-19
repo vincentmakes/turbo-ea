@@ -659,21 +659,6 @@ export default function MetamodelAdmin() {
                       variant="outlined"
                       sx={{ height: 22, fontSize: 11 }}
                     />
-                    {typeDims.length > 0 && (
-                      <Tooltip
-                        title={typeDims
-                          .map((f) => rl(f.label, f.translations))
-                          .join(", ")}
-                      >
-                        <Chip
-                          size="small"
-                          icon={<MaterialSymbol icon="sell" size={13} />}
-                          label={typeDims.length}
-                          variant="outlined"
-                          sx={{ height: 22, fontSize: 11 }}
-                        />
-                      </Tooltip>
-                    )}
                     {rt.built_in && (
                       <Chip
                         size="small"
@@ -689,6 +674,22 @@ export default function MetamodelAdmin() {
                         color="warning"
                         sx={{ height: 22, fontSize: 11 }}
                       />
+                    )}
+
+                    {typeDims.length > 0 && (
+                      <Tooltip
+                        title={typeDims
+                          .map((f) => rl(f.label, f.translations))
+                          .join(", ")}
+                      >
+                        <Chip
+                          size="small"
+                          color="secondary"
+                          icon={<MaterialSymbol icon="sell" size={13} color="inherit" />}
+                          label={typeDims.length}
+                          sx={{ height: 22, fontSize: 11 }}
+                        />
+                      </Tooltip>
                     )}
 
                     {rt.is_hidden ? (
