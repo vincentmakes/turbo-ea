@@ -31,6 +31,10 @@ Der Screenshot oben zeigt einen typischen Anwendungsfall: Wählen Sie **Datenobj
 
 Beim Wechsel des Kartentyps werden die Auswahl für Gruppierung, Färbung und Filter zurückgesetzt (sie verweisen auf Feldschlüssel, die im neuen Typ nicht existieren), und der Bericht wird mit den Feldern, Beziehungen und Tags des gewählten Typs neu geladen. Der Bericht nutzt dieselbe Berechtigung wie das Anwendungsportfolio (`reports.portfolio`) und wird unabhängig davon gespeichert.
 
+### Beziehungs-Untertypen
+
+Wenn die Beziehungen einer Karte einen «Typ»-Wert tragen — etwa den **Verwendungstyp** (Eigentümer / Benutzer / Stakeholder) bei Beziehungen Organisation→Anwendung oder den **Unterstützungstyp** bei Beziehungen Anwendung→Geschäftsfähigkeit — können Sie die Karten danach einfärben und filtern. Beziehungs-Untertypen erscheinen in der Auswahl *Einfärben nach* unter der Gruppe **Beziehungs-Untertypen** sowie als eigene Filterzeile und werden nur angezeigt, wenn der gewählte Kartentyp tatsächlich Beziehungen mit solchen Werten besitzt. Eine Karte, die über mehrere Beziehungen mit unterschiedlichen Werten verknüpft ist, wird in einer neutralen Farbe **Mehrere** dargestellt.
+
 ## Fähigkeitskarte
 
 ![Geschäftsfähigkeitskarte](../assets/img/de/11_faehigkeiten_karte.png)

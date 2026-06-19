@@ -65,6 +65,8 @@
   "portfolio.attributes": "Attributs",
   "portfolio.relatedTypes": "Types associés",
   "portfolio.notSet": "Non défini",
+  "portfolio.relationSubtypes": "Sous-types de relation",
+  "portfolio.multiple": "Multiples",
   "portfolio.applications": "applications",
   "portfolio.eolRisk": "Risque EOL",
   "portfolio.withEol": "avec EOL",

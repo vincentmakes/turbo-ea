@@ -65,6 +65,8 @@
   "portfolio.attributes": "Egenskaber",
   "portfolio.relatedTypes": "Relaterede typer",
   "portfolio.notSet": "Ikke angivet",
+  "portfolio.relationSubtypes": "Relationsundertyper",
+  "portfolio.multiple": "Flere",
   "portfolio.applications": "applikationer",
   "portfolio.eolRisk": "Udløbsrisiko",
   "portfolio.withEol": "med udløb",

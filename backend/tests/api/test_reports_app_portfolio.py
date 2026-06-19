@@ -374,3 +374,91 @@ class TestAppPortfolioTypeParam:
         data = resp.json()
         other_types = {rt["other_type_key"] for rt in data["relation_types"]}
         assert "Application" in other_types
+
+
+class TestAppPortfolioRelationSubtypes:
+    """Relation subtype attributes (e.g. usageType=Owner) drive the portfolio
+    Color By and filter controls, so the endpoint must surface per-relation
+    ``attributes`` and per-relation-type ``attributes_schema``.
+    """
+
+    @pytest.fixture
+    async def subtype_env(self, db, portfolio_env):
+        """A relation type carrying a single_select subtype + a relation that uses it."""
+        await create_relation_type(
+            db,
+            key="org_uses_app",
+            label="uses",
+            reverse_label="is used by",
+            source_type_key="Organization",
+            target_type_key="Application",
+            attributes_schema=[
+                {
+                    "key": "usageType",
+                    "label": "Usage Type",
+                    "type": "single_select",
+                    "options": [
+                        {"key": "owner", "label": "Owner", "color": "#1976d2"},
+                        {"key": "user", "label": "User", "color": "#66bb6a"},
+                    ],
+                }
+            ],
+        )
+        return portfolio_env
+
+    async def test_relation_includes_attributes(self, client, db, subtype_env):
+        admin = subtype_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        org = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
+        await create_relation(
+            db,
+            type_key="org_uses_app",
+            source_id=org.id,
+            target_id=app.id,
+            attributes={"usageType": "owner"},
+        )
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+        rel = data["items"][0]["relations"][0]
+        assert rel["attributes"] == {"usageType": "owner"}
+
+    async def test_relation_without_attributes_returns_empty_dict(self, client, db, subtype_env):
+        admin = subtype_env["admin"]
+        app = await create_card(db, card_type="Application", name="CRM", user_id=admin.id)
+        org = await create_card(db, card_type="Organization", name="Sales", user_id=admin.id)
+        await create_relation(db, type_key="org_uses_app", source_id=org.id, target_id=app.id)
+
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(admin),
+        )
+        data = resp.json()
+        assert data["items"][0]["relations"][0]["attributes"] == {}
+
+    async def test_relation_type_includes_attributes_schema(self, client, subtype_env):
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(subtype_env["admin"]),
+        )
+        data = resp.json()
+        by_key = {rt["key"]: rt for rt in data["relation_types"]}
+        assert "org_uses_app" in by_key
+        schema = by_key["org_uses_app"]["attributes_schema"]
+        assert len(schema) == 1
+        assert schema[0]["key"] == "usageType"
+        option_keys = {o["key"] for o in schema[0]["options"]}
+        assert option_keys == {"owner", "user"}
+
+    async def test_relation_types_without_subtypes_have_empty_schema(self, client, portfolio_env):
+        """Relation types without an attributes_schema still expose an empty list."""
+        resp = await client.get(
+            "/api/v1/reports/app-portfolio",
+            headers=auth_headers(portfolio_env["admin"]),
+        )
+        data = resp.json()
+        for rt in data["relation_types"]:
+            assert rt["attributes_schema"] == []

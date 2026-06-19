@@ -332,6 +332,7 @@ async def create_relation_type(
         source_type_key=source_type_key,
         target_type_key=target_type_key,
         cardinality=kwargs.get("cardinality", "n:m"),
+        attributes_schema=kwargs.get("attributes_schema", []),
         built_in=kwargs.get("built_in", False),
         is_hidden=kwargs.get("is_hidden", False),
         sort_order=kwargs.get("sort_order", 0),

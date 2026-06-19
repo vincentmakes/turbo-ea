@@ -997,6 +997,7 @@ async def app_portfolio(
                     "related_id": tid,
                     "related_name": related_map[tid]["name"],
                     "related_type": related_map[tid]["type"],
+                    "attributes": r.attributes or {},
                 }
             )
         elif tid in app_id_set and sid in related_map:
@@ -1006,6 +1007,7 @@ async def app_portfolio(
                     "related_id": sid,
                     "related_name": related_map[sid]["name"],
                     "related_type": related_map[sid]["type"],
+                    "attributes": r.attributes or {},
                 }
             )
 
@@ -1031,6 +1033,7 @@ async def app_portfolio(
                     "target_type_key": rt.target_type_key,
                     "other_type_key": other,
                     "translations": rt.translations or {},
+                    "attributes_schema": rt.attributes_schema or [],
                 }
             )
 

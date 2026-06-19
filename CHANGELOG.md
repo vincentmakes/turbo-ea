@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.0] - 2026-06-19
+
+### Added
+- **Color and filter portfolios by relation subtypes.** The Application Portfolio and Flexible Portfolio reports can now use a relation's "type" value (e.g. Usage Type Owner / User / Stakeholder on Organization→Application, or Support Type on Application→Business Capability) to colour the cards and as a filter. These appear under a clearly labelled **Relation Subtypes** group in the *Color by* dropdown and as their own filter row — and only show up when the selected card type actually has relations carrying such values. A card linked through several relations with differing values is shown in a neutral **Multiple** colour.
+
 ## [1.43.0] - 2026-06-18
 
 ### Added

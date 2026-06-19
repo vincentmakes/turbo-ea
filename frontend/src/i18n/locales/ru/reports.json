@@ -65,6 +65,8 @@
   "portfolio.attributes": "Атрибуты",
   "portfolio.relatedTypes": "Связанные типы",
   "portfolio.notSet": "Не задано",
+  "portfolio.relationSubtypes": "Подтипы связей",
+  "portfolio.multiple": "Несколько",
   "portfolio.applications": "приложений",
   "portfolio.eolRisk": "Риск EOL",
   "portfolio.withEol": "с EOL",

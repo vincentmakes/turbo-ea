@@ -31,6 +31,10 @@ Lo screenshot mostra un caso d'uso tipico: scegli **Oggetto dati** come tipo di 
 
 Cambiare il tipo di scheda azzera le selezioni di raggruppamento, colore e filtri (referenziano chiavi di campo che non esistono nel nuovo tipo) e il report viene ricaricato con i campi, le relazioni e i tag applicabili al tipo scelto. Il report condivide lo stesso permesso del Portfolio applicazioni (`reports.portfolio`) e viene salvato in modo indipendente.
 
+### Sottotipi di relazione
+
+Quando le relazioni di una scheda portano un valore di «tipo» — ad esempio il **tipo di utilizzo** (Proprietario / Utente / Stakeholder) sulle relazioni Organizzazione→Applicazione, o il **tipo di supporto** sulle relazioni Applicazione→Capability di business — puoi colorare le schede in base a quel valore e filtrarle. I sottotipi di relazione compaiono sotto il gruppo **Sottotipi di relazione** nel menu *Colora per* e come riga di filtri dedicata, e vengono mostrati solo quando il tipo di scheda selezionato ha effettivamente relazioni con tali valori. Una scheda collegata tramite più relazioni con valori diversi viene mostrata in un colore neutro **Multipli**.
+
 ## Mappa delle Capability
 
 ![Mappa delle Business Capability](../assets/img/it/11_mappa_capacita.png)

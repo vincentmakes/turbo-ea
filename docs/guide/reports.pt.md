@@ -31,6 +31,10 @@ A captura mostra um caso de uso típico: escolha **Objeto de Dados** como tipo d
 
 Alterar o tipo de cartão reinicia as seleções de agrupamento, cor e filtros (referenciam chaves de campo que não existem no novo tipo) e o relatório é recarregado com os campos, relações e etiquetas aplicáveis ao tipo escolhido. O relatório compartilha a mesma permissão do Portfólio de Aplicações (`reports.portfolio`) e é salvo de forma independente.
 
+### Subtipos de relação
+
+Quando as relações de um cartão têm um valor de «tipo» — por exemplo o **tipo de utilização** (Proprietário / Utilizador / Parte interessada) nas relações Organização→Aplicação, ou o **tipo de suporte** nas relações Aplicação→Capacidade de negócio — pode colorir os cartões por esse valor e filtrar por ele. Os subtipos de relação aparecem sob o grupo **Subtipos de relação** na lista *Colorir por* e como a sua própria linha de filtros, e só surgem quando o tipo de cartão selecionado tem efetivamente relações com tais valores. Um cartão ligado por várias relações com valores diferentes é apresentado numa cor neutra **Múltiplos**.
+
 ## Mapa de Capacidades
 
 ![Mapa de Capacidades de Negócio](../assets/img/pt/11_mapa_capacidades.png)

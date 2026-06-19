@@ -65,6 +65,8 @@
   "portfolio.attributes": "属性",
   "portfolio.relatedTypes": "关联类型",
   "portfolio.notSet": "未设置",
+  "portfolio.relationSubtypes": "关系子类型",
+  "portfolio.multiple": "多个",
   "portfolio.applications": "应用",
   "portfolio.eolRisk": "EOL 风险",
   "portfolio.withEol": "有 EOL",

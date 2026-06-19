@@ -27,7 +27,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import ReportShell from "./ReportShell";
 import SaveReportDialog from "./SaveReportDialog";
 import TimelineSlider from "@/components/TimelineSlider";
-import FilterSelect, { EMPTY_FILTER_KEY } from "@/components/FilterSelect";
+import FilterSelect from "@/components/FilterSelect";
 import TagPicker from "@/components/TagPicker";
 import type { TagGroup } from "@/types";
 import MaterialSymbol from "@/components/MaterialSymbol";
@@ -40,64 +40,37 @@ import { useTimeline } from "@/hooks/useTimeline";
 import { useResolveLabel, useResolveMetaLabel } from "@/hooks/useResolveLabel";
 import { useAiStatus } from "@/hooks/useAiStatus";
 import type { PortfolioInsightsResponse, StructuredInsight } from "@/types";
+import {
+  appColorBucket,
+  buildColorLegend,
+  buildColorSegments,
+  extractRelSubtypes,
+  getAppColor,
+  getAppColorLabel,
+  LIFECYCLE_PHASES,
+  matchesFilters,
+  parseDate,
+  pickSelectFields,
+  relSubtypeComposite,
+  REL_SUBTYPE_PREFIX,
+  resolveColorBy,
+  UNSET_COLOR,
+} from "./portfolioHelpers";
+import type {
+  AppData,
+  ColorLabels,
+  ColorResolution,
+  FieldDef,
+  FilterState,
+  RelSubtype,
+  RelTypeDef,
+  SectionDef,
+  TagGroupDef,
+} from "./portfolioHelpers";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
-
-interface AppRelation {
-  relation_type: string;
-  related_id: string;
-  related_name: string;
-  related_type: string;
-}
-
-interface AppData {
-  id: string;
-  name: string;
-  subtype?: string;
-  attributes?: Record<string, unknown>;
-  lifecycle?: Record<string, string>;
-  relations: AppRelation[];
-  org_ids: string[];
-  tag_ids?: string[];
-}
-
-interface TagGroupDef {
-  id: string;
-  name: string;
-  mode: string;
-  tags: { id: string; name: string; color?: string }[];
-}
-
-interface FieldOption {
-  key: string;
-  label: string;
-  color?: string;
-  translations?: Record<string, string>;
-}
-
-interface FieldDef {
-  key: string;
-  label: string;
-  type: string;
-  options?: FieldOption[];
-  translations?: Record<string, string>;
-}
-
-interface SectionDef {
-  section: string;
-  fields: FieldDef[];
-}
-
-interface RelTypeDef {
-  key: string;
-  label: string;
-  reverse_label?: string;
-  source_type_key: string;
-  target_type_key: string;
-  other_type_key: string;
-}
 
 interface OrgRef {
   id: string;
@@ -125,70 +98,8 @@ interface DrawerData {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Constants                                                          */
-/* ------------------------------------------------------------------ */
-
-const UNSET_COLOR = "#9e9e9e";
-const DEFAULT_APP_COLOR = "#0f7eb5";
-
-const LIFECYCLE_PHASES = ["plan", "phaseIn", "active", "phaseOut", "endOfLife"];
-
-/* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-function pickSelectFields(schema: SectionDef[]): FieldDef[] {
-  const out: FieldDef[] = [];
-  for (const s of schema)
-    for (const f of s.fields)
-      if (f.type === "single_select") out.push(f);
-  return out;
-}
-
-function getAppColor(
-  app: AppData,
-  colorBy: string,
-  selectFields: FieldDef[],
-): string {
-  if (!colorBy) return DEFAULT_APP_COLOR;
-  const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return UNSET_COLOR;
-  const fd = selectFields.find((f) => f.key === colorBy);
-  const opt = fd?.options?.find((o) => o.key === val);
-  return opt?.color || UNSET_COLOR;
-}
-
-function getAppColorLabel(
-  app: AppData,
-  colorBy: string,
-  selectFields: FieldDef[],
-): string | null {
-  if (!colorBy) return null;
-  const val = (app.attributes || {})[colorBy] as string | undefined;
-  if (!val) return null;
-  const fd = selectFields.find((f) => f.key === colorBy);
-  const opt = fd?.options?.find((o) => o.key === val);
-  return opt?.label || val;
-}
-
-function parseDate(s: string | undefined): number | null {
-  if (!s) return null;
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d.getTime();
-}
-
-function isAppAliveAtDate(app: AppData, dateMs: number): boolean {
-  const lc = app.lifecycle;
-  if (!lc) return true;
-  const dates = LIFECYCLE_PHASES.map((p) => parseDate(lc[p])).filter(
-    (d): d is number => d != null,
-  );
-  if (dates.length === 0) return true;
-  if (Math.min(...dates) > dateMs) return false;
-  const eol = parseDate(lc.endOfLife);
-  if (eol != null && eol <= dateMs) return false;
-  return true;
-}
 
 function isLightColor(hex: string): boolean {
   const c = hex.replace("#", "");
@@ -197,68 +108,6 @@ function isLightColor(hex: string): boolean {
   const g = parseInt(c.substring(2, 4), 16);
   const b = parseInt(c.substring(4, 6), 16);
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Filter helpers                                                     */
-/* ------------------------------------------------------------------ */
-
-interface FilterState {
-  attributeFilters: Record<string, string[]>;
-  relationFilters: Record<string, string[]>;
-  /** Flat list of selected tag ids (bucketed by group at filter time) */
-  tagFilterIds: string[];
-  tagGroups: TagGroupDef[];
-  timelineDate: number;
-  search: string;
-}
-
-function matchesFilters(
-  app: AppData,
-  filters: FilterState,
-): boolean {
-  if (!isAppAliveAtDate(app, filters.timelineDate)) return false;
-  // Attribute filters
-  const attrs = app.attributes || {};
-  for (const [key, vals] of Object.entries(filters.attributeFilters)) {
-    if (vals.length === 0) continue;
-    const v = attrs[key] as string | undefined;
-    const isEmpty = v === undefined || v === null || v === "";
-    const wantEmpty = vals.includes(EMPTY_FILTER_KEY);
-    const realVals = vals.filter((x) => x !== EMPTY_FILTER_KEY);
-    if (wantEmpty && isEmpty) continue;
-    if (realVals.length > 0 && realVals.includes(v as string)) continue;
-    return false;
-  }
-  // Relation filters (e.g. Organization, Platform, etc.)
-  for (const [typeKey, ids] of Object.entries(filters.relationFilters)) {
-    if (ids.length === 0) continue;
-    const appRels = app.relations.filter((r) => r.related_type === typeKey);
-    const wantEmpty = ids.includes(EMPTY_FILTER_KEY);
-    const realIds = ids.filter((x) => x !== EMPTY_FILTER_KEY);
-    if (wantEmpty && appRels.length === 0) continue;
-    if (realIds.length > 0 && appRels.some((r) => realIds.includes(r.related_id))) continue;
-    return false;
-  }
-  // Tag filters (OR within a group, AND across groups) — bucket the flat
-  // selection by tag_group_id before matching.
-  if (filters.tagFilterIds.length > 0) {
-    const appTagIds = new Set(app.tag_ids || []);
-    const selectedSet = new Set(filters.tagFilterIds);
-    for (const group of filters.tagGroups) {
-      const pickedInGroup = group.tags
-        .filter((tag) => selectedSet.has(tag.id))
-        .map((tag) => tag.id);
-      if (pickedInGroup.length === 0) continue;
-      if (!pickedInGroup.some((id) => appTagIds.has(id))) return false;
-    }
-  }
-  if (
-    filters.search &&
-    !app.name.toLowerCase().includes(filters.search.toLowerCase())
-  )
-    return false;
-  return true;
 }
 
 /* ------------------------------------------------------------------ */
@@ -331,17 +180,17 @@ function groupApps(
 
 function AppChip({
   app,
-  colorBy,
-  selectFields,
+  colorRes,
+  colorLabels,
   onClick,
 }: {
   app: AppData;
-  colorBy: string;
-  selectFields: FieldDef[];
+  colorRes: ColorResolution;
+  colorLabels: ColorLabels;
   onClick: () => void;
 }) {
-  const color = getAppColor(app, colorBy, selectFields);
-  const colorLabel = getAppColorLabel(app, colorBy, selectFields);
+  const color = getAppColor(app, colorRes, colorLabels);
+  const colorLabel = getAppColorLabel(app, colorRes, colorLabels);
   const light = isLightColor(color);
   const tip = colorLabel ? `${app.name} \u2014 ${colorLabel}` : app.name;
 
@@ -370,42 +219,26 @@ function AppChip({
 
 function GroupCard({
   group,
-  colorBy,
-  selectFields,
+  colorRes,
+  colorLabels,
   onGroupClick,
   onAppClick,
   countLabel,
 }: {
   group: GroupData;
-  colorBy: string;
-  selectFields: FieldDef[];
+  colorRes: ColorResolution;
+  colorLabels: ColorLabels;
   onGroupClick: (g: GroupData) => void;
   onAppClick: (id: string) => void;
   countLabel: (count: number) => string;
 }) {
-  const { t } = useTranslation(["reports"]);
   const count = group.apps.length;
 
   /* Build color-by distribution for the stacked bar */
-  const colorSegments = useMemo(() => {
-    if (!colorBy || count === 0) return [];
-    const fd = selectFields.find((f) => f.key === colorBy);
-    const counts = new Map<string, { color: string; label: string; n: number }>();
-    for (const app of group.apps) {
-      const val = (app.attributes || {})[colorBy] as string | undefined;
-      const optKey = val || "__unset__";
-      if (!counts.has(optKey)) {
-        const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
-        counts.set(optKey, {
-          color: opt?.color || UNSET_COLOR,
-          label: opt?.label || t("portfolio.notSet"),
-          n: 0,
-        });
-      }
-      counts.get(optKey)!.n += 1;
-    }
-    return Array.from(counts.values()).filter((s) => s.n > 0);
-  }, [colorBy, count, group.apps, selectFields, t]);
+  const colorSegments = useMemo(
+    () => buildColorSegments(group.apps, colorRes, colorLabels),
+    [group.apps, colorRes, colorLabels],
+  );
 
   return (
     <Box
@@ -489,8 +322,8 @@ function GroupCard({
               <AppChip
                 key={app.id}
                 app={app}
-                colorBy={colorBy}
-                selectFields={selectFields}
+                colorRes={colorRes}
+                colorLabels={colorLabels}
                 onClick={() => onAppClick(app.id)}
               />
             ))}
@@ -560,6 +393,8 @@ export default function PortfolioReport({
   // Filters
   const [attrFilters, setAttrFilters] = useState<Record<string, string[]>>({});
   const [relationFilters, setRelationFilters] = useState<Record<string, string[]>>({});
+  // Keyed by RelSubtype.composite (`relTypeKey::fieldKey`).
+  const [relSubtypeFilters, setRelSubtypeFilters] = useState<Record<string, string[]>>({});
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [showAllRelFilters, setShowAllRelFilters] = useState(false);
 
@@ -582,6 +417,8 @@ export default function PortfolioReport({
       if (cfg.search != null) setSearch(cfg.search as string);
       if (cfg.attrFilters) setAttrFilters(cfg.attrFilters as Record<string, string[]>);
       if (cfg.relationFilters) setRelationFilters(cfg.relationFilters as Record<string, string[]>);
+      if (cfg.relSubtypeFilters)
+        setRelSubtypeFilters(cfg.relSubtypeFilters as Record<string, string[]>);
       // Migrate prior `{groupId: tagIds[]}` shape to a flat `string[]`
       if (cfg.tagFilterIds) {
         setTagFilterIds(cfg.tagFilterIds as string[]);
@@ -600,7 +437,7 @@ export default function PortfolioReport({
     }
   }, [saved.loadedConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD });
+  const getConfig = () => ({ cardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, timelineDate: tl.persistValue, sortK, sortD });
 
   // Auto-persist config to localStorage. Skip the very first run so that on
   // mount we don't overwrite a previously-saved config with the initial
@@ -617,7 +454,7 @@ export default function PortfolioReport({
     }
     if (dataCardType !== cardType) return;
     saved.persistConfig(getConfig());
-  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, tagFilterIds, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cardType, dataCardType, view, groupByRaw, colorBy, search, attrFilters, relationFilters, relSubtypeFilters, tagFilterIds, tl.timelineDate, sortK, sortD]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset all parameters to defaults
   const handleReset = useCallback(() => {
@@ -629,6 +466,7 @@ export default function PortfolioReport({
     setSearch("");
     setAttrFilters({});
     setRelationFilters({});
+    setRelSubtypeFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
     tl.reset();
@@ -667,6 +505,7 @@ export default function PortfolioReport({
     setColorBy("");
     setAttrFilters({});
     setRelationFilters({});
+    setRelSubtypeFilters({});
     setTagFilterIds([]);
     setShowAllRelFilters(false);
     setDefaultsApplied(false);
@@ -684,6 +523,34 @@ export default function PortfolioReport({
       })),
     }));
   }, [data, rl]);
+
+  // Relation subtypes — single_select attributes on relation types touching
+  // the current card type (e.g. "uses · Usage Type"). Drives the Color By and
+  // filter controls; empty when no such relation attributes exist.
+  const relSubtypes = useMemo<RelSubtype[]>(() => {
+    if (!data) return [];
+    return extractRelSubtypes(data.relation_types as RelTypeDef[], cardType).map(
+      ({ relType, field }) => {
+        const relLabel =
+          relType.source_type_key === cardType
+            ? rml(relType.key, relType.translations, "label") || relType.label
+            : rml(relType.key, relType.translations, "reverse_label") ||
+              relType.reverse_label ||
+              relType.label;
+        const fieldLabel = rl(field.label, field.translations);
+        return {
+          composite: relSubtypeComposite(relType.key, field.key),
+          relTypeKey: relType.key,
+          fieldKey: field.key,
+          comboLabel: `${relLabel} · ${fieldLabel}`,
+          options: (field.options ?? []).map((o) => ({
+            ...o,
+            label: rl(o.label, o.translations),
+          })),
+        };
+      },
+    );
+  }, [data, cardType, rl, rml]);
 
   // Build group-by options from schema + relation types
   const groupByOptions = useMemo(() => {
@@ -738,16 +605,25 @@ export default function PortfolioReport({
     return { kind: "relation", typeKey: groupByKey.slice(4) };
   }, [groupByKey]);
 
-  // Color-by options: all single_select fields + "none"
+  // Color-by options: "none" + own single_select fields + relation subtypes.
+  // Relation subtypes are keyed `rel:<composite>` so they never collide with a
+  // card's own field key, and grouped under a "Relation Subtypes" subheader.
   const colorByOptions = useMemo(() => {
-    const opts: { key: string; label: string }[] = [
-      { key: "", label: t("portfolio.noColor") },
+    const opts: { key: string; label: string; group: "none" | "field" | "rel" }[] = [
+      { key: "", label: t("portfolio.noColor"), group: "none" },
     ];
     for (const f of selectFields) {
-      opts.push({ key: f.key, label: f.label });
+      opts.push({ key: f.key, label: f.label, group: "field" });
+    }
+    for (const s of relSubtypes) {
+      opts.push({
+        key: `${REL_SUBTYPE_PREFIX}${s.composite}`,
+        label: s.comboLabel,
+        group: "rel",
+      });
     }
     return opts;
-  }, [selectFields, t]);
+  }, [selectFields, relSubtypes, t]);
 
   // Timeline range
   const { dateRange, yearMarks, hasLifecycleData } = useMemo(() => {
@@ -796,12 +672,24 @@ export default function PortfolioReport({
     () => ({
       attributeFilters: attrFilters,
       relationFilters,
+      relSubtypeFilters,
+      relSubtypes,
       tagFilterIds,
       tagGroups: data?.tag_groups || [],
       timelineDate: tl.timelineDate,
       search,
     }),
-    [attrFilters, relationFilters, tagFilterIds, data, tl.timelineDate, search],
+    [attrFilters, relationFilters, relSubtypeFilters, relSubtypes, tagFilterIds, data, tl.timelineDate, search],
+  );
+
+  // Resolve the active Color By into a descriptor + shared bucket labels.
+  const colorRes = useMemo<ColorResolution>(
+    () => resolveColorBy(colorBy, selectFields, relSubtypes),
+    [colorBy, selectFields, relSubtypes],
+  );
+  const colorLabels = useMemo<ColorLabels>(
+    () => ({ notSet: t("portfolio.notSet"), multiple: t("portfolio.multiple") }),
+    [t],
   );
 
   // Filtered apps
@@ -817,25 +705,10 @@ export default function PortfolioReport({
   }, [filteredApps, groupByMode, selectFields, data]);
 
   // Color-by distribution for the ungrouped section
-  const ungroupedColorSegments = useMemo(() => {
-    if (!colorBy || ungrouped.length === 0) return [];
-    const fd = selectFields.find((f) => f.key === colorBy);
-    const counts = new Map<string, { color: string; label: string; n: number }>();
-    for (const app of ungrouped) {
-      const val = (app.attributes || {})[colorBy] as string | undefined;
-      const optKey = val || "__unset__";
-      if (!counts.has(optKey)) {
-        const opt = val ? fd?.options?.find((o) => o.key === val) : undefined;
-        counts.set(optKey, {
-          color: opt?.color || UNSET_COLOR,
-          label: opt?.label || t("portfolio.notSet"),
-          n: 0,
-        });
-      }
-      counts.get(optKey)!.n += 1;
-    }
-    return Array.from(counts.values()).filter((s) => s.n > 0);
-  }, [colorBy, ungrouped, selectFields, t]);
+  const ungroupedColorSegments = useMemo(
+    () => buildColorSegments(ungrouped, colorRes, colorLabels),
+    [ungrouped, colorRes, colorLabels],
+  );
 
   // Summary stats
   const stats = useMemo(() => {
@@ -846,25 +719,23 @@ export default function PortfolioReport({
     return { total, withEol };
   }, [filteredApps]);
 
-  // Color legend — built dynamically from schema
-  const colorLegend = useMemo(() => {
-    if (!colorBy) return null;
-    const fd = selectFields.find((f) => f.key === colorBy);
-    if (!fd?.options) return null;
-    return fd.options
-      .filter((o) => o.color)
-      .map((o) => ({ label: o.label, color: o.color! }));
-  }, [colorBy, selectFields]);
+  // Color legend — built dynamically from schema / relation subtype options
+  const colorLegend = useMemo(
+    () => buildColorLegend(colorRes, colorLabels, filteredApps),
+    [colorRes, colorLabels, filteredApps],
+  );
 
   const hasActiveFilters =
     Object.values(attrFilters).some((v) => v.length > 0) ||
     Object.values(relationFilters).some((v) => v.length > 0) ||
+    Object.values(relSubtypeFilters).some((v) => v.length > 0) ||
     tagFilterIds.length > 0 ||
     search.length > 0;
 
   const clearFilters = useCallback(() => {
     setAttrFilters({});
     setRelationFilters({});
+    setRelSubtypeFilters({});
     setTagFilterIds([]);
     setSearch("");
     tl.reset();
@@ -915,10 +786,10 @@ export default function PortfolioReport({
       // Build group summaries
       const groupSummaries = groups.map((g) => {
         const breakdown: Record<string, number> = {};
-        if (colorBy) {
+        if (colorRes.kind !== "none") {
           for (const app of g.apps) {
-            const v = (app.attributes || {})[colorBy] as string | undefined;
-            const k = v || "Not set";
+            const bucket = appColorBucket(app, colorRes, colorLabels);
+            const k = bucket.isUnset ? "Not set" : bucket.label;
             breakdown[k] = (breakdown[k] || 0) + 1;
           }
         }
@@ -951,7 +822,7 @@ export default function PortfolioReport({
     } finally {
       setAiLoading(false);
     }
-  }, [data, filteredApps, groups, selectFields, colorBy, groupByRaw, attrFilters, search, tl.timelineDate, t]);
+  }, [data, filteredApps, groups, selectFields, colorBy, colorRes, colorLabels, groupByRaw, attrFilters, search, tl.timelineDate, t]);
 
   const handleGroupClick = useCallback((g: GroupData) => {
     setDrawer({ label: g.label, apps: g.apps });
@@ -997,7 +868,7 @@ export default function PortfolioReport({
     groupByOptions.find((o) => o.key === groupByKey)?.label || t("common.group");
 
   const colorByLabel = colorByOptions.find((o) => o.key === colorBy)?.label || "";
-  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + tagFilterIds.length;
+  const activeFilterCount = Object.values(attrFilters).flat().length + Object.values(relationFilters).flat().length + Object.values(relSubtypeFilters).flat().length + tagFilterIds.length;
 
   // Visible card types — populates the optional type selector and resolves
   // the localised label of the currently-selected type for dynamic strings.
@@ -1195,11 +1066,28 @@ export default function PortfolioReport({
             onChange={(e) => setColorBy(e.target.value)}
             sx={{ minWidth: 180 }}
           >
-            {colorByOptions.map((o) => (
-              <MenuItem key={o.key} value={o.key}>
-                {o.label}
+            {colorByOptions
+              .filter((o) => o.group !== "rel")
+              .map((o) => (
+                <MenuItem key={o.key} value={o.key}>
+                  {o.label}
+                </MenuItem>
+              ))}
+            {colorByOptions.some((o) => o.group === "rel") && (
+              <MenuItem disabled sx={{ opacity: 0.6, fontSize: "0.75rem", fontWeight: 600 }}>
+                {t("portfolio.relationSubtypes")}
               </MenuItem>
-            ))}
+            )}
+            {colorByOptions
+              .filter((o) => o.group === "rel")
+              .map((o) => (
+                <MenuItem key={o.key} value={o.key}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <MaterialSymbol icon="link" size={16} color={theme.palette.text.secondary} />
+                    {o.label}
+                  </Box>
+                </MenuItem>
+              ))}
           </TextField>
 
           <TextField
@@ -1405,6 +1293,45 @@ export default function PortfolioReport({
                         }
                       />
                     ))}
+                </Box>
+              )}
+
+              {/* Relation Subtypes section — hidden when the card type's
+                  relations carry no single_select subtype attributes. */}
+              {relSubtypes.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexWrap: "wrap",
+                    bgcolor: "action.hover",
+                    borderRadius: 1.5,
+                    px: 1.5,
+                    py: 0.75,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.7rem", whiteSpace: "nowrap" }}
+                  >
+                    {t("portfolio.relationSubtypes")}
+                  </Typography>
+                  {relSubtypes.map((sub) => (
+                    <FilterSelect
+                      key={sub.composite}
+                      label={sub.comboLabel}
+                      options={sub.options.map((o) => ({
+                        key: o.key,
+                        label: o.label,
+                        color: o.color,
+                      }))}
+                      value={relSubtypeFilters[sub.composite] || []}
+                      onChange={(v) =>
+                        setRelSubtypeFilters((prev) => ({ ...prev, [sub.composite]: v }))
+                      }
+                    />
+                  ))}
                 </Box>
               )}
             </Box>
@@ -1619,8 +1546,8 @@ export default function PortfolioReport({
                   <Box key={g.key} data-export-row>
                     <GroupCard
                       group={g}
-                      colorBy={colorBy}
-                      selectFields={selectFields}
+                      colorRes={colorRes}
+                      colorLabels={colorLabels}
                       onGroupClick={handleGroupClick}
                       onAppClick={handleAppClick}
                       countLabel={countLabel}
@@ -1720,8 +1647,8 @@ export default function PortfolioReport({
                         <AppChip
                           key={app.id}
                           app={app}
-                          colorBy={colorBy}
-                          selectFields={selectFields}
+                          colorRes={colorRes}
+                          colorLabels={colorLabels}
                           onClick={() => handleAppClick(app.id)}
                         />
                       ))}
@@ -1808,10 +1735,10 @@ export default function PortfolioReport({
                         .map((r) => r.related_name)
                         .join(", ") || "\u2014";
                 const colorVal = colorBy
-                  ? getAppColorLabel(app, colorBy, selectFields) || "\u2014"
+                  ? getAppColorLabel(app, colorRes, colorLabels) || "\u2014"
                   : null;
                 const colorDot = colorBy
-                  ? getAppColor(app, colorBy, selectFields)
+                  ? getAppColor(app, colorRes, colorLabels)
                   : null;
 
                 return (
@@ -1910,7 +1837,7 @@ export default function PortfolioReport({
                   const parts: string[] = [];
                   if (a.subtype) parts.push(a.subtype);
                   if (colorBy) {
-                    const lbl = getAppColorLabel(a, colorBy, selectFields);
+                    const lbl = getAppColorLabel(a, colorRes, colorLabels);
                     if (lbl) parts.push(lbl);
                   }
                   if (a.lifecycle?.endOfLife) parts.push(`EOL: ${a.lifecycle.endOfLife}`);
@@ -1930,7 +1857,7 @@ export default function PortfolioReport({
                             width: 12,
                             height: 12,
                             borderRadius: "50%",
-                            bgcolor: getAppColor(a, colorBy, selectFields),
+                            bgcolor: getAppColor(a, colorRes, colorLabels),
                             flexShrink: 0,
                             ml: 1,
                           }}
