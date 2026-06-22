@@ -64,6 +64,20 @@ Why this exists: CVEs disclosed *after* the last image build would otherwise go 
 
 ## Operational runbook
 
+### Listing the current code-scanning alerts
+
+The Security tab needs interactive auth, which scripts and CI log viewers don't
+have. To get the open alerts (CodeQL + Trivy + Scout) as a plain table:
+
+- **In CI** — run the [`Code Scanning Report`](workflows/code-scanning-report.yml)
+  workflow (`gh workflow run code-scanning-report.yml`, or the Actions UI; it
+  also runs weekly). It dumps every open alert — rule id, severity, file:line,
+  title — to the **job logs**, the **run summary**, and a `code-scanning-alerts`
+  JSON artifact. Anything that can read an Actions run (including agent tooling
+  that lacks the code-scanning API) can then read the findings.
+- **Locally** — `./scripts/security/code-scanning-report.sh` (needs `gh auth
+  login` + `jq`); add `--json` for the raw payload.
+
 ### A Trivy gate failed the publish
 
 1. Read the `Trivy image scan (gate, CRITICAL only)` step output — the CVE id and affected package are in the table.

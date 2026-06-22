@@ -1,0 +1,72 @@
+name: Code Scanning Report
+
+# Dumps the repository's *open* code-scanning alerts (CodeQL + Trivy + Scout
+# SARIF) to a place that's readable without the Security tab: the job logs, the
+# run summary, and a JSON artifact. The GitHub MCP toolset (and most CI/log
+# viewers) can read Actions logs but cannot call the code-scanning alerts API,
+# so this workflow bridges that gap — run it, then read the result from the run.
+#
+# Uses the runner's preinstalled `gh` CLI with the built-in GITHUB_TOKEN and a
+# read-only `security-events` grant. No extra secrets.
+#
+# Manual run: `gh workflow run code-scanning-report.yml` (or the Actions UI).
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly snapshot so the latest list is always one click away.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+  security-events: read
+
+concurrency:
+  group: code-scanning-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    name: Dump open code-scanning alerts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and render open alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          gh api --paginate \
+            "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
+            > alerts.json
+
+          count=$(jq 'length' alerts.json)
+          echo "Open code-scanning alerts: $count"
+          echo
+
+          # Human-readable table -> stdout (lands in the job logs).
+          jq -r '.[] | [
+            (.number | tostring),
+            .tool.name,
+            .rule.id,
+            (.rule.security_severity_level // .rule.severity // "n/a"),
+            "\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)",
+            (.rule.description // .most_recent_instance.message.text | gsub("\n"; " "))
+          ] | @tsv' alerts.json | column -t -s "$(printf '\t')" || true
+
+          # Same data as markdown -> run summary.
+          {
+            echo "## Open code-scanning alerts ($count)"
+            echo
+            echo "| # | Tool | Rule | Severity | Location | Title |"
+            echo "| - | ---- | ---- | -------- | -------- | ----- |"
+            jq -r '.[] | "| \(.number) | \(.tool.name) | `\(.rule.id)` | \(.rule.security_severity_level // .rule.severity // "n/a") | `\(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)` | \(.rule.description // .most_recent_instance.message.text | gsub("\n"; " ")) |"' alerts.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload alerts JSON
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: code-scanning-alerts
+          path: alerts.json
+          if-no-files-found: warn
