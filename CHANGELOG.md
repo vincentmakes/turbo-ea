@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.3] - 2026-06-22
+
+### Security
+- **Updated `pydantic-settings` to 2.14.2** to clear advisory GHSA-4xgf-cpjx-pc3j (symlink traversal outside `secrets_dir`). Turbo EA reads its configuration from environment variables and does not use the affected file-secrets source, so deployed instances were not exposed — but the dependency floor is raised so rebuilt backend images always carry the patched release.
+
 ## [1.44.2] - 2026-06-19
 
 ### Fixed
