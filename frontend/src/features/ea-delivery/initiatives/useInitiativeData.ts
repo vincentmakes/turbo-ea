@@ -168,9 +168,14 @@ export function useInitiativeData(): UseInitiativeDataResult {
     setLoading(true);
     setError("");
     try {
-      const statusParam = statusFilter ? `&status=${statusFilter}` : "&status=ACTIVE,ARCHIVED";
+      // Always fetch every initiative regardless of the current status filter.
+      // Status is narrowed client-side in `filteredInitiatives` so that picking
+      // "Archived" (or any status with no matches) can never unmount the filter
+      // controls and trap the user — see issue #659.
       const [initRes, diagRes, soawRes, adrRes] = await Promise.all([
-        api.get<{ items: Card[] }>(`/cards?type=Initiative&page_size=500${statusParam}`),
+        api.get<{ items: Card[] }>(
+          "/cards?type=Initiative&page_size=500&status=ACTIVE,ARCHIVED",
+        ),
         api.get<DiagramSummary[]>("/diagrams"),
         api.get<SoAW[]>("/soaw"),
         api.get<ArchitectureDecision[]>("/adr"),
@@ -185,7 +190,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     fetchAll();
@@ -193,6 +198,9 @@ export function useInitiativeData(): UseInitiativeDataResult {
 
   const filteredInitiatives = useMemo(() => {
     let list = initiatives;
+    if (statusFilter) {
+      list = list.filter((i) => i.status === statusFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -216,7 +224,7 @@ export function useInitiativeData(): UseInitiativeDataResult {
       });
     }
     return list;
-  }, [initiatives, search, subtypeFilter, artefactFilter, soaws, diagrams, adrs]);
+  }, [initiatives, statusFilter, search, subtypeFilter, artefactFilter, soaws, diagrams, adrs]);
 
   const tree = useMemo(
     () => buildTree(filteredInitiatives, diagrams, soaws, adrs),

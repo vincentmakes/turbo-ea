@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.4] - 2026-06-23
+
+### Fixed
+- **EA Delivery: the Archived initiative filter no longer traps you on an empty screen.** Selecting the **Archived** status filter when there are no archived initiatives previously replaced the whole page — including the filter controls — with a "No initiatives found" message, leaving no way to switch back to Active (even after a refresh, since the filter is remembered). The status filter now stays visible and simply shows "No initiatives match the current filters", so you can switch back at any time.
+
 ## [1.44.3] - 2026-06-22
 
 ### Security
