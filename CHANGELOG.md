@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.6] - 2026-06-24
+
+### Fixed
+- **Compliance tab: long requirement text now wraps instead of being cut off.** On a card's Compliance tab, the Requirement column truncated to a single line and pushed the table past the panel edge; requirement text now wraps within the column and stays inside the card.
+
 ## [1.44.5] - 2026-06-24
 
 ### Fixed
