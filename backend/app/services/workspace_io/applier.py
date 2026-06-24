@@ -110,6 +110,21 @@ def _coerce(row: dict[str, Any], columns: tuple[str, ...], json_cols: frozenset[
     return out
 
 
+def _update_if_changed(current: Any, data: dict[str, Any], cols, sr: SectionResult) -> None:
+    """Write only the columns that actually differ. Counts the row as
+    ``updated`` when something changed and ``skipped`` when it's identical, so
+    re-importing an unchanged export into the same instance is a true no-op."""
+    changed = False
+    for col in cols:
+        if getattr(current, col) != data.get(col):
+            setattr(current, col, data.get(col))
+            changed = True
+    if changed:
+        sr.updated += 1
+    else:
+        sr.skipped += 1
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -232,11 +247,8 @@ async def _apply_card_types(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             sr.created += 1
         else:
             # Never flip a built-in type's identity; merge mutable schema only.
-            for col in exp.CARD_TYPE_COLUMNS:
-                if col in ("key", "built_in"):
-                    continue
-                setattr(current, col, data.get(col))
-            sr.updated += 1
+            cols = [c for c in exp.CARD_TYPE_COLUMNS if c not in ("key", "built_in")]
+            _update_if_changed(current, data, cols, sr)
     await db.flush()
 
 
@@ -268,11 +280,8 @@ async def _apply_relation_types(
             pair_owner[pair] = key
             sr.created += 1
         else:
-            for col in exp.RELATION_TYPE_COLUMNS:
-                if col in ("key", "built_in"):
-                    continue
-                setattr(current, col, data.get(col))
-            sr.updated += 1
+            cols = [c for c in exp.RELATION_TYPE_COLUMNS if c not in ("key", "built_in")]
+            _update_if_changed(current, data, cols, sr)
     await db.flush()
 
 
@@ -300,11 +309,8 @@ def _make_config_applier(sec: schema.ConfigSection):
                 index[nk] = obj
                 sr.created += 1
             else:
-                for col in sec.columns:
-                    if col in sec.natural_key:
-                        continue
-                    setattr(current, col, data.get(col))
-                sr.updated += 1
+                cols = [c for c in sec.columns if c not in sec.natural_key]
+                _update_if_changed(current, data, cols, sr)
         await db.flush()
 
     return _apply
@@ -330,11 +336,8 @@ async def _apply_tag_groups(db, bundle: WorkspaceBundle, sr: SectionResult, dry_
             existing[name] = g
             sr.created += 1
         else:
-            for col in exp.TAG_GROUP_COLUMNS:
-                if col == "name":
-                    continue
-                setattr(current, col, data.get(col))
-            sr.updated += 1
+            cols = [c for c in exp.TAG_GROUP_COLUMNS if c != "name"]
+            _update_if_changed(current, data, cols, sr)
     await db.flush()
 
 
@@ -364,9 +367,14 @@ async def _apply_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: b
             existing[nk] = tag
             sr.created += 1
         else:
-            current.color = row.get("color")
-            current.sort_order = row.get("sort_order") or 0
-            sr.updated += 1
+            new_color = row.get("color")
+            new_order = row.get("sort_order") or 0
+            if current.color != new_color or current.sort_order != new_order:
+                current.color = new_color
+                current.sort_order = new_order
+                sr.updated += 1
+            else:
+                sr.skipped += 1
     await db.flush()
 
 
@@ -429,8 +437,11 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
     if "general_settings" in incoming and isinstance(incoming["general_settings"], dict):
         general = dict(row_obj.general_settings or {})
         merged = _merge_settings(general, incoming["general_settings"], GENERAL_SECRET_PATHS)
-        row_obj.general_settings = merged
-        sr.updated += 1
+        if merged != (row_obj.general_settings or {}):
+            row_obj.general_settings = merged
+            sr.updated += 1
+        else:
+            sr.skipped += 1
     if "email_settings" in incoming and isinstance(incoming["email_settings"], dict):
         email = dict(row_obj.email_settings or {})
         # smtp_password is never in the bundle; preserve whatever the target has.
@@ -438,8 +449,11 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
             if k == "smtp_password":
                 continue
             email[k] = v
-        row_obj.email_settings = email
-        sr.updated += 1
+        if email != (row_obj.email_settings or {}):
+            row_obj.email_settings = email
+            sr.updated += 1
+        else:
+            sr.skipped += 1
     if incoming.get("custom_logo_mime"):
         row_obj.custom_logo_mime = incoming["custom_logo_mime"]
     if incoming.get("custom_favicon_mime"):

@@ -197,6 +197,13 @@ async def test_export_roundtrip_is_idempotent(db):
     assert cards_section.created == 0
     assert len(cards_before) == len((await db.execute(select(Card))).scalars().all())
 
+    # Re-importing an unchanged export into the same instance is a true no-op:
+    # nothing is created and nothing is reported as updated (config/metamodel
+    # sections skip identical rows instead of blindly re-writing them).
+    totals = result.as_dict()["totals"]
+    assert totals["created"] == 0, result.as_dict()
+    assert totals["updated"] == 0, result.as_dict()
+
 
 async def test_export_excludes_secrets(db):
     """Encrypted secrets must never appear anywhere in the exported bundle."""
