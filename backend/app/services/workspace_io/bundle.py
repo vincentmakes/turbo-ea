@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import io
 import json
+import uuid
 import zipfile
 from dataclasses import dataclass, field
 from typing import Any
@@ -21,6 +22,14 @@ from app.services.workspace_io.schema import (
     MANIFEST_NAME,
     WORKBOOK_NAME,
 )
+
+# Excel caps a cell at 32,767 chars and openpyxl *silently truncates* beyond it,
+# which corrupts large JSON blobs (e.g. a heavily-customised ``fields_schema``).
+# Any cell longer than this is offloaded to an ``overflow/`` asset and replaced
+# by a short token; ``parse_bundle`` restores it transparently before the
+# appliers see it.
+CELL_OVERFLOW_LIMIT = 30000
+OVERFLOW_PREFIX = "@@WSIO_OVERFLOW@@:"
 
 
 class BundleFormatError(ValueError):
@@ -79,16 +88,33 @@ def from_cell(value: Any, *, is_json: bool) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def write_sheet(wb: Workbook, name: str, columns: list[str], rows: list[dict[str, Any]]) -> None:
+def write_sheet(
+    wb: Workbook,
+    name: str,
+    columns: list[str],
+    rows: list[dict[str, Any]],
+    assets: dict[str, bytes] | None = None,
+) -> None:
     """Append a sheet with a header row followed by ``rows``.
 
     ``rows`` values are assumed to already be cell-ready (callers run
-    ``to_cell`` per column with the right ``is_json`` flag).
+    ``to_cell`` per column with the right ``is_json`` flag). When ``assets`` is
+    provided, any string value over :data:`CELL_OVERFLOW_LIMIT` is offloaded to
+    an ``overflow/`` asset and replaced by a token, so openpyxl's 32,767-char
+    truncation can never corrupt a large JSON blob.
     """
     ws = wb.create_sheet(title=name[:31])
     ws.append(columns)
     for row in rows:
-        ws.append([row.get(col) for col in columns])
+        cells: list[Any] = []
+        for col in columns:
+            v = row.get(col)
+            if assets is not None and isinstance(v, str) and len(v) > CELL_OVERFLOW_LIMIT:
+                key = f"overflow/{uuid.uuid4().hex}.txt"
+                assets[key] = v.encode("utf-8")
+                v = OVERFLOW_PREFIX + key
+            cells.append(v)
+        ws.append(cells)
 
 
 def read_workbook(raw: bytes) -> dict[str, list[dict[str, Any]]]:
@@ -166,7 +192,20 @@ def unpack(raw: bytes) -> tuple[dict[str, Any], bytes, dict[str, bytes]]:
 
 
 def parse_bundle(raw: bytes) -> WorkspaceBundle:
-    """Unpack + read a bundle into a :class:`WorkspaceBundle`."""
+    """Unpack + read a bundle into a :class:`WorkspaceBundle`.
+
+    Overflow tokens written by :func:`write_sheet` are resolved back to their
+    full string value from the ``overflow/`` assets, so callers never see a
+    truncated cell.
+    """
     manifest, workbook_bytes, assets = unpack(raw)
     sheets = read_workbook(workbook_bytes)
+    for sheet_rows in sheets.values():
+        for row in sheet_rows:
+            for key, value in row.items():
+                if isinstance(value, str) and value.startswith(OVERFLOW_PREFIX):
+                    path = value[len(OVERFLOW_PREFIX) :]
+                    blob = assets.get(path)
+                    if blob is not None:
+                        row[key] = blob.decode("utf-8")
     return WorkspaceBundle(manifest=manifest, sheets=sheets, assets=assets)

@@ -115,3 +115,27 @@ def test_unpack_rejects_non_zip():
 
     with pytest.raises(BundleFormatError):
         bundle_io.unpack(b"not a zip")
+
+
+def test_oversized_cell_survives_via_overflow_asset():
+    """A cell beyond Excel's 32,767-char limit is offloaded to an asset and
+    restored verbatim on parse (openpyxl would otherwise truncate it)."""
+    import io
+    import json
+
+    big = json.dumps({"blob": "y" * 50000})
+    assert len(big) > 32767
+
+    wb = openpyxl.Workbook(write_only=True)
+    assets: dict[str, bytes] = {}
+    bundle_io.write_sheet(wb, "Big", ["v"], [{"v": big}], assets)
+    assert any(k.startswith("overflow/") for k in assets)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    raw = bundle_io.pack({"format_version": "1"}, buf.getvalue(), assets)
+
+    parsed = bundle_io.parse_bundle(raw)
+    restored = parsed.rows("Big")[0]["v"]
+    assert restored == big  # full value, not truncated
+    assert json.loads(restored)["blob"] == "y" * 50000

@@ -285,3 +285,33 @@ async def test_module_entities_roundtrip_and_recreate(db):
     assert (
         await db.execute(select(Comment).where(Comment.id == comment.id))
     ).scalar_one().content == "hello"
+
+
+async def test_large_json_blob_survives_export_import(db):
+    """A card whose attributes exceed Excel's 32k cell limit round-trips intact
+    (regression for the 'Unterminated string' import error)."""
+    user = await create_user(db, email="big@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    big_attrs = {"notes": "z" * 40000, "k": list(range(50))}
+    await create_card(
+        db, card_type="Application", name="Big App", attributes=big_attrs, user_id=user.id
+    )
+
+    raw = await build_bundle(db)
+    # The oversized cell must have been offloaded, not truncated.
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(k.startswith("overflow/") for k in assets)
+
+    bundle = parse_bundle(raw)
+    card_rows = {r["name"]: r for r in bundle.rows(schema.SHEET_CARDS)}
+    import json
+
+    assert json.loads(card_rows["Big App"]["attributes"])["notes"] == "z" * 40000
+
+    # Delete and re-import: the attributes come back whole.
+    await db.execute(delete(Card).where(Card.name == "Big App"))
+    await db.flush()
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    restored = (await db.execute(select(Card).where(Card.name == "Big App"))).scalar_one()
+    assert restored.attributes["notes"] == "z" * 40000

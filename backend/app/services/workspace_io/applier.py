@@ -444,12 +444,22 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
         row_obj.custom_logo_mime = incoming["custom_logo_mime"]
     if incoming.get("custom_favicon_mime"):
         row_obj.custom_favicon_mime = incoming["custom_favicon_mime"]
-    # Branding binaries live in assets/branding/ (Phase B).
-    if bundle.assets.get("branding/logo"):
-        row_obj.custom_logo = bundle.assets["branding/logo"]
-    if bundle.assets.get("branding/favicon"):
-        row_obj.custom_favicon = bundle.assets["branding/favicon"]
+    # Branding binaries live in assets/branding/logo.<ext> / favicon.<ext>.
+    logo = _find_asset(bundle, "branding/logo")
+    if logo is not None:
+        row_obj.custom_logo = logo
+    favicon = _find_asset(bundle, "branding/favicon")
+    if favicon is not None:
+        row_obj.custom_favicon = favicon
     await db.flush()
+
+
+def _find_asset(bundle: WorkspaceBundle, prefix: str) -> bytes | None:
+    """Return the first asset whose path matches ``prefix`` (any extension)."""
+    for path, data in bundle.assets.items():
+        if path == prefix or path.startswith(prefix + "."):
+            return data
+    return None
 
 
 def _merge_settings(

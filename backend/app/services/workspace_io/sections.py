@@ -67,13 +67,14 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         FileAttachment,
         card_fk_columns=("card_id",),
         user_fk_columns=("created_by",),
-        asset_columns=(("data", "bytes"),),
+        asset_columns=(("data", "bytes", "bin"),),
+        filename_column="name",  # keep the original filename + extension
     ),
     EntitySection(
         "Diagrams",
         Diagram,
         user_fk_columns=("created_by",),
-        asset_columns=(("data", "json"),),
+        asset_columns=(("data", "json", "json"),),
     ),
     # --- Phase C: BPM ----------------------------------------------------
     EntitySection(
@@ -81,7 +82,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         ProcessDiagram,
         card_fk_columns=("process_id",),
         user_fk_columns=("created_by",),
-        asset_columns=(("bpmn_xml", "text"), ("svg_thumbnail", "text")),
+        asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
     ),
     EntitySection(
         "ProcessElements",
@@ -94,7 +95,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("process_id",),
         user_fk_columns=("created_by", "submitted_by", "approved_by"),
         self_parent_column="based_on_id",
-        asset_columns=(("bpmn_xml", "text"), ("svg_thumbnail", "text")),
+        asset_columns=(("bpmn_xml", "text", "bpmn"), ("svg_thumbnail", "text", "svg")),
     ),
     EntitySection(
         "ProcessAssessments",

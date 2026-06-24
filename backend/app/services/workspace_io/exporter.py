@@ -118,6 +118,21 @@ RELATION_JSON = frozenset({"attributes"})
 
 CARD_TAG_COLUMNS = ("card_type", "card_ref", "group_name", "tag_name")
 
+_MIME_EXT = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/svg+xml": "svg",
+    "image/x-icon": "ico",
+    "image/vnd.microsoft.icon": "ico",
+}
+
+
+def _mime_ext(mime: str | None) -> str:
+    return _MIME_EXT.get((mime or "").lower(), "bin")
+
 
 def _card_ref(card: Card, by_id: dict[Any, Card]) -> str:
     """Full ``parent_path / name`` ref for a card (root→name, escaped)."""
@@ -146,13 +161,14 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     """Build the full workspace bundle and return the ``.zip`` bytes."""
     wb = Workbook(write_only=True)
     section_counts: dict[str, int] = {}
+    assets: dict[str, bytes] = {}
 
     def _emit(sheet: str, columns: tuple[str, ...], json_cols: frozenset[str], records: list[dict]):
         rows = [
             {col: bundle_io.to_cell(rec.get(col), is_json=col in json_cols) for col in columns}
             for rec in records
         ]
-        bundle_io.write_sheet(wb, sheet, list(columns), rows)
+        bundle_io.write_sheet(wb, sheet, list(columns), rows, assets)
         section_counts[sheet] = len(records)
 
     # --- Metamodel -------------------------------------------------------
@@ -305,14 +321,13 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
     _emit(schema.SHEET_RELATIONS, RELATION_COLUMNS, RELATION_JSON, relation_records)
 
     # --- Phase B + C: module entities (generic engine) ------------------
-    assets: dict[str, bytes] = {}
     full_card_map = {c.id: c for c in (await db.execute(select(Card))).scalars().all()}
     user_email = {u.id: u.email for u in users}
     for ent_sec in ENTITY_SECTIONS:
         header, rows = await entities.export_entity_section(
             db, ent_sec, full_card_map, user_email, assets
         )
-        bundle_io.write_sheet(wb, ent_sec.sheet, header, rows)
+        bundle_io.write_sheet(wb, ent_sec.sheet, header, rows, assets)
         section_counts[ent_sec.sheet] = len(rows)
 
     # Diagram↔card links (bespoke association, like CardTags).
@@ -328,14 +343,20 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
                 "card_ref": _card_ref(card, full_card_map),
             }
         )
-    bundle_io.write_sheet(wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows)
+    bundle_io.write_sheet(
+        wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows, assets
+    )
     section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
 
-    # Branding binaries → assets/branding/.
+    # Branding binaries → assets/branding/ with a real extension from the MIME.
     if settings_row and settings_row.custom_logo:
-        assets["branding/logo"] = settings_row.custom_logo
+        assets[f"branding/logo.{_mime_ext(settings_row.custom_logo_mime)}"] = (
+            settings_row.custom_logo
+        )
     if settings_row and settings_row.custom_favicon:
-        assets["branding/favicon"] = settings_row.custom_favicon
+        assets[f"branding/favicon.{_mime_ext(settings_row.custom_favicon_mime)}"] = (
+            settings_row.custom_favicon
+        )
 
     # --- Serialise workbook + manifest + zip ----------------------------
     buf = io.BytesIO()

@@ -54,7 +54,11 @@ class EntitySection:
     model: Any  # a SQLAlchemy declarative model class
     card_fk_columns: tuple[str, ...] = ()
     user_fk_columns: tuple[str, ...] = ()
-    asset_columns: tuple[tuple[str, str], ...] = ()  # (column, kind: bytes|text|json)
+    # (column, kind: bytes|text|json, file extension for the asset)
+    asset_columns: tuple[tuple[str, str, str], ...] = ()
+    # When set, asset files for this section are named from this column's value
+    # (the original filename, e.g. "report.pdf") instead of "<pk>__<col>.<ext>".
+    filename_column: str | None = None
     self_parent_column: str | None = None
     exclude_columns: tuple[str, ...] = ()
 
@@ -77,7 +81,7 @@ class EntitySection:
             cols += [f"{c}__ref", f"{c}__type"]
         for c in self.user_fk_columns:
             cols.append(f"{c}__email")
-        for c, _ in self.asset_columns:
+        for c, _kind, _ext in self.asset_columns:
             cols.append(f"{c}__asset")
         return cols
 
@@ -142,6 +146,12 @@ def _encode_asset(content: Any, kind: str) -> bytes:
     raise ValueError(f"Unknown asset kind {kind!r}")
 
 
+def _safe_filename(name: str) -> str:
+    """Make a value usable as a zip path segment (keep the original extension)."""
+    cleaned = "".join(c if c.isalnum() or c in "._- " else "_" for c in name).strip()
+    return cleaned[:120] or "file"
+
+
 def _decode_asset(raw: bytes | None, kind: str) -> Any:
     if raw is None:
         return None
@@ -195,12 +205,19 @@ async def export_entity_section(
         for col in section.user_fk_columns:
             uid = getattr(obj, col)
             out[f"{col}__email"] = user_email.get(uid) if uid else None
-        for col, kind in section.asset_columns:
+        for col, kind, ext in section.asset_columns:
             content = getattr(obj, col)
             if content is None:
                 out[f"{col}__asset"] = None
                 continue
-            path = f"{section.sheet}/{getattr(obj, pk0)}__{col}"
+            pk = getattr(obj, pk0)
+            fname = None
+            if section.filename_column:
+                fname = getattr(obj, section.filename_column, None)
+            if fname:
+                path = f"{section.sheet}/{pk}__{_safe_filename(str(fname))}"
+            else:
+                path = f"{section.sheet}/{pk}__{col}.{ext}"
             assets[path] = _encode_asset(content, kind)
             out[f"{col}__asset"] = path
         rows.append(out)
@@ -291,7 +308,7 @@ async def apply_entity_section(
             email = row.get(f"{col}__email")
             kwargs[col] = email_to_id.get(str(email).lower()) if email else None
 
-        for col, kind in section.asset_columns:
+        for col, kind, _ext in section.asset_columns:
             path = row.get(f"{col}__asset")
             kwargs[col] = _decode_asset(bundle.assets.get(str(path)), kind) if path else None
 
