@@ -126,6 +126,51 @@ To add an Ardoq / HOPEX / BiZZdesign / etc. adapter, the only surface area is a 
 - **The apply pipeline is source-agnostic**. It walks `entity_kind` rows by action; it never reads the adapter. If you find yourself wanting to dispatch on `source_type` in `apply.py`, push the logic into a per-source extension hook on the adapter instead.
 - **Hierarchy edges go on `SourceEntity.parent_id`** at parse time (via the optional `HIERARCHY_RELATIONS` set + a parser pass). Never let a hierarchy edge surface as a Turbo EA relation.
 
+### Workspace Transfer (Export/Import) Conventions
+
+The **Admin → Settings → Migration → Workspace transfer** tool (added in PR #665) moves an entire Turbo EA workspace — metamodel, configuration, settings, users, the full card inventory, relations, and ~30 card-context / module tables — between Turbo EA instances as a single `.zip` bundle. It is **Turbo EA → Turbo EA** (a faithful round-trip clone), distinct from the Platform Migration importer above, which is **third-party EA platform → Turbo EA**.
+
+> ⚠️ **This feature serializes almost the entire database. Any DB schema change is potentially a workspace-transfer change and MUST be considered as part of that change** — otherwise the new/altered data silently fails to transfer between instances. The checklist below is mandatory whenever you touch a model or migration. There is no CI guard that catches an un-exported table; the round-trip tests only cover what's already wired.
+
+**Bundle layout** — `manifest.json` (format version, app version, timestamp, source URL, section list) + `workspace.xlsx` (one sheet per domain, the source of truth for references) + `assets/` (binary/large payloads: branding, file attachments, diagram + BPMN XML). `FORMAT_VERSION` ("1") lives in `schema.py`; bump it when the on-disk shape changes incompatibly (the importer refuses a bundle whose major version it doesn't understand).
+
+**Module layout** (`backend/app/services/workspace_io/`):
+
+```
+workspace_io/
+  __init__.py    # re-exports build_bundle / parse_bundle / apply_bundle / diff_bundle / FORMAT_VERSION
+  schema.py      # FORMAT_VERSION, sheet names, the card/relation REFERENCE ENCODING (escaped parent_path),
+                 #   and CONFIG_SECTIONS (declarative registry of the "simple" config tables)
+  secrets.py     # SINGLE source of truth for what never leaves an instance (see below)
+  exporter.py    # build_bundle() — Phase A bespoke sheets + column-order constants (CARD_COLUMNS, …)
+  applier.py     # apply_bundle() / diff_bundle() — idempotent upsert engine, dry-run via savepoint rollback
+  entities.py    # generic introspection-driven export/import engine + EntitySection descriptor
+  sections.py    # ENTITY_SECTIONS — the list of module/card-context tables the generic engine drives
+  bundle.py      # WorkspaceBundle, zip pack/unpack, workbook (de)serialisation
+```
+
+**Two-tier architecture:**
+
+- **Phase A — bespoke** (`exporter.py` + `applier.py`): metamodel (card/relation types), the `CONFIG_SECTIONS` tables (roles, stakeholder roles, calculations, principles, compliance regulations), tag groups/tags, users, settings, cards, card tags, relations. These need hand-written logic — built-in protection, secret stripping, the one-relation-type-per-pair rule, topological card ordering, FK remap — so their column lists are **explicit constants** (`CARD_TYPE_COLUMNS`, `RELATION_TYPE_COLUMNS`, `CARD_COLUMNS`, `RELATION_COLUMNS`, …) in `exporter.py`. Adding a column to one of these models does **not** transfer it until you add the column name to the matching constant.
+- **Phases B & C — generic engine** (`entities.py` driven by `ENTITY_SECTIONS` in `sections.py`): ~30 card-context / module tables (stakeholders, documents, comments, todos, file attachments, diagrams, BPM, PPM, GRC risks + mitigation tasks/occurrences, ADR/SoAW, saved reports, bookmarks, web portals, surveys). Each is a small `EntitySection` descriptor; **value columns are auto-derived by SQLAlchemy introspection**, so adding a plain scalar/JSON column to a covered model transfers with zero changes here.
+
+**Key design decisions** (don't break these):
+
+- **Module rows preserve their source UUIDs on import; cards do not.** Cards are matched/created in Phase A (by `external_id`, then `(type, parent, name)`), so their PKs are reassigned. Every other module row keeps its original PK, so every *intra-module* FK (a task's `wbs_id`, an occurrence's `task_id`, a comment's self `parent_id`) resolves verbatim with no remap. Only three things need translation: **card FKs** (encoded `{col}__ref` + `{col}__type`, resolved via `CardResolver`), **user FKs** (encoded `{col}__email`, resolved via the email→id map — instance-local UUIDs are meaningless on the target), and **binary/large assets** (offloaded to `assets/`).
+- **Idempotent upsert by natural key throughout** — re-importing the same bundle into the same instance is a true no-op (all-skip). Dry-run preview (`diff_bundle`) runs the *same* engine inside one savepoint that is rolled back, so the preview counts exactly match an apply.
+- **Secrets never leave the instance.** `secrets.py` is the single source of truth: SMTP/SSO/AI credentials (`GENERAL_SECRET_PATHS` / `EMAIL_SECRET_PATHS`) are dropped, and any `enc:`-prefixed Fernet value is defensively scrubbed (it's non-portable — derived from the source instance's `SECRET_KEY`). The importer never writes a secret field back; it preserves whatever the target already has. Synthetic (auto-created) users land **deactivated** with no password and a role clamped to `member` if their exported role is unknown.
+
+**Checklist when you change the DB schema** (do the matching step or the data won't transfer):
+
+1. **New module / card-context table** (something a card hangs off, or a feature's own data): add an `EntitySection` to `ENTITY_SECTIONS` in `sections.py`, in **dependency order** (intra-module parents before children). Declare its `card_fk_columns`, `user_fk_columns`, any `asset_columns` / `json_asset_columns`, and `self_parent_column`. Add a round-trip assertion to `test_workspace_io_roundtrip.py`.
+2. **New config / metamodel table**: add a `ConfigSection` to `CONFIG_SECTIONS` in `schema.py` (natural key + column list), or wire bespoke Phase A logic if it needs built-in protection / FK remap.
+3. **New column on an already-covered Phase A model** (CardType, RelationType, Card, Relation, TagGroup, User, …): add the column name to the matching `*_COLUMNS` constant in `exporter.py` (and `*_JSON` if it's JSONB). **This is the easy one to forget** — introspection does *not* cover Phase A sheets.
+4. **New column on an entity-section model**: a plain scalar/JSON column needs nothing. But if it's a **card FK**, add it to `card_fk_columns`; if a **user FK**, add it to `user_fk_columns` (instance-local UUIDs must be remapped by email, never exported raw); if **binary/large/secret**, declare it as an asset or exclude it.
+5. **New secret-bearing settings path**: add it to `GENERAL_SECRET_PATHS` / `EMAIL_SECRET_PATHS` in `secrets.py`.
+6. **Incompatible on-disk shape change**: bump `FORMAT_VERSION` in `schema.py`.
+
+**Routes** (`backend/app/api/v1/workspace.py`, prefix `/admin/workspace`): `GET /export` (streams the `.zip`, `?include_archived=`), `POST /import` (upload → background dry-run preview), `GET /import/{id}` (poll status + diff/result), `POST /import/{id}/apply` (background apply), `DELETE /import/{id}` (discard). Gated by the dedicated `admin.export_workspace` / `admin.import_workspace` permissions (in `core/permissions.py`). The async preview/apply lifecycle is tracked in the `workspace_transfers` table; the uploaded bundle binary lives on disk under `data/workspace_transfers/{id}.bin`. Frontend: `WorkspaceTransferAdmin.tsx`, surfaced as the second tab of `MigrationHub.tsx`.
+
 ### Frontend Conventions
 - Route-level pages use `lazy()` imports in `App.tsx` for code splitting.
 - Shared hooks in `src/hooks/`, shared components in `src/components/`.
@@ -452,7 +497,8 @@ turbo-ea/
 │   │   │       ├── process_catalogue.py    # /process-catalogue (industry process reference)
 │   │   │       ├── value_stream_catalogue.py # /value-stream-catalogue (value stream reference)
 │   │   │       ├── migration.py        # /migration (platform-migration importer — LeanIX etc.)
-│   │   │       └── mutation_batches.py # /mutation-batches (MCP write ledger + per-event diff)
+│   │   │       ├── mutation_batches.py # /mutation-batches (MCP write ledger + per-event diff)
+│   │   │       └── workspace.py         # /admin/workspace (full-workspace export/import — TEA↔TEA)
 │   │   ├── core/
 │   │   │   ├── security.py            # JWT creation/validation (PyJWT HS256), bcrypt
 │   │   │   ├── permissions.py         # Permission key registry (single source of truth)
@@ -835,6 +881,7 @@ All tables use UUID primary keys and `created_at`/`updated_at` timestamps (from 
 | `compliance_regulations` | `ComplianceRegulation` | Admin-managed regulation catalogue driving the GRC Compliance scanner |
 | `turbolens_*` | TurboLens models | Vendor analysis, duplicates, modernizations, analysis runs, compliance findings — see TurboLens section |
 | `mutation_batches` | `MutationBatch` | MCP write ledger — every MCP write call opens a batch; each emitted row in the `events` table is stamped with its `batch_id` (see MCP section) |
+| `workspace_transfers` | `WorkspaceTransfer` | Async preview/apply lifecycle of an uploaded full-workspace export bundle (`uploaded → parsing → previewed → applying → applied`/`failed`). Bundle binary stored on disk under `data/workspace_transfers/{id}.bin` (see Workspace Transfer Conventions) |
 
 ### Migration (Platform Import) Tables
 
@@ -1089,6 +1136,7 @@ Base path: `/api/v1`. All endpoints except auth and public portals require `Auth
 | **Process Catalogue** | `GET /process-catalogue/*` (industry business process reference) |
 | **Value Stream Catalogue** | `GET /value-stream-catalogue/*` (value stream reference set) |
 | **OData Feeds** | `GET /bookmarks/{id}/odata` (OData-style JSON feed for saved views) |
+| **Workspace Transfer** | `GET /admin/workspace/export` (stream `.zip`), `POST /admin/workspace/import` (upload + dry-run), `GET /admin/workspace/import/{id}`, `POST /admin/workspace/import/{id}/apply`, `DELETE /admin/workspace/import/{id}` — full TEA↔TEA export/import, gated by `admin.export_workspace` / `admin.import_workspace` |
 | **Health** | `GET /api/health` (no auth, includes version) |
 
 ---
@@ -1288,7 +1336,7 @@ Each type has an optional `section_config` (JSONB) controlling layout:
 
 Single source of truth for all valid permission keys. Two categories:
 
-**App-level permissions** (27 groups, 70 keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `compliance.*` (view + manage for the GRC Compliance scanner — the CVE half of the old "Security & Compliance" tab was removed), `risks.*` (view + manage for the EA Risk Register), `grc.*`, `costs.*`, `ai.*`, `users.*`, `admin.*`
+**App-level permissions** (27 groups, 72 keys): `inventory.*`, `relations.*`, `stakeholders.*`, `comments.*`, `documents.*`, `diagrams.*`, `bpm.*`, `ppm.*`, `reports.*`, `surveys.*`, `soaw.*`, `adr.*`, `tags.*`, `bookmarks.*`, `saved_reports.*`, `eol.*`, `web_portals.*`, `notifications.*`, `servicenow.*`, `turbolens.*`, `compliance.*` (view + manage for the GRC Compliance scanner — the CVE half of the old "Security & Compliance" tab was removed), `risks.*` (view + manage for the EA Risk Register), `grc.*`, `costs.*`, `ai.*`, `users.*`, `admin.*` (includes `admin.export_workspace` / `admin.import_workspace` for the Workspace Transfer tool)
 
 **Card-level permissions** (15 keys): `card.view`, `card.edit`, `card.archive`, `card.delete`, `card.approval_status`, `card.manage_stakeholders`, `card.manage_relations`, `card.manage_documents`, `card.manage_comments`, `card.create_comments`, `card.bpm_edit`, `card.bpm_manage_drafts`, `card.bpm_approve`, `card.manage_adr_links`, `card.manage_diagram_links`
 
