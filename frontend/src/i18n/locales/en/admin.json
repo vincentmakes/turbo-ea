@@ -1508,5 +1508,6 @@
   "workspaceTransfer.report.conflict": "Conflicts",
   "workspaceTransfer.report.failed": "Failed",
   "workspaceTransfer.import.uploading": "Uploading…",
-  "workspaceTransfer.import.uploadingHelp": "Uploading the bundle — large workspaces may take a moment."
+  "workspaceTransfer.import.uploadingHelp": "Uploading the bundle — large workspaces may take a moment.",
+  "settings.tabs.platformMigration": "Platform migration"
 }

@@ -1508,5 +1508,6 @@
   "workspaceTransfer.report.conflict": "冲突",
   "workspaceTransfer.report.failed": "失败",
   "workspaceTransfer.import.uploading": "上传中…",
-  "workspaceTransfer.import.uploadingHelp": "正在上传捆绑包——大型工作区可能需要一些时间。"
+  "workspaceTransfer.import.uploadingHelp": "正在上传捆绑包——大型工作区可能需要一些时间。",
+  "settings.tabs.platformMigration": "平台迁移"
 }

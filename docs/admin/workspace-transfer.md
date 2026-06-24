@@ -1,6 +1,6 @@
 # Workspace Transfer
 
-Workspace Transfer (**Admin → Settings → Workspace Transfer**) moves an entire Turbo EA workspace from one instance to another as a single, self-contained bundle. The driving use case: you build out a workspace on a **local** instance and need to promote everything to **Production**.
+Workspace Transfer (**Admin → Settings → Migration → Workspace Transfer**) moves an entire Turbo EA workspace from one instance to another as a single, self-contained bundle. The driving use case: you build out a workspace on a **local** instance and need to promote everything to **Production**.
 
 ## What's included
 
@@ -28,13 +28,13 @@ You must re-enter these on the target instance after importing. This is unavoida
 
 ## Exporting
 
-1. Open **Admin → Settings → Workspace Transfer**.
+1. Open **Admin → Settings → Migration → Workspace Transfer**.
 2. (Optional) tick **Include archived cards** to add archived inventory to the bundle.
 3. Click **Export bundle**. Your browser downloads `workspace_export_<timestamp>.zip`.
 
 ## Importing
 
-1. On the **target** instance, open **Admin → Settings → Workspace Transfer**.
+1. On the **target** instance, open **Admin → Settings → Migration → Workspace Transfer**.
 2. Under **Import workspace**, click **Choose bundle…** and select the `.zip` you exported.
 3. Turbo EA parses the bundle and shows a **dry-run preview** — a per-section table of how many entities would be created, updated, skipped, or are in conflict. Nothing is written yet.
 4. Review the preview, then click **Apply import**.

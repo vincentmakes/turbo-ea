@@ -1508,5 +1508,6 @@
   "workspaceTransfer.report.conflict": "Conflitti",
   "workspaceTransfer.report.failed": "Falliti",
   "workspaceTransfer.import.uploading": "Caricamento…",
-  "workspaceTransfer.import.uploadingHelp": "Caricamento del pacchetto — i workspace grandi possono richiedere un momento."
+  "workspaceTransfer.import.uploadingHelp": "Caricamento del pacchetto — i workspace grandi possono richiedere un momento.",
+  "settings.tabs.platformMigration": "Migrazione di piattaforma"
 }
