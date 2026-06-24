@@ -675,7 +675,7 @@ export default function InventoryFilterSidebar({
                       {subtypeOptions.map((st) => (
                         <Chip
                           key={st.key}
-                          label={rl(st.key, st.translations)}
+                          label={rl(st.label, st.translations)}
                           size="small"
                           onClick={() => toggleSubtype(st.key)}
                           variant={filters.subtypes.includes(st.key) ? "filled" : "outlined"}

@@ -75,6 +75,8 @@ const MOCK_TYPES = [
     subtypes: [
       { key: "business_app", label: "Business Application", translations: { en: "Business Application" } },
       { key: "microservice", label: "Microservice", translations: { en: "Microservice" } },
+      // Admin-added custom subtype: key != label, no translations map (issue #661)
+      { key: "keyname", label: "labelname" },
     ],
     fields_schema: [
       {
@@ -207,6 +209,20 @@ describe("CreateCardDialog", () => {
 
     expect(screen.getByText("Business Application")).toBeInTheDocument();
     expect(screen.getByText("Microservice")).toBeInTheDocument();
+  });
+
+  it("displays custom subtype label, not its key (issue #661)", async () => {
+    const user = userEvent.setup();
+    renderDialog({ initialType: "Application" });
+
+    // Open the subtype dropdown (second combobox)
+    const comboboxes = screen.getAllByRole("combobox");
+    await user.click(comboboxes[1]);
+
+    // Admin-added subtype has no translations map; the label must still show,
+    // never the internal key.
+    expect(screen.getByText("labelname")).toBeInTheDocument();
+    expect(screen.queryByText("keyname")).not.toBeInTheDocument();
   });
 
   it("shows parent selector for hierarchical types", () => {

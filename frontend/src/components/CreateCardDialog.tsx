@@ -589,7 +589,7 @@ export default function CreateCardDialog({
               </MenuItem>
               {typeConfig!.subtypes!.map((st) => (
                 <MenuItem key={st.key} value={st.key}>
-                  {rl(st.key, st.translations)}
+                  {rl(st.label, st.translations)}
                 </MenuItem>
               ))}
             </Select>

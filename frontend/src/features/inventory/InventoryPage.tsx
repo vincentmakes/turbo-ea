@@ -1308,7 +1308,7 @@ export default function InventoryPage() {
           return (
             <Chip
               size="small"
-              label={st ? rl(st.key, st.translations) : p.value}
+              label={st ? rl(st.label, st.translations) : p.value}
               variant="outlined"
             />
           );
@@ -1767,7 +1767,7 @@ export default function InventoryPage() {
           <Select value={(massEditValue as string) || ""} label={t("massEdit.value")} onChange={(e) => setMassEditValue(e.target.value)}>
             <MenuItem value=""><em>{t("common:labels.none")}</em></MenuItem>
             {typeConfig.subtypes.map((st) => (
-              <MenuItem key={st.key} value={st.key}>{rl(st.key, st.translations)}</MenuItem>
+              <MenuItem key={st.key} value={st.key}>{rl(st.label, st.translations)}</MenuItem>
             ))}
           </Select>
         </FormControl>

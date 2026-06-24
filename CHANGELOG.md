@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.44.5] - 2026-06-24
+
+### Fixed
+- **Custom subtypes now show their label, not their key, in dropdowns.** Subtype pickers on the Create Card dialog, inventory filters and mass-edit, web portals, and the initiative tree displayed the subtype's internal key for admin-added subtypes; they now show the configured label.
+
 ## [1.44.4] - 2026-06-23
 
 ### Fixed

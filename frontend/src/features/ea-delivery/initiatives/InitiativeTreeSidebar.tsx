@@ -120,7 +120,7 @@ export default function InitiativeTreeSidebar({
             <MenuItem value="">{t("filter.allSubtypes")}</MenuItem>
             {subtypes.map((st) => (
               <MenuItem key={st.key} value={st.key}>
-                {rl(st.key, st.translations)}
+                {rl(st.label, st.translations)}
               </MenuItem>
             ))}
           </TextField>

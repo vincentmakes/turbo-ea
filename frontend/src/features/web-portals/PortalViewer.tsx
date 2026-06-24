@@ -620,7 +620,7 @@ export default function PortalViewer() {
                   <MenuItem value="">{t("portal.allSubtypes")}</MenuItem>
                   {portal.type_info.subtypes.map((st) => (
                     <MenuItem key={st.key} value={st.key}>
-                      {rl(st.key, st.translations)}
+                      {rl(st.label, st.translations)}
                     </MenuItem>
                   ))}
                 </TextField>
