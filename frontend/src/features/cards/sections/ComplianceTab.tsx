@@ -141,7 +141,7 @@ export default function ComplianceTab({ cardId }: Props) {
           {t("compliance.cardTab.empty")}
         </Typography>
       ) : (
-        <Table size="small">
+        <Table size="small" sx={{ tableLayout: "fixed", width: "100%" }}>
           <TableHead>
             <TableRow>
               <TableCell>{t("compliance.cardTab.col.regulation")}</TableCell>
@@ -149,7 +149,9 @@ export default function ComplianceTab({ cardId }: Props) {
               <TableCell>{t("compliance.cardTab.col.status")}</TableCell>
               <TableCell>{t("compliance.cardTab.col.severity")}</TableCell>
               <TableCell>{t("compliance.grid.col.lifecycle")}</TableCell>
-              <TableCell>{t("compliance.cardTab.col.requirement")}</TableCell>
+              <TableCell sx={{ width: "40%" }}>
+                {t("compliance.cardTab.col.requirement")}
+              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -224,8 +226,14 @@ export default function ComplianceTab({ cardId }: Props) {
                     />
                   </Tooltip>
                 </TableCell>
-                <TableCell sx={{ maxWidth: 320 }}>
-                  <Typography variant="body2" noWrap title={f.requirement}>
+                <TableCell
+                  sx={{
+                    verticalAlign: "top",
+                    whiteSpace: "normal",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  <Typography variant="body2" title={f.requirement}>
                     {f.requirement}
                   </Typography>
                 </TableCell>
