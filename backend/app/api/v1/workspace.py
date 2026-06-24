@@ -210,6 +210,11 @@ async def _preview_job(transfer_id_str: str, user_id_str: str) -> None:
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
+        if user is None or not transfer.storage_path:
+            transfer.status = "failed"
+            transfer.error_message = "Preview user or uploaded bundle no longer exists"
+            await db.commit()
+            return
         try:
             raw = Path(transfer.storage_path).read_bytes()
             bundle = parse_bundle(raw)
@@ -249,9 +254,9 @@ async def _apply_job(transfer_id_str: str, user_id_str: str) -> None:
         user = (
             await db.execute(select(User).where(User.id == uuid.UUID(user_id_str)))
         ).scalar_one_or_none()
-        if user is None:
+        if user is None or not transfer.storage_path:
             transfer.status = "failed"
-            transfer.error_message = "Apply user no longer exists"
+            transfer.error_message = "Apply user or uploaded bundle no longer exists"
             await db.commit()
             return
         try:

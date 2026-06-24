@@ -2,12 +2,18 @@
 
 Two entry points share one engine:
 
-* :func:`apply_bundle` writes the bundle, each section isolated in its own
-  savepoint so one bad row can't poison the rest, then commits.
-* :func:`diff_bundle` runs the *same* engine inside an outer savepoint that is
+* :func:`apply_bundle` writes the bundle flat in the caller's transaction and
+  commits once. Sections run in dependency order; per-row failures are recorded
+  on the section result (not raised), while an unexpected section error aborts
+  the whole import so the job handler can roll back and mark it failed.
+* :func:`diff_bundle` runs the *same* engine inside a single savepoint that is
   rolled back at the end, so the returned counts reflect exactly what an apply
   would do (including same-batch parent/endpoint resolution) without persisting
   anything — the dry-run preview.
+
+Running every section in one transaction scope (no per-section savepoint
+released mid-run) keeps cards created in the cards pass visible to the
+relations/tags passes.
 
 Idempotent upsert-by-natural-key throughout: metamodel/config by key, settings
 by merge, users by email, cards by ``external_id``/``(type, parent, name)``,
@@ -117,42 +123,41 @@ async def _run(
     db: AsyncSession, bundle: WorkspaceBundle, user: User, *, dry_run: bool
 ) -> ApplyResult:
     result = ApplyResult(dry_run=dry_run)
-    outer = await db.begin_nested() if dry_run else None
 
-    # Each section runs in a savepoint; failures are recorded, not fatal.
-    await _section(db, result, schema.SHEET_CARD_TYPES, _apply_card_types, bundle, dry_run)
-    await _section(db, result, schema.SHEET_RELATION_TYPES, _apply_relation_types, bundle, dry_run)
-    for sec in schema.CONFIG_SECTIONS:
-        await _section(db, result, sec.sheet, _make_config_applier(sec), bundle, dry_run)
-    await _section(db, result, schema.SHEET_TAG_GROUPS, _apply_tag_groups, bundle, dry_run)
-    await _section(db, result, schema.SHEET_TAGS, _apply_tags, bundle, dry_run)
-    await _section(db, result, schema.SHEET_USERS, _apply_users, bundle, dry_run)
-    await _section(db, result, schema.SHEET_SETTINGS, _apply_settings, bundle, dry_run)
-    await _section(db, result, schema.SHEET_CARDS, _make_cards_applier(user), bundle, dry_run)
-    await _section(db, result, schema.SHEET_CARD_TAGS, _apply_card_tags, bundle, dry_run)
-    await _section(db, result, schema.SHEET_RELATIONS, _apply_relations, bundle, dry_run)
+    # Mirror the proven bulk-create dry-run pattern: ONE savepoint for the whole
+    # preview, rolled back at the end. The real apply runs flat in the caller's
+    # transaction and commits once. Either way every section runs in the SAME
+    # transaction scope, so cards created in the cards pass are visible to the
+    # relations/tags passes (a per-section savepoint that releases mid-run would
+    # break that visibility under the test harness's savepoint-restart fixture).
+    root = await db.begin_nested() if dry_run else None
 
-    if dry_run:
-        assert outer is not None
-        await outer.rollback()
-    else:
+    sections = [
+        (schema.SHEET_CARD_TYPES, _apply_card_types),
+        (schema.SHEET_RELATION_TYPES, _apply_relation_types),
+        *((sec.sheet, _make_config_applier(sec)) for sec in schema.CONFIG_SECTIONS),
+        (schema.SHEET_TAG_GROUPS, _apply_tag_groups),
+        (schema.SHEET_TAGS, _apply_tags),
+        (schema.SHEET_USERS, _apply_users),
+        (schema.SHEET_SETTINGS, _apply_settings),
+        (schema.SHEET_CARDS, _make_cards_applier(user)),
+        (schema.SHEET_CARD_TAGS, _apply_card_tags),
+        (schema.SHEET_RELATIONS, _apply_relations),
+    ]
+
+    try:
+        for sheet, applier in sections:
+            sr = SectionResult(sheet=sheet)
+            result.sections.append(sr)
+            await applier(db, bundle, sr, dry_run)
+    finally:
+        if dry_run:
+            assert root is not None
+            await root.rollback()
+
+    if not dry_run:
         await db.commit()
     return result
-
-
-async def _section(db, result: ApplyResult, sheet: str, applier, bundle, dry_run: bool) -> None:
-    """Run one section in its own savepoint, collecting a SectionResult."""
-    sr = SectionResult(sheet=sheet)
-    result.sections.append(sr)
-    sp = await db.begin_nested()
-    try:
-        await applier(db, bundle, sr, dry_run)
-        # Release the savepoint (keep the writes) — the outer txn commits later.
-        await sp.commit()
-    except Exception as exc:  # noqa: BLE001
-        await sp.rollback()
-        sr.failed += 1
-        sr.errors.append(f"section aborted: {exc}")
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +432,7 @@ def _make_cards_applier(user: User):
         from app.services.event_bus import event_bus
 
         rows = bundle.rows(schema.SHEET_CARDS)
-        type_keys = {r.get("type") for r in rows if r.get("type")}
+        type_keys: set[str] = {str(r["type"]) for r in rows if r.get("type")}
         resolver = await CardResolver.load(db, type_keys)
 
         # Parents (shorter parent_path) before children — a valid topo order
@@ -536,7 +541,7 @@ async def _card_by_external_id(db, type_key: str, external_id: str):
 
 async def _apply_card_tags(db, bundle: WorkspaceBundle, sr: SectionResult, dry_run: bool) -> None:
     rows = bundle.rows(schema.SHEET_CARD_TAGS)
-    type_keys = {r.get("card_type") for r in rows if r.get("card_type")}
+    type_keys: set[str] = {str(r["card_type"]) for r in rows if r.get("card_type")}
     resolver = await CardResolver.load(db, type_keys)
     groups = {g.name: g for g in (await db.execute(select(TagGroup))).scalars().all()}
     tags = (await db.execute(select(Tag))).scalars().all()
@@ -582,8 +587,12 @@ async def _apply_relations(db, bundle: WorkspaceBundle, sr: SectionResult, dry_r
     for row in rows:
         data = _coerce(row, exp.RELATION_COLUMNS, exp.RELATION_JSON)
         rtype = data.get("type")
-        s_res = resolver.resolve(data.get("source_type"), data.get("source_ref") or "")
-        t_res = resolver.resolve(data.get("target_type"), data.get("target_ref") or "")
+        s_res = resolver.resolve(
+            str(data.get("source_type") or ""), str(data.get("source_ref") or "")
+        )
+        t_res = resolver.resolve(
+            str(data.get("target_type") or ""), str(data.get("target_ref") or "")
+        )
         if not rtype or s_res.status != "resolved" or t_res.status != "resolved":
             sr.conflict += 1
             sr.errors.append(

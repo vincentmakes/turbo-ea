@@ -167,7 +167,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
 
     # --- Declarative config tables --------------------------------------
     for sec in schema.CONFIG_SECTIONS:
-        records = (await db.execute(select(sec.model))).scalars().all()
+        records: list[Any] = list((await db.execute(select(sec.model))).scalars().all())
         _emit(
             sec.sheet,
             sec.columns,
@@ -219,7 +219,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         settings_row.general_settings if settings_row else {},
         settings_row.email_settings if settings_row else {},
     )
-    settings_records = [
+    settings_records: list[dict] = [
         {"key": "general_settings", "value": general_clean},
         {"key": "email_settings", "value": email_clean},
         {
