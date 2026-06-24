@@ -11,7 +11,7 @@ Bundle layout (a ``.zip``)::
     workspace_export_<ts>.zip
     ├── manifest.json     # format_version, app_version, exported_at, source_url, sections
     ├── workspace.xlsx    # all structured data, one sheet per domain
-    └── assets/           # unstructured assets (branding, diagrams, attachments) — Phase B+
+    └── assets/           # unstructured assets (branding, diagrams, attachments)
 
 The workbook is the source of truth for references; asset-owning sheets carry an
 ``asset_path`` column pointing into ``assets/``.

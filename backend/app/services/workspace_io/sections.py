@@ -1,11 +1,11 @@
-"""Entity-section descriptors for Phase B (card context + assets) and Phase C
-(module data), consumed by the generic :mod:`entities` engine.
+"""Entity-section descriptors for the card-context and module tables, consumed by
+the generic :mod:`entities` engine.
 
 Listed in dependency order: a section's intra-module parents come first
 (``PpmWbs`` before ``PpmTask`` before ``PpmTaskComment``; ``Risk`` before
 ``RiskCard``/``RiskMitigationTask`` before the occurrences; ``ArchitectureDecision``
 before its card links; ``Survey`` before ``SurveyResponse``). Cards and relations
-are applied earlier by the Phase A pipeline, so card FKs always resolve.
+are applied earlier by the bespoke core sections, so card FKs always resolve.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ from app.services.workspace_io.entities import EntitySection
 SHEET_DIAGRAM_CARDS = "DiagramCards"
 
 ENTITY_SECTIONS: tuple[EntitySection, ...] = (
-    # --- Phase B: card context -------------------------------------------
+    # --- Card context ----------------------------------------------------
     EntitySection(
         "Stakeholders", Stakeholder, card_fk_columns=("card_id",), user_fk_columns=("user_id",)
     ),
@@ -79,7 +79,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         json_asset_columns=(("data", "xml", "drawio"),),
         filename_column="name",
     ),
-    # --- Phase C: BPM ----------------------------------------------------
+    # --- BPM --------------------------------------------------------------
     EntitySection(
         "ProcessDiagrams",
         ProcessDiagram,
@@ -106,7 +106,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         card_fk_columns=("process_id",),
         user_fk_columns=("assessor_id",),
     ),
-    # --- Phase C: PPM (wbs before task before comment/dependency) --------
+    # --- PPM (wbs before task before comment/dependency) -----------------
     EntitySection(
         "PpmStatusReports",
         PpmStatusReport,
@@ -130,7 +130,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
     ),
     EntitySection("PpmTaskComments", PpmTaskComment, user_fk_columns=("user_id",)),
     EntitySection("PpmDependencies", PpmDependency, card_fk_columns=("initiative_id",)),
-    # --- Phase C: GRC risk register --------------------------------------
+    # --- GRC risk register -----------------------------------------------
     EntitySection("Risks", Risk, user_fk_columns=("owner_id", "accepted_by", "created_by")),
     EntitySection("RiskCards", RiskCard, card_fk_columns=("card_id",)),
     EntitySection(
@@ -141,7 +141,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         RiskMitigationTaskOccurrence,
         user_fk_columns=("assigned_owner_id", "completed_by", "owner_at_completion"),
     ),
-    # --- Phase C: governance / delivery ----------------------------------
+    # --- Governance / delivery -------------------------------------------
     EntitySection(
         "Adrs",
         ArchitectureDecision,
@@ -156,7 +156,7 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         user_fk_columns=("created_by",),
         self_parent_column="parent_id",
     ),
-    # --- Phase C: saved views + surveys ----------------------------------
+    # --- Saved views + surveys -------------------------------------------
     EntitySection("SavedReports", SavedReport, user_fk_columns=("owner_id",)),
     EntitySection("Bookmarks", Bookmark, user_fk_columns=("user_id",)),
     EntitySection("WebPortals", WebPortal, user_fk_columns=("created_by",)),

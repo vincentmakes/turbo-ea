@@ -1,10 +1,11 @@
 """Generic, introspection-driven export/import engine for module entities.
 
-Phase A handles metamodel/config/settings/cards/relations with bespoke logic.
-Phases B and C cover ~30 card-context and module tables (stakeholders, comments,
-attachments, diagrams, BPM, PPM, GRC risks, ADR/SoAW, surveys, …). Rather than
-writing a bespoke applier per table, this engine drives them all from a small
-:class:`EntitySection` descriptor plus SQLAlchemy column introspection.
+The bespoke core sections handle metamodel/config/settings/cards/relations with
+hand-written logic. This generic engine covers ~30 card-context and module tables
+(stakeholders, comments, attachments, diagrams, BPM, PPM, GRC risks, ADR/SoAW,
+surveys, …) — the generic entity sections. Rather than writing a bespoke applier
+per table, it drives them all from a small :class:`EntitySection` descriptor plus
+SQLAlchemy column introspection.
 
 Key design decision — **preserve source UUIDs**. Every module row keeps its
 original primary key on import, so every *intra-module* foreign key (a task's
@@ -13,7 +14,8 @@ resolves verbatim with no remapping. Only three things need translation:
 
 * **card FKs** — a column pointing at ``cards.id``. Exported as ``{col}__ref`` +
   ``{col}__type`` (full ``parent_path / name``); resolved via ``CardResolver`` on
-  import. Cards do *not* preserve UUIDs (they're matched/created in Phase A).
+  import. Cards do *not* preserve UUIDs (they're matched/created by the bespoke
+  cards section).
 * **user FKs** — a column pointing at ``users.id``. Exported as ``{col}__email``;
   resolved via the email→id map on import.
 * **binary/large assets** — ``LargeBinary``, or a Text/JSONB column holding

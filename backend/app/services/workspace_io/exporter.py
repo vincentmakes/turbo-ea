@@ -320,7 +320,7 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         )
     _emit(schema.SHEET_RELATIONS, RELATION_COLUMNS, RELATION_JSON, relation_records)
 
-    # --- Phase B + C: module entities (generic engine) ------------------
+    # --- Generic entity sections (module + card-context tables) ---------
     full_card_map = {c.id: c for c in (await db.execute(select(Card))).scalars().all()}
     user_email = {u.id: u.email for u in users}
     for ent_sec in ENTITY_SECTIONS:

@@ -170,7 +170,7 @@ async def _run(
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
 
-        # --- Phase B + C: module entities (generic engine) --------------
+        # --- Generic entity sections (module + card-context tables) -----
         # Built after the cards pass so every card FK resolves. Cards never
         # preserve UUIDs; module rows do, so intra-module FKs copy verbatim.
         all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}

@@ -251,8 +251,9 @@ async def test_export_excludes_secrets(db):
 
 
 async def test_module_entities_roundtrip_and_recreate(db):
-    """Phase B/C: a comment, a risk, and a risk-card link export and re-import
-    with preserved UUIDs, user remap (by email), and card-FK resolution."""
+    """Generic entity sections: a comment, a risk, and a risk-card link export
+    and re-import with preserved UUIDs, user remap (by email), and card-FK
+    resolution."""
     user = await create_user(db, email="owner@test.com", role="admin")
     await create_card_type(db, key="Application", label="Application")
     card = await create_card(db, card_type="Application", name="App One", user_id=user.id)
