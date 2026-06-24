@@ -1,11 +1,15 @@
 """Assemble a workspace bundle (``.zip``) from the live database.
 
-Phase A scope: metamodel (card/relation types) + config tables (roles,
-stakeholder roles, tag groups/tags, calculations, principles, compliance
-regulations) + settings (secrets stripped) + users (no secrets) + the full card
-inventory + relations. Binary assets (branding, diagrams, attachments) are
-Phase B and land under ``assets/`` — the bundle format already reserves the
-tree.
+Scope: metamodel (card/relation types) + config tables (roles, stakeholder
+roles, tag groups/tags, calculations, principles, compliance regulations) +
+settings (secrets stripped) + users (no secrets) + the full card inventory +
+relations + card tags, plus the module/card-context entities driven by the
+generic :mod:`entities` engine (stakeholders, documents, comments, todos,
+attachments, diagrams, BPM, PPM, GRC risks, ADR/SoAW, saved views, surveys).
+
+Binary/large assets — file attachments, diagram and BPMN XML, and the branding
+logo/favicon — are offloaded to ``assets/`` inside the zip; the workbook sheets
+reference them by path.
 
 Card and relation references are written as full ``parent_path / name`` strings
 so the importer's :class:`CardResolver` resolves them exactly, with no
@@ -27,13 +31,15 @@ from app.config import APP_VERSION
 from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.diagram import diagram_cards
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.tag import CardTag, Tag, TagGroup
 from app.models.user import User
 from app.services.workspace_io import bundle as bundle_io
-from app.services.workspace_io import schema
+from app.services.workspace_io import entities, schema
 from app.services.workspace_io.secrets import strip_secrets
+from app.services.workspace_io.sections import ENTITY_SECTIONS, SHEET_DIAGRAM_CARDS
 
 # Column orders for the bespoke sheets.
 CARD_TYPE_COLUMNS = (
@@ -298,6 +304,39 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         )
     _emit(schema.SHEET_RELATIONS, RELATION_COLUMNS, RELATION_JSON, relation_records)
 
+    # --- Phase B + C: module entities (generic engine) ------------------
+    assets: dict[str, bytes] = {}
+    full_card_map = {c.id: c for c in (await db.execute(select(Card))).scalars().all()}
+    user_email = {u.id: u.email for u in users}
+    for ent_sec in ENTITY_SECTIONS:
+        header, rows = await entities.export_entity_section(
+            db, ent_sec, full_card_map, user_email, assets
+        )
+        bundle_io.write_sheet(wb, ent_sec.sheet, header, rows)
+        section_counts[ent_sec.sheet] = len(rows)
+
+    # Diagram↔card links (bespoke association, like CardTags).
+    dc_rows: list[dict] = []
+    for row in (await db.execute(select(diagram_cards))).all():
+        card = full_card_map.get(row.card_id)
+        if card is None:
+            continue
+        dc_rows.append(
+            {
+                "diagram_id": str(row.diagram_id),
+                "card_type": card.type,
+                "card_ref": _card_ref(card, full_card_map),
+            }
+        )
+    bundle_io.write_sheet(wb, SHEET_DIAGRAM_CARDS, ["diagram_id", "card_type", "card_ref"], dc_rows)
+    section_counts[SHEET_DIAGRAM_CARDS] = len(dc_rows)
+
+    # Branding binaries → assets/branding/.
+    if settings_row and settings_row.custom_logo:
+        assets["branding/logo"] = settings_row.custom_logo
+    if settings_row and settings_row.custom_favicon:
+        assets["branding/favicon"] = settings_row.custom_favicon
+
     # --- Serialise workbook + manifest + zip ----------------------------
     buf = io.BytesIO()
     wb.save(buf)
@@ -310,5 +349,6 @@ async def build_bundle(db: AsyncSession, *, include_archived: bool = False) -> b
         "source_url": os.getenv("TURBO_EA_PUBLIC_URL", ""),
         "include_archived": include_archived,
         "sections": section_counts,
+        "assets": sorted(assets.keys()),
     }
-    return bundle_io.pack(manifest, workbook_bytes, assets={})
+    return bundle_io.pack(manifest, workbook_bytes, assets)

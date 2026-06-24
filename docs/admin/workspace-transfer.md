@@ -9,8 +9,11 @@ The export captures the full workspace as a `.zip` bundle containing one Excel w
 - **Metamodel** — card types and relation types, including all custom fields, subtypes, sections, and translations.
 - **Configuration** — roles, per-type stakeholder roles, tag groups and tags, calculated fields, EA principles, and compliance regulations.
 - **Settings** — currency, date format, feature flags, login branding, enabled locales, and the rest of the general application settings.
-- **Users** — email, display name, role, and active flag (used to re-link ownership and assignments on the target).
+- **Users** — email, display name, role, and active flag (used to re-link ownership and assignments on the target). No passwords or SSO identities.
 - **Inventory** — every card (with its hierarchy, lifecycle, and attributes), card tags, and relations.
+- **Card context** — stakeholders, document links, comments, todos, and file attachments.
+- **Module data** — BPM (process diagrams, elements, flow versions, assessments), PPM (status reports, costs, budgets, risks, tasks, WBS, dependencies), the GRC risk register (risks, mitigation tasks and occurrences, card links), architecture decisions and Statements of Architecture Work, free-draw diagrams, saved reports, bookmarks, web portals, and surveys.
+- **Assets** — binary file attachments, diagram and BPMN XML, and the logo/favicon travel as separate files inside the bundle's `assets/` folder.
 
 ## What's never included
 

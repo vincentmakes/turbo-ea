@@ -10,12 +10,14 @@ from __future__ import annotations
 import io
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.core.encryption import encrypt_value
 from app.models.app_settings import AppSettings
 from app.models.card import Card
+from app.models.comment import Comment
 from app.models.relation import Relation
+from app.models.risk import Risk, RiskCard
 from app.services.workspace_io import (
     apply_bundle,
     build_bundle,
@@ -216,19 +218,70 @@ async def test_export_excludes_secrets(db):
 
     raw = await build_bundle(db)
 
-    assert b"TOPSECRET" not in raw
-    assert b"APIKEY123" not in raw
-    assert b"MAILPW" not in raw
-    # The non-secret settings still made it across.
-    assert b"EUR" in raw
-    assert b"pub" in raw
-
-    # And the parsed settings carry the public bits but not the secret keys.
-    bundle = parse_bundle(raw)
-    settings_rows = {r["key"]: r["value"] for r in bundle.rows(schema.SHEET_SETTINGS)}
+    # The bundle is a (compressed) zip, so scan the *decompressed* parsed
+    # content, not the raw bytes.
     import json
 
+    bundle = parse_bundle(raw)
+    haystack = json.dumps(bundle.manifest) + json.dumps(bundle.sheets, default=str)
+
+    # Neither the secret keys nor any encrypted (`enc:`) token appear anywhere.
+    assert "client_secret" not in haystack
+    assert "apiKey" not in haystack
+    assert "smtp_password" not in haystack
+    assert "enc:" not in haystack
+
+    # The non-secret settings still made it across.
+    settings_rows = {r["key"]: r["value"] for r in bundle.rows(schema.SHEET_SETTINGS)}
     general = json.loads(settings_rows["general_settings"])
     assert general["currency"] == "EUR"
+    assert general["sso"]["client_id"] == "pub"
     assert "client_secret" not in general["sso"]
     assert "apiKey" not in general["ai"]
+    email = json.loads(settings_rows["email_settings"])
+    assert email["smtp_host"] == "mail"
+    assert "smtp_password" not in email
+
+
+async def test_module_entities_roundtrip_and_recreate(db):
+    """Phase B/C: a comment, a risk, and a risk-card link export and re-import
+    with preserved UUIDs, user remap (by email), and card-FK resolution."""
+    user = await create_user(db, email="owner@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="App One", user_id=user.id)
+
+    comment = Comment(card_id=card.id, user_id=user.id, content="hello")
+    risk = Risk(reference="R-000001", title="Test risk", status="identified")
+    db.add_all([comment, risk])
+    await db.flush()
+    db.add(RiskCard(risk_id=risk.id, card_id=card.id))
+    risk.owner_id = user.id
+    await db.flush()
+    risk_id = risk.id
+
+    raw = await build_bundle(db)
+
+    # Re-importing onto the same data is a no-op for these entities (PKs exist).
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+    risks_section = next(s for s in result.sections if s.sheet == "Risks")
+    assert risks_section.created == 0 and risks_section.skipped == 1
+
+    # Delete the module rows, then re-apply: they come back with the same ids,
+    # the owner remapped by email and the card-link re-resolved by ref.
+    await db.execute(delete(RiskCard))
+    await db.execute(delete(Risk).where(Risk.id == risk_id))
+    await db.execute(delete(Comment).where(Comment.id == comment.id))
+    await db.flush()
+
+    result2 = await apply_bundle(db, parse_bundle(raw), user)
+    assert result2.total_failed == 0, result2.as_dict()
+
+    restored = (await db.execute(select(Risk).where(Risk.id == risk_id))).scalar_one()
+    assert restored.reference == "R-000001"
+    assert restored.owner_id == user.id  # remapped by email
+    link = (await db.execute(select(RiskCard).where(RiskCard.risk_id == risk_id))).scalar_one()
+    assert link.card_id == card.id  # card FK resolved by ref
+    assert (
+        await db.execute(select(Comment).where(Comment.id == comment.id))
+    ).scalar_one().content == "hello"

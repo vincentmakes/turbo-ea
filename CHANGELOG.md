@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [1.45.0] - 2026-06-24
 
 ### Added
-- **Workspace transfer (Admin → Settings → Workspace Transfer).** Export an entire workspace — metamodel, configuration, settings, users, cards, and relations — to a single `.zip` bundle, then import it into another instance to promote a local setup to Prod. Importing shows a dry-run preview first and then upserts idempotently (re-importing is safe). Secrets (SMTP, SSO, and AI credentials) are never exported and must be re-entered on the target.
+- **Workspace transfer (Admin → Settings → Workspace Transfer).** Export an entire workspace to a single `.zip` bundle, then import it into another instance to promote a local setup to Prod. The bundle covers the metamodel, all configuration and settings, users, the full card inventory and relations, and module data — stakeholders, comments, documents, todos, file attachments, diagrams, BPM, PPM, the GRC risk register, ADRs/SoAWs, saved views, and surveys. Importing shows a dry-run preview first and then upserts idempotently (re-importing is safe). Secrets (SMTP, SSO, and AI credentials) are never exported and must be re-entered on the target.
 
 ## [1.44.6] - 2026-06-24
 

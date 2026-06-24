@@ -23,6 +23,7 @@ no-op (all-skip).
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -32,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.app_settings import AppSettings
 from app.models.card import Card
 from app.models.card_type import CardType
+from app.models.diagram import Diagram, diagram_cards
 from app.models.relation import Relation
 from app.models.relation_type import RelationType
 from app.models.role import Role
@@ -41,7 +43,9 @@ from app.services.card_resolver import CardResolver
 from app.services.workspace_io import exporter as exp
 from app.services.workspace_io import schema
 from app.services.workspace_io.bundle import WorkspaceBundle, from_cell
+from app.services.workspace_io.entities import apply_entity_section
 from app.services.workspace_io.secrets import GENERAL_SECRET_PATHS
+from app.services.workspace_io.sections import ENTITY_SECTIONS, SHEET_DIAGRAM_CARDS
 
 # Roles a synthetic (auto-created) user may take. Anything else falls back to
 # ``member`` so an export from a customised role set can't grant elevated
@@ -150,6 +154,25 @@ async def _run(
             sr = SectionResult(sheet=sheet)
             result.sections.append(sr)
             await applier(db, bundle, sr, dry_run)
+
+        # --- Phase B + C: module entities (generic engine) --------------
+        # Built after the cards pass so every card FK resolves. Cards never
+        # preserve UUIDs; module rows do, so intra-module FKs copy verbatim.
+        all_types = {str(k) for (k,) in (await db.execute(select(CardType.key))).all()}
+        ent_resolver = await CardResolver.load(db, all_types)
+        email_to_id = {
+            u.email.lower(): u.id for u in (await db.execute(select(User))).scalars().all()
+        }
+        for ent in ENTITY_SECTIONS:
+            sr = SectionResult(sheet=ent.sheet)
+            result.sections.append(sr)
+            await apply_entity_section(
+                db, ent, bundle, sr, ent_resolver, email_to_id, dry_run=dry_run
+            )
+
+        sr = SectionResult(sheet=SHEET_DIAGRAM_CARDS)
+        result.sections.append(sr)
+        await _apply_diagram_cards(db, bundle, sr, ent_resolver)
     finally:
         if dry_run:
             assert root is not None
@@ -158,6 +181,34 @@ async def _run(
     if not dry_run:
         await db.commit()
     return result
+
+
+async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, resolver) -> None:
+    """Bespoke Diagram↔Card association (preserved diagram_id + resolved card)."""
+    rows = bundle.rows(SHEET_DIAGRAM_CARDS)
+    if not rows:
+        return
+    existing = {(r.diagram_id, r.card_id) for r in (await db.execute(select(diagram_cards))).all()}
+    existing_diagrams = {d.id for d in (await db.execute(select(Diagram.id))).scalars().all()}
+    for row in rows:
+        diagram_id = row.get("diagram_id")
+        ctype = row.get("card_type")
+        cref = row.get("card_ref")
+        if not diagram_id or not ctype or not cref:
+            sr.failed += 1
+            continue
+        diag_uuid = uuid.UUID(str(diagram_id))
+        res = resolver.resolve(str(ctype), str(cref))
+        if diag_uuid not in existing_diagrams or res.status != "resolved":
+            sr.conflict += 1
+            continue
+        pair = (diag_uuid, res.card_id)
+        if pair in existing:
+            sr.skipped += 1
+            continue
+        await db.execute(diagram_cards.insert().values(diagram_id=diag_uuid, card_id=res.card_id))
+        existing.add(pair)
+        sr.created += 1
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +444,11 @@ async def _apply_settings(db, bundle: WorkspaceBundle, sr: SectionResult, dry_ru
         row_obj.custom_logo_mime = incoming["custom_logo_mime"]
     if incoming.get("custom_favicon_mime"):
         row_obj.custom_favicon_mime = incoming["custom_favicon_mime"]
+    # Branding binaries live in assets/branding/ (Phase B).
+    if bundle.assets.get("branding/logo"):
+        row_obj.custom_logo = bundle.assets["branding/logo"]
+    if bundle.assets.get("branding/favicon"):
+        row_obj.custom_favicon = bundle.assets["branding/favicon"]
     await db.flush()
 
 
