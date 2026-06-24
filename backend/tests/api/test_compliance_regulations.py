@@ -235,6 +235,48 @@ class TestComplianceRollupOrphans:
         assert bundles["gdpr"]["is_known"] is True
         assert len(bundles["gdpr"]["findings"]) == 1
 
+    async def test_disabled_regulation_without_findings_is_hidden(self, client, db, reg_env):
+        """Issue #668: a disabled regulation with no findings must not clutter
+        the slider — it's dropped from the rollup entirely."""
+        admin = reg_env["admin"]
+        # A disabled custom regulation that has no findings attached.
+        db.add(
+            ComplianceRegulation(
+                id=uuid.uuid4(),
+                key="custom_disabled",
+                label="Custom Disabled",
+                is_enabled=False,
+                built_in=False,
+                sort_order=100,
+                translations={},
+            )
+        )
+        await db.flush()
+
+        r = await client.get(
+            "/api/v1/compliance/compliance",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        keys = [b["regulation"] for b in r.json()]
+        assert "custom_disabled" not in keys
+        # The enabled built-in stays visible even with no findings.
+        assert "gdpr" in keys
+
+    async def test_enabled_regulation_without_findings_stays_visible(self, client, db, reg_env):
+        """A normal enabled regulation with no findings must still appear so
+        the user can see its (empty) compliance state."""
+        admin = reg_env["admin"]
+        r = await client.get(
+            "/api/v1/compliance/compliance",
+            headers=auth_headers(admin),
+        )
+        assert r.status_code == 200
+        bundles = {b["regulation"]: b for b in r.json()}
+        assert "gdpr" in bundles
+        assert bundles["gdpr"]["is_enabled"] is True
+        assert bundles["gdpr"]["findings"] == []
+
     async def test_unknown_regulation_orphan_visible(self, client, db, reg_env):
         admin = reg_env["admin"]
         # Insert a finding pointing at a regulation that doesn't exist in

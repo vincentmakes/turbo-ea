@@ -1084,7 +1084,11 @@ async def list_compliance(
     if regulation:
         order: list[str] = [regulation]
     else:
-        known_keys = list(reg_meta.keys())
+        # Enabled regulations always appear; disabled ones only while they
+        # still carry findings (so historical data stays auditable). Disabled
+        # regulations with no findings are hidden to keep the slider focused on
+        # what's relevant to this install (issue #668).
+        known_keys = [k for k, m in reg_meta.items() if m["is_enabled"] or k in grouped]
         orphan_keys = sorted(k for k in grouped.keys() if k not in reg_meta)
         order = known_keys + orphan_keys
 

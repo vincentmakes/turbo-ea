@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.45.1] - 2026-06-24
+
+### Fixed
+- **GRC → Compliance: disabled regulations no longer clutter the regulation tabs.** A regulation you disable under Profile → Metamodel → Regulations is now hidden from the Compliance tab's regulation slider when it has no findings. Disabled regulations that still have findings stay visible (muted) so historical data remains auditable.
+
 ## [1.45.0] - 2026-06-24
 
 ### Added
