@@ -2,6 +2,8 @@
 
 Workspace Transfer (**Admin → Settings → Migration → Workspace Transfer**) moves an entire Turbo EA workspace from one instance to another as a single, self-contained bundle. The driving use case: you build out a workspace on a **local** instance and need to promote everything to **Production**.
 
+![Workspace Transfer](../assets/img/en/58_workspace_transfer.png)
+
 ## What's included
 
 The export captures the full workspace as a `.zip` bundle containing one Excel workbook (all structured data, one sheet per domain) and, where relevant, an `assets/` folder for unstructured files:

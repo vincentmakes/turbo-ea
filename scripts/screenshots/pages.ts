@@ -1379,6 +1379,29 @@ export const DOC_PAGES: PageDef[] = [
     },
   },
 
+  // ── Admin Settings: Migration → Workspace Transfer ──────────────────────
+  {
+    id: "58_workspace_transfer",
+    route: "/admin/settings?tab=migration",
+    waitFor: "[role='tablist']",
+    actions: [
+      { type: "wait", ms: 500 },
+      // Switch from the default "Platform migration" sub-tab to "Workspace transfer".
+      {
+        type: "click",
+        selector: tabSelector(
+          "Workspace transfer", "Workspace-Transfer", "Transfert d'espace de travail",
+          "Transferencia de espacio de trabajo", "Trasferimento workspace",
+          "Transferência de workspace", "工作区迁移", "Перенос рабочей области",
+        ),
+      },
+      { type: "wait", ms: 600 },
+    ],
+    filenames: {
+      en: "58_workspace_transfer",
+    },
+  },
+
 ];
 
 // ---------------------------------------------------------------------------
