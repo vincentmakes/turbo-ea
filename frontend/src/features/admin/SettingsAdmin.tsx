@@ -46,6 +46,7 @@ const ServiceNowAdmin = lazy(() => import("./ServiceNowAdmin"));
 const AiAdmin = lazy(() => import("./AiAdmin"));
 const TurboLensAdmin = lazy(() => import("./TurboLensAdmin"));
 const MigrationAdmin = lazy(() => import("./MigrationAdmin"));
+const WorkspaceTransferAdmin = lazy(() => import("./WorkspaceTransferAdmin"));
 const AuditLogAdmin = lazy(() => import("./AuditLogAdmin"));
 
 const TAB_KEYS = [
@@ -57,6 +58,7 @@ const TAB_KEYS = [
   "servicenow",
   "turbolens",
   "migration",
+  "workspace-transfer",
   "audit-log",
 ];
 
@@ -1456,6 +1458,7 @@ export default function SettingsAdmin() {
     t("settings.tabs.servicenow"),
     t("settings.tabs.turbolens"),
     t("settings.tabs.migration"),
+    t("settings.tabs.workspaceTransfer", "Workspace transfer"),
     t("settings.tabs.auditLog", "Audit log"),
   ];
 
@@ -1526,6 +1529,11 @@ export default function SettingsAdmin() {
         </Suspense>
       )}
       {tabIndex === 8 && (
+        <Suspense fallback={<TabLoader />}>
+          <WorkspaceTransferAdmin />
+        </Suspense>
+      )}
+      {tabIndex === 9 && (
         <Suspense fallback={<TabLoader />}>
           <AuditLogAdmin />
         </Suspense>

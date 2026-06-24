@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.45.0] - 2026-06-24
+
+### Added
+- **Workspace transfer (Admin → Settings → Workspace Transfer).** Export an entire workspace — metamodel, configuration, settings, users, cards, and relations — to a single `.zip` bundle, then import it into another instance to promote a local setup to Prod. Importing shows a dry-run preview first and then upserts idempotently (re-importing is safe). Secrets (SMTP, SSO, and AI credentials) are never exported and must be re-entered on the target.
+
 ## [1.44.6] - 2026-06-24
 
 ### Fixed

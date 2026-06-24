@@ -112,6 +112,7 @@ plugins:
             Web Portals: Portales web
             ServiceNow Integration: Integración con ServiceNow
             Platform Migration: Migración de plataforma
+            Workspace Transfer: Transferencia de espacio de trabajo
             Supply Chain: Cadena de suministro
             Reference: Referencia
             Glossary: Glosario
@@ -172,6 +173,7 @@ plugins:
             Web Portals: Webportale
             ServiceNow Integration: ServiceNow-Integration
             Platform Migration: Plattform-Migration
+            Workspace Transfer: Workspace-Transfer
             Supply Chain: Lieferkette
             Reference: Referenz
             Glossary: Glossar
@@ -232,6 +234,7 @@ plugins:
             Web Portals: Portails web
             ServiceNow Integration: Intégration ServiceNow
             Platform Migration: Migration de plateforme
+            Workspace Transfer: Transfert d'espace de travail
             Supply Chain: Chaîne d'approvisionnement
             Reference: Référence
             Glossary: Glossaire
@@ -292,6 +295,7 @@ plugins:
             Web Portals: Portali web
             ServiceNow Integration: Integrazione ServiceNow
             Platform Migration: Migrazione di piattaforma
+            Workspace Transfer: Trasferimento workspace
             Supply Chain: Catena di approvvigionamento
             Reference: Riferimenti
             Glossary: Glossario
@@ -352,6 +356,7 @@ plugins:
             Web Portals: Portais web
             ServiceNow Integration: Integração com ServiceNow
             Platform Migration: Migração de plataforma
+            Workspace Transfer: Transferência de workspace
             Supply Chain: Cadeia de suprimentos
             Reference: Referência
             Glossary: Glossário
@@ -412,6 +417,7 @@ plugins:
             Web Portals: Web 门户
             ServiceNow Integration: ServiceNow 集成
             Platform Migration: 平台迁移
+            Workspace Transfer: 工作区迁移
             Supply Chain: 供应链
             Reference: 参考
             Glossary: 术语表
@@ -472,6 +478,7 @@ plugins:
             Web Portals: Веб-порталы
             ServiceNow Integration: Интеграция с ServiceNow
             Platform Migration: Миграция платформы
+            Workspace Transfer: Перенос рабочей области
             Supply Chain: Цепочка поставок
             Reference: Справочник
             Glossary: Глоссарий
@@ -532,6 +539,7 @@ plugins:
             Web Portals: Web-portaler
             ServiceNow Integration: ServiceNow-integration
             Platform Migration: Platformsmigrering
+            Workspace Transfer: Workspace-overførsel
             Supply Chain: Forsyningskæde
             Reference: Reference
             Glossary: Ordliste
@@ -620,6 +628,7 @@ nav:
       - Web Portals: admin/web-portals.md
       - ServiceNow Integration: admin/servicenow.md
       - Platform Migration: admin/migration.md
+      - Workspace Transfer: admin/workspace-transfer.md
       - Supply Chain: admin/supply-chain.md
   - Reference:
       - Glossary: reference/glossary.md

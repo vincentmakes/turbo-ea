@@ -45,6 +45,7 @@ from app.api.v1 import (
     users,
     value_stream_catalogue,
     web_portals,
+    workspace,
 )
 
 api_router = APIRouter()
@@ -79,6 +80,7 @@ api_router.include_router(stakeholder_roles.router)
 api_router.include_router(calculations.router)
 api_router.include_router(servicenow.router)
 api_router.include_router(migration.router)
+api_router.include_router(workspace.router)
 api_router.include_router(turbolens.router)
 api_router.include_router(turbolens.cards_router)
 api_router.include_router(turbolens.compliance_router)

@@ -234,6 +234,16 @@ APP_PERMISSIONS: dict[str, dict] = {
                 "impersonator's real user id is captured on every event "
                 "emitted during the session for audit."
             ),
+            "admin.export_workspace": (
+                "Export the full workspace (metamodel, configuration, settings, "
+                "and inventory) to a portable bundle. Secrets (SMTP/SSO/AI "
+                "credentials) are always excluded."
+            ),
+            "admin.import_workspace": (
+                "Import a full-workspace bundle into this instance — upserts the "
+                "metamodel, configuration, settings, users, cards, and relations. "
+                "A dry-run preview is shown before anything is written."
+            ),
         },
     },
 }
@@ -370,6 +380,8 @@ BPM_ADMIN_PERMISSIONS: dict[str, bool] = {
     "admin.events": False,
     "admin.migrate": False,
     "admin.impersonate": False,
+    "admin.export_workspace": False,
+    "admin.import_workspace": False,
 }
 
 MEMBER_PERMISSIONS: dict[str, bool] = {
@@ -444,6 +456,8 @@ MEMBER_PERMISSIONS: dict[str, bool] = {
     "admin.events": False,
     "admin.migrate": False,
     "admin.impersonate": False,
+    "admin.export_workspace": False,
+    "admin.import_workspace": False,
 }
 
 VIEWER_PERMISSIONS: dict[str, bool] = {
@@ -518,6 +532,8 @@ VIEWER_PERMISSIONS: dict[str, bool] = {
     "admin.events": False,
     "admin.migrate": False,
     "admin.impersonate": False,
+    "admin.export_workspace": False,
+    "admin.import_workspace": False,
 }
 
 # ---------------------------------------------------------------------------

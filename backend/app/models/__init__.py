@@ -64,6 +64,7 @@ from app.models.turbolens import (
 from app.models.user import User
 from app.models.user_favorite import UserFavorite
 from app.models.web_portal import WebPortal
+from app.models.workspace_transfer import WorkspaceTransfer
 
 __all__ = [
     "TurboLensAnalysisRun",
@@ -103,6 +104,7 @@ __all__ = [
     "IdentityMap",
     "Migration",
     "StagedRecord",
+    "WorkspaceTransfer",
     "MutationBatch",
     "Notification",
     "PpmBudgetLine",
