@@ -315,3 +315,43 @@ async def test_large_json_blob_survives_export_import(db):
     assert result.total_failed == 0, result.as_dict()
     restored = (await db.execute(select(Card).where(Card.name == "Big App"))).scalar_one()
     assert restored.attributes["notes"] == "z" * 40000
+
+
+async def test_diagram_with_card_link_roundtrips(db):
+    """A DrawIO diagram (XML extracted to a .drawio asset) and its card link
+    survive export → delete → re-import (regression for the diagram-cards
+    UUID bug)."""
+    from app.models.diagram import Diagram, diagram_cards
+
+    user = await create_user(db, email="dia@test.com", role="admin")
+    await create_card_type(db, key="Application", label="Application")
+    card = await create_card(db, card_type="Application", name="Linked App", user_id=user.id)
+    diagram = Diagram(
+        name="My Diagram",
+        type="free_draw",
+        data={"xml": "<mxGraphModel>hi</mxGraphModel>", "thumbnail": "data:image/png;base64,AA"},
+        created_by=user.id,
+    )
+    db.add(diagram)
+    await db.flush()
+    diag_id = diagram.id
+    await db.execute(diagram_cards.insert().values(diagram_id=diag_id, card_id=card.id))
+    await db.flush()
+
+    raw = await build_bundle(db)
+    # The DrawIO XML is offloaded as a real .drawio asset.
+    _, _, assets = bundle_io.unpack(raw)
+    assert any(p.endswith(".drawio") for p in assets)
+
+    await db.execute(delete(diagram_cards))
+    await db.execute(delete(Diagram).where(Diagram.id == diag_id))
+    await db.flush()
+
+    result = await apply_bundle(db, parse_bundle(raw), user)
+    assert result.total_failed == 0, result.as_dict()
+
+    restored = (await db.execute(select(Diagram).where(Diagram.id == diag_id))).scalar_one()
+    assert restored.data["xml"] == "<mxGraphModel>hi</mxGraphModel>"
+    assert restored.data["thumbnail"] == "data:image/png;base64,AA"  # meta preserved
+    links = (await db.execute(select(diagram_cards))).all()
+    assert any(row.diagram_id == diag_id and row.card_id == card.id for row in links)

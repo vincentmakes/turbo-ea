@@ -189,7 +189,7 @@ async def _apply_diagram_cards(db, bundle: WorkspaceBundle, sr: SectionResult, r
     if not rows:
         return
     existing = {(r.diagram_id, r.card_id) for r in (await db.execute(select(diagram_cards))).all()}
-    existing_diagrams = {d.id for d in (await db.execute(select(Diagram.id))).scalars().all()}
+    existing_diagrams = set((await db.execute(select(Diagram.id))).scalars().all())
     for row in rows:
         diagram_id = row.get("diagram_id")
         ctype = row.get("card_type")
