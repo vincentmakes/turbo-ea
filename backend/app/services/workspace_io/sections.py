@@ -74,7 +74,10 @@ ENTITY_SECTIONS: tuple[EntitySection, ...] = (
         "Diagrams",
         Diagram,
         user_fk_columns=("created_by",),
-        asset_columns=(("data", "json", "json"),),
+        # Extract the DrawIO XML from data["xml"] into a real .drawio file;
+        # the thumbnail / view / card_refs keys stay inline as JSON.
+        json_asset_columns=(("data", "xml", "drawio"),),
+        filename_column="name",
     ),
     # --- Phase C: BPM ----------------------------------------------------
     EntitySection(

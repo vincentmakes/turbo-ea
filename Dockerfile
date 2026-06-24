@@ -198,6 +198,24 @@ ${nginx_https_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
 
+    # Workspace-transfer import bundles (admin-gated) can be large — a whole
+    # workspace's cards, diagrams, and file attachments. Relax the body limit
+    # for just this endpoint; everything else keeps the 5m default.
+    location /api/v1/admin/workspace/import {
+        client_max_body_size 512m;
+        proxy_pass \$backend_upstream\$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+        proxy_read_timeout 86400s;
+    }
+
     ssl_certificate ${NGINX_TLS_CERT_PATH};
     ssl_certificate_key ${NGINX_TLS_KEY_PATH};
 
@@ -303,6 +321,24 @@ ${nginx_https_ipv6_line}
 ${nginx_http_ipv6_line}
     server_name ${NGINX_SERVER_NAME};
     client_max_body_size 5m;
+
+    # Workspace-transfer import bundles (admin-gated) can be large — a whole
+    # workspace's cards, diagrams, and file attachments. Relax the body limit
+    # for just this endpoint; everything else keeps the 5m default.
+    location /api/v1/admin/workspace/import {
+        client_max_body_size 512m;
+        proxy_pass \$backend_upstream\$request_uri;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto ${NGINX_FORWARDED_PROTO};
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+        chunked_transfer_encoding off;
+        proxy_read_timeout 86400s;
+    }
 
     resolver 127.0.0.11 valid=30s;
 

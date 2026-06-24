@@ -253,14 +253,22 @@ export default function WorkspaceTransferAdmin() {
             hidden
             onChange={handleFile}
           />
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} alignItems="center">
             <Button
               variant="outlined"
               onClick={() => fileRef.current?.click()}
               disabled={busy || isPreviewing || isApplying}
-              startIcon={<MaterialSymbol icon="upload" />}
+              startIcon={
+                busy ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <MaterialSymbol icon="upload" />
+                )
+              }
             >
-              {t("workspaceTransfer.import.choose", "Choose bundle…")}
+              {busy
+                ? t("workspaceTransfer.import.uploading", "Uploading…")
+                : t("workspaceTransfer.import.choose", "Choose bundle…")}
             </Button>
             {transfer && (
               <Button color="inherit" onClick={handleDiscard} disabled={isApplying}>
@@ -268,6 +276,15 @@ export default function WorkspaceTransferAdmin() {
               </Button>
             )}
           </Stack>
+
+          {busy && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {t(
+                "workspaceTransfer.import.uploadingHelp",
+                "Uploading the bundle — large workspaces may take a moment.",
+              )}
+            </Typography>
+          )}
 
           {importError && (
             <Alert severity="error" sx={{ mt: 2 }}>

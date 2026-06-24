@@ -1506,5 +1506,7 @@
   "workspaceTransfer.report.updated": "Opdateret",
   "workspaceTransfer.report.skipped": "Sprunget over",
   "workspaceTransfer.report.conflict": "Konflikter",
-  "workspaceTransfer.report.failed": "Mislykkedes"
+  "workspaceTransfer.report.failed": "Mislykkedes",
+  "workspaceTransfer.import.uploading": "Uploader…",
+  "workspaceTransfer.import.uploadingHelp": "Uploader bundtet — store workspaces kan tage et øjeblik."
 }

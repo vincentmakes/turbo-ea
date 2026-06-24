@@ -1506,5 +1506,7 @@
   "workspaceTransfer.report.updated": "Обновлено",
   "workspaceTransfer.report.skipped": "Пропущено",
   "workspaceTransfer.report.conflict": "Конфликты",
-  "workspaceTransfer.report.failed": "Ошибки"
+  "workspaceTransfer.report.failed": "Ошибки",
+  "workspaceTransfer.import.uploading": "Загрузка…",
+  "workspaceTransfer.import.uploadingHelp": "Загрузка пакета — для больших рабочих областей это может занять некоторое время."
 }

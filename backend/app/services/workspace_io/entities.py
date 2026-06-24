@@ -56,6 +56,10 @@ class EntitySection:
     user_fk_columns: tuple[str, ...] = ()
     # (column, kind: bytes|text|json, file extension for the asset)
     asset_columns: tuple[tuple[str, str, str], ...] = ()
+    # Offload one *sub-key* of a JSONB column to its own asset file while keeping
+    # the rest of the dict inline — e.g. ("data", "xml", "drawio") writes a real
+    # .drawio file from ``data["xml"]`` and stores the remaining keys as JSON.
+    json_asset_columns: tuple[tuple[str, str, str], ...] = ()  # (column, subkey, ext)
     # When set, asset files for this section are named from this column's value
     # (the original filename, e.g. "report.pdf") instead of "<pk>__<col>.<ext>".
     filename_column: str | None = None
@@ -67,6 +71,7 @@ class EntitySection:
             set(self.card_fk_columns)
             | set(self.user_fk_columns)
             | {a[0] for a in self.asset_columns}
+            | {a[0] for a in self.json_asset_columns}
             | set(self.exclude_columns)
             | _TIMESTAMP_COLUMNS
         )
@@ -83,6 +88,8 @@ class EntitySection:
             cols.append(f"{c}__email")
         for c, _kind, _ext in self.asset_columns:
             cols.append(f"{c}__asset")
+        for c, subkey, _ext in self.json_asset_columns:
+            cols += [f"{c}__meta", f"{c}__{subkey}__asset"]
         return cols
 
 
@@ -220,6 +227,23 @@ async def export_entity_section(
                 path = f"{section.sheet}/{pk}__{col}.{ext}"
             assets[path] = _encode_asset(content, kind)
             out[f"{col}__asset"] = path
+        for col, subkey, ext in section.json_asset_columns:
+            content = getattr(obj, col)
+            data = content if isinstance(content, dict) else {}
+            sub = data.get(subkey)
+            meta = {k: v for k, v in data.items() if k != subkey}
+            out[f"{col}__meta"] = json.dumps(meta, ensure_ascii=False) if meta else None
+            if sub:
+                pk = getattr(obj, pk0)
+                fname = (
+                    getattr(obj, section.filename_column, None) if section.filename_column else None
+                )
+                base = _safe_filename(str(fname)) if fname else f"{col}_{subkey}"
+                path = f"{section.sheet}/{pk}__{base}.{ext}"
+                assets[path] = _encode_asset(sub, "text")
+                out[f"{col}__{subkey}__asset"] = path
+            else:
+                out[f"{col}__{subkey}__asset"] = None
         rows.append(out)
     return section.header(), rows
 
@@ -311,6 +335,15 @@ async def apply_entity_section(
         for col, kind, _ext in section.asset_columns:
             path = row.get(f"{col}__asset")
             kwargs[col] = _decode_asset(bundle.assets.get(str(path)), kind) if path else None
+
+        for col, subkey, _ext in section.json_asset_columns:
+            meta_raw = row.get(f"{col}__meta")
+            data = json.loads(meta_raw) if isinstance(meta_raw, str) and meta_raw else {}
+            apath = row.get(f"{col}__{subkey}__asset")
+            sub = _decode_asset(bundle.assets.get(str(apath)), "text") if apath else None
+            if sub is not None:
+                data[subkey] = sub
+            kwargs[col] = data
 
         pk_vals = tuple(kwargs.get(c) for c in pk_cols)
         if any(v is None for v in pk_vals):

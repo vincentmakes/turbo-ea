@@ -1506,5 +1506,7 @@
   "workspaceTransfer.report.updated": "Atualizados",
   "workspaceTransfer.report.skipped": "Ignorados",
   "workspaceTransfer.report.conflict": "Conflitos",
-  "workspaceTransfer.report.failed": "Falhados"
+  "workspaceTransfer.report.failed": "Falhados",
+  "workspaceTransfer.import.uploading": "A carregar…",
+  "workspaceTransfer.import.uploadingHelp": "A carregar o pacote — workspaces grandes podem demorar um momento."
 }

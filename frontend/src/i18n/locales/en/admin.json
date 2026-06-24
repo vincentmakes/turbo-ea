@@ -1506,5 +1506,7 @@
   "workspaceTransfer.report.updated": "Updated",
   "workspaceTransfer.report.skipped": "Skipped",
   "workspaceTransfer.report.conflict": "Conflicts",
-  "workspaceTransfer.report.failed": "Failed"
+  "workspaceTransfer.report.failed": "Failed",
+  "workspaceTransfer.import.uploading": "Uploading…",
+  "workspaceTransfer.import.uploadingHelp": "Uploading the bundle — large workspaces may take a moment."
 }
