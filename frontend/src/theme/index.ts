@@ -9,8 +9,9 @@
 import { createTheme } from "@mui/material/styles";
 import { brand, surface, STATUS_COLORS, typography } from "./tokens";
 
-export function buildTheme(mode: "light" | "dark") {
+export function buildTheme(mode: "light" | "dark", direction: "ltr" | "rtl" = "ltr") {
   return createTheme({
+    direction,
     typography: {
       fontFamily: typography.fontFamily,
     },

@@ -545,6 +545,67 @@ plugins:
             Glossary: Ordliste
             Compatibility Policy: Kompatibilitetspolitik
             Releases: Udgivelser
+        - locale: ar
+          name: العربية
+          build: true
+          nav_translations:
+            Home: الرئيسية
+            Getting Started: البدء
+            Installation & Setup: التثبيت والإعداد
+            Accessing the Platform: الوصول إلى المنصة
+            EA Beginner's Guide: دليل المبتدئين في هندسة المؤسسة
+            Your First 30 Days: أول 30 يومًا
+            Plan Your Rollout: خطّط لعملية النشر
+            Start with Applications: ابدأ بالتطبيقات
+            Leverage Reference Catalogues: استفد من الكتالوجات المرجعية
+            Customise the Metamodel: خصّص النموذج الفوقي
+            Your First Analysis: تحليلك الأول
+            User Guide: دليل المستخدم
+            Core: الأساسيات
+            Reports & Analysis: التقارير والتحليل
+            Modules: الوحدات
+            Reference Catalogues: الكتالوجات المرجعية
+            Overview: نظرة عامة
+            Compliance: الامتثال
+            Dashboard: لوحة المعلومات
+            Inventory: المخزون
+            Card Details: تفاصيل البطاقة
+            Reports: التقارير
+            Saved Reports: التقارير المحفوظة
+            PPM: PPM
+            BPM: BPM
+            TurboLens AI: TurboLens AI
+            Diagrams: المخططات
+            EA Delivery: تسليم هندسة المؤسسة
+            GRC: GRC
+            Risk Register: سجل المخاطر
+            Tasks & Surveys: المهام والاستبيانات
+            Notifications: الإشعارات
+            Capability Catalogue: كتالوج القدرات
+            Process Catalogue: كتالوج العمليات
+            Value Stream Catalogue: كتالوج تدفق القيمة
+            Principles Catalogue: كتالوج المبادئ
+            Administration: الإدارة
+            General Settings: الإعدادات العامة
+            Metamodel: النموذج الفوقي
+            Calculations: الحسابات
+            Tags: الوسوم
+            Users & Roles: المستخدمون والأدوار
+            Authentication & SSO: المصادقة والدخول الموحّد
+            AI Capabilities: قدرات الذكاء الاصطناعي
+            MCP Integration: تكامل MCP
+            API Reference: مرجع API
+            End-of-Life (EOL): نهاية العمر (EOL)
+            Surveys: الاستبيانات
+            Web Portals: البوابات الإلكترونية
+            ServiceNow Integration: تكامل ServiceNow
+            Platform Migration: ترحيل المنصة
+            Workspace Transfer: نقل مساحة العمل
+            Supply Chain: سلسلة التوريد
+            Reference: المرجع
+            Glossary: المسرد
+            Compatibility Policy: سياسة التوافق
+            Releases: الإصدارات
 
   - search:
       lang:
@@ -556,6 +617,7 @@ plugins:
         - pt
         - ru
         - da
+        - ar
 
 # ---------------------------------------------------------------------------
 # Markdown extensions
@@ -679,6 +741,9 @@ extra:
     - name: Dansk
       link: /da/
       lang: da
+    - name: العربية
+      link: /ar/
+      lang: ar
 
   # Optional: version banner
   # version:

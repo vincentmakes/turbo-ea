@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Surveys can now ask respondents to maintain relationships, not just attributes.** When building a survey, the Fields step has a new **Relations** section listing every relationship the target card type can have (in both directions). Pick any to have respondents review the linked cards — set each to **Maintain** (edit the linked set: add or remove cards via a search picker) or **Confirm** (acknowledge the current links are correct). Applying a response syncs the relations on the card, recorded in its history like a normal relation change.
+## [1.47.0] - 2026-06-25
+
+### Added
+- **Arabic (العربية) language support, with right-to-left layout.** Arabic is now selectable as an interface language in the user menu and in **Admin → Settings → Languages**. The whole UI — navigation, forms, dialogs and menus — mirrors to right-to-left when Arabic is active, and the documentation site gains an Arabic entry in its language switcher.
+- **Fully translated Arabic user manual.** Every documentation page is now available in Arabic, with Arabic full-text search enabled.
 
 ## [1.46.1] - 2026-06-25
 

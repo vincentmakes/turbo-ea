@@ -1,0 +1,22 @@
+{
+  "title": "الإشعارات",
+  "markAllRead": "وضع علامة مقروء على الكل",
+  "noNotifications": "لا توجد إشعارات",
+
+  "preferences.title": "تفضيلات الإشعارات",
+  "preferences.description": "اختر الإشعارات التي تريد تلقيها وكيفية تلقيها.",
+  "preferences.notification": "الإشعار",
+  "preferences.inApp": "داخل التطبيق",
+  "preferences.email": "البريد الإلكتروني",
+  "preferences.saving": "جارٍ الحفظ...",
+  "preferences.loadFailed": "فشل في تحميل التفضيلات",
+  "preferences.saveFailed": "فشل في حفظ التفضيلات",
+  "preferences.todoAssigned": "تم تعيين مهمة",
+  "preferences.taskAssigned": "تم تعيين مهمة PPM",
+  "preferences.cardUpdated": "تم تحديث البطاقة",
+  "preferences.commentAdded": "تمت إضافة تعليق",
+  "preferences.approvalStatusChanged": "تغيّرت حالة الاعتماد",
+  "preferences.soawSignRequested": "تم طلب توقيع SoAW",
+  "preferences.soawSigned": "تم توقيع SoAW",
+  "preferences.surveyRequest": "طلب استبيان"
+}

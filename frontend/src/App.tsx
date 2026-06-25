@@ -1,14 +1,17 @@
-import { lazy, Suspense, useEffect, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import CssBaseline from "@mui/material/CssBaseline";
 import { ThemeProvider } from "@mui/material/styles";
+import { CacheProvider } from "@emotion/react";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
+import i18n, { dirForLocale } from "@/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/hooks/AuthContext";
 import { ThemeModeContext, useThemeModeState } from "@/hooks/useThemeMode";
 import { useAppTitle } from "@/hooks/useAppTitle";
 import { buildTheme } from "@/theme";
+import { ltrCache, rtlCache } from "@/theme/emotionCache";
 import AppLayout from "@/layouts/AppLayout";
 import LoginPage from "@/features/auth/LoginPage";
 import SsoCallback from "@/features/auth/SsoCallback";
@@ -216,16 +219,40 @@ function AppRoutes() {
 
 export default function App() {
   const themeModeState = useThemeModeState();
-  const theme = useMemo(() => buildTheme(themeModeState.mode), [themeModeState.mode]);
+
+  // Track the active language reactively so direction (and the emotion cache)
+  // updates whenever the locale changes — covers initial load, login
+  // (useAuth) and the in-app language picker (AppLayout).
+  const [language, setLanguage] = useState(i18n.language);
+  useEffect(() => {
+    const onChange = (lng: string) => setLanguage(lng);
+    i18n.on("languageChanged", onChange);
+    return () => {
+      i18n.off("languageChanged", onChange);
+    };
+  }, []);
+
+  const dir = dirForLocale(language);
+
+  // Keep the document direction/lang in sync for native RTL behaviour
+  // (scrollbars, text alignment, screen readers).
+  useEffect(() => {
+    document.documentElement.dir = dir;
+    document.documentElement.lang = language || "en";
+  }, [dir, language]);
+
+  const theme = useMemo(() => buildTheme(themeModeState.mode, dir), [themeModeState.mode, dir]);
 
   return (
     <ThemeModeContext.Provider value={themeModeState}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </ThemeProvider>
+      <CacheProvider value={dir === "rtl" ? rtlCache : ltrCache}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ThemeProvider>
+      </CacheProvider>
     </ThemeModeContext.Provider>
   );
 }
