@@ -1,0 +1,43 @@
+name: Restrict PR authors
+
+# Closes any PR opened by an author not on the allowlist with a polite comment.
+# Uses pull_request_target so the job runs in the base repo's context and has
+# permission to close PRs from forks. No fork code is checked out, so this is safe.
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-author:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close if author not on allowlist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          ALLOWED=(
+            "vincentmakes"
+            "dependabot[bot]"
+            "claude[bot]"
+            "claude-code[bot]"
+            "aqua-bot"
+          )
+          for allowed in "${ALLOWED[@]}"; do
+            if [[ "$AUTHOR" == "$allowed" ]]; then
+              echo "PR author '$AUTHOR' is on the allowlist."
+              exit 0
+            fi
+          done
+          echo "PR author '$AUTHOR' is not on the allowlist; closing PR #$PR_NUMBER."
+          gh pr comment "$PR_NUMBER" --body "Thanks for your interest in Turbo EA. This repository only accepts pull requests from the maintainer and a small set of trusted bots. Unsolicited PRs are auto-closed to keep the contribution surface manageable.
+
+          If you'd like to propose a change, please [open an issue](../../issues/new) first to discuss it. Direct PRs without a prior discussion will not be reviewed."
+          gh pr close "$PR_NUMBER"
