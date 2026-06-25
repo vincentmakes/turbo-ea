@@ -11,10 +11,8 @@ paid AI tooling to keep up the pace. If you're curious about the backstory,
 [here's why I built it](https://www.turbo-ea.org/blog/why-i-built-turbo-ea). I genuinely
 appreciate every star, issue, donation, and kind word — they make it worth continuing.
 
-**I am not actively reviewing pull requests at this time.** Reviewing PRs properly takes
-real time and focus that I don't reliably have. Rather than leave contributions in limbo,
-I'd rather be upfront about it. The technical reference below is kept for anyone who wants
-to maintain their own fork — feel free to use it.
+**PR opened without any issue or prior discussion will be closed automatically.**   
+Reviewing PRs properly takes real time and focus that I don't reliably have. 
 
 If you want to help, the best ways are:
 
