@@ -1,0 +1,16 @@
+{
+  "required": "هذا الحقل مطلوب",
+  "invalidEmail": "عنوان بريد إلكتروني غير صالح",
+  "tooLong": "طويل جدًا (الحد الأقصى {{max}} حرفًا)",
+  "tooShort": "قصير جدًا (الحد الأدنى {{min}} حرفًا)",
+  "invalidUrl": "عنوان URL غير صالح",
+
+  "key.mustStartWithLetter": "يجب أن يبدأ بحرف",
+  "key.noUnderscores": "الشرطات السفلية غير مسموح بها — استخدم نمط camelCase",
+  "key.noSpaces": "المسافات غير مسموح بها — استخدم نمط camelCase",
+  "key.noAccents": "الأحرف المشكَّلة غير مسموح بها",
+  "key.lettersAndDigitsOnly": "يُسمح بالأحرف والأرقام فقط (نمط camelCase)",
+  "key.cannotChange": "لا يمكن تغيير المفتاح بعد الإنشاء",
+  "key.valid": "مفتاح صالح",
+  "key.hint": "أحرف وأرقام فقط، بدون فواصل (مثل businessFit أو ApplicationToITComponent)"
+}

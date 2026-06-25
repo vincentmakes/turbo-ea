@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.47.0] - 2026-06-25
+
+### Added
+- **Arabic (العربية) language support, with right-to-left layout.** Arabic is now selectable as an interface language in the user menu and in **Admin → Settings → Languages**. The whole UI — navigation, forms, dialogs and menus — mirrors to right-to-left when Arabic is active, and the documentation site gains an Arabic entry in its language switcher.
+
 ## [1.46.1] - 2026-06-25
 
 ### Changed
