@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.45.3] - 2026-06-25
+
+### Fixed
+- **Card relations: the attribute ("label") edit icon only shows when a relationship actually has subtypes.** The small edit icon on a relation row — and the inline "Add relation" details box and the diagram relation picker's details box — now appear only when the relation type defines selectable subtype options, instead of for any relation type that merely declares an (empty) attribute. This removes a confusing icon that opened an editor with nothing to choose.
+
 ## [1.45.2] - 2026-06-25
 
 ### Changed

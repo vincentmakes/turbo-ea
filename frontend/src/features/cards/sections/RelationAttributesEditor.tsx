@@ -196,6 +196,22 @@ export function hasRelationAttributes(relationType: RelationType | undefined): b
   return !!relationType && (relationType.attributes_schema ?? []).length > 0;
 }
 
+/**
+ * Returns true only when a relation type declares at least one editable
+ * "subtype" — a single_select field with options. Stricter than
+ * {@link hasRelationAttributes} (which is true for any schema entry, even an
+ * options-less field), so UI gates don't surface an empty attribute editor /
+ * "label" icon for relations that have no actual subtypes to pick.
+ */
+export function hasRelationSubtypes(relationType: RelationType | undefined): boolean {
+  return (
+    !!relationType &&
+    (relationType.attributes_schema ?? []).some(
+      (f) => f.type === "single_select" && (f.options ?? []).length > 0,
+    )
+  );
+}
+
 export interface RelationAttributeBadge {
   fieldKey: string;
   fieldLabel: string;

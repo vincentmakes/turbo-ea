@@ -33,7 +33,7 @@ import type { Relation, RelationType } from "@/types";
 import RelationAttributesEditor, {
   flowDirectionBadge,
   relationAttributeBadges,
-  hasRelationAttributes,
+  hasRelationSubtypes,
   type RelationAttributes,
 } from "./RelationAttributesEditor";
 
@@ -324,7 +324,7 @@ function RelationGroup({
   const [attrsAnchor, setAttrsAnchor] = useState<HTMLElement | null>(null);
   const [attrsRelation, setAttrsRelation] = useState<Relation | null>(null);
 
-  const rtHasAttributes = hasRelationAttributes(rt);
+  const rtHasSubtypes = hasRelationSubtypes(rt);
 
   const otherTypeKey = isSource ? rt.target_type_key : rt.source_type_key;
   const otherType = getType(otherTypeKey);
@@ -409,7 +409,7 @@ function RelationGroup({
                 }}
               />
             ))}
-            {rtHasAttributes && canManageRelations && (
+            {rtHasSubtypes && canManageRelations && (
               <Tooltip title={editTooltip}>
                 <IconButton
                   size="small"
@@ -593,7 +593,7 @@ function RelationGroup({
         </>
       )}
 
-      {rtHasAttributes && attrsRelation && (
+      {rtHasSubtypes && attrsRelation && (
         <RelationAttrsPopover
           anchorEl={attrsAnchor}
           open={Boolean(attrsAnchor)}
@@ -954,7 +954,7 @@ function RelationsSection({
                   type: rml(dialogTargetConfig?.key ?? "", dialogTargetConfig?.translations, "label") || dialogTargetTypeKey,
                 })}
               </Button>
-              {selectedRT && hasRelationAttributes(selectedRT) && (
+              {selectedRT && hasRelationSubtypes(selectedRT) && (
                 <Box sx={{ mt: 2, p: 1.5, border: "1px dashed", borderColor: "divider", borderRadius: 1 }}>
                   <Typography variant="caption" fontWeight={600} sx={{ display: "block", mb: 1 }}>
                     {t("relations.optionalDetails")}
