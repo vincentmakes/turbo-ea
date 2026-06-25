@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.45.2] - 2026-06-25
+
+### Changed
+- **Stakeholder picker: "Add a new user" instead of "Invite".** The card Stakeholders picker's option for a not-yet-existing user now reads "Add a new user" / "Add «email» as a new user" rather than "Invite…", since a user can be added without an invitation email being sent.
+
 ## [1.45.1] - 2026-06-24
 
 ### Fixed
