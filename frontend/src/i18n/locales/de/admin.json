@@ -1509,5 +1509,6 @@
   "workspaceTransfer.report.failed": "Fehlgeschlagen",
   "workspaceTransfer.import.uploading": "Wird hochgeladen…",
   "workspaceTransfer.import.uploadingHelp": "Das Paket wird hochgeladen — bei großen Workspaces kann das einen Moment dauern.",
-  "settings.tabs.platformMigration": "Plattform-Migration"
+  "settings.tabs.platformMigration": "Plattform-Migration",
+  "metamodel.tabs.standards": "Enterprise-Standards"
 }

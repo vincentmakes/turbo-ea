@@ -6,9 +6,10 @@ Create Date: 2026-06-25 20:30:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "109"
 down_revision = "108"
@@ -33,7 +34,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_ea_standards_catalogue_id"), "ea_standards", ["catalogue_id"], unique=False)
+    op.create_index(
+        op.f("ix_ea_standards_catalogue_id"), "ea_standards", ["catalogue_id"], unique=False
+    )
 
 
 def downgrade() -> None:

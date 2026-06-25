@@ -25,7 +25,9 @@ class StandardCard(Base):
         ForeignKey("cards.id", ondelete="CASCADE"),
         primary_key=True,
     )
-    compliance_status: Mapped[str] = mapped_column(String(20), default="pending_review", server_default="pending_review")
+    compliance_status: Mapped[str] = mapped_column(
+        String(20), default="pending_review", server_default="pending_review"
+    )
     evidence: Mapped[str | None] = mapped_column(Text)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

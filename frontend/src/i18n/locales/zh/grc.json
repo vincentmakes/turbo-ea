@@ -11,7 +11,8 @@
   "governance": {
     "subtabs": {
       "principles": "原则",
-      "decisions": "决策"
+      "decisions": "决策",
+      "standards": "标准"
     },
     "principles": {
       "title": "架构原则",
@@ -25,6 +26,13 @@
       "status": "状态",
       "open": "打开",
       "create": "新建决策"
+    },
+    "standards": {
+      "title": "企业标准",
+      "empty": "暂无活跃标准。在 Admin › Metamodel 中定义。",
+      "rationale": "理由",
+      "reference": "参考",
+      "linkedCards": "关联到 {{count}} 张卡片"
     }
   },
   "compliance": {

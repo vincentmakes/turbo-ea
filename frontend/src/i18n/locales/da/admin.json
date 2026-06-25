@@ -1509,5 +1509,6 @@
   "workspaceTransfer.report.failed": "Mislykkedes",
   "workspaceTransfer.import.uploading": "Uploader…",
   "workspaceTransfer.import.uploadingHelp": "Uploader bundtet — store workspaces kan tage et øjeblik.",
-  "settings.tabs.platformMigration": "Platformsmigrering"
+  "settings.tabs.platformMigration": "Platformsmigrering",
+  "metamodel.tabs.standards": "Enterprise-standarder"
 }

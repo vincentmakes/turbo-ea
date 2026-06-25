@@ -6,9 +6,10 @@ Create Date: 2026-06-25 20:35:00.000000
 
 """
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 revision = "110"
 down_revision = "109"
@@ -21,7 +22,9 @@ def upgrade() -> None:
         "standard_cards",
         sa.Column("standard_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("card_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("compliance_status", sa.String(20), nullable=False, server_default="pending_review"),
+        sa.Column(
+            "compliance_status", sa.String(20), nullable=False, server_default="pending_review"
+        ),
         sa.Column("evidence", sa.Text(), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
@@ -31,7 +34,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("standard_id", "card_id"),
     )
     op.create_index(op.f("ix_standard_cards_card_id"), "standard_cards", ["card_id"], unique=False)
-    op.create_index(op.f("ix_standard_cards_standard_id"), "standard_cards", ["standard_id"], unique=False)
+    op.create_index(
+        op.f("ix_standard_cards_standard_id"), "standard_cards", ["standard_id"], unique=False
+    )
 
 
 def downgrade() -> None:

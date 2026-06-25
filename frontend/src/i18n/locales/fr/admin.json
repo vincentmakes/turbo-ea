@@ -1509,5 +1509,6 @@
   "workspaceTransfer.report.failed": "Échecs",
   "workspaceTransfer.import.uploading": "Téléversement…",
   "workspaceTransfer.import.uploadingHelp": "Téléversement du paquet — les grands espaces de travail peuvent prendre un moment.",
-  "settings.tabs.platformMigration": "Migration de plateforme"
+  "settings.tabs.platformMigration": "Migration de plateforme",
+  "metamodel.tabs.standards": "Standards d'entreprise"
 }

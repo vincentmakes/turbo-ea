@@ -16,9 +16,9 @@ from app.models.compliance_regulation import ComplianceRegulation
 from app.models.ea_principle import EAPrinciple
 from app.models.ea_standard import EAStandard
 from app.models.relation import Relation
-from app.models.standard_card import StandardCard
 from app.models.relation_type import RelationType
 from app.models.stakeholder import Stakeholder
+from app.models.standard_card import StandardCard
 from app.models.user import User
 from app.services.permission_service import PermissionService
 
@@ -1066,7 +1066,9 @@ async def list_standards(
     # Count linked cards per standard
     serialized = []
     for s in standards:
-        card_count = await db.execute(select(func.count(StandardCard.card_id)).where(StandardCard.standard_id == s.id))
+        card_count = await db.execute(
+            select(func.count(StandardCard.card_id)).where(StandardCard.standard_id == s.id)
+        )
         count = card_count.scalar() or 0
         serialized.append(_serialize_standard(s, count))
     return serialized
@@ -1156,7 +1158,8 @@ async def link_standard_to_card(
     # Upsert: delete + recreate to ensure updated timestamps + fields
     await db.execute(
         delete(StandardCard).where(
-            (StandardCard.standard_id == uuid.UUID(standard_id)) & (StandardCard.card_id == uuid.UUID(card_id))
+            (StandardCard.standard_id == uuid.UUID(standard_id))
+            & (StandardCard.card_id == uuid.UUID(card_id))
         )
     )
 
@@ -1169,7 +1172,11 @@ async def link_standard_to_card(
     )
     db.add(link)
     await db.commit()
-    return {"standard_id": standard_id, "card_id": card_id, "compliance_status": body.compliance_status}
+    return {
+        "standard_id": standard_id,
+        "card_id": card_id,
+        "compliance_status": body.compliance_status,
+    }
 
 
 @router.delete("/standards/{standard_id}/cards/{card_id}", status_code=204)
@@ -1183,7 +1190,8 @@ async def unlink_standard_from_card(
     await PermissionService.require_permission(db, user, "grc.manage")
     await db.execute(
         delete(StandardCard).where(
-            (StandardCard.standard_id == uuid.UUID(standard_id)) & (StandardCard.card_id == uuid.UUID(card_id))
+            (StandardCard.standard_id == uuid.UUID(standard_id))
+            & (StandardCard.card_id == uuid.UUID(card_id))
         )
     )
     await db.commit()
@@ -1203,7 +1211,9 @@ async def get_card_standards(
 
     # Fetch linked standards with their compliance info
     result = await db.execute(
-        select(EAStandard, StandardCard).outerjoin(StandardCard).where(StandardCard.card_id == uuid.UUID(card_id))
+        select(EAStandard, StandardCard)
+        .outerjoin(StandardCard)
+        .where(StandardCard.card_id == uuid.UUID(card_id))
     )
     rows = result.all()
 

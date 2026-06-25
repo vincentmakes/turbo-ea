@@ -13,7 +13,6 @@ from __future__ import annotations
 from app.models.architecture_decision import ArchitectureDecision
 from app.models.architecture_decision_card import ArchitectureDecisionCard
 from app.models.bookmark import Bookmark
-from app.models.standard_card import StandardCard
 from app.models.comment import Comment
 from app.models.diagram import Diagram
 from app.models.document import Document
@@ -34,6 +33,7 @@ from app.models.risk_mitigation_task import RiskMitigationTask, RiskMitigationTa
 from app.models.saved_report import SavedReport
 from app.models.soaw import SoAW
 from app.models.stakeholder import Stakeholder
+from app.models.standard_card import StandardCard
 from app.models.survey import Survey, SurveyResponse
 from app.models.todo import Todo
 from app.models.web_portal import WebPortal

@@ -11,7 +11,8 @@
   "governance": {
     "subtabs": {
       "principles": "Принципы",
-      "decisions": "Решения"
+      "decisions": "Решения",
+      "standards": "Стандарты"
     },
     "principles": {
       "title": "Принципы архитектуры",
@@ -25,6 +26,13 @@
       "status": "Статус",
       "open": "Открыть",
       "create": "Новое решение"
+    },
+    "standards": {
+      "title": "Корпоративные стандарты",
+      "empty": "Нет активных стандартов. Определите их в Admin › Metamodel.",
+      "rationale": "Обоснование",
+      "reference": "Ссылка",
+      "linkedCards": "Связано с {{count}} карточкой(ами)"
     }
   },
   "compliance": {

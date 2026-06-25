@@ -27,7 +27,6 @@ from app.models.ea_principle import EAPrinciple
 from app.models.ea_standard import EAStandard
 from app.models.role import Role
 from app.models.stakeholder_role_definition import StakeholderRoleDefinition
-from app.models.standard_card import StandardCard
 
 # Bump when the on-disk shape changes incompatibly. The importer refuses a
 # bundle whose major version it does not understand.

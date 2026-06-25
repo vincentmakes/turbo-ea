@@ -1509,5 +1509,6 @@
   "workspaceTransfer.report.failed": "Falhados",
   "workspaceTransfer.import.uploading": "A carregar…",
   "workspaceTransfer.import.uploadingHelp": "A carregar o pacote — workspaces grandes podem demorar um momento.",
-  "settings.tabs.platformMigration": "Migração de plataforma"
+  "settings.tabs.platformMigration": "Migração de plataforma",
+  "metamodel.tabs.standards": "Padrões Empresariais"
 }

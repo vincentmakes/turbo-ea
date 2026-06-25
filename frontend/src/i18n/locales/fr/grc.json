@@ -11,7 +11,8 @@
   "governance": {
     "subtabs": {
       "principles": "Principes",
-      "decisions": "Décisions"
+      "decisions": "Décisions",
+      "standards": "Standards"
     },
     "principles": {
       "title": "Principes d'architecture",
@@ -25,6 +26,13 @@
       "status": "Statut",
       "open": "Ouvrir",
       "create": "Nouvelle décision"
+    },
+    "standards": {
+      "title": "Standards d'entreprise",
+      "empty": "Aucun standard actif pour le moment. Définissez-les sous Admin › Metamodel.",
+      "rationale": "Justification",
+      "reference": "Référence",
+      "linkedCards": "Lié à {{count}} carte(s)"
     }
   },
   "compliance": {

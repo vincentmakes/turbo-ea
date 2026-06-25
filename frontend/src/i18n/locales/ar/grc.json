@@ -11,7 +11,8 @@
   "governance": {
     "subtabs": {
       "principles": "المبادئ",
-      "decisions": "القرارات"
+      "decisions": "القرارات",
+      "standards": "المعايير"
     },
     "principles": {
       "title": "مبادئ البنية المؤسسية",
@@ -25,6 +26,13 @@
       "status": "الحالة",
       "open": "فتح",
       "create": "قرار جديد"
+    },
+    "standards": {
+      "title": "معايير المؤسسة",
+      "empty": "لا توجد معايير نشطة حتى الآن. حددها تحت Admin › Metamodel.",
+      "rationale": "المبرر",
+      "reference": "المرجع",
+      "linkedCards": "مرتبط بـ {{count}} بطاقة"
     }
   },
   "compliance": {

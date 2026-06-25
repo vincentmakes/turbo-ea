@@ -11,7 +11,8 @@
   "governance": {
     "subtabs": {
       "principles": "Principper",
-      "decisions": "Beslutninger"
+      "decisions": "Beslutninger",
+      "standards": "Standarder"
     },
     "principles": {
       "title": "Arkitekturprincipper",
@@ -25,6 +26,13 @@
       "status": "Status",
       "open": "Åbn",
       "create": "Ny beslutning"
+    },
+    "standards": {
+      "title": "Enterprise-standarder",
+      "empty": "Ingen aktive standarder endnu. Definer dem under Admin › Metamodel.",
+      "rationale": "Begrundelse",
+      "reference": "Reference",
+      "linkedCards": "Linket til {{count}} kort"
     }
   },
   "compliance": {

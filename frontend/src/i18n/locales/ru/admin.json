@@ -1509,5 +1509,6 @@
   "workspaceTransfer.report.failed": "Ошибки",
   "workspaceTransfer.import.uploading": "Загрузка…",
   "workspaceTransfer.import.uploadingHelp": "Загрузка пакета — для больших рабочих областей это может занять некоторое время.",
-  "settings.tabs.platformMigration": "Миграция платформы"
+  "settings.tabs.platformMigration": "Миграция платформы",
+  "metamodel.tabs.standards": "Корпоративные стандарты"
 }
