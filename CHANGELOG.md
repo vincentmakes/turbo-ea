@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.46.1] - 2026-06-25
+
+### Changed
+- **Stakeholder picker: finish the "Invite" → "Add" wording.** The inline new-user form that opens from the Stakeholders picker now reads **Add new user** with an **Add user** button (previously "Invite new user" / "Invite & add"), and the success/error toasts say "added" instead of "invited" — matching the picker option renamed earlier. The optional "Send invitation email" toggle keeps its wording, since it still controls whether an invitation email is sent.
+
 ## [1.46.0] - 2026-06-25
 
 ### Added
