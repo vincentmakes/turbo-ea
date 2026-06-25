@@ -133,6 +133,22 @@ export function valueIsEmpty(actual: unknown): boolean {
   );
 }
 
+/**
+ * Compute the next filter state when a card type is toggled on/off.
+ *
+ * Subtypes, custom attributes, and relationship filters are all type-specific
+ * — they only make sense for the currently selected type(s) and their UI is
+ * hidden once the selection no longer applies. They must therefore be reset on
+ * every type change, otherwise a stale (and now-invisible) filter keeps being
+ * applied client-side and silently empties the result list. See issue #686.
+ */
+export function filtersAfterTypeToggle(filters: Filters, key: string): Filters {
+  const next = filters.types.includes(key)
+    ? filters.types.filter((t) => t !== key)
+    : [...filters.types, key];
+  return { ...filters, types: next, subtypes: [], attributes: {}, relations: {} };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
 /* ------------------------------------------------------------------ */
@@ -227,10 +243,7 @@ export default function InventoryFilterSidebar({
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const toggleType = (key: string) => {
-    const next = filters.types.includes(key)
-      ? filters.types.filter((t) => t !== key)
-      : [...filters.types, key];
-    onFiltersChange({ ...filters, types: next, subtypes: [], attributes: {} });
+    onFiltersChange(filtersAfterTypeToggle(filters, key));
   };
 
   const toggleSubtype = (key: string) => {

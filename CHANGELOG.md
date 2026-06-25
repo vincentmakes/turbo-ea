@@ -5,6 +5,11 @@ All notable changes to Turbo EA are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.47.1] - 2026-06-25
+
+### Fixed
+- **Inventory: relationship filters no longer linger after switching card type.** Setting a relationship filter for one card type and then switching to another type left the now-irrelevant filter active in the background, silently emptying the result list. Switching the selected card type now clears the type-specific relationship (and subtype/attribute) filters.
+
 ## [1.47.0] - 2026-06-25
 
 ### Added
